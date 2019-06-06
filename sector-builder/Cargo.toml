@@ -1,0 +1,38 @@
+[package]
+name = "sector-builder"
+description = "Provides a database of sectors."
+version = "0.1.0"
+authors = ["dignifiedquire <dignifiedquire@gmail.com>", "laser <l@s3r.com>", "porcuquine <porcuquine@users.noreply.github.com>"]
+license = "MIT OR Apache-2.0"
+edition = "2018"
+repository = "https://github.com/filecoin-project/rust-fil-proofs"
+readme = "README.md"
+
+[dependencies]
+bitvec = "0.11"
+failure = "0.1.5"
+itertools = "0.8"
+rand = "0.4"
+filecoin-proofs = { version = "^0.2", path = "../filecoin-proofs" }
+logging-toolkit = { version = "^0.2", path = "../logging-toolkit" }
+storage-proofs = { version = "^0.2", path = "../storage-proofs" }
+ffi-toolkit = { version = "^0.2", path = "../ffi-toolkit" }
+serde_cbor = "0.9.0"
+serde = { version = "1.0.92", features = ["rc", "derive"] }
+serde_json = "1.0"
+paired = "0.15"
+lazy_static = "1.3.0"
+blake2b_simd = "0.5.1"
+byteorder = "1.3.1"
+slog = "2.4.1"
+
+[dependencies.sled]
+version = "0.24"
+optional = true
+
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = ["sled"]
