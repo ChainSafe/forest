@@ -13,9 +13,9 @@ bitvec = "0.11"
 failure = "0.1.5"
 itertools = "0.8"
 rand = "0.4"
-filecoin-proofs = { version = "^0.2", path = "../filecoin-proofs" }
-logging-toolkit = { version = "^0.2", path = "../logging-toolkit" }
-storage-proofs = { version = "^0.2", path = "../storage-proofs" }
+filecoin-proofs = { version = "^0.2" }
+logging-toolkit = { version = "^0.2" }
+storage-proofs = { version = "^0.2" }
 ffi-toolkit = { version = "^0.2", path = "../ffi-toolkit" }
 serde_cbor = "0.9.0"
 serde = { version = "1.0.92", features = ["rc", "derive"] }
