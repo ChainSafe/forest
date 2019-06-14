@@ -13,9 +13,9 @@ bitvec = "0.11"
 failure = "0.1.5"
 itertools = "0.8"
 rand = "0.4"
-filecoin-proofs = { git = "https://github.com/filecoin-project/rust-fil-proofs" }
-logging-toolkit = { version = "^0.2" }
-storage-proofs = { version = "^0.2" }
+filecoin-proofs = "^0.2"
+logging-toolkit = "^0.2"
+storage-proofs = "^0.2"
 ffi-toolkit = { version = "^0.2", path = "../ffi-toolkit" }
 serde_cbor = "0.9.0"
 serde = { version = "1.0.92", features = ["rc", "derive"] }
@@ -29,7 +29,6 @@ slog = "2.4.1"
 [dependencies.sled]
 version = "0.24"
 optional = true
-
 
 [dev-dependencies]
 tempfile = "3"
