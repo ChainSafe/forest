@@ -1,9 +1,17 @@
 #![deny(clippy::all, clippy::perf, clippy::correctness)]
 
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate failure;
+#[macro_use]
+extern crate lazy_static;
+
+pub use filecoin_proofs::types::*;
+
+pub use crate::builder::*;
+pub use crate::constants::*;
+pub use crate::error::*;
+pub use crate::metadata::*;
+pub use crate::store::*;
 
 mod builder;
 mod constants;
@@ -19,9 +27,3 @@ mod singletons;
 mod state;
 mod store;
 mod util;
-
-pub use crate::builder::*;
-pub use crate::constants::*;
-pub use crate::error::*;
-pub use crate::metadata::*;
-pub use crate::store::*;
