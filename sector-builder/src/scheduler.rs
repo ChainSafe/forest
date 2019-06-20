@@ -5,19 +5,19 @@ use std::thread;
 use filecoin_proofs::error::ExpectWithBacktrace;
 use filecoin_proofs::generate_post;
 use filecoin_proofs::post_adapter::*;
-use filecoin_proofs::types::UnpaddedBytesAmount;
 
 use crate::builder::{SectorId, WrappedKeyValueStore};
 use crate::error::{err_piecenotfound, err_unrecov, Result};
 use crate::helpers::{
-    add_piece, get_seal_status, get_sectors_ready_for_sealing, load_snapshot, make_snapshot,
-    persist_snapshot,
+    add_piece, get_seal_status, get_sectors_ready_for_sealing, load_snapshot, persist_snapshot,
+    SnapshotKey,
 };
 use crate::kv_store::KeyValueStore;
 use crate::metadata::{SealStatus, SealedSectorMetadata, StagedSectorMetadata};
 use crate::sealer::SealerInput;
 use crate::state::{SectorBuilderState, StagedState};
 use crate::store::SectorStore;
+use crate::{PaddedBytesAmount, UnpaddedBytesAmount};
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
 const FATAL_NORECV: &str = "could not receive task";
@@ -60,18 +60,18 @@ impl Scheduler {
         last_committed_sector_id: SectorId,
         max_num_staged_sectors: u8,
         prover_id: [u8; 31],
+        sector_size: PaddedBytesAmount,
     ) -> Scheduler {
         let thread = thread::spawn(move || {
             // Build the scheduler's initial state. If available, we
             // reconstitute this state from persisted metadata. If not, we
             // create it from scratch.
             let state = {
-                let loaded = load_snapshot(&kv_store, &prover_id)
+                let loaded = load_snapshot(&kv_store, &SnapshotKey::new(prover_id, sector_size))
                     .expects(FATAL_NOLOAD)
                     .map(Into::into);
 
                 loaded.unwrap_or_else(|| SectorBuilderState {
-                    prover_id,
                     staged: StagedState {
                         sector_id_nonce: last_committed_sector_id,
                         sectors: Default::default(),
@@ -91,6 +91,8 @@ impl Scheduler {
                 scheduler_input_tx: scheduler_input_tx.clone(),
                 max_num_staged_sectors,
                 max_user_bytes_per_staged_sector,
+                prover_id,
+                sector_size,
             };
 
             loop {
@@ -143,6 +145,8 @@ pub struct SectorMetadataManager<T: KeyValueStore, S: SectorStore> {
     scheduler_input_tx: mpsc::SyncSender<Request>,
     max_num_staged_sectors: u8,
     max_user_bytes_per_staged_sector: UnpaddedBytesAmount,
+    prover_id: [u8; 31],
+    sector_size: PaddedBytesAmount,
 }
 
 impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
@@ -329,12 +333,11 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
 
     // Create and persist metadata snapshot.
     fn checkpoint(&self) -> Result<()> {
-        let snapshot = make_snapshot(
-            &self.state.prover_id,
-            &self.state.staged,
-            &self.state.sealed,
-        );
-        persist_snapshot(&self.kv_store, &snapshot)?;
+        persist_snapshot(
+            &self.kv_store,
+            &SnapshotKey::new(self.prover_id, self.sector_size),
+            &self.state,
+        )?;
 
         Ok(())
     }

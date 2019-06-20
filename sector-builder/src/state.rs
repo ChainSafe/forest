@@ -16,26 +16,8 @@ pub struct SealedState {
     pub sectors: HashMap<SectorId, SealedSectorMetadata>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct SectorBuilderState {
-    pub prover_id: [u8; 31],
     pub staged: StagedState,
     pub sealed: SealedState,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct StateSnapshot {
-    pub prover_id: [u8; 31],
-    pub staged: StagedState,
-    pub sealed: SealedState,
-}
-
-impl Into<SectorBuilderState> for StateSnapshot {
-    fn into(self) -> SectorBuilderState {
-        SectorBuilderState {
-            prover_id: self.prover_id,
-            staged: self.staged,
-            sealed: self.sealed,
-        }
-    }
 }

@@ -23,12 +23,12 @@ pub fn get_seal_status(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use std::collections::HashMap;
 
     use crate::metadata::{SealedSectorMetadata, StagedSectorMetadata};
     use crate::state::{SealedState, SectorBuilderState, StagedState};
+
+    use super::*;
 
     fn setup() -> SectorBuilderState {
         let mut staged_sectors: HashMap<SectorId, StagedSectorMetadata> = Default::default();
@@ -61,7 +61,6 @@ mod tests {
         );
 
         SectorBuilderState {
-            prover_id: Default::default(),
             staged: StagedState {
                 sector_id_nonce: 0,
                 sectors: staged_sectors,

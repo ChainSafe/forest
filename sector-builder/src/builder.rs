@@ -2,7 +2,7 @@ use std::sync::{mpsc, Arc, Mutex};
 
 use filecoin_proofs::error::ExpectWithBacktrace;
 use filecoin_proofs::post_adapter::*;
-use filecoin_proofs::types::SectorClass;
+use filecoin_proofs::types::{PaddedBytesAmount, SectorClass};
 use slog::*;
 
 use crate::constants::*;
@@ -74,6 +74,8 @@ impl SectorBuilder {
             (tx, workers)
         };
 
+        let SectorClass(sector_size, _, _) = sector_class;
+
         // Configure main worker.
         let main_worker = Scheduler::start_with_metadata(
             main_rx,
@@ -84,6 +86,7 @@ impl SectorBuilder {
             last_committed_sector_id,
             max_num_staged_sectors,
             prover_id,
+            PaddedBytesAmount::from(sector_size),
         );
 
         Ok(SectorBuilder {
