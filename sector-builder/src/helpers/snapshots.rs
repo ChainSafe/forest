@@ -40,7 +40,7 @@ pub fn load_snapshot<T: KeyValueStore>(
 impl From<&SnapshotKey> for Vec<u8> {
     fn from(n: &SnapshotKey) -> Self {
         // convert the sector size to a byte vector
-        let mut snapshot_key = vec![];
+        let mut snapshot_key = Vec::with_capacity(n.prover_id.len() + 8);
         snapshot_key
             .write_u64::<LittleEndian>(u64::from(n.sector_size))
             .unwrap();
