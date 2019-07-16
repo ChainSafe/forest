@@ -20,7 +20,6 @@ mod error;
 mod helpers;
 mod kv_store;
 mod metadata;
-mod pieces;
 mod scheduler;
 mod sealer;
 mod singletons;

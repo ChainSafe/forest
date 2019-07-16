@@ -1,11 +1,11 @@
 use std::cmp::Reverse;
 
+use filecoin_proofs::pieces::sum_piece_bytes_with_alignment;
 use filecoin_proofs::types::UnpaddedBytesAmount;
 use itertools::chain;
 
 use crate::builder::SectorId;
 use crate::metadata::{SealStatus, StagedSectorMetadata};
-use crate::pieces::sum_piece_bytes_with_alignment;
 use crate::state::StagedState;
 
 pub fn get_sectors_ready_for_sealing(
@@ -20,7 +20,8 @@ pub fn get_sectors_ready_for_sealing(
             .values()
             .filter(|x| x.seal_status == SealStatus::Pending)
             .partition(|x| {
-                max_user_bytes_per_staged_sector <= sum_piece_bytes_with_alignment(&x.pieces)
+                let pieces: Vec<_> = x.pieces.iter().map(|p| p.num_bytes).collect();
+                max_user_bytes_per_staged_sector <= sum_piece_bytes_with_alignment(&pieces)
             });
 
     not_full.sort_unstable_by_key(|x| Reverse(x.sector_id));
@@ -66,6 +67,8 @@ mod tests {
                     vec![PieceMetadata {
                         piece_key: format!("{}", sector_id),
                         num_bytes: UnpaddedBytesAmount(num_bytes),
+                        comm_p: None,
+                        piece_inclusion_proof: None,
                     }]
                 } else {
                     vec![]

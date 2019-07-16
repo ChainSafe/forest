@@ -2,10 +2,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use filecoin_proofs::get_unsealed_range;
+use filecoin_proofs::pieces::get_piece_start_byte;
 use filecoin_proofs::types::UnpaddedBytesAmount;
 
 use crate::metadata::{sector_id_as_bytes, SealedSectorMetadata};
-use crate::pieces::{get_piece_by_key, get_piece_start_byte};
 use crate::store::SectorStore;
 use crate::{err_unrecov, error};
 
@@ -48,13 +48,24 @@ fn retrieve_piece_aux<'a>(
     piece_key: &'a str,
     staging_sector_access: &'a str,
 ) -> error::Result<(UnpaddedBytesAmount, Vec<u8>)> {
-    let piece = get_piece_by_key(&sealed_sector.pieces, piece_key).ok_or_else(|| {
-        let msg = format!(
-            "piece {} not found in sector {}",
-            piece_key, &sealed_sector.sector_id
-        );
-        err_unrecov(msg)
-    })?;
+    let piece = sealed_sector
+        .pieces
+        .iter()
+        .find(|p| p.piece_key == piece_key)
+        .ok_or_else(|| {
+            let msg = format!(
+                "piece {} not found in sector {}",
+                piece_key, &sealed_sector.sector_id
+            );
+            err_unrecov(msg)
+        })?;
+
+    let piece_lengths: Vec<_> = sealed_sector
+        .pieces
+        .iter()
+        .take_while(|p| p.piece_key != piece_key)
+        .map(|p| p.num_bytes)
+        .collect();
 
     let num_bytes_unsealed = get_unsealed_range(
         (*sector_store).proofs_config().porep_config(),
@@ -62,7 +73,7 @@ fn retrieve_piece_aux<'a>(
         &PathBuf::from(staging_sector_access),
         prover_id,
         &sector_id_as_bytes(sealed_sector.sector_id)?,
-        get_piece_start_byte(&sealed_sector.pieces, &piece),
+        get_piece_start_byte(&piece_lengths, piece.num_bytes),
         piece.num_bytes,
     )?;
 

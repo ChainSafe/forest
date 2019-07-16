@@ -30,6 +30,8 @@ pub struct SealedSectorMetadata {
 pub struct PieceMetadata {
     pub piece_key: String,
     pub num_bytes: UnpaddedBytesAmount,
+    pub comm_p: Option<[u8; 32]>,
+    pub piece_inclusion_proof: Option<Vec<u8>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]

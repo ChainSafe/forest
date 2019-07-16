@@ -2,14 +2,14 @@ use std::fs::File;
 use std::iter::Iterator;
 use std::sync::Arc;
 
+use filecoin_proofs::pieces::{
+    get_aligned_source, get_piece_alignment, sum_piece_bytes_with_alignment, PieceAlignment,
+};
 use filecoin_proofs::types::UnpaddedBytesAmount;
 
 use crate::builder::*;
 use crate::error::*;
 use crate::metadata::{self, SealStatus, StagedSectorMetadata};
-use crate::pieces::{
-    get_aligned_source, get_piece_alignment, sum_piece_bytes_with_alignment, PieceAlignment,
-};
 use crate::state::StagedState;
 use crate::store::{SectorManager, SectorStore};
 
@@ -41,8 +41,10 @@ pub fn add_piece(
         .or_else(|_| provision_new_staged_sector(sector_mgr, &mut staged_state))?;
 
     if let Some(s) = staged_state.sectors.get_mut(&dest_sector_id) {
+        let piece_lengths: Vec<_> = s.pieces.iter().map(|p| p.num_bytes).collect();
+
         let (expected_num_bytes_written, mut chain) =
-            get_aligned_source(File::open(piece_path)?, &s.pieces, piece_bytes_len);
+            get_aligned_source(File::open(piece_path)?, &piece_lengths, piece_bytes_len);
 
         sector_store
             .manager()
@@ -62,6 +64,8 @@ pub fn add_piece(
                 s.pieces.push(metadata::PieceMetadata {
                     piece_key,
                     num_bytes: piece_bytes_len,
+                    comm_p: None,
+                    piece_inclusion_proof: None,
                 });
 
                 sector_id
@@ -87,7 +91,9 @@ fn compute_destination_sector_id(
         Ok(vector
             .iter()
             .find(move |staged_sector| {
-                let preceding_piece_bytes = sum_piece_bytes_with_alignment(&staged_sector.pieces);
+                let piece_lengths: Vec<_> =
+                    staged_sector.pieces.iter().map(|p| p.num_bytes).collect();
+                let preceding_piece_bytes = sum_piece_bytes_with_alignment(&piece_lengths);
                 let PieceAlignment {
                     left_bytes,
                     right_bytes,
@@ -138,11 +144,15 @@ mod tests {
         sealed_sector_a.pieces.push(PieceMetadata {
             piece_key: String::from("x"),
             num_bytes: UnpaddedBytesAmount(508),
+            comm_p: None,
+            piece_inclusion_proof: None,
         });
 
         sealed_sector_a.pieces.push(PieceMetadata {
             piece_key: String::from("x"),
             num_bytes: UnpaddedBytesAmount(254),
+            comm_p: None,
+            piece_inclusion_proof: None,
         });
 
         let mut sealed_sector_b: StagedSectorMetadata = Default::default();
@@ -150,6 +160,8 @@ mod tests {
         sealed_sector_b.pieces.push(PieceMetadata {
             piece_key: String::from("x"),
             num_bytes: UnpaddedBytesAmount(508),
+            comm_p: None,
+            piece_inclusion_proof: None,
         });
 
         let staged_sectors = vec![sealed_sector_a.clone(), sealed_sector_b.clone()];
