@@ -1,7 +1,7 @@
 [package]
 name = "sector-builder"
 description = "Provides a database of sectors."
-version = "0.3.0"
+version = "0.4.0"
 authors = ["dignifiedquire <dignifiedquire@gmail.com>", "laser <l@s3r.com>", "porcuquine <porcuquine@users.noreply.github.com>"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
