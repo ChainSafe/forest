@@ -3,7 +3,6 @@ use std::sync::{mpsc, Arc, Mutex};
 use filecoin_proofs::error::ExpectWithBacktrace;
 use filecoin_proofs::post_adapter::*;
 use filecoin_proofs::types::{PaddedBytesAmount, SectorClass};
-use slog::*;
 
 use crate::constants::*;
 use crate::disk_backed_storage::new_sector_store;
@@ -12,7 +11,6 @@ use crate::kv_store::{KeyValueStore, SledKvs};
 use crate::metadata::*;
 use crate::scheduler::{Request, Scheduler};
 use crate::sealer::*;
-use crate::singletons::FCP_LOG;
 
 pub type SectorId = u64;
 
@@ -221,8 +219,7 @@ impl<T: KeyValueStore> WrappedKeyValueStore<T> {
 fn log_unrecov<T>(result: Result<T>) -> Result<T> {
     if let Err(err) = &result {
         if let Some(SectorBuilderErr::Unrecoverable(err, backtrace)) = err.downcast_ref() {
-            let backtrace_string = format!("{:?}", backtrace);
-            error!(FCP_LOG, "unrecoverable error"; "backtrace" => backtrace_string, "error" => err);
+            error!("unrecoverable: {:?} - {:?}", err, backtrace);
         }
     }
 

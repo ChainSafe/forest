@@ -3,7 +3,7 @@
 #[macro_use]
 extern crate failure;
 #[macro_use]
-extern crate lazy_static;
+extern crate log;
 
 pub use filecoin_proofs::types::*;
 
@@ -22,7 +22,6 @@ mod kv_store;
 mod metadata;
 mod scheduler;
 mod sealer;
-mod singletons;
 mod state;
 mod store;
 mod util;

@@ -14,16 +14,14 @@ failure = "0.1.5"
 itertools = "0.8"
 rand = "0.4"
 filecoin-proofs = "0.5.0"
-logging-toolkit = "0.5.0"
 storage-proofs = "0.5.0"
 serde_cbor = "0.9.0"
 serde = { version = "1.0.92", features = ["rc", "derive"] }
 serde_json = "1.0"
 paired = "0.15"
-lazy_static = "1.3.0"
 blake2b_simd = "0.5.1"
 byteorder = "1.3.1"
-slog = "2.4.1"
+log = "0.4.7"
 
 [dependencies.sled]
 version = "0.24"
