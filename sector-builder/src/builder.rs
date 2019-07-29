@@ -105,12 +105,11 @@ impl SectorBuilder {
         piece_key: String,
         piece_bytes_amount: u64,
         piece_path: String,
+        store_until: SecondsSinceEpoch,
     ) -> Result<SectorId> {
-        log_unrecov(
-            self.run_blocking(|tx| {
-                Request::AddPiece(piece_key, piece_bytes_amount, piece_path, tx)
-            }),
-        )
+        log_unrecov(self.run_blocking(|tx| {
+            Request::AddPiece(piece_key, piece_bytes_amount, piece_path, store_until, tx)
+        }))
     }
 
     // Returns sealing status for the sector with specified id. If no sealed or

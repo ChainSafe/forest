@@ -17,7 +17,7 @@ use crate::metadata::{SealStatus, SealedSectorMetadata, StagedSectorMetadata};
 use crate::sealer::SealerInput;
 use crate::state::{SectorBuilderState, StagedState};
 use crate::store::SectorStore;
-use crate::{PaddedBytesAmount, UnpaddedBytesAmount};
+use crate::{PaddedBytesAmount, SecondsSinceEpoch, UnpaddedBytesAmount};
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
 const FATAL_NORECV: &str = "could not receive task";
@@ -34,7 +34,13 @@ pub struct Scheduler {
 
 #[derive(Debug)]
 pub enum Request {
-    AddPiece(String, u64, String, mpsc::SyncSender<Result<SectorId>>),
+    AddPiece(
+        String,
+        u64,
+        String,
+        SecondsSinceEpoch,
+        mpsc::SyncSender<Result<SectorId>>,
+    ),
     GetSealedSectors(mpsc::SyncSender<Result<Vec<SealedSectorMetadata>>>),
     GetStagedSectors(mpsc::SyncSender<Result<Vec<StagedSectorMetadata>>>),
     GetSealStatus(SectorId, mpsc::SyncSender<Result<SealStatus>>),
@@ -100,8 +106,9 @@ impl Scheduler {
 
                 // Dispatch to the appropriate task-handler.
                 match task {
-                    Request::AddPiece(key, amt, path, tx) => {
-                        tx.send(m.add_piece(key, amt, path)).expects(FATAL_NOSEND);
+                    Request::AddPiece(key, amt, path, store_until, tx) => {
+                        tx.send(m.add_piece(key, amt, path, store_until))
+                            .expects(FATAL_NOSEND);
                     }
                     Request::GetSealStatus(sector_id, tx) => {
                         tx.send(m.get_seal_status(sector_id)).expects(FATAL_NOSEND);
@@ -234,6 +241,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
         piece_key: String,
         piece_bytes_amount: u64,
         piece_path: String,
+        store_until: SecondsSinceEpoch,
     ) -> Result<u64> {
         let destination_sector_id = add_piece(
             &self.sector_store,
@@ -241,6 +249,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
             piece_key,
             piece_bytes_amount,
             piece_path,
+            store_until,
         )?;
 
         self.check_and_schedule(false)?;

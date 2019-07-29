@@ -9,7 +9,7 @@ use filecoin_proofs::types::UnpaddedBytesAmount;
 
 use crate::builder::*;
 use crate::error::*;
-use crate::metadata::{self, SealStatus, StagedSectorMetadata};
+use crate::metadata::{self, SealStatus, SecondsSinceEpoch, StagedSectorMetadata};
 use crate::state::StagedState;
 use crate::store::{SectorManager, SectorStore};
 
@@ -19,6 +19,7 @@ pub fn add_piece(
     piece_key: String,
     piece_bytes_amount: u64,
     piece_path: String,
+    _store_until: SecondsSinceEpoch,
 ) -> Result<SectorId> {
     let sector_mgr = sector_store.manager();
     let sector_max = sector_store.sector_config().max_unsealed_bytes_per_sector();

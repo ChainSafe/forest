@@ -42,6 +42,9 @@ pub enum SealStatus {
     Sealing,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub struct SecondsSinceEpoch(pub u64);
+
 impl PartialEq for SealedSectorMetadata {
     fn eq(&self, other: &SealedSectorMetadata) -> bool {
         self.sector_id == other.sector_id
