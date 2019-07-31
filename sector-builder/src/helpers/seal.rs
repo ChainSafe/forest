@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use filecoin_proofs::types::UnpaddedBytesAmount;
@@ -36,8 +35,12 @@ pub fn seal(
         piece_inclusion_proofs,
     } = seal_internal(
         (*sector_store).proofs_config().porep_config(),
-        &PathBuf::from(staged_sector.sector_access.clone()),
-        &PathBuf::from(sealed_sector_access.clone()),
+        sector_store
+            .manager()
+            .staged_sector_path(&staged_sector.sector_access),
+        sector_store
+            .manager()
+            .sealed_sector_path(&sealed_sector_access),
         prover_id,
         &sector_id_as_bytes(staged_sector.sector_id)?,
         &piece_lengths,

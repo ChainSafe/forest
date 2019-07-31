@@ -164,7 +164,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
         return_channel: mpsc::SyncSender<Result<GeneratePoStDynamicSectorsCountOutput>>,
     ) {
         // reduce our sealed sector state-map to a mapping of comm_r to sealed
-        // sector access (AKA path to sealed sector file)
+        // sector access
         let comm_r_to_sector_access: HashMap<[u8; 32], String> = self
             .state
             .sealed
@@ -179,10 +179,15 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
 
         let mut input_parts: Vec<(Option<String>, [u8; 32])> = Default::default();
 
-        // eject from this loop with an error if we've been provided a comm_r
-        // which does not correspond to any sealed sector metadata
         for comm_r in comm_rs {
-            input_parts.push((comm_r_to_sector_access.get(comm_r).cloned(), *comm_r))
+            let access = comm_r_to_sector_access.get(comm_r).and_then(|access| {
+                self.sector_store
+                    .manager()
+                    .sealed_sector_path(access)
+                    .to_str()
+                    .map(str::to_string)
+            });
+            input_parts.push((access, *comm_r));
         }
 
         let mut seed = [0; 32];

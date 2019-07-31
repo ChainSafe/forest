@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use filecoin_proofs::get_unsealed_range;
@@ -46,7 +45,7 @@ fn retrieve_piece_aux<'a>(
     sealed_sector: &SealedSectorMetadata,
     prover_id: &[u8; 31],
     piece_key: &'a str,
-    staging_sector_access: &'a str,
+    staged_sector_access: &'a str,
 ) -> error::Result<(UnpaddedBytesAmount, Vec<u8>)> {
     let piece = sealed_sector
         .pieces
@@ -69,8 +68,12 @@ fn retrieve_piece_aux<'a>(
 
     let num_bytes_unsealed = get_unsealed_range(
         (*sector_store).proofs_config().porep_config(),
-        &PathBuf::from(sealed_sector.sector_access.clone()),
-        &PathBuf::from(staging_sector_access),
+        sector_store
+            .manager()
+            .sealed_sector_path(&sealed_sector.sector_access),
+        sector_store
+            .manager()
+            .staged_sector_path(staged_sector_access),
         prover_id,
         &sector_id_as_bytes(sealed_sector.sector_id)?,
         get_piece_start_byte(&piece_lengths, piece.num_bytes),
@@ -87,11 +90,10 @@ fn retrieve_piece_aux<'a>(
         return Err(err_unrecov(s).into());
     }
 
-    let piece_bytes = sector_store.manager().read_raw(
-        &staging_sector_access.to_string(),
-        0,
-        num_bytes_unsealed,
-    )?;
+    let piece_bytes =
+        sector_store
+            .manager()
+            .read_raw(staged_sector_access, 0, num_bytes_unsealed)?;
 
     Ok((num_bytes_unsealed, piece_bytes))
 }

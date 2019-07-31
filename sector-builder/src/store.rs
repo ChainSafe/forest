@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::path::PathBuf;
 
 use filecoin_proofs::types::*;
 
@@ -21,6 +22,12 @@ pub trait ProofsConfig: Sync + Send {
 }
 
 pub trait SectorManager: Sync + Send {
+    /// produce the path to the file associated with sealed sector access-token
+    fn sealed_sector_path(&self, access: &str) -> PathBuf;
+
+    /// produce the path to the file associated with staged sector access-token
+    fn staged_sector_path(&self, access: &str) -> PathBuf;
+
     /// provisions a new sealed sector and reports the corresponding access
     fn new_sealed_sector_access(&self) -> Result<String, SectorManagerErr>;
 
@@ -61,7 +68,6 @@ mod tests {
     use super::*;
     use std::fs::{create_dir_all, File};
     use std::io::{Read, Seek, SeekFrom, Write};
-    use std::path::PathBuf;
     use std::thread;
 
     use rand::{thread_rng, Rng};
@@ -150,8 +156,8 @@ mod tests {
 
         let seal_output = filecoin_proofs::seal(
             PoRepConfig::from(sector_class),
-            &staged_access,
-            &sealed_access,
+            mgr.staged_sector_path(&staged_access),
+            mgr.sealed_sector_path(&sealed_access),
             &prover_id,
             &sector_id,
             &[],
@@ -193,8 +199,8 @@ mod tests {
             u64::from(
                 filecoin_proofs::get_unsealed_range(
                     PoRepConfig::from(sector_class),
-                    &sealed_access,
-                    &unseal_access,
+                    mgr.sealed_sector_path(&sealed_access),
+                    mgr.staged_sector_path(&unseal_access),
                     &prover_id,
                     &sector_id,
                     UnpaddedByteIndex(0),
@@ -266,12 +272,20 @@ mod tests {
         let comm_rs = vec![comm_r, comm_r];
         let challenge_seed = rng.gen();
 
+        let sealed_sector_path = h
+            .store
+            .manager()
+            .sealed_sector_path(&h.sealed_access)
+            .to_str()
+            .unwrap()
+            .to_string();
+
         let post_output = filecoin_proofs::generate_post(
             h.store.proofs_config().post_config(),
             challenge_seed,
             vec![
-                (Some(h.sealed_access.clone()), comm_r),
-                (Some(h.sealed_access.clone()), comm_r),
+                (Some(sealed_sector_path.clone()), comm_r),
+                (Some(sealed_sector_path.clone()), comm_r),
             ],
         )
         .expect("PoSt generation failed");
@@ -291,7 +305,15 @@ mod tests {
     fn seal_unsealed_roundtrip_aux(sector_class: SectorClass, bytes_amt: BytesAmount) {
         let h = create_harness(sector_class, &vec![bytes_amt]);
 
-        let mut file = File::open(&h.unseal_access).unwrap();
+        let unsealed_sector_path = h
+            .store
+            .manager()
+            .staged_sector_path(&h.unseal_access)
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let mut file = File::open(unsealed_sector_path).unwrap();
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).unwrap();
 
@@ -367,13 +389,29 @@ mod tests {
         let offset = 5;
         let range_length = h.written_contents[0].len() as u64 - offset;
 
+        let sealed_sector_path = h
+            .store
+            .manager()
+            .sealed_sector_path(&h.sealed_access)
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let unsealed_sector_path = h
+            .store
+            .manager()
+            .staged_sector_path(&h.unseal_access)
+            .to_str()
+            .unwrap()
+            .to_string();
+
         assert_eq!(
             range_length,
             u64::from(
                 filecoin_proofs::get_unsealed_range(
                     h.store.proofs_config().porep_config(),
-                    &PathBuf::from(&h.sealed_access),
-                    &PathBuf::from(&h.unseal_access),
+                    &sealed_sector_path,
+                    &unsealed_sector_path,
                     &h.prover_id,
                     &h.sector_id,
                     UnpaddedByteIndex(offset),
@@ -383,7 +421,7 @@ mod tests {
             )
         );
 
-        let mut file = File::open(&h.unseal_access).unwrap();
+        let mut file = File::open(&unsealed_sector_path).unwrap();
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).unwrap();
 
@@ -421,10 +459,26 @@ mod tests {
             .new_sealed_sector_access()
             .expect("could not create unseal access");
 
+        let unsealed_sector_path = h
+            .store
+            .manager()
+            .staged_sector_path(&unseal_access)
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let sealed_sector_path = h
+            .store
+            .manager()
+            .sealed_sector_path(&h.sealed_access)
+            .to_str()
+            .unwrap()
+            .to_string();
+
         let _ = filecoin_proofs::get_unsealed_range(
             h.store.proofs_config().porep_config(),
-            &h.sealed_access,
-            &unseal_access,
+            sealed_sector_path,
+            unsealed_sector_path.clone(),
             &h.prover_id,
             &h.sector_id,
             UnpaddedByteIndex(0),
@@ -432,7 +486,7 @@ mod tests {
         )
         .expect("failed to unseal");
 
-        let mut file = File::open(&unseal_access).unwrap();
+        let mut file = File::open(&unsealed_sector_path).unwrap();
         let mut buf_from_file = Vec::new();
         file.read_to_end(&mut buf_from_file).unwrap();
 
