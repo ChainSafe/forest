@@ -22,7 +22,6 @@ use crate::{PaddedBytesAmount, SecondsSinceEpoch, UnpaddedBytesAmount};
 const FATAL_NOLOAD: &str = "could not load snapshot";
 const FATAL_NORECV: &str = "could not receive task";
 const FATAL_NOSEND: &str = "could not send";
-const FATAL_SECMAP: &str = "insert failed";
 const FATAL_SNPSHT: &str = "could not snapshot";
 const FATAL_SLRSND: &str = "could not send to sealer";
 const FATAL_HUNGUP: &str = "could not send to ret channel";
@@ -293,20 +292,17 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
             let staged_state = &mut self.state.staged;
             let sealed_state = &mut self.state.sealed;
 
-            if result.is_err() {
-                if let Some(staged_sector) = staged_state.sectors.get_mut(&sector_id) {
-                    staged_sector.seal_status =
-                        SealStatus::Failed(format!("{}", err_unrecov(result.unwrap_err())));
-                };
-            } else {
-                // Remove the staged sector from the state map.
-                let _ = staged_state.sectors.remove(&sector_id);
-
-                // Insert the newly-sealed sector into the other state map.
-                let sealed_sector = result.expects(FATAL_SECMAP);
-
-                sealed_state.sectors.insert(sector_id, sealed_sector);
-            }
+            match result {
+                Err(err) => {
+                    if let Some(staged_sector) = staged_state.sectors.get_mut(&sector_id) {
+                        staged_sector.seal_status =
+                            SealStatus::Failed(format!("{}", err_unrecov(err)));
+                    };
+                }
+                Ok(sealed_sector) => {
+                    sealed_state.sectors.insert(sector_id, sealed_sector);
+                }
+            };
         }
 
         self.checkpoint().expects(FATAL_SNPSHT);

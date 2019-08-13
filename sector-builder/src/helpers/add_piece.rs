@@ -110,7 +110,7 @@ fn compute_destination_sector_id(
 // function; creates a sector access (likely a file), increments the sector id
 // nonce, and mutates the StagedState.
 fn provision_new_staged_sector(
-    sector_manager: &SectorManager,
+    sector_manager: &dyn SectorManager,
     staged_state: &mut StagedState,
 ) -> Result<SectorId> {
     let sector_id = {

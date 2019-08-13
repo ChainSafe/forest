@@ -57,9 +57,10 @@ impl KeyValueStore for FileSystemKvs {
         match File::open(path) {
             Err(e) => {
                 if e.kind() != ErrorKind::NotFound {
-                    Err(e)?;
+                    Err(e.into())
+                } else {
+                    Ok(None)
                 }
-                Ok(None)
             }
             Ok(mut file) => {
                 let mut buf = Vec::new();

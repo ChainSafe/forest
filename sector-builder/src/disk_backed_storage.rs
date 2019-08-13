@@ -326,21 +326,21 @@ pub struct Config {
 }
 
 pub struct ConcreteSectorStore {
-    proofs_config: Box<ProofsConfig>,
-    sector_config: Box<SectorConfig>,
-    manager: Box<SectorManager>,
+    proofs_config: Box<dyn ProofsConfig>,
+    sector_config: Box<dyn SectorConfig>,
+    manager: Box<dyn SectorManager>,
 }
 
 impl SectorStore for ConcreteSectorStore {
-    fn sector_config(&self) -> &SectorConfig {
+    fn sector_config(&self) -> &dyn SectorConfig {
         self.sector_config.as_ref()
     }
 
-    fn proofs_config(&self) -> &ProofsConfig {
+    fn proofs_config(&self) -> &dyn ProofsConfig {
         self.proofs_config.as_ref()
     }
 
-    fn manager(&self) -> &SectorManager {
+    fn manager(&self) -> &dyn SectorManager {
         self.manager.as_ref()
     }
 }

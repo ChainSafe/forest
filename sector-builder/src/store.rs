@@ -60,9 +60,9 @@ pub trait SectorManager: Sync + Send {
 }
 
 pub trait SectorStore: Sync + Send + Sized {
-    fn sector_config(&self) -> &SectorConfig;
-    fn proofs_config(&self) -> &ProofsConfig;
-    fn manager(&self) -> &SectorManager;
+    fn sector_config(&self) -> &dyn SectorConfig;
+    fn proofs_config(&self) -> &dyn ProofsConfig;
+    fn manager(&self) -> &dyn SectorManager;
 }
 
 #[cfg(test)]
