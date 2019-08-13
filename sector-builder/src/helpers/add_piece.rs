@@ -119,7 +119,7 @@ fn provision_new_staged_sector(
         *n
     };
 
-    let access = sector_manager.new_staging_sector_access()?;
+    let access = sector_manager.new_staging_sector_access(sector_id)?;
 
     let meta = StagedSectorMetadata {
         pieces: Default::default(),

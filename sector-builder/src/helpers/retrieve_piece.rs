@@ -18,7 +18,7 @@ pub fn retrieve_piece<'a>(
 ) -> error::Result<Vec<u8>> {
     let staging_sector_access = sector_store
         .manager()
-        .new_staging_sector_access()
+        .new_staging_sector_access(sealed_sector.sector_id)
         .map_err(failure::Error::from)?;
 
     let result = retrieve_piece_aux(

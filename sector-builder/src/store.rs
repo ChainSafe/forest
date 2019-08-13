@@ -5,6 +5,8 @@ use filecoin_proofs::types::*;
 
 use crate::error::SectorManagerErr;
 
+use crate::builder::SectorId;
+
 pub trait SectorConfig: Sync + Send {
     /// returns the number of user-provided bytes that will fit into a sector managed by this store
     fn max_unsealed_bytes_per_sector(&self) -> UnpaddedBytesAmount;
@@ -28,11 +30,11 @@ pub trait SectorManager: Sync + Send {
     /// produce the path to the file associated with staged sector access-token
     fn staged_sector_path(&self, access: &str) -> PathBuf;
 
-    /// provisions a new sealed sector and reports the corresponding access
-    fn new_sealed_sector_access(&self) -> Result<String, SectorManagerErr>;
+    /// provisions a new sealed sector with the sector_id and reports the corresponding access
+    fn new_sealed_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr>;
 
     /// provisions a new staging sector and reports the corresponding access
-    fn new_staging_sector_access(&self) -> Result<String, SectorManagerErr>;
+    fn new_staging_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr>;
 
     /// reports the number of bytes written to an unsealed sector
     fn num_unsealed_bytes(&self, access: &str) -> Result<u64, SectorManagerErr>;
@@ -111,15 +113,15 @@ mod tests {
         let max: u64 = store.sector_config().max_unsealed_bytes_per_sector().into();
 
         let staged_access = mgr
-            .new_staging_sector_access()
+            .new_staging_sector_access(0x0000000012345678)
             .expect("could not create staging access");
 
         let sealed_access = mgr
-            .new_sealed_sector_access()
+            .new_sealed_sector_access(0x0000000087654321)
             .expect("could not create sealed access");
 
         let unseal_access = mgr
-            .new_sealed_sector_access()
+            .new_sealed_sector_access(0x00000000fffffffe)
             .expect("could not create unseal access");
 
         let prover_id = [2; 31];
@@ -456,7 +458,7 @@ mod tests {
         let unseal_access = h
             .store
             .manager()
-            .new_sealed_sector_access()
+            .new_sealed_sector_access(0x0000000000000001)
             .expect("could not create unseal access");
 
         let unsealed_sector_path = h

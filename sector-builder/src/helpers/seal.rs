@@ -17,7 +17,7 @@ pub fn seal(
     // Provision a new sealed sector access through the manager.
     let sealed_sector_access = sector_store
         .manager()
-        .new_sealed_sector_access()
+        .new_sealed_sector_access(staged_sector.sector_id)
         .map_err(failure::Error::from)?;
 
     // Run the FPS seal operation. This call will block for a long time, so make
