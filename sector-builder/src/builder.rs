@@ -1,8 +1,10 @@
+use std::fs;
+use std::path::Path;
 use std::sync::{mpsc, Arc, Mutex};
 
 use filecoin_proofs::error::ExpectWithBacktrace;
 use filecoin_proofs::post_adapter::*;
-use filecoin_proofs::types::{PaddedBytesAmount, SectorClass};
+use filecoin_proofs::types::{PaddedBytesAmount, PoRepConfig, PoStConfig, SectorClass};
 
 use crate::constants::*;
 use crate::disk_backed_storage::new_sector_store;
@@ -44,6 +46,8 @@ impl SectorBuilder {
         staged_sector_dir: S,
         max_num_staged_sectors: u8,
     ) -> Result<SectorBuilder> {
+        ensure_parameter_cache_hydrated(sector_class)?;
+
         let kv_store = Arc::new(WrappedKeyValueStore {
             inner: Box::new(SledKvs::initialize(metadata_dir.into())?),
         });
@@ -216,6 +220,34 @@ impl<T: KeyValueStore> WrappedKeyValueStore<T> {
     }
 }
 
+/// Checks the parameter cache for the given sector size.
+/// Returns an `Err` if it is not hydrated.
+fn ensure_parameter_cache_hydrated(sector_class: SectorClass) -> Result<()> {
+    // PoRep
+    let porep_config: PoRepConfig = sector_class.into();
+
+    let porep_cache_key = porep_config.get_cache_verifying_key_path();
+    ensure_file(porep_cache_key)
+        .map_err(|err| format_err!("missing verifying key for PoRep: {:?}", err))?;
+
+    let porep_cache_params = porep_config.get_cache_params_path();
+    ensure_file(porep_cache_params)
+        .map_err(|err| format_err!("missing Groth parameters for PoRep: {:?}", err))?;
+
+    // PoSt
+    let post_config: PoStConfig = sector_class.into();
+
+    let post_cache_key = post_config.get_cache_verifying_key_path();
+    ensure_file(post_cache_key)
+        .map_err(|err| format_err!("missing verifying key for PoSt: {:?}", err))?;
+
+    let post_cache_params = post_config.get_cache_params_path();
+    ensure_file(post_cache_params)
+        .map_err(|err| format_err!("missing Groth parameters for PoSt: {:?}", err))?;
+
+    Ok(())
+}
+
 fn log_unrecov<T>(result: Result<T>) -> Result<T> {
     if let Err(err) = &result {
         if let Some(SectorBuilderErr::Unrecoverable(err, backtrace)) = err.downcast_ref() {
@@ -224,4 +256,50 @@ fn log_unrecov<T>(result: Result<T>) -> Result<T> {
     }
 
     result
+}
+
+fn ensure_file(p: impl AsRef<Path>) -> Result<()> {
+    let path_str = p.as_ref().to_string_lossy();
+
+    let metadata =
+        fs::metadata(p.as_ref()).map_err(|_| format_err!("Failed to stat: {}", path_str))?;
+
+    ensure!(metadata.is_file(), "Not a file: {}", path_str);
+    ensure!(metadata.len() > 0, "Empty file: {}", path_str);
+
+    Ok(())
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use filecoin_proofs::{PoRepProofPartitions, PoStProofPartitions, SectorSize};
+
+    #[test]
+    fn test_cannot_init_sector_builder_without_empty_parameter_cache() {
+        let temp_dir = tempfile::tempdir()
+            .unwrap()
+            .path()
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let nonsense_sector_class = SectorClass(
+            SectorSize(32),
+            PoRepProofPartitions(123),
+            PoStProofPartitions(123),
+        );
+
+        let result = SectorBuilder::init_from_metadata(
+            nonsense_sector_class,
+            0,
+            temp_dir.clone(),
+            [0u8; 31],
+            temp_dir.clone(),
+            temp_dir,
+            1,
+        );
+
+        assert!(result.is_err());
+    }
 }
