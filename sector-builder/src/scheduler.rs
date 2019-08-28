@@ -1,12 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::{mpsc, Arc};
 use std::thread;
 
 use filecoin_proofs::error::ExpectWithBacktrace;
-use filecoin_proofs::generate_post;
-use filecoin_proofs::post_adapter::*;
+use filecoin_proofs::{generate_post, PrivateReplicaInfo};
+use storage_proofs::sector::SectorId;
 
-use crate::builder::{SectorId, WrappedKeyValueStore};
+use crate::builder::WrappedKeyValueStore;
 use crate::error::{err_piecenotfound, err_unrecov, Result};
 use crate::helpers::{
     add_piece, get_seal_status, get_sectors_ready_for_sealing, load_snapshot, persist_snapshot,
@@ -45,8 +45,9 @@ pub enum Request {
     GetSealStatus(SectorId, mpsc::SyncSender<Result<SealStatus>>),
     GeneratePoSt(
         Vec<[u8; 32]>,
-        [u8; 32],
-        mpsc::SyncSender<Result<GeneratePoStDynamicSectorsCountOutput>>,
+        [u8; 32],      // seed
+        Vec<SectorId>, // faults
+        mpsc::SyncSender<Result<Vec<u8>>>,
     ),
     RetrievePiece(String, mpsc::SyncSender<Result<Vec<u8>>>),
     SealAllStagedSectors(mpsc::SyncSender<Result<()>>),
@@ -78,7 +79,7 @@ impl Scheduler {
 
                 loaded.unwrap_or_else(|| SectorBuilderState {
                     staged: StagedState {
-                        sector_id_nonce: last_committed_sector_id,
+                        sector_id_nonce: u64::from(last_committed_sector_id),
                         sectors: Default::default(),
                     },
                     sealed: Default::default(),
@@ -125,8 +126,8 @@ impl Scheduler {
                     Request::HandleSealResult(sector_id, result) => {
                         m.handle_seal_result(sector_id, *result);
                     }
-                    Request::GeneratePoSt(comm_rs, chg_seed, tx) => {
-                        m.generate_post(&comm_rs, &chg_seed, tx)
+                    Request::GeneratePoSt(comm_rs, chg_seed, faults, tx) => {
+                        m.generate_post(&comm_rs, &chg_seed, faults, tx)
                     }
                     Request::Shutdown => break,
                 }
@@ -160,42 +161,39 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
         &self,
         comm_rs: &[[u8; 32]],
         challenge_seed: &[u8; 32],
-        return_channel: mpsc::SyncSender<Result<GeneratePoStDynamicSectorsCountOutput>>,
+        faults: Vec<SectorId>,
+        return_channel: mpsc::SyncSender<Result<Vec<u8>>>,
     ) {
-        // reduce our sealed sector state-map to a mapping of comm_r to sealed
-        // sector access
-        let comm_r_to_sector_access: HashMap<[u8; 32], String> = self
-            .state
-            .sealed
-            .sectors
-            .values()
-            .fold(HashMap::new(), |mut acc, item| {
-                let v = item.sector_access.clone();
-                let k = item.comm_r;
-                acc.entry(k).or_insert(v);
-                acc
-            });
+        let fault_set: HashSet<SectorId> = faults.into_iter().collect();
 
-        let mut input_parts: Vec<(Option<String>, [u8; 32])> = Default::default();
+        let comm_rs_set: HashSet<&[u8; 32]> = comm_rs.iter().collect();
 
-        for comm_r in comm_rs {
-            let access = comm_r_to_sector_access.get(comm_r).and_then(|access| {
-                self.sector_store
+        let mut replicas: BTreeMap<SectorId, PrivateReplicaInfo> = Default::default();
+
+        for sector in self.state.sealed.sectors.values() {
+            if comm_rs_set.contains(&sector.comm_r) {
+                let path_str = self
+                    .sector_store
                     .manager()
-                    .sealed_sector_path(access)
+                    .sealed_sector_path(&sector.sector_access)
                     .to_str()
                     .map(str::to_string)
-            });
-            input_parts.push((access, *comm_r));
-        }
+                    .unwrap();
 
-        let mut seed = [0; 32];
-        seed.copy_from_slice(challenge_seed);
+                let info = if fault_set.contains(&sector.sector_id) {
+                    PrivateReplicaInfo::new_faulty(path_str, sector.comm_r)
+                } else {
+                    PrivateReplicaInfo::new(path_str, sector.comm_r)
+                };
+
+                replicas.insert(sector.sector_id, info);
+            }
+        }
 
         let output = generate_post(
             self.sector_store.proofs_config().post_config(),
-            seed,
-            input_parts,
+            challenge_seed,
+            &replicas,
         );
 
         // TODO: Where should this work be scheduled? New worker type?
@@ -246,7 +244,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
         piece_bytes_amount: u64,
         piece_path: String,
         store_until: SecondsSinceEpoch,
-    ) -> Result<u64> {
+    ) -> Result<SectorId> {
         let destination_sector_id = add_piece(
             &self.sector_store,
             &mut self.state.staged,

@@ -1,11 +1,8 @@
 use std::fmt;
 
-use byteorder::{LittleEndian, WriteBytesExt};
 use filecoin_proofs::types::UnpaddedBytesAmount;
 use serde::{Deserialize, Serialize};
-
-use crate::builder::SectorId;
-use crate::error;
+use storage_proofs::sector::SectorId;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct StagedSectorMetadata {
@@ -86,14 +83,4 @@ impl Default for SealedSectorMetadata {
             proof: Default::default(),
         }
     }
-}
-
-pub fn sector_id_as_bytes(sector_id: SectorId) -> error::Result<[u8; 31]> {
-    // Transmute a u64 sector id to a zero-padded byte array.
-    let mut sector_id_as_bytes = [0u8; 31];
-    sector_id_as_bytes
-        .as_mut()
-        .write_u64::<LittleEndian>(sector_id)?;
-
-    Ok(sector_id_as_bytes)
 }

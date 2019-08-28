@@ -7,9 +7,9 @@ use filecoin_proofs::fr32::{
 };
 use filecoin_proofs::types::*;
 
-use crate::builder::SectorId;
 use crate::error::SectorManagerErr;
 use crate::store::{ProofsConfig, SectorConfig, SectorManager, SectorStore};
+use storage_proofs::sector::SectorId;
 
 // This is a segmented sectorid expression protocol, to support meaningful sector name on disk
 // See: https://github.com/filecoin-project/rust-fil-proofs/issues/620 for the details
@@ -56,11 +56,11 @@ impl SectorManager for DiskManager {
     }
 
     fn new_sealed_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr> {
-        self.new_sector_access(Path::new(&self.sealed_path), sector_id)
+        self.new_sector_access(&Path::new(&self.sealed_path), sector_id)
     }
 
     fn new_staging_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr> {
-        self.new_sector_access(Path::new(&self.staging_path), sector_id)
+        self.new_sector_access(&Path::new(&self.staging_path), sector_id)
     }
 
     fn num_unsealed_bytes(&self, access: &str) -> Result<u64, SectorManagerErr> {
@@ -162,6 +162,7 @@ impl DiskManager {
         &self,
         sector_id: SectorId,
     ) -> Result<String, SectorManagerErr> {
+        let sector_id = u64::from(sector_id);
         let seg_id = (sector_id >> 32) as u32;
         let index = (sector_id & 0x0000_0000_ffff_ffff) as u32;
 
@@ -191,7 +192,9 @@ impl DiskManager {
             .sector_access_proto
             .validate_and_return_index(access_name)?;
 
-        Ok((u64::from(self.sector_segment_id) << 32) + u64::from(ind))
+        Ok(SectorId::from(
+            (u64::from(self.sector_segment_id) << 32) + u64::from(ind),
+        ))
     }
 }
 
@@ -295,7 +298,7 @@ impl SectorAccessProto {
                 ))
             })?);
 
-            Ok((seg_id << 32) + u64::from(index))
+            Ok(SectorId::from((seg_id << 32) + u64::from(index)))
         } else if sector_access_split.proto == "ip" {
             // This is an IP lead sector access name
             let mut seg_id: u64 = 0;
@@ -310,7 +313,7 @@ impl SectorAccessProto {
             seg_id <<= 8;
             let ip4 = sector_access_split.seg_str[9..].parse::<u64>().unwrap();
             seg_id += ip4;
-            Ok((seg_id << 32) + u64::from(index))
+            Ok(SectorId::from((seg_id << 32) + u64::from(index)))
         } else {
             Err(SectorManagerErr::CallerError(format!(
                 "the access-name proto {} of access_name {} is not supportede.",
@@ -393,9 +396,9 @@ impl ProofsConfig for Config {
 impl From<SectorClass> for Config {
     fn from(x: SectorClass) -> Self {
         match x {
-            SectorClass(size, porep_p, post_p) => Config {
+            SectorClass(size, porep_p) => Config {
                 porep_config: PoRepConfig(size, porep_p),
-                post_config: PoStConfig(size, post_p),
+                post_config: PoStConfig(size),
             },
         }
     }
@@ -410,7 +413,7 @@ pub mod tests {
 
     use filecoin_proofs::constants::{LIVE_SECTOR_SIZE, TEST_SECTOR_SIZE};
     use filecoin_proofs::fr32::FR32_PADDING_MAP;
-    use filecoin_proofs::types::{PoRepProofPartitions, PoStProofPartitions, SectorSize};
+    use filecoin_proofs::types::{PoRepProofPartitions, SectorSize};
 
     use tempfile::{self, NamedTempFile};
 
@@ -440,19 +443,11 @@ pub mod tests {
     fn max_unsealed_bytes_per_sector_checks() {
         let xs = vec![
             (
-                SectorClass(
-                    SectorSize(LIVE_SECTOR_SIZE),
-                    PoRepProofPartitions(2),
-                    PoStProofPartitions(1),
-                ),
+                SectorClass(SectorSize(LIVE_SECTOR_SIZE), PoRepProofPartitions(2)),
                 266338304,
             ),
             (
-                SectorClass(
-                    SectorSize(TEST_SECTOR_SIZE),
-                    PoRepProofPartitions(2),
-                    PoStProofPartitions(1),
-                ),
+                SectorClass(SectorSize(TEST_SECTOR_SIZE), PoRepProofPartitions(2)),
                 1016,
             ),
         ];
@@ -469,12 +464,11 @@ pub mod tests {
         let storage = create_sector_store(SectorClass(
             SectorSize(TEST_SECTOR_SIZE),
             PoRepProofPartitions(2),
-            PoStProofPartitions(1),
         ));
         let mgr = storage.manager();
 
         let access = mgr
-            .new_staging_sector_access(4294967295_u64)
+            .new_staging_sector_access(SectorId::from(4294967295_u64))
             .expect("failed to create staging file");
 
         // shared amongst test cases
@@ -564,11 +558,10 @@ pub mod tests {
         let store = create_sector_store(SectorClass(
             SectorSize(TEST_SECTOR_SIZE),
             PoRepProofPartitions(2),
-            PoStProofPartitions(1),
         ));
         let access = store
             .manager()
-            .new_staging_sector_access(4294967295_u64)
+            .new_staging_sector_access(SectorId::from(4294967295_u64))
             .unwrap();
 
         assert!(store
@@ -594,20 +587,20 @@ pub mod tests {
         let sector_id = sector_access_proto
             .get_sector_id_from_access_name("on-000000000000-1234567800")
             .unwrap();
-        assert_eq!(sector_id, 0x0000000049960278_u64);
+        assert_eq!(sector_id, SectorId::from(0x0000000049960278_u64));
 
         // With a segment ID - Original
         let sector_access_proto = SectorAccessProto::Original(987654u32);
         let sector_id = sector_access_proto
             .get_sector_id_from_access_name("on-000000987654-0000000010")
             .unwrap();
-        assert_eq!(sector_id, 0x000f12060000000a_u64);
+        assert_eq!(sector_id, SectorId::from(0x000f12060000000a_u64));
 
         // you could get the sector_id value even the segment_id does not match the initiated one.
         let sector_id = sector_access_proto
             .get_sector_id_from_access_name("on-000001987654-0000000010")
             .unwrap();
-        assert_eq!(sector_id, 0x001e54460000000a_u64);
+        assert_eq!(sector_id, SectorId::from(0x001e54460000000a_u64));
     }
 
     #[test]
@@ -616,13 +609,13 @@ pub mod tests {
         let sector_id = sector_access_proto
             .get_sector_id_from_access_name("ip-192168001010-0000000010")
             .unwrap();
-        assert_eq!(sector_id, 0xc0a8010a0000000a_u64);
+        assert_eq!(sector_id, SectorId::from(0xc0a8010a0000000a_u64));
 
         // you could get the sector_id value even the segment_id does not match the initiated one.
         let sector_id = sector_access_proto
             .get_sector_id_from_access_name("ip-192168001011-0000000010")
             .unwrap();
-        assert_eq!(sector_id, 0xc0a8010b0000000a_u64);
+        assert_eq!(sector_id, SectorId::from(0xc0a8010b0000000a_u64));
     }
 
     #[test]

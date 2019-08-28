@@ -2,10 +2,9 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use filecoin_proofs::types::*;
+use storage_proofs::sector::SectorId;
 
 use crate::error::SectorManagerErr;
-
-use crate::builder::SectorId;
 
 pub trait SectorConfig: Sync + Send {
     /// returns the number of user-provided bytes that will fit into a sector managed by this store
@@ -67,30 +66,27 @@ pub trait SectorStore: Sync + Send + Sized {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs::{create_dir_all, File};
     use std::io::{Read, Seek, SeekFrom, Write};
     use std::thread;
 
+    use filecoin_proofs::constants::TEST_SECTOR_SIZE;
+    use filecoin_proofs::{FrSafe, PrivateReplicaInfo, PublicReplicaInfo, SealOutput};
     use rand::{thread_rng, Rng};
     use tempfile::NamedTempFile;
 
-    use filecoin_proofs::constants::TEST_SECTOR_SIZE;
-    use filecoin_proofs::{FrSafe, SealOutput};
-
     use crate::disk_backed_storage::new_sector_store;
 
-    const TEST_CLASS: SectorClass = SectorClass(
-        SectorSize(TEST_SECTOR_SIZE),
-        PoRepProofPartitions(2),
-        PoStProofPartitions(1),
-    );
+    use super::*;
+
+    const TEST_CLASS: SectorClass =
+        SectorClass(SectorSize(TEST_SECTOR_SIZE), PoRepProofPartitions(2));
 
     struct Harness<S: SectorStore> {
         prover_id: FrSafe,
         seal_output: SealOutput,
         sealed_access: String,
-        sector_id: FrSafe,
+        sector_id: SectorId,
         store: S,
         unseal_access: String,
         written_contents: Vec<Vec<u8>>,
@@ -113,19 +109,19 @@ mod tests {
         let max: u64 = store.sector_config().max_unsealed_bytes_per_sector().into();
 
         let staged_access = mgr
-            .new_staging_sector_access(0x0000000012345678)
+            .new_staging_sector_access(SectorId::from(0x0000000012345678))
             .expect("could not create staging access");
 
         let sealed_access = mgr
-            .new_sealed_sector_access(0x0000000087654321)
+            .new_sealed_sector_access(SectorId::from(0x0000000087654321))
             .expect("could not create sealed access");
 
         let unseal_access = mgr
-            .new_sealed_sector_access(0x00000000fffffffe)
+            .new_sealed_sector_access(SectorId::from(0x00000000fffffffe))
             .expect("could not create unseal access");
 
         let prover_id = [2; 31];
-        let sector_id = [0; 31];
+        let sector_id = SectorId::from(0);
 
         let mut written_contents: Vec<Vec<u8>> = Default::default();
         for bytes_amt in bytes_amts {
@@ -161,7 +157,7 @@ mod tests {
             mgr.staged_sector_path(&staged_access),
             mgr.sealed_sector_path(&sealed_access),
             &prover_id,
-            &sector_id,
+            sector_id,
             &[],
         )
         .expect("failed to seal");
@@ -183,7 +179,7 @@ mod tests {
                 comm_d,
                 comm_r_star,
                 &prover_id,
-                &sector_id,
+                sector_id,
                 &proof,
             )
             .expect("failed to run verify_seal");
@@ -204,7 +200,7 @@ mod tests {
                     mgr.sealed_sector_path(&sealed_access),
                     mgr.staged_sector_path(&unseal_access),
                     &prover_id,
-                    &sector_id,
+                    sector_id.clone(),
                     UnpaddedByteIndex(0),
                     cfg.max_unsealed_bytes_per_sector(),
                 )
@@ -253,7 +249,7 @@ mod tests {
                 h.seal_output.comm_r_star,
                 h.seal_output.comm_r,
                 &h.prover_id,
-                &h.sector_id,
+                h.sector_id,
                 &h.seal_output.proof,
             )
             .expect("failed to run verify_seal");
@@ -271,7 +267,6 @@ mod tests {
         let seal_output = h.seal_output;
 
         let comm_r = seal_output.comm_r;
-        let comm_rs = vec![comm_r, comm_r];
         let challenge_seed = rng.gen();
 
         let sealed_sector_path = h
@@ -282,26 +277,42 @@ mod tests {
             .unwrap()
             .to_string();
 
-        let post_output = filecoin_proofs::generate_post(
+        let private_replica_info = vec![
+            (
+                SectorId::from(0),
+                PrivateReplicaInfo::new(sealed_sector_path.clone(), comm_r),
+            ),
+            (
+                SectorId::from(1),
+                PrivateReplicaInfo::new(sealed_sector_path.clone(), comm_r),
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        let public_replica_info = vec![
+            (SectorId::from(0), PublicReplicaInfo::new(comm_r)),
+            (SectorId::from(1), PublicReplicaInfo::new(comm_r)),
+        ]
+        .into_iter()
+        .collect();
+
+        let proof = filecoin_proofs::generate_post(
             h.store.proofs_config().post_config(),
-            challenge_seed,
-            vec![
-                (Some(sealed_sector_path.clone()), comm_r),
-                (Some(sealed_sector_path.clone()), comm_r),
-            ],
+            &challenge_seed,
+            &private_replica_info,
         )
         .expect("PoSt generation failed");
 
-        let result = filecoin_proofs::verify_post(
+        let is_valid = filecoin_proofs::verify_post(
             h.store.proofs_config().post_config(),
-            comm_rs,
-            challenge_seed,
-            post_output.proofs,
-            post_output.faults,
+            &challenge_seed,
+            &proof,
+            &public_replica_info,
         )
         .expect("failed to run verify_post");
 
-        assert!(result.is_valid, "verification of valid proof failed");
+        assert!(is_valid, "verification of valid proof failed");
     }
 
     fn seal_unsealed_roundtrip_aux(sector_class: SectorClass, bytes_amt: BytesAmount) {
@@ -415,7 +426,7 @@ mod tests {
                     &sealed_sector_path,
                     &unsealed_sector_path,
                     &h.prover_id,
-                    &h.sector_id,
+                    h.sector_id,
                     UnpaddedByteIndex(offset),
                     UnpaddedBytesAmount(range_length),
                 )
@@ -447,18 +458,17 @@ mod tests {
         let contents_a = [255; 32];
         let contents_b = [255; 95];
 
-        let h = create_harness(
-            sector_class,
-            &vec![
-                BytesAmount::Exact(&contents_a),
-                BytesAmount::Exact(&contents_b),
-            ],
-        );
+        let amts = vec![
+            BytesAmount::Exact(&contents_a),
+            BytesAmount::Exact(&contents_b),
+        ];
+
+        let h = create_harness(sector_class, &amts);
 
         let unseal_access = h
             .store
             .manager()
-            .new_sealed_sector_access(0x0000000000000001)
+            .new_sealed_sector_access(SectorId::from(0x0000000000000001))
             .expect("could not create unseal access");
 
         let unsealed_sector_path = h
@@ -482,7 +492,7 @@ mod tests {
             sealed_sector_path,
             unsealed_sector_path.clone(),
             &h.prover_id,
-            &h.sector_id,
+            h.sector_id,
             UnpaddedByteIndex(0),
             UnpaddedBytesAmount((contents_a.len() + contents_b.len()) as u64),
         )

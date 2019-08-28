@@ -4,9 +4,7 @@ use filecoin_proofs::types::UnpaddedBytesAmount;
 use filecoin_proofs::{seal as seal_internal, SealOutput};
 
 use crate::error;
-use crate::metadata::{
-    sector_id_as_bytes, PieceMetadata, SealedSectorMetadata, StagedSectorMetadata,
-};
+use crate::metadata::{PieceMetadata, SealedSectorMetadata, StagedSectorMetadata};
 use crate::store::SectorStore;
 
 pub fn seal(
@@ -42,7 +40,7 @@ pub fn seal(
             .manager()
             .sealed_sector_path(&sealed_sector_access),
         prover_id,
-        &sector_id_as_bytes(staged_sector.sector_id)?,
+        staged_sector.sector_id,
         &piece_lengths,
     )?;
 

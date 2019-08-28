@@ -4,7 +4,7 @@ use filecoin_proofs::get_unsealed_range;
 use filecoin_proofs::pieces::get_piece_start_byte;
 use filecoin_proofs::types::UnpaddedBytesAmount;
 
-use crate::metadata::{sector_id_as_bytes, SealedSectorMetadata};
+use crate::metadata::SealedSectorMetadata;
 use crate::store::SectorStore;
 use crate::{err_unrecov, error};
 
@@ -75,7 +75,7 @@ fn retrieve_piece_aux<'a>(
             .manager()
             .staged_sector_path(staged_sector_access),
         prover_id,
-        &sector_id_as_bytes(sealed_sector.sector_id)?,
+        sealed_sector.sector_id,
         get_piece_start_byte(&piece_lengths, piece.num_bytes),
         piece.num_bytes,
     )?;

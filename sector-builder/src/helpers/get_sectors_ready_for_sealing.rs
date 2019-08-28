@@ -4,9 +4,9 @@ use filecoin_proofs::pieces::sum_piece_bytes_with_alignment;
 use filecoin_proofs::types::UnpaddedBytesAmount;
 use itertools::chain;
 
-use crate::builder::SectorId;
 use crate::metadata::{SealStatus, StagedSectorMetadata};
 use crate::state::StagedState;
+use storage_proofs::sector::SectorId;
 
 pub fn get_sectors_ready_for_sealing(
     staged_state: &StagedState,
@@ -43,9 +43,9 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use crate::builder::SectorId;
     use crate::metadata::{PieceMetadata, StagedSectorMetadata};
     use crate::state::StagedState;
+    use storage_proofs::sector::SectorId;
 
     fn make_meta(
         m: &mut HashMap<SectorId, StagedSectorMetadata>,
@@ -83,8 +83,8 @@ mod tests {
     fn test_seals_all() {
         let mut m: HashMap<SectorId, StagedSectorMetadata> = HashMap::new();
 
-        make_meta(&mut m, 200, 0, true);
-        make_meta(&mut m, 201, 0, true);
+        make_meta(&mut m, SectorId::from(200), 0, true);
+        make_meta(&mut m, SectorId::from(201), 0, true);
 
         let state = StagedState {
             sector_id_nonce: 100,
@@ -96,15 +96,15 @@ mod tests {
                 .into_iter()
                 .collect();
 
-        assert_eq!(vec![201 as SectorId, 200 as SectorId], to_seal);
+        assert_eq!(vec![SectorId::from(201), SectorId::from(200)], to_seal);
     }
 
     #[test]
     fn test_seals_full() {
         let mut m: HashMap<SectorId, StagedSectorMetadata> = HashMap::new();
 
-        make_meta(&mut m, 200, 127, true);
-        make_meta(&mut m, 201, 0, true);
+        make_meta(&mut m, SectorId::from(200), 127, true);
+        make_meta(&mut m, SectorId::from(201), 0, true);
 
         let state = StagedState {
             sector_id_nonce: 100,
@@ -116,17 +116,17 @@ mod tests {
                 .into_iter()
                 .collect();
 
-        assert_eq!(vec![200 as SectorId], to_seal);
+        assert_eq!(vec![SectorId::from(200)], to_seal);
     }
 
     #[test]
     fn test_seals_excess() {
         let mut m: HashMap<SectorId, StagedSectorMetadata> = HashMap::new();
 
-        make_meta(&mut m, 200, 0, true);
-        make_meta(&mut m, 201, 0, true);
-        make_meta(&mut m, 202, 0, true);
-        make_meta(&mut m, 203, 0, true);
+        make_meta(&mut m, SectorId::from(200), 0, true);
+        make_meta(&mut m, SectorId::from(201), 0, true);
+        make_meta(&mut m, SectorId::from(202), 0, true);
+        make_meta(&mut m, SectorId::from(203), 0, true);
 
         let state = StagedState {
             sector_id_nonce: 100,
@@ -138,17 +138,17 @@ mod tests {
                 .into_iter()
                 .collect();
 
-        assert_eq!(vec![201 as SectorId, 200 as SectorId], to_seal);
+        assert_eq!(vec![SectorId::from(201), SectorId::from(200)], to_seal);
     }
 
     #[test]
     fn test_noop() {
         let mut m: HashMap<SectorId, StagedSectorMetadata> = HashMap::new();
 
-        make_meta(&mut m, 200, 0, true);
-        make_meta(&mut m, 201, 0, true);
-        make_meta(&mut m, 202, 0, true);
-        make_meta(&mut m, 203, 0, true);
+        make_meta(&mut m, SectorId::from(200), 0, true);
+        make_meta(&mut m, SectorId::from(201), 0, true);
+        make_meta(&mut m, SectorId::from(202), 0, true);
+        make_meta(&mut m, SectorId::from(203), 0, true);
 
         let state = StagedState {
             sector_id_nonce: 100,
@@ -160,17 +160,17 @@ mod tests {
                 .into_iter()
                 .collect();
 
-        assert_eq!(vec![0; 0], to_seal);
+        assert_eq!(vec![SectorId::from(0); 0], to_seal);
     }
 
     #[test]
     fn test_noop_all_being_sealed() {
         let mut m: HashMap<SectorId, StagedSectorMetadata> = HashMap::new();
 
-        make_meta(&mut m, 200, 127, false);
-        make_meta(&mut m, 201, 127, false);
-        make_meta(&mut m, 202, 127, false);
-        make_meta(&mut m, 203, 127, false);
+        make_meta(&mut m, SectorId::from(200), 127, false);
+        make_meta(&mut m, SectorId::from(201), 127, false);
+        make_meta(&mut m, SectorId::from(202), 127, false);
+        make_meta(&mut m, SectorId::from(203), 127, false);
 
         let state = StagedState {
             sector_id_nonce: 100,
@@ -182,6 +182,6 @@ mod tests {
                 .into_iter()
                 .collect();
 
-        assert_eq!(vec![0; 0], to_seal);
+        assert_eq!(vec![SectorId::from(0); 0], to_seal);
     }
 }

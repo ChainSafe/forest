@@ -7,11 +7,11 @@ use filecoin_proofs::pieces::{
 };
 use filecoin_proofs::types::UnpaddedBytesAmount;
 
-use crate::builder::*;
 use crate::error::*;
 use crate::metadata::{self, SealStatus, SecondsSinceEpoch, StagedSectorMetadata};
 use crate::state::StagedState;
 use crate::store::{SectorManager, SectorStore};
+use storage_proofs::sector::SectorId;
 
 pub fn add_piece(
     sector_store: &Arc<impl SectorStore>,
@@ -116,7 +116,7 @@ fn provision_new_staged_sector(
     let sector_id = {
         let n = &mut staged_state.sector_id_nonce;
         *n += 1;
-        *n
+        SectorId::from(*n)
     };
 
     let access = sector_manager.new_staging_sector_access(sector_id)?;

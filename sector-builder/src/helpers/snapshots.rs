@@ -67,10 +67,11 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use crate::builder::{SectorId, WrappedKeyValueStore};
+    use crate::builder::WrappedKeyValueStore;
     use crate::kv_store::SledKvs;
     use crate::metadata::StagedSectorMetadata;
     use crate::state::StagedState;
+    use storage_proofs::sector::SectorId;
 
     use super::*;
 
@@ -86,7 +87,7 @@ mod tests {
         let snapshot_a = {
             let mut m: HashMap<SectorId, StagedSectorMetadata> = HashMap::new();
 
-            m.insert(123, Default::default());
+            m.insert(SectorId::from(123), Default::default());
 
             let staged_state = StagedState {
                 sector_id_nonce: 100,
@@ -105,7 +106,7 @@ mod tests {
         let snapshot_b = {
             let mut m: HashMap<SectorId, StagedSectorMetadata> = HashMap::new();
 
-            m.insert(666, Default::default());
+            m.insert(SectorId::from(666), Default::default());
 
             let staged_state = StagedState {
                 sector_id_nonce: 102,

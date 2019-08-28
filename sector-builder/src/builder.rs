@@ -3,8 +3,8 @@ use std::path::Path;
 use std::sync::{mpsc, Arc, Mutex};
 
 use filecoin_proofs::error::ExpectWithBacktrace;
-use filecoin_proofs::post_adapter::*;
 use filecoin_proofs::types::{PaddedBytesAmount, PoRepConfig, PoStConfig, SectorClass};
+use storage_proofs::sector::SectorId;
 
 use crate::constants::*;
 use crate::disk_backed_storage::new_sector_store;
@@ -13,8 +13,6 @@ use crate::kv_store::{KeyValueStore, SledKvs};
 use crate::metadata::*;
 use crate::scheduler::{Request, Scheduler};
 use crate::sealer::*;
-
-pub type SectorId = u64;
 
 pub struct SectorBuilder {
     // Prevents FFI consumers from queueing behind long-running seal operations.
@@ -76,7 +74,7 @@ impl SectorBuilder {
             (tx, workers)
         };
 
-        let SectorClass(sector_size, _, _) = sector_class;
+        let SectorClass(sector_size, _) = sector_class;
 
         // Configure main worker.
         let main_worker = Scheduler::start_with_metadata(
@@ -147,10 +145,11 @@ impl SectorBuilder {
         &self,
         comm_rs: &[[u8; 32]],
         challenge_seed: &[u8; 32],
-    ) -> Result<GeneratePoStDynamicSectorsCountOutput> {
-        log_unrecov(
-            self.run_blocking(|tx| Request::GeneratePoSt(Vec::from(comm_rs), *challenge_seed, tx)),
-        )
+        faults: Vec<SectorId>,
+    ) -> Result<Vec<u8>> {
+        log_unrecov(self.run_blocking(|tx| {
+            Request::GeneratePoSt(Vec::from(comm_rs), *challenge_seed, faults, tx)
+        }))
     }
 
     // Run a task, blocking on the return channel.
@@ -272,8 +271,9 @@ fn ensure_file(p: impl AsRef<Path>) -> Result<()> {
 
 #[cfg(test)]
 pub mod tests {
+    use filecoin_proofs::{PoRepProofPartitions, SectorSize};
+
     use super::*;
-    use filecoin_proofs::{PoRepProofPartitions, PoStProofPartitions, SectorSize};
 
     #[test]
     fn test_cannot_init_sector_builder_without_empty_parameter_cache() {
@@ -284,15 +284,11 @@ pub mod tests {
             .unwrap()
             .to_string();
 
-        let nonsense_sector_class = SectorClass(
-            SectorSize(32),
-            PoRepProofPartitions(123),
-            PoStProofPartitions(123),
-        );
+        let nonsense_sector_class = SectorClass(SectorSize(32), PoRepProofPartitions(123));
 
         let result = SectorBuilder::init_from_metadata(
             nonsense_sector_class,
-            0,
+            SectorId::from(0),
             temp_dir.clone(),
             [0u8; 31],
             temp_dir.clone(),
