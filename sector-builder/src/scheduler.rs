@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashSet};
+use std::path::PathBuf;
 use std::sync::{mpsc, Arc};
 use std::thread;
 
@@ -9,15 +10,16 @@ use storage_proofs::sector::SectorId;
 use crate::builder::WrappedKeyValueStore;
 use crate::error::{err_piecenotfound, err_unrecov, Result};
 use crate::helpers::{
-    add_piece, get_seal_status, get_sectors_ready_for_sealing, load_snapshot, persist_snapshot,
-    SnapshotKey,
+    add_piece, get_seal_status, get_sealed_sector_health, get_sectors_ready_for_sealing,
+    load_snapshot, persist_snapshot, SnapshotKey,
 };
 use crate::kv_store::KeyValueStore;
 use crate::metadata::{SealStatus, SealedSectorMetadata, StagedSectorMetadata};
 use crate::sealer::SealerInput;
 use crate::state::{SectorBuilderState, StagedState};
 use crate::store::SectorStore;
-use crate::{PaddedBytesAmount, SecondsSinceEpoch, UnpaddedBytesAmount};
+use crate::GetSealedSectorResult::WithHealth;
+use crate::{GetSealedSectorResult, PaddedBytesAmount, SecondsSinceEpoch, UnpaddedBytesAmount};
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
 const FATAL_NORECV: &str = "could not receive task";
@@ -32,6 +34,9 @@ pub struct Scheduler {
 }
 
 #[derive(Debug)]
+pub struct PerformHealthCheck(pub bool);
+
+#[derive(Debug)]
 pub enum Request {
     AddPiece(
         String,
@@ -40,7 +45,10 @@ pub enum Request {
         SecondsSinceEpoch,
         mpsc::SyncSender<Result<SectorId>>,
     ),
-    GetSealedSectors(mpsc::SyncSender<Result<Vec<SealedSectorMetadata>>>),
+    GetSealedSectors(
+        PerformHealthCheck,
+        mpsc::SyncSender<Result<Vec<GetSealedSectorResult>>>,
+    ),
     GetStagedSectors(mpsc::SyncSender<Result<Vec<StagedSectorMetadata>>>),
     GetSealStatus(SectorId, mpsc::SyncSender<Result<SealStatus>>),
     GeneratePoSt(
@@ -114,8 +122,9 @@ impl Scheduler {
                         tx.send(m.get_seal_status(sector_id)).expects(FATAL_NOSEND);
                     }
                     Request::RetrievePiece(piece_key, tx) => m.retrieve_piece(piece_key, tx),
-                    Request::GetSealedSectors(tx) => {
-                        tx.send(m.get_sealed_sectors()).expects(FATAL_NOSEND);
+                    Request::GetSealedSectors(check_health, tx) => {
+                        tx.send(m.get_sealed_sectors(check_health.0))
+                            .expects(FATAL_NOSEND);
                     }
                     Request::GetStagedSectors(tx) => {
                         tx.send(m.get_staged_sectors()).expect(FATAL_NOSEND);
@@ -267,9 +276,38 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
     }
 
     // Produces a vector containing metadata for all sealed sectors that this
-    // SectorBuilder knows about.
-    pub fn get_sealed_sectors(&self) -> Result<Vec<SealedSectorMetadata>> {
-        Ok(self.state.sealed.sectors.values().cloned().collect())
+    // SectorBuilder knows about. Includes sector health-information on request.
+    pub fn get_sealed_sectors(&self, check_health: bool) -> Result<Vec<GetSealedSectorResult>> {
+        use rayon::prelude::*;
+
+        let sectors_iter = self.state.sealed.sectors.values().cloned();
+
+        if !check_health {
+            return Ok(sectors_iter
+                .map(GetSealedSectorResult::WithoutHealth)
+                .collect());
+        }
+
+        let with_path: Vec<(PathBuf, SealedSectorMetadata)> = sectors_iter
+            .map(|meta| {
+                let pbuf = self
+                    .sector_store
+                    .manager()
+                    .sealed_sector_path(&meta.sector_access);
+
+                (pbuf, meta)
+            })
+            .collect();
+
+        // compute sector health in parallel using workers from rayon global
+        // thread pool
+        with_path
+            .into_par_iter()
+            .map(|(pbuf, meta)| {
+                let health = get_sealed_sector_health(&pbuf, &meta)?;
+                Ok(WithHealth(health, meta))
+            })
+            .collect()
     }
 
     // Produces a vector containing metadata for all staged sectors that this

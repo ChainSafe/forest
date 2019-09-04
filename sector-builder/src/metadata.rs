@@ -1,5 +1,3 @@
-use std::fmt;
-
 use filecoin_proofs::types::UnpaddedBytesAmount;
 use serde::{Deserialize, Serialize};
 use storage_proofs::sector::SectorId;
@@ -12,7 +10,7 @@ pub struct StagedSectorMetadata {
     pub seal_status: SealStatus,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Debug)]
 pub struct SealedSectorMetadata {
     pub sector_id: SectorId,
     pub sector_access: String,
@@ -21,6 +19,10 @@ pub struct SealedSectorMetadata {
     pub comm_r: [u8; 32],
     pub comm_d: [u8; 32],
     pub proof: Vec<u8>,
+    /// checksum on the whole sector
+    pub blake2b_checksum: Vec<u8>,
+    /// number of bytes in the sealed sector-file as returned by `std::fs::metadata`
+    pub len: u64,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -39,20 +41,22 @@ pub enum SealStatus {
     Sealing,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SealedSectorHealth {
+    Ok,
+    ErrorInvalidChecksum,
+    ErrorInvalidLength,
+    ErrorMissing,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum GetSealedSectorResult {
+    WithHealth(SealedSectorHealth, SealedSectorMetadata),
+    WithoutHealth(SealedSectorMetadata),
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct SecondsSinceEpoch(pub u64);
-
-impl PartialEq for SealedSectorMetadata {
-    fn eq(&self, other: &SealedSectorMetadata) -> bool {
-        self.sector_id == other.sector_id
-            && self.sector_access == other.sector_access
-            && self.pieces == other.pieces
-            && self.comm_r_star == other.comm_r_star
-            && self.comm_r == other.comm_r
-            && self.comm_d == other.comm_d
-            && self.proof.iter().eq(other.proof.iter())
-    }
-}
 
 impl Default for StagedSectorMetadata {
     fn default() -> StagedSectorMetadata {
@@ -61,26 +65,6 @@ impl Default for StagedSectorMetadata {
             sector_access: Default::default(),
             pieces: Default::default(),
             seal_status: SealStatus::Pending,
-        }
-    }
-}
-
-impl fmt::Debug for SealedSectorMetadata {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "SealedSectorMetadata {{ sector_id: {}, sector_access: {}, pieces: {:?}, comm_r_star: {:?}, comm_r: {:?}, comm_d: {:?} }}", self.sector_id, self.sector_access, self.pieces, self.comm_r_star, self.comm_r, self.comm_d)
-    }
-}
-
-impl Default for SealedSectorMetadata {
-    fn default() -> SealedSectorMetadata {
-        SealedSectorMetadata {
-            sector_id: Default::default(),
-            sector_access: Default::default(),
-            pieces: Default::default(),
-            comm_r_star: Default::default(),
-            comm_r: Default::default(),
-            comm_d: Default::default(),
-            proof: Default::default(),
         }
     }
 }

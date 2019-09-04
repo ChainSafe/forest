@@ -13,6 +13,9 @@ pub use crate::error::*;
 pub use crate::metadata::*;
 pub use crate::store::*;
 
+// Exported for benchmarks
+pub use crate::helpers::checksum::calculate_checksum;
+
 mod builder;
 mod constants;
 mod disk_backed_storage;

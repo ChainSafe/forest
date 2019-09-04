@@ -11,7 +11,7 @@ use crate::disk_backed_storage::new_sector_store;
 use crate::error::{Result, SectorBuilderErr};
 use crate::kv_store::{KeyValueStore, SledKvs};
 use crate::metadata::*;
-use crate::scheduler::{Request, Scheduler};
+use crate::scheduler::{PerformHealthCheck, Request, Scheduler};
 use crate::sealer::*;
 
 pub struct SectorBuilder {
@@ -131,8 +131,10 @@ impl SectorBuilder {
     }
 
     // Returns all sealed sector metadata.
-    pub fn get_sealed_sectors(&self) -> Result<Vec<SealedSectorMetadata>> {
-        log_unrecov(self.run_blocking(Request::GetSealedSectors))
+    pub fn get_sealed_sectors(&self, check_health: bool) -> Result<Vec<GetSealedSectorResult>> {
+        log_unrecov(
+            self.run_blocking(|tx| Request::GetSealedSectors(PerformHealthCheck(check_health), tx)),
+        )
     }
 
     // Returns all staged sector metadata.

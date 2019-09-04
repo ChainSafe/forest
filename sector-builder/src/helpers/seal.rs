@@ -4,6 +4,7 @@ use filecoin_proofs::types::UnpaddedBytesAmount;
 use filecoin_proofs::{seal as seal_internal, SealOutput};
 
 use crate::error;
+use crate::helpers::checksum::calculate_checksum;
 use crate::metadata::{PieceMetadata, SealedSectorMetadata, StagedSectorMetadata};
 use crate::store::SectorStore;
 
@@ -18,11 +19,18 @@ pub fn seal(
         .new_sealed_sector_access(staged_sector.sector_id)
         .map_err(failure::Error::from)?;
 
+    let sealed_sector_path = sector_store
+        .manager()
+        .sealed_sector_path(&sealed_sector_access);
+
     // Run the FPS seal operation. This call will block for a long time, so make
     // sure you're not holding any locks.
 
-    let piece_lengths: Vec<UnpaddedBytesAmount> =
-        staged_sector.pieces.iter().map(|p| p.num_bytes).collect();
+    info!("seal: start (sector_id={})", staged_sector.sector_id);
+
+    let staged_sector_path = sector_store
+        .manager()
+        .staged_sector_path(&staged_sector.sector_access);
 
     let SealOutput {
         comm_r,
@@ -33,17 +41,28 @@ pub fn seal(
         piece_inclusion_proofs,
     } = seal_internal(
         (*sector_store).proofs_config().porep_config(),
-        sector_store
-            .manager()
-            .staged_sector_path(&staged_sector.sector_access),
-        sector_store
-            .manager()
-            .sealed_sector_path(&sealed_sector_access),
+        staged_sector_path,
+        sealed_sector_path.clone(),
         prover_id,
         staged_sector.sector_id,
-        &piece_lengths,
+        staged_sector
+            .pieces
+            .iter()
+            .map(|p| p.num_bytes)
+            .collect::<Vec<UnpaddedBytesAmount>>()
+            .as_slice(),
     )?;
 
+    info!("seal: finish (sector_id={})", staged_sector.sector_id);
+
+    // generate checksum
+    let blake2b_checksum = calculate_checksum(&sealed_sector_path)?.as_ref().to_vec();
+
+    // get number of bytes in sealed sector-file
+    let len = std::fs::metadata(&sealed_sector_path)?.len();
+
+    // combine the piece commitment, piece inclusion proof, and other piece
+    // metadata into a single struct (to be persisted to metadata store)
     let pieces = staged_sector
         .pieces
         .into_iter()
@@ -65,6 +84,8 @@ pub fn seal(
         comm_r,
         comm_d,
         proof,
+        blake2b_checksum,
+        len,
     };
 
     Ok(newly_sealed_sector)
