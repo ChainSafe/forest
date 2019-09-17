@@ -20,6 +20,7 @@ use crate::state::{SectorBuilderState, StagedState};
 use crate::store::SectorStore;
 use crate::GetSealedSectorResult::WithHealth;
 use crate::{GetSealedSectorResult, PaddedBytesAmount, SecondsSinceEpoch, UnpaddedBytesAmount};
+use filecoin_proofs::pieces::get_piece_start_byte;
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
 const FATAL_NORECV: &str = "could not receive task";
@@ -60,6 +61,10 @@ pub enum Request {
     RetrievePiece(String, mpsc::SyncSender<Result<Vec<u8>>>),
     SealAllStagedSectors(mpsc::SyncSender<Result<()>>),
     HandleSealResult(SectorId, Box<Result<SealedSectorMetadata>>),
+    HandleRetrievePieceResult(
+        Result<(UnpaddedBytesAmount, PathBuf)>,
+        mpsc::SyncSender<Result<Vec<u8>>>,
+    ),
     Shutdown,
 }
 
@@ -135,6 +140,9 @@ impl Scheduler {
                     Request::HandleSealResult(sector_id, result) => {
                         m.handle_seal_result(sector_id, *result);
                     }
+                    Request::HandleRetrievePieceResult(result, tx) => {
+                        m.handle_retrieve_piece_result(result, tx);
+                    }
                     Request::GeneratePoSt(comm_rs, chg_seed, faults, tx) => {
                         m.generate_post(&comm_rs, &chg_seed, faults, tx)
                     }
@@ -209,33 +217,71 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
         return_channel.send(output).expects(FATAL_HUNGUP);
     }
 
-    // Unseals the sector containing the referenced piece and returns its
-    // bytes. Produces an error if this sector builder does not have a sealed
-    // sector containing the referenced piece.
-    pub fn retrieve_piece(
-        &self,
-        piece_key: String,
-        return_channel: mpsc::SyncSender<Result<Vec<u8>>>,
-    ) {
-        let opt_sealed_sector = self.state.sealed.sectors.values().find(|sector| {
-            sector
-                .pieces
-                .iter()
-                .any(|piece| piece.piece_key == piece_key)
+    // Schedules unseal on worker thread. Any errors encountered while
+    // retrieving are send to done_tx.
+    pub fn retrieve_piece(&self, piece_key: String, done_tx: mpsc::SyncSender<Result<Vec<u8>>>) {
+        let done_tx_c = done_tx.clone();
+
+        let task = Ok(()).and_then(|_| {
+            let opt_sealed_sector = self.state.sealed.sectors.values().find(|sector| {
+                sector
+                    .pieces
+                    .iter()
+                    .any(|piece| piece.piece_key == piece_key)
+            });
+
+            opt_sealed_sector
+                .ok_or_else(|| err_piecenotfound(piece_key.to_string()).into())
+                .and_then(|sealed_sector| {
+                    let piece = sealed_sector
+                        .pieces
+                        .iter()
+                        .find(|p| p.piece_key == piece_key)
+                        .ok_or_else(|| err_piecenotfound(piece_key.clone()))?;
+
+                    let piece_lengths: Vec<_> = sealed_sector
+                        .pieces
+                        .iter()
+                        .take_while(|p| p.piece_key != piece_key)
+                        .map(|p| p.num_bytes)
+                        .collect();
+
+                    let staged_sector_access = self
+                        .sector_store
+                        .manager()
+                        .new_staging_sector_access(sealed_sector.sector_id)
+                        .map_err(failure::Error::from)?;
+
+                    Ok(SealerInput::Unseal {
+                        porep_config: self.sector_store.proofs_config().porep_config(),
+                        source_path: self
+                            .sector_store
+                            .manager()
+                            .sealed_sector_path(&sealed_sector.sector_access),
+                        destination_path: self
+                            .sector_store
+                            .manager()
+                            .staged_sector_path(&staged_sector_access),
+                        sector_id: sealed_sector.sector_id,
+                        piece_start_byte: get_piece_start_byte(&piece_lengths, piece.num_bytes),
+                        piece_len: piece.num_bytes,
+                        caller_done_tx: done_tx_c,
+                        done_tx: self.scheduler_input_tx.clone(),
+                    })
+                })
         });
 
-        if let Some(sealed_sector) = opt_sealed_sector {
-            let sealed_sector = Box::new(sealed_sector.clone());
-            let task = SealerInput::Unseal(piece_key, sealed_sector, return_channel);
-
-            self.sealer_input_tx
+        match task {
+            Ok(task) => self
+                .sealer_input_tx
                 .clone()
                 .send(task)
-                .expects(FATAL_SLRSND);
-        } else {
-            return_channel
-                .send(Err(err_piecenotfound(piece_key.to_string()).into()))
-                .expects(FATAL_HUNGUP);
+                .expects(FATAL_SLRSND),
+            Err(err) => {
+                self.scheduler_input_tx
+                    .send(Request::HandleRetrievePieceResult(Err(err), done_tx))
+                    .expects(FATAL_SLRSND);
+            }
         }
     }
 
@@ -314,6 +360,26 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
     // SectorBuilder knows about.
     pub fn get_staged_sectors(&self) -> Result<Vec<StagedSectorMetadata>> {
         Ok(self.state.staged.sectors.values().cloned().collect())
+    }
+
+    // Update metadata to reflect the sealing results.
+    pub fn handle_retrieve_piece_result(
+        &mut self,
+        result: Result<(UnpaddedBytesAmount, PathBuf)>,
+        return_channel: mpsc::SyncSender<Result<Vec<u8>>>,
+    ) {
+        let result = result.and_then(|(n, pbuf)| {
+            let buffer = self.sector_store.manager().read_raw(
+                pbuf.to_str()
+                    .ok_or_else(|| format_err!("conversion failed"))?,
+                0,
+                n,
+            )?;
+
+            Ok(buffer)
+        });
+
+        return_channel.send(result).expects(FATAL_NOSEND);
     }
 
     // Update metadata to reflect the sealing results.
