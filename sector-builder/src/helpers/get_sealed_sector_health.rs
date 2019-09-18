@@ -1,4 +1,4 @@
-use crate::helpers::checksum::calculate_checksum;
+use crate::helpers;
 use crate::{SealedSectorHealth, SealedSectorMetadata};
 use std::path::Path;
 
@@ -19,7 +19,9 @@ pub fn get_sealed_sector_health<T: AsRef<Path>>(
     }
 
     // compare checksums
-    if calculate_checksum(&sealed_sector_path)?.as_bytes() != meta.blake2b_checksum.as_slice() {
+    if helpers::checksum::calculate_checksum(&sealed_sector_path)?.as_bytes()
+        != meta.blake2b_checksum.as_slice()
+    {
         return Ok(SealedSectorHealth::ErrorInvalidChecksum);
     }
 

@@ -21,3 +21,15 @@ pub struct SectorBuilderState {
     pub staged: StagedState,
     pub sealed: SealedState,
 }
+
+impl SectorBuilderState {
+    pub fn new(last_committed_sector_id: SectorId) -> SectorBuilderState {
+        SectorBuilderState {
+            staged: StagedState {
+                sector_id_nonce: u64::from(last_committed_sector_id),
+                sectors: Default::default(),
+            },
+            sealed: Default::default(),
+        }
+    }
+}

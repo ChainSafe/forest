@@ -70,7 +70,7 @@ mod tests {
     use std::io::{Read, Seek, SeekFrom, Write};
     use std::thread;
 
-    use filecoin_proofs::constants::TEST_SECTOR_SIZE;
+    use filecoin_proofs::constants::SECTOR_SIZE_ONE_KIB;
     use filecoin_proofs::{FrSafe, PrivateReplicaInfo, PublicReplicaInfo, SealOutput};
     use rand::{thread_rng, Rng};
     use tempfile::NamedTempFile;
@@ -80,7 +80,7 @@ mod tests {
     use super::*;
 
     const TEST_CLASS: SectorClass =
-        SectorClass(SectorSize(TEST_SECTOR_SIZE), PoRepProofPartitions(2));
+        SectorClass(SectorSize(SECTOR_SIZE_ONE_KIB), PoRepProofPartitions(2));
 
     struct Harness<S: SectorStore> {
         prover_id: FrSafe,

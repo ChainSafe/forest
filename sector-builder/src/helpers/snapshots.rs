@@ -1,9 +1,6 @@
-use std::sync::Arc;
-
 use byteorder::{LittleEndian, WriteBytesExt};
 use filecoin_proofs::types::PaddedBytesAmount;
 
-use crate::builder::WrappedKeyValueStore;
 use crate::error::Result;
 use crate::kv_store::KeyValueStore;
 use crate::state::*;
@@ -23,10 +20,10 @@ impl SnapshotKey {
 }
 
 pub fn load_snapshot<T: KeyValueStore>(
-    kv_store: &Arc<WrappedKeyValueStore<T>>,
+    kv_store: &T,
     key: &SnapshotKey,
 ) -> Result<Option<SectorBuilderState>> {
-    let result: Option<Vec<u8>> = kv_store.inner().get(&Vec::from(key))?;
+    let result: Option<Vec<u8>> = kv_store.get(&Vec::from(key))?;
 
     if let Some(val) = result {
         return serde_cbor::from_slice(&val[..])
@@ -53,21 +50,19 @@ impl From<&SnapshotKey> for Vec<u8> {
 }
 
 pub fn persist_snapshot<T: KeyValueStore>(
-    kv_store: &Arc<WrappedKeyValueStore<T>>,
+    kv_store: &T,
     key: &SnapshotKey,
     state: &SectorBuilderState,
 ) -> Result<()> {
     let serialized = serde_cbor::to_vec(state)?;
-    kv_store.inner().put(&Vec::from(key), &serialized)?;
+    kv_store.put(&Vec::from(key), &serialized)?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::sync::Arc;
 
-    use crate::builder::WrappedKeyValueStore;
     use crate::kv_store::SledKvs;
     use crate::metadata::StagedSectorMetadata;
     use crate::state::StagedState;
@@ -79,9 +74,7 @@ mod tests {
     fn test_snapshotting() {
         let metadata_dir = tempfile::tempdir().unwrap();
 
-        let kv_store = Arc::new(WrappedKeyValueStore::new(
-            SledKvs::initialize(metadata_dir).unwrap(),
-        ));
+        let kv_store = SledKvs::initialize(metadata_dir).unwrap();
 
         // create a snapshot to persist and load
         let snapshot_a = {

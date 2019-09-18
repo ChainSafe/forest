@@ -10,11 +10,11 @@ pub use filecoin_proofs::types::*;
 pub use crate::builder::*;
 pub use crate::constants::*;
 pub use crate::error::*;
-pub use crate::metadata::*;
-pub use crate::store::*;
-
 // Exported for benchmarks
 pub use crate::helpers::checksum::calculate_checksum;
+pub use crate::metadata::*;
+pub use crate::metadata_manager::*;
+pub use crate::store::*;
 
 mod builder;
 mod constants;
@@ -23,7 +23,8 @@ mod error;
 mod helpers;
 mod kv_store;
 mod metadata;
+mod metadata_manager;
 mod scheduler;
-mod sealer;
 mod state;
 mod store;
+mod worker;

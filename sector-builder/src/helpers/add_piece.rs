@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::iter::Iterator;
-use std::sync::Arc;
 
 use filecoin_proofs::pieces::{
     get_aligned_source, get_piece_alignment, sum_piece_bytes_with_alignment, PieceAlignment,
@@ -13,8 +12,8 @@ use crate::state::StagedState;
 use crate::store::{SectorManager, SectorStore};
 use storage_proofs::sector::SectorId;
 
-pub fn add_piece(
-    sector_store: &Arc<impl SectorStore>,
+pub fn add_piece<S: SectorStore>(
+    sector_store: &S,
     mut staged_state: &mut StagedState,
     piece_key: String,
     piece_bytes_amount: u64,

@@ -31,8 +31,8 @@ pub enum SectorAccessProto {
 }
 
 pub struct DiskManager {
-    staging_path: String,
-    sealed_path: String,
+    staging_path: PathBuf,
+    sealed_path: PathBuf,
 
     // A sector ID presentation with a defined protocol
     sector_access_proto: SectorAccessProto,
@@ -350,15 +350,15 @@ impl SectorStore for ConcreteSectorStore {
 
 pub fn new_sector_store(
     sector_class: SectorClass,
-    sealed_path: String,
-    staging_path: String,
+    sealed_sector_dir: impl AsRef<Path>,
+    staged_sector_dir: impl AsRef<Path>,
 ) -> ConcreteSectorStore {
     // By default, support on-000000000000-dddddddddd format
     let default_access_proto = SectorAccessProto::Original(0);
 
     let manager = Box::new(DiskManager {
-        staging_path,
-        sealed_path,
+        staging_path: staged_sector_dir.as_ref().to_owned(),
+        sealed_path: sealed_sector_dir.as_ref().to_owned(),
         sector_access_proto: default_access_proto,
         sector_segment_id: 0u32,
     });
@@ -411,7 +411,7 @@ pub mod tests {
     use std::fs::{create_dir_all, File};
     use std::io::{Read, Write};
 
-    use filecoin_proofs::constants::{LIVE_SECTOR_SIZE, TEST_SECTOR_SIZE};
+    use filecoin_proofs::constants::{SECTOR_SIZE_256_MIB, SECTOR_SIZE_ONE_KIB};
     use filecoin_proofs::fr32::FR32_PADDING_MAP;
     use filecoin_proofs::types::{PoRepProofPartitions, SectorSize};
 
@@ -443,11 +443,11 @@ pub mod tests {
     fn max_unsealed_bytes_per_sector_checks() {
         let xs = vec![
             (
-                SectorClass(SectorSize(LIVE_SECTOR_SIZE), PoRepProofPartitions(2)),
+                SectorClass(SectorSize(SECTOR_SIZE_256_MIB), PoRepProofPartitions(2)),
                 266338304,
             ),
             (
-                SectorClass(SectorSize(TEST_SECTOR_SIZE), PoRepProofPartitions(2)),
+                SectorClass(SectorSize(SECTOR_SIZE_ONE_KIB), PoRepProofPartitions(2)),
                 1016,
             ),
         ];
@@ -462,7 +462,7 @@ pub mod tests {
     #[test]
     fn unsealed_sector_write_and_truncate() {
         let storage = create_sector_store(SectorClass(
-            SectorSize(TEST_SECTOR_SIZE),
+            SectorSize(SECTOR_SIZE_ONE_KIB),
             PoRepProofPartitions(2),
         ));
         let mgr = storage.manager();
@@ -556,7 +556,7 @@ pub mod tests {
     #[test]
     fn deletes_staging_access() {
         let store = create_sector_store(SectorClass(
-            SectorSize(TEST_SECTOR_SIZE),
+            SectorSize(SECTOR_SIZE_ONE_KIB),
             PoRepProofPartitions(2),
         ));
         let access = store
