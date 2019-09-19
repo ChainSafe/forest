@@ -25,11 +25,11 @@ pub struct PerformHealthCheck(pub bool);
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
-pub enum SchedulerTask {
+pub enum SchedulerTask<T> {
     AddPiece(
         String,
         u64,
-        String,
+        T,
         SecondsSinceEpoch,
         mpsc::SyncSender<Result<SectorId>>,
     ),
@@ -57,10 +57,14 @@ pub enum SchedulerTask {
 
 impl Scheduler {
     #[allow(clippy::too_many_arguments)]
-    pub fn start<T: 'static + KeyValueStore, S: 'static + SectorStore>(
-        scheduler_tx: mpsc::SyncSender<SchedulerTask>,
-        scheduler_rx: mpsc::Receiver<SchedulerTask>,
-        worker_tx: mpsc::Sender<WorkerTask>,
+    pub fn start<
+        T: 'static + KeyValueStore,
+        S: 'static + SectorStore,
+        U: 'static + std::io::Read + Send,
+    >(
+        scheduler_tx: mpsc::SyncSender<SchedulerTask<U>>,
+        scheduler_rx: mpsc::Receiver<SchedulerTask<U>>,
+        worker_tx: mpsc::Sender<WorkerTask<U>>,
         mut m: SectorMetadataManager<T, S>,
     ) -> Scheduler {
         let thread = thread::spawn(move || {
@@ -69,8 +73,8 @@ impl Scheduler {
 
                 // Dispatch to the appropriate task-handler.
                 match task {
-                    SchedulerTask::AddPiece(key, amt, path, store_until, tx) => {
-                        match m.add_piece(key, amt, path, store_until) {
+                    SchedulerTask::AddPiece(key, amt, file, store_until, tx) => {
+                        match m.add_piece(key, amt, file, store_until) {
                             Ok((sector_id, protos)) => {
                                 for p in protos {
                                     worker_tx

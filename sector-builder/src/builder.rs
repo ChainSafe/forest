@@ -21,21 +21,21 @@ use crate::SectorStore;
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
 
-pub struct SectorBuilder {
+pub struct SectorBuilder<T> {
     // Prevents FFI consumers from queueing behind long-running seal operations.
-    worker_tx: mpsc::Sender<WorkerTask>,
+    worker_tx: mpsc::Sender<WorkerTask<T>>,
 
     // For additional seal concurrency, add more workers here.
     workers: Vec<Worker>,
 
     // The main worker's queue.
-    scheduler_tx: mpsc::SyncSender<SchedulerTask>,
+    scheduler_tx: mpsc::SyncSender<SchedulerTask<T>>,
 
     // The main worker. Owns all mutable state for the SectorBuilder.
     scheduler: Scheduler,
 }
 
-impl SectorBuilder {
+impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
     // Initialize and return a SectorBuilder from metadata persisted to disk if
     // it exists. Otherwise, initialize and return a fresh SectorBuilder. The
     // metadata key is equal to the prover_id.
@@ -47,7 +47,7 @@ impl SectorBuilder {
         sealed_sector_dir: impl AsRef<Path>,
         staged_sector_dir: impl AsRef<Path>,
         max_num_staged_sectors: u8,
-    ) -> Result<SectorBuilder> {
+    ) -> Result<SectorBuilder<R>> {
         ensure_parameter_cache_hydrated(sector_class)?;
 
         // Configure the scheduler's rendezvous channel.
@@ -116,12 +116,12 @@ impl SectorBuilder {
     pub fn add_piece(
         &self,
         piece_key: String,
+        piece_file: R,
         piece_bytes_amount: u64,
-        piece_path: String,
         store_until: SecondsSinceEpoch,
     ) -> Result<SectorId> {
         log_unrecov(self.run_blocking(|tx| {
-            SchedulerTask::AddPiece(piece_key, piece_bytes_amount, piece_path, store_until, tx)
+            SchedulerTask::AddPiece(piece_key, piece_bytes_amount, piece_file, store_until, tx)
         }))
     }
 
@@ -168,7 +168,7 @@ impl SectorBuilder {
     }
 
     // Run a task, blocking on the return channel.
-    fn run_blocking<T, F: FnOnce(mpsc::SyncSender<T>) -> SchedulerTask>(
+    fn run_blocking<T, F: FnOnce(mpsc::SyncSender<T>) -> SchedulerTask<R>>(
         &self,
         with_sender: F,
     ) -> T {
@@ -183,7 +183,7 @@ impl SectorBuilder {
     }
 }
 
-impl Drop for SectorBuilder {
+impl<T> Drop for SectorBuilder<T> {
     fn drop(&mut self) {
         // Shut down main worker and sealers, too.
         let _ = self
@@ -284,7 +284,7 @@ pub mod tests {
 
         let nonsense_sector_class = SectorClass(SectorSize(32), PoRepProofPartitions(123));
 
-        let result = SectorBuilder::init_from_metadata(
+        let result = SectorBuilder::<std::fs::File>::init_from_metadata(
             nonsense_sector_class,
             SectorId::from(0),
             temp_dir.clone(),

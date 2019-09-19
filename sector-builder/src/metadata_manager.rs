@@ -138,15 +138,15 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
         &mut self,
         piece_key: String,
         piece_bytes_amount: u64,
-        piece_path: String,
+        piece_file: impl std::io::Read,
         store_until: SecondsSinceEpoch,
     ) -> Result<(SectorId, Vec<SealTaskPrototype>)> {
         let destination_sector_id = helpers::add_piece(
             &self.sector_store,
             &mut self.state.staged,
-            piece_key,
             piece_bytes_amount,
-            piece_path,
+            piece_key,
+            piece_file,
             store_until,
         )?;
 

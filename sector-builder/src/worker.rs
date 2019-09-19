@@ -36,7 +36,7 @@ pub struct SealTaskPrototype {
     pub(crate) staged_sector_path: PathBuf,
 }
 
-pub enum WorkerTask {
+pub enum WorkerTask<T> {
     Seal {
         piece_lens: Vec<UnpaddedBytesAmount>,
         porep_config: PoRepConfig,
@@ -44,7 +44,7 @@ pub enum WorkerTask {
         sealed_sector_path: PathBuf,
         sector_id: SectorId,
         staged_sector_path: PathBuf,
-        done_tx: mpsc::SyncSender<SchedulerTask>,
+        done_tx: mpsc::SyncSender<SchedulerTask<T>>,
     },
     Unseal {
         porep_config: PoRepConfig,
@@ -54,16 +54,16 @@ pub enum WorkerTask {
         piece_start_byte: UnpaddedByteIndex,
         piece_len: UnpaddedBytesAmount,
         caller_done_tx: mpsc::SyncSender<Result<Vec<u8>>>,
-        done_tx: mpsc::SyncSender<SchedulerTask>,
+        done_tx: mpsc::SyncSender<SchedulerTask<T>>,
     },
     Shutdown,
 }
 
-impl WorkerTask {
+impl<T> WorkerTask<T> {
     pub fn from_seal_proto(
         proto: SealTaskPrototype,
-        done_tx: mpsc::SyncSender<SchedulerTask>,
-    ) -> WorkerTask {
+        done_tx: mpsc::SyncSender<SchedulerTask<T>>,
+    ) -> WorkerTask<T> {
         let SealTaskPrototype {
             piece_lens,
             porep_config,
@@ -87,8 +87,8 @@ impl WorkerTask {
     pub fn from_unseal_proto(
         proto: UnsealTaskPrototype,
         caller_done_tx: mpsc::SyncSender<Result<Vec<u8>>>,
-        done_tx: mpsc::SyncSender<SchedulerTask>,
-    ) -> WorkerTask {
+        done_tx: mpsc::SyncSender<SchedulerTask<T>>,
+    ) -> WorkerTask<T> {
         let UnsealTaskPrototype {
             porep_config,
             source_path,
@@ -112,9 +112,9 @@ impl WorkerTask {
 }
 
 impl Worker {
-    pub fn start(
+    pub fn start<T: 'static + Send>(
         id: usize,
-        seal_task_rx: Arc<Mutex<mpsc::Receiver<WorkerTask>>>,
+        seal_task_rx: Arc<Mutex<mpsc::Receiver<WorkerTask<T>>>>,
         prover_id: [u8; 31],
     ) -> Worker {
         let thread = thread::spawn(move || loop {

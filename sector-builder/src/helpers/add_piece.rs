@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::iter::Iterator;
 
 use filecoin_proofs::pieces::{
@@ -15,9 +14,9 @@ use storage_proofs::sector::SectorId;
 pub fn add_piece<S: SectorStore>(
     sector_store: &S,
     mut staged_state: &mut StagedState,
-    piece_key: String,
     piece_bytes_amount: u64,
-    piece_path: String,
+    piece_key: String,
+    piece_file: impl std::io::Read,
     _store_until: SecondsSinceEpoch,
 ) -> Result<SectorId> {
     let sector_mgr = sector_store.manager();
@@ -44,7 +43,7 @@ pub fn add_piece<S: SectorStore>(
         let piece_lengths: Vec<_> = s.pieces.iter().map(|p| p.num_bytes).collect();
 
         let (expected_num_bytes_written, mut chain) =
-            get_aligned_source(File::open(piece_path)?, &piece_lengths, piece_bytes_len);
+            get_aligned_source(piece_file, &piece_lengths, piece_bytes_len);
 
         sector_store
             .manager()
