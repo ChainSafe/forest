@@ -101,7 +101,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
             sector_size,
         };
 
-        let scheduler = Scheduler::start(scheduler_tx.clone(), scheduler_rx, worker_tx.clone(), m);
+        let scheduler = Scheduler::start(scheduler_tx.clone(), scheduler_rx, worker_tx.clone(), m)?;
 
         Ok(SectorBuilder {
             scheduler_tx,

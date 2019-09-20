@@ -200,9 +200,25 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
     }
 
     // Produces a vector containing metadata for all staged sectors that this
-    // SectorBuilder knows about.
-    pub fn get_staged_sectors(&self) -> Result<Vec<StagedSectorMetadata>> {
-        Ok(self.state.staged.sectors.values().cloned().collect())
+    // SectorBuilder knows about. If a sealing status is provided, return only
+    // the staged sector metadata with matching status.
+    pub fn get_staged_sector_filtered(
+        &self,
+        target_status: Option<SealStatus>,
+    ) -> Vec<StagedSectorMetadata> {
+        self.state
+            .staged
+            .sectors
+            .values()
+            .filter(|meta| {
+                if let Some(ref s) = target_status {
+                    s == &meta.seal_status
+                } else {
+                    true
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     // Read the raw (without bit-padding) bytes from the provided path into a
@@ -318,53 +334,58 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
         );
 
         let mut to_seal: Vec<SealTaskPrototype> = Default::default();
-
-        // Mark the to-be-sealed sectors as no longer accepting data and then
-        // schedule sealing.
         for sector_id in to_be_sealed {
-            let mut staged_sector = staged_state
-                .sectors
-                .get_mut(&sector_id)
-                .ok_or_else(|| err_unrecov(format!("missing sector id={:?}", sector_id)))?;
-
-            // Provision a new sealed sector access through the manager.
-            let sealed_sector_access = self
-                .sector_store
-                .manager()
-                .new_sealed_sector_access(staged_sector.sector_id)
-                .map_err(failure::Error::from)?;
-
-            let sealed_sector_path = self
-                .sector_store
-                .manager()
-                .sealed_sector_path(&sealed_sector_access);
-
-            let staged_sector_path = self
-                .sector_store
-                .manager()
-                .staged_sector_path(&staged_sector.sector_access);
-
-            let piece_lens = staged_sector
-                .pieces
-                .iter()
-                .map(|p| p.num_bytes)
-                .collect::<Vec<UnpaddedBytesAmount>>();
-
-            // mutate staged sector state such that we don't try to write any
-            // more pieces to it
-            staged_sector.seal_status = SealStatus::Sealing;
-
-            to_seal.push(SealTaskPrototype {
-                piece_lens,
-                porep_config: self.sector_store.proofs_config().porep_config(),
-                sealed_sector_access,
-                sealed_sector_path,
-                sector_id,
-                staged_sector_path,
-            });
+            to_seal.push(self.create_seal_task_proto(sector_id)?);
         }
 
         Ok(to_seal)
+    }
+
+    // creates a seal task prototype for the provided sector id and modifies
+    // metadata to reflect the fact that it's about to be sealed
+    pub fn create_seal_task_proto(&mut self, sector_id: SectorId) -> Result<SealTaskPrototype> {
+        let staged_state = &mut self.state.staged;
+
+        let mut staged_sector = staged_state
+            .sectors
+            .get_mut(&sector_id)
+            .ok_or_else(|| err_unrecov(format!("missing sector id={:?}", sector_id)))?;
+
+        // Provision a new sealed sector access through the manager.
+        let sealed_sector_access = self
+            .sector_store
+            .manager()
+            .new_sealed_sector_access(staged_sector.sector_id)
+            .map_err(failure::Error::from)?;
+
+        let sealed_sector_path = self
+            .sector_store
+            .manager()
+            .sealed_sector_path(&sealed_sector_access);
+
+        let staged_sector_path = self
+            .sector_store
+            .manager()
+            .staged_sector_path(&staged_sector.sector_access);
+
+        let piece_lens = staged_sector
+            .pieces
+            .iter()
+            .map(|p| p.num_bytes)
+            .collect::<Vec<UnpaddedBytesAmount>>();
+
+        // mutate staged sector state such that we don't try to write any
+        // more pieces to it
+        staged_sector.seal_status = SealStatus::Sealing;
+
+        Ok(SealTaskPrototype {
+            piece_lens,
+            porep_config: self.sector_store.proofs_config().porep_config(),
+            sealed_sector_access,
+            sealed_sector_path,
+            sector_id,
+            staged_sector_path,
+        })
     }
 
     // Create and persist metadata snapshot.

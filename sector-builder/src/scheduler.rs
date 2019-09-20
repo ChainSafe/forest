@@ -10,7 +10,7 @@ use crate::error::Result;
 use crate::kv_store::KeyValueStore;
 use crate::metadata::{SealStatus, StagedSectorMetadata};
 use crate::store::SectorStore;
-use crate::worker::WorkerTask;
+use crate::worker::{SealTaskPrototype, WorkerTask};
 use crate::{GetSealedSectorResult, SecondsSinceEpoch, SectorMetadataManager, UnpaddedBytesAmount};
 
 const FATAL_NORECV: &str = "could not receive task";
@@ -66,7 +66,25 @@ impl Scheduler {
         scheduler_rx: mpsc::Receiver<SchedulerTask<U>>,
         worker_tx: mpsc::Sender<WorkerTask<U>>,
         mut m: SectorMetadataManager<T, S>,
-    ) -> Scheduler {
+    ) -> Result<Scheduler> {
+        // If a previous instance of the SectorBuilder was shut down mid-seal,
+        // its metadata store will contain staged sectors who are still
+        // "Sealing." If we do have any of those when we start the Scheduler,
+        // we should immediately restart sealing.
+        //
+        // For more information, see rust-fil-sector-builder/17.
+        let protos: Result<Vec<SealTaskPrototype>> = m
+            .get_staged_sector_filtered(Some(SealStatus::Sealing))
+            .into_iter()
+            .map(|meta| m.create_seal_task_proto(meta.sector_id))
+            .collect();
+
+        for p in protos? {
+            worker_tx
+                .send(WorkerTask::from_seal_proto(p, scheduler_tx.clone()))
+                .expects(FATAL_NOSEND);
+        }
+
         let thread = thread::spawn(move || {
             loop {
                 let task = scheduler_rx.recv().expects(FATAL_NORECV);
@@ -113,7 +131,8 @@ impl Scheduler {
                             .expects(FATAL_NOSEND);
                     }
                     SchedulerTask::GetStagedSectors(tx) => {
-                        tx.send(m.get_staged_sectors()).expect(FATAL_NOSEND);
+                        tx.send(Ok(m.get_staged_sector_filtered(None)))
+                            .expect(FATAL_NOSEND);
                     }
                     SchedulerTask::SealAllStagedSectors(tx) => match m.seal_all_staged_sectors() {
                         Ok(protos) => {
@@ -145,8 +164,8 @@ impl Scheduler {
             }
         });
 
-        Scheduler {
+        Ok(Scheduler {
             thread: Some(thread),
-        }
+        })
     }
 }
