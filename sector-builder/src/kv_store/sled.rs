@@ -17,6 +17,7 @@ impl KeyValueStore for SledKvs {
 
     fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
         self.db.set(key, value)?;
+        let _ = self.db.flush()?;
         Ok(())
     }
 
