@@ -179,13 +179,18 @@ impl<T: KeyValueStore, U: SectorStore, V: 'static + Send + std::io::Read> TaskHa
             }
             SchedulerTask::SealSector(sector_id, seal_ticket, tx) => {
                 let p = |x: &StagedSectorMetadata| {
-                    x.seal_status.is_ready_for_sealing() && x.sector_id == sector_id
+                    x.sector_id == sector_id
+                        && match x.seal_status {
+                            SealStatus::ReadyForSealing => true,
+                            SealStatus::Pending => true,
+                            _ => false,
+                        }
                 };
 
                 let f = |xs: &[SealTaskPrototype]| {
                     if xs.len() != 1 {
                         return Some(format_err!(
-                            "found no staged sector with id={} in ReadyForSealing state (is it already sealing?)",
+                            "found no staged sector with id={} in ReadyForSealing or Pending state (is it already sealing?)",
                             sector_id
                         ));
                     }
