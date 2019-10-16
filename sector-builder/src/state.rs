@@ -7,7 +7,6 @@ use crate::metadata::{SealedSectorMetadata, StagedSectorMetadata};
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct StagedState {
-    pub sector_id_nonce: u64,
     pub sectors: HashMap<SectorId, StagedSectorMetadata>,
 }
 
@@ -18,6 +17,7 @@ pub struct SealedState {
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct SectorBuilderState {
+    pub last_committed_sector_id: SectorId,
     pub staged: StagedState,
     pub sealed: SealedState,
 }
@@ -25,8 +25,8 @@ pub struct SectorBuilderState {
 impl SectorBuilderState {
     pub fn new(last_committed_sector_id: SectorId) -> SectorBuilderState {
         SectorBuilderState {
+            last_committed_sector_id,
             staged: StagedState {
-                sector_id_nonce: u64::from(last_committed_sector_id),
                 sectors: Default::default(),
             },
             sealed: Default::default(),

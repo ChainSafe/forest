@@ -71,7 +71,7 @@ mod tests {
     use std::thread;
 
     use filecoin_proofs::constants::SECTOR_SIZE_ONE_KIB;
-    use filecoin_proofs::{FrSafe, PrivateReplicaInfo, PublicReplicaInfo, SealOutput};
+    use filecoin_proofs::{PrivateReplicaInfo, PublicReplicaInfo, SealOutput};
     use rand::{thread_rng, Rng};
     use tempfile::NamedTempFile;
 
@@ -83,7 +83,8 @@ mod tests {
         SectorClass(SectorSize(SECTOR_SIZE_ONE_KIB), PoRepProofPartitions(2));
 
     struct Harness<S: SectorStore> {
-        prover_id: FrSafe,
+        prover_id: [u8; 32],
+        seal_ticket: [u8; 32],
         seal_output: SealOutput,
         sealed_access: String,
         sector_id: SectorId,
@@ -120,7 +121,8 @@ mod tests {
             .new_sealed_sector_access(SectorId::from(0x00000000fffffffe))
             .expect("could not create unseal access");
 
-        let prover_id = [2; 31];
+        let prover_id = [2u8; 32];
+        let seal_ticket = [0u8; 32];
         let sector_id = SectorId::from(0);
 
         let mut written_contents: Vec<Vec<u8>> = Default::default();
@@ -156,8 +158,9 @@ mod tests {
             PoRepConfig::from(sector_class),
             mgr.staged_sector_path(&staged_access),
             mgr.sealed_sector_path(&sealed_access),
-            &prover_id,
+            prover_id,
             sector_id,
+            seal_ticket,
             &[],
         )
         .expect("failed to seal");
@@ -165,7 +168,7 @@ mod tests {
         let SealOutput {
             comm_r,
             comm_d,
-            comm_r_star,
+            p_aux: _,
             proof,
             comm_ps: _,
             piece_inclusion_proofs: _,
@@ -177,9 +180,9 @@ mod tests {
                 PoRepConfig::from(sector_class),
                 comm_r,
                 comm_d,
-                comm_r_star,
-                &prover_id,
+                prover_id,
                 sector_id,
+                seal_ticket,
                 &proof,
             )
             .expect("failed to run verify_seal");
@@ -199,8 +202,10 @@ mod tests {
                     PoRepConfig::from(sector_class),
                     mgr.sealed_sector_path(&sealed_access),
                     mgr.staged_sector_path(&unseal_access),
-                    &prover_id,
+                    prover_id,
                     sector_id.clone(),
+                    comm_d,
+                    seal_ticket,
                     UnpaddedByteIndex(0),
                     cfg.max_unsealed_bytes_per_sector(),
                 )
@@ -212,6 +217,7 @@ mod tests {
             prover_id,
             seal_output,
             sealed_access,
+            seal_ticket,
             sector_id,
             store,
             unseal_access,
@@ -246,10 +252,10 @@ mod tests {
             let is_valid = filecoin_proofs::verify_seal(
                 h.store.proofs_config().porep_config(),
                 h.seal_output.comm_d,
-                h.seal_output.comm_r_star,
                 h.seal_output.comm_r,
-                &h.prover_id,
+                h.prover_id,
                 h.sector_id,
+                h.seal_ticket,
                 &h.seal_output.proof,
             )
             .expect("failed to run verify_seal");
@@ -280,11 +286,19 @@ mod tests {
         let private_replica_info = vec![
             (
                 SectorId::from(0),
-                PrivateReplicaInfo::new(sealed_sector_path.clone(), comm_r),
+                PrivateReplicaInfo::new(
+                    sealed_sector_path.clone(),
+                    comm_r,
+                    seal_output.p_aux.clone(),
+                ),
             ),
             (
                 SectorId::from(1),
-                PrivateReplicaInfo::new(sealed_sector_path.clone(), comm_r),
+                PrivateReplicaInfo::new(
+                    sealed_sector_path.clone(),
+                    comm_r,
+                    seal_output.p_aux.clone(),
+                ),
             ),
         ]
         .into_iter()
@@ -425,8 +439,10 @@ mod tests {
                     h.store.proofs_config().porep_config(),
                     &sealed_sector_path,
                     &unsealed_sector_path,
-                    &h.prover_id,
+                    h.prover_id,
                     h.sector_id,
+                    h.seal_output.comm_d,
+                    h.seal_ticket,
                     UnpaddedByteIndex(offset),
                     UnpaddedBytesAmount(range_length),
                 )
@@ -491,8 +507,10 @@ mod tests {
             h.store.proofs_config().porep_config(),
             sealed_sector_path,
             unsealed_sector_path.clone(),
-            &h.prover_id,
+            h.prover_id,
             h.sector_id,
+            h.seal_output.comm_d,
+            h.seal_ticket,
             UnpaddedByteIndex(0),
             UnpaddedBytesAmount((contents_a.len() + contents_b.len()) as u64),
         )

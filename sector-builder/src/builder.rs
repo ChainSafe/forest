@@ -18,12 +18,13 @@ use crate::scheduler::{PerformHealthCheck, Scheduler, SchedulerTask};
 use crate::state::SectorBuilderState;
 use crate::worker::*;
 use crate::SectorStore;
+use std::io::Read;
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
 
-pub struct SectorBuilder<T> {
+pub struct SectorBuilder<T: Read + Send> {
     // Prevents FFI consumers from queueing behind long-running seal operations.
-    worker_tx: mpsc::Sender<WorkerTask<T>>,
+    worker_tx: mpsc::Sender<WorkerTask>,
 
     // For additional seal concurrency, add more workers here.
     workers: Vec<Worker>,
@@ -39,11 +40,12 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
     // Initialize and return a SectorBuilder from metadata persisted to disk if
     // it exists. Otherwise, initialize and return a fresh SectorBuilder. The
     // metadata key is equal to the prover_id.
+    #[allow(clippy::too_many_arguments)]
     pub fn init_from_metadata(
         sector_class: SectorClass,
         last_committed_sector_id: SectorId,
         metadata_dir: impl AsRef<Path>,
-        prover_id: [u8; 31],
+        prover_id: [u8; 32],
         sealed_sector_dir: impl AsRef<Path>,
         staged_sector_dir: impl AsRef<Path>,
         max_num_staged_sectors: u8,
@@ -91,7 +93,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         let max_user_bytes_per_staged_sector =
             sector_store.sector_config().max_unsealed_bytes_per_sector();
 
-        let m = SectorMetadataManager {
+        let m = SectorMetadataManager::initialize(
             kv_store,
             sector_store,
             state,
@@ -99,7 +101,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
             max_user_bytes_per_staged_sector,
             prover_id,
             sector_size,
-        };
+        );
 
         let scheduler = Scheduler::start(scheduler_tx.clone(), scheduler_rx, worker_tx.clone(), m)?;
 
@@ -109,6 +111,30 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
             worker_tx,
             workers,
         })
+    }
+
+    /// TODO: document this
+    pub fn resume_seal_sector(&self, sector_id: SectorId) -> Result<SealedSectorMetadata> {
+        log_unrecov(self.run_blocking(|tx| SchedulerTask::ResumeSealSector(sector_id, tx)))
+            .and_then(|x| {
+                x.first()
+                    .cloned()
+                    .ok_or_else(|| format_err!("resume_seal_sector expected one sector"))
+            })
+    }
+
+    /// TODO: document this
+    pub fn seal_sector(
+        &self,
+        sector_id: SectorId,
+        seal_ticket: SealTicket,
+    ) -> Result<SealedSectorMetadata> {
+        log_unrecov(self.run_blocking(|tx| SchedulerTask::SealSector(sector_id, seal_ticket, tx)))
+            .and_then(|x| {
+                x.first()
+                    .cloned()
+                    .ok_or_else(|| format_err!("seal_sector expected one sector"))
+            })
     }
 
     // Stages user piece-bytes for sealing. Note that add_piece calls are
@@ -138,9 +164,13 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         log_unrecov(self.run_blocking(|tx| SchedulerTask::RetrievePiece(piece_key, tx)))
     }
 
-    // For demo purposes. Schedules sealing of all staged sectors.
-    pub fn seal_all_staged_sectors(&self) -> Result<()> {
-        log_unrecov(self.run_blocking(SchedulerTask::SealAllStagedSectors))
+    // For demo purposes. Schedules sealing of all staged sectors, blocking
+    // until complete.
+    pub fn seal_all_staged_sectors(
+        &self,
+        seal_ticket: SealTicket,
+    ) -> Result<Vec<SealedSectorMetadata>> {
+        log_unrecov(self.run_blocking(|tx| SchedulerTask::SealAllStagedSectors(seal_ticket, tx)))
     }
 
     // Returns all sealed sector metadata.
@@ -183,7 +213,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
     }
 }
 
-impl<T> Drop for SectorBuilder<T> {
+impl<T: Read + Send> Drop for SectorBuilder<T> {
     fn drop(&mut self) {
         // Shut down main worker and sealers, too.
         let _ = self
@@ -288,7 +318,7 @@ pub mod tests {
             nonsense_sector_class,
             SectorId::from(0),
             temp_dir.clone(),
-            [0u8; 31],
+            [0u8; 32],
             temp_dir.clone(),
             temp_dir,
             1,

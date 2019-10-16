@@ -29,6 +29,7 @@ mod tests {
     use crate::state::{SealedState, SectorBuilderState, StagedState};
 
     use super::*;
+    use crate::SealTicket;
 
     fn setup() -> SectorBuilderState {
         let mut staged_sectors: HashMap<SectorId, StagedSectorMetadata> = Default::default();
@@ -38,7 +39,10 @@ mod tests {
             SectorId::from(2),
             StagedSectorMetadata {
                 sector_id: SectorId::from(2),
-                seal_status: SealStatus::Sealing,
+                seal_status: SealStatus::Sealing(SealTicket {
+                    block_height: 1,
+                    ticket_bytes: [0u8; 32],
+                }),
                 ..Default::default()
             },
         );
@@ -61,8 +65,8 @@ mod tests {
         );
 
         SectorBuilderState {
+            last_committed_sector_id: 4.into(),
             staged: StagedState {
-                sector_id_nonce: 0,
                 sectors: staged_sectors,
             },
             sealed: SealedState {
@@ -83,7 +87,7 @@ mod tests {
 
         let result = get_seal_status(&staged_state, &sealed_state, SectorId::from(2)).unwrap();
         match result {
-            SealStatus::Sealing => (),
+            SealStatus::Sealing(_) => (),
             _ => panic!("should have been SealStatus::Sealing"),
         }
 

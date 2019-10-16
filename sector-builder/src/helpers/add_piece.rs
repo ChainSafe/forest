@@ -7,13 +7,13 @@ use filecoin_proofs::types::UnpaddedBytesAmount;
 
 use crate::error::*;
 use crate::metadata::{self, SealStatus, SecondsSinceEpoch, StagedSectorMetadata};
-use crate::state::StagedState;
+use crate::state::SectorBuilderState;
 use crate::store::{SectorManager, SectorStore};
 use storage_proofs::sector::SectorId;
 
 pub fn add_piece<S: SectorStore>(
     sector_store: &S,
-    mut staged_state: &mut StagedState,
+    mut sector_builder_state: &mut SectorBuilderState,
     piece_bytes_amount: u64,
     piece_key: String,
     piece_file: impl std::io::Read,
@@ -25,7 +25,8 @@ pub fn add_piece<S: SectorStore>(
     let piece_bytes_len = UnpaddedBytesAmount(piece_bytes_amount);
 
     let opt_dest_sector_id = {
-        let candidates: Vec<StagedSectorMetadata> = staged_state
+        let candidates: Vec<StagedSectorMetadata> = sector_builder_state
+            .staged
             .sectors
             .iter()
             .filter(|(_, v)| v.seal_status == SealStatus::Pending)
@@ -37,9 +38,9 @@ pub fn add_piece<S: SectorStore>(
 
     let dest_sector_id = opt_dest_sector_id
         .ok_or(())
-        .or_else(|_| provision_new_staged_sector(sector_mgr, &mut staged_state))?;
+        .or_else(|_| provision_new_staged_sector(sector_mgr, &mut sector_builder_state))?;
 
-    if let Some(s) = staged_state.sectors.get_mut(&dest_sector_id) {
+    if let Some(s) = sector_builder_state.staged.sectors.get_mut(&dest_sector_id) {
         let piece_lengths: Vec<_> = s.pieces.iter().map(|p| p.num_bytes).collect();
 
         let (expected_num_bytes_written, mut chain) =
@@ -109,12 +110,12 @@ fn compute_destination_sector_id(
 // nonce, and mutates the StagedState.
 fn provision_new_staged_sector(
     sector_manager: &dyn SectorManager,
-    staged_state: &mut StagedState,
+    sector_builder_state: &mut SectorBuilderState,
 ) -> Result<SectorId> {
     let sector_id = {
-        let n = &mut staged_state.sector_id_nonce;
-        *n += 1;
-        SectorId::from(*n)
+        let n = SectorId::from(u64::from(sector_builder_state.last_committed_sector_id) + 1);
+        sector_builder_state.last_committed_sector_id = n;
+        n
     };
 
     let access = sector_manager.new_staging_sector_access(sector_id)?;
@@ -126,7 +127,10 @@ fn provision_new_staged_sector(
         seal_status: SealStatus::Pending,
     };
 
-    staged_state.sectors.insert(meta.sector_id, meta.clone());
+    sector_builder_state
+        .staged
+        .sectors
+        .insert(meta.sector_id, meta.clone());
 
     Ok(sector_id)
 }

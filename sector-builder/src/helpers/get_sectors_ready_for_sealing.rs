@@ -45,6 +45,7 @@ mod tests {
 
     use crate::metadata::{PieceMetadata, StagedSectorMetadata};
     use crate::state::StagedState;
+    use crate::SealTicket;
     use storage_proofs::sector::SectorId;
 
     fn make_meta(
@@ -56,7 +57,10 @@ mod tests {
         let seal_status = if accepting_data {
             SealStatus::Pending
         } else {
-            SealStatus::Sealing
+            SealStatus::Sealing(SealTicket {
+                block_height: 1,
+                ticket_bytes: [0u8; 32],
+            })
         };
 
         m.insert(
@@ -86,10 +90,7 @@ mod tests {
         make_meta(&mut m, SectorId::from(200), 0, true);
         make_meta(&mut m, SectorId::from(201), 0, true);
 
-        let state = StagedState {
-            sector_id_nonce: 100,
-            sectors: m,
-        };
+        let state = StagedState { sectors: m };
 
         let to_seal: Vec<SectorId> =
             get_sectors_ready_for_sealing(&state, UnpaddedBytesAmount(127), 10, true)
@@ -106,10 +107,7 @@ mod tests {
         make_meta(&mut m, SectorId::from(200), 127, true);
         make_meta(&mut m, SectorId::from(201), 0, true);
 
-        let state = StagedState {
-            sector_id_nonce: 100,
-            sectors: m,
-        };
+        let state = StagedState { sectors: m };
 
         let to_seal: Vec<SectorId> =
             get_sectors_ready_for_sealing(&state, UnpaddedBytesAmount(127), 10, false)
@@ -128,10 +126,7 @@ mod tests {
         make_meta(&mut m, SectorId::from(202), 0, true);
         make_meta(&mut m, SectorId::from(203), 0, true);
 
-        let state = StagedState {
-            sector_id_nonce: 100,
-            sectors: m,
-        };
+        let state = StagedState { sectors: m };
 
         let to_seal: Vec<SectorId> =
             get_sectors_ready_for_sealing(&state, UnpaddedBytesAmount(127), 2, false)
@@ -150,10 +145,7 @@ mod tests {
         make_meta(&mut m, SectorId::from(202), 0, true);
         make_meta(&mut m, SectorId::from(203), 0, true);
 
-        let state = StagedState {
-            sector_id_nonce: 100,
-            sectors: m,
-        };
+        let state = StagedState { sectors: m };
 
         let to_seal: Vec<SectorId> =
             get_sectors_ready_for_sealing(&state, UnpaddedBytesAmount(127), 4, false)
@@ -172,10 +164,7 @@ mod tests {
         make_meta(&mut m, SectorId::from(202), 127, false);
         make_meta(&mut m, SectorId::from(203), 127, false);
 
-        let state = StagedState {
-            sector_id_nonce: 100,
-            sectors: m,
-        };
+        let state = StagedState { sectors: m };
 
         let to_seal: Vec<SectorId> =
             get_sectors_ready_for_sealing(&state, UnpaddedBytesAmount(127), 4, false)

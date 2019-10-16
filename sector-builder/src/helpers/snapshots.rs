@@ -6,12 +6,12 @@ use crate::kv_store::KeyValueStore;
 use crate::state::*;
 
 pub struct SnapshotKey {
-    prover_id: [u8; 31],
+    prover_id: [u8; 32],
     sector_size: PaddedBytesAmount,
 }
 
 impl SnapshotKey {
-    pub fn new(prover_id: [u8; 31], sector_size: PaddedBytesAmount) -> SnapshotKey {
+    pub fn new(prover_id: [u8; 32], sector_size: PaddedBytesAmount) -> SnapshotKey {
         SnapshotKey {
             prover_id,
             sector_size,
@@ -82,14 +82,12 @@ mod tests {
 
             m.insert(SectorId::from(123), Default::default());
 
-            let staged_state = StagedState {
-                sector_id_nonce: 100,
-                sectors: m,
-            };
+            let staged_state = StagedState { sectors: m };
 
             let sealed_state = Default::default();
 
             SectorBuilderState {
+                last_committed_sector_id: 100.into(),
                 staged: staged_state,
                 sealed: sealed_state,
             }
@@ -101,22 +99,20 @@ mod tests {
 
             m.insert(SectorId::from(666), Default::default());
 
-            let staged_state = StagedState {
-                sector_id_nonce: 102,
-                sectors: m,
-            };
+            let staged_state = StagedState { sectors: m };
 
             let sealed_state = Default::default();
 
             SectorBuilderState {
+                last_committed_sector_id: 102.into(),
                 staged: staged_state,
                 sealed: sealed_state,
             }
         };
 
-        let key_a = SnapshotKey::new([0; 31], PaddedBytesAmount(1024));
-        let key_b = SnapshotKey::new([0; 31], PaddedBytesAmount(1111));
-        let key_c = SnapshotKey::new([1; 31], PaddedBytesAmount(1024));
+        let key_a = SnapshotKey::new([0; 32], PaddedBytesAmount(1024));
+        let key_b = SnapshotKey::new([0; 32], PaddedBytesAmount(1111));
+        let key_c = SnapshotKey::new([1; 32], PaddedBytesAmount(1024));
 
         // persist both snapshots
         let _ = persist_snapshot(&kv_store, &key_a, &snapshot_a).unwrap();
