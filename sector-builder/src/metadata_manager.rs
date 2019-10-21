@@ -95,10 +95,25 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
                     .map(str::to_string)
                     .unwrap();
 
+                let cache_dir = self
+                    .sector_store
+                    .manager()
+                    .cache_path(&sector.sector_access);
+
                 let info = if fault_set.contains(&sector.sector_id) {
-                    PrivateReplicaInfo::new_faulty(path_str, sector.comm_r, sector.p_aux.clone())
+                    PrivateReplicaInfo::new_faulty(
+                        path_str,
+                        sector.comm_r,
+                        sector.p_aux.clone(),
+                        cache_dir,
+                    )
                 } else {
-                    PrivateReplicaInfo::new(path_str, sector.comm_r, sector.p_aux.clone())
+                    PrivateReplicaInfo::new(
+                        path_str,
+                        sector.comm_r,
+                        sector.p_aux.clone(),
+                        cache_dir,
+                    )
                 };
 
                 replicas.insert(sector.sector_id, info);
@@ -107,8 +122,8 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
 
         GeneratePoStTaskPrototype {
             challenge_seed: *challenge_seed,
-            private_replicas: replicas,
             post_config: self.sector_store.proofs_config().post_config(),
+            private_replicas: replicas,
         }
     }
 
@@ -270,21 +285,17 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
 
         for staged_sector in self.get_staged_sectors_filtered(predicate) {
             // Provision a new sealed sector access through the manager.
-            let sealed_sector_access = self
-                .sector_store
-                .manager()
+            let mgr = self.sector_store.manager();
+
+            let sealed_sector_access = mgr
                 .new_sealed_sector_access(staged_sector.sector_id)
                 .map_err(failure::Error::from)?;
 
-            let sealed_sector_path = self
-                .sector_store
-                .manager()
-                .sealed_sector_path(&sealed_sector_access);
+            let sealed_sector_path = mgr.sealed_sector_path(&sealed_sector_access);
 
-            let staged_sector_path = self
-                .sector_store
-                .manager()
-                .staged_sector_path(&staged_sector.sector_access);
+            let staged_sector_path = mgr.staged_sector_path(&staged_sector.sector_access);
+
+            let cache_dir = mgr.cache_path(&staged_sector.sector_access);
 
             let piece_lens = staged_sector
                 .pieces
@@ -299,6 +310,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
             };
 
             protos.push(SealTaskPrototype {
+                cache_dir,
                 piece_lens,
                 porep_config: self.sector_store.proofs_config().porep_config(),
                 seal_ticket,

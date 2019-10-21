@@ -41,13 +41,14 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
     // it exists. Otherwise, initialize and return a fresh SectorBuilder. The
     // metadata key is equal to the prover_id.
     #[allow(clippy::too_many_arguments)]
-    pub fn init_from_metadata(
+    pub fn init_from_metadata<P: AsRef<Path>>(
         sector_class: SectorClass,
         last_committed_sector_id: SectorId,
-        metadata_dir: impl AsRef<Path>,
+        metadata_dir: P,
         prover_id: [u8; 32],
-        sealed_sector_dir: impl AsRef<Path>,
-        staged_sector_dir: impl AsRef<Path>,
+        sealed_sector_dir: P,
+        staged_sector_dir: P,
+        sector_cache_root: P,
         max_num_staged_sectors: u8,
     ) -> Result<SectorBuilder<R>> {
         ensure_parameter_cache_hydrated(sector_class)?;
@@ -71,12 +72,18 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
 
         // Initialize the key/value store in which we store metadata
         // snapshots.
-        let kv_store = SledKvs::initialize(metadata_dir).expect("failed to initialize K/V store");
+        let kv_store =
+            SledKvs::initialize(metadata_dir.as_ref()).expect("failed to initialize K/V store");
 
         // Initialize a SectorStore and wrap it in an Arc so we can access it
         // from multiple threads. Our implementation assumes that the
         // SectorStore is safe for concurrent access.
-        let sector_store = new_sector_store(sector_class, sealed_sector_dir, staged_sector_dir);
+        let sector_store = new_sector_store(
+            sector_class,
+            sealed_sector_dir,
+            staged_sector_dir,
+            sector_cache_root,
+        );
 
         // Build the scheduler's initial state. If available, we
         // reconstitute this state from persisted metadata. If not, we
@@ -319,6 +326,7 @@ pub mod tests {
             SectorId::from(0),
             temp_dir.clone(),
             [0u8; 32],
+            temp_dir.clone(),
             temp_dir.clone(),
             temp_dir,
             1,

@@ -33,13 +33,14 @@ pub enum SectorAccessProto {
 pub struct DiskManager {
     staging_path: PathBuf,
     sealed_path: PathBuf,
+    cache_root: PathBuf,
 
     // A sector ID presentation with a defined protocol
     sector_access_proto: SectorAccessProto,
     sector_segment_id: u32,
 }
 
-fn sector_path<P: AsRef<Path>>(sector_dir: P, access: &str) -> PathBuf {
+fn join_root<P: AsRef<Path>>(sector_dir: P, access: &str) -> PathBuf {
     let mut file_path = PathBuf::from(sector_dir.as_ref());
     file_path.push(access);
 
@@ -48,11 +49,15 @@ fn sector_path<P: AsRef<Path>>(sector_dir: P, access: &str) -> PathBuf {
 
 impl SectorManager for DiskManager {
     fn sealed_sector_path(&self, access: &str) -> PathBuf {
-        sector_path(&self.sealed_path, access)
+        join_root(&self.sealed_path, access)
     }
 
     fn staged_sector_path(&self, access: &str) -> PathBuf {
-        sector_path(&self.staging_path, access)
+        join_root(&self.staging_path, access)
+    }
+
+    fn cache_path(&self, access: &str) -> PathBuf {
+        join_root(&self.cache_root, access)
     }
 
     fn new_sealed_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr> {
@@ -60,7 +65,17 @@ impl SectorManager for DiskManager {
     }
 
     fn new_staging_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr> {
-        self.new_sector_access(&Path::new(&self.staging_path), sector_id)
+        let access_name = self.convert_sector_id_to_access_name(sector_id)?;
+
+        let mut p: PathBuf = Default::default();
+        p.push(&self.cache_root);
+        p.push(access_name);
+
+        create_dir_all(&p)
+            .map_err(|err| {
+                SectorManagerErr::ReceiverError(format!("could not create cache dir: {:?}", err))
+            })
+            .and_then(|_| self.new_sector_access(&Path::new(&self.staging_path), sector_id))
     }
 
     fn num_unsealed_bytes(&self, access: &str) -> Result<u64, SectorManagerErr> {
@@ -348,10 +363,11 @@ impl SectorStore for ConcreteSectorStore {
     }
 }
 
-pub fn new_sector_store(
+pub fn new_sector_store<P: AsRef<Path>>(
     sector_class: SectorClass,
-    sealed_sector_dir: impl AsRef<Path>,
-    staged_sector_dir: impl AsRef<Path>,
+    sealed_sector_dir: P,
+    staged_sector_dir: P,
+    cache_root: P,
 ) -> ConcreteSectorStore {
     // By default, support on-000000000000-dddddddddd format
     let default_access_proto = SectorAccessProto::Original(0);
@@ -359,6 +375,7 @@ pub fn new_sector_store(
     let manager = Box::new(DiskManager {
         staging_path: staged_sector_dir.as_ref().to_owned(),
         sealed_path: sealed_sector_dir.as_ref().to_owned(),
+        cache_root: cache_root.as_ref().to_owned(),
         sector_access_proto: default_access_proto,
         sector_segment_id: 0u32,
     });
@@ -420,6 +437,7 @@ pub mod tests {
     fn create_sector_store(sector_class: SectorClass) -> impl SectorStore {
         let staging_path = tempfile::tempdir().unwrap().path().to_owned();
         let sealed_path = tempfile::tempdir().unwrap().path().to_owned();
+        let cache_root = tempfile::tempdir().unwrap().path().to_owned();
 
         create_dir_all(&staging_path).expect("failed to create staging dir");
         create_dir_all(&sealed_path).expect("failed to create sealed dir");
@@ -428,6 +446,7 @@ pub mod tests {
             sector_class,
             sealed_path.to_str().unwrap().to_owned(),
             staging_path.to_str().unwrap().to_owned(),
+            cache_root.to_str().unwrap().to_owned(),
         )
     }
 

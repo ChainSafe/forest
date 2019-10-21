@@ -29,6 +29,9 @@ pub trait SectorManager: Sync + Send {
     /// produce the path to the file associated with staged sector access-token
     fn staged_sector_path(&self, access: &str) -> PathBuf;
 
+    /// produce the path to the cache associated with sector access-token
+    fn cache_path(&self, access: &str) -> PathBuf;
+
     /// provisions a new sealed sector with the sector_id and reports the corresponding access
     fn new_sealed_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr>;
 
@@ -58,7 +61,7 @@ pub trait SectorManager: Sync + Send {
     ) -> Result<Vec<u8>, SectorManagerErr>;
 }
 
-pub trait SectorStore: Sync + Send + Sized {
+pub trait SectorStore: Send {
     fn sector_config(&self) -> &dyn SectorConfig;
     fn proofs_config(&self) -> &dyn ProofsConfig;
     fn manager(&self) -> &dyn SectorManager;
@@ -109,21 +112,24 @@ mod tests {
         let cfg = store.sector_config();
         let max: u64 = store.sector_config().max_unsealed_bytes_per_sector().into();
 
+        let sector_id = SectorId::from(0x0000000012345678);
+
         let staged_access = mgr
-            .new_staging_sector_access(SectorId::from(0x0000000012345678))
+            .new_staging_sector_access(sector_id)
             .expect("could not create staging access");
 
         let sealed_access = mgr
-            .new_sealed_sector_access(SectorId::from(0x0000000087654321))
+            .new_sealed_sector_access(sector_id)
             .expect("could not create sealed access");
 
         let unseal_access = mgr
-            .new_sealed_sector_access(SectorId::from(0x00000000fffffffe))
+            .new_sealed_sector_access(sector_id)
             .expect("could not create unseal access");
+
+        let cache_dir = mgr.cache_path(&sealed_access);
 
         let prover_id = [2u8; 32];
         let seal_ticket = [0u8; 32];
-        let sector_id = SectorId::from(0);
 
         let mut written_contents: Vec<Vec<u8>> = Default::default();
         for bytes_amt in bytes_amts {
@@ -156,6 +162,7 @@ mod tests {
 
         let seal_output = filecoin_proofs::seal(
             PoRepConfig::from(sector_class),
+            cache_dir,
             mgr.staged_sector_path(&staged_access),
             mgr.sealed_sector_path(&sealed_access),
             prover_id,
@@ -228,6 +235,7 @@ mod tests {
     fn create_sector_store(sector_class: SectorClass) -> impl SectorStore {
         let staging_path = tempfile::tempdir().unwrap().path().to_owned();
         let sealed_path = tempfile::tempdir().unwrap().path().to_owned();
+        let cache_root = tempfile::tempdir().unwrap().path().to_owned();
 
         create_dir_all(&staging_path).expect("failed to create staging dir");
         create_dir_all(&sealed_path).expect("failed to create sealed dir");
@@ -236,6 +244,7 @@ mod tests {
             sector_class,
             sealed_path.to_str().unwrap().to_owned(),
             staging_path.to_str().unwrap().to_owned(),
+            cache_root.to_str().unwrap().to_owned(),
         )
     }
 
@@ -283,6 +292,8 @@ mod tests {
             .unwrap()
             .to_string();
 
+        let cache_dir = h.store.manager().cache_path(&h.sealed_access);
+
         let private_replica_info = vec![
             (
                 SectorId::from(0),
@@ -290,6 +301,7 @@ mod tests {
                     sealed_sector_path.clone(),
                     comm_r,
                     seal_output.p_aux.clone(),
+                    cache_dir.clone(),
                 ),
             ),
             (
@@ -298,6 +310,7 @@ mod tests {
                     sealed_sector_path.clone(),
                     comm_r,
                     seal_output.p_aux.clone(),
+                    cache_dir.clone(),
                 ),
             ),
         ]

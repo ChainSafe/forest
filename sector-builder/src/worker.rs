@@ -39,6 +39,7 @@ pub struct GeneratePoStTaskPrototype {
 
 #[derive(Debug, Clone)]
 pub struct SealTaskPrototype {
+    pub(crate) cache_dir: PathBuf,
     pub(crate) piece_lens: Vec<UnpaddedBytesAmount>,
     pub(crate) porep_config: PoRepConfig,
     pub(crate) seal_ticket: SealTicket,
@@ -49,6 +50,7 @@ pub struct SealTaskPrototype {
 }
 
 pub struct SealInput {
+    cache_dir: PathBuf,
     piece_lens: Vec<UnpaddedBytesAmount>,
     porep_config: PoRepConfig,
     seal_ticket: SealTicket,
@@ -95,8 +97,8 @@ impl WorkerTask {
         callback: GeneratePoStCallback,
     ) -> WorkerTask {
         WorkerTask::GeneratePoSt {
-            challenge_seed: proto.challenge_seed,
             callback,
+            challenge_seed: proto.challenge_seed,
             post_config: proto.post_config,
             private_replicas: proto.private_replicas,
         }
@@ -111,6 +113,7 @@ impl WorkerTask {
             seal_inputs: protos
                 .into_iter()
                 .map(|proto| SealInput {
+                    cache_dir: proto.cache_dir,
                     piece_lens: proto.piece_lens,
                     porep_config: proto.porep_config,
                     seal_ticket: proto.seal_ticket,
@@ -176,6 +179,7 @@ impl Worker {
                     for input in seal_inputs {
                         let result = filecoin_proofs::seal(
                             input.porep_config,
+                            &input.cache_dir,
                             &input.staged_sector_path,
                             &input.sealed_sector_path,
                             prover_id,
