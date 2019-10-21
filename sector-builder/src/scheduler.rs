@@ -9,7 +9,6 @@ use crate::error::Result;
 use crate::kv_store::KeyValueStore;
 use crate::metadata::{SealStatus, StagedSectorMetadata};
 use crate::scheduler::SchedulerTask::OnSealMultipleComplete;
-use crate::store::SectorStore;
 use crate::worker::{SealTaskPrototype, WorkerTask};
 use crate::{
     GetSealedSectorResult, SealTicket, SealedSectorMetadata, SecondsSinceEpoch,
@@ -92,13 +91,13 @@ impl<T: Read + Send> SchedulerTask<T> {
     }
 }
 
-struct TaskHandler<T: KeyValueStore, U: SectorStore, V: 'static + Send + std::io::Read> {
-    m: SectorMetadataManager<T, U>,
+struct TaskHandler<T: KeyValueStore, V: 'static + Send + std::io::Read> {
+    m: SectorMetadataManager<T>,
     scheduler_tx: mpsc::SyncSender<SchedulerTask<V>>,
     worker_tx: mpsc::Sender<WorkerTask>,
 }
 
-impl<T: KeyValueStore, U: SectorStore, V: 'static + Send + std::io::Read> TaskHandler<T, U, V> {
+impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
     // the handle method processes a single scheduler task, returning false when
     // it has processed the shutdown task
     fn handle(&mut self, task: SchedulerTask<V>) -> bool {
@@ -277,15 +276,11 @@ impl<T: KeyValueStore, U: SectorStore, V: 'static + Send + std::io::Read> TaskHa
 
 impl Scheduler {
     #[allow(clippy::too_many_arguments)]
-    pub fn start<
-        T: 'static + KeyValueStore,
-        S: 'static + SectorStore,
-        U: 'static + std::io::Read + Send,
-    >(
+    pub fn start<T: 'static + KeyValueStore, U: 'static + std::io::Read + Send>(
         scheduler_tx: mpsc::SyncSender<SchedulerTask<U>>,
         scheduler_rx: mpsc::Receiver<SchedulerTask<U>>,
         worker_tx: mpsc::Sender<WorkerTask>,
-        m: SectorMetadataManager<T, S>,
+        m: SectorMetadataManager<T>,
     ) -> Result<Scheduler> {
         let thread = thread::spawn(move || {
             let mut h = TaskHandler {

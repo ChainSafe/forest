@@ -17,7 +17,6 @@ use crate::metadata_manager::SectorMetadataManager;
 use crate::scheduler::{PerformHealthCheck, Scheduler, SchedulerTask};
 use crate::state::SectorBuilderState;
 use crate::worker::*;
-use crate::SectorStore;
 use std::io::Read;
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
@@ -98,7 +97,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         };
 
         let max_user_bytes_per_staged_sector =
-            sector_store.sector_config().max_unsealed_bytes_per_sector();
+            sector_store.sector_config().max_unsealed_bytes_per_sector;
 
         let m = SectorMetadataManager::initialize(
             kv_store,

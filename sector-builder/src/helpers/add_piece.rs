@@ -5,14 +5,15 @@ use filecoin_proofs::pieces::{
 };
 use filecoin_proofs::types::UnpaddedBytesAmount;
 
+use crate::disk_backed_storage::SectorManager;
 use crate::error::*;
 use crate::metadata::{self, SealStatus, SecondsSinceEpoch, StagedSectorMetadata};
 use crate::state::SectorBuilderState;
-use crate::store::{SectorManager, SectorStore};
+use crate::SectorStore;
 use storage_proofs::sector::SectorId;
 
-pub fn add_piece<S: SectorStore>(
-    sector_store: &S,
+pub fn add_piece(
+    sector_store: &SectorStore,
     mut sector_builder_state: &mut SectorBuilderState,
     piece_bytes_amount: u64,
     piece_key: String,
@@ -20,7 +21,7 @@ pub fn add_piece<S: SectorStore>(
     _store_until: SecondsSinceEpoch,
 ) -> Result<SectorId> {
     let sector_mgr = sector_store.manager();
-    let sector_max = sector_store.sector_config().max_unsealed_bytes_per_sector();
+    let sector_max = sector_store.sector_config().max_unsealed_bytes_per_sector;
 
     let piece_bytes_len = UnpaddedBytesAmount(piece_bytes_amount);
 
@@ -109,7 +110,7 @@ fn compute_destination_sector_id(
 // function; creates a sector access (likely a file), increments the sector id
 // nonce, and mutates the StagedState.
 fn provision_new_staged_sector(
-    sector_manager: &dyn SectorManager,
+    sector_manager: &SectorManager,
     sector_builder_state: &mut SectorBuilderState,
 ) -> Result<SectorId> {
     let sector_id = {

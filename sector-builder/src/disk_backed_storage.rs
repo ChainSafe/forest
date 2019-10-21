@@ -8,7 +8,6 @@ use filecoin_proofs::fr32::{
 use filecoin_proofs::types::*;
 
 use crate::error::SectorManagerErr;
-use crate::store::{ProofsConfig, SectorConfig, SectorManager, SectorStore};
 use storage_proofs::sector::SectorId;
 
 // This is a segmented sectorid expression protocol, to support meaningful sector name on disk
@@ -30,7 +29,7 @@ pub enum SectorAccessProto {
     // Uuid(String, u32),     // to indicate a media with UUID
 }
 
-pub struct DiskManager {
+pub struct SectorManager {
     staging_path: PathBuf,
     sealed_path: PathBuf,
     cache_root: PathBuf,
@@ -47,24 +46,30 @@ fn join_root<P: AsRef<Path>>(sector_dir: P, access: &str) -> PathBuf {
     file_path
 }
 
-impl SectorManager for DiskManager {
-    fn sealed_sector_path(&self, access: &str) -> PathBuf {
+impl SectorManager {
+    pub fn sealed_sector_path(&self, access: &str) -> PathBuf {
         join_root(&self.sealed_path, access)
     }
 
-    fn staged_sector_path(&self, access: &str) -> PathBuf {
+    pub fn staged_sector_path(&self, access: &str) -> PathBuf {
         join_root(&self.staging_path, access)
     }
 
-    fn cache_path(&self, access: &str) -> PathBuf {
+    pub fn cache_path(&self, access: &str) -> PathBuf {
         join_root(&self.cache_root, access)
     }
 
-    fn new_sealed_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr> {
+    pub fn new_sealed_sector_access(
+        &self,
+        sector_id: SectorId,
+    ) -> Result<String, SectorManagerErr> {
         self.new_sector_access(&Path::new(&self.sealed_path), sector_id)
     }
 
-    fn new_staging_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr> {
+    pub fn new_staging_sector_access(
+        &self,
+        sector_id: SectorId,
+    ) -> Result<String, SectorManagerErr> {
         let access_name = self.convert_sector_id_to_access_name(sector_id)?;
 
         let mut p: PathBuf = Default::default();
@@ -78,7 +83,7 @@ impl SectorManager for DiskManager {
             .and_then(|_| self.new_sector_access(&Path::new(&self.staging_path), sector_id))
     }
 
-    fn num_unsealed_bytes(&self, access: &str) -> Result<u64, SectorManagerErr> {
+    pub fn num_unsealed_bytes(&self, access: &str) -> Result<u64, SectorManagerErr> {
         OpenOptions::new()
             .read(true)
             .open(self.staged_sector_path(access))
@@ -90,7 +95,7 @@ impl SectorManager for DiskManager {
             .and_then(|n| n)
     }
 
-    fn truncate_unsealed(&self, access: &str, size: u64) -> Result<(), SectorManagerErr> {
+    pub fn truncate_unsealed(&self, access: &str, size: u64) -> Result<(), SectorManagerErr> {
         // I couldn't wrap my head around all ths result mapping, so here it is all laid out.
         match OpenOptions::new()
             .write(true)
@@ -108,7 +113,7 @@ impl SectorManager for DiskManager {
     }
 
     // TODO: write_and_preprocess should refuse to write more data than will fit. In that case, return 0.
-    fn write_and_preprocess(
+    pub fn write_and_preprocess(
         &self,
         access: &str,
         data: &mut dyn Read,
@@ -125,12 +130,12 @@ impl SectorManager for DiskManager {
             })
     }
 
-    fn delete_staging_sector_access(&self, access: &str) -> Result<(), SectorManagerErr> {
+    pub fn delete_staging_sector_access(&self, access: &str) -> Result<(), SectorManagerErr> {
         remove_file(self.staged_sector_path(access))
             .map_err(|err| SectorManagerErr::CallerError(format!("{:?}", err)))
     }
 
-    fn read_raw(
+    pub fn read_raw(
         &self,
         access: &str,
         start_offset: u64,
@@ -152,9 +157,7 @@ impl SectorManager for DiskManager {
                 Ok(buf)
             })
     }
-}
 
-impl DiskManager {
     fn new_sector_access(
         &self,
         root: &Path,
@@ -338,28 +341,35 @@ impl SectorAccessProto {
     }
 }
 
-pub struct Config {
+pub struct SectorConfig {
+    /// the number of user-provided bytes that will fit into a sector
+    pub max_unsealed_bytes_per_sector: UnpaddedBytesAmount,
+    /// the number of bytes in a sealed sector
+    pub sector_bytes: PaddedBytesAmount,
+}
+
+pub struct ProofsConfig {
     pub porep_config: PoRepConfig,
     pub post_config: PoStConfig,
 }
 
-pub struct ConcreteSectorStore {
-    proofs_config: Box<dyn ProofsConfig>,
-    sector_config: Box<dyn SectorConfig>,
-    manager: Box<dyn SectorManager>,
+pub struct SectorStore {
+    proofs_config: ProofsConfig,
+    sector_config: SectorConfig,
+    manager: SectorManager,
 }
 
-impl SectorStore for ConcreteSectorStore {
-    fn sector_config(&self) -> &dyn SectorConfig {
-        self.sector_config.as_ref()
+impl SectorStore {
+    pub fn proofs_config(&self) -> &ProofsConfig {
+        &self.proofs_config
     }
 
-    fn proofs_config(&self) -> &dyn ProofsConfig {
-        self.proofs_config.as_ref()
+    pub fn manager(&self) -> &SectorManager {
+        &self.manager
     }
 
-    fn manager(&self) -> &dyn SectorManager {
-        self.manager.as_ref()
+    pub fn sector_config(&self) -> &SectorConfig {
+        &self.sector_config
     }
 }
 
@@ -368,56 +378,28 @@ pub fn new_sector_store<P: AsRef<Path>>(
     sealed_sector_dir: P,
     staged_sector_dir: P,
     cache_root: P,
-) -> ConcreteSectorStore {
+) -> SectorStore {
     // By default, support on-000000000000-dddddddddd format
     let default_access_proto = SectorAccessProto::Original(0);
 
-    let manager = Box::new(DiskManager {
+    let manager = SectorManager {
         staging_path: staged_sector_dir.as_ref().to_owned(),
         sealed_path: sealed_sector_dir.as_ref().to_owned(),
         cache_root: cache_root.as_ref().to_owned(),
         sector_access_proto: default_access_proto,
         sector_segment_id: 0u32,
-    });
+    };
 
-    let sector_config = Box::new(Config::from(sector_class));
-    let proofs_config = Box::new(Config::from(sector_class));
-
-    ConcreteSectorStore {
-        proofs_config,
-        sector_config,
+    SectorStore {
+        proofs_config: ProofsConfig {
+            porep_config: PoRepConfig::from(sector_class),
+            post_config: PoStConfig::from(sector_class),
+        },
+        sector_config: SectorConfig {
+            max_unsealed_bytes_per_sector: UnpaddedBytesAmount::from(sector_class.0),
+            sector_bytes: PaddedBytesAmount::from(sector_class.0),
+        },
         manager,
-    }
-}
-
-impl SectorConfig for Config {
-    fn max_unsealed_bytes_per_sector(&self) -> UnpaddedBytesAmount {
-        UnpaddedBytesAmount::from(self.porep_config)
-    }
-
-    fn sector_bytes(&self) -> PaddedBytesAmount {
-        PaddedBytesAmount::from(self.porep_config)
-    }
-}
-
-impl ProofsConfig for Config {
-    fn post_config(&self) -> PoStConfig {
-        self.post_config
-    }
-
-    fn porep_config(&self) -> PoRepConfig {
-        self.porep_config
-    }
-}
-
-impl From<SectorClass> for Config {
-    fn from(x: SectorClass) -> Self {
-        match x {
-            SectorClass(size, porep_p) => Config {
-                porep_config: PoRepConfig(size, porep_p),
-                post_config: PoStConfig(size),
-            },
-        }
     }
 }
 
@@ -434,7 +416,7 @@ pub mod tests {
 
     use tempfile::{self, NamedTempFile};
 
-    fn create_sector_store(sector_class: SectorClass) -> impl SectorStore {
+    fn create_sector_store(sector_class: SectorClass) -> SectorStore {
         let staging_path = tempfile::tempdir().unwrap().path().to_owned();
         let sealed_path = tempfile::tempdir().unwrap().path().to_owned();
         let cache_root = tempfile::tempdir().unwrap().path().to_owned();
@@ -473,8 +455,8 @@ pub mod tests {
 
         for (sector_class, num_bytes) in xs {
             let storage = create_sector_store(sector_class);
-            let cfg = storage.sector_config();
-            assert_eq!(u64::from(cfg.max_unsealed_bytes_per_sector()), num_bytes);
+            let cfg = storage.sector_config;
+            assert_eq!(u64::from(cfg.max_unsealed_bytes_per_sector), num_bytes);
         }
     }
 
@@ -484,7 +466,7 @@ pub mod tests {
             SectorSize(SECTOR_SIZE_ONE_KIB),
             PoRepProofPartitions(2),
         ));
-        let mgr = storage.manager();
+        let mgr = storage.manager;
 
         let access = mgr
             .new_staging_sector_access(SectorId::from(4294967295_u64))
@@ -579,12 +561,12 @@ pub mod tests {
             PoRepProofPartitions(2),
         ));
         let access = store
-            .manager()
+            .manager
             .new_staging_sector_access(SectorId::from(4294967295_u64))
             .unwrap();
 
         assert!(store
-            .manager()
+            .manager
             .read_raw(&access, 0, UnpaddedBytesAmount(0))
             .is_ok());
 
@@ -594,7 +576,7 @@ pub mod tests {
             .is_ok());
 
         assert!(store
-            .manager()
+            .manager
             .read_raw(&access, 0, UnpaddedBytesAmount(0))
             .is_err());
     }

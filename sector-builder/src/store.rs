@@ -1,72 +1,3 @@
-use std::io::Read;
-use std::path::PathBuf;
-
-use filecoin_proofs::types::*;
-use storage_proofs::sector::SectorId;
-
-use crate::error::SectorManagerErr;
-
-pub trait SectorConfig: Sync + Send {
-    /// returns the number of user-provided bytes that will fit into a sector managed by this store
-    fn max_unsealed_bytes_per_sector(&self) -> UnpaddedBytesAmount;
-
-    /// returns the number of bytes in a sealed sector managed by this store
-    fn sector_bytes(&self) -> PaddedBytesAmount;
-}
-
-pub trait ProofsConfig: Sync + Send {
-    /// returns the configuration used when verifying and generating PoReps
-    fn post_config(&self) -> PoStConfig;
-
-    /// returns the configuration used when verifying and generating PoSts
-    fn porep_config(&self) -> PoRepConfig;
-}
-
-pub trait SectorManager: Sync + Send {
-    /// produce the path to the file associated with sealed sector access-token
-    fn sealed_sector_path(&self, access: &str) -> PathBuf;
-
-    /// produce the path to the file associated with staged sector access-token
-    fn staged_sector_path(&self, access: &str) -> PathBuf;
-
-    /// produce the path to the cache associated with sector access-token
-    fn cache_path(&self, access: &str) -> PathBuf;
-
-    /// provisions a new sealed sector with the sector_id and reports the corresponding access
-    fn new_sealed_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr>;
-
-    /// provisions a new staging sector and reports the corresponding access
-    fn new_staging_sector_access(&self, sector_id: SectorId) -> Result<String, SectorManagerErr>;
-
-    /// reports the number of bytes written to an unsealed sector
-    fn num_unsealed_bytes(&self, access: &str) -> Result<u64, SectorManagerErr>;
-
-    /// sets the number of bytes in an unsealed sector identified by `access`
-    fn truncate_unsealed(&self, access: &str, size: u64) -> Result<(), SectorManagerErr>;
-
-    /// writes `data` to the staging sector identified by `access`, incrementally preprocessing `access`
-    fn write_and_preprocess(
-        &self,
-        access: &str,
-        data: &mut dyn Read,
-    ) -> Result<UnpaddedBytesAmount, SectorManagerErr>;
-
-    fn delete_staging_sector_access(&self, access: &str) -> Result<(), SectorManagerErr>;
-
-    fn read_raw(
-        &self,
-        access: &str,
-        start_offset: u64,
-        num_bytes: UnpaddedBytesAmount,
-    ) -> Result<Vec<u8>, SectorManagerErr>;
-}
-
-pub trait SectorStore: Send {
-    fn sector_config(&self) -> &dyn SectorConfig;
-    fn proofs_config(&self) -> &dyn ProofsConfig;
-    fn manager(&self) -> &dyn SectorManager;
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs::{create_dir_all, File};
@@ -74,24 +5,25 @@ mod tests {
     use std::thread;
 
     use filecoin_proofs::constants::SECTOR_SIZE_ONE_KIB;
+    use filecoin_proofs::types::*;
     use filecoin_proofs::{PrivateReplicaInfo, PublicReplicaInfo, SealOutput};
     use rand::{thread_rng, Rng};
+    use storage_proofs::sector::SectorId;
     use tempfile::NamedTempFile;
 
     use crate::disk_backed_storage::new_sector_store;
-
-    use super::*;
+    use crate::SectorStore;
 
     const TEST_CLASS: SectorClass =
         SectorClass(SectorSize(SECTOR_SIZE_ONE_KIB), PoRepProofPartitions(2));
 
-    struct Harness<S: SectorStore> {
+    struct Harness {
         prover_id: [u8; 32],
         seal_ticket: [u8; 32],
         seal_output: SealOutput,
         sealed_access: String,
         sector_id: SectorId,
-        store: S,
+        store: SectorStore,
         unseal_access: String,
         written_contents: Vec<Vec<u8>>,
     }
@@ -103,14 +35,11 @@ mod tests {
         Exact(&'a [u8]),
     }
 
-    fn create_harness(
-        sector_class: SectorClass,
-        bytes_amts: &[BytesAmount],
-    ) -> Harness<impl SectorStore> {
+    fn create_harness(sector_class: SectorClass, bytes_amts: &[BytesAmount]) -> Harness {
         let store = create_sector_store(sector_class);
         let mgr = store.manager();
         let cfg = store.sector_config();
-        let max: u64 = store.sector_config().max_unsealed_bytes_per_sector().into();
+        let max: u64 = cfg.max_unsealed_bytes_per_sector.into();
 
         let sector_id = SectorId::from(0x0000000012345678);
 
@@ -214,7 +143,7 @@ mod tests {
                     comm_d,
                     seal_ticket,
                     UnpaddedByteIndex(0),
-                    cfg.max_unsealed_bytes_per_sector(),
+                    cfg.max_unsealed_bytes_per_sector,
                 )
                 .expect("failed to unseal")
             )
@@ -232,7 +161,7 @@ mod tests {
         }
     }
 
-    fn create_sector_store(sector_class: SectorClass) -> impl SectorStore {
+    fn create_sector_store(sector_class: SectorClass) -> SectorStore {
         let staging_path = tempfile::tempdir().unwrap().path().to_owned();
         let sealed_path = tempfile::tempdir().unwrap().path().to_owned();
         let cache_root = tempfile::tempdir().unwrap().path().to_owned();
@@ -259,7 +188,7 @@ mod tests {
         // invalid commitments
         {
             let is_valid = filecoin_proofs::verify_seal(
-                h.store.proofs_config().porep_config(),
+                h.store.proofs_config().porep_config,
                 h.seal_output.comm_d,
                 h.seal_output.comm_r,
                 h.prover_id,
@@ -325,14 +254,14 @@ mod tests {
         .collect();
 
         let proof = filecoin_proofs::generate_post(
-            h.store.proofs_config().post_config(),
+            h.store.proofs_config().post_config,
             &challenge_seed,
             &private_replica_info,
         )
         .expect("PoSt generation failed");
 
         let is_valid = filecoin_proofs::verify_post(
-            h.store.proofs_config().post_config(),
+            h.store.proofs_config().post_config,
             &challenge_seed,
             &proof,
             &public_replica_info,
@@ -395,11 +324,7 @@ mod tests {
 
         let byte_padding_amount = match bytes_amt {
             BytesAmount::Exact(bs) => {
-                let max: u64 = h
-                    .store
-                    .sector_config()
-                    .max_unsealed_bytes_per_sector()
-                    .into();
+                let max: u64 = h.store.sector_config().max_unsealed_bytes_per_sector.into();
                 max - (bs.len() as u64)
             }
             BytesAmount::Max => 0,
@@ -449,7 +374,7 @@ mod tests {
             range_length,
             u64::from(
                 filecoin_proofs::get_unsealed_range(
-                    h.store.proofs_config().porep_config(),
+                    h.store.proofs_config().porep_config,
                     &sealed_sector_path,
                     &unsealed_sector_path,
                     h.prover_id,
@@ -517,7 +442,7 @@ mod tests {
             .to_string();
 
         let _ = filecoin_proofs::get_unsealed_range(
-            h.store.proofs_config().porep_config(),
+            h.store.proofs_config().porep_config,
             sealed_sector_path,
             unsealed_sector_path.clone(),
             h.prover_id,

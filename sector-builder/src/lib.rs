@@ -11,6 +11,7 @@ pub use crate::builder::*;
 pub use crate::constants::*;
 pub use crate::error::*;
 // Exported for benchmarks
+pub use crate::disk_backed_storage::SectorStore;
 pub use crate::helpers::checksum::calculate_checksum;
 pub use crate::metadata::*;
 pub use crate::metadata_manager::*;

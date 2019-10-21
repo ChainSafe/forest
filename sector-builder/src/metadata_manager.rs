@@ -27,9 +27,9 @@ const FATAL_SNPSHT: &str = "could not snapshot";
 // It dispatches expensive operations (e.g. unseal and seal) to the sealer
 // worker-threads. Other, inexpensive work (or work which needs to be performed
 // serially) is handled by the SectorBuilderStateManager itself.
-pub struct SectorMetadataManager<T: KeyValueStore, S: SectorStore> {
+pub struct SectorMetadataManager<T: KeyValueStore> {
     kv_store: T,
-    sector_store: S,
+    sector_store: SectorStore,
     state: SectorBuilderState,
     max_num_staged_sectors: u8,
     max_user_bytes_per_staged_sector: UnpaddedBytesAmount,
@@ -37,16 +37,16 @@ pub struct SectorMetadataManager<T: KeyValueStore, S: SectorStore> {
     sector_size: PaddedBytesAmount,
 }
 
-impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
+impl<T: KeyValueStore> SectorMetadataManager<T> {
     pub fn initialize(
         kv_store: T,
-        sector_store: S,
+        sector_store: SectorStore,
         mut state: SectorBuilderState,
         max_num_staged_sectors: u8,
         max_user_bytes_per_staged_sector: UnpaddedBytesAmount,
         prover_id: [u8; 32],
         sector_size: PaddedBytesAmount,
-    ) -> SectorMetadataManager<T, S> {
+    ) -> SectorMetadataManager<T> {
         // If a previous instance of the SectorBuilder was shut down mid-seal,
         // its metadata store will contain staged sectors who are still
         // "Sealing." If we do have any of those when we start the Scheduler,
@@ -72,7 +72,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
     }
 }
 
-impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
+impl<T: KeyValueStore> SectorMetadataManager<T> {
     pub fn create_generate_post_task_proto(
         &self,
         comm_rs: &[[u8; 32]],
@@ -122,7 +122,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
 
         GeneratePoStTaskPrototype {
             challenge_seed: *challenge_seed,
-            post_config: self.sector_store.proofs_config().post_config(),
+            post_config: self.sector_store.proofs_config().post_config,
             private_replicas: replicas,
         }
     }
@@ -164,7 +164,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
 
         Ok(UnsealTaskPrototype {
             comm_d: sealed_sector.comm_d,
-            porep_config: self.sector_store.proofs_config().porep_config(),
+            porep_config: self.sector_store.proofs_config().porep_config,
             source_path: self
                 .sector_store
                 .manager()
@@ -312,7 +312,7 @@ impl<T: KeyValueStore, S: SectorStore> SectorMetadataManager<T, S> {
             protos.push(SealTaskPrototype {
                 cache_dir,
                 piece_lens,
-                porep_config: self.sector_store.proofs_config().porep_config(),
+                porep_config: self.sector_store.proofs_config().porep_config,
                 seal_ticket,
                 sealed_sector_access,
                 sealed_sector_path,
