@@ -63,7 +63,7 @@ pub fn persist_snapshot<T: KeyValueStore>(
 mod tests {
     use std::collections::HashMap;
 
-    use crate::kv_store::SledKvs;
+    use crate::kv_store::FileSystemKvs;
     use crate::metadata::StagedSectorMetadata;
     use crate::state::StagedState;
     use storage_proofs::sector::SectorId;
@@ -72,9 +72,9 @@ mod tests {
 
     #[test]
     fn test_snapshotting() {
-        let metadata_dir = tempfile::tempdir().unwrap();
+        let metadata_dir = tempfile::tempdir().unwrap().into_path();
 
-        let kv_store = SledKvs::initialize(metadata_dir).unwrap();
+        let kv_store = FileSystemKvs::initialize(metadata_dir).unwrap();
 
         // create a snapshot to persist and load
         let snapshot_a = {

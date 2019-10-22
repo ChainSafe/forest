@@ -3,10 +3,8 @@ use std::path::Path;
 use crate::error::Result;
 
 mod fs;
-mod sled;
 
 pub use self::fs::*;
-pub use self::sled::*;
 
 pub trait KeyValueStore: Sized + Sync + Send {
     fn initialize<P: AsRef<Path>>(root_dir: P) -> Result<Self>;

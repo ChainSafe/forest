@@ -1,4 +1,4 @@
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -6,8 +6,6 @@ use blake2b_simd::State as Blake2b;
 
 use crate::error::Result;
 use crate::kv_store::KeyValueStore;
-
-const FATAL_NOCREATE: &str = "[KeyValueStore#put] could not create path";
 
 // FileSystemKvs is a file system-backed key/value store, mostly lifted from
 // sile/ekvsb
@@ -36,19 +34,15 @@ impl KeyValueStore for FileSystemKvs {
     }
 
     fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
-        let path = self.key_to_path(key);
-
-        fs::create_dir_all(path.parent().expect(FATAL_NOCREATE))?;
-
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(path)?;
+        let nt_file = tempfile::NamedTempFile::new()?;
+        let (mut file, oldpath) = nt_file.keep()?;
 
         file.write_all(value)?;
 
-        Ok(())
+        let newpath = self.key_to_path(key);
+
+        // if newpath already exists, it will be atomically replaced
+        std::fs::rename(oldpath, newpath).map_err(Into::into)
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
@@ -77,7 +71,7 @@ mod tests {
 
     #[test]
     fn test_alpha() {
-        let metadata_dir = tempfile::tempdir().unwrap();
+        let metadata_dir = tempfile::tempdir().unwrap().into_path();
         let db = FileSystemKvs::initialize(metadata_dir).unwrap();
 
         let k_a = b"key-xx";

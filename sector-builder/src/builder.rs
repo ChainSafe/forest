@@ -11,7 +11,7 @@ use crate::disk_backed_storage::new_sector_store;
 use crate::error::{Result, SectorBuilderErr};
 use crate::helpers;
 use crate::helpers::SnapshotKey;
-use crate::kv_store::{KeyValueStore, SledKvs};
+use crate::kv_store::{FileSystemKvs, KeyValueStore};
 use crate::metadata::*;
 use crate::metadata_manager::SectorMetadataManager;
 use crate::scheduler::{PerformHealthCheck, Scheduler, SchedulerTask};
@@ -71,8 +71,8 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
 
         // Initialize the key/value store in which we store metadata
         // snapshots.
-        let kv_store =
-            SledKvs::initialize(metadata_dir.as_ref()).expect("failed to initialize K/V store");
+        let kv_store = FileSystemKvs::initialize(metadata_dir.as_ref())
+            .expect("failed to initialize K/V store");
 
         // Initialize a SectorStore and wrap it in an Arc so we can access it
         // from multiple threads. Our implementation assumes that the
