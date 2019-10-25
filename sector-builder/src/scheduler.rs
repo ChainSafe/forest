@@ -8,11 +8,11 @@ use storage_proofs::sector::SectorId;
 use crate::error::Result;
 use crate::kv_store::KeyValueStore;
 use crate::metadata::{SealStatus, StagedSectorMetadata};
-use crate::scheduler::SchedulerTask::OnSealMultipleComplete;
-use crate::worker::{SealTaskPrototype, WorkerTask};
+use crate::scheduler::SchedulerTask::{OnSealCommitComplete, OnSealPreCommitComplete};
+use crate::worker::WorkerTask;
 use crate::{
-    GetSealedSectorResult, SealTicket, SealedSectorMetadata, SecondsSinceEpoch,
-    SectorMetadataManager, UnpaddedBytesAmount,
+    CommitMode, GetSealedSectorResult, PreCommitMode, SealSeed, SealTicket, SealedSectorMetadata,
+    SecondsSinceEpoch, SectorMetadataManager, UnpaddedBytesAmount,
 };
 use std::io::Read;
 
@@ -27,12 +27,15 @@ pub struct Scheduler {
 pub struct PerformHealthCheck(pub bool);
 
 #[derive(Debug)]
-pub struct SealResult {
+pub struct SealPreCommitResult {
+    pub proofs_api_call_result: Result<filecoin_proofs::SealPreCommitOutput>,
     pub sector_id: SectorId,
-    pub sector_access: String,
-    pub sector_path: PathBuf,
-    pub seal_ticket: SealTicket,
-    pub proofs_api_call_result: Result<filecoin_proofs::SealOutput>,
+}
+
+#[derive(Debug)]
+pub struct SealCommitResult {
+    pub proofs_api_call_result: Result<filecoin_proofs::SealCommitOutput>,
+    pub sector_id: SectorId,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -58,22 +61,18 @@ pub enum SchedulerTask<T: Read + Send> {
         mpsc::SyncSender<Result<Vec<u8>>>,
     ),
     RetrievePiece(String, mpsc::SyncSender<Result<Vec<u8>>>),
-    SealAllStagedSectors(
-        SealTicket,
-        mpsc::SyncSender<Result<Vec<SealedSectorMetadata>>>,
-    ),
-    ResumeSealSector(
+    ResumeSealPreCommit(SectorId, mpsc::SyncSender<Result<()>>),
+    ResumeSealCommit(SectorId, mpsc::SyncSender<Result<SealedSectorMetadata>>),
+    SealPreCommit(SectorId, SealTicket, mpsc::SyncSender<Result<()>>),
+    SealCommit(
         SectorId,
-        mpsc::SyncSender<Result<Vec<SealedSectorMetadata>>>,
+        SealSeed,
+        mpsc::SyncSender<Result<SealedSectorMetadata>>,
     ),
-    SealSector(
-        SectorId,
-        SealTicket,
-        mpsc::SyncSender<Result<Vec<SealedSectorMetadata>>>,
-    ),
-    OnSealMultipleComplete(
-        Vec<SealResult>,
-        mpsc::SyncSender<Result<Vec<SealedSectorMetadata>>>,
+    OnSealPreCommitComplete(SealPreCommitResult, mpsc::SyncSender<Result<()>>),
+    OnSealCommitComplete(
+        SealCommitResult,
+        mpsc::SyncSender<Result<SealedSectorMetadata>>,
     ),
     OnRetrievePieceComplete(
         Result<(UnpaddedBytesAmount, PathBuf)>,
@@ -123,15 +122,24 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                     Ok(proto) => {
                         let scheduler_tx_c = self.scheduler_tx.clone();
 
+                        let callback = Box::new(move |output| {
+                            scheduler_tx_c
+                                .send(SchedulerTask::OnRetrievePieceComplete(output, tx))
+                                .expects(FATAL_NOSEND)
+                        });
+
                         self.worker_tx
-                            .send(WorkerTask::from_unseal_proto(
-                                proto,
-                                Box::new(move |output| {
-                                    scheduler_tx_c
-                                        .send(SchedulerTask::OnRetrievePieceComplete(output, tx))
-                                        .expects(FATAL_NOSEND)
-                                }),
-                            ))
+                            .send(WorkerTask::Unseal {
+                                comm_d: proto.comm_d,
+                                destination_path: proto.destination_path,
+                                piece_len: proto.piece_len,
+                                piece_start_byte: proto.piece_start_byte,
+                                porep_config: proto.porep_config,
+                                seal_ticket: proto.seal_ticket,
+                                sector_id: proto.sector_id,
+                                source_path: proto.source_path,
+                                callback,
+                            })
                             .expects(FATAL_NOSEND);
                     }
                     Err(err) => {
@@ -152,61 +160,29 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                     .collect()))
                     .expect(FATAL_NOSEND);
             }
-            SchedulerTask::SealAllStagedSectors(seal_ticket, tx) => {
-                self.m.mark_all_sectors_for_sealing();
-                let p = |x: &StagedSectorMetadata| x.seal_status.is_ready_for_sealing();
-                let f = |_: &[SealTaskPrototype]| None;
-                self.seal_matching(tx, seal_ticket, p, f);
+            SchedulerTask::SealPreCommit(sector_id, t, tx) => {
+                self.send_pre_commit_to_worker(sector_id, PreCommitMode::StartFresh(t), tx);
             }
-            SchedulerTask::ResumeSealSector(sector_id, tx) => {
-                let p = |x: &StagedSectorMetadata| {
-                    x.seal_status.is_paused() && x.sector_id == sector_id
-                };
-
-                let f = |xs: &[SealTaskPrototype]| {
-                    if xs.len() != 1 {
-                        return Some(format_err!(
-                            "found no staged sector with id={} in Paused state (was it ever started?)",
-                            sector_id
-                        ));
-                    }
-
-                    None
-                };
-
-                self.seal_matching(tx, Default::default(), p, f);
+            SchedulerTask::ResumeSealPreCommit(sector_id, tx) => {
+                self.send_pre_commit_to_worker(sector_id, PreCommitMode::Resume, tx);
             }
-            SchedulerTask::SealSector(sector_id, seal_ticket, tx) => {
-                let p = |x: &StagedSectorMetadata| {
-                    x.sector_id == sector_id
-                        && match x.seal_status {
-                            SealStatus::ReadyForSealing => true,
-                            SealStatus::Pending => true,
-                            _ => false,
-                        }
-                };
-
-                let f = |xs: &[SealTaskPrototype]| {
-                    if xs.len() != 1 {
-                        return Some(format_err!(
-                            "found no staged sector with id={} in ReadyForSealing or Pending state (is it already sealing?)",
-                            sector_id
-                        ));
-                    }
-
-                    None
-                };
-
-                self.seal_matching(tx, seal_ticket, p, f);
+            SchedulerTask::SealCommit(sector_id, seed, tx) => {
+                self.send_commit_to_worker(sector_id, CommitMode::StartFresh(seed), tx);
             }
-            SchedulerTask::OnSealMultipleComplete(output, done_tx) => {
-                let r: Result<Vec<SealedSectorMetadata>> = output
-                    .into_iter()
-                    .map(|o| self.m.handle_seal_result(o))
-                    .collect();
-
-                done_tx.send(r).expects(FATAL_NOSEND);
+            SchedulerTask::ResumeSealCommit(sector_id, tx) => {
+                self.send_commit_to_worker(sector_id, CommitMode::Resume, tx);
             }
+            SchedulerTask::OnSealPreCommitComplete(output, done_tx) => {
+                done_tx
+                    .send(self.m.handle_seal_pre_commit_result(output))
+                    .expects(FATAL_NOSEND);
+            }
+            SchedulerTask::OnSealCommitComplete(output, done_tx) => {
+                done_tx
+                    .send(self.m.handle_seal_commit_result(output))
+                    .expects(FATAL_NOSEND);
+            }
+
             SchedulerTask::OnRetrievePieceComplete(result, tx) => {
                 tx.send(self.m.read_unsealed_bytes_from(result))
                     .expects(FATAL_NOSEND);
@@ -218,11 +194,15 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
 
                 let tx_c = tx.clone();
 
+                let callback = Box::new(move |r| tx_c.send(r).expects(FATAL_NOSEND));
+
                 self.worker_tx
-                    .send(WorkerTask::from_generate_post_proto(
-                        proto,
-                        Box::new(move |r| tx_c.send(r).expects(FATAL_NOSEND)),
-                    ))
+                    .send(WorkerTask::GeneratePoSt {
+                        challenge_seed: proto.challenge_seed,
+                        private_replicas: proto.private_replicas,
+                        post_config: proto.post_config,
+                        callback,
+                    })
                     .expects(FATAL_NOSEND);
             }
             SchedulerTask::Shutdown => (),
@@ -231,45 +211,77 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
         should_continue
     }
 
-    fn seal_matching<
-        P: FnMut(&StagedSectorMetadata) -> bool,
-        F: FnOnce(&[SealTaskPrototype]) -> Option<failure::Error>,
-    >(
+    // Creates and sends a commit task to a worker. If the requested sector
+    // id and mode combination are invalid, done_tx receives an error.
+    fn send_commit_to_worker(
         &mut self,
-        done_tx: mpsc::SyncSender<Result<Vec<SealedSectorMetadata>>>,
-        seal_ticket: SealTicket,
-        predicate: P,
-        pre_seal_err_check: F,
+        sector_id: SectorId,
+        mode: CommitMode,
+        done_tx: mpsc::SyncSender<Result<SealedSectorMetadata>>,
     ) {
-        let r_protos = self.m.create_seal_task_protos(seal_ticket, predicate);
+        let scheduler_tx_c = self.scheduler_tx.clone();
 
-        match r_protos {
-            Ok(protos) => {
-                if let Some(err) = pre_seal_err_check(&protos) {
-                    return done_tx.send(Err(err)).expects(FATAL_NOSEND);
-                }
+        let done_tx_c = done_tx.clone();
 
-                for p in &protos {
-                    self.m
-                        .commit_sector_to_ticket(p.sector_id, p.seal_ticket.clone());
-                }
+        let callback = Box::new(move |output| {
+            scheduler_tx_c
+                .send(OnSealCommitComplete(output, done_tx_c))
+                .expects(FATAL_NOSEND)
+        });
 
-                let scheduler_tx_c = self.scheduler_tx.clone();
-
+        match self.m.create_seal_commit_task_proto(sector_id, mode) {
+            Ok(proto) => {
                 self.worker_tx
-                    .send(WorkerTask::from_seal_protos(
-                        protos,
-                        Box::new(move |output| {
-                            scheduler_tx_c
-                                .send(OnSealMultipleComplete(output, done_tx))
-                                .expects(FATAL_NOSEND)
-                        }),
-                    ))
+                    .send(WorkerTask::SealCommit {
+                        cache_dir: proto.cache_dir,
+                        callback,
+                        piece_info: proto.piece_info,
+                        porep_config: proto.porep_config,
+                        pre_commit: proto.pre_commit,
+                        sector_id: proto.sector_id,
+                        seed: proto.seed,
+                        ticket: proto.ticket,
+                    })
                     .expects(FATAL_NOSEND);
             }
-            Err(err) => {
-                done_tx.send(Err(err)).expects(FATAL_NOSEND);
+            Err(err) => done_tx.send(Err(err)).expects(FATAL_NOSEND),
+        }
+    }
+
+    // Creates and sends a pre-commit task to a worker. If the requested sector
+    // id and mode combination are invalid, done_tx receives an error.
+    fn send_pre_commit_to_worker(
+        &mut self,
+        sector_id: SectorId,
+        mode: PreCommitMode,
+        done_tx: mpsc::SyncSender<Result<()>>,
+    ) {
+        let scheduler_tx_c = self.scheduler_tx.clone();
+
+        let done_tx_c = done_tx.clone();
+
+        let callback = Box::new(move |output| {
+            scheduler_tx_c
+                .send(OnSealPreCommitComplete(output, done_tx_c))
+                .expects(FATAL_NOSEND)
+        });
+
+        match self.m.create_seal_pre_commit_task_proto(sector_id, mode) {
+            Ok(proto) => {
+                self.worker_tx
+                    .send(WorkerTask::SealPreCommit {
+                        cache_dir: proto.cache_dir,
+                        callback,
+                        piece_info: proto.piece_info,
+                        porep_config: proto.porep_config,
+                        sealed_sector_path: proto.sealed_sector_path,
+                        sector_id: proto.sector_id,
+                        staged_sector_path: proto.staged_sector_path,
+                        ticket: proto.ticket,
+                    })
+                    .expects(FATAL_NOSEND);
             }
+            Err(err) => done_tx.send(Err(err)).expects(FATAL_NOSEND),
         }
     }
 }

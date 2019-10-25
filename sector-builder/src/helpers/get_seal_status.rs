@@ -11,7 +11,7 @@ pub fn get_seal_status(
     sealed_state
         .sectors
         .get(&sector_id)
-        .map(|sealed_sector| SealStatus::Sealed(Box::new(sealed_sector.clone())))
+        .map(|sealed_sector| SealStatus::Committed(Box::new(sealed_sector.clone())))
         .or_else(|| {
             staged_state
                 .sectors
@@ -39,7 +39,7 @@ mod tests {
             SectorId::from(2),
             StagedSectorMetadata {
                 sector_id: SectorId::from(2),
-                seal_status: SealStatus::Sealing(SealTicket {
+                seal_status: SealStatus::PreCommitting(SealTicket {
                     block_height: 1,
                     ticket_bytes: [0u8; 32],
                 }),
@@ -51,7 +51,7 @@ mod tests {
             SectorId::from(3),
             StagedSectorMetadata {
                 sector_id: SectorId::from(3),
-                seal_status: SealStatus::Pending,
+                seal_status: SealStatus::AcceptingPieces,
                 ..Default::default()
             },
         );
@@ -87,19 +87,19 @@ mod tests {
 
         let result = get_seal_status(&staged_state, &sealed_state, SectorId::from(2)).unwrap();
         match result {
-            SealStatus::Sealing(_) => (),
-            _ => panic!("should have been SealStatus::Sealing"),
+            SealStatus::PreCommitting(_) => (),
+            _ => panic!("should have been SealStatus::SealPreCommitting"),
         }
 
         let result = get_seal_status(&staged_state, &sealed_state, SectorId::from(3)).unwrap();
         match result {
-            SealStatus::Pending => (),
+            SealStatus::AcceptingPieces => (),
             _ => panic!("should have been SealStatus::Pending"),
         }
 
         let result = get_seal_status(&staged_state, &sealed_state, SectorId::from(4)).unwrap();
         match result {
-            SealStatus::Sealed(_) => (),
+            SealStatus::Committed(_) => (),
             _ => panic!("should have been SealStatus::Sealed"),
         }
     }

@@ -4,9 +4,9 @@ use std::thread;
 use filecoin_proofs::error::ExpectWithBacktrace;
 
 use crate::error::Result;
-use crate::scheduler::SealResult;
-use crate::{PoRepConfig, SealTicket, UnpaddedByteIndex, UnpaddedBytesAmount};
-use filecoin_proofs::{PoStConfig, PrivateReplicaInfo};
+use crate::scheduler::{SealCommitResult, SealPreCommitResult};
+use crate::{PoRepConfig, SealSeed, SealTicket, UnpaddedByteIndex, UnpaddedBytesAmount};
+use filecoin_proofs::{PieceInfo, PoStConfig, PrivateReplicaInfo, SealPreCommitOutput};
 use std::collections::btree_map::BTreeMap;
 use std::path::PathBuf;
 use storage_proofs::sector::SectorId;
@@ -33,39 +33,41 @@ pub struct UnsealTaskPrototype {
 #[derive(Debug, Clone)]
 pub struct GeneratePoStTaskPrototype {
     pub(crate) challenge_seed: [u8; 32],
-    pub(crate) private_replicas: BTreeMap<SectorId, PrivateReplicaInfo>,
     pub(crate) post_config: PoStConfig,
+    pub(crate) private_replicas: BTreeMap<SectorId, PrivateReplicaInfo>,
 }
 
-#[derive(Debug, Clone)]
-pub struct SealTaskPrototype {
+#[derive(Debug)]
+pub struct SealPreCommitTaskPrototype {
     pub(crate) cache_dir: PathBuf,
-    pub(crate) piece_lens: Vec<UnpaddedBytesAmount>,
+    pub(crate) piece_info: Vec<PieceInfo>,
     pub(crate) porep_config: PoRepConfig,
-    pub(crate) seal_ticket: SealTicket,
-    pub(crate) sealed_sector_access: String,
     pub(crate) sealed_sector_path: PathBuf,
     pub(crate) sector_id: SectorId,
     pub(crate) staged_sector_path: PathBuf,
+    pub(crate) ticket: SealTicket,
 }
 
-pub struct SealInput {
-    cache_dir: PathBuf,
-    piece_lens: Vec<UnpaddedBytesAmount>,
-    porep_config: PoRepConfig,
-    seal_ticket: SealTicket,
-    sealed_sector_access: String,
-    sealed_sector_path: PathBuf,
-    sector_id: SectorId,
-    staged_sector_path: PathBuf,
+#[derive(Debug)]
+pub struct SealCommitTaskPrototype {
+    pub(crate) cache_dir: PathBuf,
+    pub(crate) piece_info: Vec<PieceInfo>,
+    pub(crate) porep_config: PoRepConfig,
+    pub(crate) pre_commit: SealPreCommitOutput,
+    pub(crate) sector_id: SectorId,
+    pub(crate) seed: SealSeed,
+    pub(crate) ticket: SealTicket,
 }
 
 type UnsealCallback = Box<dyn FnOnce(Result<(UnpaddedBytesAmount, PathBuf)>) + Send>;
 
 type GeneratePoStCallback = Box<dyn FnOnce(Result<Vec<u8>>) + Send>;
 
-type SealMultipleCallback = Box<dyn FnOnce(Vec<SealResult>) + Send>;
+type SealPreCommitCallback = Box<dyn FnOnce(SealPreCommitResult) + Send>;
 
+type SealCommitCallback = Box<dyn FnOnce(SealCommitResult) + Send>;
+
+#[allow(clippy::large_enum_variant)]
 pub enum WorkerTask {
     GeneratePoSt {
         challenge_seed: [u8; 32],
@@ -73,9 +75,25 @@ pub enum WorkerTask {
         post_config: PoStConfig,
         callback: GeneratePoStCallback,
     },
-    SealMultiple {
-        seal_inputs: Vec<SealInput>,
-        callback: SealMultipleCallback,
+    SealPreCommit {
+        cache_dir: PathBuf,
+        callback: SealPreCommitCallback,
+        piece_info: Vec<PieceInfo>,
+        porep_config: PoRepConfig,
+        sealed_sector_path: PathBuf,
+        sector_id: SectorId,
+        staged_sector_path: PathBuf,
+        ticket: SealTicket,
+    },
+    SealCommit {
+        cache_dir: PathBuf,
+        callback: SealCommitCallback,
+        piece_info: Vec<PieceInfo>,
+        porep_config: PoRepConfig,
+        pre_commit: SealPreCommitOutput,
+        sector_id: SectorId,
+        seed: SealSeed,
+        ticket: SealTicket,
     },
     Unseal {
         comm_d: [u8; 32],
@@ -89,56 +107,6 @@ pub enum WorkerTask {
         callback: UnsealCallback,
     },
     Shutdown,
-}
-
-impl WorkerTask {
-    pub fn from_generate_post_proto(
-        proto: GeneratePoStTaskPrototype,
-        callback: GeneratePoStCallback,
-    ) -> WorkerTask {
-        WorkerTask::GeneratePoSt {
-            callback,
-            challenge_seed: proto.challenge_seed,
-            post_config: proto.post_config,
-            private_replicas: proto.private_replicas,
-        }
-    }
-
-    pub fn from_seal_protos(
-        protos: Vec<SealTaskPrototype>,
-        callback: SealMultipleCallback,
-    ) -> WorkerTask {
-        WorkerTask::SealMultiple {
-            callback,
-            seal_inputs: protos
-                .into_iter()
-                .map(|proto| SealInput {
-                    cache_dir: proto.cache_dir,
-                    piece_lens: proto.piece_lens,
-                    porep_config: proto.porep_config,
-                    seal_ticket: proto.seal_ticket,
-                    sealed_sector_access: proto.sealed_sector_access,
-                    sealed_sector_path: proto.sealed_sector_path,
-                    sector_id: proto.sector_id,
-                    staged_sector_path: proto.staged_sector_path,
-                })
-                .collect(),
-        }
-    }
-
-    pub fn from_unseal_proto(proto: UnsealTaskPrototype, callback: UnsealCallback) -> WorkerTask {
-        WorkerTask::Unseal {
-            callback,
-            comm_d: proto.comm_d,
-            destination_path: proto.destination_path,
-            piece_len: proto.piece_len,
-            piece_start_byte: proto.piece_start_byte,
-            porep_config: proto.porep_config,
-            seal_ticket: proto.seal_ticket,
-            sector_id: proto.sector_id,
-            source_path: proto.source_path,
-        }
-    }
 }
 
 impl Worker {
@@ -170,34 +138,57 @@ impl Worker {
                         &private_replicas,
                     ));
                 }
-                WorkerTask::SealMultiple {
-                    seal_inputs,
+                WorkerTask::SealPreCommit {
+                    cache_dir,
                     callback,
+                    piece_info,
+                    porep_config,
+                    sealed_sector_path,
+                    sector_id,
+                    staged_sector_path,
+                    ticket,
                 } => {
-                    let mut output: Vec<SealResult> = Vec::with_capacity(seal_inputs.len());
+                    let result = filecoin_proofs::seal_pre_commit(
+                        porep_config,
+                        &cache_dir,
+                        &staged_sector_path,
+                        &sealed_sector_path,
+                        prover_id,
+                        sector_id,
+                        ticket.ticket_bytes,
+                        &piece_info,
+                    );
 
-                    for input in seal_inputs {
-                        let result = filecoin_proofs::seal(
-                            input.porep_config,
-                            &input.cache_dir,
-                            &input.staged_sector_path,
-                            &input.sealed_sector_path,
-                            prover_id,
-                            input.sector_id,
-                            input.seal_ticket.ticket_bytes,
-                            &input.piece_lens,
-                        );
+                    callback(SealPreCommitResult {
+                        sector_id,
+                        proofs_api_call_result: result,
+                    });
+                }
+                WorkerTask::SealCommit {
+                    cache_dir,
+                    callback,
+                    piece_info,
+                    porep_config,
+                    pre_commit,
+                    sector_id,
+                    seed,
+                    ticket,
+                } => {
+                    let result = filecoin_proofs::seal_commit(
+                        porep_config,
+                        cache_dir,
+                        prover_id,
+                        sector_id,
+                        ticket.ticket_bytes,
+                        seed.ticket_bytes,
+                        pre_commit,
+                        &piece_info,
+                    );
 
-                        output.push(SealResult {
-                            sector_id: input.sector_id,
-                            sector_access: input.sealed_sector_access,
-                            sector_path: input.sealed_sector_path,
-                            seal_ticket: input.seal_ticket,
-                            proofs_api_call_result: result,
-                        });
-                    }
-
-                    callback(output);
+                    callback(SealCommitResult {
+                        proofs_api_call_result: result,
+                        sector_id,
+                    });
                 }
                 WorkerTask::Unseal {
                     comm_d,

@@ -1,27 +1,38 @@
 use std::collections::btree_map::BTreeMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::io::Read;
 use std::path::PathBuf;
 
 use filecoin_proofs::error::ExpectWithBacktrace;
 use filecoin_proofs::pieces::get_piece_start_byte;
-use filecoin_proofs::{PaddedBytesAmount, PrivateReplicaInfo, SealOutput, UnpaddedBytesAmount};
+use filecoin_proofs::{
+    PaddedBytesAmount, PrivateReplicaInfo, SealCommitOutput, SealPreCommitOutput, TemporaryAux,
+    UnpaddedBytesAmount,
+};
+use serde::{Deserialize, Serialize};
 use storage_proofs::sector::SectorId;
+
+use helpers::SnapshotKey;
 
 use crate::error::Result;
 use crate::kv_store::KeyValueStore;
-use crate::scheduler::SealResult;
+use crate::scheduler::{SealCommitResult, SealPreCommitResult};
 use crate::state::SectorBuilderState;
-use crate::worker::{GeneratePoStTaskPrototype, SealTaskPrototype, UnsealTaskPrototype};
+use crate::worker::{
+    GeneratePoStTaskPrototype, SealCommitTaskPrototype, SealPreCommitTaskPrototype,
+    UnsealTaskPrototype,
+};
 use crate::GetSealedSectorResult::WithHealth;
 use crate::{
-    err_piecenotfound, err_unrecov, GetSealedSectorResult, PieceMetadata, SealStatus,
-    SealedSectorMetadata, SecondsSinceEpoch, SectorStore, StagedSectorMetadata,
+    err_piecenotfound, err_unrecov, GetSealedSectorResult, PersistablePreCommitOutput, SealSeed,
+    SealStatus, SealedSectorMetadata, SecondsSinceEpoch, SectorStore, StagedSectorMetadata,
 };
 use crate::{helpers, SealTicket};
-use helpers::SnapshotKey;
-use std::io::Read;
 
 const FATAL_SNPSHT: &str = "could not snapshot";
+
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+pub struct TemporaryAuxKey(SectorId);
 
 // The SectorBuilderStateManager is the owner of all sector-related metadata.
 // It dispatches expensive operations (e.g. unseal and seal) to the sealer
@@ -35,6 +46,13 @@ pub struct SectorMetadataManager<T: KeyValueStore> {
     max_user_bytes_per_staged_sector: UnpaddedBytesAmount,
     prover_id: [u8; 32],
     sector_size: PaddedBytesAmount,
+
+    /// WARNING: This map is a stopgap to help us move forward while we work on
+    /// the merkle tree cache. The existing SealPreCommitOutput struct isn't
+    /// serializable, so we have to hold it in memory until somebody calls
+    /// commit. The sector builder will panic if asked to commit a sector for
+    /// which we do not have any pre-commit output.
+    temporary_aux: HashMap<TemporaryAuxKey, TemporaryAux>,
 }
 
 impl<T: KeyValueStore> SectorMetadataManager<T> {
@@ -49,14 +67,17 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     ) -> SectorMetadataManager<T> {
         // If a previous instance of the SectorBuilder was shut down mid-seal,
         // its metadata store will contain staged sectors who are still
-        // "Sealing." If we do have any of those when we start the Scheduler,
-        // we should transition them to "Paused" and let the consumers schedule
-        // the resume_seal_sector call.
+        // sealing. If we do have any of those when we start the Scheduler,
+        // we should transition them to a paused state and let the consumers
+        // schedule appropriate resumption calls.
         //
         // For more information, see rust-fil-sector-builder/17.
-        for s in state.staged.sectors.values_mut() {
-            if let SealStatus::Sealing(ref ticket) = s.seal_status {
-                s.seal_status = SealStatus::Paused(ticket.clone())
+        for ssm in state.staged.sectors.values_mut() {
+            if let SealStatus::PreCommitting(ref t) = ssm.seal_status {
+                ssm.seal_status = SealStatus::PreCommittingPaused(t.clone())
+            } else if let SealStatus::Committing(ref t, ref k, ref p, ref s) = ssm.seal_status {
+                ssm.seal_status =
+                    SealStatus::CommittingPaused(t.clone(), k.clone(), p.clone(), s.clone())
             }
         }
 
@@ -68,8 +89,19 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             max_user_bytes_per_staged_sector,
             prover_id,
             sector_size,
+            temporary_aux: Default::default(),
         }
     }
+}
+
+pub enum PreCommitMode {
+    StartFresh(SealTicket),
+    Resume,
+}
+
+pub enum CommitMode {
+    StartFresh(SealSeed),
+    Resume,
 }
 
 impl<T: KeyValueStore> SectorMetadataManager<T> {
@@ -176,7 +208,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             sector_id: sealed_sector.sector_id,
             piece_start_byte: get_piece_start_byte(&piece_lengths, piece.num_bytes),
             piece_len: piece.num_bytes,
-            seal_ticket: sealed_sector.seal_ticket.clone(),
+            seal_ticket: sealed_sector.ticket.clone(),
         })
     }
 
@@ -261,67 +293,130 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             .collect()
     }
 
-    // Commits a sector to a given ticket and flips its status to Sealing.
-    pub fn commit_sector_to_ticket(&mut self, sector_id: SectorId, seal_ticket: SealTicket) {
-        for (k, mut v) in &mut self.state.staged.sectors {
-            if sector_id == *k {
-                v.seal_status = SealStatus::Sealing(seal_ticket.clone());
-                self.checkpoint().expects(FATAL_SNPSHT);
+    // Produces a task prototype for a staged sector with the provided id and
+    // marks the sector for pre-committing.  If a seed is already associated
+    // with the target sector, use it. If not, use the provided seed. If no
+    // sector exists with the provided id or if the sector is not ready for
+    // pre-committing, an error is returned.
+    pub fn create_seal_pre_commit_task_proto(
+        &mut self,
+        sector_id: SectorId,
+        mode: PreCommitMode,
+    ) -> Result<SealPreCommitTaskPrototype> {
+        let opt_meta = self
+            .state
+            .staged
+            .sectors
+            .values_mut()
+            .find(|s| s.sector_id == sector_id);
 
-                return;
-            }
-        }
+        let meta =
+            opt_meta.ok_or_else(|| format_err!("no staged sector with id {} exists", sector_id))?;
+
+        let ticket = match (mode, &meta.seal_status) {
+            (PreCommitMode::StartFresh(t), SealStatus::AcceptingPieces) => Ok(t.clone()),
+            (PreCommitMode::StartFresh(t), SealStatus::FullyPacked) => Ok(t.clone()),
+            (PreCommitMode::StartFresh(_), s) => Err(format_err!(
+                "cannot pre-commit sector with id {:?} and state {:?}",
+                sector_id,
+                s,
+            )),
+            (PreCommitMode::Resume, SealStatus::PreCommittingPaused(t)) => Ok(t.clone()),
+            (PreCommitMode::Resume, s) => Err(format_err!(
+                "cannot resume pre-commit sector with id {:?} and state {:?}",
+                sector_id,
+                s,
+            )),
+        }?;
+
+        let mgr = self.sector_store.manager();
+
+        let out = Ok(SealPreCommitTaskPrototype {
+            cache_dir: mgr.cache_path(&meta.sector_access),
+            piece_info: meta.pieces.iter().map(|x| (x.clone()).into()).collect(),
+            porep_config: self.sector_store.proofs_config().porep_config,
+            sealed_sector_path: mgr.sealed_sector_path(&meta.sector_access),
+            sector_id,
+            staged_sector_path: mgr.staged_sector_path(&meta.sector_access),
+            ticket: ticket.clone(),
+        });
+
+        meta.seal_status = SealStatus::PreCommitting(ticket.clone());
+        self.checkpoint().expects(FATAL_SNPSHT);
+
+        out
     }
 
-    // Create a SealTaskPrototype for each staged sector matching the predicate.
-    // If a ticket is already associated with the staged sector, use it to
-    // create the proto. Otherwise use the provided ticket.
-    pub fn create_seal_task_protos<P: FnMut(&StagedSectorMetadata) -> bool>(
+    // Produces a task prototype for a staged sector with the provided id and
+    // marks the sector for committing.  If a seed is already associated with
+    // the target sector, use it. If not, use the provided seed. If no sector
+    // exists with the provided id or if the sector is not ready to be
+    // committed, an error is returned.
+    pub fn create_seal_commit_task_proto(
         &mut self,
-        seal_ticket: SealTicket,
-        predicate: P,
-    ) -> Result<Vec<SealTaskPrototype>> {
-        let mut protos: Vec<SealTaskPrototype> = Default::default();
+        sector_id: SectorId,
+        mode: CommitMode,
+    ) -> Result<SealCommitTaskPrototype> {
+        let opt_meta = self
+            .state
+            .staged
+            .sectors
+            .values_mut()
+            .find(|s| s.sector_id == sector_id);
 
-        for staged_sector in self.get_staged_sectors_filtered(predicate) {
-            // Provision a new sealed sector access through the manager.
-            let mgr = self.sector_store.manager();
+        let meta =
+            opt_meta.ok_or_else(|| format_err!("no staged sector with id {} exists", sector_id))?;
 
-            let sealed_sector_access = mgr
-                .new_sealed_sector_access(staged_sector.sector_id)
-                .map_err(failure::Error::from)?;
+        let (ticket, key, pre_commit, seed) = match (mode, &meta.seal_status) {
+            (CommitMode::StartFresh(ref s), SealStatus::PreCommitted(t, k, p)) => {
+                Ok((t.clone(), k.clone(), p.clone(), s.clone()))
+            }
+            (CommitMode::StartFresh(_), ss) => Err(format_err!(
+                "cannot commit sector with id {:?} and state {:?}",
+                sector_id,
+                ss,
+            )),
+            (CommitMode::Resume, SealStatus::CommittingPaused(t, k, p, s)) => {
+                Ok((t.clone(), k.clone(), p.clone(), s.clone()))
+            }
+            (CommitMode::Resume, ss) => Err(format_err!(
+                "cannot commit sector with id {:?} and state {:?}",
+                sector_id,
+                ss,
+            )),
+        }?;
 
-            let sealed_sector_path = mgr.sealed_sector_path(&sealed_sector_access);
+        // WARNING: Holding this data structure in memory is a stopgap until the SealPreCommitOutput
+        // struct is serializable (which requires a working merkle tree cache). This method will
+        // panic if you call it for resuming a paused commit after the node is restarted.
+        let t_aux = self.temporary_aux.remove(&key).unwrap_or_else(|| {
+            panic!("missing pre-commit output for sector with id {}", sector_id)
+        });
 
-            let staged_sector_path = mgr.staged_sector_path(&staged_sector.sector_access);
+        let out = Ok(SealCommitTaskPrototype {
+            cache_dir: self.sector_store.manager().cache_path(&meta.sector_access),
+            piece_info: meta.pieces.iter().map(|x| (x.clone()).into()).collect(),
+            porep_config: self.sector_store.proofs_config().porep_config,
+            pre_commit: SealPreCommitOutput {
+                comm_r: pre_commit.comm_r,
+                comm_d: pre_commit.comm_d,
+                p_aux: pre_commit.p_aux.clone(),
+                t_aux,
+            },
+            sector_id,
+            seed: seed.clone(),
+            ticket: ticket.clone(),
+        });
 
-            let cache_dir = mgr.cache_path(&staged_sector.sector_access);
+        meta.seal_status = SealStatus::Committing(
+            ticket.clone(),
+            key.clone(),
+            pre_commit.clone(),
+            seed.clone(),
+        );
+        self.checkpoint().expects(FATAL_SNPSHT);
 
-            let piece_lens = staged_sector
-                .pieces
-                .iter()
-                .map(|p| p.num_bytes)
-                .collect::<Vec<UnpaddedBytesAmount>>();
-
-            let seal_ticket = match staged_sector.seal_status {
-                SealStatus::Sealing(ref ticket) => ticket.clone(),
-                SealStatus::Paused(ref ticket) => ticket.clone(),
-                _ => seal_ticket.clone(),
-            };
-
-            protos.push(SealTaskPrototype {
-                cache_dir,
-                piece_lens,
-                porep_config: self.sector_store.proofs_config().porep_config,
-                seal_ticket,
-                sealed_sector_access,
-                sealed_sector_path,
-                sector_id: staged_sector.sector_id,
-                staged_sector_path,
-            })
-        }
-
-        Ok(protos)
+        out
     }
 
     // Produces a vector containing metadata for all staged sectors that this
@@ -357,39 +452,119 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         })
     }
 
-    // Update metadata to reflect the sealing results. Propagates the error from
-    // the proofs API call if one was present, otherwise maps API call-output
-    // to sealed sector metadata.
-    pub fn handle_seal_result(&mut self, result: SealResult) -> Result<SealedSectorMetadata> {
+    // Update metadata to reflect the seal pre-commit result. Propagates the
+    // error from the proofs API call if one was present.
+    pub fn handle_seal_pre_commit_result(&mut self, result: SealPreCommitResult) -> Result<()> {
+        let staged_state = &mut self.state.staged;
+
+        let SealPreCommitResult {
+            sector_id,
+            proofs_api_call_result,
+        } = result;
+
+        match proofs_api_call_result {
+            Ok(output) => {
+                let SealPreCommitOutput {
+                    comm_r,
+                    comm_d,
+                    p_aux,
+                    t_aux,
+                } = output;
+
+                let staged_sector = staged_state
+                    .sectors
+                    .get_mut(&sector_id)
+                    .ok_or_else(|| format_err!("missing staged sector with id {}", &sector_id))?;
+
+                let ticket = staged_sector.seal_status.ticket().ok_or_else(|| {
+                    format_err!("failed to get ticket for sector with id {}", sector_id)
+                })?;
+
+                // TODO: Remove this once we can persist TemporaryAux
+                let _ = self.temporary_aux.insert(TemporaryAuxKey(sector_id), t_aux);
+
+                staged_sector.seal_status = SealStatus::PreCommitted(
+                    ticket.clone(),
+                    TemporaryAuxKey(sector_id),
+                    PersistablePreCommitOutput {
+                        comm_d,
+                        comm_r,
+                        p_aux,
+                    },
+                );
+            }
+            Err(err) => {
+                let staged_sector = staged_state
+                    .sectors
+                    .get_mut(&sector_id)
+                    .ok_or_else(|| format_err!("missing staged sector with id {}", &sector_id))?;
+
+                staged_sector.seal_status =
+                    SealStatus::Failed(format!("seal_pre_commit failed: {:?}", err));
+            }
+        }
+
+        self.checkpoint().expects(FATAL_SNPSHT);
+
+        Ok(())
+    }
+
+    // Update metadata to reflect the seal commit result. Propagates the error
+    // from the proofs API call if one was present, or the appropriate metata
+    // object if one was not.
+    pub fn handle_seal_commit_result(
+        &mut self,
+        result: SealCommitResult,
+    ) -> Result<SealedSectorMetadata> {
         // scope exists to end the mutable borrow of self so that we can
         // checkpoint
         let out = {
             let staged_state = &mut self.state.staged;
             let sealed_state = &mut self.state.sealed;
 
+            let sector_id = result.sector_id;
+
             let staged_sector = staged_state
                 .sectors
-                .get_mut(&result.sector_id)
-                .expect("missing staged sector");
+                .get_mut(&sector_id)
+                .ok_or_else(|| format_err!("missing staged sector with id {}", &sector_id))?;
 
-            let SealResult {
+            let sector_access = self
+                .sector_store
+                .manager()
+                .convert_sector_id_to_access_name(sector_id)?;
+
+            let sector_path = self
+                .sector_store
+                .manager()
+                .sealed_sector_path(&sector_access);
+
+            let SealCommitResult {
                 sector_id,
-                sector_access,
-                sector_path,
-                seal_ticket,
                 proofs_api_call_result,
             } = result;
 
+            let seed = staged_sector.seal_status.seed().ok_or_else(|| {
+                format_err!("failed to get seed for sector with id {}", sector_id)
+            })?;
+
+            let ticket = staged_sector.seal_status.ticket().ok_or_else(|| {
+                format_err!("failed to get ticket for sector with id {}", sector_id)
+            })?;
+
+            let pre_commit = staged_sector
+                .seal_status
+                .persistable_pre_commit_output()
+                .ok_or_else(|| {
+                    format_err!(
+                        "failed to get persistable pre-commit output for sector with id {}",
+                        sector_id
+                    )
+                })?;
+
             proofs_api_call_result
                 .and_then(|output| {
-                    let SealOutput {
-                        comm_r,
-                        comm_d,
-                        p_aux,
-                        proof,
-                        comm_ps,
-                        piece_inclusion_proofs,
-                    } = output;
+                    let SealCommitOutput { proof } = output;
 
                     // generate checksum
                     let blake2b_checksum =
@@ -400,31 +575,20 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
                     // combine the piece commitment, piece inclusion proof, and other piece
                     // metadata into a single struct (to be persisted to metadata store)
-                    let pieces = staged_sector
-                        .clone()
-                        .pieces
-                        .into_iter()
-                        .zip(comm_ps.iter())
-                        .zip(piece_inclusion_proofs.into_iter())
-                        .map(|((piece, &comm_p), piece_inclusion_proof)| PieceMetadata {
-                            piece_key: piece.piece_key,
-                            num_bytes: piece.num_bytes,
-                            comm_p: Some(comm_p),
-                            piece_inclusion_proof: Some(piece_inclusion_proof.into()),
-                        })
-                        .collect();
+                    let pieces = staged_sector.pieces.to_vec();
 
                     let meta = SealedSectorMetadata {
-                        sector_id: staged_sector.sector_id,
-                        sector_access,
-                        pieces,
-                        p_aux,
-                        comm_r,
-                        comm_d,
-                        proof,
                         blake2b_checksum,
+                        comm_d: pre_commit.comm_d,
+                        comm_r: pre_commit.comm_r,
                         len,
-                        seal_ticket,
+                        p_aux: pre_commit.p_aux.clone(),
+                        pieces,
+                        proof,
+                        sector_access,
+                        sector_id: staged_sector.sector_id,
+                        seed: seed.clone(),
+                        ticket: ticket.clone(),
                     };
 
                     Ok(meta)
@@ -435,7 +599,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                     err
                 })
                 .map(|meta| {
-                    staged_sector.seal_status = SealStatus::Sealed(Box::new(meta.clone()));
+                    staged_sector.seal_status = SealStatus::Committed(Box::new(meta.clone()));
                     sealed_state.sectors.insert(sector_id, meta.clone());
                     meta
                 })
@@ -461,7 +625,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         for mut v in staged_state.sectors.values_mut() {
             if to_be_sealed.contains(&v.sector_id) {
-                v.seal_status = SealStatus::ReadyForSealing;
+                v.seal_status = SealStatus::FullyPacked;
             }
         }
     }

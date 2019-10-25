@@ -119,28 +119,26 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         })
     }
 
-    /// TODO: document this
-    pub fn resume_seal_sector(&self, sector_id: SectorId) -> Result<SealedSectorMetadata> {
-        log_unrecov(self.run_blocking(|tx| SchedulerTask::ResumeSealSector(sector_id, tx)))
-            .and_then(|x| {
-                x.first()
-                    .cloned()
-                    .ok_or_else(|| format_err!("resume_seal_sector expected one sector"))
-            })
+    // Sends a pre-commit command to the main runloop and blocks until complete.
+    pub fn seal_pre_commit(&self, sector_id: SectorId, ticket: SealTicket) -> Result<()> {
+        log_unrecov(self.run_blocking(|tx| SchedulerTask::SealPreCommit(sector_id, ticket, tx)))
     }
 
-    /// TODO: document this
-    pub fn seal_sector(
-        &self,
-        sector_id: SectorId,
-        seal_ticket: SealTicket,
-    ) -> Result<SealedSectorMetadata> {
-        log_unrecov(self.run_blocking(|tx| SchedulerTask::SealSector(sector_id, seal_ticket, tx)))
-            .and_then(|x| {
-                x.first()
-                    .cloned()
-                    .ok_or_else(|| format_err!("seal_sector expected one sector"))
-            })
+    // Sends a commit command to the main runloop and blocks until complete.
+    pub fn seal_commit(&self, sector_id: SectorId, seed: SealSeed) -> Result<SealedSectorMetadata> {
+        log_unrecov(self.run_blocking(|tx| SchedulerTask::SealCommit(sector_id, seed, tx)))
+    }
+
+    // Sends a pre-commit resumption command to the main runloop and blocks
+    // until complete.
+    pub fn resume_seal_pre_commit(&self, sector_id: SectorId) -> Result<()> {
+        log_unrecov(self.run_blocking(|tx| SchedulerTask::ResumeSealPreCommit(sector_id, tx)))
+    }
+
+    // Sends a resume seal command to the main runloop and blocks until
+    // complete.
+    pub fn resume_seal_commit(&self, sector_id: SectorId) -> Result<SealedSectorMetadata> {
+        log_unrecov(self.run_blocking(|tx| SchedulerTask::ResumeSealCommit(sector_id, tx)))
     }
 
     // Stages user piece-bytes for sealing. Note that add_piece calls are
@@ -168,15 +166,6 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
     // sector containing the referenced piece.
     pub fn read_piece_from_sealed_sector(&self, piece_key: String) -> Result<Vec<u8>> {
         log_unrecov(self.run_blocking(|tx| SchedulerTask::RetrievePiece(piece_key, tx)))
-    }
-
-    // For demo purposes. Schedules sealing of all staged sectors, blocking
-    // until complete.
-    pub fn seal_all_staged_sectors(
-        &self,
-        seal_ticket: SealTicket,
-    ) -> Result<Vec<SealedSectorMetadata>> {
-        log_unrecov(self.run_blocking(|tx| SchedulerTask::SealAllStagedSectors(seal_ticket, tx)))
     }
 
     // Returns all sealed sector metadata.

@@ -15,7 +15,6 @@ pub use crate::disk_backed_storage::SectorStore;
 pub use crate::helpers::checksum::calculate_checksum;
 pub use crate::metadata::*;
 pub use crate::metadata_manager::*;
-pub use crate::store::*;
 
 mod builder;
 mod constants;
@@ -27,5 +26,4 @@ mod metadata;
 mod metadata_manager;
 mod scheduler;
 mod state;
-mod store;
 mod worker;

@@ -1,5 +1,6 @@
+use crate::TemporaryAuxKey;
 use filecoin_proofs::types::UnpaddedBytesAmount;
-use filecoin_proofs::PersistentAux;
+use filecoin_proofs::{Commitment, PersistentAux, PieceInfo};
 use serde::{Deserialize, Serialize};
 use storage_proofs::sector::SectorId;
 
@@ -24,52 +25,112 @@ pub struct SealedSectorMetadata {
     /// number of bytes in the sealed sector-file as returned by `std::fs::metadata`
     pub len: u64,
     pub p_aux: PersistentAux,
-    pub seal_ticket: SealTicket,
+    pub ticket: SealTicket,
+    pub seed: SealSeed,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PieceMetadata {
     pub piece_key: String,
     pub num_bytes: UnpaddedBytesAmount,
-    pub comm_p: Option<[u8; 32]>,
-    pub piece_inclusion_proof: Option<Vec<u8>>,
+    pub comm_p: [u8; 32],
+}
+
+impl From<PieceMetadata> for PieceInfo {
+    fn from(pm: PieceMetadata) -> Self {
+        PieceInfo {
+            commitment: pm.comm_p,
+            size: pm.num_bytes,
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub struct PersistablePreCommitOutput {
+    pub comm_d: Commitment,
+    pub comm_r: Commitment,
+    pub p_aux: PersistentAux,
+}
+
+#[allow(clippy::large_enum_variant)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub enum SealStatus {
+    Committed(Box<SealedSectorMetadata>),
+    Committing(
+        SealTicket,
+        TemporaryAuxKey,
+        PersistablePreCommitOutput,
+        SealSeed,
+    ),
+    CommittingPaused(
+        SealTicket,
+        TemporaryAuxKey,
+        PersistablePreCommitOutput,
+        SealSeed,
+    ),
     Failed(String),
-    Pending,
-    Sealed(Box<SealedSectorMetadata>),
-    ReadyForSealing,
-    Paused(SealTicket),
-    Sealing(SealTicket),
+    AcceptingPieces,
+    PreCommitted(SealTicket, TemporaryAuxKey, PersistablePreCommitOutput),
+    PreCommitting(SealTicket),
+    PreCommittingPaused(SealTicket),
+    FullyPacked,
 }
 
 impl SealStatus {
-    pub fn is_sealing(&self) -> bool {
+    pub fn persistable_pre_commit_output(&self) -> Option<&PersistablePreCommitOutput> {
         match self {
-            SealStatus::Sealing(_) => true,
-            _ => false,
+            SealStatus::Committed(_) => None,
+            SealStatus::Committing(_, _, p, _) => Some(&p),
+            SealStatus::CommittingPaused(_, _, p, _) => Some(&p),
+            SealStatus::Failed(_) => None,
+            SealStatus::AcceptingPieces => None,
+            SealStatus::PreCommitted(_, _, p) => Some(&p),
+            SealStatus::PreCommitting(_) => None,
+            SealStatus::PreCommittingPaused(_) => None,
+            SealStatus::FullyPacked => None,
         }
     }
 
-    pub fn is_ready_for_sealing(&self) -> bool {
+    pub fn ticket(&self) -> Option<&SealTicket> {
         match self {
-            SealStatus::ReadyForSealing => true,
-            _ => false,
+            SealStatus::Committed(meta) => Some(&meta.ticket),
+            SealStatus::Committing(t, _, _, _) => Some(&t),
+            SealStatus::CommittingPaused(t, _, _, _) => Some(&t),
+            SealStatus::Failed(_) => None,
+            SealStatus::AcceptingPieces => None,
+            SealStatus::PreCommitted(t, _, _) => Some(&t),
+            SealStatus::PreCommitting(t) => Some(&t),
+            SealStatus::PreCommittingPaused(t) => Some(&t),
+            SealStatus::FullyPacked => None,
         }
     }
 
-    pub fn is_paused(&self) -> bool {
+    pub fn seed(&self) -> Option<&SealSeed> {
         match self {
-            SealStatus::Paused(_) => true,
-            _ => false,
+            SealStatus::Committed(meta) => Some(&meta.seed),
+            SealStatus::Committing(_, _, _, s) => Some(&s),
+            SealStatus::CommittingPaused(_, _, _, s) => Some(&s),
+            SealStatus::Failed(_) => None,
+            SealStatus::AcceptingPieces => None,
+            SealStatus::PreCommitted(_, _, _) => None,
+            SealStatus::PreCommitting(_) => None,
+            SealStatus::PreCommittingPaused(_) => None,
+            SealStatus::FullyPacked => None,
         }
     }
 }
 
 #[derive(Clone, Serialize, Default, Deserialize, Debug, PartialEq)]
 pub struct SealTicket {
+    /// the height at which we chose the ticket
+    pub block_height: u64,
+
+    /// bytes of the minimum ticket chosen from a block with given height
+    pub ticket_bytes: [u8; 32],
+}
+
+#[derive(Clone, Serialize, Default, Deserialize, Debug, PartialEq)]
+pub struct SealSeed {
     /// the height at which we chose the ticket
     pub block_height: u64,
 
@@ -100,7 +161,7 @@ impl Default for StagedSectorMetadata {
             sector_id: Default::default(),
             sector_access: Default::default(),
             pieces: Default::default(),
-            seal_status: SealStatus::Pending,
+            seal_status: SealStatus::AcceptingPieces,
         }
     }
 }

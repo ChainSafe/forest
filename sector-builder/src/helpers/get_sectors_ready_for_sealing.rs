@@ -18,7 +18,7 @@ pub fn get_sectors_ready_for_sealing(
         staged_state
             .sectors
             .values()
-            .filter(|x| x.seal_status == SealStatus::Pending)
+            .filter(|x| x.seal_status == SealStatus::AcceptingPieces)
             .partition(|x| {
                 let pieces: Vec<_> = x.pieces.iter().map(|p| p.num_bytes).collect();
                 max_user_bytes_per_staged_sector <= sum_piece_bytes_with_alignment(&pieces)
@@ -55,9 +55,9 @@ mod tests {
         accepting_data: bool,
     ) {
         let seal_status = if accepting_data {
-            SealStatus::Pending
+            SealStatus::AcceptingPieces
         } else {
-            SealStatus::Sealing(SealTicket {
+            SealStatus::PreCommitting(SealTicket {
                 block_height: 1,
                 ticket_bytes: [0u8; 32],
             })
@@ -71,8 +71,7 @@ mod tests {
                     vec![PieceMetadata {
                         piece_key: format!("{}", sector_id),
                         num_bytes: UnpaddedBytesAmount(num_bytes),
-                        comm_p: None,
-                        piece_inclusion_proof: None,
+                        comm_p: [0u8; 32],
                     }]
                 } else {
                     vec![]
