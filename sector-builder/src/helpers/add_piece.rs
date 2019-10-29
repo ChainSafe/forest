@@ -169,7 +169,7 @@ fn provision_new_staged_sector(
 
     let meta = StagedSectorMetadata {
         pieces: Default::default(),
-        sector_access: access.clone(),
+        sector_access: access,
         sector_id,
         seal_status: SealStatus::AcceptingPieces,
     };
@@ -177,7 +177,7 @@ fn provision_new_staged_sector(
     sector_builder_state
         .staged
         .sectors
-        .insert(meta.sector_id, meta.clone());
+        .insert(meta.sector_id, meta);
 
     Ok(sector_id)
 }

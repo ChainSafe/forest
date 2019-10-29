@@ -49,6 +49,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         staged_sector_dir: P,
         sector_cache_root: P,
         max_num_staged_sectors: u8,
+        num_workers: u8,
     ) -> Result<SectorBuilder<R>> {
         ensure_parameter_cache_hydrated(sector_class)?;
 
@@ -60,7 +61,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
             let (tx, rx) = mpsc::channel();
             let rx = Arc::new(Mutex::new(rx));
 
-            let workers = (0..NUM_WORKERS)
+            let workers = (0..num_workers)
                 .map(|n| Worker::start(n, rx.clone(), prover_id))
                 .collect();
 
@@ -120,7 +121,11 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
     }
 
     // Sends a pre-commit command to the main runloop and blocks until complete.
-    pub fn seal_pre_commit(&self, sector_id: SectorId, ticket: SealTicket) -> Result<()> {
+    pub fn seal_pre_commit(
+        &self,
+        sector_id: SectorId,
+        ticket: SealTicket,
+    ) -> Result<StagedSectorMetadata> {
         log_unrecov(self.run_blocking(|tx| SchedulerTask::SealPreCommit(sector_id, ticket, tx)))
     }
 
@@ -131,7 +136,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
 
     // Sends a pre-commit resumption command to the main runloop and blocks
     // until complete.
-    pub fn resume_seal_pre_commit(&self, sector_id: SectorId) -> Result<()> {
+    pub fn resume_seal_pre_commit(&self, sector_id: SectorId) -> Result<StagedSectorMetadata> {
         log_unrecov(self.run_blocking(|tx| SchedulerTask::ResumeSealPreCommit(sector_id, tx)))
     }
 
@@ -318,6 +323,7 @@ pub mod tests {
             temp_dir.clone(),
             temp_dir,
             1,
+            2,
         );
 
         assert!(result.is_err());

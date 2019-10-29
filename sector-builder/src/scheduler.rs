@@ -61,15 +61,22 @@ pub enum SchedulerTask<T: Read + Send> {
         mpsc::SyncSender<Result<Vec<u8>>>,
     ),
     RetrievePiece(String, mpsc::SyncSender<Result<Vec<u8>>>),
-    ResumeSealPreCommit(SectorId, mpsc::SyncSender<Result<()>>),
+    ResumeSealPreCommit(SectorId, mpsc::SyncSender<Result<StagedSectorMetadata>>),
     ResumeSealCommit(SectorId, mpsc::SyncSender<Result<SealedSectorMetadata>>),
-    SealPreCommit(SectorId, SealTicket, mpsc::SyncSender<Result<()>>),
+    SealPreCommit(
+        SectorId,
+        SealTicket,
+        mpsc::SyncSender<Result<StagedSectorMetadata>>,
+    ),
     SealCommit(
         SectorId,
         SealSeed,
         mpsc::SyncSender<Result<SealedSectorMetadata>>,
     ),
-    OnSealPreCommitComplete(SealPreCommitResult, mpsc::SyncSender<Result<()>>),
+    OnSealPreCommitComplete(
+        SealPreCommitResult,
+        mpsc::SyncSender<Result<StagedSectorMetadata>>,
+    ),
     OnSealCommitComplete(
         SealCommitResult,
         mpsc::SyncSender<Result<SealedSectorMetadata>>,
@@ -192,9 +199,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                     .m
                     .create_generate_post_task_proto(&comm_rs, &chg_seed, faults);
 
-                let tx_c = tx.clone();
-
-                let callback = Box::new(move |r| tx_c.send(r).expects(FATAL_NOSEND));
+                let callback = Box::new(move |r| tx.send(r).expects(FATAL_NOSEND));
 
                 self.worker_tx
                     .send(WorkerTask::GeneratePoSt {
@@ -254,7 +259,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
         &mut self,
         sector_id: SectorId,
         mode: PreCommitMode,
-        done_tx: mpsc::SyncSender<Result<()>>,
+        done_tx: mpsc::SyncSender<Result<StagedSectorMetadata>>,
     ) {
         let scheduler_tx_c = self.scheduler_tx.clone();
 

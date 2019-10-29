@@ -15,7 +15,7 @@ const FATAL_NOLOCK: &str = "error acquiring task lock";
 const FATAL_RCVTSK: &str = "error receiving task";
 
 pub struct Worker {
-    pub id: usize,
+    pub id: u8,
     pub thread: Option<thread::JoinHandle<()>>,
 }
 
@@ -111,7 +111,7 @@ pub enum WorkerTask {
 
 impl Worker {
     pub fn start(
-        id: usize,
+        id: u8,
         seal_task_rx: Arc<Mutex<mpsc::Receiver<WorkerTask>>>,
         prover_id: [u8; 32],
     ) -> Worker {
