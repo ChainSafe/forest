@@ -524,51 +524,46 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         // scope exists to end the mutable borrow of self so that we can
         // checkpoint
         let out = {
-            let staged_state = &mut self.state.staged;
-            let sealed_state = &mut self.state.sealed;
-
-            let sector_id = result.sector_id;
-
-            let staged_sector = staged_state
-                .sectors
-                .get_mut(&sector_id)
-                .ok_or_else(|| format_err!("missing staged sector with id {}", &sector_id))?;
-
-            let sector_access = self
-                .sector_store
-                .manager()
-                .convert_sector_id_to_access_name(sector_id)?;
-
-            let sector_path = self
-                .sector_store
-                .manager()
-                .sealed_sector_path(&sector_access);
-
             let SealCommitResult {
                 sector_id,
                 proofs_api_call_result,
             } = result;
 
-            let seed = staged_sector.seal_status.seed().ok_or_else(|| {
-                format_err!("failed to get seed for sector with id {}", sector_id)
-            })?;
-
-            let ticket = staged_sector.seal_status.ticket().ok_or_else(|| {
-                format_err!("failed to get ticket for sector with id {}", sector_id)
-            })?;
-
-            let pre_commit = staged_sector
-                .seal_status
-                .persistable_pre_commit_output()
-                .ok_or_else(|| {
-                    format_err!(
-                        "failed to get persistable pre-commit output for sector with id {}",
-                        sector_id
-                    )
-                })?;
-
             proofs_api_call_result
                 .and_then(|output| {
+                    let sector_access = self
+                        .sector_store
+                        .manager()
+                        .convert_sector_id_to_access_name(sector_id)?;
+
+                    let sector_path = self
+                        .sector_store
+                        .manager()
+                        .sealed_sector_path(&sector_access);
+
+                    let staged_sector =
+                        self.state.staged.sectors.get(&sector_id).ok_or_else(|| {
+                            format_err!("missing staged sector with id {}", &sector_id)
+                        })?;
+
+                    let seed = staged_sector.seal_status.seed().ok_or_else(|| {
+                        format_err!("failed to get seed for sector with id {}", sector_id)
+                    })?;
+
+                    let ticket = staged_sector.seal_status.ticket().ok_or_else(|| {
+                        format_err!("failed to get ticket for sector with id {}", sector_id)
+                    })?;
+
+                    let pre_commit = staged_sector
+                        .seal_status
+                        .persistable_pre_commit_output()
+                        .ok_or_else(|| {
+                            format_err!(
+                                "failed to get persistable pre-commit output for sector with id {}",
+                                sector_id
+                            )
+                        })?;
+
                     let SealCommitOutput { proof } = output;
 
                     // generate checksum
@@ -599,13 +594,18 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                     Ok(meta)
                 })
                 .map_err(|err| {
-                    staged_sector.seal_status =
-                        SealStatus::Failed(format!("{}", err_unrecov(&err)));
+                    let staged_state = &mut self.state.staged;
+
+                    if let Some(mut staged_sector) = staged_state.sectors.get_mut(&sector_id) {
+                        staged_sector.seal_status =
+                            SealStatus::Failed(format!("{}", err_unrecov(&err)));
+                    }
+
                     err
                 })
                 .map(|meta| {
-                    staged_sector.seal_status = SealStatus::Committed(Box::new(meta.clone()));
-                    sealed_state.sectors.insert(sector_id, meta.clone());
+                    self.state.staged.sectors.remove(&sector_id);
+                    self.state.sealed.sectors.insert(sector_id, meta.clone());
                     meta
                 })
         };
