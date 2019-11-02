@@ -571,7 +571,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                         helpers::calculate_checksum(&sector_path)?.as_ref().to_vec();
 
                     // get number of bytes in sealed sector-file
-                    let len = std::fs::metadata(&sector_path.clone())?.len();
+                    let len = std::fs::metadata(&sector_path)?.len();
 
                     // combine the piece commitment, piece inclusion proof, and other piece
                     // metadata into a single struct (to be persisted to metadata store)
