@@ -73,43 +73,16 @@ pub fn add_piece<U: Read>(
         .map(|p| p.num_bytes)
         .collect::<Vec<UnpaddedBytesAmount>>();
 
-    let total_bytes_written = filecoin_proofs::add_piece(
+    let (_, comm_p) = filecoin_proofs::add_piece(
         &mut cursor,
         &mut staged_file,
         piece_bytes_len,
         &piece_lens_in_staged_sector_without_alignment,
     )?;
 
-    cursor
-        .seek(SeekFrom::Start(0))
-        .map_err(|err| format_err!("could not seek into buffer after add_piece: {:?}", err))?;
-
-    // sanity check to ensure we've got alignment stuff correct
-    {
-        let sum_piece_lens_in_sector_with_alignment =
-            filecoin_proofs::pieces::sum_piece_bytes_with_alignment(
-                &piece_lens_in_staged_sector_without_alignment,
-            );
-
-        let alignment_for_new_piece = filecoin_proofs::pieces::get_piece_alignment(
-            sum_piece_lens_in_sector_with_alignment,
-            piece_bytes_len,
-        );
-
-        assert_eq!(
-            total_bytes_written,
-            alignment_for_new_piece.left_bytes
-                + alignment_for_new_piece.right_bytes
-                + piece_bytes_len,
-            "incorrect alignment bytes written to staged sector-file"
-        );
-    }
-
-    let piece_info = filecoin_proofs::generate_piece_commitment(&mut cursor, piece_bytes_len)?;
-
     ssm.pieces.push(metadata::PieceMetadata {
         piece_key,
-        comm_p: piece_info.commitment,
+        comm_p,
         num_bytes: piece_bytes_len,
     });
 
