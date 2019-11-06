@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use filecoin_proofs::error::ExpectWithBacktrace;
 use filecoin_proofs::pieces::get_piece_start_byte;
 use filecoin_proofs::{
-    PaddedBytesAmount, PrivateReplicaInfo, SealCommitOutput, SealPreCommitOutput, TemporaryAux,
-    UnpaddedBytesAmount,
+    compute_comm_d, verify_seal, PaddedBytesAmount, PersistentAux, PieceInfo, PrivateReplicaInfo,
+    SealCommitOutput, SealPreCommitOutput, TemporaryAux, UnpaddedBytesAmount,
 };
 use serde::{Deserialize, Serialize};
 use storage_proofs::sector::SectorId;
@@ -15,6 +15,7 @@ use storage_proofs::sector::SectorId;
 use helpers::SnapshotKey;
 
 use crate::error::Result;
+use crate::helpers::acquire_new_sector_id;
 use crate::kv_store::KeyValueStore;
 use crate::scheduler::{SealCommitResult, SealPreCommitResult};
 use crate::state::SectorBuilderState;
@@ -24,8 +25,9 @@ use crate::worker::{
 };
 use crate::GetSealedSectorResult::WithHealth;
 use crate::{
-    err_piecenotfound, err_unrecov, GetSealedSectorResult, PersistablePreCommitOutput, SealSeed,
-    SealStatus, SealedSectorMetadata, SecondsSinceEpoch, SectorStore, StagedSectorMetadata,
+    err_piecenotfound, err_unrecov, GetSealedSectorResult, PersistablePreCommitOutput,
+    PieceMetadata, SealSeed, SealStatus, SealedSectorMetadata, SecondsSinceEpoch, SectorStore,
+    StagedSectorMetadata,
 };
 use crate::{helpers, SealTicket};
 
@@ -447,6 +449,176 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
             Ok(buffer)
         })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn import_sector(
+        &mut self,
+        sector_id: SectorId,
+        sector_cache_dir: PathBuf,
+        sealed_sector: PathBuf,
+        seal_ticket: SealTicket,
+        seal_seed: SealSeed,
+        comm_r: [u8; 32],
+        comm_d: [u8; 32],
+        p_aux: PersistentAux,
+        pieces: Vec<PieceMetadata>,
+        proof: Vec<u8>,
+    ) -> Result<()> {
+        let stor = &self.sector_store;
+        let mngr = stor.manager();
+        let pcfg = stor.proofs_config().porep_config;
+        let scfg = stor.sector_config();
+
+        if sector_id > self.state.sector_id_nonce {
+            return Err(format_err!(
+                "sector import was provided an id {:?} that it did not acquire from the builder (sector_id_none = {:?})",
+                sector_id,
+                self.state.sector_id_nonce,
+            ));
+        }
+
+        if self.state.staged.sectors.contains_key(&sector_id) {
+            return Err(format_err!(
+                "sector import was provided an id {:?} that is already taken by a staged sector",
+                sector_id,
+            ));
+        }
+
+        if self.state.sealed.sectors.contains_key(&sector_id) {
+            return Err(format_err!(
+                "sector import was provided an id {:?} that is already taken by a sealed sector",
+                sector_id,
+            ));
+        }
+
+        // verify the provided proof
+        match verify_seal(
+            pcfg,
+            comm_r,
+            comm_d,
+            self.prover_id,
+            sector_id,
+            seal_ticket.ticket_bytes,
+            seal_seed.ticket_bytes,
+            &proof,
+        ) {
+            Err(err) => {
+                return Err(format_err!(
+                    "sector import (id = {:?}) saw error verifying seal proof: {:?}",
+                    sector_id,
+                    err
+                ));
+            }
+            Ok(false) => {
+                return Err(format_err!(
+                    "proof provided to sector import (id = {:?}) was invalid",
+                    sector_id
+                ));
+            }
+            Ok(_) => {} // noop
+        };
+
+        // compute a comm_d
+        let computed_comm_d = compute_comm_d(
+            pcfg,
+            &pieces
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .collect::<Vec<PieceInfo>>(),
+        )
+        .map_err(|err| format_err!("sector import failed to compute comm_d: {:?}", err))?;
+
+        // verify that the computed comm_d matches what we were provided
+        if comm_d != computed_comm_d {
+            return Err(format_err!(
+                "comm_d provided to sector import (id = {:?}) did not match comm_d computed from pieces",
+                sector_id
+            ));
+        }
+
+        // ensure that the file has the appropriate quantity of bytes
+        let len = std::fs::metadata(&sealed_sector)?.len();
+        let max = scfg.sector_bytes;
+
+        if len != u64::from(max) {
+            return Err(format_err!(
+                "import file (id = {:?}) contains {:?} bytes but must contain {:?}",
+                sector_id,
+                len,
+                max
+            ));
+        }
+
+        // generate checksum
+        let blake2b_checksum = helpers::calculate_checksum(&sealed_sector)?
+            .as_ref()
+            .to_vec();
+
+        let access = mngr
+            .convert_sector_id_to_access_name(sector_id)
+            .map_err(|err| {
+                format_err!(
+                    "sector id {:?} could not be xformed to access: {:?}",
+                    sector_id,
+                    err
+                )
+            })?;
+
+        let new_sector_path = mngr.sealed_sector_path(&access);
+        let new_cache_path = mngr.cache_path(&access);
+
+        let _ = std::fs::copy(&sealed_sector, &new_sector_path).map_err(|err| {
+            format_err!(
+                "import failed to copy sector (id = {:?}) from {:?} to {:?} (err = {:?})",
+                sector_id,
+                sealed_sector,
+                new_sector_path,
+                err
+            )
+        })?;
+
+        std::fs::rename(&sector_cache_dir, &new_cache_path).map_err(|err| {
+            format_err!(
+                "import failed to move sector cache path (id = {:?}) from {:?} to {:?} (err = {:?})",
+                sector_id,
+                sector_cache_dir,
+                new_cache_path,
+                err
+            )
+        })?;
+
+        // safe to delete old sector file now
+        if let Err(err) = std::fs::remove_file(&sealed_sector) {
+            warn!(
+                "sector import failed to remove imported sector (id = {:?}) at path {:?} (err = {:?})",
+                sector_id, sealed_sector, err
+            );
+        }
+
+        let meta = SealedSectorMetadata {
+            sector_id,
+            sector_access: access,
+            pieces,
+            comm_r,
+            comm_d,
+            proof,
+            blake2b_checksum,
+            len,
+            p_aux,
+            ticket: seal_ticket,
+            seed: seal_seed,
+        };
+
+        let _ = self.state.sealed.sectors.insert(sector_id, meta);
+
+        Ok(())
+    }
+
+    // Increments the nonce and returns the new value.
+    pub fn acquire_sector_id(&mut self) -> SectorId {
+        acquire_new_sector_id(&mut self.state)
     }
 
     // Update metadata to reflect the seal pre-commit result. Propagates the

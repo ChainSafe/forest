@@ -11,9 +11,10 @@ use crate::metadata::{SealStatus, StagedSectorMetadata};
 use crate::scheduler::SchedulerTask::{OnSealCommitComplete, OnSealPreCommitComplete};
 use crate::worker::WorkerTask;
 use crate::{
-    CommitMode, GetSealedSectorResult, PreCommitMode, SealSeed, SealTicket, SealedSectorMetadata,
-    SecondsSinceEpoch, SectorMetadataManager, UnpaddedBytesAmount,
+    CommitMode, GetSealedSectorResult, PieceMetadata, PreCommitMode, SealSeed, SealTicket,
+    SealedSectorMetadata, SecondsSinceEpoch, SectorMetadataManager, UnpaddedBytesAmount,
 };
+use filecoin_proofs::PersistentAux;
 use std::io::Read;
 
 const FATAL_NORECV: &str = "could not receive task";
@@ -73,6 +74,20 @@ pub enum SchedulerTask<T: Read + Send> {
         SealSeed,
         mpsc::SyncSender<Result<SealedSectorMetadata>>,
     ),
+    AcquireSectorId(mpsc::SyncSender<Result<SectorId>>),
+    ImportSector {
+        sector_id: SectorId,
+        sector_cache_dir: PathBuf,
+        sealed_sector: PathBuf,
+        seal_ticket: SealTicket,
+        seal_seed: SealSeed,
+        comm_r: [u8; 32],
+        comm_d: [u8; 32],
+        p_aux: PersistentAux,
+        pieces: Vec<PieceMetadata>,
+        proof: Vec<u8>,
+        done_tx: mpsc::SyncSender<Result<()>>,
+    },
     OnSealPreCommitComplete(
         SealPreCommitResult,
         mpsc::SyncSender<Result<StagedSectorMetadata>>,
@@ -208,6 +223,36 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                         post_config: proto.post_config,
                         callback,
                     })
+                    .expects(FATAL_NOSEND);
+            }
+            SchedulerTask::ImportSector {
+                sector_id,
+                sector_cache_dir,
+                sealed_sector,
+                seal_ticket,
+                seal_seed,
+                comm_r,
+                comm_d,
+                p_aux,
+                pieces,
+                proof,
+                done_tx,
+            } => done_tx
+                .send(self.m.import_sector(
+                    sector_id,
+                    sector_cache_dir,
+                    sealed_sector,
+                    seal_ticket,
+                    seal_seed,
+                    comm_r,
+                    comm_d,
+                    p_aux,
+                    pieces,
+                    proof,
+                ))
+                .expects(FATAL_NOSEND),
+            SchedulerTask::AcquireSectorId(tx) => {
+                tx.send(Ok(self.m.acquire_sector_id()))
                     .expects(FATAL_NOSEND);
             }
             SchedulerTask::Shutdown => (),

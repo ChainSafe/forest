@@ -65,7 +65,7 @@ mod tests {
         );
 
         SectorBuilderState {
-            last_committed_sector_id: 4.into(),
+            sector_id_nonce: 4.into(),
             staged: StagedState {
                 sectors: staged_sectors,
             },

@@ -17,15 +17,15 @@ pub struct SealedState {
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct SectorBuilderState {
-    pub last_committed_sector_id: SectorId,
+    pub sector_id_nonce: SectorId,
     pub staged: StagedState,
     pub sealed: SealedState,
 }
 
 impl SectorBuilderState {
-    pub fn new(last_committed_sector_id: SectorId) -> SectorBuilderState {
+    pub fn new(initial_sector_id: SectorId) -> SectorBuilderState {
         SectorBuilderState {
-            last_committed_sector_id,
+            sector_id_nonce: initial_sector_id,
             staged: StagedState {
                 sectors: Default::default(),
             },

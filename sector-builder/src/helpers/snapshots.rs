@@ -87,7 +87,7 @@ mod tests {
             let sealed_state = Default::default();
 
             SectorBuilderState {
-                last_committed_sector_id: 100.into(),
+                sector_id_nonce: 100.into(),
                 staged: staged_state,
                 sealed: sealed_state,
             }
@@ -104,7 +104,7 @@ mod tests {
             let sealed_state = Default::default();
 
             SectorBuilderState {
-                last_committed_sector_id: 102.into(),
+                sector_id_nonce: 102.into(),
                 staged: staged_state,
                 sealed: sealed_state,
             }

@@ -125,18 +125,20 @@ fn compute_destination_sector_id(
     }
 }
 
+pub fn acquire_new_sector_id(sector_builder_state: &mut SectorBuilderState) -> SectorId {
+    let n = SectorId::from(u64::from(sector_builder_state.sector_id_nonce) + 1);
+    sector_builder_state.sector_id_nonce = n;
+    n
+}
+
 // Provisions a new staged sector and returns its sector_id. Not a pure
 // function; creates a sector access (likely a file), increments the sector id
 // nonce, and mutates the StagedState.
 fn provision_new_staged_sector(
     sector_manager: &SectorManager,
-    sector_builder_state: &mut SectorBuilderState,
+    mut sector_builder_state: &mut SectorBuilderState,
 ) -> Result<SectorId> {
-    let sector_id = {
-        let n = SectorId::from(u64::from(sector_builder_state.last_committed_sector_id) + 1);
-        sector_builder_state.last_committed_sector_id = n;
-        n
-    };
+    let sector_id = acquire_new_sector_id(&mut sector_builder_state);
 
     let access = sector_manager.new_staging_sector_access(sector_id)?;
 

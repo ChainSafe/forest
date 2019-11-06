@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 
 use filecoin_proofs::error::ExpectWithBacktrace;
@@ -17,6 +17,7 @@ use crate::metadata_manager::SectorMetadataManager;
 use crate::scheduler::{PerformHealthCheck, Scheduler, SchedulerTask};
 use crate::state::SectorBuilderState;
 use crate::worker::*;
+use filecoin_proofs::PersistentAux;
 use std::io::Read;
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
@@ -194,6 +195,42 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
     ) -> Result<Vec<u8>> {
         log_unrecov(self.run_blocking(|tx| {
             SchedulerTask::GeneratePoSt(Vec::from(comm_rs), *challenge_seed, faults, tx)
+        }))
+    }
+
+    // Increments the manager's nonce and returns a newly-provisioned sector id.
+    pub fn acquire_sector_id(&self) -> Result<SectorId> {
+        log_unrecov(self.run_blocking(SchedulerTask::AcquireSectorId))
+    }
+
+    // Imports a sector sealed elsewhere. This function uses the rename system
+    // call to take ownership of the cache directory and sealed sector file.
+    #[allow(clippy::too_many_arguments)]
+    pub fn import_sealed_sector(
+        &self,
+        sector_id: SectorId,
+        sector_cache_dir: PathBuf,
+        sealed_sector: PathBuf,
+        seal_ticket: SealTicket,
+        seal_seed: SealSeed,
+        comm_r: [u8; 32],
+        comm_d: [u8; 32],
+        p_aux: PersistentAux,
+        pieces: Vec<PieceMetadata>,
+        proof: Vec<u8>,
+    ) -> Result<()> {
+        log_unrecov(self.run_blocking(|tx| SchedulerTask::ImportSector {
+            sector_id,
+            sector_cache_dir,
+            sealed_sector,
+            seal_ticket,
+            seal_seed,
+            comm_r,
+            comm_d,
+            p_aux,
+            pieces,
+            proof,
+            done_tx: tx,
         }))
     }
 
