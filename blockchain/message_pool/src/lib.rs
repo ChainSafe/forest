@@ -1,3 +1,5 @@
+mod pool;
+
 pub fn run() {
-    println!("Running message_pool");
+    println!("Running blocks");
 }
