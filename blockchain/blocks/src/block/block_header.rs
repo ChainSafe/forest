@@ -28,7 +28,7 @@ pub struct BlockHeader {
     timestamp: SystemTime,
     // ticket
     // election proof
-    //blocksig filCrypto Signature
+    // blocksig filCrypto Signature
     // BLSAggregateSig 
 
 }
