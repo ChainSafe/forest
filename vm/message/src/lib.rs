@@ -1,5 +1,5 @@
-pub mod signed_message;
-pub mod unsigned_message;
+mod signed_message;
+mod unsigned_message;
 
-pub use crate::signed_message::SignedMessage;
-pub use crate::unsigned_message::{UnsignedMessage, Address, GasAmount, GasPrice};
+pub use signed_message::*;
+pub use unsigned_message::*;
