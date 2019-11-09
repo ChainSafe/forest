@@ -1,4 +1,4 @@
-use crate::block::block_header::{BlockHeader};
+use crate::block_header::{BlockHeader};
 use message::{SignedMessage};
 
 struct Block {

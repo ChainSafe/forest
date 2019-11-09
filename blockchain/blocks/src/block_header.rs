@@ -2,7 +2,7 @@ extern crate cid;
 use cid::{Cid};
 
 use message;
-use crate::tipset::tipset::{Tipset};
+use crate::tipset::{Tipset};
 use std::time::SystemTime;
 
 type Address = String;

@@ -1,8 +1,10 @@
-pub mod block;
-pub mod tipset;
-//use block::block_header::BlockHeader;
+mod block;
+mod tipset;
+mod block_header;
+mod signed_block;
+
+
 
 pub fn run() {
-    //let x = BlockHeader{blah: 222};
     println!("Running blocks");
 }
