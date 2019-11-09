@@ -3,6 +3,28 @@
 [[package]]
 name = "blockchain"
 version = "0.1.0"
+dependencies = [
+ "blocks 0.1.0",
+ "chain_sync 0.1.0",
+ "message_pool 0.1.0",
+ "storage_consensus 0.1.0",
+]
+
+[[package]]
+name = "blocks"
+version = "0.1.0"
+
+[[package]]
+name = "chain_sync"
+version = "0.1.0"
+
+[[package]]
+name = "message_pool"
+version = "0.1.0"
+
+[[package]]
+name = "storage_consensus"
+version = "0.1.0"
 
 [[package]]
 name = "vm"
