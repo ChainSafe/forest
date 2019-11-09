@@ -11,3 +11,4 @@ blocks = { path = "blocks" }
 chain_sync = { path = "chain_sync" }
 message_pool = { path = "message_pool" }
 storage_consensus = { path = "storage_consensus" }
+message = {path = "../vm/message"}
