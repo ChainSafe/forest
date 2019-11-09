@@ -1,15 +1,15 @@
 use message::SignedMessage;
 
 trait PoolValidator {
-	fn Validate(&self, msg: SignedMessage);
+	fn validate(&self, msg: SignedMessage);
 }
 
 // MessagePoolConfig holds all configuration options related to nodes message pool (mpool).
 pub struct MessagePoolConfig {
-	// MaxPoolSize is the maximum number of pending messages will will allow in the message pool at any time
-	MaxPoolSize: u64, 
-	// MaxNonceGap is the maximum nonce of a message past the last received on chain
-	MaxNonceGap: u64,
+	// max_pool_size is the maximum number of pending messages will will allow in the message pool at any time
+	max_pool_size: u64, 
+	// max_nonce_gap is the maximum nonce of a message past the last received on chain
+	max_nonce_gap: u64,
 }
 
 // Pool keeps an unordered, de-duplicated set of Messages and supports removal by CID.
@@ -28,15 +28,15 @@ pub struct Pool {
 
 struct TimedMessage {
 	// message 
-	addedAt: u64,
+	added_at: u64,
 }
 
-fn newDefaultMessagePoolConfig() -> MessagePoolConfig {
-    return MessagePoolConfig { MaxPoolSize: 10000, MaxNonceGap: 100 };
+fn new_default_message_pool_config() -> MessagePoolConfig {
+    return MessagePoolConfig { max_pool_size: 10000, max_nonce_gap: 100 };
 }
 
-// NewPool constructs a new Pool.
-fn NewPool() -> &'static str {
+// new_pool constructs a new Pool.
+fn new_pool() -> &'static str {
 	return "Pool{ cfg: cfg, validator: validator}"
 }
 
@@ -45,7 +45,7 @@ struct addressNonce {
 	nonce: u64
 }
 
-fn newAddressNonce(msg: SignedMessage) -> &'static str {
+fn new_address_nonce(msg: SignedMessage) -> &'static str {
 	return "return addressNonce"
 }
 
