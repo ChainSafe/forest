@@ -1,3 +1,3 @@
+use actor;
 fn main() {
-    println!("Hello, world!");
 }
