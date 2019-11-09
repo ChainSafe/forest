@@ -1,3 +1,2 @@
-use actor;
 fn main() {
 }
