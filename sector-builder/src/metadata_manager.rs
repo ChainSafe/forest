@@ -613,6 +613,8 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         let _ = self.state.sealed.sectors.insert(sector_id, meta);
 
+        self.checkpoint().expects(FATAL_SNPSHT);
+
         Ok(())
     }
 
