@@ -34,15 +34,28 @@ impl KeyValueStore for FileSystemKvs {
     }
 
     fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
-        let nt_file = tempfile::NamedTempFile::new()?;
-        let (mut file, oldpath) = nt_file.keep()?;
+        let new_path = self.key_to_path(key);
+        let tmp_path = new_path.with_extension(".tmp");
 
-        file.write_all(value)?;
-
-        let newpath = self.key_to_path(key);
+        {
+            let mut file = File::create(&tmp_path)?;
+            match file.write_all(value) {
+                Ok(_) => {}
+                Err(err) => {
+                    fs::remove_file(&tmp_path)?;
+                    return Err(err.into());
+                }
+            }
+        }
 
         // if newpath already exists, it will be atomically replaced
-        std::fs::rename(oldpath, newpath).map_err(Into::into)
+        match std::fs::rename(&tmp_path, new_path) {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                fs::remove_file(&tmp_path)?;
+                Err(err.into())
+            }
+        }
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
