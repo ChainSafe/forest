@@ -1,6 +1,6 @@
-on: [pull_request]
+on: pull_request
   check_suite:
-    types: [rerequested]
+    types: rerequested
 
 name: Rust CI
 
