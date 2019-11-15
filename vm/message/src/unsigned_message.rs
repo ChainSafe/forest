@@ -10,12 +10,11 @@ pub type Address = String;
 
 pub struct UnsignedMessage {
     from: Address, //addr.Address
-    to: Address, // addr.address
+    to: Address,   // addr.address
     method: MethodNum,
     params: MethodParams,
     call_seq_num: CallSeqNum,
-    value: TokenAmount, 
+    value: TokenAmount,
     gas_price: GasPrice,
     gas_limit: GasAmount,
 }
-

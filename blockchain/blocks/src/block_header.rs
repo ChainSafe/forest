@@ -1,7 +1,7 @@
 extern crate cid;
-use cid::{Cid};
+use cid::Cid;
 
-use crate::tipset::{Tipset};
+use crate::tipset::Tipset;
 use std::time::SystemTime;
 
 type Address = String;
@@ -28,7 +28,5 @@ pub struct BlockHeader {
     // ticket
     // election proof
     // blocksig filCrypto Signature
-    // BLSAggregateSig 
-
+    // BLSAggregateSig
 }
-

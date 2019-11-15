@@ -1,5 +1,5 @@
-use crate::block_header::{BlockHeader, BlockCID, ChainWeight, ChainEpoch};
-pub struct Tipset{
+use crate::block_header::{BlockCID, BlockHeader, ChainEpoch, ChainWeight};
+pub struct Tipset {
     block_cid: Vec<BlockCID>,
     blocks: Vec<BlockHeader>,
 
@@ -7,5 +7,4 @@ pub struct Tipset{
     //StateTree
     weights: ChainWeight,
     epoch: ChainEpoch,
-    
 }
