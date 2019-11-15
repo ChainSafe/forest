@@ -1,7 +1,6 @@
 extern crate cid;
 use cid::{Cid};
 
-use message;
 use crate::tipset::{Tipset};
 use std::time::SystemTime;
 

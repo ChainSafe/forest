@@ -12,7 +12,7 @@ pub type CodeCID = Cid;
 pub type ActorSubstateCID = Cid;
 
 pub struct ActorState {
-    codeCID: CodeCID,
+    code_cid: CodeCID,
     state: ActorSubstateCID,
     balance: TokenAmount,
     callSeqNum: CallSeqNum,
