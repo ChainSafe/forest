@@ -1,5 +1,5 @@
-use crate::block_header::{BlockHeader};
-use message::{SignedMessage};
+use crate::block_header::BlockHeader;
+use message::SignedMessage;
 
 struct Block {
     header: BlockHeader,
