@@ -1,7 +1,5 @@
 on: pull_request
-  check_suite:
-    types: rerequested
-
+ 
 name: Rust CI
 
 jobs:
