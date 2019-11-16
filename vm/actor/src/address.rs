@@ -46,28 +46,49 @@ pub struct Address {
 }
 
 impl Address {
-    fn new(protocol: Protocol, payload: Vec<u8>) -> Self {
-        Self {
+    fn new(protocol: Protocol, payload: Vec<u8>) -> Result<Self, String> {
+        // TODO: Check payload with protocol
+        Ok(Self {
             protocol: protocol,
             payload: payload,
-        }
+        })
     }
     /// Creates address from formatted string
     pub fn from_bytes(bz: Vec<u8>) -> Result<Self, String> {
         if bz.len() == 0 {
-            Ok(Address::new(Protocol::Undefined, Vec::new()))
+            Address::new(Protocol::Undefined, Vec::new())
         } else if bz.len() == 1 {
             Err(String::from("Invalid byte length"))
         } else {
             let mut copy = bz.clone();
             let protocol = Protocol::from_byte(copy.remove(0));
-            Ok(Address::new(protocol, copy))
+            Address::new(protocol, copy)
         }
     }
     /// Creates address from formatted string
-    pub fn from_string(_addr: String) -> Self {
+    pub fn from_string(_addr: String) -> Result<Self, String> {
         // TODO
         Address::new(Protocol::Undefined, Vec::new())
+    }
+
+    /// Generates new address using ID protocol
+    pub fn new_id(_id: u64) -> Result<Self, String> {
+        // TODO: implement leb128 from u64 for bz
+        Address::new(Protocol::ID, Vec::new())
+    }
+    /// Generates new address using Secp256k1 pubkey
+    pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, String> {
+        // TODO address hash to payload
+        Address::new(Protocol::Secp256k1, pubkey)
+    }
+    /// Generates new address using Secp256k1 pubkey
+    pub fn new_actor(data: Vec<u8>) -> Result<Self, String> {
+        // TODO address hash to payload
+        Address::new(Protocol::BLS, data)
+    }
+    /// Generates new address using Secp256k1 pubkey
+    pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, String> {
+        Address::new(Protocol::ID, pubkey)
     }
 
     /// Returns protocol for Address
@@ -111,7 +132,7 @@ mod test {
 
     #[test]
     fn protocol_version() {
-        let new_addr = Address::new(Protocol::BLS, Vec::new());
+        let new_addr = Address::new(Protocol::BLS, Vec::new()).unwrap();
         assert!(new_addr.protocol() == Protocol::BLS);
         assert!(new_addr.protocol() != Protocol::Undefined);
     }
@@ -119,24 +140,24 @@ mod test {
     #[test]
     fn payload() {
         let data = vec![0, 1, 2];
-        let new_addr = Address::new(Protocol::Undefined, data.clone());
+        let new_addr = Address::new(Protocol::Undefined, data.clone()).unwrap();
         assert_eq!(new_addr.payload(), data);
     }
 
     #[test]
     fn bytes() {
         let data = vec![0, 3, 2];
-        let new_addr = Address::new(Protocol::Secp256k1, data.clone());
+        let new_addr = Address::new(Protocol::Secp256k1, data.clone()).unwrap();
         let encoded_bz = new_addr.to_bytes();
         assert_eq!(encoded_bz, vec![Protocol::Secp256k1 as u8, 0, 3, 2]);
 
         // Assert decoded address equals the original address and a new one with the same data
         let decoded_addr = Address::from_bytes(encoded_bz).unwrap();
         assert!(decoded_addr == new_addr);
-        assert!(decoded_addr == Address::new(Protocol::Secp256k1, data.clone()));
+        assert!(decoded_addr == Address::new(Protocol::Secp256k1, data.clone()).unwrap());
 
         // Assert different types don't match
-        assert!(decoded_addr != Address::new(Protocol::BLS, data.clone()));
-        assert!(decoded_addr != Address::new(Protocol::Secp256k1, vec![1, 2, 1]));
+        assert!(decoded_addr != Address::new(Protocol::BLS, data.clone()).unwrap());
+        assert!(decoded_addr != Address::new(Protocol::Secp256k1, vec![1, 2, 1]).unwrap());
     }
 }
