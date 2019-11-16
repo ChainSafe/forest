@@ -87,11 +87,11 @@ impl Address {
     }
     /// Generates new address using Secp256k1 pubkey
     pub fn new_actor(data: Vec<u8>) -> Result<Self, String> {
-        Address::new(Protocol::BLS, address_hash(data))
+        Address::new(Protocol::Actor, address_hash(data))
     }
     /// Generates new address using Secp256k1 pubkey
     pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, String> {
-        Address::new(Protocol::ID, pubkey)
+        Address::new(Protocol::BLS, pubkey)
     }
 
     /// Returns protocol for Address
