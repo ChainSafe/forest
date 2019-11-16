@@ -2,9 +2,9 @@ extern crate cid;
 use cid::Cid;
 
 use crate::tipset::Tipset;
+use actor::Address;
 use std::time::SystemTime;
 
-type Address = String;
 pub type BlockCID = Cid;
 
 type MessageRoot = Cid;
