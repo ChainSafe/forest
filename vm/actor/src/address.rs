@@ -1,13 +1,14 @@
-use std::cmp::PartialEq;
-// use data_encoding::{Encoding};
-// use data_encoding_macro::*;
+// use data_encoding::Encoding;
+// use data_encoding_macro::{internal_new_encoding, new_encoding};
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 
-// const ACCOUNT_ENCODER: Encoding = new_encoding!{
+// const ACCOUNT_ENCODER: Encoding = new_encoding! {
 //     symbols: "abcdefghijklmnopqrstuvwxyz234567",
 //     padding: None,
 // };
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, FromPrimitive)]
 pub enum Protocol {
     // ID protocol addressing
     ID = 0,
@@ -21,11 +22,24 @@ pub enum Protocol {
     Undefined = 255,
 }
 
+impl Protocol {
+    fn from_byte(b: u8) -> Protocol {
+        match FromPrimitive::from_u8(b) {
+            Some(Protocol::ID) => Protocol::ID,
+            Some(Protocol::Secp256k1) => Protocol::Secp256k1,
+            Some(Protocol::Actor) => Protocol::Actor,
+            Some(Protocol::BLS) => Protocol::BLS,
+            _ => Protocol::Undefined,
+        }
+    }
+}
+
 pub enum Network {
     Mainnet,
     Testnet,
 }
 
+#[derive(PartialEq)]
 pub struct Address {
     protocol: Protocol,
     payload: Vec<u8>,
@@ -38,7 +52,21 @@ impl Address {
             payload: payload,
         }
     }
+    /// Creates address from formatted string
+    pub fn from_bytes(bz: Vec<u8>) -> Result<Self, String> {
+        if bz.len() == 0 {
+            Ok(Address::new(Protocol::Undefined, Vec::new()))
+        } else if bz.len() == 1 {
+            Err(String::from("Invalid byte length"))
+        } else {
+            let mut copy = bz.clone();
+            let protocol = Protocol::from_byte(copy.remove(0));
+            Ok(Address::new(protocol, copy))
+        }
+    }
+    /// Creates address from formatted string
     pub fn from_string(_addr: String) -> Self {
+        // TODO
         Address::new(Protocol::Undefined, Vec::new())
     }
 
@@ -49,6 +77,12 @@ impl Address {
     /// Returns data payload of Address
     pub fn payload(&self) -> Vec<u8> {
         self.payload.clone()
+    }
+    /// Returns encoded bytes of Address
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bz: Vec<u8> = self.payload();
+        bz.insert(0, self.protocol() as u8);
+        bz
     }
     /// Returns encoded string from Address
     pub fn to_string(&self) -> String {
@@ -76,16 +110,33 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_protocol_version() {
+    fn protocol_version() {
         let new_addr = Address::new(Protocol::BLS, Vec::new());
         assert!(new_addr.protocol() == Protocol::BLS);
         assert!(new_addr.protocol() != Protocol::Undefined);
     }
-    
+
     #[test]
-    fn test_payload() {
+    fn payload() {
         let data = vec![0, 1, 2];
         let new_addr = Address::new(Protocol::Undefined, data.clone());
         assert_eq!(new_addr.payload(), data);
+    }
+
+    #[test]
+    fn bytes() {
+        let data = vec![0, 3, 2];
+        let new_addr = Address::new(Protocol::Secp256k1, data.clone());
+        let encoded_bz = new_addr.to_bytes();
+        assert_eq!(encoded_bz, vec![Protocol::Secp256k1 as u8, 0, 3, 2]);
+
+        // Assert decoded address equals the original address and a new one with the same data
+        let decoded_addr = Address::from_bytes(encoded_bz).unwrap();
+        assert!(decoded_addr == new_addr);
+        assert!(decoded_addr == Address::new(Protocol::Secp256k1, data.clone()));
+
+        // Assert different types don't match
+        assert!(decoded_addr != Address::new(Protocol::BLS, data.clone()));
+        assert!(decoded_addr != Address::new(Protocol::Secp256k1, vec![1, 2, 1]));
     }
 }
