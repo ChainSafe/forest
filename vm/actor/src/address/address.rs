@@ -10,6 +10,7 @@ use num_traits::FromPrimitive;
 //     padding: None,
 // };
 
+const BLS_PUB_LEN: usize = 48;
 const PAYLOAD_HASH_LEN: usize = 20;
 const CHECKSUM_HASH_LEN: usize = 4;
 
@@ -52,7 +53,29 @@ pub struct Address {
 
 impl Address {
     fn new(protocol: Protocol, payload: Vec<u8>) -> Result<Self, String> {
-        // TODO: Check payload with protocol
+        match protocol {
+            Protocol::ID | Protocol::Secp256k1 | Protocol::Actor => {
+                if payload.len() != PAYLOAD_HASH_LEN {
+                    return Err(format!(
+                        "Invalid payload length, wanted: {} got: {}",
+                        PAYLOAD_HASH_LEN,
+                        payload.len()
+                    ));
+                }
+            }
+            Protocol::BLS => {
+                if payload.len() != BLS_PUB_LEN {
+                    return Err(format!(
+                        "Invalid BLS key length, wanted: {} got: {}",
+                        BLS_PUB_LEN,
+                        payload.len()
+                    ));
+                }
+            }
+            _ => return Err(String::from("Unknown protocol")),
+        }
+
+        // Create validated address
         Ok(Self {
             protocol: protocol,
             payload: payload,
@@ -160,52 +183,4 @@ fn hash(ingest: Vec<u8>, size: usize) -> Vec<u8> {
     });
 
     result
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn protocol_version() {
-        let new_addr = Address::new(Protocol::BLS, Vec::new()).unwrap();
-        assert!(new_addr.protocol() == Protocol::BLS);
-        assert!(new_addr.protocol() != Protocol::Undefined);
-    }
-
-    #[test]
-    fn payload() {
-        let data = vec![0, 1, 2];
-        let new_addr = Address::new(Protocol::Undefined, data.clone()).unwrap();
-        assert_eq!(new_addr.payload(), data);
-    }
-
-    #[test]
-    fn bytes() {
-        let data = vec![0, 3, 2];
-        let new_addr = Address::new(Protocol::Secp256k1, data.clone()).unwrap();
-        let encoded_bz = new_addr.to_bytes();
-        assert_eq!(encoded_bz, vec![Protocol::Secp256k1 as u8, 0, 3, 2]);
-
-        // Assert decoded address equals the original address and a new one with the same data
-        let decoded_addr = Address::from_bytes(encoded_bz).unwrap();
-        assert!(decoded_addr == new_addr);
-        assert!(decoded_addr == Address::new(Protocol::Secp256k1, data.clone()).unwrap());
-
-        // Assert different types don't match
-        assert!(decoded_addr != Address::new(Protocol::BLS, data.clone()).unwrap());
-        assert!(decoded_addr != Address::new(Protocol::Secp256k1, vec![1, 2, 1]).unwrap());
-    }
-
-    #[test]
-    fn generate_validate_checksum() {
-        let data: Vec<u8> = vec![0, 2, 3, 4, 5, 1, 2];
-        let other_data: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
-
-        let cksm = checksum(data.clone());
-        assert_eq!(cksm.len(), 4);
-
-        assert_eq!(validate_checksum(data.clone(), cksm.clone()), true);
-        assert_eq!(validate_checksum(other_data.clone(), cksm.clone()), false);
-    }
 }
