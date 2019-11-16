@@ -1,5 +1,7 @@
 // use data_encoding::Encoding;
 // use data_encoding_macro::{internal_new_encoding, new_encoding};
+use blake2::digest::{Input, VariableOutput};
+use blake2::VarBlake2b;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -7,6 +9,9 @@ use num_traits::FromPrimitive;
 //     symbols: "abcdefghijklmnopqrstuvwxyz234567",
 //     padding: None,
 // };
+
+const PAYLOAD_HASH_LEN: usize = 20;
+const CHECKSUM_HASH_LEN: usize = 4;
 
 #[derive(PartialEq, Copy, Clone, FromPrimitive)]
 pub enum Protocol {
@@ -78,13 +83,11 @@ impl Address {
     }
     /// Generates new address using Secp256k1 pubkey
     pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, String> {
-        // TODO address hash to payload
-        Address::new(Protocol::Secp256k1, pubkey)
+        Address::new(Protocol::Secp256k1, address_hash(pubkey))
     }
     /// Generates new address using Secp256k1 pubkey
     pub fn new_actor(data: Vec<u8>) -> Result<Self, String> {
-        // TODO address hash to payload
-        Address::new(Protocol::BLS, data)
+        Address::new(Protocol::BLS, address_hash(data))
     }
     /// Generates new address using Secp256k1 pubkey
     pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, String> {
@@ -126,6 +129,39 @@ impl Address {
     }
 }
 
+/// Checksum calculates the 4 byte checksum hash
+pub fn checksum(ingest: Vec<u8>) -> Vec<u8> {
+    hash(ingest, CHECKSUM_HASH_LEN)
+}
+
+/// Validates the checksum against the ingest data
+pub fn validate_checksum(ingest: Vec<u8>, expect: Vec<u8>) -> bool {
+    let digest = checksum(ingest);
+    digest == expect
+}
+
+/// Returns an address hash for given data
+fn address_hash(ingest: Vec<u8>) -> Vec<u8> {
+    hash(ingest, PAYLOAD_HASH_LEN)
+}
+
+/// generates blake2b hash with provided size
+fn hash(ingest: Vec<u8>, size: usize) -> Vec<u8> {
+    let mut hasher = VarBlake2b::new(size).unwrap();
+    hasher.input(ingest);
+
+    // allocate hash result vector
+    let mut result: Vec<u8> = Vec::with_capacity(size);
+    result.resize(size, 0);
+
+    hasher.variable_result(|res| {
+        // Copy result slice to vector return
+        result[..size].clone_from_slice(res);
+    });
+
+    result
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -159,5 +195,17 @@ mod test {
         // Assert different types don't match
         assert!(decoded_addr != Address::new(Protocol::BLS, data.clone()).unwrap());
         assert!(decoded_addr != Address::new(Protocol::Secp256k1, vec![1, 2, 1]).unwrap());
+    }
+
+    #[test]
+    fn generate_validate_checksum() {
+        let data: Vec<u8> = vec![0, 2, 3, 4, 5, 1, 2];
+        let other_data: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
+
+        let cksm = checksum(data.clone());
+        assert_eq!(cksm.len(), 4);
+
+        assert_eq!(validate_checksum(data.clone(), cksm.clone()), true);
+        assert_eq!(validate_checksum(other_data.clone(), cksm.clone()), false);
     }
 }
