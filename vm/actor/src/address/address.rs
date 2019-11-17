@@ -54,7 +54,9 @@ pub struct Address {
 impl Address {
     fn new(protocol: Protocol, payload: Vec<u8>) -> Result<Self, String> {
         match protocol {
-            Protocol::ID | Protocol::Secp256k1 | Protocol::Actor => {
+            // No validation needed for ID protocol
+            Protocol::ID => (),
+            Protocol::Secp256k1 | Protocol::Actor => {
                 if payload.len() != PAYLOAD_HASH_LEN {
                     return Err(format!(
                         "Invalid payload length, wanted: {} got: {}",
