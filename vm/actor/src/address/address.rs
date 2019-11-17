@@ -150,7 +150,7 @@ impl Address {
         bz
     }
     /// Returns encoded string from Address
-    pub fn to_string(&self, network: Network) -> Result<String, String> {
+    pub fn to_string(&self, network: Option<Network>) -> Result<String, String> {
         match self.protocol {
             Protocol::Undefined => Ok(UNDEFINED_ADDR_STR.to_owned()),
             Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
@@ -163,11 +163,15 @@ impl Address {
                 bz.extend(cksm.clone());
                 Ok(format!(
                     "{}{}{}",
-                    network.to_prefix(),
+                    match network {
+                        Some(x) => x.to_prefix(),
+                        None => Network::Testnet.to_prefix(),
+                    },
                     self.protocol().to_string(),
                     ADDRESS_ENCODER.encode(bz.as_mut()),
                 ))
             }
+            // TODO
             Protocol::ID => Err("Protocol not implemented".to_owned()),
         }
     }
