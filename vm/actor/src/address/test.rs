@@ -1,6 +1,6 @@
 #![cfg(all(test))]
 
-use crate::{checksum, validate_checksum, Address, Network};
+use crate::{checksum, validate_checksum, Address, Network, Protocol};
 
 #[test]
 fn bytes() {
@@ -94,13 +94,26 @@ fn test_secp256k1_address() {
     ];
 
     for t in test_vectors.iter() {
-        let res = Address::new_secp256k1(t.input.clone()).unwrap();
+        let addr = Address::new_secp256k1(t.input.clone()).unwrap();
+
+        // Test encoding to string
         assert_eq!(
             t.expected.to_owned(),
-            res.to_string(Some(Network::Testnet)).unwrap()
+            addr.to_string(Some(Network::Testnet)).unwrap()
         );
 
-        // TODO: finish testing with decoding from string
+        // Test decoding from string
+        let decoded = Address::from_string(t.expected.to_owned()).unwrap();
+        assert!(Protocol::Secp256k1 == decoded.protocol());
+
+        assert_eq!(addr.payload(), decoded.payload());
+        assert!(addr.protocol() == decoded.protocol());
+
+        // Test encoding and decoding from bytes
+        let from_bytes = Address::from_bytes(decoded.to_bytes()).unwrap();
+        assert!(decoded == from_bytes);
+
+        // TODO: test JSON encoding and decoding
     }
 }
 

@@ -1,7 +1,7 @@
-use data_encoding::Encoding;
-use data_encoding_macro::{internal_new_encoding, new_encoding};
 use blake2::digest::{Input, VariableOutput};
 use blake2::VarBlake2b;
+use data_encoding::Encoding;
+use data_encoding_macro::{internal_new_encoding, new_encoding};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -13,6 +13,7 @@ const ADDRESS_ENCODER: Encoding = new_encoding! {
 const BLS_PUB_LEN: usize = 48;
 const PAYLOAD_HASH_LEN: usize = 20;
 const CHECKSUM_HASH_LEN: usize = 4;
+const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &'static str = "f";
 const TESTNET_PREFIX: &'static str = "t";
 const UNDEFINED_ADDR_STR: &'static str = "<empty>";
@@ -90,7 +91,7 @@ impl Address {
                     ));
                 }
             }
-            _ => return Err("Unknown protocol".to_owned()),
+            _ => return Err("unknown protocol".to_owned()),
         }
 
         // Create validated address
@@ -104,7 +105,7 @@ impl Address {
         if bz.len() == 0 {
             Address::new(Protocol::Undefined, Vec::new())
         } else if bz.len() == 1 {
-            Err("Invalid byte length".to_owned())
+            Err("invalid byte length".to_owned())
         } else {
             let mut copy = bz.clone();
             let protocol = Protocol::from_byte(copy.remove(0));
@@ -112,9 +113,54 @@ impl Address {
         }
     }
     /// Creates address from formatted string
-    pub fn from_string(_addr: String) -> Result<Self, String> {
-        // TODO
-        Address::new(Protocol::Undefined, Vec::new())
+    pub fn from_string(addr: String) -> Result<Self, String> {
+        if addr.len() == 0 || addr == UNDEFINED_ADDR_STR.to_owned() {
+            return Address::new(Protocol::Undefined, Vec::new());
+        }
+        if addr.len() > MAX_ADDRESS_LEN || addr.len() < 3 {
+            return Err("invalid address length".to_owned());
+        }
+        if &addr[0..1] != MAINNET_PREFIX && &addr[0..1] != TESTNET_PREFIX {
+            return Err(format!("unknown network prefix: {}", &addr[0..1]));
+        }
+
+        let protocol: Protocol = match &addr[1..2] {
+            "0" => Protocol::ID,
+            "1" => Protocol::Secp256k1,
+            "2" => Protocol::Actor,
+            "3" => Protocol::BLS,
+            _ => Protocol::Undefined,
+        };
+
+        if protocol == Protocol::Undefined {
+            return Err("unknown protocol".to_owned());
+        }
+
+        let raw = &addr[2..];
+        if protocol == Protocol::ID {
+            // TODO implement ID decoding
+            return Err("ID not impl".to_owned());
+        }
+
+        let mut payload = ADDRESS_ENCODER
+            .decode(raw.as_bytes())
+            .expect("could not decode the payload");
+
+        let cksm = payload.split_off(payload.len()-CHECKSUM_HASH_LEN);
+
+        if protocol == Protocol::Secp256k1 || protocol == Protocol::Actor {
+            if payload.len() != PAYLOAD_HASH_LEN {
+                return Err("invalid payload".to_owned());
+            }
+        }
+
+        let mut ingest = payload.clone();
+        ingest.insert(0, protocol as u8);
+        if !validate_checksum(ingest, cksm) {
+            return Err("invalid checksun".to_owned());
+        }
+
+        Address::new(protocol, payload)
     }
 
     /// Generates new address using ID protocol
