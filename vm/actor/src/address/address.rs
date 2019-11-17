@@ -2,6 +2,7 @@ use blake2::digest::{Input, VariableOutput};
 use blake2::VarBlake2b;
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
+use leb128;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -138,8 +139,16 @@ impl Address {
 
         let raw = &addr[2..];
         if protocol == Protocol::ID {
-            // TODO implement ID decoding
-            return Err("ID not impl".to_owned());
+            if raw.len() > 20 {
+                // 20 is max u64 as string
+                return Err("invalid payload length".to_owned());
+            }
+            let i = raw.parse::<u64>();
+            if i.is_err() {
+                return Err("could not parse payload string".to_owned());
+            }
+
+            return Address::new_id(i.unwrap());
         }
 
         let mut payload = ADDRESS_ENCODER
@@ -164,9 +173,16 @@ impl Address {
     }
 
     /// Generates new address using ID protocol
-    pub fn new_id(_id: u64) -> Result<Self, String> {
-        // TODO: implement leb128 from u64 for bz
-        Address::new(Protocol::ID, Vec::new())
+    pub fn new_id(id: u64) -> Result<Self, String> {
+        let mut buf = [0; 1023];
+
+        // write id to buffer in leb128 format
+        let mut writable = &mut buf[..];
+        leb128::write::unsigned(&mut writable, id).expect("Should write number");
+
+        // Create byte vector from buffer
+        let vec = Vec::from(&buf[..]);
+        Address::new(Protocol::ID, vec)
     }
     /// Generates new address using Secp256k1 pubkey
     pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, String> {
@@ -217,8 +233,20 @@ impl Address {
                     ADDRESS_ENCODER.encode(bz.as_mut()),
                 ))
             }
-            // TODO
-            Protocol::ID => Err("Protocol not implemented".to_owned()),
+            Protocol::ID => {
+                let mut buf = [0; 1023];
+                buf.copy_from_slice(&self.payload());
+                let mut readable = &buf[..];
+                Ok(format!(
+                    "{}{}{}",
+                    match network {
+                        Some(x) => x.to_prefix(),
+                        None => Network::Testnet.to_prefix(),
+                    },
+                    self.protocol().to_string(),
+                    leb128::read::unsigned(&mut readable).expect("should read encoded bytes"),
+                ))
+            }
         }
     }
     /// Returns if Address is empty

@@ -209,3 +209,71 @@ fn test_bls_address() {
         test_address(addr, Protocol::BLS, t.expected);
     }
 }
+
+struct IDTestVec {
+    input: u64,
+    expected: &'static str,
+}
+
+#[test]
+fn test_leb_address() {
+    use leb128;
+
+    let mut buf = [0; 1024];
+
+    {
+        let mut writable = &mut buf[..];
+        leb128::write::unsigned(&mut writable, 98765).expect("Should write number");
+    }
+
+    let mut readable = &buf[..];
+    let val = leb128::read::unsigned(&mut readable).expect("Should read number");
+    assert_eq!(val, 98765);
+}
+
+#[test]
+fn test_id_address() {
+    let test_vectors = vec![
+        IDTestVec {
+            input: 0,
+            expected: "t00",
+        },
+        IDTestVec {
+            input: 1,
+            expected: "t01",
+        },
+        IDTestVec {
+            input: 10,
+            expected: "t010",
+        },
+        IDTestVec {
+            input: 150,
+            expected: "t0150",
+        },
+        IDTestVec {
+            input: 499,
+            expected: "t0499",
+        },
+        IDTestVec {
+            input: 1024,
+            expected: "t01024",
+        },
+        IDTestVec {
+            input: 1729,
+            expected: "t01729",
+        },
+        IDTestVec {
+            input: 999999,
+            expected: "t0999999",
+        },
+        // IDTestVec {
+        //     input: std::u64::MAX,
+        //     expected: "t099",
+        //     },
+    ];
+
+    for t in test_vectors.iter() {
+        let addr = Address::new_id(t.input).unwrap();
+        test_address(addr, Protocol::ID, t.expected);
+    }
+}
