@@ -21,10 +21,8 @@ fn bytes() {
 fn generate_validate_checksum() {
     let data: Vec<u8> = vec![0, 2, 3, 4, 5, 1, 2];
     let other_data: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
-
     let cksm = checksum(data.clone());
     assert_eq!(cksm.len(), 4);
-
     assert_eq!(validate_checksum(data.clone(), cksm.clone()), true);
     assert_eq!(validate_checksum(other_data.clone(), cksm.clone()), false);
 }
@@ -32,6 +30,27 @@ fn generate_validate_checksum() {
 struct AddressTestVec {
     input: Vec<u8>,
     expected: &'static str,
+}
+
+fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
+    // Test encoding to string
+    assert_eq!(
+        expected.to_owned(),
+        addr.to_string(Some(Network::Testnet)).unwrap()
+    );
+
+    // Test decoding from string
+    let decoded = Address::from_string(expected.to_owned()).unwrap();
+    assert!(protocol == decoded.protocol());
+
+    assert_eq!(addr.payload(), decoded.payload());
+    assert!(addr.protocol() == decoded.protocol());
+
+    // Test encoding and decoding from bytes
+    let from_bytes = Address::from_bytes(decoded.to_bytes()).unwrap();
+    assert!(decoded == from_bytes);
+
+    // TODO: test JSON encoding and decoding
 }
 
 #[test]
@@ -95,26 +114,51 @@ fn test_secp256k1_address() {
 
     for t in test_vectors.iter() {
         let addr = Address::new_secp256k1(t.input.clone()).unwrap();
-
-        // Test encoding to string
-        assert_eq!(
-            t.expected.to_owned(),
-            addr.to_string(Some(Network::Testnet)).unwrap()
-        );
-
-        // Test decoding from string
-        let decoded = Address::from_string(t.expected.to_owned()).unwrap();
-        assert!(Protocol::Secp256k1 == decoded.protocol());
-
-        assert_eq!(addr.payload(), decoded.payload());
-        assert!(addr.protocol() == decoded.protocol());
-
-        // Test encoding and decoding from bytes
-        let from_bytes = Address::from_bytes(decoded.to_bytes()).unwrap();
-        assert!(decoded == from_bytes);
-
-        // TODO: test JSON encoding and decoding
+        test_address(addr, Protocol::Secp256k1, t.expected);
     }
 }
+#[test]
+fn test_actor_address() {
+    let test_vectors = vec![
+        AddressTestVec {
+            input: vec![
+                118, 18, 129, 144, 205, 240, 104, 209, 65, 128, 68, 172, 192, 62, 11, 103, 129,
+                151, 13, 96,
+            ],
+            expected: "t24vg6ut43yw2h2jqydgbg2xq7x6f4kub3bg6as6i",
+        },
+        AddressTestVec {
+            input: vec![
+                44, 175, 184, 226, 224, 107, 186, 152, 234, 101, 124, 92, 245, 244, 32, 35, 170,
+                35, 232, 142,
+            ],
+            expected: "t25nml2cfbljvn4goqtclhifepvfnicv6g7mfmmvq",
+        },
+        AddressTestVec {
+            input: vec![
+                2, 44, 158, 14, 162, 157, 143, 64, 197, 106, 190, 195, 92, 141, 88, 125, 160, 166,
+                76, 24,
+            ],
+            expected: "t2nuqrg7vuysaue2pistjjnt3fadsdzvyuatqtfei",
+        },
+        AddressTestVec {
+            input: vec![
+                223, 236, 3, 14, 32, 79, 15, 89, 216, 15, 29, 94, 233, 29, 253, 6, 109, 127, 99,
+                189,
+            ],
+            expected: "t24dd4ox4c2vpf5vk5wkadgyyn6qtuvgcpxxon64a",
+        },
+        AddressTestVec {
+            input: vec![
+                61, 58, 137, 232, 221, 171, 84, 120, 50, 113, 108, 109, 70, 140, 53, 96, 201, 244,
+                127, 216,
+            ],
+            expected: "t2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
+        },
+    ];
 
-// TODO: Add other protocol tests
+    for t in test_vectors.iter() {
+        let addr = Address::new_actor(t.input.clone()).unwrap();
+        test_address(addr, Protocol::Actor, t.expected);
+    }
+}
