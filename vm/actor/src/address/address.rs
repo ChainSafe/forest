@@ -1,18 +1,21 @@
-// use data_encoding::Encoding;
-// use data_encoding_macro::{internal_new_encoding, new_encoding};
+use data_encoding::Encoding;
+use data_encoding_macro::{internal_new_encoding, new_encoding};
 use blake2::digest::{Input, VariableOutput};
 use blake2::VarBlake2b;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-// const ACCOUNT_ENCODER: Encoding = new_encoding! {
-//     symbols: "abcdefghijklmnopqrstuvwxyz234567",
-//     padding: None,
-// };
+const ADDRESS_ENCODER: Encoding = new_encoding! {
+    symbols: "abcdefghijklmnopqrstuvwxyz234567",
+    padding: None,
+};
 
 const BLS_PUB_LEN: usize = 48;
 const PAYLOAD_HASH_LEN: usize = 20;
 const CHECKSUM_HASH_LEN: usize = 4;
+const MAINNET_PREFIX: &'static str = "f";
+const TESTNET_PREFIX: &'static str = "t";
+const UNDEFINED_ADDR_STR: &'static str = "<empty>";
 
 #[derive(PartialEq, Copy, Clone, FromPrimitive)]
 pub enum Protocol {
@@ -29,6 +32,10 @@ pub enum Protocol {
 }
 
 impl Protocol {
+    fn to_string(&self) -> String {
+        let i = *self as u8;
+        i.to_string()
+    }
     fn from_byte(b: u8) -> Protocol {
         match FromPrimitive::from_u8(b) {
             Some(Protocol::ID) => Protocol::ID,
@@ -43,6 +50,15 @@ impl Protocol {
 pub enum Network {
     Mainnet,
     Testnet,
+}
+
+impl Network {
+    fn to_prefix(&self) -> &'static str {
+        match self {
+            Network::Mainnet => MAINNET_PREFIX,
+            Network::Testnet => TESTNET_PREFIX,
+        }
+    }
 }
 
 #[derive(PartialEq)]
@@ -74,7 +90,7 @@ impl Address {
                     ));
                 }
             }
-            _ => return Err(String::from("Unknown protocol")),
+            _ => return Err("Unknown protocol".to_owned()),
         }
 
         // Create validated address
@@ -88,7 +104,7 @@ impl Address {
         if bz.len() == 0 {
             Address::new(Protocol::Undefined, Vec::new())
         } else if bz.len() == 1 {
-            Err(String::from("Invalid byte length"))
+            Err("Invalid byte length".to_owned())
         } else {
             let mut copy = bz.clone();
             let protocol = Protocol::from_byte(copy.remove(0));
@@ -134,9 +150,26 @@ impl Address {
         bz
     }
     /// Returns encoded string from Address
-    pub fn to_string(&self) -> String {
-        // TODO: implement
-        String::from("")
+    pub fn to_string(&self, network: Network) -> Result<String, String> {
+        match self.protocol {
+            Protocol::Undefined => Ok(UNDEFINED_ADDR_STR.to_owned()),
+            Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
+                let mut ingest = self.payload();
+                ingest.insert(0, self.protocol() as u8);
+                let cksm = checksum(ingest);
+                let mut bz = self.payload();
+
+                // payload bytes followed by calculated checksum
+                bz.extend(cksm.clone());
+                Ok(format!(
+                    "{}{}{}",
+                    network.to_prefix(),
+                    self.protocol().to_string(),
+                    ADDRESS_ENCODER.encode(bz.as_mut()),
+                ))
+            }
+            Protocol::ID => Err("Protocol not implemented".to_owned()),
+        }
     }
     /// Returns if Address is empty
     pub fn empty(&self) -> bool {
@@ -146,11 +179,11 @@ impl Address {
     // Marshalling and unmarshalling
     pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO: implement
-        Err(String::from("Unmarshall is unimplemented"))
+        Err("Unmarshall is unimplemented".to_owned())
     }
     pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
         // TODO: implement
-        Err(String::from("Marshall is unimplemented"))
+        Err("Marshall is unimplemented".to_owned())
     }
 }
 
