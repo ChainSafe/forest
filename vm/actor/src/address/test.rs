@@ -1,6 +1,8 @@
 #![cfg(all(test))]
 
-use crate::{checksum, validate_checksum, Address, Network, Protocol};
+use crate::{
+    checksum, validate_checksum, Address, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
+};
 
 #[test]
 fn bytes() {
@@ -50,7 +52,7 @@ fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
     let from_bytes = Address::from_bytes(decoded.to_bytes()).unwrap();
     assert!(decoded == from_bytes);
 
-    // TODO: test JSON encoding and decoding
+    // TODO: test JSON/cbor encoding and decoding
 }
 
 #[test]
@@ -210,29 +212,12 @@ fn test_bls_address() {
     }
 }
 
-struct IDTestVec {
-    input: u64,
-    expected: &'static str,
-}
-
-#[test]
-fn test_leb_address() {
-    use leb128;
-
-    let mut buf = [0; 1024];
-
-    {
-        let mut writable = &mut buf[..];
-        leb128::write::unsigned(&mut writable, 98765).expect("Should write number");
-    }
-
-    let mut readable = &buf[..];
-    let val = leb128::read::unsigned(&mut readable).expect("Should read number");
-    assert_eq!(val, 98765);
-}
-
 #[test]
 fn test_id_address() {
+    struct IDTestVec {
+        input: u64,
+        expected: &'static str,
+    }
     let test_vectors = vec![
         IDTestVec {
             input: 0,
@@ -266,14 +251,138 @@ fn test_id_address() {
             input: 999999,
             expected: "t0999999",
         },
-        // IDTestVec {
-        //     input: std::u64::MAX,
-        //     expected: "t099",
-        //     },
+        IDTestVec {
+            input: std::u64::MAX,
+            expected: "t018446744073709551615",
+        },
     ];
 
     for t in test_vectors.iter() {
         let addr = Address::new_id(t.input).unwrap();
         test_address(addr, Protocol::ID, t.expected);
+    }
+}
+
+#[test]
+fn test_invalid_string_addresses() {
+    struct StringAddrVec {
+        input: &'static str,
+        expected: &'static str,
+    }
+    let test_vectors = vec![
+        StringAddrVec {
+            input: "Q2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
+            expected: "unknown network prefix: Q",
+        },
+        StringAddrVec {
+            input: "t4gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
+            expected: "unknown protocol",
+        },
+        StringAddrVec {
+            input: "t2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr24y",
+            expected: "invalid checksum",
+        },
+        StringAddrVec {
+            input: "t0banananananannnnnnnnn",
+            expected: "invalid payload length",
+        },
+        StringAddrVec {
+            input: "t0banananananannnnnnnn",
+            expected: "could not parse payload string",
+        },
+        StringAddrVec {
+            input: "t2gfvuyh7v2sx3patm1k23wdzmhyhtmqctasbr24y",
+            expected: "could not decode the address: invalid symbol at 16",
+        },
+        StringAddrVec {
+            input: "t2gfvuyh7v2sx3paTm1k23wdzmhyhtmqctasbr24y",
+            expected: "could not decode the address: invalid symbol at 14",
+        },
+        StringAddrVec {
+            input: "t2",
+            expected: "invalid address length",
+        },
+    ];
+
+    for t in test_vectors.iter() {
+        let res = Address::from_string(t.input.to_owned());
+        match res {
+            Err(e) => assert_eq!(e, t.expected.to_owned()),
+            _ => assert!(false, "Addresses should have errored"),
+        };
+    }
+}
+
+#[test]
+fn test_invalid_byte_addresses() {
+    struct StringAddrVec {
+        input: Vec<u8>,
+        expected: &'static str,
+    }
+
+    let secp_vec = vec![1];
+    let mut secp_l = secp_vec.clone();
+    secp_l.resize(PAYLOAD_HASH_LEN + 2, 0);
+    let mut secp_s = secp_vec.clone();
+    secp_s.resize(PAYLOAD_HASH_LEN, 0);
+
+    let actor_vec = vec![2];
+    let mut actor_l = actor_vec.clone();
+    actor_l.resize(PAYLOAD_HASH_LEN + 2, 0);
+    let mut actor_s = actor_vec.clone();
+    actor_s.resize(PAYLOAD_HASH_LEN, 0);
+
+    let bls_vec = vec![3];
+    let mut bls_l = bls_vec.clone();
+    bls_l.resize(BLS_PUB_LEN + 2, 0);
+    let mut bls_s = bls_vec.clone();
+    bls_s.resize(BLS_PUB_LEN, 0);
+
+    let test_vectors = vec![
+        // Unknown Protocol
+        StringAddrVec {
+            input: vec![4, 4, 4],
+            expected: "unknown protocol",
+        },
+        // ID protocol
+        StringAddrVec {
+            input: vec![0],
+            expected: "invalid byte length",
+        },
+        // SECP256K1 Protocol
+        StringAddrVec {
+            input: secp_l,
+            expected: "Invalid payload length, wanted: 20 got: 21",
+        },
+        StringAddrVec {
+            input: secp_s,
+            expected: "Invalid payload length, wanted: 20 got: 19",
+        },
+        // Actor Protocol
+        StringAddrVec {
+            input: actor_l,
+            expected: "Invalid payload length, wanted: 20 got: 21",
+        },
+        StringAddrVec {
+            input: actor_s,
+            expected: "Invalid payload length, wanted: 20 got: 19",
+        },
+        // BLS Protocol
+        StringAddrVec {
+            input: bls_l,
+            expected: "Invalid BLS key length, wanted: 48 got: 49",
+        },
+        StringAddrVec {
+            input: bls_s,
+            expected: "Invalid BLS key length, wanted: 48 got: 47",
+        },
+    ];
+
+    for t in test_vectors.iter() {
+        let res = Address::from_bytes(t.input.clone());
+        match res {
+            Err(e) => assert_eq!(e, t.expected.to_owned()),
+            _ => assert!(false, "Addresses should have errored"),
+        };
     }
 }

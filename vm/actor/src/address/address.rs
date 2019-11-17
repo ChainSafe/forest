@@ -11,9 +11,9 @@ const ADDRESS_ENCODER: Encoding = new_encoding! {
     padding: None,
 };
 
-const BLS_PUB_LEN: usize = 48;
-const PAYLOAD_HASH_LEN: usize = 20;
-const CHECKSUM_HASH_LEN: usize = 4;
+pub const BLS_PUB_LEN: usize = 48;
+pub const PAYLOAD_HASH_LEN: usize = 20;
+pub const CHECKSUM_HASH_LEN: usize = 4;
 const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &'static str = "f";
 const TESTNET_PREFIX: &'static str = "t";
@@ -151,10 +151,15 @@ impl Address {
             return Address::new_id(i.unwrap());
         }
 
-        let mut payload = ADDRESS_ENCODER
-            .decode(raw.as_bytes())
-            .expect("could not decode the payload");
+        let enc_res = ADDRESS_ENCODER.decode(raw.as_bytes());
+        if enc_res.is_err() {
+            return Err(format!(
+                "could not decode the address: {}",
+                enc_res.unwrap_err()
+            ));
+        }
 
+        let mut payload = enc_res.unwrap();
         let cksm = payload.split_off(payload.len() - CHECKSUM_HASH_LEN);
 
         if protocol == Protocol::Secp256k1 || protocol == Protocol::Actor {
@@ -166,7 +171,7 @@ impl Address {
         let mut ingest = payload.clone();
         ingest.insert(0, protocol as u8);
         if !validate_checksum(ingest, cksm) {
-            return Err("invalid checksun".to_owned());
+            return Err("invalid checksum".to_owned());
         }
 
         Address::new(protocol, payload)
