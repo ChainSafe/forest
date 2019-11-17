@@ -146,7 +146,7 @@ impl Address {
             .decode(raw.as_bytes())
             .expect("could not decode the payload");
 
-        let cksm = payload.split_off(payload.len()-CHECKSUM_HASH_LEN);
+        let cksm = payload.split_off(payload.len() - CHECKSUM_HASH_LEN);
 
         if protocol == Protocol::Secp256k1 || protocol == Protocol::Actor {
             if payload.len() != PAYLOAD_HASH_LEN {
