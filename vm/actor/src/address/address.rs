@@ -228,12 +228,22 @@ impl Address {
 
     // Marshalling and unmarshalling
     pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
-        // TODO: implement
+        // TODO
         Err("Unmarshall is unimplemented".to_owned())
     }
     pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
-        // TODO: implement
+        // TODO
         Err("Marshall is unimplemented".to_owned())
+    }
+
+    // JSON Marshalling and unmarshalling
+    pub fn unmarshall_json(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+        // TODO
+        Err("JSON unmarshall is unimplemented".to_owned())
+    }
+    pub fn marshall_json(&self) -> Result<Vec<u8>, String> {
+        // TODO
+        Err("JSON marshall is unimplemented".to_owned())
     }
 }
 
