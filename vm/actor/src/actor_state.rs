@@ -1,17 +1,23 @@
 extern crate cid;
 use cid::Cid;
 
-pub type UVarint = u64;
+#[allow(dead_code)]
+type UVarint = u64;
 
-pub type TokenAmount = UVarint;
-pub type CallSeqNum = UVarint;
+#[allow(dead_code)]
+type TokenAmount = UVarint;
+#[allow(dead_code)]
+type CallSeqNum = UVarint;
 
-pub type CodeCID = Cid;
-pub type ActorSubstateCID = Cid;
+#[allow(dead_code)]
+type CodeCID = Cid;
+#[allow(dead_code)]
+type ActorSubstateCID = Cid;
 
-pub struct ActorState {
-    pub code_cid: CodeCID,
-    pub state: ActorSubstateCID,
-    pub balance: TokenAmount,
-    pub call_seq_num: CallSeqNum,
+#[allow(dead_code)]
+struct ActorState {
+    code_cid: CodeCID,
+    state: ActorSubstateCID,
+    balance: TokenAmount,
+    call_seq_num: CallSeqNum,
 }

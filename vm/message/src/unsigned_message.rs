@@ -7,13 +7,14 @@ pub type GasPrice = TokenAmount;
 
 pub type Address = String;
 
+#[allow(dead_code)]
 pub struct UnsignedMessage {
-    pub from: Address, //addr.Address
-    pub to: Address,   // addr.address
-    pub method: MethodNum,
-    pub params: MethodParams,
-    pub call_seq_num: CallSeqNum,
-    pub value: TokenAmount,
-    pub gas_price: GasPrice,
-    pub gas_limit: GasAmount,
+    from: Address, //addr.Address
+    to: Address,   // addr.address
+    method: MethodNum,
+    params: MethodParams,
+    call_seq_num: CallSeqNum,
+    value: TokenAmount,
+    gas_price: GasPrice,
+    gas_limit: GasAmount,
 }

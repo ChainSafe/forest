@@ -7,6 +7,7 @@ pub type MethodParam = Bytes;
 pub type MethodParams = Vec<MethodParam>;
 pub type Code = Bytes;
 
+#[allow(dead_code)]
 pub struct Actor {
-    pub state: ActorState,
+    state: ActorState,
 }
