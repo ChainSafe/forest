@@ -1,7 +1,7 @@
 #![cfg(all(test))]
 
 use crate::{
-    checksum, validate_checksum, Address, Network, BLS_PUB_LEN, PAYLOAD_HASH_LEN, Protocol
+    checksum, validate_checksum, Address, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
 
 #[test]

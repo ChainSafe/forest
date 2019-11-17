@@ -1,6 +1,8 @@
-mod test;
+mod network;
 mod protocol;
-pub use self::protocol::{Protocol};
+mod test;
+pub use self::network::Network;
+pub use self::protocol::Protocol;
 
 use blake2::digest::{Input, VariableOutput};
 use blake2::VarBlake2b;
@@ -20,20 +22,6 @@ const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
 const UNDEFINED_ADDR_STR: &str = "<empty>";
-
-pub enum Network {
-    Mainnet,
-    Testnet,
-}
-
-impl Network {
-    fn to_prefix(&self) -> &'static str {
-        match self {
-            Network::Mainnet => MAINNET_PREFIX,
-            Network::Testnet => TESTNET_PREFIX,
-        }
-    }
-}
 
 #[derive(PartialEq)]
 pub struct Address {
