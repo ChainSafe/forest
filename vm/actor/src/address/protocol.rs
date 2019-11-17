@@ -12,19 +12,11 @@ pub enum Protocol {
     Actor = 2,
     // BLS key addressing
     BLS = 3,
-
-    Undefined = 255,
 }
 
 impl Protocol {
-    pub(crate) fn from_byte(b: u8) -> Protocol {
-        match FromPrimitive::from_u8(b) {
-            Some(Protocol::ID) => Protocol::ID,
-            Some(Protocol::Secp256k1) => Protocol::Secp256k1,
-            Some(Protocol::Actor) => Protocol::Actor,
-            Some(Protocol::BLS) => Protocol::BLS,
-            _ => Protocol::Undefined,
-        }
+    pub(crate) fn from_byte(b: u8) -> Option<Protocol> {
+        FromPrimitive::from_u8(b)
     }
 }
 

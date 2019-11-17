@@ -21,7 +21,6 @@ pub const CHECKSUM_HASH_LEN: usize = 4;
 const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
-const UNDEFINED_ADDR_STR: &str = "<empty>";
 
 #[derive(PartialEq)]
 pub struct Address {
@@ -52,7 +51,6 @@ impl Address {
                     ));
                 }
             }
-            _ => return Err("unknown protocol".to_owned()),
         }
 
         // Create validated address
@@ -60,21 +58,19 @@ impl Address {
     }
     /// Creates address from formatted string
     pub fn from_bytes(bz: Vec<u8>) -> Result<Self, String> {
-        if bz.is_empty() {
-            Address::new(Protocol::Undefined, Vec::new())
-        } else if bz.len() == 1 {
+        if bz.len() < 2 {
             Err("invalid byte length".to_owned())
         } else {
             let mut copy = bz.clone();
             let protocol = Protocol::from_byte(copy.remove(0));
-            Address::new(protocol, copy)
+            if protocol.is_none() {
+                return Err("unknown protocol".to_owned());
+            }
+            Address::new(protocol.unwrap(), copy)
         }
     }
     /// Creates address from formatted string
     pub fn from_string(addr: String) -> Result<Self, String> {
-        if addr.is_empty() || addr == UNDEFINED_ADDR_STR {
-            return Address::new(Protocol::Undefined, Vec::new());
-        }
         if addr.len() > MAX_ADDRESS_LEN || addr.len() < 3 {
             return Err("invalid address length".to_owned());
         }
@@ -87,12 +83,10 @@ impl Address {
             "1" => Protocol::Secp256k1,
             "2" => Protocol::Actor,
             "3" => Protocol::BLS,
-            _ => Protocol::Undefined,
+            _ => {
+                return Err("unknown protocol".to_owned());
+            }
         };
-
-        if protocol == Protocol::Undefined {
-            return Err("unknown protocol".to_owned());
-        }
 
         let raw = &addr[2..];
         if protocol == Protocol::ID {
@@ -173,7 +167,6 @@ impl Address {
     /// Returns encoded string from Address
     pub fn to_string(&self, network: Option<Network>) -> Result<String, String> {
         match self.protocol {
-            Protocol::Undefined => Ok(UNDEFINED_ADDR_STR.to_owned()),
             Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
                 let mut ingest = self.payload();
                 ingest.insert(0, self.protocol() as u8);
@@ -207,10 +200,6 @@ impl Address {
                 ))
             }
         }
-    }
-    /// Returns if Address is empty
-    pub fn empty(&self) -> bool {
-        self.protocol == Protocol::Undefined
     }
 
     // Marshalling and unmarshalling
