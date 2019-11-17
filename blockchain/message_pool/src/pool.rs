@@ -32,15 +32,15 @@ struct TimedMessage {
 }
 #[allow(dead_code)]
 fn new_default_message_pool_config() -> MessagePoolConfig {
-    return MessagePoolConfig {
+    MessagePoolConfig {
         max_pool_size: 10000,
         max_nonce_gap: 100,
-    };
+    }
 }
 #[allow(dead_code)]
 // new_pool constructs a new Pool.
 fn new_pool() -> &'static str {
-    return "Pool{ cfg: cfg, validator: validator}";
+    "Pool{ cfg: cfg, validator: validator}"
 }
 #[allow(dead_code)]
 struct AddressNonce {
@@ -49,11 +49,11 @@ struct AddressNonce {
 }
 #[allow(dead_code)]
 fn new_address_nonce(_msg: SignedMessage) -> &'static str {
-    return "return addressNonce";
+    "return addressNonce"
 }
 #[allow(dead_code)]
 // Add adds a message to the pool, tagged with the block height at which it was received.
 // Does nothing if the message is already in the pool.
 fn add(_msg: SignedMessage, _height: u64) -> &'static str {
-    return "add message to pool";
+    "add message to pool"
 }
