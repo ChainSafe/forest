@@ -10,6 +10,7 @@ use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use leb128;
 
+/// defines the encoder for base32 encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {
     symbols: "abcdefghijklmnopqrstuvwxyz234567",
     padding: None,
@@ -22,6 +23,8 @@ const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
 
+/// Address is the struct that defines the protocol and data payload conversion from either
+/// a public key or value
 #[derive(PartialEq)]
 pub struct Address {
     protocol: Protocol,
@@ -29,9 +32,10 @@ pub struct Address {
 }
 
 impl Address {
+    /// Address constructor
     fn new(protocol: Protocol, payload: Vec<u8>) -> Result<Self, String> {
+        // Validates the data satisfies the protocol specifications
         match protocol {
-            // No validation needed for ID protocol
             Protocol::ID => (),
             Protocol::Secp256k1 | Protocol::Actor => {
                 if payload.len() != PAYLOAD_HASH_LEN {
@@ -74,10 +78,12 @@ impl Address {
         if addr.len() > MAX_ADDRESS_LEN || addr.len() < 3 {
             return Err("invalid address length".to_owned());
         }
+        // ensure the network character is valid before converting
         if &addr[0..1] != MAINNET_PREFIX && &addr[0..1] != TESTNET_PREFIX {
             return Err(format!("unknown network prefix: {}", &addr[0..1]));
         }
 
+        // get protocol from second character
         let protocol: Protocol = match &addr[1..2] {
             "0" => Protocol::ID,
             "1" => Protocol::Secp256k1,
@@ -88,6 +94,7 @@ impl Address {
             }
         };
 
+        // bytes after the protocol character is the data payload of the address
         let raw = &addr[2..];
         if protocol == Protocol::ID {
             if raw.len() > 20 {
@@ -102,20 +109,29 @@ impl Address {
             return Address::new_id(i.unwrap());
         }
 
+        // decode using byte32 encoding
         let enc_res = ADDRESS_ENCODER.decode(raw.as_bytes());
         if let Err(e) = enc_res {
             return Err(format!("could not decode the address: {}", e));
         }
 
+        // payload includes checksum at end, so split after decoding
         let mut payload = enc_res.unwrap();
         let cksm = payload.split_off(payload.len() - CHECKSUM_HASH_LEN);
 
+        // sanity check to make sure address hash values are correct length
         if (protocol == Protocol::Secp256k1 || protocol == Protocol::Actor)
             && payload.len() != PAYLOAD_HASH_LEN
         {
             return Err("invalid payload".to_owned());
         }
 
+        // sanity check to make sure bls pub key is correct length
+        if protocol == Protocol::BLS && payload.len() != BLS_PUB_LEN {
+            return Err("invalid payload".to_owned());
+        }
+
+        // validate checksum
         let mut ingest = payload.clone();
         ingest.insert(0, protocol as u8);
         if !validate_checksum(ingest, cksm) {
@@ -141,11 +157,11 @@ impl Address {
     pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, String> {
         Address::new(Protocol::Secp256k1, address_hash(pubkey))
     }
-    /// Generates new address using Secp256k1 pubkey
+    /// Generates new address using the Actor protocol
     pub fn new_actor(data: Vec<u8>) -> Result<Self, String> {
         Address::new(Protocol::Actor, address_hash(data))
     }
-    /// Generates new address using Secp256k1 pubkey
+    /// Generates new address using BLS pubkey
     pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, String> {
         Address::new(Protocol::BLS, pubkey)
     }
@@ -166,39 +182,9 @@ impl Address {
     }
     /// Returns encoded string from Address
     pub fn to_string(&self, network: Option<Network>) -> Result<String, String> {
-        match self.protocol {
-            Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
-                let mut ingest = self.payload();
-                ingest.insert(0, self.protocol() as u8);
-                let cksm = checksum(ingest);
-                let mut bz = self.payload();
-
-                // payload bytes followed by calculated checksum
-                bz.extend(cksm.clone());
-                Ok(format!(
-                    "{}{}{}",
-                    match network {
-                        Some(x) => x.to_prefix(),
-                        None => Network::Testnet.to_prefix(),
-                    },
-                    self.protocol().to_string(),
-                    ADDRESS_ENCODER.encode(bz.as_mut()),
-                ))
-            }
-            Protocol::ID => {
-                let mut buf = [0; 1023];
-                buf.copy_from_slice(&self.payload());
-                let mut readable = &buf[..];
-                Ok(format!(
-                    "{}{}{}",
-                    match network {
-                        Some(x) => x.to_prefix(),
-                        None => Network::Testnet.to_prefix(),
-                    },
-                    self.protocol().to_string(),
-                    leb128::read::unsigned(&mut readable).expect("should read encoded bytes"),
-                ))
-            }
+        match network {
+            Some(net) => encode(self, net),
+            None => encode(self, Network::Testnet),
         }
     }
 
@@ -220,6 +206,38 @@ impl Address {
     pub fn marshall_json(&self) -> Result<Vec<u8>, String> {
         // TODO
         Err("JSON marshall is unimplemented".to_owned())
+    }
+}
+
+/// encode converts the address into a string
+fn encode(addr: &Address, network: Network) -> Result<String, String> {
+    match addr.protocol {
+        Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
+            let mut ingest = addr.payload();
+            ingest.insert(0, addr.protocol() as u8);
+            let cksm = checksum(ingest);
+            let mut bz = addr.payload();
+
+            // payload bytes followed by calculated checksum
+            bz.extend(cksm.clone());
+            Ok(format!(
+                "{}{}{}",
+                network.to_prefix(),
+                addr.protocol().to_string(),
+                ADDRESS_ENCODER.encode(bz.as_mut()),
+            ))
+        }
+        Protocol::ID => {
+            let mut buf = [0; 1023];
+            buf.copy_from_slice(&addr.payload());
+            let mut readable = &buf[..];
+            Ok(format!(
+                "{}{}{}",
+                network.to_prefix(),
+                addr.protocol().to_string(),
+                leb128::read::unsigned(&mut readable).expect("should read encoded bytes"),
+            ))
+        }
     }
 }
 
