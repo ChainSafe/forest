@@ -1,6 +1,8 @@
+mod errors;
 mod network;
 mod protocol;
 mod test;
+pub use self::errors::AddressError;
 pub use self::network::Network;
 pub use self::protocol::Protocol;
 
@@ -33,26 +35,18 @@ pub struct Address {
 
 impl Address {
     /// Address constructor
-    fn new(protocol: Protocol, payload: Vec<u8>) -> Result<Self, String> {
+    fn new(protocol: Protocol, payload: Vec<u8>) -> Result<Self, AddressError> {
         // Validates the data satisfies the protocol specifications
         match protocol {
             Protocol::ID => (),
             Protocol::Secp256k1 | Protocol::Actor => {
                 if payload.len() != PAYLOAD_HASH_LEN {
-                    return Err(format!(
-                        "Invalid payload length, wanted: {} got: {}",
-                        PAYLOAD_HASH_LEN,
-                        payload.len()
-                    ));
+                    return Err(AddressError::InvalidPayloadLength(payload.len()));
                 }
             }
             Protocol::BLS => {
                 if payload.len() != BLS_PUB_LEN {
-                    return Err(format!(
-                        "Invalid BLS key length, wanted: {} got: {}",
-                        BLS_PUB_LEN,
-                        payload.len()
-                    ));
+                    return Err(AddressError::InvalidBLSLength(payload.len()));
                 }
             }
         }
@@ -61,26 +55,26 @@ impl Address {
         Ok(Self { protocol, payload })
     }
     /// Creates address from formatted string
-    pub fn from_bytes(bz: Vec<u8>) -> Result<Self, String> {
+    pub fn from_bytes(bz: Vec<u8>) -> Result<Self, AddressError> {
         if bz.len() < 2 {
-            Err("invalid byte length".to_owned())
+            Err(AddressError::InvalidLength)
         } else {
             let mut copy = bz.clone();
             let protocol = Protocol::from_byte(copy.remove(0));
             if protocol.is_none() {
-                return Err("unknown protocol".to_owned());
+                return Err(AddressError::UnknownProtocol);
             }
             Address::new(protocol.unwrap(), copy)
         }
     }
     /// Creates address from formatted string
-    pub fn from_string(addr: String) -> Result<Self, String> {
+    pub fn from_string(addr: String) -> Result<Self, AddressError> {
         if addr.len() > MAX_ADDRESS_LEN || addr.len() < 3 {
-            return Err("invalid address length".to_owned());
+            return Err(AddressError::InvalidLength);
         }
         // ensure the network character is valid before converting
         if &addr[0..1] != MAINNET_PREFIX && &addr[0..1] != TESTNET_PREFIX {
-            return Err(format!("unknown network prefix: {}", &addr[0..1]));
+            return Err(AddressError::UnknownNetwork);
         }
 
         // get protocol from second character
@@ -90,7 +84,7 @@ impl Address {
             "2" => Protocol::Actor,
             "3" => Protocol::BLS,
             _ => {
-                return Err("unknown protocol".to_owned());
+                return Err(AddressError::UnknownProtocol);
             }
         };
 
@@ -99,11 +93,11 @@ impl Address {
         if protocol == Protocol::ID {
             if raw.len() > 20 {
                 // 20 is max u64 as string
-                return Err("invalid payload length".to_owned());
+                return Err(AddressError::InvalidLength);
             }
             let i = raw.parse::<u64>();
             if i.is_err() {
-                return Err("could not parse payload string".to_owned());
+                return Err(AddressError::InvalidPayload);
             }
 
             return Address::new_id(i.unwrap());
@@ -112,7 +106,7 @@ impl Address {
         // decode using byte32 encoding
         let enc_res = ADDRESS_ENCODER.decode(raw.as_bytes());
         if let Err(e) = enc_res {
-            return Err(format!("could not decode the address: {}", e));
+            return Err(AddressError::Base32Decoding(e.to_string()));
         }
 
         // payload includes checksum at end, so split after decoding
@@ -123,26 +117,26 @@ impl Address {
         if (protocol == Protocol::Secp256k1 || protocol == Protocol::Actor)
             && payload.len() != PAYLOAD_HASH_LEN
         {
-            return Err("invalid payload".to_owned());
+            return Err(AddressError::InvalidPayload);
         }
 
         // sanity check to make sure bls pub key is correct length
         if protocol == Protocol::BLS && payload.len() != BLS_PUB_LEN {
-            return Err("invalid payload".to_owned());
+            return Err(AddressError::InvalidPayload);
         }
 
         // validate checksum
         let mut ingest = payload.clone();
         ingest.insert(0, protocol as u8);
         if !validate_checksum(ingest, cksm) {
-            return Err("invalid checksum".to_owned());
+            return Err(AddressError::InvalidChecksum);
         }
 
         Address::new(protocol, payload)
     }
 
     /// Generates new address using ID protocol
-    pub fn new_id(id: u64) -> Result<Self, String> {
+    pub fn new_id(id: u64) -> Result<Self, AddressError> {
         let mut buf = [0; 1023];
 
         // write id to buffer in leb128 format
@@ -154,15 +148,15 @@ impl Address {
         Address::new(Protocol::ID, vec)
     }
     /// Generates new address using Secp256k1 pubkey
-    pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, String> {
+    pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, AddressError> {
         Address::new(Protocol::Secp256k1, address_hash(pubkey))
     }
     /// Generates new address using the Actor protocol
-    pub fn new_actor(data: Vec<u8>) -> Result<Self, String> {
+    pub fn new_actor(data: Vec<u8>) -> Result<Self, AddressError> {
         Address::new(Protocol::Actor, address_hash(data))
     }
     /// Generates new address using BLS pubkey
-    pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, String> {
+    pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, AddressError> {
         Address::new(Protocol::BLS, pubkey)
     }
 

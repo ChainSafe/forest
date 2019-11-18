@@ -1,7 +1,8 @@
 #![cfg(all(test))]
 
 use crate::{
-    checksum, validate_checksum, Address, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
+    checksum, validate_checksum, Address, AddressError, Network, Protocol, BLS_PUB_LEN,
+    PAYLOAD_HASH_LEN,
 };
 
 #[test]
@@ -267,47 +268,47 @@ fn test_id_address() {
 fn test_invalid_string_addresses() {
     struct StringAddrVec {
         input: &'static str,
-        expected: &'static str,
+        expected: AddressError,
     }
     let test_vectors = vec![
         StringAddrVec {
             input: "Q2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
-            expected: "unknown network prefix: Q",
+            expected: AddressError::UnknownNetwork,
         },
         StringAddrVec {
             input: "t4gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
-            expected: "unknown protocol",
+            expected: AddressError::UnknownProtocol,
         },
         StringAddrVec {
             input: "t2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr24y",
-            expected: "invalid checksum",
+            expected: AddressError::InvalidChecksum,
         },
         StringAddrVec {
             input: "t0banananananannnnnnnnn",
-            expected: "invalid payload length",
+            expected: AddressError::InvalidLength,
         },
         StringAddrVec {
             input: "t0banananananannnnnnnn",
-            expected: "could not parse payload string",
+            expected: AddressError::InvalidPayload,
         },
         StringAddrVec {
             input: "t2gfvuyh7v2sx3patm1k23wdzmhyhtmqctasbr24y",
-            expected: "could not decode the address: invalid symbol at 16",
+            expected: AddressError::Base32Decoding("invalid symbol at 16".to_owned()),
         },
         StringAddrVec {
             input: "t2gfvuyh7v2sx3paTm1k23wdzmhyhtmqctasbr24y",
-            expected: "could not decode the address: invalid symbol at 14",
+            expected: AddressError::Base32Decoding("invalid symbol at 14".to_owned()),
         },
         StringAddrVec {
             input: "t2",
-            expected: "invalid address length",
+            expected: AddressError::InvalidLength,
         },
     ];
 
     for t in test_vectors.iter() {
         let res = Address::from_string(t.input.to_owned());
         match res {
-            Err(e) => assert_eq!(e, t.expected.to_owned()),
+            Err(e) => assert_eq!(e, t.expected),
             _ => assert!(false, "Addresses should have errored"),
         };
     }
@@ -317,7 +318,7 @@ fn test_invalid_string_addresses() {
 fn test_invalid_byte_addresses() {
     struct StringAddrVec {
         input: Vec<u8>,
-        expected: &'static str,
+        expected: AddressError,
     }
 
     let secp_vec = vec![1];
@@ -342,46 +343,46 @@ fn test_invalid_byte_addresses() {
         // Unknown Protocol
         StringAddrVec {
             input: vec![4, 4, 4],
-            expected: "unknown protocol",
+            expected: AddressError::UnknownProtocol,
         },
         // ID protocol
         StringAddrVec {
             input: vec![0],
-            expected: "invalid byte length",
+            expected: AddressError::InvalidLength,
         },
         // SECP256K1 Protocol
         StringAddrVec {
             input: secp_l,
-            expected: "Invalid payload length, wanted: 20 got: 21",
+            expected: AddressError::InvalidPayloadLength(21),
         },
         StringAddrVec {
             input: secp_s,
-            expected: "Invalid payload length, wanted: 20 got: 19",
+            expected: AddressError::InvalidPayloadLength(19),
         },
         // Actor Protocol
         StringAddrVec {
             input: actor_l,
-            expected: "Invalid payload length, wanted: 20 got: 21",
+            expected: AddressError::InvalidPayloadLength(21),
         },
         StringAddrVec {
             input: actor_s,
-            expected: "Invalid payload length, wanted: 20 got: 19",
+            expected: AddressError::InvalidPayloadLength(19),
         },
         // BLS Protocol
         StringAddrVec {
             input: bls_l,
-            expected: "Invalid BLS key length, wanted: 48 got: 49",
+            expected: AddressError::InvalidBLSLength(49),
         },
         StringAddrVec {
             input: bls_s,
-            expected: "Invalid BLS key length, wanted: 48 got: 47",
+            expected: AddressError::InvalidBLSLength(47),
         },
     ];
 
     for t in test_vectors.iter() {
         let res = Address::from_bytes(t.input.clone());
         match res {
-            Err(e) => assert_eq!(e, t.expected.to_owned()),
+            Err(e) => assert_eq!(e, t.expected),
             _ => assert!(false, "Addresses should have errored"),
         };
     }
