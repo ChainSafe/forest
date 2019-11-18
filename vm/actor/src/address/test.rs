@@ -1,8 +1,7 @@
 #![cfg(all(test))]
 
 use crate::{
-    checksum, validate_checksum, Address, AddressError, Network, Protocol, BLS_PUB_LEN,
-    PAYLOAD_HASH_LEN,
+    checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
 
 #[test]
@@ -268,40 +267,40 @@ fn test_id_address() {
 fn test_invalid_string_addresses() {
     struct StringAddrVec {
         input: &'static str,
-        expected: AddressError,
+        expected: Error,
     }
     let test_vectors = vec![
         StringAddrVec {
             input: "Q2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
-            expected: AddressError::UnknownNetwork,
+            expected: Error::UnknownNetwork,
         },
         StringAddrVec {
             input: "t4gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
-            expected: AddressError::UnknownProtocol,
+            expected: Error::UnknownProtocol,
         },
         StringAddrVec {
             input: "t2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr24y",
-            expected: AddressError::InvalidChecksum,
+            expected: Error::InvalidChecksum,
         },
         StringAddrVec {
             input: "t0banananananannnnnnnnn",
-            expected: AddressError::InvalidLength,
+            expected: Error::InvalidLength,
         },
         StringAddrVec {
             input: "t0banananananannnnnnnn",
-            expected: AddressError::InvalidPayload,
+            expected: Error::InvalidPayload,
         },
         StringAddrVec {
             input: "t2gfvuyh7v2sx3patm1k23wdzmhyhtmqctasbr24y",
-            expected: AddressError::Base32Decoding("invalid symbol at 16".to_owned()),
+            expected: Error::Base32Decoding("invalid symbol at 16".to_owned()),
         },
         StringAddrVec {
             input: "t2gfvuyh7v2sx3paTm1k23wdzmhyhtmqctasbr24y",
-            expected: AddressError::Base32Decoding("invalid symbol at 14".to_owned()),
+            expected: Error::Base32Decoding("invalid symbol at 14".to_owned()),
         },
         StringAddrVec {
             input: "t2",
-            expected: AddressError::InvalidLength,
+            expected: Error::InvalidLength,
         },
     ];
 
@@ -318,7 +317,7 @@ fn test_invalid_string_addresses() {
 fn test_invalid_byte_addresses() {
     struct StringAddrVec {
         input: Vec<u8>,
-        expected: AddressError,
+        expected: Error,
     }
 
     let secp_vec = vec![1];
@@ -343,39 +342,39 @@ fn test_invalid_byte_addresses() {
         // Unknown Protocol
         StringAddrVec {
             input: vec![4, 4, 4],
-            expected: AddressError::UnknownProtocol,
+            expected: Error::UnknownProtocol,
         },
         // ID protocol
         StringAddrVec {
             input: vec![0],
-            expected: AddressError::InvalidLength,
+            expected: Error::InvalidLength,
         },
         // SECP256K1 Protocol
         StringAddrVec {
             input: secp_l,
-            expected: AddressError::InvalidPayloadLength(21),
+            expected: Error::InvalidPayloadLength(21),
         },
         StringAddrVec {
             input: secp_s,
-            expected: AddressError::InvalidPayloadLength(19),
+            expected: Error::InvalidPayloadLength(19),
         },
         // Actor Protocol
         StringAddrVec {
             input: actor_l,
-            expected: AddressError::InvalidPayloadLength(21),
+            expected: Error::InvalidPayloadLength(21),
         },
         StringAddrVec {
             input: actor_s,
-            expected: AddressError::InvalidPayloadLength(19),
+            expected: Error::InvalidPayloadLength(19),
         },
         // BLS Protocol
         StringAddrVec {
             input: bls_l,
-            expected: AddressError::InvalidBLSLength(49),
+            expected: Error::InvalidBLSLength(49),
         },
         StringAddrVec {
             input: bls_s,
-            expected: AddressError::InvalidBLSLength(47),
+            expected: Error::InvalidBLSLength(47),
         },
     ];
 

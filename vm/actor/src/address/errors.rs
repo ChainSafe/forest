@@ -1,7 +1,7 @@
 use super::{BLS_PUB_LEN, PAYLOAD_HASH_LEN};
 
 #[derive(Debug, PartialEq)]
-pub enum AddressError {
+pub enum Error {
     UnknownNetwork,
     UnknownProtocol,
     InvalidPayload,
@@ -12,25 +12,25 @@ pub enum AddressError {
     Base32Decoding(String),
 }
 
-impl std::fmt::Display for AddressError {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            AddressError::UnknownNetwork => write!(f, "Unknown address network"),
-            AddressError::UnknownProtocol => write!(f, "Unknown address protocol"),
-            AddressError::InvalidPayload => write!(f, "Invalid address payload"),
-            AddressError::InvalidLength => write!(f, "Invalid address length"),
-            AddressError::InvalidPayloadLength(ref len) => write!(
+            Error::UnknownNetwork => write!(f, "Unknown address network"),
+            Error::UnknownProtocol => write!(f, "Unknown address protocol"),
+            Error::InvalidPayload => write!(f, "Invalid address payload"),
+            Error::InvalidLength => write!(f, "Invalid address length"),
+            Error::InvalidPayloadLength(ref len) => write!(
                 f,
                 "Invalid payload length, wanted: {} got: {}",
                 PAYLOAD_HASH_LEN, len
             ),
-            AddressError::InvalidBLSLength(ref len) => write!(
+            Error::InvalidBLSLength(ref len) => write!(
                 f,
                 "Invalid BLS pub key length, wanted: {} got: {}",
                 BLS_PUB_LEN, len
             ),
-            AddressError::InvalidChecksum => write!(f, "Invalid address checksum"),
-            AddressError::Base32Decoding(ref err) => write!(f, "Decoding error: {}", err),
+            Error::InvalidChecksum => write!(f, "Invalid address checksum"),
+            Error::Base32Decoding(ref err) => write!(f, "Decoding error: {}", err),
         }
     }
 }
