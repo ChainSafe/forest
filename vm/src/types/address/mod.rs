@@ -54,7 +54,7 @@ impl Address {
         // Create validated address
         Ok(Self { protocol, payload })
     }
-    /// Creates address from formatted string
+    /// Creates address from encoded bytes
     pub fn from_bytes(bz: Vec<u8>) -> Result<Self, Error> {
         if bz.len() < 2 {
             Err(Error::InvalidLength)
