@@ -104,13 +104,8 @@ impl Address {
         }
 
         // decode using byte32 encoding
-        let enc_res = ADDRESS_ENCODER.decode(raw.as_bytes());
-        if let Err(e) = enc_res {
-            return Err(Error::Base32Decoding(e.to_string()));
-        }
-
+        let mut payload = ADDRESS_ENCODER.decode(raw.as_bytes())?;
         // payload includes checksum at end, so split after decoding
-        let mut payload = enc_res.unwrap();
         let cksm = payload.split_off(payload.len() - CHECKSUM_HASH_LEN);
 
         // sanity check to make sure address hash values are correct length

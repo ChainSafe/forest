@@ -1,4 +1,5 @@
 use super::{BLS_PUB_LEN, PAYLOAD_HASH_LEN};
+use data_encoding::DecodeError;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -32,5 +33,11 @@ impl std::fmt::Display for Error {
             Error::InvalidChecksum => write!(f, "Invalid address checksum"),
             Error::Base32Decoding(ref err) => write!(f, "Decoding error: {}", err),
         }
+    }
+}
+
+impl From<DecodeError> for Error {
+    fn from(e: DecodeError) -> Error {
+        Error::Base32Decoding(e.to_string())
     }
 }
