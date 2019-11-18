@@ -1,11 +1,10 @@
-use actor::{CallSeqNum, MethodNum, MethodParams, TokenAmount};
+use crate::actor::{CallSeqNum, MethodNum, MethodParams, TokenAmount};
+use crate::Address;
 
 //Should probably be a bignum
 pub type GasAmount = u64;
 
 pub type GasPrice = TokenAmount;
-
-pub type Address = String;
 
 #[allow(dead_code)]
 pub struct UnsignedMessage {

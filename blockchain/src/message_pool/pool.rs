@@ -1,7 +1,7 @@
-use message::SignedMessage;
+use vm::SignedMessage;
 
 trait PoolValidator {
-    fn validate(&self, msg: SignedMessage);
+    // fn validate(&self, msg: SignedMessage);
 }
 #[allow(dead_code)]
 // MessagePoolConfig holds all configuration options related to nodes message pool (mpool).

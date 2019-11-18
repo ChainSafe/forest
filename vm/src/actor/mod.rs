@@ -1,4 +1,6 @@
-use crate::actor_state::{ActorState, UVarint};
+pub(crate) mod actor_state;
+
+pub use actor_state::*;
 
 pub type MethodNum = UVarint;
 pub type MethodParam = Vec<u8>;
