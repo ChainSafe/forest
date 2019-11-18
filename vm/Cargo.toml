@@ -9,3 +9,9 @@ edition = "2018"
 [dependencies]
 actor = { path = "actor" }
 message = { path = "message" }
+num-traits = "0.2"
+num-derive = "0.2"
+data-encoding = "2.1.2"
+data-encoding-macro = "0.1.7"
+blake2 = "0.8.1"
+leb128 = "0.2.1"

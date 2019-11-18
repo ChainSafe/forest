@@ -11,4 +11,3 @@ clock = { path = "clock" }
 keystore = { path = "keystore" }
 network = { path = "network" }
 repository = { path = "repository" }
-types = { path = "types" }

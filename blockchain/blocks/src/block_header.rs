@@ -2,8 +2,8 @@ extern crate cid;
 use cid::Cid;
 
 use crate::tipset::Tipset;
-use actor::Address;
 use std::time::SystemTime;
+use vm::Address;
 
 #[allow(dead_code)]
 pub type BlockCID = Cid;

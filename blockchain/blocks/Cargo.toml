@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 cid = "*"
 message = {path = "../../vm/message"}
-actor = {path = "../../vm/actor"}
+vm = {path = "../../vm"}
