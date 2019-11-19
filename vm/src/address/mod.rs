@@ -60,11 +60,8 @@ impl Address {
             Err(Error::InvalidLength)
         } else {
             let mut copy = bz.clone();
-            let protocol = Protocol::from_byte(copy.remove(0));
-            if protocol.is_none() {
-                return Err(Error::UnknownProtocol);
-            }
-            Address::new(protocol.unwrap(), copy)
+            let protocol = Protocol::from_byte(copy.remove(0)).ok_or(Error::UnknownProtocol)?;
+            Address::new(protocol, copy)
         }
     }
     /// Creates address from formatted string
