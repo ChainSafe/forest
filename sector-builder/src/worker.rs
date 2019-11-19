@@ -6,7 +6,7 @@ use filecoin_proofs::error::ExpectWithBacktrace;
 use crate::error::Result;
 use crate::scheduler::{SealCommitResult, SealPreCommitResult};
 use crate::{PoRepConfig, SealSeed, SealTicket, UnpaddedByteIndex, UnpaddedBytesAmount};
-use filecoin_proofs::{PieceInfo, PoStConfig, PrivateReplicaInfo, SealPreCommitOutput};
+use filecoin_proofs::{Candidate, PieceInfo, PoStConfig, PrivateReplicaInfo, SealPreCommitOutput};
 use std::collections::btree_map::BTreeMap;
 use std::path::PathBuf;
 use storage_proofs::sector::SectorId;
@@ -32,7 +32,7 @@ pub struct UnsealTaskPrototype {
 
 #[derive(Debug, Clone)]
 pub struct GeneratePoStTaskPrototype {
-    pub(crate) challenge_seed: [u8; 32],
+    pub(crate) randomness: [u8; 32],
     pub(crate) post_config: PoStConfig,
     pub(crate) private_replicas: BTreeMap<SectorId, PrivateReplicaInfo>,
 }
@@ -61,7 +61,9 @@ pub struct SealCommitTaskPrototype {
 
 type UnsealCallback = Box<dyn FnOnce(Result<(UnpaddedBytesAmount, PathBuf)>) + Send>;
 
-type GeneratePoStCallback = Box<dyn FnOnce(Result<Vec<u8>>) + Send>;
+type GenerateCandidatesCallback = Box<dyn FnOnce(Result<Vec<Candidate>>) + Send>;
+
+type GeneratePoStCallback = Box<dyn FnOnce(Result<Vec<Vec<u8>>>) + Send>;
 
 type SealPreCommitCallback = Box<dyn FnOnce(SealPreCommitResult) + Send>;
 
@@ -69,11 +71,18 @@ type SealCommitCallback = Box<dyn FnOnce(SealCommitResult) + Send>;
 
 #[allow(clippy::large_enum_variant)]
 pub enum WorkerTask {
+    GenerateCandidates {
+        randomness: [u8; 32],
+        private_replicas: BTreeMap<SectorId, PrivateReplicaInfo>,
+        post_config: PoStConfig,
+        callback: GenerateCandidatesCallback,
+    },
     GeneratePoSt {
-        challenge_seed: [u8; 32],
+        randomness: [u8; 32],
         private_replicas: BTreeMap<SectorId, PrivateReplicaInfo>,
         post_config: PoStConfig,
         callback: GeneratePoStCallback,
+        winners: Vec<Candidate>,
     },
     SealPreCommit {
         cache_dir: PathBuf,
@@ -126,16 +135,32 @@ impl Worker {
 
             // Dispatch to the appropriate task-handler.
             match task {
-                WorkerTask::GeneratePoSt {
-                    challenge_seed,
+                WorkerTask::GenerateCandidates {
+                    randomness,
                     private_replicas,
                     post_config,
                     callback,
                 } => {
+                    callback(filecoin_proofs::generate_candidates(
+                        post_config,
+                        &randomness,
+                        &private_replicas,
+                        prover_id,
+                    ));
+                }
+                WorkerTask::GeneratePoSt {
+                    randomness,
+                    private_replicas,
+                    post_config,
+                    winners,
+                    callback,
+                } => {
                     callback(filecoin_proofs::generate_post(
                         post_config,
-                        &challenge_seed,
+                        &randomness,
                         &private_replicas,
+                        winners,
+                        prover_id,
                     ));
                 }
                 WorkerTask::SealPreCommit {

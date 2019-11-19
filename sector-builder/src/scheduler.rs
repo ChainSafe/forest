@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 
-use filecoin_proofs::error::ExpectWithBacktrace;
+use filecoin_proofs::{error::ExpectWithBacktrace, Candidate};
 use storage_proofs::sector::SectorId;
 
 use crate::error::Result;
@@ -55,11 +55,17 @@ pub enum SchedulerTask<T: Read + Send> {
     ),
     GetStagedSectors(mpsc::SyncSender<Result<Vec<StagedSectorMetadata>>>),
     GetSealStatus(SectorId, mpsc::SyncSender<Result<SealStatus>>),
-    GeneratePoSt(
+    GenerateCandidates(
         Vec<[u8; 32]>,
         [u8; 32],      // seed
         Vec<SectorId>, // faults
-        mpsc::SyncSender<Result<Vec<u8>>>,
+        mpsc::SyncSender<Result<Vec<Candidate>>>,
+    ),
+    GeneratePoSt(
+        Vec<[u8; 32]>,
+        [u8; 32],       // seed
+        Vec<Candidate>, // winners
+        mpsc::SyncSender<Result<Vec<Vec<u8>>>>,
     ),
     RetrievePiece(String, mpsc::SyncSender<Result<Vec<u8>>>),
     ResumeSealPreCommit(SectorId, mpsc::SyncSender<Result<StagedSectorMetadata>>),
@@ -209,18 +215,35 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                 tx.send(self.m.read_unsealed_bytes_from(result))
                     .expects(FATAL_NOSEND);
             }
-            SchedulerTask::GeneratePoSt(comm_rs, chg_seed, faults, tx) => {
+            SchedulerTask::GenerateCandidates(comm_rs, chg_seed, faults, tx) => {
+                let proto =
+                    self.m
+                        .create_generate_post_task_proto(&comm_rs, &chg_seed, Some(faults));
+
+                let callback = Box::new(move |r| tx.send(r).expects(FATAL_NOSEND));
+
+                self.worker_tx
+                    .send(WorkerTask::GenerateCandidates {
+                        randomness: proto.randomness,
+                        private_replicas: proto.private_replicas,
+                        post_config: proto.post_config,
+                        callback,
+                    })
+                    .expects(FATAL_NOSEND);
+            }
+            SchedulerTask::GeneratePoSt(comm_rs, chg_seed, winners, tx) => {
                 let proto = self
                     .m
-                    .create_generate_post_task_proto(&comm_rs, &chg_seed, faults);
+                    .create_generate_post_task_proto(&comm_rs, &chg_seed, None);
 
                 let callback = Box::new(move |r| tx.send(r).expects(FATAL_NOSEND));
 
                 self.worker_tx
                     .send(WorkerTask::GeneratePoSt {
-                        challenge_seed: proto.challenge_seed,
+                        randomness: proto.randomness,
                         private_replicas: proto.private_replicas,
                         post_config: proto.post_config,
+                        winners,
                         callback,
                     })
                     .expects(FATAL_NOSEND);

@@ -4,6 +4,7 @@ use std::sync::{mpsc, Arc, Mutex};
 
 use filecoin_proofs::error::ExpectWithBacktrace;
 use filecoin_proofs::types::{PoRepConfig, PoStConfig, SectorClass};
+use filecoin_proofs::Candidate;
 use storage_proofs::sector::SectorId;
 
 use crate::constants::*;
@@ -186,15 +187,27 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         log_unrecov(self.run_blocking(SchedulerTask::GetStagedSectors))
     }
 
+    // Generates election candidates.
+    pub fn generate_candidates(
+        &self,
+        comm_rs: &[[u8; 32]],
+        challenge_seed: &[u8; 32],
+        faults: Vec<SectorId>,
+    ) -> Result<Vec<Candidate>> {
+        log_unrecov(self.run_blocking(|tx| {
+            SchedulerTask::GenerateCandidates(Vec::from(comm_rs), *challenge_seed, faults, tx)
+        }))
+    }
+
     // Generates a proof-of-spacetime.
     pub fn generate_post(
         &self,
         comm_rs: &[[u8; 32]],
         challenge_seed: &[u8; 32],
-        faults: Vec<SectorId>,
-    ) -> Result<Vec<u8>> {
+        winners: Vec<Candidate>,
+    ) -> Result<Vec<Vec<u8>>> {
         log_unrecov(self.run_blocking(|tx| {
-            SchedulerTask::GeneratePoSt(Vec::from(comm_rs), *challenge_seed, faults, tx)
+            SchedulerTask::GeneratePoSt(Vec::from(comm_rs), *challenge_seed, winners, tx)
         }))
     }
 

@@ -110,10 +110,10 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     pub fn create_generate_post_task_proto(
         &self,
         comm_rs: &[[u8; 32]],
-        challenge_seed: &[u8; 32],
-        faults: Vec<SectorId>,
+        randomness: &[u8; 32],
+        faults: Option<Vec<SectorId>>,
     ) -> GeneratePoStTaskPrototype {
-        let fault_set: HashSet<SectorId> = faults.into_iter().collect();
+        let fault_set: Option<HashSet<SectorId>> = faults.map(|f| f.into_iter().collect());
 
         let comm_rs_set: HashSet<&[u8; 32]> = comm_rs.iter().collect();
 
@@ -134,28 +134,35 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                     .manager()
                     .cache_path(&sector.sector_access);
 
-                let info = if fault_set.contains(&sector.sector_id) {
-                    PrivateReplicaInfo::new_faulty(
-                        path_str,
-                        sector.comm_r,
-                        sector.p_aux.clone(),
-                        cache_dir,
-                    )
+                if let Some(ref fault_set) = fault_set {
+                    // only non faulty sectors
+                    if !fault_set.contains(&sector.sector_id) {
+                        replicas.insert(
+                            sector.sector_id,
+                            PrivateReplicaInfo::new(
+                                path_str,
+                                sector.comm_r,
+                                sector.p_aux.clone(),
+                                cache_dir,
+                            ),
+                        );
+                    }
                 } else {
-                    PrivateReplicaInfo::new(
-                        path_str,
-                        sector.comm_r,
-                        sector.p_aux.clone(),
-                        cache_dir,
-                    )
-                };
-
-                replicas.insert(sector.sector_id, info);
+                    replicas.insert(
+                        sector.sector_id,
+                        PrivateReplicaInfo::new(
+                            path_str,
+                            sector.comm_r,
+                            sector.p_aux.clone(),
+                            cache_dir,
+                        ),
+                    );
+                }
             }
         }
 
         GeneratePoStTaskPrototype {
-            challenge_seed: *challenge_seed,
+            randomness: *randomness,
             post_config: self.sector_store.proofs_config().post_config,
             private_replicas: replicas,
         }
