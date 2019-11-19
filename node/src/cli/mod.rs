@@ -13,7 +13,7 @@ pub fn cli() {
                 .long("config")
                 .short("c")
                 .takes_value(true)
-                .help("A toml file containing relevant configurations.")
+                .help("A toml file containing relevant configurations."),
         )
         .get_matches();
 
