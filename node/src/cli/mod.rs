@@ -1,10 +1,10 @@
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 
 pub fn cli() {
     let app = App::new("Ferret")
-        .version(crate_version!())
+        .version("0.0.1")
         .author("ChainSafe Systems <info@chainsafe.io>")
-        .about("Filecoin implementation in Rust")
+        .about("Filecoin implementation in Rust.")
         /*
          * Flags
          */
@@ -12,6 +12,7 @@ pub fn cli() {
             Arg::with_name("config")
                 .long("config")
                 .short("c")
+                .takes_value(true)
                 .help("A toml file containing relevant configurations.")
         )
         .get_matches();
@@ -20,7 +21,7 @@ pub fn cli() {
         println!("Ferret was run!")
     }
 
-    if let Some(ref config_file) = matches.value_of("config") {
+    if let Some(ref config_file) = app.value_of("config") {
         println!("File path: {}", config_file);
     }
 }
