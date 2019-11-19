@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 
-pub fn cli() {
+pub(super) fn cli() {
     let app = App::new("Ferret")
         .version("0.0.1")
         .author("ChainSafe Systems <info@chainsafe.io>")
