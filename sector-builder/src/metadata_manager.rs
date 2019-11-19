@@ -316,8 +316,25 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             opt_meta.ok_or_else(|| format_err!("no staged sector with id {} exists", sector_id))?;
 
         let ticket = match (mode, &meta.seal_status) {
-            (PreCommitMode::StartFresh(t), SealStatus::AcceptingPieces) => Ok(t),
             (PreCommitMode::StartFresh(t), SealStatus::FullyPacked) => Ok(t),
+            (PreCommitMode::StartFresh(_), SealStatus::AcceptingPieces) => {
+                let amts = &meta
+                    .pieces
+                    .iter()
+                    .map(|x| x.num_bytes)
+                    .collect::<Vec<UnpaddedBytesAmount>>();
+
+                let preceding_piece_bytes =
+                    filecoin_proofs::pieces::sum_piece_bytes_with_alignment(amts);
+
+                let difference = self.max_user_bytes_per_staged_sector - preceding_piece_bytes;
+
+                Err(format_err!(
+                    "cannot pre-commit a sector (id = {:?}) which is not fully packed (remaining space = {:?})",
+                    sector_id,
+                    difference,
+                ))
+            }
             (PreCommitMode::StartFresh(_), s) => Err(format_err!(
                 "cannot pre-commit sector with id {:?} and state {:?}",
                 sector_id,
