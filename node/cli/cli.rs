@@ -1,6 +1,6 @@
 use clap::{App, Arg, SubCommand};
 
-pub fn main() {
+pub fn cli() {
     let app = App::new("Ferret")
         .version(crate_version!())
         .author("ChainSafe Systems <info@chainsafe.io>")
