@@ -12,3 +12,4 @@ keystore = { path = "keystore" }
 network = { path = "network" }
 repository = { path = "repository" }
 types = { path = "types" }
+clap = "2.33.0"
