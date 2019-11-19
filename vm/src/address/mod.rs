@@ -95,12 +95,8 @@ impl Address {
                 // 20 is max u64 as string
                 return Err(Error::InvalidLength);
             }
-            let i = raw.parse::<u64>();
-            if i.is_err() {
-                return Err(Error::InvalidPayload);
-            }
-
-            return Address::new_id(i.unwrap());
+            let i = raw.parse::<u64>()?;
+            return Address::new_id(i);
         }
 
         // decode using byte32 encoding
