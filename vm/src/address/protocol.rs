@@ -17,7 +17,7 @@ pub enum Protocol {
 
 impl Protocol {
     /// from_byte allows referencing back to Protocol from encoded byte
-    pub(crate) fn from_byte(b: u8) -> Option<Protocol> {
+    pub(super) fn from_byte(b: u8) -> Option<Protocol> {
         FromPrimitive::from_u8(b)
     }
 }

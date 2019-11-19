@@ -1,4 +1,4 @@
-use vm::SignedMessage;
+use vm::message::SignedMessage;
 
 trait PoolValidator {
     // fn validate(&self, msg: SignedMessage);

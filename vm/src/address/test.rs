@@ -1,6 +1,6 @@
 #![cfg(all(test))]
 
-use crate::{
+use crate::address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
 

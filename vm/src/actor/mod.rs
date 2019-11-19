@@ -1,4 +1,4 @@
-pub(crate) mod actor_state;
+mod actor_state;
 
 pub use actor_state::*;
 

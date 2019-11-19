@@ -1,6 +1,6 @@
-pub(crate) mod errors;
-pub(crate) mod network;
-pub(crate) mod protocol;
+mod errors;
+mod network;
+mod protocol;
 mod test;
 pub use self::errors::Error;
 pub use self::network::Network;

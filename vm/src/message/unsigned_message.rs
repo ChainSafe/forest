@@ -1,5 +1,5 @@
 use crate::actor::{CallSeqNum, MethodNum, MethodParams, TokenAmount};
-use crate::Address;
+use crate::address::Address;
 
 //Should probably be a bignum
 pub type GasAmount = u64;
