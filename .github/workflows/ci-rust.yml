@@ -61,5 +61,4 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          # Add back warnings error after stubs used
-          # args: -- -D warnings
+          args: -- -D warnings

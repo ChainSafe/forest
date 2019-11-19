@@ -1,9 +1,1 @@
-use blocks;
-// use chain_sync;
-use message_pool;
-use storage_consensus;
-fn main() {
-    blocks::run();
-    message_pool::run();
-    storage_consensus::run();
-}
+fn main() {}
