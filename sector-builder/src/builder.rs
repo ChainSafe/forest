@@ -191,10 +191,17 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         &self,
         comm_rs: &[[u8; 32]],
         challenge_seed: &[u8; 32],
+        challenge_count: u64,
         faults: Vec<SectorId>,
     ) -> Result<Vec<Candidate>> {
         log_unrecov(self.run_blocking(|tx| {
-            SchedulerTask::GenerateCandidates(Vec::from(comm_rs), *challenge_seed, faults, tx)
+            SchedulerTask::GenerateCandidates(
+                Vec::from(comm_rs),
+                *challenge_seed,
+                challenge_count,
+                faults,
+                tx,
+            )
         }))
     }
 
@@ -203,10 +210,17 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         &self,
         comm_rs: &[[u8; 32]],
         challenge_seed: &[u8; 32],
+        challenge_count: u64,
         winners: Vec<Candidate>,
     ) -> Result<Vec<Vec<u8>>> {
         log_unrecov(self.run_blocking(|tx| {
-            SchedulerTask::GeneratePoSt(Vec::from(comm_rs), *challenge_seed, winners, tx)
+            SchedulerTask::GeneratePoSt(
+                Vec::from(comm_rs),
+                *challenge_seed,
+                challenge_count,
+                winners,
+                tx,
+            )
         }))
     }
 

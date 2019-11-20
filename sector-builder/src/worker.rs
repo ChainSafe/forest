@@ -34,6 +34,7 @@ pub struct UnsealTaskPrototype {
 #[derive(Debug, Clone)]
 pub struct GeneratePoStTaskPrototype {
     pub(crate) randomness: [u8; 32],
+    pub(crate) challenge_count: u64,
     pub(crate) post_config: PoStConfig,
     pub(crate) private_replicas: BTreeMap<SectorId, PrivateReplicaInfo>,
 }
@@ -74,6 +75,7 @@ type SealCommitCallback = Box<dyn FnOnce(SealCommitResult) + Send>;
 pub enum WorkerTask {
     GenerateCandidates {
         randomness: [u8; 32],
+        challenge_count: u64,
         private_replicas: BTreeMap<SectorId, PrivateReplicaInfo>,
         post_config: PoStConfig,
         callback: GenerateCandidatesCallback,
@@ -139,6 +141,7 @@ impl Worker {
             match task {
                 WorkerTask::GenerateCandidates {
                     randomness,
+                    challenge_count,
                     private_replicas,
                     post_config,
                     callback,
@@ -146,6 +149,7 @@ impl Worker {
                     callback(filecoin_proofs::generate_candidates(
                         post_config,
                         &randomness,
+                        challenge_count,
                         &private_replicas,
                         prover_id,
                     ));

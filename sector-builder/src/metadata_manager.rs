@@ -98,6 +98,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         &self,
         comm_rs: &[[u8; 32]],
         randomness: &[u8; 32],
+        challenge_count: u64,
         faults: Option<Vec<SectorId>>,
     ) -> GeneratePoStTaskPrototype {
         let fault_set: Option<HashSet<SectorId>> = faults.map(|f| f.into_iter().collect());
@@ -139,6 +140,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         GeneratePoStTaskPrototype {
             randomness: *randomness,
+            challenge_count,
             post_config: self.sector_store.proofs_config().post_config,
             private_replicas: replicas,
         }

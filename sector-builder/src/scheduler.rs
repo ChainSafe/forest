@@ -57,12 +57,14 @@ pub enum SchedulerTask<T: Read + Send> {
     GenerateCandidates(
         Vec<[u8; 32]>,
         [u8; 32],      // seed
+        u64,           // challenge count
         Vec<SectorId>, // faults
         mpsc::SyncSender<Result<Vec<Candidate>>>,
     ),
     GeneratePoSt(
         Vec<[u8; 32]>,
         [u8; 32],       // seed
+        u64,            // challenge count
         Vec<Candidate>, // winners
         mpsc::SyncSender<Result<Vec<Vec<u8>>>>,
     ),
@@ -214,26 +216,39 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                 tx.send(self.m.read_unsealed_bytes_from(result))
                     .expects(FATAL_NOSEND);
             }
-            SchedulerTask::GenerateCandidates(comm_rs, chg_seed, faults, tx) => {
-                let proto =
-                    self.m
-                        .create_generate_post_task_proto(&comm_rs, &chg_seed, Some(faults));
+            SchedulerTask::GenerateCandidates(
+                comm_rs,
+                challenge_seed,
+                challenge_count,
+                faults,
+                tx,
+            ) => {
+                let proto = self.m.create_generate_post_task_proto(
+                    &comm_rs,
+                    &challenge_seed,
+                    challenge_count,
+                    Some(faults),
+                );
 
                 let callback = Box::new(move |r| tx.send(r).expects(FATAL_NOSEND));
 
                 self.worker_tx
                     .send(WorkerTask::GenerateCandidates {
                         randomness: proto.randomness,
+                        challenge_count: proto.challenge_count,
                         private_replicas: proto.private_replicas,
                         post_config: proto.post_config,
                         callback,
                     })
                     .expects(FATAL_NOSEND);
             }
-            SchedulerTask::GeneratePoSt(comm_rs, chg_seed, winners, tx) => {
-                let proto = self
-                    .m
-                    .create_generate_post_task_proto(&comm_rs, &chg_seed, None);
+            SchedulerTask::GeneratePoSt(comm_rs, challenge_seed, challenge_count, winners, tx) => {
+                let proto = self.m.create_generate_post_task_proto(
+                    &comm_rs,
+                    &challenge_seed,
+                    challenge_count,
+                    None,
+                );
 
                 let callback = Box::new(move |r| tx.send(r).expects(FATAL_NOSEND));
 
