@@ -1,6 +1,5 @@
-use crate::TemporaryAuxKey;
 use filecoin_proofs::types::UnpaddedBytesAmount;
-use filecoin_proofs::{Commitment, PersistentAux, PieceInfo};
+use filecoin_proofs::{Commitment, PieceInfo};
 use serde::{Deserialize, Serialize};
 use storage_proofs::sector::SectorId;
 
@@ -24,7 +23,6 @@ pub struct SealedSectorMetadata {
     pub blake2b_checksum: Vec<u8>,
     /// number of bytes in the sealed sector-file as returned by `std::fs::metadata`
     pub len: u64,
-    pub p_aux: PersistentAux,
     pub ticket: SealTicket,
     pub seed: SealSeed,
 }
@@ -49,28 +47,17 @@ impl From<PieceMetadata> for PieceInfo {
 pub struct PersistablePreCommitOutput {
     pub comm_d: Commitment,
     pub comm_r: Commitment,
-    pub p_aux: PersistentAux,
 }
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub enum SealStatus {
     Committed(Box<SealedSectorMetadata>),
-    Committing(
-        SealTicket,
-        TemporaryAuxKey,
-        PersistablePreCommitOutput,
-        SealSeed,
-    ),
-    CommittingPaused(
-        SealTicket,
-        TemporaryAuxKey,
-        PersistablePreCommitOutput,
-        SealSeed,
-    ),
+    Committing(SealTicket, PersistablePreCommitOutput, SealSeed),
+    CommittingPaused(SealTicket, PersistablePreCommitOutput, SealSeed),
     Failed(String),
     AcceptingPieces,
-    PreCommitted(SealTicket, TemporaryAuxKey, PersistablePreCommitOutput),
+    PreCommitted(SealTicket, PersistablePreCommitOutput),
     PreCommitting(SealTicket),
     PreCommittingPaused(SealTicket),
     FullyPacked,
@@ -80,11 +67,11 @@ impl SealStatus {
     pub fn persistable_pre_commit_output(&self) -> Option<&PersistablePreCommitOutput> {
         match self {
             SealStatus::Committed(_) => None,
-            SealStatus::Committing(_, _, p, _) => Some(&p),
-            SealStatus::CommittingPaused(_, _, p, _) => Some(&p),
+            SealStatus::Committing(_, p, _) => Some(&p),
+            SealStatus::CommittingPaused(_, p, _) => Some(&p),
             SealStatus::Failed(_) => None,
             SealStatus::AcceptingPieces => None,
-            SealStatus::PreCommitted(_, _, p) => Some(&p),
+            SealStatus::PreCommitted(_, p) => Some(&p),
             SealStatus::PreCommitting(_) => None,
             SealStatus::PreCommittingPaused(_) => None,
             SealStatus::FullyPacked => None,
@@ -94,11 +81,11 @@ impl SealStatus {
     pub fn ticket(&self) -> Option<&SealTicket> {
         match self {
             SealStatus::Committed(meta) => Some(&meta.ticket),
-            SealStatus::Committing(t, _, _, _) => Some(&t),
-            SealStatus::CommittingPaused(t, _, _, _) => Some(&t),
+            SealStatus::Committing(t, _, _) => Some(&t),
+            SealStatus::CommittingPaused(t, _, _) => Some(&t),
             SealStatus::Failed(_) => None,
             SealStatus::AcceptingPieces => None,
-            SealStatus::PreCommitted(t, _, _) => Some(&t),
+            SealStatus::PreCommitted(t, _) => Some(&t),
             SealStatus::PreCommitting(t) => Some(&t),
             SealStatus::PreCommittingPaused(t) => Some(&t),
             SealStatus::FullyPacked => None,
@@ -108,11 +95,11 @@ impl SealStatus {
     pub fn seed(&self) -> Option<&SealSeed> {
         match self {
             SealStatus::Committed(meta) => Some(&meta.seed),
-            SealStatus::Committing(_, _, _, s) => Some(&s),
-            SealStatus::CommittingPaused(_, _, _, s) => Some(&s),
+            SealStatus::Committing(_, _, s) => Some(&s),
+            SealStatus::CommittingPaused(_, _, s) => Some(&s),
             SealStatus::Failed(_) => None,
             SealStatus::AcceptingPieces => None,
-            SealStatus::PreCommitted(_, _, _) => None,
+            SealStatus::PreCommitted(_, _) => None,
             SealStatus::PreCommitting(_) => None,
             SealStatus::PreCommittingPaused(_) => None,
             SealStatus::FullyPacked => None,

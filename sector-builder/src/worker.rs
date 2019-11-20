@@ -21,6 +21,7 @@ pub struct Worker {
 
 pub struct UnsealTaskPrototype {
     pub(crate) comm_d: [u8; 32],
+    pub(crate) cache_dir: PathBuf,
     pub(crate) destination_path: PathBuf,
     pub(crate) piece_len: UnpaddedBytesAmount,
     pub(crate) piece_start_byte: UnpaddedByteIndex,
@@ -106,6 +107,7 @@ pub enum WorkerTask {
     },
     Unseal {
         comm_d: [u8; 32],
+        cache_dir: PathBuf,
         destination_path: PathBuf,
         piece_len: UnpaddedBytesAmount,
         piece_start_byte: UnpaddedByteIndex,
@@ -217,6 +219,7 @@ impl Worker {
                 }
                 WorkerTask::Unseal {
                     comm_d,
+                    cache_dir,
                     destination_path,
                     piece_len,
                     piece_start_byte,
@@ -228,6 +231,7 @@ impl Worker {
                 } => {
                     let result = filecoin_proofs::get_unsealed_range(
                         porep_config,
+                        &cache_dir,
                         &source_path,
                         &destination_path,
                         prover_id,

@@ -14,7 +14,6 @@ use crate::{
     CommitMode, GetSealedSectorResult, PieceMetadata, PreCommitMode, SealSeed, SealTicket,
     SealedSectorMetadata, SecondsSinceEpoch, SectorMetadataManager, UnpaddedBytesAmount,
 };
-use filecoin_proofs::PersistentAux;
 use std::io::Read;
 
 const FATAL_NORECV: &str = "could not receive task";
@@ -89,7 +88,6 @@ pub enum SchedulerTask<T: Read + Send> {
         seal_seed: SealSeed,
         comm_r: [u8; 32],
         comm_d: [u8; 32],
-        p_aux: PersistentAux,
         pieces: Vec<PieceMetadata>,
         proof: Vec<u8>,
         done_tx: mpsc::SyncSender<Result<()>>,
@@ -159,6 +157,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                         self.worker_tx
                             .send(WorkerTask::Unseal {
                                 comm_d: proto.comm_d,
+                                cache_dir: proto.cache_dir,
                                 destination_path: proto.destination_path,
                                 piece_len: proto.piece_len,
                                 piece_start_byte: proto.piece_start_byte,
@@ -256,7 +255,6 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                 seal_seed,
                 comm_r,
                 comm_d,
-                p_aux,
                 pieces,
                 proof,
                 done_tx,
@@ -269,7 +267,6 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                     seal_seed,
                     comm_r,
                     comm_d,
-                    p_aux,
                     pieces,
                     proof,
                 ))

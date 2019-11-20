@@ -18,7 +18,6 @@ use crate::metadata_manager::SectorMetadataManager;
 use crate::scheduler::{PerformHealthCheck, Scheduler, SchedulerTask};
 use crate::state::SectorBuilderState;
 use crate::worker::*;
-use filecoin_proofs::PersistentAux;
 use std::io::Read;
 
 const FATAL_NOLOAD: &str = "could not load snapshot";
@@ -228,7 +227,6 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         seal_seed: SealSeed,
         comm_r: [u8; 32],
         comm_d: [u8; 32],
-        p_aux: PersistentAux,
         pieces: Vec<PieceMetadata>,
         proof: Vec<u8>,
     ) -> Result<()> {
@@ -240,7 +238,6 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
             seal_seed,
             comm_r,
             comm_d,
-            p_aux,
             pieces,
             proof,
             done_tx: tx,
