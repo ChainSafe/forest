@@ -20,8 +20,6 @@ use crate::state::SectorBuilderState;
 use crate::worker::*;
 use std::io::Read;
 
-const FATAL_NOLOAD: &str = "could not load snapshot";
-
 pub struct SectorBuilder<T: Read + Send> {
     // Prevents FFI consumers from queueing behind long-running seal operations.
     worker_tx: mpsc::Sender<WorkerTask>,
@@ -74,7 +72,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         // Initialize the key/value store in which we store metadata
         // snapshots.
         let kv_store = FileSystemKvs::initialize(metadata_dir.as_ref())
-            .expect("failed to initialize K/V store");
+            .map_err(|err| format_err!("could not initialize metadata store: {:?}", err))?;
 
         // Initialize a SectorStore and wrap it in an Arc so we can access it
         // from multiple threads. Our implementation assumes that the
@@ -86,16 +84,18 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
             sector_cache_root,
         );
 
-        // Build the scheduler's initial state. If available, we
-        // reconstitute this state from persisted metadata. If not, we
-        // create it from scratch.
-        let state = {
-            let loaded =
-                helpers::load_snapshot(&kv_store, &SnapshotKey::new(prover_id, sector_size))
-                    .expects(FATAL_NOLOAD)
-                    .map(Into::into);
+        // Build the scheduler's initial state. If available, we reconstitute
+        // this state from persisted metadata. If not, we create it from
+        // scratch.
+        let loaded: Option<SectorBuilderState> =
+            helpers::load_snapshot(&kv_store, &SnapshotKey::new(prover_id, sector_size))
+                .map_err(|err| format_err!("failed to load metadata snapshot: {}", err))
+                .map(Into::into)?;
 
-            loaded.unwrap_or_else(|| SectorBuilderState::new(last_committed_sector_id))
+        let state = if let Some(inner) = loaded {
+            inner
+        } else {
+            SectorBuilderState::new(last_committed_sector_id)
         };
 
         let max_user_bytes_per_staged_sector =
@@ -349,9 +349,82 @@ pub mod tests {
     use filecoin_proofs::{PoRepProofPartitions, SectorSize};
 
     use super::*;
+    use std::io::Write;
+
+    #[ignore]
+    #[test]
+    fn test_cannot_init_sector_builder_with_corrupted_snapshot() {
+        let f = || {
+            tempfile::tempdir()
+                .unwrap()
+                .into_path()
+                .to_str()
+                .unwrap()
+                .to_string()
+        };
+
+        let meta_dir = f();
+        let sealed_dir = f();
+        let staged_dir = f();
+        let cache_root_dir = f();
+
+        let sector_builder = SectorBuilder::init_from_metadata(
+            SectorClass(SectorSize(1024), PoRepProofPartitions(2)),
+            SectorId::from(0),
+            &meta_dir,
+            [0u8; 32],
+            &sealed_dir,
+            &staged_dir,
+            &cache_root_dir,
+            1,
+            2,
+        )
+        .expect("cannot create sector builder");
+
+        sector_builder
+            .add_piece(
+                "foo".into(),
+                std::io::repeat(42).take(1016),
+                1016,
+                SecondsSinceEpoch(0),
+            )
+            .expect("piece add failed");
+
+        // destroy the first builder instance
+        std::mem::drop(sector_builder);
+
+        // corrupt the snapshot file
+        for path in std::fs::read_dir(&meta_dir).unwrap() {
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .read(true)
+                .open(path.unwrap().path().display().to_string())
+                .expect("could not open");
+
+            f.write_all(b"eat at joe's").expect("could not write");
+        }
+
+        // instantiate a second builder
+        let init_result = SectorBuilder::<std::fs::File>::init_from_metadata(
+            SectorClass(SectorSize(1024), PoRepProofPartitions(2)),
+            SectorId::from(0),
+            &meta_dir,
+            [0u8; 32],
+            &sealed_dir,
+            &staged_dir,
+            &cache_root_dir,
+            1,
+            2,
+        );
+
+        assert!(
+            init_result.is_err(),
+            "corrupted snapshot must cause an error"
+        );
+    }
 
     #[test]
-    fn test_cannot_init_sector_builder_without_empty_parameter_cache() {
+    fn test_cannot_init_sector_builder_with_empty_parameter_cache() {
         let temp_dir = tempfile::tempdir()
             .unwrap()
             .path()

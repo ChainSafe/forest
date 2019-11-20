@@ -27,7 +27,12 @@ pub fn load_snapshot<T: KeyValueStore>(
 
     if let Some(val) = result {
         return serde_cbor::from_slice(&val[..])
-            .map_err(failure::Error::from)
+            .map_err(|err| {
+                format_err!(
+                    "could not deserialize snapshot bytes to a SectorBuilderState: {}",
+                    err
+                )
+            })
             .map(Option::Some);
     }
 
@@ -69,6 +74,80 @@ mod tests {
     use storage_proofs::sector::SectorId;
 
     use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn test_corrupted_snapshot_produces_error_on_load() {
+        let metadata_dir = tempfile::tempdir().unwrap().into_path();
+
+        let kv_store = FileSystemKvs::initialize(&metadata_dir).unwrap();
+
+        let key = SnapshotKey::new([0; 32], PaddedBytesAmount(1024));
+        let value = Default::default();
+
+        let _ = persist_snapshot(&kv_store, &key, &value).unwrap();
+
+        // corrupt the snapshot file
+        let paths = std::fs::read_dir(&metadata_dir).unwrap();
+        for path in paths {
+            let x = path.unwrap().path().display().to_string();
+
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .read(true)
+                .open(&x)
+                .expect("could not open");
+
+            f.write_all(b"eat at joe's").expect("could not write");
+        }
+
+        let result = load_snapshot(&kv_store, &key);
+
+        assert!(result.is_err(), "corrupted file should cause an error");
+    }
+
+    #[test]
+    fn test_missing_snapshot_produces_no_error_on_load() {
+        let metadata_dir = tempfile::tempdir().unwrap().into_path();
+
+        let kv_store = FileSystemKvs::initialize(&metadata_dir).unwrap();
+
+        let key = SnapshotKey::new([0; 32], PaddedBytesAmount(1024));
+        let value = Default::default();
+
+        let _ = persist_snapshot(&kv_store, &key, &value).unwrap();
+
+        // remove the snapshot file
+        let paths = std::fs::read_dir(&metadata_dir).unwrap();
+        for path in paths {
+            std::fs::remove_file(&path.unwrap().path()).expect("could not remove snapshot file");
+        }
+
+        let result = load_snapshot(&kv_store, &key);
+
+        assert!(result.is_ok(), "missing file must not produce error");
+        assert!(result.unwrap().is_none(), "snapshot file didn't exist")
+    }
+
+    #[test]
+    fn test_missing_snapshot_directory_produces_error_on_load() {
+        let metadata_dir = tempfile::tempdir().unwrap().into_path();
+
+        let kv_store = FileSystemKvs::initialize(&metadata_dir).unwrap();
+
+        let key = SnapshotKey::new([0; 32], PaddedBytesAmount(1024));
+        let value = Default::default();
+
+        let _ = persist_snapshot(&kv_store, &key, &value).unwrap();
+
+        // remove the snapshot directory
+        std::fs::remove_dir_all(&metadata_dir).expect("could not remove snapshot dir");
+
+        let result = load_snapshot(&kv_store, &key);
+
+        assert!(result.is_ok(), "missing directory must not produce error");
+        assert!(result.unwrap().is_none());
+    }
 
     #[test]
     fn test_snapshotting() {

@@ -36,9 +36,10 @@ pub fn add_piece<U: Read>(
         compute_destination_sector_id(&candidates, sector_max, piece_bytes_len)?
     };
 
-    let dest_sector_id = opt_dest_sector_id
-        .ok_or(())
-        .or_else(|_| provision_new_staged_sector(mgr, &mut sector_builder_state))?;
+    let dest_sector_id = opt_dest_sector_id.ok_or(()).or_else(|_| {
+        provision_new_staged_sector(mgr, &mut sector_builder_state)
+            .map_err(|err| format_err!("could not provision new staged sector: {}", err))
+    })?;
 
     let ssm = sector_builder_state
         .staged

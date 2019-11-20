@@ -125,11 +125,19 @@ impl SectorManager {
         let file_path = root.join(&access);
 
         create_dir_all(root)
-            .map_err(|err| SectorManagerErr::ReceiverError(format!("{:?}", err)))
+            .map_err(|err| {
+                SectorManagerErr::ReceiverError(format!(
+                    "failed to create sector-holding directory at {:?}: {}",
+                    root, err
+                ))
+            })
             .and_then(|_| {
-                File::create(&file_path)
-                    .map(|_| 0)
-                    .map_err(|err| SectorManagerErr::ReceiverError(format!("{:?}", err)))
+                File::create(&file_path).map(|_| 0).map_err(|err| {
+                    SectorManagerErr::ReceiverError(format!(
+                        "failed to create sector file at {:?}: {}",
+                        &file_path, err
+                    ))
+                })
             })
             .map(|_| access)
     }
