@@ -6,18 +6,25 @@ use std::time::Duration;
 const ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i8 = 15;
 
+/// The `Clock` trait defines must have functionality for filecoin clocks.
 trait Clock {
     fn new(genesis_time: i64) -> ChainEpochClock;
     fn get_time(&self) -> DateTime<Utc>;
-    fn epoch_at_time(&self, time: DateTime<Utc>);
 }
 
+/// ChainEpochClock is used by the system node to assume weak clock synchrony amognst the other
+/// systems.
 struct ChainEpochClock {
     // Chain start time in ISO nano timestamp
     genesis_time: DateTime<Utc>
 }
 
 impl Clock for ChainEpochClock {
+    /// Returns a ChainEpochClock based on the given genesis_time
+    ///
+    /// # Arguments
+    ///
+    /// * `genesis_time` - An i64 representing a unix timestamp
     fn new(genesis_time: i64) -> ChainEpochClock {
         // Convert unix timestamp
         let native_date_time = NaiveDateTime::from_timestamp(genesis_time, 0);
@@ -32,7 +39,8 @@ impl Clock for ChainEpochClock {
             genesis_time: date_time
         }        
     }
-
+    
+    /// Returns the genesis time as a DateTime<Utc>
     fn get_time(&self) -> DateTime<Utc> {
         self.genesis_time
     }
