@@ -1,32 +1,44 @@
 extern crate chrono;
 
-use chrono::{Utc}
+use chrono::{Utc, DateTime, SecondsFormat, NaiveDateTime};
+use std::time::Duration;
+
+const ISO_FORMAT: &str = "%FT%X.%.9F";
+const EPOCH_DURATION: i8 = 15;
 
 trait Clock {
-    func now_utc() -> &str;
-    func now_utc_unix() -> &str;
-    func now_utc_unix_nano() -> &str;
+    fn new(genesis_time: i64) -> ChainEpochClock;
+    fn get_time(&self) -> DateTime<Utc>;
+    fn epoch_at_time(&self, time: DateTime<Utc>);
 }
 
 struct ChainEpochClock {
     // Chain start time in ISO nano timestamp
-    genesis_time String
+    genesis_time: DateTime<Utc>
 }
 
 impl Clock for ChainEpochClock {
-    fn now_utc() -> &str {
-        let now = Utc.now();
-        println!("{:?}", now);
-        return now;
-    }
-}
+    fn new(genesis_time: i64) -> ChainEpochClock {
+        // Convert unix timestamp
+        let native_date_time = NaiveDateTime::from_timestamp(genesis_time, 0);
 
-#[test]
-fn check_utc() {
-    let clock: ChainEpochClock {
-        genesis_time: "12312321"
+        // Convert to DateTime
+        let date_time = DateTime::<Utc>::from_utc(native_date_time, Utc);
+
+        // Use nanoseconds
+        date_time.to_rfc3339_opts(SecondsFormat::Nanos, true);
+        
+        ChainEpochClock {
+            genesis_time: date_time
+        }        
     }
-    let now = clock.now_utc();
-    println!("{:?}", now);
-    assert!(true);
+
+    fn get_time(&self) -> DateTime<Utc> {
+        self.genesis_time
+    }
+
+    fn epoch_at_time(&self, time: DateTime<Utc>) {
+        let difference = time.signed_duration_since(self.genesis_time);
+        // TODO Finish this based on spec
+    }
 }
