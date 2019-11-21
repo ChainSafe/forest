@@ -1,6 +1,6 @@
 extern crate chrono;
 
-use chrono::{Utc, DateTime, SecondsFormat, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 use std::time::Duration;
 
 const ISO_FORMAT: &str = "%FT%X.%.9F";
@@ -16,7 +16,7 @@ trait Clock {
 /// systems.
 struct ChainEpochClock {
     // Chain start time in ISO nano timestamp
-    genesis_time: DateTime<Utc>
+    genesis_time: DateTime<Utc>,
 }
 
 impl Clock for ChainEpochClock {
@@ -34,12 +34,12 @@ impl Clock for ChainEpochClock {
 
         // Use nanoseconds
         date_time.to_rfc3339_opts(SecondsFormat::Nanos, true);
-        
+
         ChainEpochClock {
-            genesis_time: date_time
-        }        
+            genesis_time: date_time,
+        }
     }
-    
+
     /// Returns the genesis time as a DateTime<Utc>
     fn get_time(&self) -> DateTime<Utc> {
         self.genesis_time
