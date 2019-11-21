@@ -1,82 +1,77 @@
-// CID for external uuid
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
 extern crate cid;
 use cid::Cid;
-use std::time::{SystemTime};
-//pub use self::errors::Error;
-use super::block::{BlockHeader};
-use super::ticket::{Ticket};
+
+use super::block::BlockHeader;
+use super::ticket::Ticket;
 
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKey,
 }
 
-// TipSetKey is an immutable set of CIDs forming a unique key for a TipSet.
+// TipSetKey is a set of CIDs forming a unique key for a TipSet
 // Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 // the same order as the canonical iteration order of blocks in a tipset (which is by ticket).
-// TipSetKey is a lightweight value type; passing by pointer is usually unnecessary.
 pub struct TipSetKey {
-	// The slice is wrapped in a struct to enforce immutability.
-	cids: Vec<Cid>,
+    pub cids: Vec<Cid>,
 }
 
 // new_tip_set builds a new TipSet from a collection of blocks.
 // The blocks must be distinct (different CIDs), have the same height, and same parent set.
 pub fn new_tip_set(_blocks: Vec<BlockHeader>) {
-    // if blocks.len() == 0 {
-    //    // return  Err(Error::UndefinedTipSet)
-    // }
-    let f = &_blocks[0];
-    let height = f.height;
-    //let parents = f.parents;
-    let weight = f.weight;
-
-    println!("{}, {}", height, weight);
+    // TODO
+    // check length of blocks is not 0
+    // loop through blocks to ensure blocks have same height and parent set
+    // sort blocks by ticket size
+    // check and assign uniqueness of key
+    // return TipSet type
 }
 
-pub fn add(a: i32, b: i32) -> i32 {
-    a + b
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-
-    #[test]
-    fn test_add() {
-        assert_eq!(add(1, 2), 3);
+impl Tipset {
+    // min_ticket returns the smallest ticket of all blocks in the tipset
+    pub fn min_ticket(&self) -> Ticket {
+        // TODO
+        // return index 0 of tipset as we will sort tipsets according to ticket size in new_tip_set
+        Ticket { vrfproof: vec![0] }
     }
-    
-    #[test]
-    fn test_new_tip_set() {
-        let cid: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap();
-        let cid1: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR11".parse().unwrap();
-        let cid2: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR12".parse().unwrap();
-        let cid3: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR13".parse().unwrap();
-
-        let block = vec!(BlockHeader {
-            parents: TipSetKey{
-                cids: vec!(cid),
-            },
-            weight: 10,
-            epoch: 10,
-            height: 10,
-            miner_address: "0x".to_string(),
-            messages: cid1,
-            message_receipts: cid2,
-            state_root: cid3,
-            timestamp: SystemTime::now(),
-            ticket: Ticket{
-                vrfproof: 0
-            },
-            election_proof: 0
-        });
-
-       new_tip_set(block)
+    // min_timestamp returns the smallest timestamp of all blocks in the tipset.
+    pub fn min_timestamp(&self) -> u64 {
+        if self.blocks.is_empty() {
+            return 0;
+        }
+        let mut min = self.blocks[0].timestamp;
+        for i in 1..self.blocks.len() {
+            if self.blocks[i].timestamp < min {
+                min = self.blocks[i].timestamp
+            }
+        }
+        min
+    }
+    // len returns the number of blocks in the tipset
+    pub fn len(&self) -> usize {
+        self.blocks.len()
+    }
+    // is_empty returns true if no blocks present in tipset
+    pub fn is_empty(&self) -> bool {
+        self.blocks.is_empty()
+    }
+    // key returns a key for the tipset.
+    pub fn key(&self) -> &TipSetKey {
+        &self.key
+    }
+    // height returns the height of a tipset
+    pub fn height(&self) -> u64 {
+        self.blocks[0].height
+    }
+    // parents returns the CIDs of the parents of the blocks in the tipset
+    pub fn parents(&self) -> &TipSetKey {
+        &self.blocks[0].parents
+    }
+    // weight returns the tipset's weight
+    pub fn weight(&self) -> u64 {
+        self.blocks[0].weight
     }
 }
-
-// trait Ts {
-//     fn MinTicket() -> Ticket
-// }

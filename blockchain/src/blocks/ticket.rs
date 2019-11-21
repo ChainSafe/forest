@@ -2,8 +2,8 @@
 // of randomness for proofs of storage and leader election.  It is generated
 // by the miner of a block using a VRF and a VDF.
 pub struct Ticket {
-    pub vrfproof: VRFPi
+    pub vrfproof: VRFPi,
 }
 
-// VRFPi is the proof output from running a VRF.
-pub type VRFPi = u8;
+// VRFPi is the proof output from running a VRF
+pub type VRFPi = Vec<u8>;
