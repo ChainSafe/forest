@@ -48,14 +48,14 @@ impl Clock for ChainEpochClock {
     }
 
     /// Returns the epoch at a given time
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `time` - A DateTime<Utx> representing the chosen time.
-    /// 
+    ///
     /// TODO: Should time be a unix time stamp?
     fn epoch_at_time(&self, time: DateTime<Utc>) {
         let _difference = time.signed_duration_since(self.genesis_time);
         // TODO Finish this based on spec
-   }
+    }
 }
