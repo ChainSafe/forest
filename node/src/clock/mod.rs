@@ -1,15 +1,17 @@
 extern crate chrono;
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
-use std::time::Duration;
 
+#[allow(dead_code)]
 const ISO_FORMAT: &str = "%FT%X.%.9F";
+#[allow(dead_code)]
 const EPOCH_DURATION: i8 = 15;
 
 /// The `Clock` trait defines must have functionality for filecoin clocks.
 trait Clock {
     fn new(genesis_time: i64) -> ChainEpochClock;
     fn get_time(&self) -> DateTime<Utc>;
+    fn epoch_at_time(&self, time: DateTime<Utc>);
 }
 
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amognst the other
@@ -45,8 +47,15 @@ impl Clock for ChainEpochClock {
         self.genesis_time
     }
 
+    /// Returns the epoch at a given time
+    /// 
+    /// # Arguments
+    /// 
+    /// * `time` - A DateTime<Utx> representing the chosen time.
+    /// 
+    /// TODO: Should time be a unix time stamp?
     fn epoch_at_time(&self, time: DateTime<Utc>) {
-        let difference = time.signed_duration_since(self.genesis_time);
+        let _difference = time.signed_duration_since(self.genesis_time);
         // TODO Finish this based on spec
-    }
+   }
 }
