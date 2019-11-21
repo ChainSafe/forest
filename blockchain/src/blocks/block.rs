@@ -44,9 +44,10 @@ pub struct BlockHeader {
     // election_proof is the "scratched ticket" proving that this block won
     // an election
     pub election_proof: VRFPi,
+
     // SIGNATURES
     //
-    // blocksig filCrypto Signature
+    // block_sig filCrypto Signature
     // BLSAggregateSig
 }
 

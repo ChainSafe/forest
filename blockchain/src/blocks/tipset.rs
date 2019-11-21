@@ -14,13 +14,13 @@ pub struct Tipset {
 
 // TipSetKey is a set of CIDs forming a unique key for a TipSet
 // Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
-// the same order as the canonical iteration order of blocks in a tipset (which is by ticket).
+// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
 pub struct TipSetKey {
     pub cids: Vec<Cid>,
 }
 
-// new_tip_set builds a new TipSet from a collection of blocks.
-// The blocks must be distinct (different CIDs), have the same height, and same parent set.
+// new_tip_set builds a new TipSet from a collection of blocks
+// The blocks must be distinct (different CIDs), have the same height, and same parent set
 pub fn new_tip_set(_blocks: Vec<BlockHeader>) {
     // TODO
     // check length of blocks is not 0
@@ -33,11 +33,12 @@ pub fn new_tip_set(_blocks: Vec<BlockHeader>) {
 impl Tipset {
     // min_ticket returns the smallest ticket of all blocks in the tipset
     pub fn min_ticket(&self) -> Ticket {
-        // TODO
-        // return index 0 of tipset as we will sort tipsets according to ticket size in new_tip_set
-        Ticket { vrfproof: vec![0] }
+        if self.blocks.is_empty() {
+            return Ticket { vrfproof: vec![0] };
+        }
+        self.blocks[0].ticket.clone()
     }
-    // min_timestamp returns the smallest timestamp of all blocks in the tipset.
+    // min_timestamp returns the smallest timestamp of all blocks in the tipset
     pub fn min_timestamp(&self) -> u64 {
         if self.blocks.is_empty() {
             return 0;
@@ -62,7 +63,7 @@ impl Tipset {
     pub fn key(&self) -> &TipSetKey {
         &self.key
     }
-    // height returns the height of a tipset
+    // height returns the block number of a tipset
     pub fn height(&self) -> u64 {
         self.blocks[0].height
     }
@@ -70,7 +71,7 @@ impl Tipset {
     pub fn parents(&self) -> &TipSetKey {
         &self.blocks[0].parents
     }
-    // weight returns the tipset's weight
+    // weight returns the tipset's calculated weight
     pub fn weight(&self) -> u64 {
         self.blocks[0].weight
     }
