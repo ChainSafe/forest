@@ -37,18 +37,18 @@ fn new_tip_set(_blocks: Vec<BlockHeader>) {
 
 impl Tipset {
     // min_ticket returns the smallest ticket of all blocks in the tipset
-    fn min_ticket(&self) -> Ticket {
+    fn min_ticket(&self) -> Result<(Ticket), Error> {
         if self.blocks.is_empty() {
-            return Ticket { vrfproof: vec![0] };
+            return Err(Error::NoBlocks);
         }
-        self.blocks[0].ticket.clone()
+        Ok(self.blocks[0].ticket.clone())
     }
 
     //
     // min_timestamp returns the smallest timestamp of all blocks in the tipset
-    fn min_timestamp(&self) -> Result<(u64), Error> {
+    fn min_timestamp(&self) -> Option<u64> {
         if self.blocks.is_empty() {
-            return Err(Error::NoBlocks);
+            return None
         }
         let mut min = self.blocks[0].timestamp;
         for i in 1..self.blocks.len() {
@@ -56,7 +56,7 @@ impl Tipset {
                 min = self.blocks[i].timestamp
             }
         }
-        Ok(min)
+        Some(min)
     }
     // len returns the number of blocks in the tipset
     fn len(&self) -> usize {
