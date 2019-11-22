@@ -3,6 +3,7 @@
 // by the miner of a block using a VRF and a VDF.
 #[derive(Clone)]
 pub struct Ticket {
+    // A proof output by running a VRF on the VDFResult of the parent ticket
     pub vrfproof: VRFPi,
 }
 

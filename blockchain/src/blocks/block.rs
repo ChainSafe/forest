@@ -1,13 +1,11 @@
 #![allow(dead_code)]
 
-extern crate cid;
-extern crate vm;
-
 use super::ticket::{Ticket, VRFPi};
 use super::TipSetKeys;
 use cid::Cid;
 use vm::address::Address;
 
+// BlockHeader defines header of a block in the filecoin blockchain
 pub struct BlockHeader {
     // CHAIN LINKING
     //
@@ -51,6 +49,7 @@ pub struct BlockHeader {
     // BLSAggregateSig
 }
 
+// Block defines a full block
 pub struct Block {
     header: BlockHeader,
     // Messages
