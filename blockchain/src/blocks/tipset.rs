@@ -48,7 +48,7 @@ impl Tipset {
     // min_timestamp returns the smallest timestamp of all blocks in the tipset
     fn min_timestamp(&self) -> Option<u64> {
         if self.blocks.is_empty() {
-            return None
+            return None;
         }
         let mut min = self.blocks[0].timestamp;
         for i in 1..self.blocks.len() {
