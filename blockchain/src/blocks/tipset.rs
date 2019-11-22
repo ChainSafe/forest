@@ -24,18 +24,21 @@ pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
 
-// new_tip_set builds a new TipSet from a collection of blocks
-// The blocks must be distinct (different CIDs), have the same height, and same parent set
-fn new_tip_set(_blocks: Vec<BlockHeader>) {
-    // TODO
-    // check length of blocks is not 0
-    // loop through blocks to ensure blocks have same height and parent set
-    // sort blocks by ticket size
-    // check and assign uniqueness of key
-    // return TipSet type
-}
-
 impl Tipset {
+    // new_tip_set builds a new TipSet from a collection of blocks
+    // The blocks must be distinct (different CIDs), have the same height, and same parent set
+    fn new(_blocks: Vec<BlockHeader>) -> Result<Self, Error> {
+        // TODO
+        // check length of blocks is not 0
+        // loop through blocks to ensure blocks have same height and parent set
+        // sort blocks by ticket size
+        // check and assign uniqueness of key
+        // return TipSet type
+        if _blocks.is_empty() {
+            return Err(Error::NoBlocks);
+        }
+        Tipset::new(_blocks)
+    }
     // min_ticket returns the smallest ticket of all blocks in the tipset
     fn min_ticket(&self) -> Result<(Ticket), Error> {
         if self.blocks.is_empty() {
@@ -43,8 +46,6 @@ impl Tipset {
         }
         Ok(self.blocks[0].ticket.clone())
     }
-
-    //
     // min_timestamp returns the smallest timestamp of all blocks in the tipset
     fn min_timestamp(&self) -> Option<u64> {
         if self.blocks.is_empty() {
