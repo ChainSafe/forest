@@ -1,27 +1,20 @@
+#![allow(dead_code)]
+
 extern crate chrono;
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 
-#[allow(dead_code)]
 const ISO_FORMAT: &str = "%FT%X.%.9F";
-#[allow(dead_code)]
 const EPOCH_DURATION: i8 = 15;
 
-/// The `Clock` trait defines must have functionality for filecoin clocks.
-trait Clock {
-    fn new(genesis_time: i64) -> ChainEpochClock;
-    fn get_time(&self) -> DateTime<Utc>;
-    fn epoch_at_time(&self, time: DateTime<Utc>);
-}
-
-/// ChainEpochClock is used by the system node to assume weak clock synchrony amognst the other
+/// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
 /// systems.
-struct ChainEpochClock {
+pub struct ChainEpochClock {
     // Chain start time in ISO nano timestamp
     genesis_time: DateTime<Utc>,
 }
 
-impl Clock for ChainEpochClock {
+impl ChainEpochClock {
     /// Returns a ChainEpochClock based on the given genesis_time
     ///
     /// # Arguments
@@ -59,3 +52,6 @@ impl Clock for ChainEpochClock {
         // TODO Finish this based on spec
     }
 }
+
+#[cfg(test)]
+mod test;
