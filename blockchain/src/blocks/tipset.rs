@@ -25,19 +25,19 @@ pub struct TipSetKeys {
 }
 
 impl Tipset {
-    // new_tip_set builds a new TipSet from a collection of blocks
+    // new builds a new TipSet from a collection of blocks
     // The blocks must be distinct (different CIDs), have the same height, and same parent set
-    fn new(_blocks: Vec<BlockHeader>) -> Result<Self, Error> {
+    fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
         // TODO
         // check length of blocks is not 0
-        // loop through blocks to ensure blocks have same height and parent set
-        // sort blocks by ticket size
+        // loop through headers to ensure blocks have same height and parent set
+        // sort headers by ticket size
         // check and assign uniqueness of key
         // return TipSet type
-        if _blocks.is_empty() {
+        if headers.is_empty() {
             return Err(Error::NoBlocks);
         }
-        Tipset::new(_blocks)
+        Tipset::new(headers)
     }
     // min_ticket returns the smallest ticket of all blocks in the tipset
     fn min_ticket(&self) -> Result<(Ticket), Error> {
