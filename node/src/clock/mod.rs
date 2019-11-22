@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+#[cfg(test)]
+mod test;
+
 extern crate chrono;
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
@@ -52,6 +55,3 @@ impl ChainEpochClock {
         // TODO Finish this based on spec
     }
 }
-
-#[cfg(test)]
-mod test;
