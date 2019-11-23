@@ -34,24 +34,12 @@ fn main(){
     let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());
     let mut listening = false;
 
-//    let mut rt = Runtime::new().unwrap();
+    let mut rt = Runtime::new().unwrap();
 
-    // tokio::runtime::run(lazy (|| {
-    //     network_service.start();
-    //     Ok(())
-    // }));
-//    rt.block_on(network_service.start());
-    network_service.start();
-    // tokio::run(futures::future::poll_fn(move || -> Result<_, ()> {
-    //     loop {
-    //         match framed_stdin.poll().expect("Error while polling stdin") {
-    //             Async::Ready(Some(line)) => println!("aaa"),
-    //             // Async::Ready(Some(line)) => network_service.publish(&topic, line.as_bytes()),
-    //             Async::Ready(None) => panic!("Stdin closed"),
-    //             Async::NotReady => break,
-    //         };
-    //     }
-    //     Ok(Async::NotReady)
-    // }).map_err(|e| println!("error = {:?}", e)));
+
+    println!("???");
+    tokio::run(network_service.start());
+
+    println!("???");
 
 }

@@ -7,7 +7,10 @@ use futures::sync::mpsc;
 use futures::future::Future;
 
 use std::sync::Arc;
-
+use futures::future::PollFn;
+use futures::task::Spawn;
+use futures::Lazy;
+use futures::IntoFuture;
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
@@ -18,8 +21,12 @@ pub struct Service {
 }
 
 impl Service {
+    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) {
+        println!("Pubishing a message");
+        self.swarm.gossipsub.publish(topic, data);
+    }
     pub fn new (outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>) -> Result<(Self, Arc<mpsc::UnboundedSender<NetworkMessage>>), Error>
-     {
+    {
         // Starting Libp2p Service
 
         // TODO @Greg do local storage
@@ -68,37 +75,42 @@ pub enum NetworkMessage {
 }
 
 impl Service {
-    pub  fn start(&mut self) {
-        loop {
-            match self.swarm.poll() {
-                Ok(Async::Ready(Some(event))) => match event {
-                    MyBehaviourEvent::DiscoveredPeer(peer) => {
-                        libp2p::Swarm::dial(&mut self.swarm, peer);
-                    },
-                    MyBehaviourEvent::ExpiredPeer(peer) => {
-                    },
-                    MyBehaviourEvent::GossipMessage {
-                        source,
-                        topics,
-                        message,
-                    } => {
-                        // TODO proper error handling
-                        self.outbound_transmitter.unbounded_send(NetworkEvent::PubsubMessage {
+
+    pub fn start(&'static mut self) -> Spawn<Lazy<Fn()->IntoFuture, dyn IntoFuture>>{
+        futures::executor::spawn(futures::lazy(|| {
+            loop {
+                match self.swarm.poll() {
+                    Ok(Async::Ready(Some(event))) => match event {
+                        MyBehaviourEvent::DiscoveredPeer(peer) => {
+                            libp2p::Swarm::dial(&mut self.swarm, peer);
+                        },
+                        MyBehaviourEvent::ExpiredPeer(peer) => {
+                        },
+                        MyBehaviourEvent::GossipMessage {
                             source,
                             topics,
                             message,
-                        }).unwrap_or_else(|e| {
-                            panic!(
-                                "failed to send in network_transmitter"
-                            );
-                        });
-                    }
-                },
-                Ok(Async::Ready(None)) => {}
-                Ok(Async::NotReady) => {},
-                _ => {}
+                        } => {
+                            // TODO proper error handling
+                            self.outbound_transmitter.unbounded_send(NetworkEvent::PubsubMessage {
+                                source,
+                                topics,
+                                message,
+                            }).unwrap_or_else(|e| {
+                                panic!(
+                                    "failed to send in network_transmitter"
+                                );
+                            });
+                        }
+                    },
+                    Ok(Async::Ready(None)) => {}
+                    Ok(Async::NotReady) => {},
+                    _ => {}
+                }
             }
-        }
+            Ok(Async::NotReady)
+        }))
+
     }
 }
 
