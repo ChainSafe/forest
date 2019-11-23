@@ -34,10 +34,7 @@ struct AddressTestVec {
 
 fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
     // Test encoding to string
-    assert_eq!(
-        expected.to_owned(),
-        addr.to_string(Some(Network::Testnet))
-    );
+    assert_eq!(expected.to_owned(), addr.to_string(Some(Network::Testnet)));
 
     // Test decoding from string
     let decoded = Address::from_string(expected.to_owned()).unwrap();
