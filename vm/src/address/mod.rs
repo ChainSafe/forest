@@ -1,7 +1,6 @@
 mod errors;
 mod network;
 mod protocol;
-mod test;
 pub use self::errors::Error;
 pub use self::network::Network;
 pub use self::protocol::Protocol;
@@ -163,7 +162,7 @@ impl Address {
         bz
     }
     /// Returns encoded string from Address
-    pub fn to_string(&self, network: Option<Network>) -> Result<String, String> {
+    pub fn to_string(&self, network: Option<Network>) -> String {
         match network {
             Some(net) => encode(self, net),
             None => encode(self, Network::Testnet),
@@ -192,7 +191,7 @@ impl Address {
 }
 
 /// encode converts the address into a string
-fn encode(addr: &Address, network: Network) -> Result<String, String> {
+fn encode(addr: &Address, network: Network) -> String {
     match addr.protocol {
         Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
             let mut ingest = addr.payload();
@@ -202,23 +201,23 @@ fn encode(addr: &Address, network: Network) -> Result<String, String> {
 
             // payload bytes followed by calculated checksum
             bz.extend(cksm.clone());
-            Ok(format!(
+            format!(
                 "{}{}{}",
                 network.to_prefix(),
                 addr.protocol().to_string(),
                 ADDRESS_ENCODER.encode(bz.as_mut()),
-            ))
+            )
         }
         Protocol::ID => {
             let mut buf = [0; 1023];
             buf.copy_from_slice(&addr.payload());
             let mut readable = &buf[..];
-            Ok(format!(
+            format!(
                 "{}{}{}",
                 network.to_prefix(),
                 addr.protocol().to_string(),
                 leb128::read::unsigned(&mut readable).expect("should read encoded bytes"),
-            ))
+            )
         }
     }
 }
