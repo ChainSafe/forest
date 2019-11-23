@@ -1,9 +1,11 @@
 mod errors;
+mod message_receipt;
 mod signature;
 mod signed_message;
 mod signer;
 
 pub use errors::*;
+pub use message_receipt::*;
 pub use signature::*;
 pub use signed_message::*;
 pub use signer::*;
