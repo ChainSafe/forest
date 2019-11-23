@@ -32,12 +32,12 @@ pub struct Message {
 
 impl Message {
     // Marshalling and unmarshalling
-    pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), Error> {
+    pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO
-        Err(Error::DecodingError)
+        Err("Unmarshall cbor not implemented".to_owned())
     }
-    pub fn marshall_cbor(&self) -> Result<Vec<u8>, Error> {
+    pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
         // TODO
-        Err(Error::EncodingError)
+        Err("Marshall cbor not implemented".to_owned())
     }
 }
