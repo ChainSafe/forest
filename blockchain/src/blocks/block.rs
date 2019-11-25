@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::ticket::{Ticket, VRFPi};
+use super::ticket::{Ticket, VRFProofIndex};
 use super::TipSetKeys;
 use cid::Cid;
 use vm::address::Address;
@@ -42,7 +42,7 @@ pub struct BlockHeader {
     pub ticket: Ticket,
     /// election_proof is the "scratched ticket" proving that this block won
     /// an election
-    election_proof: VRFPi,
+    election_proof: VRFProofIndex,
     // SIGNATURES
     //
     // block_sig filCrypto Signature
