@@ -19,11 +19,11 @@ pub struct Message {
     pub(crate) from: Address,
     pub(crate) to: Address,
 
-    pub(crate) nonce: u64,
+    pub(crate) sequence: u64,
 
     pub(crate) value: BigUint,
 
-    pub(crate) method: u64,
+    pub(crate) method_id: u64,
     pub(crate) params: Vec<u8>,
 
     pub(crate) gas_price: BigUint,
