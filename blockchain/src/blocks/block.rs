@@ -5,7 +5,7 @@ use super::TipSetKeys;
 use cid::Cid;
 use vm::address::Address;
 
-/// BlockHeader defines header of a block in the filecoin blockchain
+/// BlockHeader defines header of a block in the Filecoin blockchain
 pub struct BlockHeader {
     /// CHAIN LINKING
     ///
@@ -15,7 +15,7 @@ pub struct BlockHeader {
     pub parents: TipSetKeys,
     /// weight is the aggregate chain weight of the parent set
     pub weight: u64,
-    ///epoch is the period in which a new block is generated. There may be multiple rounds in an epoch
+    /// epoch is the period in which a new block is generated. There may be multiple rounds in an epoch
     epoch: u64,
     /// height is the block height
     pub height: u64,
