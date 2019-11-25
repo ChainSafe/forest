@@ -24,17 +24,17 @@ pub struct NetworkService{
 impl NetworkService{
     pub fn new (
         outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
-        executor: &TaskExecutor
-    ) -> (Self, mpsc::UnboundedSender<NetworkMessage>) {
+        executor: &TaskExecutor,
+    ) -> (Self, mpsc::UnboundedSender<NetworkMessage>, tokio::sync::oneshot::Sender<u8>) {
         let (tx, rx) = mpsc::unbounded_channel();
 
         let libp2p_service = Arc::new(Mutex::new(Libp2pService::new().unwrap()));
 
-        start(libp2p_service.clone(), executor, outbound_transmitter, rx);
+        let exit_tx = start(libp2p_service.clone(), executor, outbound_transmitter, rx);
 
         return (NetworkService{
             libp2p: libp2p_service,
-        }, tx);
+        }, tx, exit_tx);
     }
 }
 
@@ -75,15 +75,23 @@ fn poll(
                         topics,
                         message
                     } => {
+                        println!("Got a msg from msgchannel");
                         libp2p_service.lock().unwrap().swarm.publish(&topics, message);
                     }
-                }
-                _ => {}
+                },
+                Ok(Async::NotReady) => break,
+                _ => {break}
             }
             match libp2p_service.lock().unwrap().poll() {
-                _ => break
+                Ok(Async::Ready(Some(event))) => match event {
+                    NetworkEvent::PubsubMessage { source, topics, message } => {
+                        println!("ASDFASDFSADFSAF")
+                    }
+                }
+                Ok(Async::Ready(None)) => unreachable!("Stream never ends"),
+                Ok(Async::NotReady) => break,
+                _ => {break}
             }
-            return Err(Error::aaa(2));
         }
         Ok(Async::NotReady)
     })

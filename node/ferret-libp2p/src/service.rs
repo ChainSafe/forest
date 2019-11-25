@@ -60,14 +60,14 @@ impl Stream for Libp2pService {
     fn poll(&mut self) -> Result<Async<Option<Self::Item>>, Self::Error> {
         let mut listening = false;
         loop {
+            println!("loop poll");
             match self.swarm.poll() {
                 Ok(Async::Ready(Some(event))) => match event {
                     MyBehaviourEvent::DiscoveredPeer(peer) => {
+                        println!("LIBP2P DISCOVERED PEER {:?}", peer);
                         libp2p::Swarm::dial(&mut self.swarm, peer);
-                        break;
                     },
                     MyBehaviourEvent::ExpiredPeer(peer) => {
-                        break;
                     },
                     MyBehaviourEvent::GossipMessage {
                         source,
@@ -85,15 +85,9 @@ impl Stream for Libp2pService {
 
                 },
                 Ok(Async::Ready(None)) | Ok(Async::NotReady) => {
-                    if !listening {
-                        if let Some(a) = Swarm::listeners(&self.swarm).next() {
-                            println!("Listening on {:?}", a);
-                            listening = true;
-                        }
-                    }
                     break
                 },
-                _ => {}
+                _ => {break}
             }
         }
         Ok(Async::NotReady)

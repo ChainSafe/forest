@@ -51,7 +51,6 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubEvent> for MyBehaviour<TSubstream> {
-    // Called when `floodsub` produces an event.
     fn inject_event(&mut self, message: GossipsubEvent) {
         if let GossipsubEvent::Message(_, message) = message {
             self.events.push(MyBehaviourEvent::GossipMessage {
@@ -71,7 +70,6 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
         if !self.events.is_empty() {
             return Async::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
         }
-
         Async::NotReady
     }
 }

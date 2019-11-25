@@ -34,7 +34,7 @@ fn main(){
     let (tx, rx) = mpsc::unbounded_channel::<NetworkEvent>();
     let mut tx = Arc::new(tx);
 
-    let (mut network_service,  mut net_tx) = NetworkService::new(tx.clone(),&rt.executor());
+    let (mut network_service,  mut net_tx, mut exit_tx) = NetworkService::new(tx.clone(),&rt.executor());
 
     let network_service = Arc::new(network_service);
     let stdin = tokio_stdin_stdout::stdin(0);
@@ -43,18 +43,24 @@ fn main(){
 
     let topic = Topic::new("test-net".into());
 
-    tokio::run(futures::future::poll_fn(move || -> Result<_, ()> {
+    println!("Polling for stdin");
+    rt.executor().spawn(futures::future::poll_fn(move || -> Result<_, ()> {
         loop {
             match framed_stdin.poll().expect("Error while polling stdin") {
-                Async::Ready(Some(line)) => net_tx.try_send(
+                Async::Ready(Some(line)) => {
+                    println!("Got msg from stdin");
+                    net_tx.try_send(
                     NetworkMessage::PubsubMessage {
                         topics: topic.clone(),
                         message: line.as_bytes().to_vec()
-                    }),
+                    })
+                },
                 Async::Ready(None) => panic!("Stdin closed"),
                 Async::NotReady => break,
             };
         }
         Ok(Async::NotReady)
     }));
+    rt.shutdown_on_idle()
+        .wait().unwrap();
 }
