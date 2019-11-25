@@ -43,15 +43,15 @@ pub struct BlockHeader {
     /// election_proof is the "scratched ticket" proving that this block won
     /// an election
     election_proof: VRFPi,
-    /// SIGNATURES
-    ///
-    /// block_sig filCrypto Signature
-    /// BLSAggregateSig
+    // SIGNATURES
+    //
+    // block_sig filCrypto Signature
+    // BLSAggregateSig
 }
 
 /// Block defines a full block
 pub struct Block {
     header: BlockHeader,
-    /// Messages
-    /// Receipts
+    // Messages
+    // Receipts
 }
