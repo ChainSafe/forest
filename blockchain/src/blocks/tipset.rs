@@ -46,9 +46,9 @@ impl Tipset {
         Ok(self.blocks[0].ticket.clone())
     }
     /// min_timestamp returns the smallest timestamp of all blocks in the tipset
-    fn min_timestamp(&self) -> Option<u64> {
+    fn min_timestamp(&self) -> Result<u64, Error> {
         if self.blocks.is_empty() {
-            return None;
+            return Err(Error::NoBlocks);
         }
         let mut min = self.blocks[0].timestamp;
         for i in 1..self.blocks.len() {
@@ -56,7 +56,7 @@ impl Tipset {
                 min = self.blocks[i].timestamp
             }
         }
-        Some(min)
+        Ok(min)
     }
     /// len returns the number of blocks in the tipset
     fn len(&self) -> usize {
