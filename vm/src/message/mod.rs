@@ -26,7 +26,7 @@ pub struct Message {
     pub(crate) method: u64,
     pub(crate) params: Vec<u8>,
 
-    pub(crate) gas_price: BigUint, // change these to big int
+    pub(crate) gas_price: BigUint,
     pub(crate) gas_limit: BigUint,
 }
 
