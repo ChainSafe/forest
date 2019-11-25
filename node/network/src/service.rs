@@ -85,7 +85,7 @@ fn poll(
             match libp2p_service.lock().unwrap().poll() {
                 Ok(Async::Ready(Some(event))) => match event {
                     NetworkEvent::PubsubMessage { source, topics, message } => {
-                        println!("ASDFASDFSADFSAF")
+                        println!("ASDFASDFSADFSAF");
                     }
                 }
                 Ok(Async::Ready(None)) => unreachable!("Stream never ends"),

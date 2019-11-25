@@ -30,8 +30,12 @@ impl Libp2pService{
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
 
+        println!("Local peer id: {:?}", local_peer_id);
 
         let transport = build_transport(local_key.clone());
+//        let transport = build_development_transport(local_key.clone())
+//            .map_err(|err| Error::new(ErrorKind::Other, err))
+//            .boxed();
         let mut swarm = {
             let be = MyBehaviour::new(&local_key);
             Swarm::new(transport, be, local_peer_id)
@@ -84,8 +88,12 @@ impl Stream for Libp2pService {
                     }
 
                 },
-                Ok(Async::Ready(None)) | Ok(Async::NotReady) => {
-                    break
+                Ok(Async::Ready(None)) => break,
+                Ok(Async::NotReady) => {
+                    if let Some(a) = Swarm::listeners(&self.swarm).next() {
+                        println!("Listening on {:?}", a);
+                    }
+                    break;
                 },
                 _ => {break}
             }
