@@ -26,7 +26,7 @@ const TESTNET_PREFIX: &str = "t";
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Address {
     protocol: Protocol,
     payload: Vec<u8>,
