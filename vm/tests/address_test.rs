@@ -1,6 +1,4 @@
-#![cfg(all(test))]
-
-use crate::address::{
+use vm::address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
 
@@ -36,10 +34,7 @@ struct AddressTestVec {
 
 fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
     // Test encoding to string
-    assert_eq!(
-        expected.to_owned(),
-        addr.to_string(Some(Network::Testnet)).unwrap()
-    );
+    assert_eq!(expected.to_owned(), addr.to_string(Some(Network::Testnet)));
 
     // Test decoding from string
     let decoded = Address::from_string(expected.to_owned()).unwrap();
