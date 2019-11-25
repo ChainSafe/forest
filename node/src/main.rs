@@ -10,10 +10,11 @@ use libp2p::{
     tokio_codec::{FramedRead, LinesCodec},
 };
 
-use futures::sync::mpsc;
+use tokio::sync::mpsc;
 
 use ferret_libp2p::behaviour::*;
-use ferret_libp2p::service::*;
+use ferret_libp2p::service::{NetworkEvent};
+use network::service::*;
 
 use futures::prelude::*;
 
@@ -23,23 +24,37 @@ use std::sync::Arc;
 use tokio::prelude::*;
 use tokio;
 use futures::future::lazy;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
+use std::sync::Mutex;
 
 fn main(){
     Builder::from_env(Env::default().default_filter_or("info")).init();
-    let (tx, rx) = mpsc::unbounded::<NetworkEvent>();
-    let tx = Arc::new(tx);
-    let (mut network_service, net_tx) = service::Service::new(tx.clone()).unwrap();
+    let mut rt = Runtime::new().unwrap();
+
+    let (tx, rx) = mpsc::unbounded_channel::<NetworkEvent>();
+    let mut tx = Arc::new(tx);
+
+    let (mut network_service,  mut net_tx) = NetworkService::new(tx.clone(),&rt.executor());
+
+    let network_service = Arc::new(network_service);
     let stdin = tokio_stdin_stdout::stdin(0);
     let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());
     let mut listening = false;
 
-    let mut rt = Runtime::new().unwrap();
+    let topic = Topic::new("test-net".into());
 
-
-    println!("???");
-    tokio::run(network_service.start());
-
-    println!("???");
-
+    tokio::run(futures::future::poll_fn(move || -> Result<_, ()> {
+        loop {
+            match framed_stdin.poll().expect("Error while polling stdin") {
+                Async::Ready(Some(line)) => net_tx.try_send(
+                    NetworkMessage::PubsubMessage {
+                        topics: topic.clone(),
+                        message: line.as_bytes().to_vec()
+                    }),
+                Async::Ready(None) => panic!("Stdin closed"),
+                Async::NotReady => break,
+            };
+        }
+        Ok(Async::NotReady)
+    }));
 }
