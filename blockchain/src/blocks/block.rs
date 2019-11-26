@@ -3,7 +3,7 @@
 use super::ticket::{Ticket, VRFProofIndex};
 use super::TipSetKeys;
 use cid::Cid;
-use vm::address::Address;
+use address::Address;
 
 /// BlockHeader defines header of a block in the Filecoin blockchain
 pub struct BlockHeader {
