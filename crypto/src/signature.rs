@@ -1,6 +1,6 @@
+use address::{Address, Protocol};
 use blake2::digest::*;
 use blake2::VarBlake2b;
-use address::{Address, Protocol};
 
 /// Signature, represented in bytes, of any key protocol
 pub type Signature = Vec<u8>;

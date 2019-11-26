@@ -31,7 +31,7 @@ impl Message {
     }
     /// to returns the destination address of the message
     pub fn to(&self) -> Address {
-        self.from.clone()
+        self.to.clone()
     }
     // Marshalling and unmarshalling
     pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
