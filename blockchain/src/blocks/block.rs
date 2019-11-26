@@ -54,5 +54,4 @@ pub struct BlockHeader {
 pub struct Block {
     header: BlockHeader,
     messages: Vec<Message>,
-    receipts: Vec<MessageReceipt>,
 }
