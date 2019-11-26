@@ -2,8 +2,7 @@ use super::errors::Error;
 use address::{Address, Protocol};
 use blake2::digest::*;
 use blake2::VarBlake2b;
-use bls_signatures::*;
-use bls_signatures::{hash as bls_hash, verify, PublicKey as BlsPubKey, Signature as BlsSignature};
+use bls_signatures::{hash as bls_hash, verify, PublicKey as BlsPubKey, Signature as BlsSignature, Serialize};
 
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 
@@ -13,32 +12,39 @@ pub type Signature = Vec<u8>;
 /// checks if a signature is valid given data and address
 pub fn is_valid_signature(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
     match addr.protocol() {
-        Protocol::BLS => check_bls_sig(data, addr, sig),
-        Protocol::Secp256k1 => check_secp256k1_sig(data, addr, sig),
+        Protocol::BLS => verify_bls_sig(data, addr.payload(), sig),
+        Protocol::Secp256k1 => verify_secp256k1_sig(data, addr, sig),
         _ => false,
     }
 }
 
-// TODO: verify data format of verification
 /// returns true if a bls signature is valid
-fn check_bls_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
-    // verify BLS signature with addr payload, data, and signature
+fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> bool {
+    if pub_k.len() != 48 || sig.len() != 96 {
+        // validates pubkey length and signature length for protocol
+        return false;
+    }
+
+    // hash data to be verified
     let hashed = bls_hash(data.as_ref());
 
-    let pk = match BlsPubKey::from_bytes(&addr.payload()) {
+    // generate public key object from bytes
+    let pk = match BlsPubKey::from_bytes(&pub_k) {
         Ok(v) => v,
         Err(_) => return false,
     };
+    // generate signature struct from bytes
     let sig = match BlsSignature::from_bytes(sig.as_ref()) {
         Ok(v) => v,
         Err(_) => return false,
     };
 
+    // BLS verify hash against key
     verify(&sig, &[hashed], &[pk])
 }
 
 /// returns true if a secp256k1 signature is valid
-fn check_secp256k1_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
+fn verify_secp256k1_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
     // blake2b 256 hash
     let mut hash = [0u8; 32];
     blake2b_256(data, &mut hash);
@@ -87,4 +93,31 @@ fn blake2b_256(ingest: Vec<u8>, hash: &mut [u8; 32]) {
         // Copy result slice to vector return
         hash[..32].clone_from_slice(res);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bls_signatures::{PrivateKey, Signature as BlsSignature, Serialize};
+    use rand::{Rng, SeedableRng, XorShiftRng};
+    use address::Address;
+
+    #[test]
+    fn bls_verify() {
+        let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let sk = PrivateKey::generate(rng);
+
+        let msg = (0..64).map(|_| rng.gen()).collect::<Vec<u8>>();
+        let signature = sk.sign(&msg);
+
+        let signature_bytes = signature.as_bytes();
+        assert_eq!(signature_bytes.len(), 96);
+        assert_eq!(BlsSignature::from_bytes(&signature_bytes).unwrap(), signature);
+
+        let pk = sk.public_key();
+        let addr = Address::new_bls(pk.as_bytes()).unwrap();
+
+        assert_eq!(is_valid_signature(msg.clone(), addr, signature_bytes.clone()), true);
+        assert_eq!(verify_bls_sig(msg.clone(), pk.as_bytes(), signature_bytes.clone()), true);
+    }
 }
