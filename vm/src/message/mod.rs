@@ -29,7 +29,7 @@ impl Message {
     pub fn from(&self) -> Address {
         self.from.clone()
     }
-    /// from returns the from address of the message
+    /// to returns the destination address of the message
     pub fn to(&self) -> Address {
         self.from.clone()
     }
