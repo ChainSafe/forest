@@ -1,4 +1,4 @@
-use vm::address::{
+use address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
 
