@@ -1,8 +1,8 @@
+use super::errors::Error;
 use address::{Address, Protocol};
 use blake2::digest::*;
 use blake2::VarBlake2b;
 
-use secp256k1::Error;
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 
 /// Signature, represented in bytes, of any key protocol
@@ -20,6 +20,7 @@ pub fn is_valid_signature(data: Vec<u8>, addr: Address, sig: Signature) -> bool 
 /// returns true if a bls signature is valid
 fn check_bls_sig(_data: Vec<u8>, _addr: Address, _sig: Signature) -> bool {
     // verify BLS signature with addr payload, data, and signature
+    // TODO
     false
 }
 
@@ -32,29 +33,21 @@ fn check_secp256k1_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
     // Ecrecover with hash and signature
     let mut signature = [0u8; 65];
     signature[..].clone_from_slice(sig.as_ref());
-    let pub_k = ecrecover(&hash, &signature);
-
-    // Generate address with pubkey
-    let addr_res = if let Ok(key) = pub_k {
-        Address::new_secp256k1(key)
-    } else {
-        return false;
-    };
+    let rec_addr = ecrecover(&hash, &signature);
 
     // check address against recovered address
-    match addr_res {
-        Ok(rec_addr) => addr == rec_addr,
+    match rec_addr {
+        Ok(r) => addr == r,
         Err(_) => false,
     }
 }
 
-const HASH_LENGTH: usize = 32;
-
-fn ecrecover(hash: &[u8; HASH_LENGTH], signature: &[u8; 65]) -> Result<Vec<u8>, Error> {
+// TODO: verify signature data format after signing implemented
+fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
     /* Recovery id is the last big-endian byte. */
     let v = (signature[64] as i8 - 27) as u8;
     if v != 0 && v != 1 {
-        return Ok(vec![0u8; 0]);
+        return Err(Error::InvalidRecovery("invalid recovery byte".to_owned()));
     }
 
     // Signature value without recovery byte
@@ -68,7 +61,8 @@ fn ecrecover(hash: &[u8; HASH_LENGTH], signature: &[u8; 65]) -> Result<Vec<u8>, 
 
     let key = recover(&message, &sig, &rec_id)?;
     let ret = key.serialize();
-    Ok(ret.to_vec())
+    let addr = Address::new_secp256k1(ret.to_vec())?;
+    Ok(addr)
 }
 
 /// generates blake2b hash of 32 bytes
