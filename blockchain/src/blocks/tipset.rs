@@ -18,7 +18,7 @@ pub struct Tipset {
 /// TipSetKeys is a set of CIDs forming a unique key for a TipSet
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone)]
+#[derive(PartialEq, Clone)]
 pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
@@ -36,6 +36,24 @@ impl Tipset {
         if headers.is_empty() {
             return Err(Error::NoBlocks);
         }
+        
+        let mut sorted_headers = Vec::new();
+        //let mut sorted_cids =  Vec::new();
+
+        for i in 1..headers.len() {
+            if headers[i].height != headers[0].height.clone() {
+                return Err(Error::UndefinedTipSet)
+            }
+            if !headers[i].parents.equals(headers[0].parents.clone()) {
+                return Err(Error::UndefinedTipSet)
+            }
+            if headers[i].weight != headers[0].weight.clone() {
+                return Err(Error::UndefinedTipSet)
+            }
+            sorted_headers[i] = headers[i].clone();
+            //sorted_cids[i] = headers[i].CIDs()
+        }
+        
         Tipset::new(headers)
     }
     /// min_ticket returns the smallest ticket of all blocks in the tipset
@@ -81,5 +99,22 @@ impl Tipset {
     /// weight returns the tipset's calculated weight
     fn weight(&self) -> u64 {
         self.blocks[0].weight
+    }
+}
+
+impl TipSetKeys {
+    /// equals checks whether the set contains exactly the same CIDs as another.
+    fn equals(&self, key: TipSetKeys) -> bool {
+        if self.cids.len() != key.cids.len() {
+            return false
+        }
+        let mut i = 0;
+        while i > key.cids.len() {
+            i += 1;
+            if self.cids[i] == key.cids[i] {
+                return false
+            }
+        }
+        return true
     }
 }

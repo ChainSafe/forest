@@ -1,3 +1,6 @@
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
 /// VRFProofIndex is the proof output from running a VRF
 pub type VRFProofIndex = Vec<u8>;
 
@@ -8,4 +11,10 @@ pub type VRFProofIndex = Vec<u8>;
 pub struct Ticket {
     /// A proof output by running a VRF on the VDFResult of the parent ticket
     pub vrfproof: VRFProofIndex,
+}
+
+impl Ticket {
+    fn sort_key(&self) -> Vec<u8> {
+        self.vrfproof.clone()
+    }
 }

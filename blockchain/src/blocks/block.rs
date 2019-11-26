@@ -2,10 +2,16 @@
 
 use super::ticket::{Ticket, VRFProofIndex};
 use super::TipSetKeys;
-use cid::Cid;
+extern crate multihash;
+use multihash::{encode, decode, Hash};
+use cid::{Cid, Version, Codec, Error, Prefix};
 use vm::address::Address;
 
-/// BlockHeader defines header of a block in the Filecoin blockchain
+// DefaultHashFunction represents the default hashing function to use
+const DEFAULT_HASH_FUNCTION: Hash = Hash::Blake2b;
+
+/// BlockHeader defines header of a block in the Filecoin blockchain#[derive(Clone)]
+#[derive(Clone)]
 pub struct BlockHeader {
     /// CHAIN LINKING
     ///
@@ -47,6 +53,12 @@ pub struct BlockHeader {
     //
     // block_sig filCrypto Signature
     // BLSAggregateSig
+    
+    /// CACHE
+    /// 
+    cachedCid: cid::Cid,
+
+	cachedBytes: Vec<u8>,
 }
 
 /// Block defines a full block
@@ -54,4 +66,19 @@ pub struct Block {
     header: BlockHeader,
     // Messages
     // Receipts
+}
+
+impl Block {
+    // cid returns the content id of this block
+    fn cid(&self)  {
+        
+       let mut c = Prefix {
+           version: Version::V0,
+           codec: Codec::DagProtobuf,
+           mh_type: DEFAULT_HASH_FUNCTION,
+           mh_len: 0,
+       };
+       let res = c.as_bytes();
+       let resp = Prefix::new_from_bytes(&res);
+    }
 }
