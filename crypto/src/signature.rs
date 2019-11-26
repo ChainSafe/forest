@@ -2,6 +2,8 @@ use super::errors::Error;
 use address::{Address, Protocol};
 use blake2::digest::*;
 use blake2::VarBlake2b;
+use bls_signatures::*;
+use bls_signatures::{hash as bls_hash, verify, PublicKey as BlsPubKey, Signature as BlsSignature};
 
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 
@@ -17,11 +19,22 @@ pub fn is_valid_signature(data: Vec<u8>, addr: Address, sig: Signature) -> bool 
     }
 }
 
+// TODO: verify data format of verification
 /// returns true if a bls signature is valid
-fn check_bls_sig(_data: Vec<u8>, _addr: Address, _sig: Signature) -> bool {
+fn check_bls_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
     // verify BLS signature with addr payload, data, and signature
-    // TODO
-    false
+    let hashed = bls_hash(data.as_ref());
+
+    let pk = match BlsPubKey::from_bytes(&addr.payload()) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    let sig = match BlsSignature::from_bytes(sig.as_ref()) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+
+    verify(&sig, &[hashed], &[pk])
 }
 
 /// returns true if a secp256k1 signature is valid

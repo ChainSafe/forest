@@ -10,4 +10,5 @@ edition = "2018"
 blake2 = "0.8.1"
 address = {path = "../vm/address"}
 libsecp256k1 = "0.2.1"
+bls-signatures =  { git = "https://github.com/filecoin-project/bls-signatures", rev = "1842aa4c00b6ffb8a0f150f8778759813028ea3e" }
 
