@@ -1,7 +1,5 @@
 use super::Message;
-use crypto::Error as CryptoError;
-use crypto::Signature;
-use crypto::Signer;
+use crypto::{Error as CryptoError, Signature, Signer};
 
 /// SignedMessage represents a wrapped message with signature bytes
 #[derive(PartialEq, Clone)]

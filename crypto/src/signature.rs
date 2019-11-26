@@ -1,6 +1,6 @@
 use super::errors::Error;
 use address::{Address, Protocol};
-use blake2::digest::*;
+use blake2::digest::{Input, VariableOutput};
 use blake2::VarBlake2b;
 use bls_signatures::{
     hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
