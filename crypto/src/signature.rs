@@ -2,7 +2,9 @@ use super::errors::Error;
 use address::{Address, Protocol};
 use blake2::digest::*;
 use blake2::VarBlake2b;
-use bls_signatures::{hash as bls_hash, verify, PublicKey as BlsPubKey, Signature as BlsSignature, Serialize};
+use bls_signatures::{
+    hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
+};
 
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 
@@ -98,9 +100,9 @@ fn blake2b_256(ingest: Vec<u8>, hash: &mut [u8; 32]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bls_signatures::{PrivateKey, Signature as BlsSignature, Serialize};
-    use rand::{Rng, SeedableRng, XorShiftRng};
     use address::Address;
+    use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
+    use rand::{Rng, SeedableRng, XorShiftRng};
 
     #[test]
     fn bls_verify() {
@@ -112,12 +114,21 @@ mod tests {
 
         let signature_bytes = signature.as_bytes();
         assert_eq!(signature_bytes.len(), 96);
-        assert_eq!(BlsSignature::from_bytes(&signature_bytes).unwrap(), signature);
+        assert_eq!(
+            BlsSignature::from_bytes(&signature_bytes).unwrap(),
+            signature
+        );
 
         let pk = sk.public_key();
         let addr = Address::new_bls(pk.as_bytes()).unwrap();
 
-        assert_eq!(is_valid_signature(msg.clone(), addr, signature_bytes.clone()), true);
-        assert_eq!(verify_bls_sig(msg.clone(), pk.as_bytes(), signature_bytes.clone()), true);
+        assert_eq!(
+            is_valid_signature(msg.clone(), addr, signature_bytes.clone()),
+            true
+        );
+        assert_eq!(
+            verify_bls_sig(msg.clone(), pk.as_bytes(), signature_bytes.clone()),
+            true
+        );
     }
 }
