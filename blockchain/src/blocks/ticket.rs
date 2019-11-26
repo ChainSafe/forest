@@ -14,7 +14,7 @@ pub struct Ticket {
 }
 
 impl Ticket {
-    fn sort_key(&self) -> Vec<u8> {
+    pub fn sort_key(&self) -> Vec<u8> {
         self.vrfproof.clone()
     }
 }

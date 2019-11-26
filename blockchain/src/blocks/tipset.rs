@@ -1,12 +1,11 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use cid::Cid;
-
 use super::block::BlockHeader;
-use super::ticket::Ticket;
-
 use super::errors::Error;
+use super::ticket::Ticket;
+use cid::Cid;
+use vm::address::Address;
 
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
@@ -27,35 +26,73 @@ impl Tipset {
     /// new builds a new TipSet from a collection of blocks
     //// The blocks must be distinct (different CIDs), have the same height, and same parent set
     fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
-        // TODO
-        // check length of blocks is not 0
-        // loop through headers to ensure blocks have same height and parent set
-        // sort headers by ticket size
-        // check and assign uniqueness of key
-        // return TipSet type
         if headers.is_empty() {
             return Err(Error::NoBlocks);
         }
-        
-        let mut sorted_headers = Vec::new();
-        //let mut sorted_cids =  Vec::new();
 
-        for i in 1..headers.len() {
-            if headers[i].height != headers[0].height.clone() {
-                return Err(Error::UndefinedTipSet)
+        let mut sorted_headers = Vec::new();
+        let mut sorted_cids = Vec::new();
+        let mut i = 0;
+        while i < headers.len() {
+            if headers[i].height != headers[0].height {
+                return Err(Error::UndefinedTipSet);
             }
             if !headers[i].parents.equals(headers[0].parents.clone()) {
-                return Err(Error::UndefinedTipSet)
+                return Err(Error::UndefinedTipSet);
             }
-            if headers[i].weight != headers[0].weight.clone() {
-                return Err(Error::UndefinedTipSet)
+            if headers[i].weight != headers[0].weight {
+                return Err(Error::UndefinedTipSet);
             }
-            sorted_headers[i] = headers[i].clone();
-            //sorted_cids[i] = headers[i].CIDs()
+            if headers[i].state_root != headers[0].state_root.clone() {
+                return Err(Error::UndefinedTipSet);
+            }
+            if headers[i].epoch != headers[0].epoch {
+                return Err(Error::UndefinedTipSet);
+            }
+            if headers[i].message_receipts != headers[0].message_receipts.clone() {
+                return Err(Error::UndefinedTipSet);
+            }
+            sorted_headers.push(headers[i].clone());
+            sorted_cids.push(headers[i].clone().cid());
+            i += 1;
         }
-        
-        Tipset::new(headers)
+        // sort headers by ticket
+        //
+        // GO FILE COIN LOGIC BELOW
+        //
+        // sort.Slice(sorted, func(i, j int) bool {
+        //     cmp := bytes.Compare(sorted[i].Ticket.SortKey(), sorted[j].Ticket.SortKey())
+        //     if cmp == 0 {
+        //         // Break ticket ties with the block CIDs, which are distinct.
+        //         cmp = bytes.Compare(sorted[i].Cid().Bytes(), sorted[j].Cid().Bytes())
+        //     }
+        //     return cmp < 0
+        // })
+
+        // sort headers by ticket size
+        // if tie; Break ticket ties with the block CIDs, which are distinct
+        sorted_headers.sort_by(|a, b| {
+            a.ticket
+                .sort_key()
+                .partial_cmp(&b.ticket.sort_key())
+                .unwrap()
+        });
+
+        // INTERIM TO SATISFY STRUCT
+        let cid1: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"
+            .parse()
+            .unwrap();
+        let cid2: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR12"
+            .parse()
+            .unwrap();
+        let arr = vec![cid1.clone(), cid2.clone()];
+
+        Ok(Self {
+            blocks: sorted_headers,
+            key: TipSetKeys { cids: arr },
+        })
     }
+
     /// min_ticket returns the smallest ticket of all blocks in the tipset
     fn min_ticket(&self) -> Result<(Ticket), Error> {
         if self.blocks.is_empty() {
@@ -106,15 +143,71 @@ impl TipSetKeys {
     /// equals checks whether the set contains exactly the same CIDs as another.
     fn equals(&self, key: TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
-            return false
+            return false;
         }
         let mut i = 0;
         while i > key.cids.len() {
             i += 1;
             if self.cids[i] == key.cids[i] {
-                return false
+                return false;
             }
         }
-        return true
+        true
     }
+}
+
+fn test_header() -> Vec<BlockHeader> {
+    let cid1: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"
+        .parse()
+        .unwrap();
+    let cid2: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR12"
+        .parse()
+        .unwrap();
+
+    let data: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
+    let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3];
+    let new_addr = Address::new_secp256k1(data.clone()).unwrap();
+    let arr = vec![cid1.clone(), cid2.clone()];
+
+    let h = vec![
+        BlockHeader {
+            parents: TipSetKeys { cids: arr.clone() },
+            weight: 0,
+            epoch: 1,
+            height: 1,
+            miner_address: new_addr.clone(),
+            messages: cid1.clone(),
+            message_receipts: cid1.clone(),
+            state_root: cid1.clone(),
+            timestamp: 0,
+            ticket: Ticket {
+                vrfproof: data.clone(),
+            },
+            election_proof: data.clone(),
+            cached_cid: cid1.clone(),
+            cached_bytes: 0,
+        },
+        BlockHeader {
+            parents: TipSetKeys { cids: arr },
+            weight: 0,
+            epoch: 1,
+            height: 1,
+            miner_address: new_addr,
+            messages: cid1.clone(),
+            message_receipts: cid1.clone(),
+            state_root: cid1.clone(),
+            timestamp: 0,
+            ticket: Ticket { vrfproof: data2 },
+            election_proof: data.clone(),
+            cached_cid: cid1.clone(),
+            cached_bytes: 0,
+        },
+    ];
+    h
+}
+
+#[test]
+fn new_test() {
+    let headers = test_header();
+    let result = Tipset::new(headers);
 }
