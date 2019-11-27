@@ -8,7 +8,7 @@ use tokio::runtime::TaskExecutor;
 use futures::Async;
 use futures::stream::Stream;
 use futures::Future;
-
+use tokio::prelude::*;
 
 pub enum NetworkMessage {
     PubsubMessage {
@@ -80,8 +80,10 @@ fn poll(
                     }
                 },
                 Ok(Async::NotReady) => break,
-                _ => {break}
+                _ => { break }
             }
+        }
+        loop {
             match libp2p_service.lock().unwrap().poll() {
                 Ok(Async::Ready(Some(event))) => match event {
                     NetworkEvent::PubsubMessage { source, topics, message } => {
@@ -89,7 +91,9 @@ fn poll(
                     }
                 }
                 Ok(Async::Ready(None)) => unreachable!("Stream never ends"),
-                Ok(Async::NotReady) => break,
+                Ok(Async::NotReady) => {
+                    break
+                },
                 _ => {break}
             }
         }

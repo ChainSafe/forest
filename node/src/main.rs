@@ -78,6 +78,7 @@ fn main(){
         }
         Ok(Async::NotReady)
     }));
+
     rt.shutdown_on_idle()
         .wait().unwrap();
 }

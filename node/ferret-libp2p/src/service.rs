@@ -98,6 +98,7 @@ impl Stream for Libp2pService {
                 _ => {break}
             }
         }
+        println!("Libp2p Not ready");
         Ok(Async::NotReady)
     }
 }
