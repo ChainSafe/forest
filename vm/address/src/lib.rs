@@ -7,7 +7,7 @@ pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{variable_hash, Cbor, JSON};
+use encoding::{blake2b_variable, Cbor, JSON};
 use leb128;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -227,7 +227,7 @@ fn encode(addr: &Address, network: Network) -> String {
 
 /// Checksum calculates the 4 byte checksum hash
 pub fn checksum(ingest: Vec<u8>) -> Vec<u8> {
-    variable_hash(ingest, CHECKSUM_HASH_LEN)
+    blake2b_variable(ingest, CHECKSUM_HASH_LEN)
 }
 
 /// Validates the checksum against the ingest data
@@ -238,5 +238,5 @@ pub fn validate_checksum(ingest: Vec<u8>, expect: Vec<u8>) -> bool {
 
 /// Returns an address hash for given data
 fn address_hash(ingest: Vec<u8>) -> Vec<u8> {
-    variable_hash(ingest, PAYLOAD_HASH_LEN)
+    blake2b_variable(ingest, PAYLOAD_HASH_LEN)
 }

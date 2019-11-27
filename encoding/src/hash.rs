@@ -2,7 +2,7 @@ use blake2::digest::{Input, VariableOutput};
 use blake2::VarBlake2b;
 
 /// generates blake2b hash with provided size
-pub fn variable_hash(ingest: Vec<u8>, size: usize) -> Vec<u8> {
+pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
     let mut hasher = VarBlake2b::new(size).unwrap();
     hasher.input(ingest);
 
@@ -23,7 +23,23 @@ pub fn blake2b_256(ingest: Vec<u8>, hash: &mut [u8; 32]) {
     hasher.input(ingest);
 
     hasher.variable_result(|res| {
-        // Copy result slice to vector return
+        // Copy result slice to hash array reference
         hash[..32].clone_from_slice(res);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_length() {
+        let ingest = vec![1, 4, 2, 3];
+        let hash = blake2b_variable(ingest.clone(), 8);
+        assert_eq!(hash.len(), 8);
+        let hash = blake2b_variable(ingest.clone(), 20);
+        assert_eq!(hash.len(), 20);
+        let hash = blake2b_variable(ingest.clone(), 32);
+        assert_eq!(hash.len(), 32);
+    }
 }
