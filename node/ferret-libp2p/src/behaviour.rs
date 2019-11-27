@@ -1,16 +1,16 @@
-use libp2p::NetworkBehaviour;
-use libp2p::core::{Multiaddr, PeerId, };
-use libp2p::kad::record;
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
-use libp2p::core::{nodes::Substream, muxing::StreamMuxerBox};
-use log::{debug, warn};
-use libp2p::gossipsub::{Gossipsub, GossipsubEvent, GossipsubConfig, Topic, TopicHash};
-use libp2p::mdns::{Mdns, MdnsEvent};
-use libp2p::tokio_io::{AsyncRead, AsyncWrite};
-use libp2p::core::identity::Keypair;
-use libp2p::{swarm::toggle::Toggle, };
 use futures::prelude::*;
 use futures::Async;
+use libp2p::core::identity::Keypair;
+use libp2p::core::{muxing::StreamMuxerBox, nodes::Substream};
+use libp2p::core::{Multiaddr, PeerId};
+use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
+use libp2p::kad::record;
+use libp2p::mdns::{Mdns, MdnsEvent};
+use libp2p::swarm::toggle::Toggle;
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
+use libp2p::tokio_io::{AsyncRead, AsyncWrite};
+use libp2p::NetworkBehaviour;
+use log::{debug, warn};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MyBehaviourEvent", poll_method = "poll")]
@@ -31,14 +31,16 @@ pub enum MyBehaviourEvent {
     },
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour<TSubstream> {
+impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
+    for MyBehaviour<TSubstream>
+{
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
             MdnsEvent::Discovered(list) => {
                 for (peer, _) in list {
-                   self.events.push(MyBehaviourEvent::DiscoveredPeer(peer))
+                    self.events.push(MyBehaviourEvent::DiscoveredPeer(peer))
                 }
-            },
+            }
             MdnsEvent::Expired(list) => {
                 for (peer, _) in list {
                     if !self.mdns.has_node(&peer) {
@@ -50,7 +52,9 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubEvent> for MyBehaviour<TSubstream> {
+impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubEvent>
+    for MyBehaviour<TSubstream>
+{
     fn inject_event(&mut self, message: GossipsubEvent) {
         if let GossipsubEvent::Message(_, message) = message {
             self.events.push(MyBehaviourEvent::GossipMessage {
@@ -81,7 +85,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
         MyBehaviour {
             gossipsub: Gossipsub::new(local_peer_id.clone(), gossipsub_config),
             mdns: Mdns::new().expect("Failed to create mDNS service"),
-            events: vec![]
+            events: vec![],
         }
     }
 
@@ -93,6 +97,4 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
     pub fn subscribe(&mut self, topic: Topic) -> bool {
         self.gossipsub.subscribe(topic)
     }
-
 }
-

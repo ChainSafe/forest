@@ -1,29 +1,35 @@
 use crate::behaviour::{MyBehaviour, MyBehaviourEvent};
-use libp2p::{self, Swarm, core::transport::boxed::Boxed, core, secio, yamux, mplex, PeerId, core::muxing::StreamMuxerBox, core::nodes::Substream, identity, gossipsub::{Topic, TopicHash}, Transport, build_development_transport};
-use futures::{Stream, Async, Future};
+use futures::sync::mpsc;
+use futures::{Async, Future, Stream};
+use libp2p::{
+    self, build_development_transport, core,
+    core::muxing::StreamMuxerBox,
+    core::nodes::Substream,
+    core::transport::boxed::Boxed,
+    gossipsub::{Topic, TopicHash},
+    identity, mplex, secio, yamux, PeerId, Swarm, Transport,
+};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-use futures::sync::mpsc;
 use tokio::runtime::TaskExecutor;
 
-use std::sync::{Arc, Mutex};
 use futures::future::PollFn;
 use futures::task::Spawn;
-use futures::Lazy;
 use futures::IntoFuture;
+use futures::Lazy;
 use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
-pub struct Libp2pService{
+pub struct Libp2pService {
     pub swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
 }
 
-impl Libp2pService{
+impl Libp2pService {
     // TODO Allow bootstrap and topics
-    pub fn new () -> Result<Self, Error>
-    {
+    pub fn new() -> Result<Self, Error> {
         // Starting Libp2p Service
 
         // TODO @Greg do local storage
@@ -33,15 +39,13 @@ impl Libp2pService{
         println!("Local peer id: {:?}", local_peer_id);
 
         let transport = build_transport(local_key.clone());
-//        let transport = build_development_transport(local_key.clone())
-//            .map_err(|err| Error::new(ErrorKind::Other, err))
-//            .boxed();
+
         let mut swarm = {
             let be = MyBehaviour::new(&local_key);
             Swarm::new(transport, be, local_peer_id)
         };
 
-        // TODO be able to specify port aand listening addr with proper error handling
+        // TODO be able to specify port and listening addr with proper error handling
         Swarm::listen_on(&mut swarm, "/ip4/0.0.0.0/tcp/0".parse().unwrap()).unwrap();
 
         // TODO be able to bootstrap peers
@@ -50,14 +54,11 @@ impl Libp2pService{
         let topic = Topic::new("test-net".into());
         swarm.subscribe(topic.clone());
 
-        Ok((Libp2pService{
-            swarm: swarm,
-        }))
+        Ok((Libp2pService { swarm: swarm }))
     }
 }
 
 impl Stream for Libp2pService {
-
     type Item = NetworkEvent;
     type Error = ();
 
@@ -70,9 +71,8 @@ impl Stream for Libp2pService {
                     MyBehaviourEvent::DiscoveredPeer(peer) => {
                         println!("LIBP2P DISCOVERED PEER {:?}", peer);
                         libp2p::Swarm::dial(&mut self.swarm, peer);
-                    },
-                    MyBehaviourEvent::ExpiredPeer(peer) => {
-                    },
+                    }
+                    MyBehaviourEvent::ExpiredPeer(peer) => {}
                     MyBehaviourEvent::GossipMessage {
                         source,
                         topics,
@@ -83,10 +83,9 @@ impl Stream for Libp2pService {
                         return Ok(Async::Ready(Option::from(NetworkEvent::PubsubMessage {
                             source,
                             topics,
-                           message
+                            message,
                         })));
                     }
-
                 },
                 Ok(Async::Ready(None)) => break,
                 Ok(Async::NotReady) => {
@@ -94,8 +93,8 @@ impl Stream for Libp2pService {
                         println!("Listening on {:?}", a);
                     }
                     break;
-                },
-                _ => {break}
+                }
+                _ => break,
             }
         }
         println!("Libp2p Not ready");
@@ -116,14 +115,15 @@ fn build_transport(local_key: identity::Keypair) -> Boxed<(PeerId, StreamMuxerBo
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::dns::DnsConfig::new(transport);
 
-    transport.upgrade(core::upgrade::Version::V1)
+    transport
+        .upgrade(core::upgrade::Version::V1)
         .authenticate(secio::SecioConfig::new(local_key))
-        .multiplex(core::upgrade::SelectUpgrade::new(yamux::Config::default(), mplex::MplexConfig::new()))
+        .multiplex(core::upgrade::SelectUpgrade::new(
+            yamux::Config::default(),
+            mplex::MplexConfig::new(),
+        ))
         .map(|(peer, muxer), _| (peer, core::muxing::StreamMuxerBox::new(muxer)))
         .timeout(Duration::from_secs(20))
         .map_err(|err| Error::new(ErrorKind::Other, err))
         .boxed()
 }
-
-
-
