@@ -8,20 +8,27 @@ use dirs::home_dir;
 // Generic methods
 
 /// Writes a &str to a specified file.
-/// TODO Do we assume the file exists?
+/// 
+/// # Argument
+/// 
+/// * `message` - &str contents to write to the file
+/// * `path`    - String representation of where the file will be written to in the system
+// TODO Do we assume the file exists?
 fn write_string_to_file(message: &str, path: String) -> Result<()> {
     let mut file = File::create(path)?;
     file.write_all(&message.as_bytes())?;
     Ok(())
 }
 
+/// Gets the home directory of the current system.
+/// Will return correct path for windows, linux, and osx
 fn get_home_dir() -> String {
-    // Will return correct path for windows, linux, and osx
     home_dir().unwrap().to_str().unwrap().to_owned()
 }
 
 // libp2p specific methods
 
+/// Returns a formatted String to the local libp2p directory
 fn get_libp2p_path() -> String {
     // TODO remove hardcoded `file`
     let file = "/ferret/libp2p";
