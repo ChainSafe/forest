@@ -49,7 +49,9 @@ impl Libp2pService {
             }
         }
 
-        Swarm::listen_on(&mut swarm, config.listening_multiaddr.parse().unwrap()).unwrap();
+        Swarm::listen_on(
+            &mut swarm,
+            config.listening_multiaddr.parse().expect("Incorrect MultiAddr Format"))?;
 
         for topic in config.pubsub_topics.clone() {
             swarm.subscribe(topic);
@@ -65,7 +67,6 @@ impl Stream for Libp2pService {
 
     /// Continuously polls the Libp2p swarm to get events
     fn poll(&mut self) -> Result<Async<Option<Self::Item>>, Self::Error> {
-        let _listening = false;
         loop {
             match self.swarm.poll() {
                 Ok(Async::Ready(Some(event))) => match event {

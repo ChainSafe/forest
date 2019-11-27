@@ -24,24 +24,25 @@ use tokio::runtime::Runtime;
 fn main() {
     cli();
 
-    /// TODO Everything below should be run in a function somewhere, but since we only have this main right now, should be ok to leave here
+    // TODO Everything below should be run in a function somewhere, but since we only have this
+    // main right now, should be ok to leave here
     let rt = Runtime::new().unwrap();
 
     let (tx, _rx) = mpsc::unbounded_channel::<NetworkEvent>();
     let tx = Arc::new(tx);
     let mut netcfg = Libp2pConfig::default();
-    let topic = Topic::new("test-net".into());
+    let topic = Topic::new("/fil/blocks".into());
+    netcfg.pubsub_topics.push(topic.clone());
+    let topic = Topic::new("/fil/messages".into());
     netcfg.pubsub_topics.push(topic.clone());
 
-    let (network_service, mut net_tx, _exit_tx) = NetworkService::new(&netcfg, tx, &rt.executor());
+    let (_network_service, mut net_tx, _exit_tx) = NetworkService::new(&netcfg, tx, &rt.executor());
 
-    let _network_service = Arc::new(network_service);
     let stdin = tokio_stdin_stdout::stdin(0);
     let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());
-    let _listening = false;
 
     rt.executor()
-        .spawn(futures::future::poll_fn(move || -> Result<_, ()> {
+        .spawn(futures::future::poll_fn(move || -> Result<_, _> {
             loop {
                 match framed_stdin.poll().expect("Error while polling stdin") {
                     Async::Ready(Some(line)) => {
@@ -60,3 +61,4 @@ fn main() {
 
     rt.shutdown_on_idle().wait().unwrap();
 }
+

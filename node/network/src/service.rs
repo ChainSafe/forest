@@ -88,7 +88,7 @@ fn poll(
     _outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
     mut message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
 ) -> impl futures::Future<Item = (), Error = Error> {
-    futures::future::poll_fn(move || -> Result<_, Error> {
+    futures::future::poll_fn(move || -> Result<_, _> {
         loop {
             match message_receiver.poll() {
                 Ok(Async::Ready(Some(event))) => match event {
