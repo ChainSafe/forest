@@ -16,3 +16,14 @@ pub fn variable_hash(ingest: Vec<u8>, size: usize) -> Vec<u8> {
 
     result
 }
+
+/// generates blake2b hash of 32 bytes
+pub fn blake2b_256(ingest: Vec<u8>, hash: &mut [u8; 32]) {
+    let mut hasher = VarBlake2b::new(32).unwrap();
+    hasher.input(ingest);
+
+    hasher.variable_result(|res| {
+        // Copy result slice to vector return
+        hash[..32].clone_from_slice(res);
+    });
+}
