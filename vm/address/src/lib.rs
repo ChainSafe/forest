@@ -170,7 +170,6 @@ impl Address {
 }
 
 impl Cbor for Address {
-    // Marshalling and unmarshalling
     fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO
         Err("Unmarshall is unimplemented".to_owned())
@@ -182,7 +181,6 @@ impl Cbor for Address {
 }
 
 impl JSON for Address {
-    // JSON Marshalling and unmarshalling
     fn unmarshall_json(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO
         Err("JSON unmarshall is unimplemented".to_owned())
