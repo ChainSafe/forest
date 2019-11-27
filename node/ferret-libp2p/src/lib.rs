@@ -1,5 +1,6 @@
 pub mod behaviour;
 pub mod service;
+pub mod config;
 #[cfg(test)]
 mod tests {
     #[test]

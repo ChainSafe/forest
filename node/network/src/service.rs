@@ -1,8 +1,7 @@
 use ferret_libp2p::service::{Libp2pService, NetworkEvent};
+use ferret_libp2p::config::Libp2pConfig;
 use tokio::sync::mpsc;
-
 use std::sync::{Arc, Mutex};
-//use std::error::Error;
 use futures::stream::Stream;
 use futures::Async;
 use futures::Future;
@@ -23,6 +22,7 @@ pub struct NetworkService {
 
 impl NetworkService {
     pub fn new(
+        config: &Libp2pConfig,
         outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
         executor: &TaskExecutor,
     ) -> (
@@ -32,7 +32,7 @@ impl NetworkService {
     ) {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let libp2p_service = Arc::new(Mutex::new(Libp2pService::new().unwrap()));
+        let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(config).unwrap()));
 
         let exit_tx = start(libp2p_service.clone(), executor, outbound_transmitter, rx);
 

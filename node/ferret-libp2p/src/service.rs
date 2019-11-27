@@ -1,5 +1,4 @@
 use crate::behaviour::{MyBehaviour, MyBehaviourEvent};
-
 use futures::{Async, Stream};
 use libp2p::{
     self, core,
@@ -11,6 +10,7 @@ use libp2p::{
 };
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
+use super::config::Libp2pConfig;
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
@@ -20,8 +20,7 @@ pub struct Libp2pService {
 }
 
 impl Libp2pService {
-    // TODO Allow bootstrap and topics
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(config: &Libp2pConfig) -> Result<Self, Error> {
         // Starting Libp2p Service
 
         // TODO @Greg do local storage
@@ -37,14 +36,27 @@ impl Libp2pService {
             Swarm::new(transport, be, local_peer_id)
         };
 
-        // TODO be able to specify port and listening addr with proper error handling
-        Swarm::listen_on(&mut swarm, "/ip4/0.0.0.0/tcp/0".parse().unwrap()).unwrap();
+        for node in config.bootstrap_peers.clone() {
+            let dialing = node.clone();
+            match node.parse() {
+                Ok(to_dial) => {
+                    match libp2p::Swarm::dial_addr(
+                        &mut swarm,
+                        to_dial,
+                    ) {
+                        Ok(_) => println!("Dialed {:?}", dialing),
+                        Err(e) => println!("Dial {:?} failed: {:?}", dialing, e),
+                    }
+                }
+                Err(err) => println!("Failed to parse address to dial: {:?}", err),
+            }
+        }
 
-        // TODO be able to bootstrap peers
-        // TODO build list of topics
+        Swarm::listen_on(&mut swarm, config.listening_multiaddr.parse().unwrap()).unwrap();
 
-        let topic = Topic::new("test-net".into());
-        swarm.subscribe(topic);
+        for topic in config.pubsub_topics.clone() {
+            swarm.subscribe(topic);
+        }
 
         Ok(Libp2pService { swarm })
     }
