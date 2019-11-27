@@ -36,17 +36,15 @@ fn get_libp2p_path() -> String {
 }
 
 /// Stores the libp2p id to the Ferret directory
-pub fn write_libp2p_id(id: &str) {
+pub fn write_libp2p_id(id: &str) -> Result<()> {
     let path = get_libp2p_path();
     
     // Create path if it doesn't exist
     if !Path::new(&path).exists() {
-        // TODO result/error
-        // Use .expect()??
-        let _ = create_dir_all(Path::new(&path));
+        create_dir_all(Path::new(&path))?;
     }
     // TODO handle result somehow
-    let _ = write_string_to_file(id, get_libp2p_path());
+    write_string_to_file(id, get_libp2p_path())
 }
 
 /// Check if libp2p id exists in filesystem
