@@ -7,12 +7,8 @@ use futures::stream::Stream;
 use futures::Async;
 use futures::Future;
 use libp2p::{
-    self, build_development_transport, core,
-    core::muxing::StreamMuxerBox,
-    core::nodes::Substream,
-    core::transport::boxed::Boxed,
-    gossipsub::{Topic, TopicHash},
-    identity, mplex, secio, yamux, PeerId, Swarm, Transport,
+    self,
+    gossipsub::{Topic, },
 };
 
 use tokio::runtime::TaskExecutor;
@@ -51,7 +47,6 @@ impl NetworkService {
 }
 
 enum Error {
-    aaa(u8),
 }
 
 pub fn start(
@@ -96,11 +91,11 @@ fn poll(
             match libp2p_service.lock().unwrap().poll() {
                 Ok(Async::Ready(Some(event))) => match event {
                     NetworkEvent::PubsubMessage {
-                        source: _,
-                        topics: _,
-                        message: _,
+                        source,
+                        topics,
+                        message,
                     } => {
-                        println!("ASDFASDFSADFSAF");
+                        println!("Received a message from GossipSub! {:?}, {:?}, {:?}", source, topics, message);
                     }
                 },
                 Ok(Async::Ready(None)) => unreachable!("Stream never ends"),

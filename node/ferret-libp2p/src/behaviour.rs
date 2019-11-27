@@ -1,4 +1,3 @@
-use futures::prelude::*;
 use futures::Async;
 use libp2p::core::identity::Keypair;
 

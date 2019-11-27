@@ -4,10 +4,7 @@ use cli::cli;
 
 use libp2p::{
     gossipsub::Topic,
-    identity,
-    swarm::Swarm,
     tokio_codec::{FramedRead, LinesCodec},
-    PeerId,
 };
 
 use tokio::sync::mpsc;
@@ -16,7 +13,6 @@ use ferret_libp2p::service::NetworkEvent;
 use network::service::*;
 
 use futures::prelude::*;
-
 
 use std::sync::Arc;
 

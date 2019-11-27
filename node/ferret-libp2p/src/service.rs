@@ -1,6 +1,6 @@
 use crate::behaviour::{MyBehaviour, MyBehaviourEvent};
 
-use futures::{Async, Future, Stream};
+use futures::{Async, Stream};
 use libp2p::{
     self, core,
     core::muxing::StreamMuxerBox,
