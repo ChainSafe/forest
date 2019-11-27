@@ -9,7 +9,7 @@ pub struct Libp2pConfig {
 impl Default for Libp2pConfig {
     fn default() -> Self {
         Libp2pConfig {
-            listening_multiaddr: "/ip4/0.0.0.0/tcp/0".parse().unwrap(),
+            listening_multiaddr: "/ip4/0.0.0.0/tcp/0".to_owned(),
             pubsub_topics: vec![],
             bootstrap_peers: vec![],
         }

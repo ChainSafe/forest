@@ -1,8 +1,8 @@
 use super::config::Libp2pConfig;
-use crate::behaviour::{MyBehaviour, MyBehaviourEvent};
+use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use futures::{Async, Stream};
 use libp2p::{
-    self, core, core::muxing::StreamMuxerBox, core::nodes::Substream,
+    core, core::muxing::StreamMuxerBox, core::nodes::Substream,
     core::transport::boxed::Boxed, gossipsub::TopicHash, identity, mplex, secio, yamux, PeerId,
     Swarm, Transport,
 };
@@ -41,7 +41,7 @@ impl Libp2pService {
         for node in config.bootstrap_peers.clone() {
             let dialing = node.clone();
             match node.parse() {
-                Ok(to_dial) => match libp2p::Swarm::dial_addr(&mut swarm, to_dial) {
+                Ok(to_dial) => match Swarm::dial_addr(&mut swarm, to_dial) {
                     Ok(_) => println!("Dialed {:?}", dialing),
                     Err(e) => println!("Dial {:?} failed: {:?}", dialing, e),
                 },
@@ -51,7 +51,7 @@ impl Libp2pService {
 
         Swarm::listen_on(
             &mut swarm,
-            config.listening_multiaddr.parse().expect("Incorrect MultiAddr Format"))?;
+            config.listening_multiaddr.parse().expect("Incorrect MultiAddr Format")).unwrap();
 
         for topic in config.pubsub_topics.clone() {
             swarm.subscribe(topic);
