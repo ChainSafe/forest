@@ -75,7 +75,6 @@ fn poll(
             match message_receiver.poll() {
                 Ok(Async::Ready(Some(event))) => match event {
                     NetworkMessage::PubsubMessage { topics, message } => {
-                        println!("Got a msg from msgchannel");
                         libp2p_service
                             .lock()
                             .unwrap()

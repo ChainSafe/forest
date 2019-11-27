@@ -5,7 +5,7 @@ use libp2p::{
     core::muxing::StreamMuxerBox,
     core::nodes::Substream,
     core::transport::boxed::Boxed,
-    gossipsub::{Topic, TopicHash},
+    gossipsub::{TopicHash},
     identity, mplex, secio, yamux, PeerId, Swarm, Transport,
 };
 use std::io::{Error, ErrorKind};
@@ -21,8 +21,6 @@ pub struct Libp2pService {
 
 impl Libp2pService {
     pub fn new(config: &Libp2pConfig) -> Result<Self, Error> {
-        // Starting Libp2p Service
-
         // TODO @Greg do local storage
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
@@ -69,11 +67,9 @@ impl Stream for Libp2pService {
     fn poll(&mut self) -> Result<Async<Option<Self::Item>>, Self::Error> {
         let _listening = false;
         loop {
-            println!("loop poll");
             match self.swarm.poll() {
                 Ok(Async::Ready(Some(event))) => match event {
                     MyBehaviourEvent::DiscoveredPeer(peer) => {
-                        println!("LIBP2P DISCOVERED PEER {:?}", peer);
                         libp2p::Swarm::dial(&mut self.swarm, peer);
                     }
                     MyBehaviourEvent::ExpiredPeer(_peer) => {}
@@ -92,16 +88,10 @@ impl Stream for Libp2pService {
                     }
                 },
                 Ok(Async::Ready(None)) => break,
-                Ok(Async::NotReady) => {
-                    if let Some(a) = Swarm::listeners(&self.swarm).next() {
-                        println!("Listening on {:?}", a);
-                    }
-                    break;
-                }
+                Ok(Async::NotReady) => break,
                 _ => break,
             }
         }
-        println!("Libp2p Not ready");
         Ok(Async::NotReady)
     }
 }
