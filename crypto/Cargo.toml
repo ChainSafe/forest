@@ -1,5 +1,5 @@
 [package]
-name = "vm"
+name = "crypto"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -7,8 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cid = "0.3.1"
-num-bigint = "0.2.3"
-crypto = {path = "../crypto"}
-address = {path = "./address"}
+blake2 = "0.8.1"
+address = {path = "../vm/address"}
+libsecp256k1 = "0.2.1"
+bls-signatures = "0.2.0"
 
+[dev-dependencies]
+rand = "0.4"

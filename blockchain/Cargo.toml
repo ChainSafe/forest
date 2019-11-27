@@ -8,4 +8,5 @@ edition = "2018"
 
 [dependencies]
 vm = {path = "../vm"}
+address = {path = "../vm/address"}
 cid = "0.3.1"

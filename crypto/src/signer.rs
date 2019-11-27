@@ -1,5 +1,5 @@
 use super::signature::Signature;
-use crate::address::Address;
+use address::Address;
 use std::error::Error;
 
 /// Signer is a trait which allows a key implementation to sign data for an address

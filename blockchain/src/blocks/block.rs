@@ -2,8 +2,8 @@
 
 use super::ticket::{Ticket, VRFProofIndex};
 use super::TipSetKeys;
+use address::Address;
 use cid::Cid;
-use vm::address::Address;
 
 /// BlockHeader defines header of a block in the Filecoin blockchain
 pub struct BlockHeader {
