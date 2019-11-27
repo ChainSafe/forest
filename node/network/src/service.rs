@@ -1,26 +1,44 @@
-use ferret_libp2p::service::{Libp2pService, NetworkEvent};
 use ferret_libp2p::config::Libp2pConfig;
-use tokio::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use ferret_libp2p::service::{Libp2pService, NetworkEvent};
 use futures::stream::Stream;
 use futures::Async;
 use futures::Future;
-use libp2p::{
-    self,
-    gossipsub::{Topic, },
-};
+use libp2p::{self, gossipsub::Topic};
+use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
 
 use tokio::runtime::TaskExecutor;
 
+/// Ingress events to the NetworkService
 pub enum NetworkMessage {
     PubsubMessage { topics: Topic, message: Vec<u8> },
 }
 
+/// The NetworkService receives commands through a channel which communicates with Libp2p.
+/// It also listens to the Libp2p service for
 pub struct NetworkService {
     pub libp2p: Arc<Mutex<Libp2pService>>,
 }
 
 impl NetworkService {
+    /// Starts a Libp2pService with a given config, UnboundedSender, and tokio executor.
+    /// Returns an UnboundedSender channel so messages can come in.
+    ///
+    /// # Example
+    /// ```
+    /// use tokio::runtime::Runtime;
+    /// use tokio::sync::mpsc;
+    /// use ferret_libp2p::service::NetworkEvent;
+    /// use ferret_libp2p::config::Libp2pConfig;
+    /// use std::sync::Arc;
+    ///
+    ///
+    /// let rt = Runtime::new().unwrap();
+    /// let (tx, _rx) = mpsc::unbounded_channel::<NetworkEvent>();
+    /// let tx = Arc::new(tx);
+    /// let mut netcfg = Libp2pConfig::default();
+    /// let (network_service, mut net_tx, _exit_tx) = new(&netcfg, tx, &rt.executor());
+    /// ```
     pub fn new(
         config: &Libp2pConfig,
         outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
@@ -46,10 +64,10 @@ impl NetworkService {
     }
 }
 
-enum Error {
-}
+enum Error {}
 
-pub fn start(
+/// Spawns the NetworkService service.
+fn start(
     libp2p_service: Arc<Mutex<Libp2pService>>,
     executor: &TaskExecutor,
     outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
@@ -94,7 +112,10 @@ fn poll(
                         topics,
                         message,
                     } => {
-                        println!("Received a message from GossipSub! {:?}, {:?}, {:?}", source, topics, message);
+                        println!(
+                            "Received a message from GossipSub! {:?}, {:?}, {:?}",
+                            source, topics, message
+                        );
                     }
                 },
                 Ok(Async::Ready(None)) => unreachable!("Stream never ends"),

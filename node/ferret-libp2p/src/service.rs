@@ -1,30 +1,34 @@
+use super::config::Libp2pConfig;
 use crate::behaviour::{MyBehaviour, MyBehaviourEvent};
 use futures::{Async, Stream};
 use libp2p::{
-    self, core,
-    core::muxing::StreamMuxerBox,
-    core::nodes::Substream,
-    core::transport::boxed::Boxed,
-    gossipsub::{TopicHash},
-    identity, mplex, secio, yamux, PeerId, Swarm, Transport,
+    self, core, core::muxing::StreamMuxerBox, core::nodes::Substream,
+    core::transport::boxed::Boxed, gossipsub::TopicHash, identity, mplex, secio, yamux, PeerId,
+    Swarm, Transport,
 };
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-use super::config::Libp2pConfig;
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
+/// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
     pub swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
 }
 
 impl Libp2pService {
+    /// Constructs a Libp2pService
+    ///
+    /// # Example
+    /// ```
+    /// let mut netcfg = Libp2pConfig::default();
+    /// let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(config).unwrap()));
+    /// ```
     pub fn new(config: &Libp2pConfig) -> Result<Self, Error> {
         // TODO @Greg do local storage
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
-
         println!("Local peer id: {:?}", local_peer_id);
 
         let transport = build_transport(local_key.clone());
@@ -37,15 +41,10 @@ impl Libp2pService {
         for node in config.bootstrap_peers.clone() {
             let dialing = node.clone();
             match node.parse() {
-                Ok(to_dial) => {
-                    match libp2p::Swarm::dial_addr(
-                        &mut swarm,
-                        to_dial,
-                    ) {
-                        Ok(_) => println!("Dialed {:?}", dialing),
-                        Err(e) => println!("Dial {:?} failed: {:?}", dialing, e),
-                    }
-                }
+                Ok(to_dial) => match libp2p::Swarm::dial_addr(&mut swarm, to_dial) {
+                    Ok(_) => println!("Dialed {:?}", dialing),
+                    Err(e) => println!("Dial {:?} failed: {:?}", dialing, e),
+                },
                 Err(err) => println!("Failed to parse address to dial: {:?}", err),
             }
         }
@@ -64,6 +63,7 @@ impl Stream for Libp2pService {
     type Item = NetworkEvent;
     type Error = ();
 
+    /// Continuously polls the Libp2p swarm to get events
     fn poll(&mut self) -> Result<Async<Option<Self::Item>>, Self::Error> {
         let _listening = false;
         loop {
@@ -96,6 +96,7 @@ impl Stream for Libp2pService {
     }
 }
 
+/// Events emitted by this Service to be listened by the NetworkService.
 #[derive(Clone)]
 pub enum NetworkEvent {
     PubsubMessage {

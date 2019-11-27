@@ -24,11 +24,11 @@ use tokio::runtime::Runtime;
 fn main() {
     cli();
 
+    /// TODO Everything below should be run in a function somewhere, but since we only have this main right now, should be ok to leave here
     let rt = Runtime::new().unwrap();
 
     let (tx, _rx) = mpsc::unbounded_channel::<NetworkEvent>();
     let tx = Arc::new(tx);
-
     let mut netcfg = Libp2pConfig::default();
     let topic = Topic::new("test-net".into());
     netcfg.pubsub_topics.push(topic.clone());
