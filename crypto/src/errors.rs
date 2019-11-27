@@ -48,7 +48,6 @@ impl From<SecpError> for Error {
     }
 }
 
-// TODO: Remove once cbor marshalling and unmarshalling implemented
 impl From<EncodingError> for Error {
     fn from(err: EncodingError) -> Error {
         // Pass error encountered in signer trait as module error type
