@@ -5,11 +5,9 @@ pub use self::errors::Error;
 pub use self::network::Network;
 pub use self::protocol::Protocol;
 
-use blake2::digest::{Input, VariableOutput};
-use blake2::VarBlake2b;
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{Cbor, JSON};
+use encoding::{variable_hash, Cbor, JSON};
 use leb128;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -229,7 +227,7 @@ fn encode(addr: &Address, network: Network) -> String {
 
 /// Checksum calculates the 4 byte checksum hash
 pub fn checksum(ingest: Vec<u8>) -> Vec<u8> {
-    hash(ingest, CHECKSUM_HASH_LEN)
+    variable_hash(ingest, CHECKSUM_HASH_LEN)
 }
 
 /// Validates the checksum against the ingest data
@@ -240,21 +238,5 @@ pub fn validate_checksum(ingest: Vec<u8>, expect: Vec<u8>) -> bool {
 
 /// Returns an address hash for given data
 fn address_hash(ingest: Vec<u8>) -> Vec<u8> {
-    hash(ingest, PAYLOAD_HASH_LEN)
-}
-
-/// generates blake2b hash with provided size
-fn hash(ingest: Vec<u8>, size: usize) -> Vec<u8> {
-    let mut hasher = VarBlake2b::new(size).unwrap();
-    hasher.input(ingest);
-
-    // allocate hash result vector
-    let mut result: Vec<u8> = vec![0; size];
-
-    hasher.variable_result(|res| {
-        // Copy result slice to vector return
-        result[..size].clone_from_slice(res);
-    });
-
-    result
+    variable_hash(ingest, PAYLOAD_HASH_LEN)
 }
