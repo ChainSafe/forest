@@ -7,7 +7,7 @@ pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{blake2b_variable, Cbor, JSON};
+use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError, JSON};
 use leb128;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -170,24 +170,24 @@ impl Address {
 }
 
 impl Cbor for Address {
-    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
         // TODO
-        Err("Unmarshall is unimplemented".to_owned())
+        Err(EncodingError::Unmarshalling(CodecProtocol::Cbor))
     }
-    fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err("Marshall is unimplemented".to_owned())
+        Err(EncodingError::Marshalling(CodecProtocol::Cbor))
     }
 }
 
 impl JSON for Address {
-    fn unmarshall_json(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+    fn unmarshall_json(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
         // TODO
-        Err("JSON unmarshall is unimplemented".to_owned())
+        Err(EncodingError::Unmarshalling(CodecProtocol::JSON))
     }
-    fn marshall_json(&self) -> Result<Vec<u8>, String> {
+    fn marshall_json(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err("JSON marshall is unimplemented".to_owned())
+        Err(EncodingError::Marshalling(CodecProtocol::JSON))
     }
 }
 

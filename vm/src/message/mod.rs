@@ -5,7 +5,7 @@ pub use message_receipt::*;
 pub use signed_message::*;
 
 use address::Address;
-use encoding::Cbor;
+use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 use num_bigint::BigUint;
 
 /// VM message type which includes all data needed for a state transition
@@ -37,12 +37,12 @@ impl Message {
 }
 
 impl Cbor for Message {
-    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
         // TODO
-        Err("Unmarshall is unimplemented".to_owned())
+        Err(EncodingError::Unmarshalling(CodecProtocol::Cbor))
     }
-    fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err("Marshall is unimplemented".to_owned())
+        Err(EncodingError::Marshalling(CodecProtocol::Cbor))
     }
 }

@@ -1,6 +1,6 @@
 use super::Message;
 use crypto::{Error as CryptoError, Signature, Signer};
-use encoding::Cbor;
+use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 
 /// SignedMessage represents a wrapped message with signature bytes
 #[derive(PartialEq, Clone)]
@@ -23,12 +23,12 @@ impl SignedMessage {
 }
 
 impl Cbor for SignedMessage {
-    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
         // TODO
-        Err("Unmarshall is unimplemented".to_owned())
+        Err(EncodingError::Unmarshalling(CodecProtocol::Cbor))
     }
-    fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err("Marshall is unimplemented".to_owned())
+        Err(EncodingError::Marshalling(CodecProtocol::Cbor))
     }
 }

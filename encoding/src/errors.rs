@@ -2,15 +2,15 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    DecodingError(CodecProtocol),
-    EncodingError(CodecProtocol),
+    Unmarshalling(CodecProtocol),
+    Marshalling(CodecProtocol),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            Error::DecodingError(ref cdc) => write!(f, "Could not decode {}.", cdc),
-            Error::EncodingError(ref cdc) => write!(f, "Could not encode {}.", cdc),
+            Error::Unmarshalling(ref cdc) => write!(f, "Could not decode {}.", cdc),
+            Error::Marshalling(ref cdc) => write!(f, "Could not encode {}.", cdc),
         }
     }
 }
