@@ -1,7 +1,3 @@
-mod cli;
-
-use cli::cli;
-
 use libp2p::{
     gossipsub::Topic,
     identity,
@@ -25,8 +21,6 @@ use tokio;
 use tokio::runtime::Runtime;
 
 fn main() {
-    cli();
-
     let rt = Runtime::new().unwrap();
 
     let (tx, _rx) = mpsc::unbounded_channel::<NetworkEvent>();
