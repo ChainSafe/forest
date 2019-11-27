@@ -1,8 +1,8 @@
 use crate::behaviour::{MyBehaviour, MyBehaviourEvent};
-use futures::sync::mpsc;
+
 use futures::{Async, Future, Stream};
 use libp2p::{
-    self, build_development_transport, core,
+    self, core,
     core::muxing::StreamMuxerBox,
     core::nodes::Substream,
     core::transport::boxed::Boxed,
@@ -11,14 +11,6 @@ use libp2p::{
 };
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-use tokio::runtime::TaskExecutor;
-
-use futures::future::PollFn;
-use futures::task::Spawn;
-use futures::IntoFuture;
-use futures::Lazy;
-use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, Mutex};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
@@ -52,9 +44,9 @@ impl Libp2pService {
         // TODO build list of topics
 
         let topic = Topic::new("test-net".into());
-        swarm.subscribe(topic.clone());
+        swarm.subscribe(topic);
 
-        Ok((Libp2pService { swarm: swarm }))
+        Ok(Libp2pService { swarm })
     }
 }
 
@@ -63,7 +55,7 @@ impl Stream for Libp2pService {
     type Error = ();
 
     fn poll(&mut self) -> Result<Async<Option<Self::Item>>, Self::Error> {
-        let mut listening = false;
+        let _listening = false;
         loop {
             println!("loop poll");
             match self.swarm.poll() {
@@ -72,7 +64,7 @@ impl Stream for Libp2pService {
                         println!("LIBP2P DISCOVERED PEER {:?}", peer);
                         libp2p::Swarm::dial(&mut self.swarm, peer);
                     }
-                    MyBehaviourEvent::ExpiredPeer(peer) => {}
+                    MyBehaviourEvent::ExpiredPeer(_peer) => {}
                     MyBehaviourEvent::GossipMessage {
                         source,
                         topics,

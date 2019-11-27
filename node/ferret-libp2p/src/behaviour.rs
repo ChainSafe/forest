@@ -1,16 +1,15 @@
 use futures::prelude::*;
 use futures::Async;
 use libp2p::core::identity::Keypair;
-use libp2p::core::{muxing::StreamMuxerBox, nodes::Substream};
-use libp2p::core::{Multiaddr, PeerId};
+
+use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
-use libp2p::kad::record;
+
 use libp2p::mdns::{Mdns, MdnsEvent};
-use libp2p::swarm::toggle::Toggle;
+
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::tokio_io::{AsyncRead, AsyncWrite};
 use libp2p::NetworkBehaviour;
-use log::{debug, warn};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MyBehaviourEvent", poll_method = "poll")]
@@ -80,10 +79,10 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
 
 impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
     pub fn new(local_key: &Keypair) -> Self {
-        let local_peer_id = local_key.public().clone().into_peer_id();
+        let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
         MyBehaviour {
-            gossipsub: Gossipsub::new(local_peer_id.clone(), gossipsub_config),
+            gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
             mdns: Mdns::new().expect("Failed to create mDNS service"),
             events: vec![],
         }

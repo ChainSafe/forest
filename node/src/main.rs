@@ -8,31 +8,28 @@ use libp2p::{
 
 use tokio::sync::mpsc;
 
-use ferret_libp2p::behaviour::*;
 use ferret_libp2p::service::NetworkEvent;
 use network::service::*;
 
 use futures::prelude::*;
 
 use env_logger::{Builder, Env};
-use ferret_libp2p::service;
-use futures::future::lazy;
+
 use std::sync::Arc;
-use std::sync::Mutex;
+
 use tokio;
-use tokio::prelude::*;
+
 use tokio::runtime::Runtime;
 
 fn main() {
     Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
 
-    let (tx, rx) = mpsc::unbounded_channel::<NetworkEvent>();
-    let mut tx = Arc::new(tx);
+    let (tx, _rx) = mpsc::unbounded_channel::<NetworkEvent>();
+    let tx = Arc::new(tx);
 
-    let (mut network_service, mut net_tx, mut exit_tx) =
-        NetworkService::new(tx.clone(), &rt.executor());
+    let (network_service, mut net_tx, _exit_tx) = NetworkService::new(tx, &rt.executor());
 
     // Reach out to another node if specified
     if let Some(to_dial) = std::env::args().nth(1) {
@@ -51,10 +48,10 @@ fn main() {
         }
     }
 
-    let network_service = Arc::new(network_service);
+    let _network_service = Arc::new(network_service);
     let stdin = tokio_stdin_stdout::stdin(0);
     let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());
-    let mut listening = false;
+    let _listening = false;
 
     let topic = Topic::new("test-net".into());
 

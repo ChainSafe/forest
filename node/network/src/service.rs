@@ -14,7 +14,7 @@ use libp2p::{
     gossipsub::{Topic, TopicHash},
     identity, mplex, secio, yamux, PeerId, Swarm, Transport,
 };
-use tokio::prelude::*;
+
 use tokio::runtime::TaskExecutor;
 
 pub enum NetworkMessage {
@@ -40,13 +40,13 @@ impl NetworkService {
 
         let exit_tx = start(libp2p_service.clone(), executor, outbound_transmitter, rx);
 
-        return (
+        (
             NetworkService {
                 libp2p: libp2p_service,
             },
             tx,
             exit_tx,
-        );
+        )
     }
 }
 
@@ -58,7 +58,7 @@ pub fn start(
     libp2p_service: Arc<Mutex<Libp2pService>>,
     executor: &TaskExecutor,
     outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
-    mut message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
+    message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
 ) -> tokio::sync::oneshot::Sender<u8> {
     let (network_exit, exit_rx) = tokio::sync::oneshot::channel();
     executor.spawn(
@@ -72,7 +72,7 @@ pub fn start(
 
 fn poll(
     libp2p_service: Arc<Mutex<Libp2pService>>,
-    outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
+    _outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
     mut message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
 ) -> impl futures::Future<Item = (), Error = Error> {
     futures::future::poll_fn(move || -> Result<_, Error> {
@@ -96,9 +96,9 @@ fn poll(
             match libp2p_service.lock().unwrap().poll() {
                 Ok(Async::Ready(Some(event))) => match event {
                     NetworkEvent::PubsubMessage {
-                        source,
-                        topics,
-                        message,
+                        source: _,
+                        topics: _,
+                        message: _,
                     } => {
                         println!("ASDFASDFSADFSAF");
                     }
