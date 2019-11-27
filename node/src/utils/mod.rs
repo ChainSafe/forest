@@ -43,7 +43,7 @@ pub fn write_libp2p_id(id: &str) -> Result<()> {
     if !Path::new(&path).exists() {
         create_dir_all(Path::new(&path))?;
     }
-    // TODO handle result somehow
+
     write_string_to_file(id, get_libp2p_path())
 }
 
@@ -52,6 +52,20 @@ pub fn get_libp2p_id() -> Result<String> {
     let mut file = File::open(get_libp2p_path())?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    // assert_eq!(contents, "Hello, world!");
     Ok(contents)
+}
+
+#[test]
+
+fn test_write_and_read() {
+    let peer_id = "21312-312d-dq123-dd";
+    match write_libp2p_id(peer_id) {
+        Ok(_) => assert!(true),
+        Err(e) => assert!(false, e),
+    }
+
+    match get_libp2p_id() {
+        Ok(s) => assert_eq!(s, peer_id),
+        Err(e) => assert!(false, e),
+    }
 }
