@@ -4,5 +4,6 @@ members = [
     "vm",
     "vm/address",
     "node",
-    "crypto"
+    "crypto",
+    "encoding"
 ]

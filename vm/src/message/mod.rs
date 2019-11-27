@@ -5,6 +5,7 @@ pub use message_receipt::*;
 pub use signed_message::*;
 
 use address::Address;
+use encoding::Cbor;
 use num_bigint::BigUint;
 
 /// VM message type which includes all data needed for a state transition
@@ -33,13 +34,15 @@ impl Message {
     pub fn to(&self) -> Address {
         self.to.clone()
     }
-    // Marshalling and unmarshalling
-    pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+}
+
+impl Cbor for Message {
+    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO
-        Err("Unmarshall cbor not implemented".to_owned())
+        Err("Unmarshall is unimplemented".to_owned())
     }
-    pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
         // TODO
-        Err("Marshall cbor not implemented".to_owned())
+        Err("Marshall is unimplemented".to_owned())
     }
 }

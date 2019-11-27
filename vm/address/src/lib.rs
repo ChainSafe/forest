@@ -9,6 +9,7 @@ use blake2::digest::{Input, VariableOutput};
 use blake2::VarBlake2b;
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
+use encoding::{Cbor, JSON};
 use leb128;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -168,23 +169,27 @@ impl Address {
             None => encode(self, Network::Testnet),
         }
     }
+}
 
+impl Cbor for Address {
     // Marshalling and unmarshalling
-    pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO
         Err("Unmarshall is unimplemented".to_owned())
     }
-    pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
         // TODO
         Err("Marshall is unimplemented".to_owned())
     }
+}
 
+impl JSON for Address {
     // JSON Marshalling and unmarshalling
-    pub fn unmarshall_json(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+    fn unmarshall_json(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO
         Err("JSON unmarshall is unimplemented".to_owned())
     }
-    pub fn marshall_json(&self) -> Result<Vec<u8>, String> {
+    fn marshall_json(&self) -> Result<Vec<u8>, String> {
         // TODO
         Err("JSON marshall is unimplemented".to_owned())
     }

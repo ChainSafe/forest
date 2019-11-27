@@ -1,5 +1,6 @@
 use super::Message;
 use crypto::{Error as CryptoError, Signature, Signer};
+use encoding::Cbor;
 
 /// SignedMessage represents a wrapped message with signature bytes
 #[derive(PartialEq, Clone)]
@@ -19,14 +20,15 @@ impl SignedMessage {
             signature: sig,
         })
     }
+}
 
-    // Marshalling and unmarshalling
-    pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+impl Cbor for SignedMessage {
+    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO
-        Err("Unmarshall cbor not implemented".to_owned())
+        Err("Unmarshall is unimplemented".to_owned())
     }
-    pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
         // TODO
-        Err("Marshall cbor not implemented".to_owned())
+        Err("Marshall is unimplemented".to_owned())
     }
 }
