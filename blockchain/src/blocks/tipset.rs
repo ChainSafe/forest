@@ -24,8 +24,8 @@ pub struct TipSetKeys {
 
 impl Tipset {
     /// new builds a new TipSet from a collection of blocks
-    //// The blocks must be distinct (different CIDs), have the same height, and same parent set
-    fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
+    /// The blocks must be distinct (different CIDs), have the same height, and same parent set
+    pub fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
         if headers.is_empty() {
             return Err(Error::NoBlocks);
         }
@@ -169,7 +169,7 @@ fn test_header() -> Vec<BlockHeader> {
     let new_addr = Address::new_secp256k1(data.clone()).unwrap();
     let arr = vec![cid1.clone(), cid2.clone()];
 
-    let h = vec![
+    let headers = vec![
         BlockHeader {
             parents: TipSetKeys { cids: arr.clone() },
             weight: 0,
@@ -196,18 +196,97 @@ fn test_header() -> Vec<BlockHeader> {
             messages: cid1.clone(),
             message_receipts: cid1.clone(),
             state_root: cid1.clone(),
-            timestamp: 0,
+            timestamp: 1,
             ticket: Ticket { vrfproof: data2 },
             election_proof: data.clone(),
-            cached_cid: cid1.clone(),
+            cached_cid: cid2.clone(),
             cached_bytes: 0,
         },
     ];
-    h
+    headers
 }
 
-#[test]
-fn new_test() {
-    let headers = test_header();
-    let result = Tipset::new(headers);
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    fn setup() -> Result<(Tipset), Error> {
+        let headers = test_header();
+        let tipset = Tipset::new(headers.clone())?;
+        Ok(tipset)
+    }
+
+    #[test]
+    fn new_test() {
+        let headers = test_header();
+        assert!(Tipset::new(headers).is_ok(), "result is okay!");
+    }
+
+    #[test]
+    fn min_ticket_test() -> Result<(), Error> {
+        let tipset = setup()?;
+        let min = Tipset::min_ticket(&tipset)?;
+        assert_eq!(min.vrfproof, tipset.blocks[0].ticket.vrfproof);
+        Ok(())
+    }
+
+    #[test]
+    fn min_timestamp_test() -> Result<(), Error> {
+        let tipset = setup()?;
+        let min_time = Tipset::min_timestamp(&tipset)?;
+        assert_eq!(min_time, tipset.blocks[1].timestamp);
+        Ok(())
+    }
+
+    #[test]
+    fn len_test() -> Result<(), Error> {
+        let tipset = setup()?;
+        assert_eq!(Tipset::len(&tipset), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn is_empty_test() -> Result<(), Error> {
+        let tipset = setup()?;
+        assert_eq!(Tipset::is_empty(&tipset), false);
+        Ok(())
+    }
+
+    #[test]
+    fn key_test() -> Result<(), Error> {
+        let cid1: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"
+            .parse()
+            .unwrap();
+        let cid2: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR12"
+            .parse()
+            .unwrap();
+        let arr = vec![cid1.clone(), cid2.clone()];
+        let k = TipSetKeys { cids: arr };
+        let headers = test_header();
+        let tipset = Tipset::new(headers.clone())?;
+        assert_eq!(Tipset::key(&tipset), k);
+        Ok(())
+    }
+
+    #[test]
+    fn height_test() -> Result<(), Error> {
+        let tipset = setup()?;
+        assert_eq!(Tipset::height(&tipset), tipset.blocks[1].height);
+        Ok(())
+    }
+
+    #[test]
+    fn parents_test() -> Result<(), Error> {
+        let tipset = setup()?;
+        assert_eq!(Tipset::parents(&tipset), tipset.blocks[1].parents);
+        Ok(())
+    }
+
+    #[test]
+    fn weight_test() -> Result<(), Error> {
+        let tipset = setup()?;
+        assert_eq!(Tipset::weight(&tipset), tipset.blocks[1].weight);
+        Ok(())
+    }
 }

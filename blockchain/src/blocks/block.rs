@@ -8,10 +8,11 @@ use multihash::Hash;
 use vm::address::Address;
 
 // DefaultHashFunction represents the default hashing function to use
+// SHOULD BE BLAKE2B
 const DEFAULT_HASH_FUNCTION: Hash = Hash::Keccak256;
 
 /// BlockHeader defines header of a block in the Filecoin blockchain#[derive(Clone)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BlockHeader {
     /// CHAIN LINKING
     ///
@@ -78,7 +79,6 @@ impl BlockHeader {
         };
         let new_cid = cid::Cid::new_from_prefix(&c, &[self.cached_bytes]);
         self.cached_cid = new_cid;
-        println!("CID:: {}", self.cached_cid);
         self.cached_cid
     }
 }
