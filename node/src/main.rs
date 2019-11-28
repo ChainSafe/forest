@@ -33,7 +33,6 @@ fn main() {
     let mut netcfg = Libp2pConfig::default();
     let (_network_service, mut net_tx, _exit_tx) = NetworkService::new(&netcfg, tx, &rt.executor());
 
-
     let stdin = tokio_stdin_stdout::stdin(0);
     let mut framed_stdin = FramedRead::new(stdin, LinesCodec::new());
     let topics = netcfg.pubsub_topics.clone();
@@ -42,12 +41,10 @@ fn main() {
         .spawn(futures::future::poll_fn(move || -> Result<_, _> {
             loop {
                 match framed_stdin.poll().expect("Error while polling stdin") {
-                    Async::Ready(Some(line)) => {
-                        net_tx.try_send(NetworkMessage::PubsubMessage {
-                            topics: topics[0].clone(),
-                            message: line.as_bytes().to_vec(),
-                        })
-                    }
+                    Async::Ready(Some(line)) => net_tx.try_send(NetworkMessage::PubsubMessage {
+                        topics: topics[0].clone(),
+                        message: line.as_bytes().to_vec(),
+                    }),
                     Async::Ready(None) => panic!("Stdin closed"),
                     Async::NotReady => break,
                 };
@@ -60,10 +57,10 @@ fn main() {
                             topics,
                             message,
                         } => {
-                           println!("Got msg! {:?} {:?} {:?}", source, topics, message);
+                            println!("Got msg! {:?} {:?} {:?}", source, topics, message);
                         }
-                    }
-                    _ => {break}
+                    },
+                    _ => break,
                 }
             }
             Ok(Async::NotReady)
@@ -71,4 +68,3 @@ fn main() {
 
     rt.shutdown_on_idle().wait().unwrap();
 }
-
