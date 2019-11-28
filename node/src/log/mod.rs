@@ -1,7 +1,7 @@
+use slog::Drain;
 use slog::*;
 use slog_async;
 use slog_term;
-use slog::Drain;
 
 pub fn setup_logging() -> slog::Logger {
     let decorator = slog_term::TermDecorator::new().build();
