@@ -24,12 +24,12 @@ fn main() {
 
     // TODO Everything below should be run in a function somewhere, but since we only have this
     // main right now, should be ok to leave here
-    /// Create the tokio runtime
+    // Create the tokio runtime
     let rt = Runtime::new().unwrap();
 
-    /// Create the channel so we can receive messages from NetworkService
+    // Create the channel so we can receive messages from NetworkService
     let (tx, mut rx) = mpsc::unbounded_channel::<NetworkEvent>();
-    /// Create the default libp2p config
+    // Create the default libp2p config
     let mut netcfg = Libp2pConfig::default();
     let (_network_service, mut net_tx, _exit_tx) = NetworkService::new(&netcfg, tx, &rt.executor());
 
