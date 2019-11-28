@@ -3,7 +3,6 @@ mod cli;
 use cli::cli;
 
 use libp2p::{
-    gossipsub::Topic,
     tokio_codec::{FramedRead, LinesCodec},
 };
 
@@ -30,7 +29,7 @@ fn main() {
     // Create the channel so we can receive messages from NetworkService
     let (tx, mut rx) = mpsc::unbounded_channel::<NetworkEvent>();
     // Create the default libp2p config
-    let mut netcfg = Libp2pConfig::default();
+    let netcfg = Libp2pConfig::default();
     let (_network_service, mut net_tx, _exit_tx) = NetworkService::new(&netcfg, tx, &rt.executor());
 
     let stdin = tokio_stdin_stdout::stdin(0);
