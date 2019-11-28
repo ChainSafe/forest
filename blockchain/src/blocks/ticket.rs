@@ -1,5 +1,6 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
+use std::cmp::Ordering;
 
 /// VRFProofIndex is the proof output from running a VRF
 pub type VRFProofIndex = Vec<u8>;
@@ -7,7 +8,7 @@ pub type VRFProofIndex = Vec<u8>;
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source
 /// of randomness for proofs of storage and leader election.  It is generated
 /// by the miner of a block using a VRF and a VDF.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq)]
 pub struct Ticket {
     /// A proof output by running a VRF on the VDFResult of the parent ticket
     pub vrfproof: VRFProofIndex,
@@ -16,5 +17,15 @@ pub struct Ticket {
 impl Ticket {
     pub fn sort_key(&self) -> Vec<u8> {
         self.vrfproof.clone()
+    }
+}
+
+impl Ord for Ticket {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let val = self.sort_key().cmp(&other.sort_key());
+        println!("ord {:?}", val);
+        return val
+        // check if equal or return ordering
+        // return comparison of cid bytes
     }
 }
