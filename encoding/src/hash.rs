@@ -2,6 +2,15 @@ use blake2::digest::{Input, VariableOutput};
 use blake2::VarBlake2b;
 
 /// generates blake2b hash with provided size
+///
+/// # Example
+/// ```
+/// use encoding::blake2b_variable;
+///
+/// let ingest: Vec<u8> = vec![];
+/// let hash = blake2b_variable(ingest, 20);
+/// assert_eq!(hash.len(), 20);
+/// ```
 pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
     let mut hasher = VarBlake2b::new(size).unwrap();
     hasher.input(ingest);
@@ -17,7 +26,17 @@ pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
     result
 }
 
-/// generates blake2b hash of 32 bytes
+/// generates blake2b hash of fixed 32 bytes size
+///
+/// # Example
+/// ```
+/// use encoding::blake2b_256;
+///
+/// let ingest: Vec<u8> = vec![];
+///
+/// let mut hash = [0u8; 32];
+/// blake2b_256(ingest, &mut hash);
+/// ```
 pub fn blake2b_256(ingest: Vec<u8>, hash: &mut [u8; 32]) {
     let mut hasher = VarBlake2b::new(32).unwrap();
     hasher.input(ingest);

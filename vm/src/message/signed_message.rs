@@ -3,7 +3,7 @@ use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 
 /// SignedMessage represents a wrapped message with signature bytes
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct SignedMessage {
     pub(crate) message: Message,
     pub(crate) signature: Signature,
@@ -25,10 +25,16 @@ impl SignedMessage {
 impl Cbor for SignedMessage {
     fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
         // TODO
-        Err(EncodingError::Unmarshalling(CodecProtocol::Cbor))
+        Err(EncodingError::Unmarshalling {
+            formatted_data: format!("{:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
     fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err(EncodingError::Marshalling(CodecProtocol::Cbor))
+        Err(EncodingError::Marshalling {
+            formatted_data: format!("{:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
 }

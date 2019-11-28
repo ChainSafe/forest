@@ -7,7 +7,7 @@ pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError, JSON};
+use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
 use leb128;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -25,7 +25,7 @@ const TESTNET_PREFIX: &str = "t";
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Address {
     protocol: Protocol,
     payload: Vec<u8>,
@@ -172,22 +172,17 @@ impl Address {
 impl Cbor for Address {
     fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
         // TODO
-        Err(EncodingError::Unmarshalling(CodecProtocol::Cbor))
+        Err(EncodingError::Unmarshalling {
+            formatted_data: format!("{:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
     fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err(EncodingError::Marshalling(CodecProtocol::Cbor))
-    }
-}
-
-impl JSON for Address {
-    fn unmarshall_json(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling(CodecProtocol::JSON))
-    }
-    fn marshall_json(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling(CodecProtocol::JSON))
+        Err(EncodingError::Marshalling {
+            formatted_data: format!("{:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
 }
 

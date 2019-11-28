@@ -9,7 +9,7 @@ use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 use num_bigint::BigUint;
 
 /// VM message type which includes all data needed for a state transition
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Message {
     from: Address,
     to: Address,
@@ -39,10 +39,16 @@ impl Message {
 impl Cbor for Message {
     fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
         // TODO
-        Err(EncodingError::Unmarshalling(CodecProtocol::Cbor))
+        Err(EncodingError::Unmarshalling {
+            formatted_data: format!("{:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
     fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err(EncodingError::Marshalling(CodecProtocol::Cbor))
+        Err(EncodingError::Marshalling {
+            formatted_data: format!("{:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
 }

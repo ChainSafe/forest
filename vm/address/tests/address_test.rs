@@ -47,7 +47,7 @@ fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
     let from_bytes = Address::from_bytes(decoded.to_bytes()).unwrap();
     assert!(decoded == from_bytes);
 
-    // TODO: test JSON/cbor encoding and decoding
+    // TODO: test cbor encoding and decoding
 }
 
 #[test]
