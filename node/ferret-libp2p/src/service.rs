@@ -73,14 +73,13 @@ impl Stream for Libp2pService {
                     MyBehaviourEvent::DiscoveredPeer(peer) => {
                         libp2p::Swarm::dial(&mut self.swarm, peer);
                     }
-                    MyBehaviourEvent::ExpiredPeer(_peer) => {}
+                    MyBehaviourEvent::ExpiredPeer(_) => {}
                     MyBehaviourEvent::GossipMessage {
                         source,
                         topics,
                         message,
                     } => {
                         let message = String::from_utf8(message).unwrap();
-                        println!("Received Gossip: {:?} {:?} {:?}", source, topics, message);
                         return Ok(Async::Ready(Option::from(NetworkEvent::PubsubMessage {
                             source,
                             topics,

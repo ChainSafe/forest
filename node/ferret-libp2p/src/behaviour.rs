@@ -88,7 +88,6 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
     }
 
     pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) {
-        println!("Pubishing a message");
         self.gossipsub.publish(topic, data);
     }
 

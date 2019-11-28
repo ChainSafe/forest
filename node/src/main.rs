@@ -15,8 +15,6 @@ use network::service::*;
 
 use futures::prelude::*;
 
-use std::sync::Arc;
-
 use tokio;
 
 use tokio::runtime::Runtime;
@@ -28,13 +26,11 @@ fn main() {
     // main right now, should be ok to leave here
     let rt = Runtime::new().unwrap();
 
-    let (tx, _rx) = mpsc::unbounded_channel::<NetworkEvent>();
-    let tx = Arc::new(tx);
+    let (tx, mut rx) = mpsc::unbounded_channel::<NetworkEvent>();
     let mut netcfg = Libp2pConfig::default();
-    let topic = Topic::new("/fil/blocks".into());
+    let topic = Topic::new("test-net".into());
     netcfg.pubsub_topics.push(topic.clone());
-    let topic = Topic::new("/fil/messages".into());
-    netcfg.pubsub_topics.push(topic.clone());
+
 
     let (_network_service, mut net_tx, _exit_tx) = NetworkService::new(&netcfg, tx, &rt.executor());
 
@@ -46,7 +42,6 @@ fn main() {
             loop {
                 match framed_stdin.poll().expect("Error while polling stdin") {
                     Async::Ready(Some(line)) => {
-                        println!("Got msg from stdin");
                         net_tx.try_send(NetworkMessage::PubsubMessage {
                             topics: topic.clone(),
                             message: line.as_bytes().to_vec(),
@@ -55,6 +50,20 @@ fn main() {
                     Async::Ready(None) => panic!("Stdin closed"),
                     Async::NotReady => break,
                 };
+            }
+            loop {
+                match rx.poll() {
+                    Ok(Async::Ready(Some(message))) => match message {
+                        NetworkEvent::PubsubMessage {
+                            source,
+                            topics,
+                            message,
+                        } => {
+                           println!("Got msg! {:?} {:?} {:?}", source, topics, message);
+                        }
+                    }
+                    _ => {break}
+                }
             }
             Ok(Async::NotReady)
         }));

@@ -3,7 +3,7 @@ use ferret_libp2p::service::{Libp2pService, NetworkEvent};
 use futures::stream::Stream;
 use futures::Async;
 use futures::Future;
-use libp2p::{self, gossipsub::Topic};
+use libp2p::{gossipsub::Topic};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
@@ -41,7 +41,7 @@ impl NetworkService {
     /// ```
     pub fn new(
         config: &Libp2pConfig,
-        outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
+        outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
         executor: &TaskExecutor,
     ) -> (
         Self,
@@ -70,7 +70,7 @@ enum Error {}
 fn start(
     libp2p_service: Arc<Mutex<Libp2pService>>,
     executor: &TaskExecutor,
-    outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
+    outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
     message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
 ) -> tokio::sync::oneshot::Sender<u8> {
     let (network_exit, exit_rx) = tokio::sync::oneshot::channel();
@@ -85,7 +85,7 @@ fn start(
 
 fn poll(
     libp2p_service: Arc<Mutex<Libp2pService>>,
-    _outbound_transmitter: Arc<mpsc::UnboundedSender<NetworkEvent>>,
+    mut outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
     mut message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
 ) -> impl futures::Future<Item = (), Error = Error> {
     futures::future::poll_fn(move || -> Result<_, _> {
@@ -112,10 +112,9 @@ fn poll(
                         topics,
                         message,
                     } => {
-                        println!(
-                            "Received a message from GossipSub! {:?}, {:?}, {:?}",
-                            source, topics, message
-                        );
+                       outbound_transmitter.try_send(NetworkEvent::PubsubMessage{
+                           source, topics, message
+                       });
                     }
                 },
                 Ok(Async::Ready(None)) => unreachable!("Stream never ends"),
