@@ -4,7 +4,7 @@
 use super::block::BlockHeader;
 use super::errors::Error;
 use super::ticket::Ticket;
-use cid::{Cid};
+use cid::Cid;
 
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
@@ -35,16 +35,18 @@ impl Tipset {
         let mut sorted_headers = Vec::new();
         let mut sorted_cids = Vec::new();
         let mut i = 0;
-
+        let size = headers.len() - 1;
         // loop through headers and validate conditions against 0th header
-        while i <= headers.len() -1 {
-            if i > 0 { // skip redundant checks for first block
+        while i <= size {
+            if i > 0 {
+                // skip redundant checks for first block
                 // check height is equal
                 if headers[i].height != headers[0].height {
                     return Err(Error::UndefinedTipSet);
                 }
                 // check parent cids are equal
                 if !headers[i].parents.equals(headers[0].parents.clone()) {
+                    println!("FAILS HERE::");
                     return Err(Error::UndefinedTipSet);
                 }
                 // check weights are equal
@@ -83,7 +85,8 @@ impl Tipset {
 
             a1.ticket
                 .sort_key()
-                .cmp(&b1.ticket.sort_key()).reverse()
+                .cmp(&b1.ticket.sort_key())
+                .reverse()
                 .then(a1.cid().hash.cmp(&b1.cid().hash))
         });
 
@@ -155,11 +158,12 @@ impl TipSetKeys {
             return false;
         }
         let mut i = 0;
-        while i <= key.cids.len() -1 {
-            i += 1;
-            if self.cids[i] == key.cids[i] {
+        let size = key.cids.len() - 1;
+        while i <= size {
+            if self.cids[i] != key.cids[i] {
                 return false;
             }
+            i += 1;
         }
         true
     }
@@ -168,8 +172,8 @@ impl TipSetKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vm::address::Address;
     use cid::{Cid, Codec, Version};
+    use vm::address::Address;
 
     const WEIGHT: u64 = 0;
     const EPOCH: u64 = 1;
@@ -181,6 +185,7 @@ mod tests {
         let data0 = b"awesome test content!";
         let data1 = b"awesome test content am I right?";
         let data2 = b"awesome test content but seriously right?";
+        let data3 = b"awesome test content for parents?";
 
         let h = multihash::encode(multihash::Hash::SHA2256, data0).unwrap();
         let cid = Cid::new(Codec::DagProtobuf, Version::V1, &h);
@@ -188,14 +193,19 @@ mod tests {
 
         let cid2 = Cid::new_from_prefix(&prefix, data1);
         let cid3 = Cid::new_from_prefix(&prefix, data2);
-        return vec![cid.clone(), cid2.clone(), cid3.clone()];
+        // parents needs its own unique CID
+        let cid4 = Cid::new_from_prefix(&prefix, data3);
+
+        return vec![cid.clone(), cid2.clone(), cid3.clone(), cid4.clone()];
     }
 
     // template_header defines a block header used in testing
     fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
         let cids = key_setup();
         BlockHeader {
-            parents: TipSetKeys { cids: cids.clone() },
+            parents: TipSetKeys {
+                cids: vec![cids[3].clone()],
+            },
             weight: WEIGHT,
             epoch: EPOCH,
             height: HEIGHT,
@@ -218,9 +228,9 @@ mod tests {
         let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
         let cids = key_setup();
         return vec![
-            template_header(data1.clone(), cids[2].clone(), 1),
-            template_header(data0.clone(), cids[1].clone(), 2),
-            template_header(data2.clone(), cids[0].clone(), 3),
+            template_header(data1.clone(), cids[1].clone(), 1),
+            template_header(data0.clone(), cids[0].clone(), 2),
+            template_header(data2.clone(), cids[2].clone(), 3),
         ];
     }
 
@@ -263,7 +273,7 @@ mod tests {
     }
 
     #[test]
-        fn height_test() {
+    fn height_test() {
         let tipset = setup().unwrap();
         assert_eq!(Tipset::height(&tipset), tipset.blocks[1].height);
     }
@@ -285,6 +295,6 @@ mod tests {
         let tipset_keys = TipSetKeys {
             cids: key_setup().clone(),
         };
-        assert_eq!(TipSetKeys::equals(&tipset_keys, tipset_keys.clone()), false);
+        assert_eq!(TipSetKeys::equals(&tipset_keys, tipset_keys.clone()), true);
     }
 }

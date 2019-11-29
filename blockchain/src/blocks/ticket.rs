@@ -1,6 +1,5 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
-use std::cmp::Ordering;
 
 /// VRFProofIndex is the proof output from running a VRF
 pub type VRFProofIndex = Vec<u8>;
@@ -17,15 +16,5 @@ pub struct Ticket {
 impl Ticket {
     pub fn sort_key(&self) -> Vec<u8> {
         self.vrfproof.clone()
-    }
-}
-
-impl Ord for Ticket {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let val = self.sort_key().cmp(&other.sort_key());
-        println!("ord {:?}", val);
-        return val
-        // check if equal or return ordering
-        // return comparison of cid bytes
     }
 }
