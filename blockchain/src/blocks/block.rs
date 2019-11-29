@@ -11,7 +11,7 @@ use vm::address::Address;
 // SHOULD BE BLAKE2B
 const DEFAULT_HASH_FUNCTION: Hash = Hash::Keccak256;
 
-/// BlockHeader defines header of a block in the Filecoin blockchain#[derive(Clone)]
+/// BlockHeader defines header of a block in the Filecoin blockchain
 #[derive(Clone, Debug)]
 pub struct BlockHeader {
     /// CHAIN LINKING
@@ -69,10 +69,18 @@ pub struct Block {
 }
 
 impl BlockHeader {
-    // cid returns the content id of this block
+    // cid returns the content id of this header
     pub fn cid(mut self) -> cid::Cid {
+        // TODO
+        //
+        // Currently content id for headers will be incomplete until the below
+        // points are resolved
+        //
+        // Requires encoding blockheader into cached_bytes which is currently unavailable
+        // Until mulithash supports blake2b using Keccak256 for mh_type
+        // Using DagProtobuf as placeholder until CBOR support
         let c = Prefix {
-            version: Version::V0,
+            version: Version::V1,
             codec: Codec::DagProtobuf,
             mh_type: DEFAULT_HASH_FUNCTION,
             mh_len: 0,

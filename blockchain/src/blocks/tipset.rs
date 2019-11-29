@@ -4,7 +4,7 @@
 use super::block::BlockHeader;
 use super::errors::Error;
 use super::ticket::Ticket;
-use cid::{Cid, Codec, Version};
+use cid::{Cid};
 
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
@@ -16,15 +16,18 @@ pub struct Tipset {
 /// TipSetKeys is a set of CIDs forming a unique key for a TipSet
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
 
 impl Tipset {
     /// new builds a new TipSet from a collection of blocks
-    /// The blocks must be distinct (different CIDs), have the same height, and same parent set
+    /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all specify identical
+    /// epoch, parents, weight, height, state root, receipt root;
+    /// contentID for headers are supposed to be distinct but until encoding is added will be equal
     pub fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
+        // check header is non-empty
         if headers.is_empty() {
             return Err(Error::NoBlocks);
         }
@@ -32,67 +35,69 @@ impl Tipset {
         let mut sorted_headers = Vec::new();
         let mut sorted_cids = Vec::new();
         let mut i = 0;
-        while i < headers.len() {
-            if headers[i].height != headers[0].height {
-                return Err(Error::UndefinedTipSet);
+
+        // loop through headers and validate conditions against 0th header
+        while i <= headers.len() -1 {
+            if i > 0 { // skip redundant checks for first block
+                // check height is equal
+                if headers[i].height != headers[0].height {
+                    return Err(Error::UndefinedTipSet);
+                }
+                // check parent cids are equal
+                if !headers[i].parents.equals(headers[0].parents.clone()) {
+                    return Err(Error::UndefinedTipSet);
+                }
+                // check weights are equal
+                if headers[i].weight != headers[0].weight {
+                    return Err(Error::UndefinedTipSet);
+                }
+                // check state_roots are equal
+                if headers[i].state_root != headers[0].state_root.clone() {
+                    return Err(Error::UndefinedTipSet);
+                }
+                // check epochs are equal
+                if headers[i].epoch != headers[0].epoch {
+                    return Err(Error::UndefinedTipSet);
+                }
+                // check message_receipts are equal
+                if headers[i].message_receipts != headers[0].message_receipts.clone() {
+                    return Err(Error::UndefinedTipSet);
+                }
+                // check miner_addresses are distinct
+                if headers[i].miner_address == headers[0].miner_address.clone() {
+                    return Err(Error::UndefinedTipSet);
+                }
             }
-            if !headers[i].parents.equals(headers[0].parents.clone()) {
-                return Err(Error::UndefinedTipSet);
-            }
-            if headers[i].weight != headers[0].weight {
-                return Err(Error::UndefinedTipSet);
-            }
-            if headers[i].state_root != headers[0].state_root.clone() {
-                return Err(Error::UndefinedTipSet);
-            }
-            if headers[i].epoch != headers[0].epoch {
-                return Err(Error::UndefinedTipSet);
-            }
-            if headers[i].message_receipts != headers[0].message_receipts.clone() {
-                return Err(Error::UndefinedTipSet);
-            }
+            // push headers into vec for sorting
             sorted_headers.push(headers[i].clone());
+            // push header cid into vec for tie breaker
             sorted_cids.push(headers[i].clone().cid());
             i += 1;
         }
-        // sort headers by ticket
-        //
-        // GO FILE COIN LOGIC BELOW
-        //
-        // sort.Slice(sorted, func(i, j int) bool {
-        //     cmp := bytes.Compare(sorted[i].Ticket.SortKey(), sorted[j].Ticket.SortKey())
-        //     if cmp == 0 {
-        //         // Break ticket ties with the block CIDs, which are distinct.
-        //         cmp = bytes.Compare(sorted[i].Cid().Bytes(), sorted[j].Cid().Bytes())
-        //     }
-        //     return cmp < 0
-        // })
-             
 
-        println!("sorted headers -> {:?} \n \n", sorted_headers[0].ticket.sort_key());
         // sort headers by ticket size
-        // if tie; Break ticket ties with the block CIDs, which are distinct
-        let sorted = sorted_headers.sort_by(|a, b| {
-            a.ticket
+        // break ticket ties with the header CIDs, which are distinct
+        sorted_headers.sort_by(|a, b| {
+            let a1 = a.clone();
+            let b1 = b.clone();
+
+            a1.ticket
                 .sort_key()
-                .cmp(&b.ticket.sort_key())
+                .cmp(&b1.ticket.sort_key()).reverse()
+                .then(a1.cid().hash.cmp(&b1.cid().hash))
         });
-       
-        println!("sorted headers after sort -> {:?}", sorted);
 
-        // INTERIM TO SATISFY STRUCT
-        let data = b"awesome test content";
-        let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
+        // TODO
+        // Have a check the ensures CIDs are distinct
+        // blocked by CBOR encoding
 
-        let cid = Cid::new(Codec::DagProtobuf, Version::V1, &h);
-        let prefix = cid.prefix();
-
-        let cid2 = Cid::new_from_prefix(&prefix, data);
-
+        // return tipset where sorted headers have smallest ticket size is in the 0th index
+        // and the distinct keys
         Ok(Self {
             blocks: sorted_headers,
             key: TipSetKeys {
-                cids: vec![cid.clone(), cid2.clone()],
+                // interim until CID check is in place
+                cids: sorted_cids,
             },
         })
     }
@@ -150,7 +155,7 @@ impl TipSetKeys {
             return false;
         }
         let mut i = 0;
-        while i > key.cids.len() {
+        while i <= key.cids.len() -1 {
             i += 1;
             if self.cids[i] == key.cids[i] {
                 return false;
@@ -164,64 +169,58 @@ impl TipSetKeys {
 mod tests {
     use super::*;
     use vm::address::Address;
+    use cid::{Cid, Codec, Version};
 
     const WEIGHT: u64 = 0;
     const EPOCH: u64 = 1;
     const HEIGHT: u64 = 1;
     const CACHED_BYTES: u8 = 0;
 
+    // key_setup returns a vec of 3 distinct CIDs
     fn key_setup() -> Vec<Cid> {
-        let data = b"awesome test content";
-        let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
+        let data0 = b"awesome test content!";
+        let data1 = b"awesome test content am I right?";
+        let data2 = b"awesome test content but seriously right?";
 
+        let h = multihash::encode(multihash::Hash::SHA2256, data0).unwrap();
         let cid = Cid::new(Codec::DagProtobuf, Version::V1, &h);
         let prefix = cid.prefix();
 
-        let cid2 = Cid::new_from_prefix(&prefix, data);
-
-        return vec![cid.clone(), cid2.clone()];
+        let cid2 = Cid::new_from_prefix(&prefix, data1);
+        let cid3 = Cid::new_from_prefix(&prefix, data2);
+        return vec![cid.clone(), cid2.clone(), cid3.clone()];
     }
 
-    fn header_setup() -> Vec<BlockHeader> {
-        let data: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
-        let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3];
-        let new_addr = Address::new_secp256k1(data.clone()).unwrap();
+    // template_header defines a block header used in testing
+    fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
+        let cids = key_setup();
+        BlockHeader {
+            parents: TipSetKeys { cids: cids.clone() },
+            weight: WEIGHT,
+            epoch: EPOCH,
+            height: HEIGHT,
+            miner_address: Address::new_secp256k1(ticket_p.clone()).unwrap(),
+            messages: cids[0].clone(),
+            message_receipts: cids[0].clone(),
+            state_root: cids[0].clone(),
+            timestamp,
+            ticket: Ticket { vrfproof: ticket_p },
+            election_proof: vec![],
+            cached_cid: cid,
+            cached_bytes: 0,
+        }
+    }
 
+    // header_setup returns a vec of block headers to be used for testing purposes
+    fn header_setup() -> Vec<BlockHeader> {
+        let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
+        let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
+        let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
+        let cids = key_setup();
         return vec![
-            BlockHeader {
-                parents: TipSetKeys {
-                    cids: key_setup().clone(),
-                },
-                weight: WEIGHT,
-                epoch: EPOCH,
-                height: HEIGHT,
-                miner_address: new_addr.clone(),
-                messages: key_setup()[0].clone(),
-                message_receipts: key_setup()[0].clone(),
-                state_root: key_setup()[0].clone(),
-                timestamp: 0,
-                ticket: Ticket {
-                    vrfproof: data2.clone(),
-                },
-                election_proof: data.clone(),
-                cached_cid: key_setup()[0].clone(),
-                cached_bytes: CACHED_BYTES,
-            },
-            BlockHeader {
-                parents: TipSetKeys { cids: key_setup() },
-                weight: WEIGHT,
-                epoch: EPOCH,
-                height: HEIGHT,
-                miner_address: new_addr,
-                messages: key_setup()[0].clone(),
-                message_receipts: key_setup()[0].clone(),
-                state_root: key_setup()[0].clone(),
-                timestamp: 1,
-                ticket: Ticket { vrfproof: data.clone() },
-                election_proof: data.clone(),
-                cached_cid: key_setup()[1].clone(),
-                cached_bytes: CACHED_BYTES,
-            },
+            template_header(data1.clone(), cids[2].clone(), 1),
+            template_header(data0.clone(), cids[1].clone(), 2),
+            template_header(data2.clone(), cids[0].clone(), 3),
         ];
     }
 
@@ -238,65 +237,47 @@ mod tests {
     }
 
     #[test]
-    fn min_ticket_test() -> Result<(), Error> {
-        let tipset = setup()?;
-        let min = Tipset::min_ticket(&tipset)?;
+    fn min_ticket_test() {
+        let tipset = setup().unwrap();
+        let min = Tipset::min_ticket(&tipset).unwrap();
         assert_eq!(min.vrfproof, tipset.blocks[0].ticket.vrfproof);
-        Ok(())
     }
 
     #[test]
-    fn min_timestamp_test() -> Result<(), Error> {
-        let tipset = setup()?;
-        let min_time = Tipset::min_timestamp(&tipset)?;
-        assert_eq!(min_time, tipset.blocks[0].timestamp);
-        Ok(())
+    fn min_timestamp_test() {
+        let tipset = setup().unwrap();
+        let min_time = Tipset::min_timestamp(&tipset).unwrap();
+        assert_eq!(min_time, tipset.blocks[1].timestamp);
     }
 
     #[test]
-    fn len_test() -> Result<(), Error> {
-        let tipset = setup()?;
-        assert_eq!(Tipset::len(&tipset), 2);
-        Ok(())
+    fn len_test() {
+        let tipset = setup().unwrap();
+        assert_eq!(Tipset::len(&tipset), 3);
     }
 
     #[test]
-    fn is_empty_test() -> Result<(), Error> {
-        let tipset = setup()?;
+    fn is_empty_test() {
+        let tipset = setup().unwrap();
         assert_eq!(Tipset::is_empty(&tipset), false);
-        Ok(())
     }
 
     #[test]
-    fn key_test() -> Result<(), Error> {
-        let keys = TipSetKeys {
-            cids: key_setup().clone(),
-        };
-        let headers = header_setup();
-        let tipset = Tipset::new(headers.clone())?;
-        assert_eq!(Tipset::key(&tipset), keys);
-        Ok(())
-    }
-
-    #[test]
-    fn height_test() -> Result<(), Error> {
-        let tipset = setup()?;
+        fn height_test() {
+        let tipset = setup().unwrap();
         assert_eq!(Tipset::height(&tipset), tipset.blocks[1].height);
-        Ok(())
     }
 
     #[test]
-    fn parents_test() -> Result<(), Error> {
-        let tipset = setup()?;
+    fn parents_test() {
+        let tipset = setup().unwrap();
         assert_eq!(Tipset::parents(&tipset), tipset.blocks[1].parents);
-        Ok(())
     }
 
     #[test]
-    fn weight_test() -> Result<(), Error> {
-        let tipset = setup()?;
+    fn weight_test() {
+        let tipset = setup().unwrap();
         assert_eq!(Tipset::weight(&tipset), tipset.blocks[1].weight);
-        Ok(())
     }
 
     #[test]
@@ -304,6 +285,6 @@ mod tests {
         let tipset_keys = TipSetKeys {
             cids: key_setup().clone(),
         };
-        assert!(TipSetKeys::equals(&tipset_keys, tipset_keys.clone()));
+        assert_eq!(TipSetKeys::equals(&tipset_keys, tipset_keys.clone()), false);
     }
 }
