@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 extern crate dirs;
 
 use dirs::home_dir;
