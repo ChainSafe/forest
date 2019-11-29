@@ -170,17 +170,17 @@ impl Address {
 }
 
 impl Cbor for Address {
-    fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), EncodingError> {
+    fn unmarshall_cbor(_bz: &mut [u8]) -> Result<Self, EncodingError> {
         // TODO
         Err(EncodingError::Unmarshalling {
-            formatted_data: format!("{:?}", self),
+            description: "Not Implemented".to_string(),
             protocol: CodecProtocol::Cbor,
         })
     }
     fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
         Err(EncodingError::Marshalling {
-            formatted_data: format!("{:?}", self),
+            description: format!("Not implemented, data: {:?}", self),
             protocol: CodecProtocol::Cbor,
         })
     }

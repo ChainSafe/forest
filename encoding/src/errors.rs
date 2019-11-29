@@ -10,22 +10,22 @@ use std::fmt;
 /// use encoding::{Error, CodecProtocol};
 ///
 /// Error::Marshalling {
-///     formatted_data: format!("{:?}", vec![0]),
+///     description: format!("{:?}", vec![0]),
 ///     protocol: CodecProtocol::Cbor,
 /// };
 /// Error::Unmarshalling {
-///     formatted_data: format!("{:?}", vec![0]),
+///     description: format!("{:?}", vec![0]),
 ///     protocol: CodecProtocol::JSON,
 /// };
 /// ```
 #[derive(Debug, PartialEq)]
 pub enum Error {
     Unmarshalling {
-        formatted_data: String,
+        description: String,
         protocol: CodecProtocol,
     },
     Marshalling {
-        formatted_data: String,
+        description: String,
         protocol: CodecProtocol,
     },
 }
@@ -34,21 +34,30 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Unmarshalling {
-                formatted_data,
+                description,
                 protocol,
             } => write!(
                 f,
-                "Could not decode: {} in format: {}.",
-                formatted_data, protocol
+                "Could not decode in format {}: {}",
+                protocol, description
             ),
             Error::Marshalling {
-                formatted_data,
+                description,
                 protocol,
             } => write!(
                 f,
-                "Could not encode: {} in format: {}.",
-                formatted_data, protocol
+                "Could not encode in format {}: {}",
+                protocol, description
             ),
+        }
+    }
+}
+
+impl From<serde_cbor::error::Error> for Error {
+    fn from(err: serde_cbor::error::Error) -> Error {
+        Error::Marshalling {
+            description: err.to_string(),
+            protocol: CodecProtocol::Cbor,
         }
     }
 }
