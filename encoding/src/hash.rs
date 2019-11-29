@@ -30,14 +30,16 @@ pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
 /// let hash = blake2b_256(ingest);
 /// assert_eq!(hash.len(), 32);
 /// ```
-pub fn blake2b_256(ingest: Vec<u8>) -> Vec<u8> {
-    let hash = Params::new()
+pub fn blake2b_256(ingest: Vec<u8>) -> [u8; 32] {
+    let digest = Params::new()
         .hash_length(32)
         .to_state()
         .update(&ingest)
         .finalize();
 
-    hash.as_bytes().to_vec()
+    let mut ret = [0u8; 32];
+    ret.clone_from_slice(digest.as_bytes());
+    ret
 }
 
 #[cfg(test)]
