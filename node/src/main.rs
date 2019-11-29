@@ -1,5 +1,4 @@
 mod cli;
-mod utils;
 
 use cli::cli;
 
