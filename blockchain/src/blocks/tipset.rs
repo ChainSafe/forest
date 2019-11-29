@@ -46,7 +46,6 @@ impl Tipset {
                 }
                 // check parent cids are equal
                 if !headers[i].parents.equals(headers[0].parents.clone()) {
-                    println!("FAILS HERE::");
                     return Err(Error::UndefinedTipSet);
                 }
                 // check weights are equal
@@ -72,7 +71,7 @@ impl Tipset {
             }
             // push headers into vec for sorting
             sorted_headers.push(headers[i].clone());
-            // push header cid into vec for unqiue check
+            // push header cid into vec for unique check
             sorted_cids.push(headers[i].clone().cid());
             i += 1;
         }

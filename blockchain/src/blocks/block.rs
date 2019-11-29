@@ -79,7 +79,7 @@ impl BlockHeader {
         //
         // Requires encoding blockheader into cached_bytes which is currently unavailable
         // Until mulithash supports blake2b using Keccak256 for mh_type
-        // Using DagProtobuf as placeholder until CBOR support
+        // Using DagProtobuf as placeholder
         let c = Prefix {
             version: Version::V1,
             codec: Codec::DagProtobuf,
