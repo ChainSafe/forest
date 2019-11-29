@@ -1,23 +1,17 @@
-mod errors;
 mod message_receipt;
-mod signature;
 mod signed_message;
-mod signer;
 
-pub use errors::*;
 pub use message_receipt::*;
-pub use signature::*;
 pub use signed_message::*;
-pub use signer::*;
 
-use crate::address::Address;
+use address::Address;
 use num_bigint::BigUint;
 
 /// VM message type which includes all data needed for a state transition
 #[derive(PartialEq, Clone)]
 pub struct Message {
-    pub(crate) from: Address,
-    pub(crate) to: Address,
+    from: Address,
+    to: Address,
 
     pub(crate) sequence: u64,
 
@@ -31,6 +25,14 @@ pub struct Message {
 }
 
 impl Message {
+    /// from returns the from address of the message
+    pub fn from(&self) -> Address {
+        self.from.clone()
+    }
+    /// to returns the destination address of the message
+    pub fn to(&self) -> Address {
+        self.to.clone()
+    }
     // Marshalling and unmarshalling
     pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
         // TODO

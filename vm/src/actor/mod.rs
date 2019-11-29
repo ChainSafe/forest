@@ -1,13 +1,10 @@
-mod actor_state;
+use cid::Cid;
+use num_bigint::BigUint;
 
-pub use actor_state::*;
-
-pub type MethodNum = UVarint;
-pub type MethodParam = Vec<u8>;
-pub type MethodParams = Vec<MethodParam>;
-pub type Code = Vec<u8>;
-
-#[allow(dead_code)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Actor {
-    state: ActorState,
+    code_cid: Cid,
+    state: Cid,
+    balance: BigUint,
+    sequence: u64,
 }

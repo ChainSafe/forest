@@ -172,8 +172,8 @@ impl TipSetKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use address::Address;
     use cid::{Cid, Codec, Version};
-    use vm::address::Address;
 
     const WEIGHT: u64 = 0;
     const EPOCH: u64 = 1;

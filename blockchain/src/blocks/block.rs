@@ -2,10 +2,12 @@
 
 use super::ticket::{Ticket, VRFProofIndex};
 use super::TipSetKeys;
+
 extern crate multihash;
+use address::Address;
 use cid::{Cid, Codec, Prefix, Version};
 use multihash::Hash;
-use vm::address::Address;
+use vm::message::Message;
 
 // DefaultHashFunction represents the default hashing function to use
 // SHOULD BE BLAKE2B
@@ -64,8 +66,7 @@ pub struct BlockHeader {
 /// Block defines a full block
 pub struct Block {
     header: BlockHeader,
-    // Messages
-    // Receipts
+    messages: Vec<Message>,
 }
 
 impl BlockHeader {
