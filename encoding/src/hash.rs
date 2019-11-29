@@ -1,5 +1,4 @@
-use blake2::digest::{Input, VariableOutput};
-use blake2::VarBlake2b;
+use blake2b_simd::Params;
 
 /// generates blake2b hash with provided size
 ///
@@ -12,18 +11,13 @@ use blake2::VarBlake2b;
 /// assert_eq!(hash.len(), 20);
 /// ```
 pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
-    let mut hasher = VarBlake2b::new(size).unwrap();
-    hasher.input(ingest);
+    let hash = Params::new()
+        .hash_length(size)
+        .to_state()
+        .update(&ingest)
+        .finalize();
 
-    // allocate hash result vector
-    let mut result: Vec<u8> = vec![0; size];
-
-    hasher.variable_result(|res| {
-        // Copy result slice to vector return
-        result[..size].clone_from_slice(res);
-    });
-
-    result
+    hash.as_bytes().to_vec()
 }
 
 /// generates blake2b hash of fixed 32 bytes size
@@ -38,13 +32,13 @@ pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
 /// blake2b_256(ingest, &mut hash);
 /// ```
 pub fn blake2b_256(ingest: Vec<u8>, hash: &mut [u8; 32]) {
-    let mut hasher = VarBlake2b::new(32).unwrap();
-    hasher.input(ingest);
+    let hsh = Params::new()
+        .hash_length(32)
+        .key(&ingest)
+        .to_state()
+        .finalize();
 
-    hasher.variable_result(|res| {
-        // Copy result slice to hash array reference
-        hash[..32].clone_from_slice(res);
-    });
+    hash[..32].clone_from_slice(hsh.as_bytes());
 }
 
 #[cfg(test)]
