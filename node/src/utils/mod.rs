@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 extern crate dirs;
 
 use dirs::home_dir;
@@ -6,15 +5,13 @@ use std::fs::{create_dir_all, remove_dir_all, File};
 use std::io::{prelude::*, Result};
 use std::path::Path;
 
-// Generic methods
-
 /// Writes a &str to a specified file.
 ///
 /// # Argument
 ///
-/// * `message` - &str contents to write to the file
-/// * `path`    - String representation of where the file will be written to in the system
-// TODO Do we assume the file does not exist?
+/// * `message`   - Contents that will be written to the file
+/// * `path`      - Filesystem path of where the file will be written to
+/// * `file_name` - Desired filename
 fn write_string_to_file(message: &str, path: &str, file_name: &str) -> Result<()> {
     // Create path if it doesn't exist
     create_dir_all(Path::new(&path))?;
@@ -43,7 +40,10 @@ fn get_home_dir() -> String {
     home_dir().unwrap().to_str().unwrap().to_owned()
 }
 
-// Test function
+//
+// Test helper function
+//
+
 // Please use with caution, remove_dir_all will completely delete a directory
 fn cleanup_file(path: &str) {
     match remove_dir_all(path) {
