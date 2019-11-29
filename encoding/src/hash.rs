@@ -27,18 +27,17 @@ pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
 /// use encoding::blake2b_256;
 ///
 /// let ingest: Vec<u8> = vec![];
-///
-/// let mut hash = [0u8; 32];
-/// blake2b_256(ingest, &mut hash);
+/// let hash = blake2b_256(ingest);
+/// assert_eq!(hash.len(), 32);
 /// ```
-pub fn blake2b_256(ingest: Vec<u8>, hash: &mut [u8; 32]) {
-    let hsh = Params::new()
+pub fn blake2b_256(ingest: Vec<u8>) -> Vec<u8> {
+    let hash = Params::new()
         .hash_length(32)
-        .key(&ingest)
         .to_state()
+        .update(&ingest)
         .finalize();
 
-    hash[..32].clone_from_slice(hsh.as_bytes());
+    hash.as_bytes().to_vec()
 }
 
 #[cfg(test)]

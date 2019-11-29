@@ -47,13 +47,14 @@ fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> bool {
 /// returns true if a secp256k1 signature is valid
 fn verify_secp256k1_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
     // blake2b 256 hash
-    let mut hash = [0u8; 32];
-    blake2b_256(data, &mut hash);
+    let hash = blake2b_256(data);
+    let mut arr = [0u8; 32];
+    arr.clone_from_slice(&hash[..32]);
 
     // Ecrecover with hash and signature
     let mut signature = [0u8; 65];
     signature[..].clone_from_slice(sig.as_ref());
-    let rec_addr = ecrecover(&hash, &signature);
+    let rec_addr = ecrecover(&arr, &signature);
 
     // check address against recovered address
     match rec_addr {
