@@ -11,7 +11,7 @@ pub struct SignedMessage {
 
 impl SignedMessage {
     pub fn new(msg: &Message, s: impl Signer) -> Result<SignedMessage, CryptoError> {
-        let bz = msg.marshall_cbor()?;
+        let bz = msg.marshal_cbor()?;
 
         let sig = s.sign_bytes(bz, msg.from())?;
 
@@ -23,14 +23,14 @@ impl SignedMessage {
 }
 
 impl Cbor for SignedMessage {
-    fn unmarshall_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
+    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
         // TODO
         Err(EncodingError::Unmarshalling {
             description: "Not Implemented".to_string(),
             protocol: CodecProtocol::Cbor,
         })
     }
-    fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
         Err(EncodingError::Marshalling {
             description: format!("Not implemented, data: {:?}", self),

@@ -37,14 +37,14 @@ impl Message {
 }
 
 impl Cbor for Message {
-    fn unmarshall_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
+    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
         // TODO
         Err(EncodingError::Unmarshalling {
             description: "Not Implemented".to_string(),
             protocol: CodecProtocol::Cbor,
         })
     }
-    fn marshall_cbor(&self) -> Result<Vec<u8>, EncodingError> {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
         Err(EncodingError::Marshalling {
             description: format!("Not implemented, data: {:?}", self),
