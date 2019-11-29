@@ -15,7 +15,7 @@ use std::fmt;
 /// };
 /// Error::Unmarshalling {
 ///     description: format!("{:?}", vec![0]),
-///     protocol: CodecProtocol::JSON,
+///     protocol: CodecProtocol::Cbor,
 /// };
 /// ```
 #[derive(Debug, PartialEq)]
@@ -69,14 +69,12 @@ impl From<serde_cbor::error::Error> for Error {
 #[derive(Debug, PartialEq)]
 pub enum CodecProtocol {
     Cbor,
-    JSON,
 }
 
 impl fmt::Display for CodecProtocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             CodecProtocol::Cbor => write!(f, "Cbor"),
-            CodecProtocol::JSON => write!(f, "JSON"),
         }
     }
 }
