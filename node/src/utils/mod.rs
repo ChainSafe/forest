@@ -1,17 +1,17 @@
 #![allow(dead_code)]
 extern crate dirs;
 
-use std::fs::{File, create_dir_all, remove_dir_all};
-use std::path::Path;
-use std::io::{Result, prelude::*};
 use dirs::home_dir;
+use std::fs::{create_dir_all, remove_dir_all, File};
+use std::io::{prelude::*, Result};
+use std::path::Path;
 
 // Generic methods
 
 /// Writes a &str to a specified file.
-/// 
+///
 /// # Argument
-/// 
+///
 /// * `message` - &str contents to write to the file
 /// * `path`    - String representation of where the file will be written to in the system
 // TODO Do we assume the file does not exist?
@@ -25,9 +25,9 @@ fn write_string_to_file(message: &str, path: &str, file_name: &str) -> Result<()
 }
 
 /// Read file if it exists in the filesystem
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `path` - A String representing the path to a file
 pub fn read_file(path: String) -> Result<String> {
     let mut file = File::open(path)?;
@@ -60,7 +60,7 @@ fn cleanup_file(path: &str) {
         Err(e) => {
             println!("cleanup_file() failed: {:?}", e);
             assert!(false);
-        },
+        }
     }
 }
 
@@ -74,7 +74,7 @@ fn test_write_string_to_file() {
             println!("{:?}", e);
             cleanup_file(path);
             assert!(false);
-        },
+        }
     }
 }
 
@@ -88,7 +88,7 @@ fn test_write_string_to_file_nested_dir() {
             println!("{:?}", e);
             cleanup_file(root);
             assert!(false);
-        },
+        }
     }
 }
 
@@ -105,12 +105,12 @@ fn test_read_file() {
         Ok(contents) => {
             cleanup_file(path);
             assert_eq!(contents, msg)
-        },
+        }
         Err(e) => {
             println!("{:?}", e);
             cleanup_file(path);
             assert!(false);
-        },
+        }
     }
 }
 
