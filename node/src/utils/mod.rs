@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 extern crate dirs;
 
-use std::fs::{File, create_dir_all, remove_file};
+use std::fs::{File, create_dir_all, remove_dir_all};
 use std::path::Path;
 use std::io::{Result, prelude::*};
 use dirs::home_dir;
@@ -17,10 +17,9 @@ use dirs::home_dir;
 // TODO Do we assume the file does not exist?
 fn write_string_to_file(message: &str, path: &str, file_name: &str) -> Result<()> {
     // Create path if it doesn't exist
-    if !Path::new(&path).exists() {
-        create_dir_all(Path::new(&path))?;
-    }
-    let mut file = File::create(file_name.to_owned())?;
+    create_dir_all(Path::new(&path))?;
+    let join = format!("{}{}", path, file_name);
+    let mut file = File::create(join.to_owned())?;
     file.write_all(&message.as_bytes())?;
     Ok(())
 }
@@ -53,10 +52,23 @@ fn get_libp2p_path() -> String {
     format!("{:?}{}", get_home_dir(), file)
 }
 
+// Test function
+// Please use with caution, remove_dir_all will completely delete a directory
+fn cleanup_file(path: &str) {
+    match remove_dir_all(path) {
+        Ok(_) => (),
+        Err(e) => {
+            println!("cleanup_file() failed: {:?}", e);
+            assert!(false);
+        },
+    }
+}
+
 #[test]
 fn test_write_string_to_file() {
-    let path = "./test_write_string";
-    match write_string_to_file("message", path) {
+    let path = "./test-write/";
+    let file = "test.txt";
+    match write_string_to_file("message", path, file) {
         Ok(_) => cleanup_file(path),
         Err(e) => {
             println!("{:?}", e);
@@ -68,12 +80,13 @@ fn test_write_string_to_file() {
 
 #[test]
 fn test_write_string_to_file_nested_dir() {
-    let path = "./missing_dir/test_write_string";
-    match write_string_to_file("message", path) {
-        Ok(_) => cleanup_file(path),
+    let root = "./test_missing";
+    let path = format!("{}{}", root, "/test_write_string/");
+    match write_string_to_file("message", &path, "test-file") {
+        Ok(_) => cleanup_file(root),
         Err(e) => {
             println!("{:?}", e);
-            cleanup_file(path);
+            cleanup_file(root);
             assert!(false);
         },
     }
@@ -82,20 +95,23 @@ fn test_write_string_to_file_nested_dir() {
 #[test]
 fn test_read_file() {
     let msg = "Hello World!";
-    let path = "./test_read_file";
-    match write_string_to_file(msg, path) {
-        Ok(_) => cleanup_file(path),
+    let path = "./test_read_file/";
+    let file_name = "out.keystore";
+    match write_string_to_file(msg, path, file_name) {
+        Ok(_) => (),
         Err(e) => assert!(false, e),
     }
-    match read_file(path.to_owned()) {
-        Ok(contents) => assert_eq!(contents, msg),
+    match read_file(format!("{}{}", path, file_name)) {
+        Ok(contents) => {
+            cleanup_file(path);
+            assert_eq!(contents, msg)
+        },
         Err(e) => {
             println!("{:?}", e);
             cleanup_file(path);
             assert!(false);
         },
     }
-
 }
 
 #[test]
@@ -104,14 +120,4 @@ fn test_get_libp2p_path() {
     let path = get_libp2p_path();
     let ending = "/.ferret/libp2p";
     assert!(path.ends_with(ending));
-}
-
-fn cleanup_file(path: &str) {
-    match remove_file(path) {
-        Ok(_) => cleanup_file(path),
-        Err(e) => {
-            println!("cleanup_file() failed: {:?}", e);
-            assert!(false);
-        },
-    }
 }
