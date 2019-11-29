@@ -37,7 +37,7 @@ impl Message {
 }
 
 impl Cbor for Message {
-    fn unmarshall_cbor(_bz: &mut [u8]) -> Result<Self, EncodingError> {
+    fn unmarshall_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
         // TODO
         Err(EncodingError::Unmarshalling {
             description: "Not Implemented".to_string(),
