@@ -43,15 +43,6 @@ fn get_home_dir() -> String {
     home_dir().unwrap().to_str().unwrap().to_owned()
 }
 
-// libp2p specific methods
-
-/// Returns a formatted String to the local libp2p directory
-fn get_libp2p_path() -> String {
-    // TODO remove hardcoded `file`
-    let file = "/.ferret/libp2p";
-    format!("{:?}{}", get_home_dir(), file)
-}
-
 // Test function
 // Please use with caution, remove_dir_all will completely delete a directory
 fn cleanup_file(path: &str) {
@@ -112,12 +103,4 @@ fn test_read_file() {
             assert!(false);
         }
     }
-}
-
-#[test]
-fn test_get_libp2p_path() {
-    // This issue is OS specific testing is very difficult
-    let path = get_libp2p_path();
-    let ending = "/.ferret/libp2p";
-    assert!(path.ends_with(ending));
 }
