@@ -72,7 +72,7 @@ impl Tipset {
             }
             // push headers into vec for sorting
             sorted_headers.push(headers[i].clone());
-            // push header cid into vec for tie breaker
+            // push header cid into vec for unqiue check
             sorted_cids.push(headers[i].clone().cid());
             i += 1;
         }
