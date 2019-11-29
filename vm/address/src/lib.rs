@@ -169,20 +169,37 @@ impl Address {
     }
 }
 
+use serde_cbor::{from_slice, to_vec};
+
+// TODO: Verify intermediate value for cbor encoding is correct on these
 impl Cbor for Address {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
+    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, EncodingError> {
+        // Convert cbor encoded to bytes
+        let mut vec: Vec<u8> = from_slice(bz)?;
+        // Remove protocol byte
+        let protocol = Protocol::from_byte(vec.remove(0)).ok_or(EncodingError::Marshalling {
+            description: format!("Invalid protocol byte: {}", bz[0]),
             protocol: CodecProtocol::Cbor,
-        })
+        })?;
+        // Create and return created address of unmarshalled bytes
+        Ok(Address::new(protocol, vec)?)
     }
     fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
+        // Clone payload bytes
+        let mut bz = self.payload().clone();
+        // Insert protocol byte
+        bz.insert(0, self.protocol as u8);
+        // encode bytes
+        Ok(to_vec(&bz)?)
+    }
+}
+
+impl From<Error> for EncodingError {
+    fn from(err: Error) -> EncodingError {
+        EncodingError::Marshalling {
+            description: err.to_string(),
             protocol: CodecProtocol::Cbor,
-        })
+        }
     }
 }
 
