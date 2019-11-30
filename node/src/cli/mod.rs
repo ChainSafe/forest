@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use slog::*;
-pub(super) fn cli(log: Logger) {
+pub(super) fn cli(log: &Logger) {
     let app = App::new("Ferret")
         .version("0.0.1")
         .author("ChainSafe Systems <info@chainsafe.io>")
