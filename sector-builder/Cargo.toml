@@ -9,6 +9,9 @@ repository = "https://github.com/filecoin-project/rust-fil-proofs"
 readme = "README.md"
 publish = false
 
+[badges]
+maintenance = { status = "deprecated" }
+
 [dependencies]
 bitvec = "0.11"
 failure = "0.1.5"
