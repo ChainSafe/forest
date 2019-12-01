@@ -48,12 +48,9 @@ fn get_home_dir() -> String {
 
 // Please use with caution, remove_dir_all will completely delete a directory
 fn cleanup_file(path: &str) {
-    match remove_dir_all(path) {
-        Ok(_) => (),
-        Err(e) => {
-            println!("cleanup_file() failed: {:?}", e);
-            assert!(false);
-        }
+    if let Err(e) = remove_dir_all(path) {
+        println!("cleanup_file() failed: {:?}", e);
+        panic!(false);
     }
 }
 
