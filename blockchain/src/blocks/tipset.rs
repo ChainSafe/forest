@@ -77,7 +77,7 @@ impl Tipset {
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
         sorted_headers.sort_by_key(|header| {
-            let h = header.clone();
+            let mut h = header.clone();
             (Reverse(h.ticket.sort_key()), h.cid().hash)
         });
 

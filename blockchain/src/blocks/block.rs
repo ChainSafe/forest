@@ -70,7 +70,7 @@ pub struct Block {
 
 impl BlockHeader {
     /// cid returns the content id of this header
-    pub fn cid(mut self) -> cid::Cid {
+    pub fn cid(&mut self) -> cid::Cid {
         // TODO
         // Encode blockheader into cache_bytes
         // Update codec to use DagCBOR

@@ -1,4 +1,4 @@
-pub mod block;
+mod block;
 mod errors;
 mod ticket;
 mod tipset;
