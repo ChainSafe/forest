@@ -9,6 +9,8 @@ use tokio::sync::mpsc;
 
 use tokio::runtime::TaskExecutor;
 
+use slog::{Logger, warn};
+
 /// Ingress events to the NetworkService
 pub enum NetworkMessage {
     PubsubMessage { topics: Topic, message: Vec<u8> },
@@ -41,6 +43,7 @@ impl NetworkService {
     /// ```
     pub fn new(
         config: &Libp2pConfig,
+        log: Logger,
         outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
         executor: &TaskExecutor,
     ) -> (
@@ -50,9 +53,9 @@ impl NetworkService {
     ) {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(config).unwrap()));
+        let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(log.clone(), config).unwrap()));
 
-        let exit_tx = start(libp2p_service.clone(), executor, outbound_transmitter, rx);
+        let exit_tx = start(log.clone(), libp2p_service.clone(), executor, outbound_transmitter, rx);
 
         (
             NetworkService {
@@ -68,6 +71,7 @@ enum Error {}
 
 /// Spawns the NetworkService service.
 fn start(
+    log: Logger,
     libp2p_service: Arc<Mutex<Libp2pService>>,
     executor: &TaskExecutor,
     outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
@@ -75,7 +79,7 @@ fn start(
 ) -> tokio::sync::oneshot::Sender<u8> {
     let (network_exit, exit_rx) = tokio::sync::oneshot::channel();
     executor.spawn(
-        poll(libp2p_service, outbound_transmitter, message_receiver)
+        poll(log, libp2p_service, outbound_transmitter, message_receiver)
             .select(exit_rx.then(|_| Ok(())))
             .then(move |_| Ok(())),
     );
@@ -84,6 +88,7 @@ fn start(
 }
 
 fn poll(
+    log: Logger,
     libp2p_service: Arc<Mutex<Libp2pService>>,
     mut outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
     mut message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
@@ -120,7 +125,7 @@ fn poll(
                             })
                             .is_err()
                         {
-                            println!("Can't handle message")
+                            warn!(log, "Cant handle message");
                         }
                     }
                 },

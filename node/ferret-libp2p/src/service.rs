@@ -8,7 +8,7 @@ use libp2p::{
 };
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-
+use slog::{Logger, info, debug, error};
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
@@ -19,17 +19,11 @@ pub struct Libp2pService {
 
 impl Libp2pService {
     /// Constructs a Libp2pService
-    ///
-    /// # Example
-    /// ```
-    /// let mut netcfg = Libp2pConfig::default();
-    /// let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(config).unwrap()));
-    /// ```
-    pub fn new(config: &Libp2pConfig) -> Result<Self, Error> {
+    pub fn new(log: Logger, config: &Libp2pConfig) -> Result<Self, Error> {
         // TODO @Greg do local storage
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
-        println!("Local peer id: {:?}", local_peer_id);
+        info!(log, "Local peer id: {:?}", local_peer_id);
 
         let transport = build_transport(local_key.clone());
 
@@ -42,10 +36,10 @@ impl Libp2pService {
             let dialing = node.clone();
             match node.parse() {
                 Ok(to_dial) => match Swarm::dial_addr(&mut swarm, to_dial) {
-                    Ok(_) => println!("Dialed {:?}", dialing),
-                    Err(e) => println!("Dial {:?} failed: {:?}", dialing, e),
+                    Ok(_) => debug!(log, "Dialed {:?}", dialing),
+                    Err(e) => debug!(log, "Dial {:?} failed: {:?}", dialing, e),
                 },
-                Err(err) => println!("Failed to parse address to dial: {:?}", err),
+                Err(err) => error!(log, "Failed to parse address to dial: {:?}", err),
             }
         }
 
