@@ -1,14 +1,13 @@
-use super::config::Libp2pConfig;
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
+use super::config::Libp2pConfig;
 use futures::{Async, Stream};
 use libp2p::{
-    core, core::muxing::StreamMuxerBox, core::nodes::Substream,
-    core::transport::boxed::Boxed, gossipsub::TopicHash, identity, mplex, secio, yamux, PeerId,
-    Swarm, Transport,
+    core, core::muxing::StreamMuxerBox, core::nodes::Substream, core::transport::boxed::Boxed,
+    gossipsub::TopicHash, identity, mplex, secio, yamux, PeerId, Swarm, Transport,
 };
+use slog::{debug, error, info, Logger};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-use slog::{Logger, info, debug, error};
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
@@ -45,7 +44,12 @@ impl Libp2pService {
 
         Swarm::listen_on(
             &mut swarm,
-            config.listening_multiaddr.parse().expect("Incorrect MultiAddr Format")).unwrap();
+            config
+                .listening_multiaddr
+                .parse()
+                .expect("Incorrect MultiAddr Format"),
+        )
+        .unwrap();
 
         for topic in config.pubsub_topics.clone() {
             swarm.subscribe(topic);

@@ -3,13 +3,13 @@ use ferret_libp2p::service::{Libp2pService, NetworkEvent};
 use futures::stream::Stream;
 use futures::Async;
 use futures::Future;
-use libp2p::{gossipsub::Topic};
+use libp2p::gossipsub::Topic;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 use tokio::runtime::TaskExecutor;
 
-use slog::{Logger, warn};
+use slog::{warn, Logger};
 
 /// Ingress events to the NetworkService
 pub enum NetworkMessage {
@@ -56,7 +56,13 @@ impl NetworkService {
 
         let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(log.clone(), config).unwrap()));
 
-        let exit_tx = start(log.clone(), libp2p_service.clone(), executor, outbound_transmitter, rx);
+        let exit_tx = start(
+            log.clone(),
+            libp2p_service.clone(),
+            executor,
+            outbound_transmitter,
+            rx,
+        );
 
         (
             NetworkService {
