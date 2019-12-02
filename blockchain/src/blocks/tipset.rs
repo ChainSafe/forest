@@ -5,7 +5,7 @@ use super::block::BlockHeader;
 use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
-
+use std::cmp::Reverse;
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
 pub struct Tipset {
@@ -33,60 +33,52 @@ impl Tipset {
         }
 
         let mut sorted_headers = Vec::new();
-        let mut sorted_cids = Vec::new();
-        let mut i = 0;
-        let size = headers.len() - 1;
+        let mut cids = Vec::new();
+
         // loop through headers and validate conditions against 0th header
-        while i <= size {
+        for i in 0..headers.len() {
             if i > 0 {
-                // skip redundant checks for first block
+                // Skip redundant check
                 // check height is equal
                 if headers[i].height != headers[0].height {
-                    return Err(Error::UndefinedTipSet);
+                    return Err(Error::UndefinedTipSet("heights are not equal"));
                 }
                 // check parent cids are equal
                 if !headers[i].parents.equals(headers[0].parents.clone()) {
-                    return Err(Error::UndefinedTipSet);
+                    return Err(Error::UndefinedTipSet("parent cids are not equal"));
                 }
                 // check weights are equal
                 if headers[i].weight != headers[0].weight {
-                    return Err(Error::UndefinedTipSet);
+                    return Err(Error::UndefinedTipSet("weights are not equal"));
                 }
                 // check state_roots are equal
                 if headers[i].state_root != headers[0].state_root.clone() {
-                    return Err(Error::UndefinedTipSet);
+                    return Err(Error::UndefinedTipSet("state_roots are not equal"));
                 }
                 // check epochs are equal
                 if headers[i].epoch != headers[0].epoch {
-                    return Err(Error::UndefinedTipSet);
+                    return Err(Error::UndefinedTipSet("epochs are not equal"));
                 }
                 // check message_receipts are equal
                 if headers[i].message_receipts != headers[0].message_receipts.clone() {
-                    return Err(Error::UndefinedTipSet);
+                    return Err(Error::UndefinedTipSet("message_receipts are not equal"));
                 }
                 // check miner_addresses are distinct
                 if headers[i].miner_address == headers[0].miner_address.clone() {
-                    return Err(Error::UndefinedTipSet);
+                    return Err(Error::UndefinedTipSet("miner_addresses are not distinct"));
                 }
             }
             // push headers into vec for sorting
             sorted_headers.push(headers[i].clone());
             // push header cid into vec for unique check
-            sorted_cids.push(headers[i].clone().cid());
-            i += 1;
+            cids.push(headers[i].clone().cid());
         }
 
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
-        sorted_headers.sort_by(|a, b| {
-            let a1 = a.clone();
-            let b1 = b.clone();
-
-            a1.ticket
-                .sort_key()
-                .cmp(&b1.ticket.sort_key())
-                .reverse()
-                .then(a1.cid().hash.cmp(&b1.cid().hash))
+        sorted_headers.sort_by_key(|header| {
+            let h = header.clone();
+            (Reverse(h.ticket.sort_key()), h.cid().hash)
         });
 
         // TODO
@@ -99,13 +91,13 @@ impl Tipset {
             blocks: sorted_headers,
             key: TipSetKeys {
                 // interim until CID check is in place
-                cids: sorted_cids,
+                cids,
             },
         })
     }
 
     /// min_ticket returns the smallest ticket of all blocks in the tipset
-    fn min_ticket(&self) -> Result<(Ticket), Error> {
+    fn min_ticket(&self) -> Result<Ticket, Error> {
         if self.blocks.is_empty() {
             return Err(Error::NoBlocks);
         }
@@ -156,13 +148,10 @@ impl TipSetKeys {
         if self.cids.len() != key.cids.len() {
             return false;
         }
-        let mut i = 0;
-        let size = key.cids.len() - 1;
-        while i <= size {
+        for i in 0..key.cids.len() {
             if self.cids[i] != key.cids[i] {
                 return false;
             }
-            i += 1;
         }
         true
     }
@@ -179,23 +168,10 @@ mod tests {
     const HEIGHT: u64 = 1;
     const CACHED_BYTES: u8 = 0;
 
-    // key_setup returns a vec of 3 distinct CIDs
-    fn key_setup() -> Vec<Cid> {
-        let data0 = b"awesome test content!";
-        let data1 = b"awesome test content am I right?";
-        let data2 = b"awesome test content but seriously right?";
-        let data3 = b"awesome test content for parents?";
-
-        let h = multihash::encode(multihash::Hash::SHA2256, data0).unwrap();
+    fn template_key(data: &[u8]) -> Cid {
+        let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
         let cid = Cid::new(Codec::DagProtobuf, Version::V1, &h);
-        let prefix = cid.prefix();
-
-        let cid2 = Cid::new_from_prefix(&prefix, data1);
-        let cid3 = Cid::new_from_prefix(&prefix, data2);
-        // parents needs its own unique CID
-        let cid4 = Cid::new_from_prefix(&prefix, data3);
-
-        return vec![cid.clone(), cid2.clone(), cid3.clone(), cid4.clone()];
+        return cid;
     }
 
     // template_header defines a block header used in testing
@@ -233,59 +209,68 @@ mod tests {
         ];
     }
 
-    fn setup() -> Result<(Tipset), Error> {
+    // key_setup returns a vec of 4 distinct CIDs
+    fn key_setup() -> Vec<Cid> {
+        return vec![
+            template_key(b"test content"),
+            template_key(b"awesome test content "),
+            template_key(b"even better test content"),
+            template_key(b"the best test content out there"),
+        ];
+    }
+
+    fn setup() -> Tipset {
         let headers = header_setup();
-        let tipset = Tipset::new(headers.clone())?;
-        Ok(tipset)
+        return Tipset::new(headers.clone()).expect("tipset is invalid");
     }
 
     #[test]
     fn new_test() {
         let headers = header_setup();
-        assert!(Tipset::new(headers).is_ok(), "result is okay!");
+        assert!(Tipset::new(headers).is_ok(), "result is invalid");
     }
 
     #[test]
     fn min_ticket_test() {
-        let tipset = setup().unwrap();
+        let tipset = setup();
         let min = Tipset::min_ticket(&tipset).unwrap();
         assert_eq!(min.vrfproof, tipset.blocks[0].ticket.vrfproof);
     }
 
     #[test]
     fn min_timestamp_test() {
-        let tipset = setup().unwrap();
+        let tipset = setup();
         let min_time = Tipset::min_timestamp(&tipset).unwrap();
         assert_eq!(min_time, tipset.blocks[1].timestamp);
     }
 
     #[test]
     fn len_test() {
-        let tipset = setup().unwrap();
+        let tipset = setup();
         assert_eq!(Tipset::len(&tipset), 3);
     }
 
     #[test]
     fn is_empty_test() {
-        let tipset = setup().unwrap();
+        let tipset = setup();
         assert_eq!(Tipset::is_empty(&tipset), false);
     }
 
     #[test]
     fn height_test() {
-        let tipset = setup().unwrap();
+        let tipset = setup();
         assert_eq!(Tipset::height(&tipset), tipset.blocks[1].height);
     }
 
     #[test]
     fn parents_test() {
-        let tipset = setup().unwrap();
+        let tipset = setup();
         assert_eq!(Tipset::parents(&tipset), tipset.blocks[1].parents);
     }
 
     #[test]
     fn weight_test() {
-        let tipset = setup().unwrap();
+        let tipset = setup();
         assert_eq!(Tipset::weight(&tipset), tipset.blocks[1].weight);
     }
 

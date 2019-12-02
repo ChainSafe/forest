@@ -3,14 +3,13 @@
 use super::ticket::{Ticket, VRFProofIndex};
 use super::TipSetKeys;
 
-extern crate multihash;
 use address::Address;
 use cid::{Cid, Codec, Prefix, Version};
 use multihash::Hash;
 use vm::message::Message;
 
 // DefaultHashFunction represents the default hashing function to use
-// SHOULD BE BLAKE2B
+// TODO SHOULD BE BLAKE2B
 const DEFAULT_HASH_FUNCTION: Hash = Hash::Keccak256;
 
 /// BlockHeader defines header of a block in the Filecoin blockchain
@@ -70,16 +69,14 @@ pub struct Block {
 }
 
 impl BlockHeader {
-    // cid returns the content id of this header
+    /// cid returns the content id of this header
     pub fn cid(mut self) -> cid::Cid {
         // TODO
+        // Encode blockheader into cache_bytes
+        // Update codec to use DagCBOR
+        // Change DEFAULT_HASH_FUNCTION to utilize blake2b
         //
-        // Currently content id for headers will be incomplete until the below
-        // points are resolved
-        //
-        // Requires encoding blockheader into cached_bytes which is currently unavailable
-        // Until mulithash supports blake2b using Keccak256 for mh_type
-        // Using DagProtobuf as placeholder
+        // Currently content id for headers will be incomplete until encoding and supporting libraries are completed
         let c = Prefix {
             version: Version::V1,
             codec: Codec::DagProtobuf,
@@ -88,6 +85,6 @@ impl BlockHeader {
         };
         let new_cid = cid::Cid::new_from_prefix(&c, &[self.cached_bytes]);
         self.cached_cid = new_cid;
-        self.cached_cid
+        self.cached_cid.clone()
     }
 }

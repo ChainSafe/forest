@@ -1,7 +1,7 @@
 pub mod block;
 mod errors;
-pub mod ticket;
-pub mod tipset;
+mod ticket;
+mod tipset;
 
 pub use block::*;
 pub use errors::*;
