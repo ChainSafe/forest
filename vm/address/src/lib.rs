@@ -124,7 +124,7 @@ impl Address {
 
     /// Generates new address using ID protocol
     pub fn new_id(id: u64) -> Result<Self, Error> {
-        let mut buf = [0; 1023];
+        let mut buf = [0; 1024];
 
         // write id to buffer in leb128 format
         let mut writable = &mut buf[..];
@@ -170,12 +170,10 @@ impl Address {
     }
 }
 
-// TODO: Verify intermediate value for cbor encoding is correct on these
 impl Cbor for Address {
     fn unmarshal_cbor(bz: &[u8]) -> Result<Self, EncodingError> {
         // Convert cbor encoded to bytes
         let mut d = Decoder::from_bytes(bz);
-        // let mut vec: Vec<u8> = d.decode().collect::<Result<_, _>>().unwrap();
         let mut vec: Vec<u8> = d.decode().next().ok_or(EncodingError::Marshalling {
             description: "No data could be decoded from byte string".to_owned(),
             protocol: CodecProtocol::Cbor,
@@ -228,7 +226,7 @@ fn encode(addr: &Address, network: Network) -> String {
             )
         }
         Protocol::ID => {
-            let mut buf = [0; 1023];
+            let mut buf = [0; 1024];
             buf[..addr.payload().len()].copy_from_slice(&addr.payload());
             let mut readable = &buf[..];
             format!(
