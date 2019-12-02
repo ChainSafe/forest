@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 /// VRFProofIndex is the proof output from running a VRF
 pub type VRFProofIndex = Vec<u8>;
 
