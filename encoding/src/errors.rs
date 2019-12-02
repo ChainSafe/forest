@@ -1,4 +1,4 @@
-use cbor::CborError;
+use serde_cbor::error::Error as CborError;
 use std::fmt;
 
 /// Error type for encoding and decoding data through any Ferret supported protocol
