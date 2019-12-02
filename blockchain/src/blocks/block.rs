@@ -57,7 +57,7 @@ pub struct BlockHeader {
     // BLSAggregateSig
     /// CACHE
     ///
-    pub cached_cid: cid::Cid,
+    pub cached_cid: Cid,
 
     pub cached_bytes: u8,
 }
@@ -70,7 +70,7 @@ pub struct Block {
 
 impl BlockHeader {
     /// cid returns the content id of this header
-    pub fn cid(&mut self) -> cid::Cid {
+    pub fn cid(&mut self) -> Cid {
         // TODO
         // Encode blockheader into cache_bytes
         // Update codec to use DagCBOR
@@ -83,7 +83,7 @@ impl BlockHeader {
             mh_type: DEFAULT_HASH_FUNCTION,
             mh_len: 0,
         };
-        let new_cid = cid::Cid::new_from_prefix(&c, &[self.cached_bytes]);
+        let new_cid = Cid::new_from_prefix(&c, &[self.cached_bytes]);
         self.cached_cid = new_cid;
         self.cached_cid.clone()
     }

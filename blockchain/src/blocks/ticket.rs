@@ -12,9 +12,3 @@ pub struct Ticket {
     /// A proof output by running a VRF on the VDFResult of the parent ticket
     pub vrfproof: VRFProofIndex,
 }
-
-impl Ticket {
-    pub fn sort_key(&self) -> Vec<u8> {
-        self.vrfproof.clone()
-    }
-}

@@ -2,7 +2,7 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    UndefinedTipSet(&'static str),
+    UndefinedTipSet(String),
     NoBlocks,
 }
 

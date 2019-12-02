@@ -41,31 +41,39 @@ impl Tipset {
                 // Skip redundant check
                 // check height is equal
                 if headers[i].height != headers[0].height {
-                    return Err(Error::UndefinedTipSet("heights are not equal"));
+                    return Err(Error::UndefinedTipSet("heights are not equal".to_string()));
                 }
                 // check parent cids are equal
                 if !headers[i].parents.equals(headers[0].parents.clone()) {
-                    return Err(Error::UndefinedTipSet("parent cids are not equal"));
+                    return Err(Error::UndefinedTipSet(
+                        "parent cids are not equal".to_string(),
+                    ));
                 }
                 // check weights are equal
                 if headers[i].weight != headers[0].weight {
-                    return Err(Error::UndefinedTipSet("weights are not equal"));
+                    return Err(Error::UndefinedTipSet("weights are not equal".to_string()));
                 }
                 // check state_roots are equal
                 if headers[i].state_root != headers[0].state_root.clone() {
-                    return Err(Error::UndefinedTipSet("state_roots are not equal"));
+                    return Err(Error::UndefinedTipSet(
+                        "state_roots are not equal".to_string(),
+                    ));
                 }
                 // check epochs are equal
                 if headers[i].epoch != headers[0].epoch {
-                    return Err(Error::UndefinedTipSet("epochs are not equal"));
+                    return Err(Error::UndefinedTipSet("epochs are not equal".to_string()));
                 }
                 // check message_receipts are equal
                 if headers[i].message_receipts != headers[0].message_receipts.clone() {
-                    return Err(Error::UndefinedTipSet("message_receipts are not equal"));
+                    return Err(Error::UndefinedTipSet(
+                        "message_receipts are not equal".to_string(),
+                    ));
                 }
                 // check miner_addresses are distinct
                 if headers[i].miner_address == headers[0].miner_address.clone() {
-                    return Err(Error::UndefinedTipSet("miner_addresses are not distinct"));
+                    return Err(Error::UndefinedTipSet(
+                        "miner_addresses are not distinct".to_string(),
+                    ));
                 }
             }
             // push headers into vec for sorting
@@ -78,7 +86,7 @@ impl Tipset {
         // break ticket ties with the header CIDs, which are distinct
         sorted_headers.sort_by_key(|header| {
             let mut h = header.clone();
-            (Reverse(h.ticket.sort_key()), h.cid().hash)
+            (Reverse(h.ticket.vrfproof.clone()), h.cid().hash)
         });
 
         // TODO
