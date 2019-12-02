@@ -33,13 +33,14 @@ impl NetworkService {
     /// use ferret_libp2p::service::NetworkEvent;
     /// use ferret_libp2p::config::Libp2pConfig;
     /// use std::sync::Arc;
+    /// use slog::Logger;
     ///
     ///
     /// let rt = Runtime::new().unwrap();
     /// let (tx, _rx) = mpsc::unbounded_channel::<NetworkEvent>();
     /// let tx = Arc::new(tx);
     /// let mut netcfg = Libp2pConfig::default();
-    /// let (network_service, mut net_tx, _exit_tx) = new(&netcfg, tx, &rt.executor());
+    /// let (network_service, mut net_tx, _exit_tx) = new(&netcfg, None, tx, &rt.executor());
     /// ```
     pub fn new(
         config: &Libp2pConfig,
