@@ -112,9 +112,16 @@ fn poll(
                         topics,
                         message,
                     } => {
-                       outbound_transmitter.try_send(NetworkEvent::PubsubMessage{
-                           source, topics, message
-                       }).map_err(|e| println!("Can't handle message"));
+                        if outbound_transmitter
+                            .try_send(NetworkEvent::PubsubMessage {
+                                source,
+                                topics,
+                                message,
+                            })
+                            .is_err()
+                        {
+                            println!("Can't handle message")
+                        }
                     }
                 },
                 Ok(Async::Ready(None)) => unreachable!("Stream never ends"),
