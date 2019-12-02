@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 blake2b_simd = "0.5.9"
-serde_cbor = "0.10.2"
+cbor = "0.4.1"

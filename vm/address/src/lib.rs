@@ -5,6 +5,7 @@ pub use self::errors::Error;
 pub use self::network::Network;
 pub use self::protocol::Protocol;
 
+use cbor::{CborBytes, Decoder, Encoder};
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
@@ -127,10 +128,10 @@ impl Address {
 
         // write id to buffer in leb128 format
         let mut writable = &mut buf[..];
-        leb128::write::unsigned(&mut writable, id).expect("Should write number");
+        let size = leb128::write::unsigned(&mut writable, id)?;
 
         // Create byte vector from buffer
-        let vec = Vec::from(&buf[..]);
+        let vec = Vec::from(&buf[..size]);
         Address::new(Protocol::ID, vec)
     }
     /// Generates new address using Secp256k1 pubkey
@@ -169,13 +170,16 @@ impl Address {
     }
 }
 
-use serde_cbor::{from_slice, to_vec};
-
 // TODO: Verify intermediate value for cbor encoding is correct on these
 impl Cbor for Address {
     fn unmarshal_cbor(bz: &[u8]) -> Result<Self, EncodingError> {
         // Convert cbor encoded to bytes
-        let mut vec: Vec<u8> = from_slice(bz)?;
+        let mut d = Decoder::from_bytes(bz);
+        // let mut vec: Vec<u8> = d.decode().collect::<Result<_, _>>().unwrap();
+        let mut vec: Vec<u8> = d.decode().next().ok_or(EncodingError::Marshalling {
+            description: "No data could be decoded from byte string".to_owned(),
+            protocol: CodecProtocol::Cbor,
+        })??;
         // Remove protocol byte
         let protocol = Protocol::from_byte(vec.remove(0)).ok_or(EncodingError::Marshalling {
             description: format!("Invalid protocol byte: {}", bz[0]),
@@ -190,7 +194,9 @@ impl Cbor for Address {
         // Insert protocol byte
         bz.insert(0, self.protocol as u8);
         // encode bytes
-        Ok(to_vec(&bz)?)
+        let mut e = Encoder::from_memory();
+        e.encode(&[CborBytes(bz)])?;
+        Ok(e.as_bytes().to_vec())
     }
 }
 
@@ -223,7 +229,7 @@ fn encode(addr: &Address, network: Network) -> String {
         }
         Protocol::ID => {
             let mut buf = [0; 1023];
-            buf.copy_from_slice(&addr.payload());
+            buf[..addr.payload().len()].copy_from_slice(&addr.payload());
             let mut readable = &buf[..];
             format!(
                 "{}{}{}",
