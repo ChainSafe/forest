@@ -50,7 +50,7 @@ fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
 }
 
 #[test]
-fn test_secp256k1_address() {
+fn secp256k1_address() {
     let test_vectors = vec![
         AddressTestVec {
             input: vec![
@@ -115,7 +115,7 @@ fn test_secp256k1_address() {
 }
 
 #[test]
-fn test_actor_address() {
+fn actor_address() {
     let test_vectors = vec![
         AddressTestVec {
             input: vec![
@@ -161,7 +161,7 @@ fn test_actor_address() {
 }
 
 #[test]
-fn test_bls_address() {
+fn bls_address() {
     let test_vectors = vec![
         AddressTestVec {
             input: vec![173, 88, 223, 105, 110, 45, 78, 145, 234, 134, 200, 129, 233, 56,
@@ -207,7 +207,7 @@ fn test_bls_address() {
 }
 
 #[test]
-fn test_id_address() {
+fn id_address() {
     struct IDTestVec {
         input: u64,
         expected: &'static str,
