@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use slog::*;
 
-use node::utils::{read_file, read_toml};
+use crate::utils::{read_file, read_toml};
 use serde_derive::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -42,7 +42,7 @@ pub(super) fn cli(log: &Logger) {
 
     if app.is_present("Ferret") {
         info!(log, "Ferret was run!");
-    };
+    }
 
     if let Some(ref config_file) = app.value_of("config") {
         // Read from config file
@@ -52,11 +52,9 @@ pub(super) fn cli(log: &Logger) {
         };
 
         // Parse config file
-        let c: Config = match read_toml(&toml) {
+        let _: Config = match read_toml(&toml) {
             Ok(contents) => contents,
             Err(e) => panic!("{:?}", e),
         };
-
-        println!("{:?}", c);
     };
 }
