@@ -73,13 +73,12 @@ impl BlockHeader {
     pub fn cid(&mut self) -> Cid {
         // TODO
         // Encode blockheader into cache_bytes
-        // Update codec to use DagCBOR
         // Change DEFAULT_HASH_FUNCTION to utilize blake2b
         //
         // Currently content id for headers will be incomplete until encoding and supporting libraries are completed
         let c = Prefix {
             version: Version::V1,
-            codec: Codec::DagProtobuf,
+            codec: Codec::DagCBOR,
             mh_type: DEFAULT_HASH_FUNCTION,
             mh_len: 0,
         };

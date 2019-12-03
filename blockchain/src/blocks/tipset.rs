@@ -5,7 +5,6 @@ use super::block::BlockHeader;
 use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
-use std::cmp::Reverse;
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
 pub struct Tipset {
@@ -86,7 +85,7 @@ impl Tipset {
         // break ticket ties with the header CIDs, which are distinct
         sorted_headers.sort_by_key(|header| {
             let mut h = header.clone();
-            (Reverse(h.ticket.vrfproof.clone()), h.cid().hash)
+            (h.ticket.vrfproof.clone(), h.cid().hash)
         });
 
         // TODO
@@ -171,7 +170,7 @@ mod tests {
     use address::Address;
     use cid::{Cid, Codec, Version};
 
-    const WEIGHT: u64 = 0;
+    const WEIGHT: u64 = 1;
     const EPOCH: u64 = 1;
     const HEIGHT: u64 = 1;
     const CACHED_BYTES: u8 = 0;
@@ -180,6 +179,16 @@ mod tests {
         let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
         let cid = Cid::new(Codec::DagProtobuf, Version::V1, &h);
         return cid;
+    }
+
+    // key_setup returns a vec of 4 distinct CIDs
+    fn key_setup() -> Vec<Cid> {
+        return vec![
+            template_key(b"test content"),
+            template_key(b"awesome test content "),
+            template_key(b"even better test content"),
+            template_key(b"the best test content out there"),
+        ];
     }
 
     // template_header defines a block header used in testing
@@ -200,7 +209,7 @@ mod tests {
             ticket: Ticket { vrfproof: ticket_p },
             election_proof: vec![],
             cached_cid: cid,
-            cached_bytes: 0,
+            cached_bytes: CACHED_BYTES,
         }
     }
 
@@ -211,19 +220,9 @@ mod tests {
         let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
         let cids = key_setup();
         return vec![
-            template_header(data1.clone(), cids[1].clone(), 1),
-            template_header(data0.clone(), cids[0].clone(), 2),
+            template_header(data0.clone(), cids[0].clone(), 1),
+            template_header(data1.clone(), cids[1].clone(), 2),
             template_header(data2.clone(), cids[2].clone(), 3),
-        ];
-    }
-
-    // key_setup returns a vec of 4 distinct CIDs
-    fn key_setup() -> Vec<Cid> {
-        return vec![
-            template_key(b"test content"),
-            template_key(b"awesome test content "),
-            template_key(b"even better test content"),
-            template_key(b"the best test content out there"),
         ];
     }
 
@@ -249,7 +248,7 @@ mod tests {
     fn min_timestamp_test() {
         let tipset = setup();
         let min_time = Tipset::min_timestamp(&tipset).unwrap();
-        assert_eq!(min_time, tipset.blocks[1].timestamp);
+        assert_eq!(min_time, 1);
     }
 
     #[test]
@@ -267,7 +266,7 @@ mod tests {
     #[test]
     fn height_test() {
         let tipset = setup();
-        assert_eq!(Tipset::height(&tipset), tipset.blocks[1].height);
+        assert_eq!(Tipset::height(&tipset), 1);
     }
 
     #[test]
@@ -279,7 +278,7 @@ mod tests {
     #[test]
     fn weight_test() {
         let tipset = setup();
-        assert_eq!(Tipset::weight(&tipset), tipset.blocks[1].weight);
+        assert_eq!(Tipset::weight(&tipset), 1);
     }
 
     #[test]
