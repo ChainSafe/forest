@@ -11,19 +11,6 @@ fn cleanup_file(path: &str) {
     }
 }
 
-#[derive(Deserialize)]
-struct Config {
-    ip: String,
-    port: Option<u16>,
-    keys: Keys,
-}
-
-#[derive(Deserialize)]
-struct Keys {
-    github: String,
-    travis: Option<String>,
-}
-
 #[test]
 fn test_write_string_to_file() {
     let path = "./test-write/";
@@ -72,6 +59,21 @@ fn test_read_file() {
             assert!(false);
         }
     }
+}
+
+// For test_read_toml()
+#[derive(Deserialize)]
+struct Config {
+    ip: String,
+    port: Option<u16>,
+    keys: Keys,
+}
+
+// For test_read_toml()
+#[derive(Deserialize)]
+struct Keys {
+    github: String,
+    travis: Option<String>,
 }
 
 // Test taken from https://docs.rs/toml/0.5.5/toml/
