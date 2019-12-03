@@ -3,10 +3,10 @@ use ferret_libp2p::service::{Libp2pService, NetworkEvent};
 use futures::stream::Stream;
 use futures::{Async, Future};
 use libp2p::gossipsub::Topic;
-use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
-use tokio::runtime::TaskExecutor;
 use slog::{warn, Logger};
+use std::sync::{Arc, Mutex};
+use tokio::runtime::TaskExecutor;
+use tokio::sync::mpsc;
 
 /// Ingress events to the NetworkService
 pub enum NetworkMessage {
