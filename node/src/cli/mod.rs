@@ -1,10 +1,28 @@
 use clap::{App, Arg};
 use slog::*;
 
-use super::utils::{read_file, read_toml};
+use node::utils::{read_file, read_toml};
+use serde_derive::Deserialize;
 
+#[derive(Debug, Deserialize)]
+#[serde(default)]
 struct Config {
-    port: u8,
+    network: Network,
+}
+
+#[derive(Debug, Deserialize)]
+struct Network {
+    port: u16,
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            network: Network {
+                port: 8545,
+            }
+        }
+    }
 }
 
 pub(super) fn cli(log: &Logger) {
@@ -26,16 +44,21 @@ pub(super) fn cli(log: &Logger) {
 
     if app.is_present("Ferret") {
         info!(log, "Ferret was run!");
-    }
+    };
 
     if let Some(ref config_file) = app.value_of("config") {
-        let toml = match read_file(config_file.to_owned()) {
+        // Read from config file
+        let toml = match read_file(config_file.to_string()) {
             Ok(contents) => contents,
             Err(e) => panic!("{:?}", e),
         };
-        let config: Config = match read_toml(toml) {
+
+        // Parse config file
+        let c: Config = match read_toml(&toml) {
             Ok(contents) => contents,
             Err(e) => panic!("{:?}", e),
-        }
-    }
+        };
+
+        println!("{:?}", c);
+    };
 }

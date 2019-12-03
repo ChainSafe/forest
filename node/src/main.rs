@@ -1,5 +1,6 @@
 mod cli;
 mod log;
+mod utils;
 use slog::*;
 
 use cli::cli;

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use dirs::home_dir;
 use serde;
 use std::fs::{create_dir_all, File};
