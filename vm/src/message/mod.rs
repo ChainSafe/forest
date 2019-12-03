@@ -5,10 +5,11 @@ pub use message_receipt::*;
 pub use signed_message::*;
 
 use address::Address;
+use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 use num_bigint::BigUint;
 
 /// VM message type which includes all data needed for a state transition
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Message {
     from: Address,
     to: Address,
@@ -33,13 +34,21 @@ impl Message {
     pub fn to(&self) -> Address {
         self.to.clone()
     }
-    // Marshalling and unmarshalling
-    pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+}
+
+impl Cbor for Message {
+    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
         // TODO
-        Err("Unmarshall cbor not implemented".to_owned())
+        Err(EncodingError::Unmarshalling {
+            description: "Not Implemented".to_string(),
+            protocol: CodecProtocol::Cbor,
+        })
     }
-    pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err("Marshall cbor not implemented".to_owned())
+        Err(EncodingError::Marshalling {
+            description: format!("Not implemented, data: {:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
 }

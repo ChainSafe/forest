@@ -3,7 +3,7 @@ use num_traits::FromPrimitive;
 use std::fmt;
 
 /// Protocol defines the addressing protocol used to derive data to an address
-#[derive(PartialEq, Copy, Clone, FromPrimitive)]
+#[derive(PartialEq, Copy, Clone, FromPrimitive, Debug)]
 pub enum Protocol {
     // ID protocol addressing
     ID = 0,

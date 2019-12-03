@@ -1,10 +1,9 @@
 use super::errors::Error;
 use address::{Address, Protocol};
-use blake2::digest::{Input, VariableOutput};
-use blake2::VarBlake2b;
 use bls_signatures::{
     hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
 };
+use encoding::blake2b_256;
 
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 
@@ -48,8 +47,7 @@ fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> bool {
 /// returns true if a secp256k1 signature is valid
 fn verify_secp256k1_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
     // blake2b 256 hash
-    let mut hash = [0u8; 32];
-    blake2b_256(data, &mut hash);
+    let hash = blake2b_256(data);
 
     // Ecrecover with hash and signature
     let mut signature = [0u8; 65];
@@ -84,17 +82,6 @@ fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
     let ret = key.serialize();
     let addr = Address::new_secp256k1(ret.to_vec())?;
     Ok(addr)
-}
-
-/// generates blake2b hash of 32 bytes
-fn blake2b_256(ingest: Vec<u8>, hash: &mut [u8; 32]) {
-    let mut hasher = VarBlake2b::new(32).unwrap();
-    hasher.input(ingest);
-
-    hasher.variable_result(|res| {
-        // Copy result slice to vector return
-        hash[..32].clone_from_slice(res);
-    });
 }
 
 #[cfg(test)]
