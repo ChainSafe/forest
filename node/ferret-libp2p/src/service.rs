@@ -32,11 +32,10 @@ impl Libp2pService {
         };
 
         for node in config.bootstrap_peers.clone() {
-            let dialing = node.clone();
             match node.parse() {
                 Ok(to_dial) => match Swarm::dial_addr(&mut swarm, to_dial) {
-                    Ok(_) => debug!(log, "Dialed {:?}", dialing),
-                    Err(e) => debug!(log, "Dial {:?} failed: {:?}", dialing, e),
+                    Ok(_) => debug!(log, "Dialed {:?}", node),
+                    Err(e) => debug!(log, "Dial {:?} failed: {:?}", node, e),
                 },
                 Err(err) => error!(log, "Failed to parse address to dial: {:?}", err),
             }
