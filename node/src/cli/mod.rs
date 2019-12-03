@@ -18,9 +18,7 @@ struct Network {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            network: Network {
-                port: 8545,
-            }
+            network: Network { port: 8545 },
         }
     }
 }
