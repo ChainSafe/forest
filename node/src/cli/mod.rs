@@ -1,5 +1,12 @@
 use clap::{App, Arg};
 use slog::*;
+
+use super::utils::{read_file, read_toml};
+
+struct Config {
+    port: u8,
+}
+
 pub(super) fn cli(log: &Logger) {
     let app = App::new("Ferret")
         .version("0.0.1")
@@ -22,6 +29,13 @@ pub(super) fn cli(log: &Logger) {
     }
 
     if let Some(ref config_file) = app.value_of("config") {
-        info!(log, "File path: {}", config_file);
+        let toml = match read_file(config_file.to_owned()) {
+            Ok(contents) => contents,
+            Err(e) => panic!("{:?}", e),
+        };
+        let config: Config = match read_toml(toml) {
+            Ok(contents) => contents,
+            Err(e) => panic!("{:?}", e),
+        }
     }
 }
