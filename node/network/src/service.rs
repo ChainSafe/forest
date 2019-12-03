@@ -37,7 +37,7 @@ impl NetworkService {
     ) {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(log.clone(), config).unwrap()));
+        let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(log.clone(), config)));
 
         let exit_tx = start(
             log.clone(),
