@@ -11,7 +11,7 @@ fn cleanup_file(path: &str) {
 }
 
 #[test]
-fn writ_to_file() {
+fn write_to_file() {
     let path = "./test-write/";
     let file = "test.txt";
     match write_string_to_file("message", path, file) {
