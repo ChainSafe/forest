@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
-extern crate dirs;
-
 #[cfg(test)]
 mod test;
 
 use dirs::home_dir;
+use serde;
 use std::fs::{create_dir_all, File};
 use std::io::{prelude::*, Result};
 use std::path::Path;
+use toml;
 
 /// Writes a &str to a specified file.
 ///
@@ -43,4 +43,32 @@ pub fn read_file(path: String) -> Result<String> {
 fn get_home_dir() -> String {
     // We will panic if we cannot determine a home directory.
     home_dir().unwrap().to_str().unwrap().to_owned()
+}
+
+/// Converts a toml
+///
+/// # Arguments
+///
+/// * `&str` - &str represenation of a toml file
+///
+/// # Example
+///
+/// #[derive(Deserialize)]
+/// struct Config {
+///     name: String
+/// };
+///
+/// let path = "./config.toml".to_owned();
+/// let toml_string = match read_file(path) {
+///     Ok(contents) => contents,
+///     Err(e) => panic!(e),
+/// };
+/// let config: Config = read_toml(toml_string);
+/// println!("{}", conifg.name);
+pub fn read_toml<S>(toml_string: &str) -> S
+where
+    for<'de> S: serde::de::Deserialize<'de>,
+{
+    let new_struct: S = toml::from_str(toml_string).unwrap();
+    new_struct
 }

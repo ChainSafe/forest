@@ -9,4 +9,10 @@ edition = "2018"
 [dependencies]
 clap = "2.33.0"
 dirs = "2.0.2"
+toml = "0.5.5"
 chrono = "0.4.9"
+serde = "1.0"
+
+[dev-dependencies]
+# Compiler bug requires serde to user serde_derive
+serde_derive = "1.0"
