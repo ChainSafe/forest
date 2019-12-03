@@ -1,14 +1,11 @@
 use ferret_libp2p::config::Libp2pConfig;
 use ferret_libp2p::service::{Libp2pService, NetworkEvent};
 use futures::stream::Stream;
-use futures::Async;
-use futures::Future;
+use futures::{Async, Future};
 use libp2p::gossipsub::Topic;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
-
 use tokio::runtime::TaskExecutor;
-
 use slog::{warn, Logger};
 
 /// Ingress events to the NetworkService
@@ -27,7 +24,7 @@ impl NetworkService {
     /// Returns an UnboundedSender channel so messages can come in.
     pub fn new(
         config: &Libp2pConfig,
-        log: Logger,
+        log: &Logger,
         outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
         executor: &TaskExecutor,
     ) -> (
@@ -37,7 +34,7 @@ impl NetworkService {
     ) {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(log.clone(), config)));
+        let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(log, config)));
 
         let exit_tx = start(
             log.clone(),

@@ -1,11 +1,8 @@
 use futures::Async;
 use libp2p::core::identity::Keypair;
-
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
-
 use libp2p::mdns::{Mdns, MdnsEvent};
-
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::tokio_io::{AsyncRead, AsyncWrite};
 use libp2p::NetworkBehaviour;

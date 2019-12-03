@@ -18,7 +18,7 @@ pub struct Libp2pService {
 
 impl Libp2pService {
     /// Constructs a Libp2pService
-    pub fn new(log: Logger, config: &Libp2pConfig) -> Self {
+    pub fn new(log: &Logger, config: &Libp2pConfig) -> Self {
         // TODO @Greg do local storage
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());

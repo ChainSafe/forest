@@ -30,7 +30,7 @@ fn main() {
     let netcfg = Libp2pConfig::default();
     // Start the NetworkService. Returns net_tx so  you can pass messages in.
     let (_network_service, _net_tx, _exit_tx) =
-        NetworkService::new(&netcfg, log.clone(), tx, &rt.executor());
+        NetworkService::new(&netcfg, &log, tx, &rt.executor());
 
     rt.shutdown_on_idle().wait().unwrap();
     info!(log, "Ferret finish shutdown");
