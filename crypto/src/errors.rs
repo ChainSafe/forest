@@ -1,4 +1,5 @@
 use address::Error as AddressError;
+use encoding::Error as EncodingError;
 use secp256k1::Error as SecpError;
 use std::error;
 use std::fmt;
@@ -47,10 +48,9 @@ impl From<SecpError> for Error {
     }
 }
 
-// TODO: Remove once cbor marshalling and unmarshalling implemented
-impl From<String> for Error {
-    fn from(err: String) -> Error {
+impl From<EncodingError> for Error {
+    fn from(err: EncodingError) -> Error {
         // Pass error encountered in signer trait as module error type
-        Error::SigningError(err)
+        Error::SigningError(err.to_string())
     }
 }

@@ -5,10 +5,9 @@ pub use self::errors::Error;
 pub use self::network::Network;
 pub use self::protocol::Protocol;
 
-use blake2::digest::{Input, VariableOutput};
-use blake2::VarBlake2b;
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
+use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
 use leb128;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -26,7 +25,7 @@ const TESTNET_PREFIX: &str = "t";
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Address {
     protocol: Protocol,
     payload: Vec<u8>,
@@ -168,25 +167,22 @@ impl Address {
             None => encode(self, Network::Testnet),
         }
     }
+}
 
-    // Marshalling and unmarshalling
-    pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+impl Cbor for Address {
+    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
         // TODO
-        Err("Unmarshall is unimplemented".to_owned())
+        Err(EncodingError::Unmarshalling {
+            description: "Not Implemented".to_string(),
+            protocol: CodecProtocol::Cbor,
+        })
     }
-    pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err("Marshall is unimplemented".to_owned())
-    }
-
-    // JSON Marshalling and unmarshalling
-    pub fn unmarshall_json(&mut self, _bz: &mut [u8]) -> Result<(), String> {
-        // TODO
-        Err("JSON unmarshall is unimplemented".to_owned())
-    }
-    pub fn marshall_json(&self) -> Result<Vec<u8>, String> {
-        // TODO
-        Err("JSON marshall is unimplemented".to_owned())
+        Err(EncodingError::Marshalling {
+            description: format!("Not implemented, data: {:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
 }
 
@@ -224,7 +220,7 @@ fn encode(addr: &Address, network: Network) -> String {
 
 /// Checksum calculates the 4 byte checksum hash
 pub fn checksum(ingest: Vec<u8>) -> Vec<u8> {
-    hash(ingest, CHECKSUM_HASH_LEN)
+    blake2b_variable(ingest, CHECKSUM_HASH_LEN)
 }
 
 /// Validates the checksum against the ingest data
@@ -235,21 +231,5 @@ pub fn validate_checksum(ingest: Vec<u8>, expect: Vec<u8>) -> bool {
 
 /// Returns an address hash for given data
 fn address_hash(ingest: Vec<u8>) -> Vec<u8> {
-    hash(ingest, PAYLOAD_HASH_LEN)
-}
-
-/// generates blake2b hash with provided size
-fn hash(ingest: Vec<u8>, size: usize) -> Vec<u8> {
-    let mut hasher = VarBlake2b::new(size).unwrap();
-    hasher.input(ingest);
-
-    // allocate hash result vector
-    let mut result: Vec<u8> = vec![0; size];
-
-    hasher.variable_result(|res| {
-        // Copy result slice to vector return
-        result[..size].clone_from_slice(res);
-    });
-
-    result
+    blake2b_variable(ingest, PAYLOAD_HASH_LEN)
 }

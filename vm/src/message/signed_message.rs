@@ -1,8 +1,9 @@
 use super::Message;
 use crypto::{Error as CryptoError, Signature, Signer};
+use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 
 /// SignedMessage represents a wrapped message with signature bytes
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct SignedMessage {
     pub(crate) message: Message,
     pub(crate) signature: Signature,
@@ -10,7 +11,7 @@ pub struct SignedMessage {
 
 impl SignedMessage {
     pub fn new(msg: &Message, s: impl Signer) -> Result<SignedMessage, CryptoError> {
-        let bz = msg.marshall_cbor()?;
+        let bz = msg.marshal_cbor()?;
 
         let sig = s.sign_bytes(bz, msg.from())?;
 
@@ -19,14 +20,21 @@ impl SignedMessage {
             signature: sig,
         })
     }
+}
 
-    // Marshalling and unmarshalling
-    pub fn unmarshall_cbor(&mut self, _bz: &mut [u8]) -> Result<(), String> {
+impl Cbor for SignedMessage {
+    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
         // TODO
-        Err("Unmarshall cbor not implemented".to_owned())
+        Err(EncodingError::Unmarshalling {
+            description: "Not Implemented".to_string(),
+            protocol: CodecProtocol::Cbor,
+        })
     }
-    pub fn marshall_cbor(&self) -> Result<Vec<u8>, String> {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO
-        Err("Marshall cbor not implemented".to_owned())
+        Err(EncodingError::Marshalling {
+            description: format!("Not implemented, data: {:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
     }
 }
