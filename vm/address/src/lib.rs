@@ -24,6 +24,7 @@ pub const CHECKSUM_HASH_LEN: usize = 4;
 const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
+const BUFFER_SIZE: usize = 1024;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
@@ -125,7 +126,7 @@ impl Address {
 
     /// Generates new address using ID protocol
     pub fn new_id(id: u64) -> Result<Self, Error> {
-        let mut buf = [0; 1024];
+        let mut buf = [0; BUFFER_SIZE];
 
         // write id to buffer in leb128 format
         let mut writable = &mut buf[..];
@@ -229,7 +230,7 @@ fn encode(addr: &Address, network: Network) -> String {
             )
         }
         Protocol::ID => {
-            let mut buf = [0; 1024];
+            let mut buf = [0; BUFFER_SIZE];
             buf[..addr.payload().len()].copy_from_slice(&addr.payload());
             let mut readable = &buf[..];
             format!(
