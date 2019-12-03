@@ -2,5 +2,8 @@
 A Filecoin implenetation written in Rust.
 
 ### Run
-1. `cargo run --bin node`
-2. `./target/debug/node --help`
+1. `make build`
+2. `./target/debug/node --help` 
+
+### Before Making a PR
+1. `make lint`

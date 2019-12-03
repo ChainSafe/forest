@@ -1,0 +1,15 @@
+[package]
+name = "network"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ferret-libp2p = { path = "../ferret-libp2p" }
+futures = "0.1.29"
+tokio = "0.1.22"
+libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "cdd5251d29e21a01aa2ffed8cb577a37a0f9e2eb" }
+log = "0.4.8"
+slog = "2.5.2"

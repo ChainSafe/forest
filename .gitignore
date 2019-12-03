@@ -3,3 +3,5 @@
 /Cargo.lock
 .idea/
 config.toml
+.DS_STORE
+.vscode
