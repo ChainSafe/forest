@@ -54,12 +54,8 @@ pub fn get_home_dir() -> String {
 /// };
 ///
 /// let path = "./config.toml".to_owned();
-/// let toml_string = match read_file(path) {
-///     Ok(contents) => contents,
-///     Err(e) => panic!(e),
-/// };
-/// let config: Config = read_toml(toml_string);
-/// println!("{}", conifg.name);
+/// let toml_string = read_file(path).unwrap();
+/// read_toml(toml_string)
 pub fn read_toml<S>(toml_string: &str) -> Result<S>
 where
     for<'de> S: serde::de::Deserialize<'de>,
