@@ -1,5 +1,4 @@
-#![cfg(all(test))]
-use crate::clock::ChainEpochClock;
+use node::clock::ChainEpochClock;
 
 #[test]
 fn create_chain_epoch_clock() {
