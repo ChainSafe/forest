@@ -76,7 +76,6 @@ impl Stream for Libp2pService {
                         topics,
                         message,
                     } => {
-                        let message = String::from_utf8(message).unwrap();
                         return Ok(Async::Ready(Option::from(NetworkEvent::PubsubMessage {
                             source,
                             topics,
@@ -99,7 +98,7 @@ pub enum NetworkEvent {
     PubsubMessage {
         source: PeerId,
         topics: Vec<TopicHash>,
-        message: String,
+        message: Vec<u8>,
     },
 }
 
