@@ -6,47 +6,43 @@ use std::fs::remove_dir_all;
 // Please use with caution, remove_dir_all will completely delete a directory
 fn cleanup_file(path: &str) {
     if let Err(e) = remove_dir_all(path) {
-        println!("cleanup_file() failed: {:?}", e);
-        panic!(false);
+        panic!("cleanup_file() failed: {:?}", e);
     }
 }
 
 #[test]
-fn test_write_string_to_file() {
+fn writ_to_file() {
     let path = "./test-write/";
     let file = "test.txt";
     match write_string_to_file("message", path, file) {
         Ok(_) => cleanup_file(path),
         Err(e) => {
-            println!("{:?}", e);
             cleanup_file(path);
-            assert!(false);
+            panic!("{:?}", e);
         }
     }
 }
 
 #[test]
-fn test_write_string_to_file_nested_dir() {
+fn write_string_to_file_nested_dir() {
     let root = "./test_missing";
     let path = format!("{}{}", root, "/test_write_string/");
     match write_string_to_file("message", &path, "test-file") {
         Ok(_) => cleanup_file(root),
         Err(e) => {
-            println!("{:?}", e);
             cleanup_file(root);
-            assert!(false);
+            panic!("{:?}", e);
         }
     }
 }
 
 #[test]
-fn test_read_file() {
+fn read_from_file() {
     let msg = "Hello World!";
     let path = "./test_read_file/";
     let file_name = "out.keystore";
-    match write_string_to_file(msg, path, file_name) {
-        Ok(_) => (),
-        Err(e) => assert!(false, e),
+    if let Err(e) = write_string_to_file(msg, path, file_name) {
+        panic!(e);
     }
     match read_file(format!("{}{}", path, file_name)) {
         Ok(contents) => {
@@ -54,9 +50,8 @@ fn test_read_file() {
             assert_eq!(contents, msg)
         }
         Err(e) => {
-            println!("{:?}", e);
             cleanup_file(path);
-            assert!(false);
+            panic!("{:?}", e);
         }
     }
 }
@@ -78,7 +73,7 @@ struct Keys {
 
 // Test taken from https://docs.rs/toml/0.5.5/toml/
 #[test]
-fn test_read_toml() {
+fn read_from_toml() {
     let toml_str = r#"
         ip = '127.0.0.1'
 
@@ -86,7 +81,10 @@ fn test_read_toml() {
         github = 'xxxxxxxxxxxxxxxxx'
         travis = 'yyyyyyyyyyyyyyyyy'
     "#;
-    let config: Config = read_toml(toml_str);
+    let config: Config = match read_toml(toml_str) {
+        Ok(contents) => contents,
+        Err(e) => panic!(e),
+    };
 
     assert_eq!(config.ip, "127.0.0.1");
     assert_eq!(config.port, None);

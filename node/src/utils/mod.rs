@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use dirs::home_dir;
 use serde;
 use std::fs::{create_dir_all, File};
@@ -62,10 +60,10 @@ pub fn get_home_dir() -> String {
 /// };
 /// let config: Config = read_toml(toml_string);
 /// println!("{}", conifg.name);
-pub fn read_toml<S>(toml_string: &str) -> S
+pub fn read_toml<S>(toml_string: &str) -> Result<S>
 where
     for<'de> S: serde::de::Deserialize<'de>,
 {
-    let new_struct: S = toml::from_str(toml_string).unwrap();
-    new_struct
+    let new_struct: S = toml::from_str(toml_string)?;
+    Ok(new_struct)
 }

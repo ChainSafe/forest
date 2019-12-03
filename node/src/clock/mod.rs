@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-extern crate chrono;
-
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 
 const ISO_FORMAT: &str = "%FT%X.%.9F";
