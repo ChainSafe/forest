@@ -10,3 +10,4 @@ edition = "2018"
 vm = {path = "../vm"}
 address = {path = "../vm/address"}
 cid = "0.3.1"
+multihash = "0.8.0"
