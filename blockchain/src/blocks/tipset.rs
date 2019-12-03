@@ -240,8 +240,9 @@ mod tests {
     #[test]
     fn min_ticket_test() {
         let tipset = setup();
+        let expected_value = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
         let min = Tipset::min_ticket(&tipset).unwrap();
-        assert_eq!(min.vrfproof, tipset.blocks[0].ticket.vrfproof);
+        assert_eq!(min.vrfproof, expected_value);
     }
 
     #[test]
@@ -272,7 +273,13 @@ mod tests {
     #[test]
     fn parents_test() {
         let tipset = setup();
-        assert_eq!(Tipset::parents(&tipset), tipset.blocks[1].parents);
+        let expected_value = template_key(b"the best test content out there");
+        assert_eq!(
+            Tipset::parents(&tipset),
+            TipSetKeys {
+                cids: vec!(expected_value)
+            }
+        );
     }
 
     #[test]
