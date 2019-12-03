@@ -1,8 +1,5 @@
 #![allow(dead_code)]
 
-#[cfg(test)]
-mod test;
-
 use dirs::home_dir;
 use serde;
 use std::fs::{create_dir_all, File};
@@ -17,7 +14,7 @@ use toml;
 /// * `message`   - Contents that will be written to the file
 /// * `path`      - Filesystem path of where the file will be written to
 /// * `file_name` - Desired filename
-fn write_string_to_file(message: &str, path: &str, file_name: &str) -> Result<()> {
+pub fn write_string_to_file(message: &str, path: &str, file_name: &str) -> Result<()> {
     // Create path if it doesn't exist
     create_dir_all(Path::new(&path))?;
     let join = format!("{}{}", path, file_name);
@@ -40,7 +37,7 @@ pub fn read_file(path: String) -> Result<String> {
 
 /// Gets the home directory of the current system.
 /// Will return correct path for windows, linux, and osx
-fn get_home_dir() -> String {
+pub fn get_home_dir() -> String {
     // We will panic if we cannot determine a home directory.
     home_dir().unwrap().to_str().unwrap().to_owned()
 }
