@@ -7,8 +7,7 @@ clean:
 	cargo clean -p crypto
 	cargo clean -p blockchain
 
-lint:
-	make clean
+lint: clean
 	cargo fmt
 	cargo clippy -- -D warnings
 
