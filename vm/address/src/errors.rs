@@ -1,5 +1,6 @@
 use super::{BLS_PUB_LEN, PAYLOAD_HASH_LEN};
 use data_encoding::DecodeError;
+use std::fmt;
 use std::num::ParseIntError;
 
 #[derive(Debug, PartialEq)]
@@ -14,8 +15,8 @@ pub enum Error {
     Base32Decoding(String),
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::UnknownNetwork => write!(f, "Unknown address network"),
             Error::UnknownProtocol => write!(f, "Unknown address protocol"),

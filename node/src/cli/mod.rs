@@ -1,6 +1,6 @@
 use clap::{App, Arg};
-
-pub(super) fn cli() {
+use slog::*;
+pub(super) fn cli(log: &Logger) {
     let app = App::new("Ferret")
         .version("0.0.1")
         .author("ChainSafe Systems <info@chainsafe.io>")
@@ -18,10 +18,10 @@ pub(super) fn cli() {
         .get_matches();
 
     if app.is_present("Ferret") {
-        println!("Ferret was run!")
+        info!(log, "Ferret was run!");
     }
 
     if let Some(ref config_file) = app.value_of("config") {
-        println!("File path: {}", config_file);
+        info!(log, "File path: {}", config_file);
     }
 }

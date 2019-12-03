@@ -1,7 +1,5 @@
-use super::errors::Error;
-use super::signature::Signature;
-use super::signer::Signer;
 use super::Message;
+use crypto::{Error as CryptoError, Signature, Signer};
 
 /// SignedMessage represents a wrapped message with signature bytes
 #[derive(PartialEq, Clone)]
@@ -11,10 +9,10 @@ pub struct SignedMessage {
 }
 
 impl SignedMessage {
-    pub fn new(msg: &Message, s: impl Signer) -> Result<SignedMessage, Error> {
+    pub fn new(msg: &Message, s: impl Signer) -> Result<SignedMessage, CryptoError> {
         let bz = msg.marshall_cbor()?;
 
-        let sig = s.sign_bytes(bz, msg.from.clone())?;
+        let sig = s.sign_bytes(bz, msg.from())?;
 
         Ok(SignedMessage {
             message: msg.clone(),
