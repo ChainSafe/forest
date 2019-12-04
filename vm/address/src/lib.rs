@@ -211,8 +211,7 @@ impl From<Error> for EncodingError {
 fn encode(addr: &Address, network: Network) -> String {
     match addr.protocol {
         Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
-            let mut ingest = addr.payload();
-            ingest.insert(0, addr.protocol() as u8);
+            let ingest = addr.to_bytes();
             let cksm = checksum(ingest);
             let mut bz = addr.payload();
 
