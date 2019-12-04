@@ -175,15 +175,15 @@ impl Address {
 impl Cbor for Address {
     fn unmarshal_cbor(bz: &[u8]) -> Result<Self, EncodingError> {
         // Convert cbor encoded to bytes
-        let mut vec: Vec<u8>;
-        if let Ok(Bytes(v)) = from_slice(bz) {
-            vec = v;
-        } else {
-            return Err(EncodingError::Unmarshalling {
-                description: "Could not decode as bytes".to_owned(),
-                protocol: CodecProtocol::Cbor,
-            });
-        }
+        let mut vec = match from_slice(bz) {
+            Ok(Bytes(v)) => v,
+            _ => {
+                return Err(EncodingError::Unmarshalling {
+                    description: "Could not decode as bytes".to_owned(),
+                    protocol: CodecProtocol::Cbor,
+                });
+            }
+        };
         // Remove protocol byte
         let protocol = Protocol::from_byte(vec.remove(0)).ok_or(EncodingError::Marshalling {
             description: format!("Invalid protocol byte: {}", bz[0]),
@@ -193,12 +193,8 @@ impl Cbor for Address {
         Ok(Address::new(protocol, vec)?)
     }
     fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // Clone payload bytes
-        let mut bz = self.payload().clone();
-        // Insert protocol byte
-        bz.insert(0, self.protocol as u8);
         // encode bytes
-        Ok(to_vec(&Bytes(bz))?)
+        Ok(to_vec(&Bytes(self.to_bytes()))?)
     }
 }
 
