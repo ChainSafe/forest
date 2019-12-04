@@ -6,6 +6,7 @@ clean:
 	cargo clean -p address
 	cargo clean -p crypto
 	cargo clean -p blockchain
+	cargo clean -p encoding
 
 lint: clean
 	cargo fmt
@@ -16,3 +17,8 @@ build:
 
 release:
 	cargo build --release
+
+test:
+	cargo test
+
+.PHONY: clean clean-all lint build release test
