@@ -1,25 +1,37 @@
+#![allow(dead_code)]
+
 use super::message::Message;
 use super::{ExitCode, TokenAmount};
 
 use address::Address;
 use cid::Cid;
 use crypto::Signature;
+use std::any::Any;
+
+// TODO: ref #64
+pub struct ChainEpoch;
+pub struct Randomness; // TODO
+pub struct CallerPattern; // TODO
+pub struct ActorStateHandle; // TODO
+pub struct IPLDObject; // TODO
+pub struct MethodParams; // TODO
+pub struct ComputeFunctionID; // TODO
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
 pub trait Runtime {
     /// Retrieves current epoch
-    fn curr_epoch(&self) -> (); // TODO define epoch
+    fn curr_epoch(&self) -> ChainEpoch; // TODO define epoch
 
     /// Randomness returns a (pseudo)random stream (indexed by offset) for the current epoch.
     // TODO define randomness/epoch variable
-    fn randomness(&self, epoch: (), offset: u64) -> ();
+    fn randomness(&self, epoch: ChainEpoch, offset: u64) -> Randomness;
 
     /// Not necessarily the actor in the From field of the initial on-chain Message.
     fn immediate_caller(&self) -> Address;
     fn validate_immediate_caller_is(&self, caller: Address);
     fn validate_immediate_caller_accept_any(&self);
-    fn validate_immediate_caller_matches(&self, caller_pattern: ()); // TODO add caller pattern
+    fn validate_immediate_caller_matches(&self, caller_pattern: CallerPattern); // TODO add caller pattern
 
     /// The address of the actor receiving the message.
     fn curr_receiver(&self) -> Address;
@@ -27,7 +39,7 @@ pub trait Runtime {
     /// The actor who mined the block in which the initial on-chain message appears.
     fn top_level_block_winner(&self) -> Address;
 
-    fn acquire_state(&self) -> (); // TODO add actor state handle
+    fn acquire_state(&self) -> ActorStateHandle; // TODO add actor state handle
 
     /// Return successfully from invocation.
     fn success_return(&self) -> InvocOutput;
@@ -67,7 +79,7 @@ pub trait Runtime {
     /// Run a (pure function) computation, consuming the gas cost associated with that function.
     /// This mechanism is intended to capture the notion of an ABI between the VM and native
     /// functions, and should be used for any function whose computation is expensive.
-    fn compute(&self, id: (), args: ()) -> (); // TODO define parameters
+    fn compute(&self, id: ComputeFunctionID, args: dyn Any) -> dyn Any; // TODO define parameters
 
     /// Send allows the current execution context to invoke methods on other actors in the system.
     // TODO determine if both are needed in our impl
@@ -85,18 +97,18 @@ pub trait Runtime {
         state_cid: Cid,
         a: Address,
         init_balance: TokenAmount,
-        constructor_params: (), // TODO define params
+        constructor_params: dyn Any, // TODO define params
     );
 
-    fn ipld_get(&self, c: Cid) -> Result<Vec<u8>, ()>; // TODO add error type
-    fn ipld_put(&self, object: ()) -> Cid; // TODO define IPLD object
+    fn ipld_get(&self, c: Cid) -> Result<Vec<u8>, String>; // TODO add error type
+    fn ipld_put(&self, object: IPLDObject) -> Cid; // TODO define IPLD object
 }
 
 /// Input variables for actor method invocation.
 pub struct InvocInput {
     pub to: Address,
-    pub method: i32, // TODO define method number type
-    pub params: (),  // TODO define method params
+    pub method: i32,          // TODO define method number type
+    pub params: MethodParams, // TODO define method params
     pub value: TokenAmount,
 }
 
