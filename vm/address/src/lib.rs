@@ -185,7 +185,7 @@ impl Cbor for Address {
             }
         };
         // Remove protocol byte
-        let protocol = Protocol::from_byte(vec.remove(0)).ok_or(EncodingError::Marshalling {
+        let protocol = Protocol::from_byte(vec.remove(0)).ok_or(EncodingError::Unmarshalling {
             description: format!("Invalid protocol byte: {}", bz[0]),
             protocol: CodecProtocol::Cbor,
         })?;
