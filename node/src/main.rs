@@ -15,7 +15,7 @@ fn main() {
 
     // Capture CLI inputs
     let config = cli(&log);
-    println!("{:?}", config);
+
     // Create the tokio runtime
     let rt = Runtime::new().unwrap();
 
