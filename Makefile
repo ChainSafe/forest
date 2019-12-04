@@ -3,6 +3,8 @@ clean-all:
 
 clean:
 	cargo clean -p node
+	cargo clean -p ferret-libp2p
+	cargo clean -p network
 	cargo clean -p blockchain
 	cargo clean -p vm
 	cargo clean -p address
