@@ -1,29 +1,12 @@
+mod config;
+
+pub use config::Config;
+
 use clap::{App, Arg};
+use node::utils::{read_file, read_toml};
 use slog::*;
 
-use crate::utils::{read_file, read_toml};
-use serde_derive::Deserialize;
-
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-struct Config {
-    network: Network,
-}
-
-#[derive(Debug, Deserialize)]
-struct Network {
-    port: u16,
-}
-
-impl Default for Config {
-    fn default() -> Config {
-        Config {
-            network: Network { port: 8545 },
-        }
-    }
-}
-
-pub(super) fn cli(log: &Logger) {
+pub(super) fn cli(log: &Logger) -> Config {
     let app = App::new("Ferret")
         .version("0.0.1")
         .author("ChainSafe Systems <info@chainsafe.io>")
@@ -51,10 +34,13 @@ pub(super) fn cli(log: &Logger) {
             Err(e) => panic!("{:?}", e),
         };
 
-        // Parse config file
-        let _: Config = match read_toml(&toml) {
+        // Parse and return the configuration file
+        return match read_toml(&toml) {
             Ok(contents) => contents,
             Err(e) => panic!("{:?}", e),
         };
     };
+    // TODO in future parse all flags and append to a configuraiton object
+    // Retrun defaults
+    Config::default()
 }
