@@ -9,6 +9,8 @@ use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
 use leb128;
+use serde_cbor::Value::Bytes;
+use serde_cbor::{from_slice, to_vec};
 
 /// defines the encoder for base32 encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {
@@ -22,6 +24,7 @@ pub const CHECKSUM_HASH_LEN: usize = 4;
 const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
+const BUFFER_SIZE: usize = 1024;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
@@ -123,14 +126,14 @@ impl Address {
 
     /// Generates new address using ID protocol
     pub fn new_id(id: u64) -> Result<Self, Error> {
-        let mut buf = [0; 1023];
+        let mut buf = [0; BUFFER_SIZE];
 
         // write id to buffer in leb128 format
         let mut writable = &mut buf[..];
-        leb128::write::unsigned(&mut writable, id).expect("Should write number");
+        let size = leb128::write::unsigned(&mut writable, id)?;
 
         // Create byte vector from buffer
-        let vec = Vec::from(&buf[..]);
+        let vec = Vec::from(&buf[..size]);
         Address::new(Protocol::ID, vec)
     }
     /// Generates new address using Secp256k1 pubkey
@@ -170,19 +173,37 @@ impl Address {
 }
 
 impl Cbor for Address {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
+    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, EncodingError> {
+        // Convert cbor encoded to bytes
+        let mut vec = match from_slice(bz) {
+            Ok(Bytes(v)) => v,
+            _ => {
+                return Err(EncodingError::Unmarshalling {
+                    description: "Could not decode as bytes".to_owned(),
+                    protocol: CodecProtocol::Cbor,
+                });
+            }
+        };
+        // Remove protocol byte
+        let protocol = Protocol::from_byte(vec.remove(0)).ok_or(EncodingError::Unmarshalling {
+            description: format!("Invalid protocol byte: {}", bz[0]),
             protocol: CodecProtocol::Cbor,
-        })
+        })?;
+        // Create and return created address of unmarshalled bytes
+        Ok(Address::new(protocol, vec)?)
     }
     fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
+        // encode bytes
+        Ok(to_vec(&Bytes(self.to_bytes()))?)
+    }
+}
+
+impl From<Error> for EncodingError {
+    fn from(err: Error) -> EncodingError {
+        EncodingError::Marshalling {
+            description: err.to_string(),
             protocol: CodecProtocol::Cbor,
-        })
+        }
     }
 }
 
@@ -190,8 +211,7 @@ impl Cbor for Address {
 fn encode(addr: &Address, network: Network) -> String {
     match addr.protocol {
         Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
-            let mut ingest = addr.payload();
-            ingest.insert(0, addr.protocol() as u8);
+            let ingest = addr.to_bytes();
             let cksm = checksum(ingest);
             let mut bz = addr.payload();
 
@@ -205,8 +225,8 @@ fn encode(addr: &Address, network: Network) -> String {
             )
         }
         Protocol::ID => {
-            let mut buf = [0; 1023];
-            buf.copy_from_slice(&addr.payload());
+            let mut buf = [0; BUFFER_SIZE];
+            buf[..addr.payload().len()].copy_from_slice(&addr.payload());
             let mut readable = &buf[..];
             format!(
                 "{}{}{}",

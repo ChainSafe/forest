@@ -1,6 +1,7 @@
 use address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
+use encoding::Cbor;
 
 #[test]
 fn bytes() {
@@ -38,20 +39,18 @@ fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
 
     // Test decoding from string
     let decoded = Address::from_string(expected.to_owned()).unwrap();
-    assert!(protocol == decoded.protocol());
+    assert_eq!(protocol, decoded.protocol());
 
     assert_eq!(addr.payload(), decoded.payload());
-    assert!(addr.protocol() == decoded.protocol());
+    assert_eq!(addr.protocol(), decoded.protocol());
 
     // Test encoding and decoding from bytes
     let from_bytes = Address::from_bytes(decoded.to_bytes()).unwrap();
     assert!(decoded == from_bytes);
-
-    // TODO: test cbor encoding and decoding
 }
 
 #[test]
-fn test_secp256k1_address() {
+fn secp256k1_address() {
     let test_vectors = vec![
         AddressTestVec {
             input: vec![
@@ -116,7 +115,7 @@ fn test_secp256k1_address() {
 }
 
 #[test]
-fn test_actor_address() {
+fn actor_address() {
     let test_vectors = vec![
         AddressTestVec {
             input: vec![
@@ -162,7 +161,7 @@ fn test_actor_address() {
 }
 
 #[test]
-fn test_bls_address() {
+fn bls_address() {
     let test_vectors = vec![
         AddressTestVec {
             input: vec![173, 88, 223, 105, 110, 45, 78, 145, 234, 134, 200, 129, 233, 56,
@@ -208,7 +207,7 @@ fn test_bls_address() {
 }
 
 #[test]
-fn test_id_address() {
+fn id_address() {
     struct IDTestVec {
         input: u64,
         expected: &'static str,
@@ -259,7 +258,7 @@ fn test_id_address() {
 }
 
 #[test]
-fn test_invalid_string_addresses() {
+fn invalid_string_addresses() {
     struct StringAddrVec {
         input: &'static str,
         expected: Error,
@@ -309,7 +308,7 @@ fn test_invalid_string_addresses() {
 }
 
 #[test]
-fn test_invalid_byte_addresses() {
+fn invalid_byte_addresses() {
     struct StringAddrVec {
         input: Vec<u8>,
         expected: Error,
@@ -379,5 +378,122 @@ fn test_invalid_byte_addresses() {
             Err(e) => assert_eq!(e, t.expected),
             _ => assert!(false, "Addresses should have errored"),
         };
+    }
+}
+
+#[test]
+fn cbor_encoding() {
+    struct StringAddrVec {
+        input: &'static str,
+        encoded: Vec<u8>,
+    }
+
+    let test_vectors = vec![
+        StringAddrVec{
+            input: "t00",
+            encoded: vec![66, 0, 0],
+        },
+        StringAddrVec{
+            input: "t01",
+            encoded: vec![66, 0, 1],
+        },
+        StringAddrVec{
+            input: "t010",
+            encoded: vec![66, 0, 10],
+        },
+        StringAddrVec{
+            input: "t0150",
+            encoded: vec![67, 0, 150, 1],
+        },
+        StringAddrVec{
+            input: "t0499",
+            encoded: vec![67, 0, 243, 3],
+        },
+        StringAddrVec{
+            input: "t01024",
+            encoded: vec![67, 0, 128, 8],
+        },
+        StringAddrVec{
+            input: "t01729",
+            encoded: vec![67, 0, 193, 13],
+        },
+        StringAddrVec{
+            input: "t0999999",
+            encoded: vec![68, 0, 191, 132, 61],
+        },
+        StringAddrVec{
+            input: "t15ihq5ibzwki2b4ep2f46avlkrqzhpqgtga7pdrq",
+            encoded: vec![85, 1, 234, 15, 14, 160, 57, 178, 145, 160, 240, 143, 209, 121, 224, 85, 106, 140, 50, 119, 192, 211],
+        },
+        StringAddrVec{
+            input: "t12fiakbhe2gwd5cnmrenekasyn6v5tnaxaqizq6a",
+            encoded: vec![85, 1, 209, 80, 5, 4, 228, 209, 172, 62, 137, 172, 137, 26, 69, 2, 88, 111, 171, 217, 180, 23],
+        },
+        StringAddrVec{
+            input: "t1wbxhu3ypkuo6eyp6hjx6davuelxaxrvwb2kuwva",
+            encoded: vec![85, 1, 176, 110, 122, 111, 15, 85, 29, 226, 97, 254, 58, 111, 225, 130, 180, 34, 238, 11, 198, 182],
+        },
+        StringAddrVec{
+            input: "t1xtwapqc6nh4si2hcwpr3656iotzmlwumogqbuaa",
+            encoded: vec![85, 1, 188, 236, 7, 192, 94, 105, 249, 36, 104, 226, 179, 227, 191, 119, 200, 116, 242, 197, 218, 140],
+        },
+        StringAddrVec{
+            input: "t1xcbgdhkgkwht3hrrnui3jdopeejsoatkzmoltqy",
+            encoded: vec![85, 1, 184, 130, 97, 157, 70, 85, 143, 61, 158, 49, 109, 17, 180, 141, 207, 33, 19, 39, 2, 106],
+        },
+        StringAddrVec{
+            input: "t17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy",
+            encoded: vec![85, 1, 253, 29, 15, 77, 252, 215, 233, 154, 252, 185, 154, 131, 38, 183, 220, 69, 157, 50, 198, 40],
+        },
+        StringAddrVec{
+            input: "t24vg6ut43yw2h2jqydgbg2xq7x6f4kub3bg6as6i",
+            encoded: vec![85, 2, 229, 77, 234, 79, 155, 197, 180, 125, 38, 24, 25, 130, 109, 94, 31, 191, 139, 197, 80, 59],
+        },
+        StringAddrVec{
+            input: "t25nml2cfbljvn4goqtclhifepvfnicv6g7mfmmvq",
+            encoded: vec![85, 2, 235, 88, 189, 8, 161, 90, 106, 222, 25, 208, 152, 150, 116, 20, 143, 169, 90, 129, 87, 198],
+        },
+        StringAddrVec{
+            input: "t2nuqrg7vuysaue2pistjjnt3fadsdzvyuatqtfei",
+            encoded: vec![85, 2, 109, 33, 19, 126, 180, 196, 129, 66, 105, 232, 148, 210, 150, 207, 101, 0, 228, 60, 215, 20],
+        },
+        StringAddrVec{
+            input: "t24dd4ox4c2vpf5vk5wkadgyyn6qtuvgcpxxon64a",
+            encoded: vec![85, 2, 224, 199, 199, 95, 130, 213, 94, 94, 213, 93, 178, 128, 51, 99, 13, 244, 39, 74, 152, 79],
+        },
+        StringAddrVec{
+            input: "t2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
+            encoded: vec![85, 2, 49, 107, 76, 31, 245, 212, 175, 183, 130, 108, 234, 181, 187, 15, 44, 62, 15, 54, 64, 83],
+        },
+        StringAddrVec{
+            input: "t3vvmn62lofvhjd2ugzca6sof2j2ubwok6cj4xxbfzz4yuxfkgobpihhd2thlanmsh3w2ptld2gqkn2jvlss4a",
+            encoded: vec![88, 49, 3, 173, 88, 223, 105, 110, 45, 78, 145, 234, 134, 200, 129, 233, 56, 186, 78, 168, 27, 57, 94, 18, 121, 123, 132, 185, 207, 49, 75, 149, 70, 112, 94, 131, 156, 122, 153, 214, 6, 178, 71, 221, 180, 249, 172, 122, 52, 20, 221],
+        },
+        StringAddrVec{
+            input: "t3wmuu6crofhqmm3v4enos73okk2l366ck6yc4owxwbdtkmpk42ohkqxfitcpa57pjdcftql4tojda2poeruwa",
+            encoded: vec![88, 49, 3, 179, 41, 79, 10, 46, 41, 224, 198, 110, 188, 35, 93, 47, 237, 202, 86, 151, 191, 120, 74, 246, 5, 199, 90, 246, 8, 230, 166, 61, 92, 211, 142, 168, 92, 168, 152, 158, 14, 253, 233, 24, 139, 56, 47, 147, 114, 70, 13],
+        },
+        StringAddrVec{
+            input: "t3s2q2hzhkpiknjgmf4zq3ejab2rh62qbndueslmsdzervrhapxr7dftie4kpnpdiv2n6tvkr743ndhrsw6d3a",
+            encoded: vec![88, 49, 3, 150, 161, 163, 228, 234, 122, 20, 212, 153, 133, 230, 97, 178, 36, 1, 212, 79, 237, 64, 45, 29, 9, 37, 178, 67, 201, 35, 88, 156, 15, 188, 126, 50, 205, 4, 226, 158, 215, 141, 21, 211, 125, 58, 170, 63, 230, 218, 51],
+        },
+        StringAddrVec{
+            input: "t3q22fijmmlckhl56rn5nkyamkph3mcfu5ed6dheq53c244hfmnq2i7efdma3cj5voxenwiummf2ajlsbxc65a",
+            encoded: vec![88, 49, 3, 134, 180, 84, 37, 140, 88, 148, 117, 247, 209, 111, 90, 172, 1, 138, 121, 246, 193, 22, 157, 32, 252, 51, 146, 29, 216, 181, 206, 28, 172, 108, 52, 143, 144, 163, 96, 54, 36, 246, 174, 185, 27, 100, 81, 140, 46, 128, 149],
+        },
+        StringAddrVec{
+            input: "t3u5zgwa4ael3vuocgc5mfgygo4yuqocrntuuhcklf4xzg5tcaqwbyfabxetwtj4tsam3pbhnwghyhijr5mixa",
+            encoded: vec![88, 49, 3, 167, 114, 107, 3, 128, 34, 247, 90, 56, 70, 23, 88, 83, 96, 206, 230, 41, 7, 10, 45, 157, 40, 113, 41, 101, 229, 242, 110, 204, 64, 133, 131, 130, 128, 55, 36, 237, 52, 242, 114, 3, 54, 240, 157, 182, 49, 240, 116],
+        },
+    ];
+
+    for t in test_vectors.iter() {
+        let res = Address::from_string(t.input.to_owned()).unwrap();
+        let encoded = res.marshal_cbor().unwrap();
+        // assert intermediate value is correct
+        assert_eq!(encoded.clone(), t.encoded);
+        let rec = Address::unmarshal_cbor(encoded.as_ref()).unwrap();
+        // assert decoded Address is equal to initial one
+        assert_eq!(rec, res);
     }
 }

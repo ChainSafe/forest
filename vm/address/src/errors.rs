@@ -1,7 +1,6 @@
 use super::{BLS_PUB_LEN, PAYLOAD_HASH_LEN};
 use data_encoding::DecodeError;
-use std::fmt;
-use std::num::ParseIntError;
+use std::{fmt, io, num};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -43,8 +42,15 @@ impl From<DecodeError> for Error {
         Error::Base32Decoding(e.to_string())
     }
 }
-impl From<ParseIntError> for Error {
-    fn from(_: ParseIntError) -> Error {
+
+impl From<num::ParseIntError> for Error {
+    fn from(_: num::ParseIntError) -> Error {
+        Error::InvalidPayload
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(_: io::Error) -> Error {
         Error::InvalidPayload
     }
 }

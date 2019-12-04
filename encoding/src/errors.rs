@@ -1,3 +1,4 @@
+use serde_cbor::error::Error as CborError;
 use std::fmt;
 
 /// Error type for encoding and decoding data through any Ferret supported protocol
@@ -53,8 +54,8 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<serde_cbor::error::Error> for Error {
-    fn from(err: serde_cbor::error::Error) -> Error {
+impl From<CborError> for Error {
+    fn from(err: CborError) -> Error {
         Error::Marshalling {
             description: err.to_string(),
             protocol: CodecProtocol::Cbor,
