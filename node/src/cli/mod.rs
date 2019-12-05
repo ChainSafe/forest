@@ -2,10 +2,10 @@ mod config;
 
 pub use config::Config;
 
-use std::io;
 use clap::{App, Arg};
 use node::utils::{read_file, read_toml};
-use slog::{Logger};
+use slog::Logger;
+use std::io;
 
 pub(super) fn cli(_log: &Logger) -> Result<Config, io::Error> {
     let app = App::new("Ferret")
