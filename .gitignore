@@ -1,7 +1,7 @@
 /target
 **/*.rs.bk
 /Cargo.lock
-.idea
+.idea/
+config.toml
 .DS_STORE
 .vscode
-.idea/

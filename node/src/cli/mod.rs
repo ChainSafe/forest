@@ -1,6 +1,12 @@
+mod config;
+
+pub use config::Config;
+
 use clap::{App, Arg};
+use node::utils::{read_file, read_toml};
 use slog::*;
-pub(super) fn cli(log: &Logger) {
+
+pub(super) fn cli(log: &Logger) -> Config {
     let app = App::new("Ferret")
         .version("0.0.1")
         .author("ChainSafe Systems <info@chainsafe.io>")
@@ -22,6 +28,19 @@ pub(super) fn cli(log: &Logger) {
     }
 
     if let Some(ref config_file) = app.value_of("config") {
-        info!(log, "File path: {}", config_file);
-    }
+        // Read from config file
+        let toml = match read_file(config_file.to_string()) {
+            Ok(contents) => contents,
+            Err(e) => panic!("{:?}", e),
+        };
+
+        // Parse and return the configuration file
+        return match read_toml(&toml) {
+            Ok(contents) => contents,
+            Err(e) => panic!("{:?}", e),
+        };
+    };
+    // TODO in future parse all flags and append to a configuraiton object
+    // Retrun defaults
+    Config::default()
 }

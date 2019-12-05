@@ -1,9 +1,14 @@
 use libp2p::gossipsub::Topic;
+use serde_derive::Deserialize;
 
+#[derive(Debug, Deserialize)]
+#[serde(default)]
 pub struct Libp2pConfig {
     pub listening_multiaddr: String,
-    pub pubsub_topics: Vec<Topic>,
     pub bootstrap_peers: Vec<String>,
+
+    #[serde(skip_deserializing)] // Always use default
+    pub pubsub_topics: Vec<Topic>,
 }
 
 impl Default for Libp2pConfig {
