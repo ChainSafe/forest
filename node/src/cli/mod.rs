@@ -2,11 +2,12 @@ mod config;
 
 pub use config::Config;
 
+use std::io;
 use clap::{App, Arg};
 use node::utils::{read_file, read_toml};
-use slog::*;
+use slog::{Logger};
 
-pub(super) fn cli(_log: &Logger) -> Result<Config> {
+pub(super) fn cli(_log: &Logger) -> Result<Config, io::Error> {
     let app = App::new("Ferret")
         .version("0.0.1")
         .author("ChainSafe Systems <info@chainsafe.io>")
