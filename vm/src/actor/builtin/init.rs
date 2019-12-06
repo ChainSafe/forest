@@ -3,6 +3,7 @@ use crate::actor::{
     METHOD_PLACEHOLDER,
 };
 use crate::runtime::{InvocOutput, Runtime};
+use crate::{ExitCode, SysCode};
 
 use address::Address;
 use encoding::Cbor;
@@ -66,7 +67,7 @@ impl ActorCode for InitActorCode {
         match InitMethod::from_method_num(method) {
             Some(InitMethod::Constructor) => {
                 InitActorCode::constructor(rt);
-                Ok(InvocOutput::default())
+                Ok(rt.value_return(vec![]))
             }
             Some(InitMethod::Exec) => {
                 // TODO get codeID from params
@@ -75,10 +76,13 @@ impl ActorCode for InitActorCode {
             }
             Some(InitMethod::GetActorIDForAddress) => {
                 // TODO get address from params
-                InitActorCode::get_actor_id_for_address(rt, Address::new_id(1).unwrap());
-                Ok(InvocOutput::default())
+                let actor =
+                    InitActorCode::get_actor_id_for_address(rt, Address::new_id(1).unwrap());
+                Ok(rt.value_return(actor.marshal_cbor()?))
             }
-            _ => Ok(InvocOutput::default()), // TODO output should be error
+            _ => Err(ActorError::Aborted(ExitCode::SystemErrorCode(
+                SysCode::InvalidMethod,
+            ))),
         }
     }
 }

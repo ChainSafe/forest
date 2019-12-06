@@ -11,7 +11,7 @@ pub const METHOD_CRON: isize = 2;
 
 /// Placeholder for non base methods for actors
 // TODO revisit on complete spec
-pub const METHOD_PLACEHOLDER: isize = -(1 << 30);
+pub const METHOD_PLACEHOLDER: isize = 3;
 
 pub struct MethodParams(pub Vec<u8>); // TODO
 

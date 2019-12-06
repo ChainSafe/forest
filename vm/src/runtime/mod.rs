@@ -1,8 +1,12 @@
 #![allow(dead_code)]
+mod input;
+mod output;
+
+pub use self::input::*;
+pub use self::output::*;
 
 use super::message::Message;
 use super::{ExitCode, TokenAmount};
-use crate::actor::MethodParams;
 
 use address::Address;
 use cid::Cid;
@@ -48,7 +52,8 @@ pub trait Runtime {
 
     /// Throw an error indicating a failure condition has occurred, from which the given actor
     /// code is unable to recover.
-    fn abort(&self, err_exit_code: ExitCode, msg: String);
+    // TODO determine if abort happens here
+    // fn abort(&self, err_exit_code: ExitCode, msg: String);
 
     /// Calls Abort with InvalidArguments error.
     fn abort_arg_msg(&self, msg: String);
@@ -102,19 +107,4 @@ pub trait Runtime {
 
     fn ipld_get(&self, c: Cid) -> Result<Vec<u8>, String>; // TODO add error type
     fn ipld_put(&self, object: IPLDObject) -> Cid; // TODO define IPLD object
-}
-
-/// Input variables for actor method invocation.
-pub struct InvocInput {
-    pub to: Address,
-    pub method: i32,          // TODO define method number type
-    pub params: MethodParams, // TODO define method params
-    pub value: TokenAmount,
-}
-
-/// Output variables for actor method invocation.
-#[derive(Default)]
-pub struct InvocOutput {
-    pub exit_code: ExitCode,
-    pub return_value: Vec<u8>,
 }
