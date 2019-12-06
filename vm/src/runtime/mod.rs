@@ -2,6 +2,7 @@
 
 use super::message::Message;
 use super::{ExitCode, TokenAmount};
+use crate::actor::MethodParams;
 
 use address::Address;
 use cid::Cid;
@@ -14,7 +15,6 @@ pub struct Randomness; // TODO
 pub struct CallerPattern; // TODO
 pub struct ActorStateHandle; // TODO
 pub struct IPLDObject; // TODO
-pub struct MethodParams; // TODO
 pub struct ComputeFunctionID; // TODO
 
 /// Runtime is the VM's internal runtime object.
@@ -113,6 +113,7 @@ pub struct InvocInput {
 }
 
 /// Output variables for actor method invocation.
+#[derive(Default)]
 pub struct InvocOutput {
     pub exit_code: ExitCode,
     pub return_value: Vec<u8>,

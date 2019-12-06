@@ -1,5 +1,5 @@
 /// ExitCode defines the exit code from the VM execution
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Default)]
 pub struct ExitCode {
     pub(crate) success: bool,
     pub(crate) system_error: i32,

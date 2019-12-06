@@ -1,9 +1,18 @@
+mod builtin;
 mod code;
+mod errors;
+mod method;
 
+pub use self::builtin::*;
 pub use self::code::*;
+pub use self::errors::Error;
+pub use self::method::*;
 
 use cid::Cid;
 use num_bigint::BigUint;
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Default)]
+pub struct ActorID(u64);
 
 /// State of all actor implementations
 #[derive(PartialEq, Eq, Clone, Debug)]
