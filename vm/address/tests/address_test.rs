@@ -507,7 +507,7 @@ fn address_hashmap() {
     let h1 = Address::new_id(1).unwrap();
     hm.insert(h1.clone(), 1);
     assert_eq!(hm.get(&h1).unwrap(), &1);
-    
+
     // insert other value
     let h2 = Address::new_id(2).unwrap();
     assert!(hm.get(&h2).is_none());
