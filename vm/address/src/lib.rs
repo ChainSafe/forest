@@ -11,7 +11,7 @@ use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
 use leb128;
 use serde_cbor::Value::Bytes;
 use serde_cbor::{from_slice, to_vec};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 /// defines the encoder for base32 encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {
@@ -29,10 +29,16 @@ const BUFFER_SIZE: usize = 1024;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
-#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Address {
     protocol: Protocol,
     payload: Vec<u8>,
+}
+
+impl Hash for Address {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_bytes().hash(state);
+    }
 }
 
 impl Address {
