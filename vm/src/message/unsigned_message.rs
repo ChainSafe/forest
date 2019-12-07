@@ -9,19 +9,16 @@ use num_bigint::BigUint;
 pub struct UnsignedMessage {
     from: Address,
     to: Address,
-
-    pub(crate) sequence: u64,
-
-    pub(crate) value: BigUint,
-
-    pub(crate) method_num: u64,
-    pub(crate) params: Vec<u8>,
-
-    pub(crate) gas_price: BigUint,
-    pub(crate) gas_limit: BigUint,
+    sequence: u64,
+    value: BigUint,
+    method_num: u64,
+    params: Vec<u8>,
+    gas_price: BigUint,
+    gas_limit: BigUint,
 }
 
 impl UnsignedMessage {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         from: Address,
         to: Address,
