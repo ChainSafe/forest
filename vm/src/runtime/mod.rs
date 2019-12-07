@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::message::Message;
+use super::message::UnsignedMessage;
 use super::{ExitCode, TokenAmount};
 
 use address::Address;
@@ -74,7 +74,7 @@ pub trait Runtime {
     /// Retrieves value received in VM.
     fn value_received(&self) -> TokenAmount;
 
-    fn verify_signature(&self, signer_actor: Address, sig: Signature, m: Message) -> bool;
+    fn verify_signature(&self, signer_actor: Address, sig: Signature, m: UnsignedMessage) -> bool;
 
     /// Run a (pure function) computation, consuming the gas cost associated with that function.
     /// This mechanism is intended to capture the notion of an ABI between the VM and native

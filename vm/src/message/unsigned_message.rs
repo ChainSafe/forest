@@ -1,66 +1,86 @@
-use super::{Message, UnsignedMessage};
+use super::Message;
 
 use address::Address;
-use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 use num_bigint::BigUint;
 
-/// SignedMessage represents a wrapped message with signature bytes
+/// VM message type which includes all data needed for a state transition
 #[derive(PartialEq, Clone, Debug)]
-pub struct SignedMessage {
-    pub(crate) message: UnsignedMessage,
-    pub(crate) signature: Signature,
+pub struct UnsignedMessage {
+    from: Address,
+    to: Address,
+
+    pub(crate) sequence: u64,
+
+    pub(crate) value: BigUint,
+
+    pub(crate) method_num: u64,
+    pub(crate) params: Vec<u8>,
+
+    pub(crate) gas_price: BigUint,
+    pub(crate) gas_limit: BigUint,
 }
 
-impl SignedMessage {
-    pub fn new(msg: &UnsignedMessage, s: impl Signer) -> Result<SignedMessage, CryptoError> {
-        let bz = msg.marshal_cbor()?;
-
-        let sig = s.sign_bytes(bz, msg.from())?;
-
-        Ok(SignedMessage {
-            message: msg.clone(),
-            signature: sig,
-        })
+impl UnsignedMessage {
+    pub fn new(
+        from: Address,
+        to: Address,
+        sequence: u64,
+        value: BigUint,
+        method_num: u64,
+        params: Vec<u8>,
+        gas_price: BigUint,
+        gas_limit: BigUint,
+    ) -> Self {
+        Self {
+            from,
+            to,
+            sequence,
+            value,
+            method_num,
+            params,
+            gas_price,
+            gas_limit,
+        }
     }
 }
 
-impl Message for SignedMessage {
+impl Message for UnsignedMessage {
     /// from returns the from address of the message
     fn from(&self) -> Address {
-        self.message.from()
+        self.from.clone()
     }
     /// to returns the destination address of the message
     fn to(&self) -> Address {
-        self.message.to()
+        self.to.clone()
     }
     /// sequence returns the message sequence or nonce
     fn sequence(&self) -> u64 {
-        self.message.sequence()
+        self.sequence
     }
     /// value returns the amount sent in message
     fn value(&self) -> BigUint {
-        self.message.value()
+        self.value.clone()
     }
     /// method_num returns the method number to be called
     fn method_num(&self) -> u64 {
-        self.message.method_num()
+        self.method_num
     }
     /// params returns the encoded parameters for the method call
     fn params(&self) -> Vec<u8> {
-        self.message.params()
+        self.params.clone()
     }
     /// gas_price returns gas price for the message
     fn gas_price(&self) -> BigUint {
-        self.message.gas_price()
+        self.gas_price.clone()
     }
     /// gas_limit returns the gas limit for the message
     fn gas_limit(&self) -> BigUint {
-        self.message.gas_limit()
+        self.gas_limit.clone()
     }
 }
 
-impl Cbor for SignedMessage {
+impl Cbor for UnsignedMessage {
     fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
         // TODO
         Err(EncodingError::Unmarshalling {

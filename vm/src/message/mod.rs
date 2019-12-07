@@ -1,54 +1,29 @@
 mod message_receipt;
 mod signed_message;
+mod unsigned_message;
 
 pub use message_receipt::*;
 pub use signed_message::*;
+pub use unsigned_message::*;
 
 use address::Address;
-use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 use num_bigint::BigUint;
 
-/// VM message type which includes all data needed for a state transition
-#[derive(PartialEq, Clone, Debug)]
-pub struct Message {
-    from: Address,
-    to: Address,
-
-    pub(crate) sequence: u64,
-
-    pub(crate) value: BigUint,
-
-    pub(crate) method_id: u64,
-    pub(crate) params: Vec<u8>,
-
-    pub(crate) gas_price: BigUint,
-    pub(crate) gas_limit: BigUint,
-}
-
-impl Message {
+pub trait Message {
     /// from returns the from address of the message
-    pub fn from(&self) -> Address {
-        self.from.clone()
-    }
+    fn from(&self) -> Address;
     /// to returns the destination address of the message
-    pub fn to(&self) -> Address {
-        self.to.clone()
-    }
-}
-
-impl Cbor for Message {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
+    fn to(&self) -> Address;
+    /// sequence returns the message sequence or nonce
+    fn sequence(&self) -> u64;
+    /// value returns the amount sent in message
+    fn value(&self) -> BigUint; // TODO change to TokenAmount
+    /// method_num returns the method number to be called
+    fn method_num(&self) -> u64; // TODO change to MethodNum
+    /// params returns the encoded parameters for the method call
+    fn params(&self) -> Vec<u8>; // TODO change to MethodParams
+    /// gas_price returns gas price for the message
+    fn gas_price(&self) -> BigUint;
+    /// gas_limit returns the gas limit for the message
+    fn gas_limit(&self) -> BigUint;
 }
