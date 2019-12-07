@@ -1,4 +1,4 @@
-use crate::actor::MethodParams;
+use crate::actor::{MethodNum, MethodParams};
 use crate::TokenAmount;
 
 use address::Address;
@@ -6,7 +6,7 @@ use address::Address;
 /// Input variables for actor method invocation.
 pub struct InvocInput {
     pub to: Address,
-    pub method: i32,          // TODO define method number type
-    pub params: MethodParams, // TODO define method params
+    pub method: MethodNum,
+    pub params: MethodParams,
     pub value: TokenAmount,
 }
