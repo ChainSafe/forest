@@ -37,6 +37,7 @@ impl CodeID {
 
 pub trait ActorCode {
     fn invoke_method(
+        &self,
         rt: &dyn Runtime,
         method: MethodNum,
         params: &MethodParams,

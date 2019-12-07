@@ -44,9 +44,11 @@ impl InitMethod {
 
 pub struct InitActorCode;
 impl InitActorCode {
-    pub(crate) fn constructor(_r: &dyn Runtime) {
+    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Acquire state
         // Update actor substate
+
+        rt.success_return()
     }
     pub(crate) fn exec(_r: &dyn Runtime, _code: CodeID, _params: &MethodParams) -> Address {
         // TODO
@@ -60,15 +62,13 @@ impl InitActorCode {
 
 impl ActorCode for InitActorCode {
     fn invoke_method(
+        &self,
         rt: &dyn Runtime,
         method: MethodNum,
         params: &MethodParams,
     ) -> Result<InvocOutput, ActorError> {
         match InitMethod::from_method_num(method) {
-            Some(InitMethod::Constructor) => {
-                InitActorCode::constructor(rt);
-                Ok(rt.value_return(vec![]))
-            }
+            Some(InitMethod::Constructor) => Ok(InitActorCode::constructor(rt)),
             Some(InitMethod::Exec) => {
                 // TODO get codeID from params
                 let addr = InitActorCode::exec(rt, CodeID::Init, params);
