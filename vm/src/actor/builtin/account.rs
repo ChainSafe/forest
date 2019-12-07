@@ -6,7 +6,7 @@ use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-/// AccountActorState has no internal state
+/// AccountActorState includes the address for the actor
 pub struct AccountActorState {
     pub address: Address,
 }
