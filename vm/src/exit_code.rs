@@ -3,7 +3,7 @@
 pub enum ExitCode {
     Success,
     SystemErrorCode(SysCode),
-    UserDefinedError(i32),
+    UserDefinedError(UserCode),
 }
 
 #[derive(PartialEq, Eq, Debug)]

@@ -1,6 +1,4 @@
-use crate::actor::{
-    ActorCode, Error as ActorError, MethodNum, MethodParams, METHOD_CONSTRUCTOR, METHOD_CRON,
-};
+use crate::actor::{ActorCode, MethodNum, MethodParams, METHOD_CONSTRUCTOR, METHOD_CRON};
 use crate::runtime::{InvocInput, InvocOutput, Runtime};
 use crate::{ExitCode, SysCode, TokenAmount};
 
@@ -74,19 +72,23 @@ impl ActorCode for CronActorCode {
         rt: &dyn Runtime,
         method: MethodNum,
         params: &MethodParams,
-    ) -> Result<InvocOutput, ActorError> {
+    ) -> InvocOutput {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {
                 rt.assert(params.0.is_empty());
-                Ok(CronActorCode::constructor(rt))
+                CronActorCode::constructor(rt)
             }
             Some(CronMethod::Cron) => {
                 rt.assert(params.0.is_empty());
-                Ok(self.epoch_tick(rt))
+                self.epoch_tick(rt)
             }
-            _ => Err(ActorError::Aborted(ExitCode::SystemErrorCode(
-                SysCode::InvalidMethod,
-            ))),
+            _ => {
+                rt.abort(
+                    ExitCode::SystemErrorCode(SysCode::InvalidMethod),
+                    "Invalid method",
+                );
+                panic!("")
+            }
         }
     }
 }

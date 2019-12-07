@@ -1,4 +1,4 @@
-use crate::actor::{Error, MethodNum, MethodParams};
+use crate::actor::{MethodNum, MethodParams};
 use crate::runtime::{InvocOutput, Runtime};
 use cid::Cid;
 
@@ -41,7 +41,7 @@ pub trait ActorCode {
         rt: &dyn Runtime,
         method: MethodNum,
         params: &MethodParams,
-    ) -> Result<InvocOutput, Error>;
+    ) -> InvocOutput;
 }
 
 #[cfg(test)]
