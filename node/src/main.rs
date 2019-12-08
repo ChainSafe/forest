@@ -14,7 +14,7 @@ fn main() {
     info!(log, "Starting Ferret");
 
     // Capture CLI inputs
-    let config = cli(&log);
+    let config = cli(&log).expect("CLI error");
 
     // Create the tokio runtime
     let rt = Runtime::new().unwrap();
