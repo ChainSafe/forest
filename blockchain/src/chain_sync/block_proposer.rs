@@ -1,4 +1,4 @@
-use crate::blocks::BlockMsg;
+use super::BlockMsg;
 use std::io;
 /// BlockProposer allows callers to propose new blocks for inclusion in the chain
 pub trait BlockProposer {
