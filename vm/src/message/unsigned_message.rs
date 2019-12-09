@@ -1,44 +1,60 @@
 use super::Message;
 
 use address::Address;
+use derive_builder::Builder;
 use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 use num_bigint::BigUint;
 
-/// VM message type which includes all data needed for a state transition
-#[derive(PartialEq, Clone, Debug)]
+/// Default Unsigned VM message type which includes all data needed for a state transition
+///
+/// Usage:
+/// ```
+/// use vm::message::UnsignedMessage;
+/// use num_bigint::BigUint;
+/// use address::Address;
+///
+/// // Use the builder pattern to generate a message
+/// let message = UnsignedMessage::builder()
+///     .to(Address::new_id(0).unwrap())
+///     .from(Address::new_id(1).unwrap())
+///     .sequence(0) // optional
+///     .value(BigUint::default()) // optional
+///     .method_num(0) // optional
+///     .params(vec![]) // optional
+///     .gas_limit(BigUint::default()) // optional
+///     .gas_price(BigUint::default()) // optional
+///     .build()
+///     .unwrap();
+///
+/// // Commands can be chained, or built seperately
+/// let mut message_builder = UnsignedMessage::builder();
+/// message_builder.sequence(1);
+/// message_builder.from(Address::new_id(0).unwrap());
+/// message_builder.to(Address::new_id(1).unwrap());
+/// let _ = message_builder.build().unwrap();
+/// ```
+#[derive(PartialEq, Clone, Debug, Builder)]
+#[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
     from: Address,
     to: Address,
+    #[builder(default)]
     sequence: u64,
+    #[builder(default)]
     value: BigUint,
+    #[builder(default)]
     method_num: u64,
+    #[builder(default)]
     params: Vec<u8>,
+    #[builder(default)]
     gas_price: BigUint,
+    #[builder(default)]
     gas_limit: BigUint,
 }
 
 impl UnsignedMessage {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        from: Address,
-        to: Address,
-        sequence: u64,
-        value: BigUint,
-        method_num: u64,
-        params: Vec<u8>,
-        gas_price: BigUint,
-        gas_limit: BigUint,
-    ) -> Self {
-        Self {
-            from,
-            to,
-            sequence,
-            value,
-            method_num,
-            params,
-            gas_price,
-            gas_limit,
-        }
+    pub fn builder() -> MessageBuilder {
+        MessageBuilder::default()
     }
 }
 
@@ -91,5 +107,65 @@ impl Cbor for UnsignedMessage {
             description: format!("Not implemented, data: {:?}", self),
             protocol: CodecProtocol::Cbor,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn message_builder() {
+        let to_addr = Address::new_id(1).unwrap();
+        let from_addr = Address::new_id(2).unwrap();
+
+        // Able to build with chaining just to and from fields
+        let message = UnsignedMessage::builder()
+            .to(to_addr.clone())
+            .from(from_addr.clone())
+            .sequence(0)
+            .value(BigUint::default())
+            .method_num(0)
+            .params(vec![])
+            .gas_limit(BigUint::default())
+            .gas_price(BigUint::default())
+            .build()
+            .unwrap();
+        assert_eq!(
+            message,
+            UnsignedMessage {
+                from: from_addr.clone(),
+                to: to_addr.clone(),
+                sequence: 0,
+                value: BigUint::default(),
+                method_num: 0,
+                params: Vec::default(),
+                gas_price: BigUint::default(),
+                gas_limit: BigUint::default(),
+            }
+        );
+
+        let mut mb = UnsignedMessage::builder();
+        mb.to(to_addr.clone());
+        mb.from(from_addr.clone());
+        {
+            // Test scoped modification still applies to builder
+            mb.sequence(1);
+        }
+        // test unwrapping
+        let u_msg = mb.build().unwrap();
+        assert_eq!(
+            u_msg,
+            UnsignedMessage {
+                from: from_addr.clone(),
+                to: to_addr.clone(),
+                sequence: 1,
+                value: BigUint::default(),
+                method_num: 0,
+                params: Vec::default(),
+                gas_price: BigUint::default(),
+                gas_limit: BigUint::default(),
+            }
+        );
     }
 }
