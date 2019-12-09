@@ -8,12 +8,12 @@ use num_bigint::BigUint;
 /// SignedMessage represents a wrapped message with signature bytes
 #[derive(PartialEq, Clone, Debug)]
 pub struct SignedMessage {
-    pub(crate) message: UnsignedMessage,
-    pub(crate) signature: Signature,
+    message: UnsignedMessage,
+    signature: Signature,
 }
 
 impl SignedMessage {
-    pub fn new(msg: &UnsignedMessage, s: impl Signer) -> Result<SignedMessage, CryptoError> {
+    pub fn new(msg: &UnsignedMessage, s: &impl Signer) -> Result<SignedMessage, CryptoError> {
         let bz = msg.marshal_cbor()?;
 
         let sig = s.sign_bytes(bz, msg.from())?;
@@ -22,6 +22,12 @@ impl SignedMessage {
             message: msg.clone(),
             signature: sig,
         })
+    }
+    pub fn message(&self) -> UnsignedMessage {
+        self.message.clone()
+    }
+    pub fn signature(&self) -> Signature {
+        self.signature.clone()
     }
 }
 

@@ -9,7 +9,7 @@ use num_bigint::BigUint;
 ///
 /// Usage:
 /// ```
-/// use vm::message::UnsignedMessage;
+/// use vm::message::{UnsignedMessage, Message};
 /// use num_bigint::BigUint;
 /// use address::Address;
 ///
@@ -31,7 +31,8 @@ use num_bigint::BigUint;
 /// message_builder.sequence(1);
 /// message_builder.from(Address::new_id(0).unwrap());
 /// message_builder.to(Address::new_id(1).unwrap());
-/// let _ = message_builder.build().unwrap();
+/// let msg = message_builder.build().unwrap();
+/// assert_eq!(msg.sequence(), 1);
 /// ```
 #[derive(PartialEq, Clone, Debug, Builder)]
 #[builder(name = "MessageBuilder")]
@@ -107,65 +108,5 @@ impl Cbor for UnsignedMessage {
             description: format!("Not implemented, data: {:?}", self),
             protocol: CodecProtocol::Cbor,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn message_builder() {
-        let to_addr = Address::new_id(1).unwrap();
-        let from_addr = Address::new_id(2).unwrap();
-
-        // Able to build with chaining just to and from fields
-        let message = UnsignedMessage::builder()
-            .to(to_addr.clone())
-            .from(from_addr.clone())
-            .sequence(0)
-            .value(BigUint::default())
-            .method_num(0)
-            .params(vec![])
-            .gas_limit(BigUint::default())
-            .gas_price(BigUint::default())
-            .build()
-            .unwrap();
-        assert_eq!(
-            message,
-            UnsignedMessage {
-                from: from_addr.clone(),
-                to: to_addr.clone(),
-                sequence: 0,
-                value: BigUint::default(),
-                method_num: 0,
-                params: Vec::default(),
-                gas_price: BigUint::default(),
-                gas_limit: BigUint::default(),
-            }
-        );
-
-        let mut mb = UnsignedMessage::builder();
-        mb.to(to_addr.clone());
-        mb.from(from_addr.clone());
-        {
-            // Test scoped modification still applies to builder
-            mb.sequence(1);
-        }
-        // test unwrapping
-        let u_msg = mb.build().unwrap();
-        assert_eq!(
-            u_msg,
-            UnsignedMessage {
-                from: from_addr.clone(),
-                to: to_addr.clone(),
-                sequence: 1,
-                value: BigUint::default(),
-                method_num: 0,
-                params: Vec::default(),
-                gas_price: BigUint::default(),
-                gas_limit: BigUint::default(),
-            }
-        );
     }
 }
