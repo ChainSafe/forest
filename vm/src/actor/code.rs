@@ -1,3 +1,5 @@
+use crate::actor::{Error, MethodNum, MethodParams};
+use crate::runtime::{InvocOutput, Runtime};
 use cid::Cid;
 
 /// CodeID is the reference to the code which is attached to the Actor state.
@@ -31,6 +33,14 @@ impl CodeID {
             _ => false,
         }
     }
+}
+
+pub trait ActorCode {
+    fn invoke_method(
+        rt: &dyn Runtime,
+        method: MethodNum,
+        params: &MethodParams,
+    ) -> Result<InvocOutput, Error>;
 }
 
 #[cfg(test)]

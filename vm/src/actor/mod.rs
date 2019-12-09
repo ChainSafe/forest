@@ -1,9 +1,36 @@
+mod builtin;
 mod code;
+mod errors;
+mod method;
 
+pub use self::builtin::*;
 pub use self::code::*;
+pub use self::errors::Error;
+pub use self::method::*;
 
 use cid::Cid;
+use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 use num_bigint::BigUint;
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Default)]
+pub struct ActorID(u64);
+
+impl Cbor for ActorID {
+    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
+        // TODO
+        Err(EncodingError::Unmarshalling {
+            description: "Not Implemented".to_string(),
+            protocol: CodecProtocol::Cbor,
+        })
+    }
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
+        // TODO
+        Err(EncodingError::Marshalling {
+            description: format!("Not implemented, data: {:?}", self),
+            protocol: CodecProtocol::Cbor,
+        })
+    }
+}
 
 /// State of all actor implementations
 #[derive(PartialEq, Eq, Clone, Debug)]
