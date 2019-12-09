@@ -87,7 +87,7 @@ impl ActorCode for CronActorCode {
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
                     "Invalid method",
                 );
-                panic!("")
+                unreachable!();
             }
         }
     }

@@ -84,7 +84,7 @@ impl ActorCode for InitActorCode {
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
                     "Invalid method",
                 );
-                panic!("")
+                unreachable!();
             }
         }
     }
