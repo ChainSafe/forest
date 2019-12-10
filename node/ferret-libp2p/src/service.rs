@@ -127,7 +127,7 @@ fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error>
 
 /// Fetch keypair from disk, or generate a new one if its not available
 fn get_keypair(log: &Logger) -> Keypair {
-    let path_to_keystore = format!("{}{}", get_home_dir(), "/.ferret/libp2p/keypair");
+    let path_to_keystore = get_home_dir() + "/.ferret/libp2p/keypair";
     let local_keypair = match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
             info!(log, "Networking keystore not found!");
@@ -161,7 +161,7 @@ fn generate_new_peer_id(log: &Logger) -> Keypair {
     info!(log, "Generated new keystore!");
 
     if let Keypair::Ed25519(key) = generated_keypair.clone() {
-        if let Err(e) = write_to_file(&key.encode().to_vec(), &path_to_keystore, "keypair") {
+        if let Err(e) = write_to_file(&key.encode(), &path_to_keystore, "keypair") {
             info!(log, "Could not write keystore to disk!");
             trace!(log, "Error {:?}", e);
         };
