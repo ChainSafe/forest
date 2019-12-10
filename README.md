@@ -1,5 +1,5 @@
 # Ferret
-A Filecoin implenetation written in Rust.
+A Filecoin implementation written in Rust.
 
 ### Run
 1. `make build`
