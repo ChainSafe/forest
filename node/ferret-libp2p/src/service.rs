@@ -27,7 +27,7 @@ impl Libp2pService {
         let transport = build_transport(local_key.clone());
 
         let mut swarm = {
-            let be = MyBehaviour::new(&local_key, log.clone());
+            let be = MyBehaviour::new(log.clone(), &local_key);
             Swarm::new(transport, be, local_peer_id)
         };
 

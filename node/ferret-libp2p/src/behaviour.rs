@@ -10,8 +10,7 @@ use libp2p::ping::{
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::tokio_io::{AsyncRead, AsyncWrite};
 use libp2p::NetworkBehaviour;
-use slog::debug;
-use slog::Logger;
+use slog::{debug, Logger};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MyBehaviourEvent", poll_method = "poll")]
@@ -74,38 +73,30 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     for MyBehaviour<TSubstream>
 {
     fn inject_event(&mut self, event: PingEvent) {
-        match event {
-            PingEvent {
-                peer,
-                result: Result::Ok(PingSuccess::Ping { rtt }),
-            } => {
+        match event.result {
+            Result::Ok(PingSuccess::Ping { rtt }) => {
                 debug!(
                     self.log,
                     "PingSuccess::Ping rtt to {} is {} ms",
-                    peer.to_base58(),
+                    event.peer.to_base58(),
                     rtt.as_millis()
                 );
             }
-            PingEvent {
-                peer,
-                result: Result::Ok(PingSuccess::Pong),
-            } => {
-                debug!(self.log, "PingSuccess::Pong from {}", peer.to_base58());
+            Result::Ok(PingSuccess::Pong) => {
+                debug!(
+                    self.log,
+                    "PingSuccess::Pong from {}",
+                    event.peer.to_base58()
+                );
             }
-            PingEvent {
-                peer,
-                result: Result::Err(PingFailure::Timeout),
-            } => {
-                debug!(self.log, "PingFailure::Timeout {}", peer.to_base58());
+            Result::Err(PingFailure::Timeout) => {
+                debug!(self.log, "PingFailure::Timeout {}", event.peer.to_base58());
             }
-            PingEvent {
-                peer,
-                result: Result::Err(PingFailure::Other { error }),
-            } => {
+            Result::Err(PingFailure::Other { error }) => {
                 debug!(
                     self.log,
                     "PingFailure::Other {}: {}",
-                    peer.to_base58(),
+                    event.peer.to_base58(),
                     error
                 );
             }
@@ -126,7 +117,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
-    pub fn new(local_key: &Keypair, log: Logger) -> Self {
+    pub fn new(log: Logger, local_key: &Keypair) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
         MyBehaviour {
