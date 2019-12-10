@@ -11,7 +11,7 @@ use num_bigint::BigUint;
 ///
 /// Usage:
 /// ```
-/// use vm::message::{UnsignedMessage, Message};
+/// use message::{UnsignedMessage, Message};
 /// use vm::{TokenAmount, MethodParams, MethodNum};
 /// use num_bigint::BigUint;
 /// use address::Address;
