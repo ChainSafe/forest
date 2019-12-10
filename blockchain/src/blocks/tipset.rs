@@ -159,10 +159,9 @@ impl TipSetKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::block::TxMeta;
+    use crate::blocks::block::{ChainEpoch, TxMeta};
     use address::Address;
     use cid::{Cid, Codec, Version};
-    use vm::runtime::ChainEpoch;
 
     const WEIGHT: u64 = 1;
     const CACHED_BYTES: u8 = 0;

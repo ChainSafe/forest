@@ -7,12 +7,14 @@ use cid::{Cid, Codec, Prefix, Version};
 use crypto::Signature;
 use multihash::Hash;
 use vm::message::SignedMessage;
-use vm::runtime::ChainEpoch;
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B
 const DEFAULT_HASH_FUNCTION: Hash = Hash::Keccak256;
-
+// TODO remove stubbed ChainEpoch
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChainEpoch;
+// TODO determine the purpose for these structures, currently spec includes them but with no definition
 struct ChallengeTicketsCommitment {}
 struct PoStCandidate {}
 struct PoStRandomness {}
