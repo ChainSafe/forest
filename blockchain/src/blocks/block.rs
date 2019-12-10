@@ -31,8 +31,6 @@ pub struct BlockHeader {
     pub weight: u64,
     /// epoch is the period in which a new block is generated. There may be multiple rounds in an epoch
     pub epoch: ChainEpoch,
-    /// height is the block height
-    pub height: u64,
 
     /// MINER INFO
     ///
@@ -41,7 +39,7 @@ pub struct BlockHeader {
 
     /// STATE
     ///
-    /// messages contains the merkle roots for
+    /// messages contains the merkle links for bls_messages and secp_messages
     pub messages: TxMeta,
     /// message_receipts is the Cid of the root of an array of MessageReceipts
     pub message_receipts: Cid,
