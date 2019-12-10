@@ -1,7 +1,6 @@
 pub mod actor;
 pub mod message;
-// TODO make runtime public once completed
-pub(crate) mod runtime;
+pub mod runtime;
 
 mod exit_code;
 mod token;

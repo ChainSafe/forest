@@ -167,11 +167,12 @@ impl TipSetKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blocks::block::TxMeta;
     use address::Address;
     use cid::{Cid, Codec, Version};
+    use vm::runtime::ChainEpoch;
 
     const WEIGHT: u64 = 1;
-    const EPOCH: u64 = 1;
     const HEIGHT: u64 = 1;
     const CACHED_BYTES: u8 = 0;
 
@@ -199,15 +200,19 @@ mod tests {
                 cids: vec![cids[3].clone()],
             },
             weight: WEIGHT,
-            epoch: EPOCH,
+            epoch: ChainEpoch,
             height: HEIGHT,
             miner_address: Address::new_secp256k1(ticket_p.clone()).unwrap(),
-            messages: cids[0].clone(),
+            messages: TxMeta {
+                bls_messages: cids[0].clone(),
+                secp_messages: cids[0].clone(),
+            },
             message_receipts: cids[0].clone(),
             state_root: cids[0].clone(),
             timestamp,
             ticket: Ticket { vrfproof: ticket_p },
             election_proof: vec![],
+            bls_aggregate: vec![1, 2, 3],
             cached_cid: cid,
             cached_bytes: CACHED_BYTES,
         }

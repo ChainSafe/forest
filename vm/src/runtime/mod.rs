@@ -14,6 +14,7 @@ use crypto::Signature;
 use std::any::Any;
 
 // TODO: ref #64
+#[derive(Clone, Debug, PartialEq)]
 pub struct ChainEpoch;
 pub struct Randomness; // TODO
 pub struct CallerPattern; // TODO
