@@ -1,5 +1,6 @@
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
+use utils::{read_file, get_home_dir, write_to_file};
 use futures::{Async, Stream};
 use libp2p::{
     core, core::muxing::StreamMuxerBox, core::nodes::Substream, core::transport::boxed::Boxed,
@@ -19,9 +20,9 @@ pub struct Libp2pService {
 impl Libp2pService {
     /// Constructs a Libp2pService
     pub fn new(log: &Logger, config: &Libp2pConfig) -> Self {
-        // TODO @Greg do local storage
-        let local_key = identity::Keypair::generate_ed25519();
+        let local_key = get_keypair();
         let local_peer_id = PeerId::from(local_key.public());
+
         info!(log, "Local peer id: {:?}", local_peer_id);
 
         let transport = build_transport(local_key.clone());
@@ -117,4 +118,35 @@ fn build_transport(local_key: identity::Keypair) -> Boxed<(PeerId, StreamMuxerBo
         .timeout(Duration::from_secs(20))
         .map_err(|err| Error::new(ErrorKind::Other, err))
         .boxed()
+}
+
+/// Fetch keypair from disk, or generate a new one if its not available
+fn get_keypair() -> identity::Keypair {
+    let path_to_keypair = format!("{}{}", get_home_dir(), "/.ferret/libp2p/keypair");
+    let local_keypair = match read_file(path_to_keypair) {
+        Err(_) => return generate_new_peer_id(),
+        Ok(buffer) => {
+            // If decoding fails, generate new peer id
+            // TODO Log that the error occured
+            // TODO rename old file to keypair.old(?)
+            match identity::ed25519::decode(buffer) {
+                Ok(kp) => kp,
+                Err(_) => return generate_new_peer_id(),
+            }
+        }
+    };
+
+    local_keypair
+}
+
+/// Generates a new libp2p keypair and saves to disk
+fn generate_new_peer_id() -> identity::Keypair {
+    let path_to_keypair = format!("{}{}", get_home_dir(), "/.ferret/libp2p/");
+    let local_keypair = identity::Keypair::generate_ed25519();
+    let encoded_bytes = local_keypair.encode();
+    if let Err(e) = write_to_file(encoded_bytes, &path_to_keypair, "keypair") {
+        // TODO Handle error
+    };
+
+    local_keypair
 }
