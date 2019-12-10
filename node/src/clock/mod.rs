@@ -45,7 +45,7 @@ impl ChainEpochClock {
     /// # Arguments
     ///
     /// * `time` - A DateTime<Utx> representing the chosen time.
-    pub fn epoch_at_time(&self, time: DateTime<Utc>) -> ChainEpoch {
+    pub fn epoch_at_time(&self, time: &DateTime<Utc>) -> ChainEpoch {
         let difference = time.signed_duration_since(self.genesis_time);
         let epochs = difference / EPOCH_DURATION;
         let epochs = match epochs.num_nanoseconds() {
