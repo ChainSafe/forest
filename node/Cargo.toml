@@ -11,7 +11,7 @@ network = { path = "network" }
 ferret-libp2p = { path = "ferret-libp2p"}
 
 
-libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "cdd5251d29e21a01aa2ffed8cb577a37a0f9e2eb" }
+libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "3f9b030e29c9b31f9fe6f2ed27be4a813e2b3701" }
 tokio = "0.1.22"
 futures = "0.1.29"
 clap = "2.33.0"
