@@ -52,8 +52,7 @@ pub trait Runtime {
 
     /// Throw an error indicating a failure condition has occurred, from which the given actor
     /// code is unable to recover.
-    // TODO determine if abort happens here
-    // fn abort(&self, err_exit_code: ExitCode, msg: String);
+    fn abort(&self, err_exit_code: ExitCode, msg: &str);
 
     /// Calls Abort with InvalidArguments error.
     fn abort_arg_msg(&self, msg: String);

@@ -1,4 +1,4 @@
-use crate::actor::{Error, MethodNum, MethodParams};
+use crate::actor::{MethodNum, MethodParams};
 use crate::runtime::{InvocOutput, Runtime};
 use cid::Cid;
 
@@ -37,10 +37,11 @@ impl CodeID {
 
 pub trait ActorCode {
     fn invoke_method(
+        &self,
         rt: &dyn Runtime,
         method: MethodNum,
         params: &MethodParams,
-    ) -> Result<InvocOutput, Error>;
+    ) -> InvocOutput;
 }
 
 #[cfg(test)]

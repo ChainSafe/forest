@@ -1,6 +1,5 @@
 use crate::actor::{
-    ActorCode, ActorID, CodeID, Error as ActorError, MethodNum, MethodParams, METHOD_CONSTRUCTOR,
-    METHOD_PLACEHOLDER,
+    ActorCode, ActorID, CodeID, MethodNum, MethodParams, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
 };
 use crate::runtime::{InvocOutput, Runtime};
 use crate::{ExitCode, SysCode};
@@ -44,9 +43,11 @@ impl InitMethod {
 
 pub struct InitActorCode;
 impl InitActorCode {
-    pub(crate) fn constructor(_r: &dyn Runtime) {
+    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Acquire state
         // Update actor substate
+
+        rt.success_return()
     }
     pub(crate) fn exec(_r: &dyn Runtime, _code: CodeID, _params: &MethodParams) -> Address {
         // TODO
@@ -60,29 +61,31 @@ impl InitActorCode {
 
 impl ActorCode for InitActorCode {
     fn invoke_method(
+        &self,
         rt: &dyn Runtime,
         method: MethodNum,
         params: &MethodParams,
-    ) -> Result<InvocOutput, ActorError> {
+    ) -> InvocOutput {
         match InitMethod::from_method_num(method) {
-            Some(InitMethod::Constructor) => {
-                InitActorCode::constructor(rt);
-                Ok(rt.value_return(vec![]))
-            }
+            Some(InitMethod::Constructor) => InitActorCode::constructor(rt),
             Some(InitMethod::Exec) => {
                 // TODO get codeID from params
                 let addr = InitActorCode::exec(rt, CodeID::Init, params);
-                Ok(rt.value_return(addr.marshal_cbor()?))
+                rt.value_return(addr.marshal_cbor().unwrap())
             }
             Some(InitMethod::GetActorIDForAddress) => {
                 // TODO get address from params
                 let actor =
                     InitActorCode::get_actor_id_for_address(rt, Address::new_id(1).unwrap());
-                Ok(rt.value_return(actor.marshal_cbor()?))
+                rt.value_return(actor.marshal_cbor().unwrap())
             }
-            _ => Err(ActorError::Aborted(ExitCode::SystemErrorCode(
-                SysCode::InvalidMethod,
-            ))),
+            _ => {
+                rt.abort(
+                    ExitCode::SystemErrorCode(SysCode::InvalidMethod),
+                    "Invalid method",
+                );
+                unreachable!();
+            }
         }
     }
 }

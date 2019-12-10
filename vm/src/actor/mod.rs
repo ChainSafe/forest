@@ -1,11 +1,9 @@
 mod builtin;
 mod code;
-mod errors;
 mod method;
 
 pub use self::builtin::*;
 pub use self::code::*;
-pub use self::errors::Error;
 pub use self::method::*;
 
 use cid::Cid;

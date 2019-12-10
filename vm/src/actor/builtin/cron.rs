@@ -1,0 +1,94 @@
+use crate::actor::{ActorCode, MethodNum, MethodParams, METHOD_CONSTRUCTOR, METHOD_CRON};
+use crate::runtime::{InvocInput, InvocOutput, Runtime};
+use crate::{ExitCode, SysCode, TokenAmount};
+
+use address::Address;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+
+/// CronActorState has no internal state
+#[derive(Default)]
+pub struct CronActorState;
+
+#[derive(Clone)]
+pub struct CronTableEntry {
+    to_addr: Address,
+    method_num: MethodNum,
+}
+
+#[derive(FromPrimitive)]
+pub enum CronMethod {
+    Constructor = METHOD_CONSTRUCTOR,
+    Cron = METHOD_CRON,
+}
+
+impl CronMethod {
+    /// from_method_num converts a method number into an CronMethod enum
+    fn from_method_num(m: MethodNum) -> Option<CronMethod> {
+        FromPrimitive::from_i32(m.0)
+    }
+}
+
+#[derive(Clone)]
+pub struct CronActorCode {
+    /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
+    /// This can be done a bunch of ways. We do it this way here to make it easy to add
+    /// a handler to Cron elsewhere in the spec code. How to do this is implementation
+    /// specific.
+    entries: Vec<CronTableEntry>,
+}
+
+impl CronActorCode {
+    /// Constructor for Cron actor
+    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
+        // Intentionally left blank
+        rt.success_return()
+    }
+    /// epoch_tick executes built-in periodic actions, run at every Epoch.
+    /// epoch_tick(r) is called after all other messages in the epoch have been applied.
+    /// This can be seen as an implicit last message.
+    pub fn epoch_tick(&self, rt: &dyn Runtime) -> InvocOutput {
+        // self.entries is basically a static registry for now, loaded
+        // in the interpreter static registry.
+        for entry in self.entries.clone() {
+            let res = rt.send_catching_errors(InvocInput {
+                to: entry.to_addr,
+                method: entry.method_num,
+                params: MethodParams::default(),
+                value: TokenAmount::new(0),
+            });
+            if let Err(e) = res {
+                return e.into();
+            }
+        }
+
+        rt.success_return()
+    }
+}
+
+impl ActorCode for CronActorCode {
+    fn invoke_method(
+        &self,
+        rt: &dyn Runtime,
+        method: MethodNum,
+        params: &MethodParams,
+    ) -> InvocOutput {
+        match CronMethod::from_method_num(method) {
+            Some(CronMethod::Constructor) => {
+                rt.assert(params.0.is_empty());
+                CronActorCode::constructor(rt)
+            }
+            Some(CronMethod::Cron) => {
+                rt.assert(params.0.is_empty());
+                self.epoch_tick(rt)
+            }
+            _ => {
+                rt.abort(
+                    ExitCode::SystemErrorCode(SysCode::InvalidMethod),
+                    "Invalid method",
+                );
+                unreachable!();
+            }
+        }
+    }
+}
