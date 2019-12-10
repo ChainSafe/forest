@@ -51,7 +51,7 @@ impl ActorCode for AccountActorCode {
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
                     "Invalid method",
                 );
-                panic!("")
+                unreachable!();
             }
         }
     }
