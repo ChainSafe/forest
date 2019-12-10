@@ -1,11 +1,12 @@
 mod builtin;
+mod code;
 
 pub use self::builtin::*;
+pub use self::code::*;
 
 use cid::Cid;
 use encoding::{Cbor, CodecProtocol, Error as EncodingError};
 use num_bigint::BigUint;
-use vm::CodeID;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Default)]
 pub struct ActorID(u64);
