@@ -33,7 +33,7 @@ impl Libp2pService {
         let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
-            let be = MyBehaviour::new(&net_keypair);
+            let be = MyBehaviour::new(log.clone(), &net_keypair);
             Swarm::new(transport, be, peer_id)
         };
 
@@ -108,7 +108,7 @@ pub enum NetworkEvent {
     },
 }
 
-fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
+pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::dns::DnsConfig::new(transport);
 

@@ -14,3 +14,12 @@ impl InvocOutput {
         }
     }
 }
+
+impl From<ExitCode> for InvocOutput {
+    fn from(code: ExitCode) -> InvocOutput {
+        InvocOutput {
+            exit_code: code,
+            return_value: Vec::new(),
+        }
+    }
+}
