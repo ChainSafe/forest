@@ -2,12 +2,12 @@ mod message_receipt;
 mod signed_message;
 mod unsigned_message;
 
-use crate::actor::{MethodNum, MethodParams};
-use crate::TokenAmount;
 pub use message_receipt::*;
 pub use signed_message::*;
 pub use unsigned_message::*;
 
+use crate::TokenAmount;
+use crate::{MethodNum, MethodParams};
 use address::Address;
 use num_bigint::BigUint;
 

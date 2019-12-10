@@ -1,6 +1,6 @@
 use super::Message;
-use crate::actor::{MethodNum, MethodParams};
 use crate::TokenAmount;
+use crate::{MethodNum, MethodParams};
 
 use address::Address;
 use derive_builder::Builder;
@@ -12,8 +12,7 @@ use num_bigint::BigUint;
 /// Usage:
 /// ```
 /// use vm::message::{UnsignedMessage, Message};
-/// use vm::actor::{MethodParams, MethodNum};
-/// use vm::{TokenAmount};
+/// use vm::{TokenAmount, MethodParams, MethodNum};
 /// use num_bigint::BigUint;
 /// use address::Address;
 ///

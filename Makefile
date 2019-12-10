@@ -9,6 +9,7 @@ clean:
 	@cargo clean -p blockchain
 	@cargo clean -p vm
 	@cargo clean -p address
+	@cargo clean -p actor
 	@cargo clean -p crypto
 	@cargo clean -p encoding
 	@echo "Done cleaning."

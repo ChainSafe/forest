@@ -1,5 +1,5 @@
-use crate::actor::{MethodNum, MethodParams};
-use crate::runtime::{InvocOutput, Runtime};
+use crate::{InvocOutput, Runtime};
+use crate::{MethodNum, MethodParams};
 use cid::Cid;
 
 /// CodeID is the reference to the code which is attached to the Actor state.

@@ -1,6 +1,6 @@
 use super::{Message, UnsignedMessage};
-use crate::actor::{MethodNum, MethodParams};
 use crate::TokenAmount;
+use crate::{MethodNum, MethodParams};
 
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};

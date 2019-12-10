@@ -1,13 +1,7 @@
 #![allow(dead_code)]
-mod input;
-mod output;
+use crate::{ExitCode, InvocInput, InvocOutput, TokenAmount};
 
-pub use self::input::*;
-pub use self::output::*;
-
-use super::message::UnsignedMessage;
-use super::{ExitCode, TokenAmount};
-
+use crate::message::UnsignedMessage;
 use address::Address;
 use cid::Cid;
 use crypto::Signature;

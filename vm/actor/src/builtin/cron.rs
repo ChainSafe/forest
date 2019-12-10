@@ -1,6 +1,7 @@
-use crate::actor::{ActorCode, MethodNum, MethodParams, METHOD_CONSTRUCTOR, METHOD_CRON};
-use crate::runtime::{InvocInput, InvocOutput, Runtime};
-use crate::{ExitCode, SysCode, TokenAmount};
+use vm::{
+    ActorCode, ExitCode, InvocInput, InvocOutput, MethodNum, MethodParams, Runtime, SysCode,
+    TokenAmount, METHOD_CONSTRUCTOR, METHOD_CRON,
+};
 
 use address::Address;
 use num_derive::FromPrimitive;

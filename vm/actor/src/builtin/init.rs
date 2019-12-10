@@ -1,8 +1,8 @@
-use crate::actor::{
-    ActorCode, ActorID, CodeID, MethodNum, MethodParams, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
+use crate::{ActorID, CodeID};
+use vm::{
+    ActorCode, ExitCode, InvocOutput, MethodNum, MethodParams, Runtime, SysCode,
+    METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
 };
-use crate::runtime::{InvocOutput, Runtime};
-use crate::{ExitCode, SysCode};
 
 use address::Address;
 use encoding::Cbor;
