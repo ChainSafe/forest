@@ -497,3 +497,23 @@ fn cbor_encoding() {
         assert_eq!(rec, res);
     }
 }
+
+#[test]
+fn address_hashmap() {
+    use std::collections::HashMap;
+
+    // insert and validate value set
+    let mut hm: HashMap<Address, u8> = HashMap::new();
+    let h1 = Address::new_id(1).unwrap();
+    hm.insert(h1.clone(), 1);
+    assert_eq!(hm.get(&h1).unwrap(), &1);
+
+    // insert other value
+    let h2 = Address::new_id(2).unwrap();
+    assert!(hm.get(&h2).is_none());
+    hm.insert(h2.clone(), 2);
+    assert_eq!(hm.get(&h2).unwrap(), &2);
+
+    // validate original value was not overriden
+    assert_eq!(hm.get(&h1).unwrap(), &1);
+}

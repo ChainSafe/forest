@@ -1,4 +1,6 @@
 use super::Message;
+use crate::actor::{MethodNum, MethodParams};
+use crate::TokenAmount;
 
 use address::Address;
 use derive_builder::Builder;
@@ -10,6 +12,8 @@ use num_bigint::BigUint;
 /// Usage:
 /// ```
 /// use vm::message::{UnsignedMessage, Message};
+/// use vm::actor::{MethodParams, MethodNum};
+/// use vm::{TokenAmount};
 /// use num_bigint::BigUint;
 /// use address::Address;
 ///
@@ -18,9 +22,9 @@ use num_bigint::BigUint;
 ///     .to(Address::new_id(0).unwrap())
 ///     .from(Address::new_id(1).unwrap())
 ///     .sequence(0) // optional
-///     .value(BigUint::default()) // optional
-///     .method_num(0) // optional
-///     .params(vec![]) // optional
+///     .value(TokenAmount::new(0)) // optional
+///     .method_num(MethodNum::default()) // optional
+///     .params(MethodParams::default()) // optional
 ///     .gas_limit(BigUint::default()) // optional
 ///     .gas_price(BigUint::default()) // optional
 ///     .build()
@@ -42,11 +46,11 @@ pub struct UnsignedMessage {
     #[builder(default)]
     sequence: u64,
     #[builder(default)]
-    value: BigUint,
+    value: TokenAmount,
     #[builder(default)]
-    method_num: u64,
+    method_num: MethodNum,
     #[builder(default)]
-    params: Vec<u8>,
+    params: MethodParams,
     #[builder(default)]
     gas_price: BigUint,
     #[builder(default)]
@@ -73,15 +77,15 @@ impl Message for UnsignedMessage {
         self.sequence
     }
     /// value returns the amount sent in message
-    fn value(&self) -> BigUint {
+    fn value(&self) -> TokenAmount {
         self.value.clone()
     }
     /// method_num returns the method number to be called
-    fn method_num(&self) -> u64 {
-        self.method_num
+    fn method_num(&self) -> MethodNum {
+        self.method_num.clone()
     }
     /// params returns the encoded parameters for the method call
-    fn params(&self) -> Vec<u8> {
+    fn params(&self) -> MethodParams {
         self.params.clone()
     }
     /// gas_price returns gas price for the message

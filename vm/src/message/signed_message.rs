@@ -1,4 +1,6 @@
 use super::{Message, UnsignedMessage};
+use crate::actor::{MethodNum, MethodParams};
+use crate::TokenAmount;
 
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
@@ -45,15 +47,15 @@ impl Message for SignedMessage {
         self.message.sequence()
     }
     /// value returns the amount sent in message
-    fn value(&self) -> BigUint {
+    fn value(&self) -> TokenAmount {
         self.message.value()
     }
     /// method_num returns the method number to be called
-    fn method_num(&self) -> u64 {
+    fn method_num(&self) -> MethodNum {
         self.message.method_num()
     }
     /// params returns the encoded parameters for the method call
-    fn params(&self) -> Vec<u8> {
+    fn params(&self) -> MethodParams {
         self.message.params()
     }
     /// gas_price returns gas price for the message

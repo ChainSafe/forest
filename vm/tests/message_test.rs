@@ -2,7 +2,9 @@ use address::Address;
 use crypto::{Signature, Signer};
 use num_bigint::BigUint;
 use std::error::Error;
+use vm::actor::{MethodNum, MethodParams};
 use vm::message::{Message, SignedMessage, UnsignedMessage};
+use vm::TokenAmount;
 
 const DUMMY_SIG: [u8; 1] = [0u8];
 
@@ -22,9 +24,9 @@ fn unsigned_message_builder() {
         .to(to_addr.clone())
         .from(from_addr.clone())
         .sequence(0)
-        .value(BigUint::default())
-        .method_num(0)
-        .params(vec![])
+        .value(TokenAmount::new(0))
+        .method_num(MethodNum::default())
+        .params(MethodParams::default())
         .gas_limit(BigUint::default())
         .gas_price(BigUint::default())
         .build()
@@ -32,9 +34,9 @@ fn unsigned_message_builder() {
     assert_eq!(message.from(), from_addr.clone());
     assert_eq!(message.to(), to_addr.clone());
     assert_eq!(message.sequence(), 0);
-    assert_eq!(message.method_num(), 0);
-    assert_eq!(message.params(), vec![]);
-    assert_eq!(message.value(), BigUint::default());
+    assert_eq!(message.method_num(), MethodNum::default());
+    assert_eq!(message.params(), MethodParams::default());
+    assert_eq!(message.value(), TokenAmount::new(0));
     assert_eq!(message.gas_price(), BigUint::default());
     assert_eq!(message.gas_limit(), BigUint::default());
     let mut mb = UnsignedMessage::builder();
