@@ -1,11 +1,12 @@
 use vm::{
-    ActorCode, ExitCode, InvocInput, InvocOutput, MethodNum, MethodParams, Runtime, SysCode,
-    TokenAmount, METHOD_CONSTRUCTOR, METHOD_CRON,
+    ExitCode, InvocInput, InvocOutput, MethodNum, MethodParams, SysCode, TokenAmount,
+    METHOD_CONSTRUCTOR, METHOD_CRON,
 };
 
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use runtime::{ActorCode, Runtime};
 
 /// CronActorState has no internal state
 #[derive(Default)]

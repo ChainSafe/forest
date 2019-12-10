@@ -1,11 +1,14 @@
 #![allow(dead_code)]
-use crate::{ExitCode, InvocInput, InvocOutput, TokenAmount};
+mod actor_code;
 
-use crate::message::UnsignedMessage;
+pub use self::actor_code::*;
+
 use address::Address;
 use cid::Cid;
 use crypto::Signature;
+use message::UnsignedMessage;
 use std::any::Any;
+use vm::{ExitCode, InvocInput, InvocOutput, TokenAmount};
 
 // TODO: ref #64
 pub struct ChainEpoch;

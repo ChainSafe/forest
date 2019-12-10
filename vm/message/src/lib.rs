@@ -6,10 +6,9 @@ pub use message_receipt::*;
 pub use signed_message::*;
 pub use unsigned_message::*;
 
-use crate::TokenAmount;
-use crate::{MethodNum, MethodParams};
 use address::Address;
 use num_bigint::BigUint;
+use vm::{MethodNum, MethodParams, TokenAmount};
 
 pub trait Message {
     /// from returns the from address of the message

@@ -1,8 +1,8 @@
 use address::Address;
 use crypto::{Signature, Signer};
+use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::error::Error;
-use vm::message::{Message, SignedMessage, UnsignedMessage};
 use vm::{MethodNum, MethodParams, TokenAmount};
 
 const DUMMY_SIG: [u8; 1] = [0u8];

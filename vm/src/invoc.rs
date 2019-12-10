@@ -1,5 +1,4 @@
-use crate::{ExitCode, TokenAmount};
-use crate::{MethodNum, MethodParams};
+use crate::{ExitCode, MethodNum, MethodParams, TokenAmount};
 
 use address::Address;
 

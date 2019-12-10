@@ -5,8 +5,8 @@ use super::TipSetKeys;
 
 use address::Address;
 use cid::{Cid, Codec, Prefix, Version};
+use message::UnsignedMessage;
 use multihash::Hash;
-use vm::message::UnsignedMessage;
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B

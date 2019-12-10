@@ -10,6 +10,8 @@ clean:
 	@cargo clean -p vm
 	@cargo clean -p address
 	@cargo clean -p actor
+	@cargo clean -p message
+	@cargo clean -p runtime
 	@cargo clean -p crypto
 	@cargo clean -p encoding
 	@echo "Done cleaning."

@@ -1,5 +1,5 @@
-use crate::ExitCode;
 use num_bigint::BigUint;
+use vm::ExitCode;
 
 /// MessageReceipt is the result of a state transition from a message
 #[derive(PartialEq, Clone)]

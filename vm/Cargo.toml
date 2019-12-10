@@ -12,6 +12,5 @@ num-bigint = "0.2.3"
 crypto = {path = "../crypto"}
 address = {path = "./address"}
 encoding = {path = "../encoding"}
-derive_builder = "0.9"
 num-traits = "0.2"
 num-derive = "0.2"

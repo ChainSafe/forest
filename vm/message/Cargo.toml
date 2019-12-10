@@ -1,16 +1,19 @@
 [package]
-name = "actor"
+name = "message"
 version = "0.1.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
+authors = ["austinabell <austinabell8@gmail.com>"]
 edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 vm = {path = "../../vm"}
-crypto = {path = "../../crypto"}
 address = {path = "../address"}
-runtime = {path = "../runtime"}
 cid = "0.3.1"
 num-bigint = "0.2.3"
 encoding = {path = "../../encoding"}
+crypto = {path = "../../crypto"}
 num-traits = "0.2"
 num-derive = "0.2"
+derive_builder = "0.9"
+
