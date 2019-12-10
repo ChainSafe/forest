@@ -47,17 +47,17 @@ impl RewardActorCode {
     /// Constructor for Reward actor
     pub(crate) fn constructor(_rt: &dyn Runtime) -> InvocOutput {
         // TODO
-        panic!("unimplemented")
+        unimplemented!();
     }
     /// Mints a reward and puts into state reward map
     pub(crate) fn mint_reward(_rt: &dyn Runtime) -> InvocOutput {
         // TODO
-        panic!("unimplemented")
+        unimplemented!();
     }
     /// Withdraw available funds from reward map
     pub(crate) fn withdraw_reward(_rt: &dyn Runtime) -> InvocOutput {
         // TODO
-        panic!("unimplemented")
+        unimplemented!();
     }
 }
 
@@ -77,7 +77,7 @@ impl ActorCode for RewardActorCode {
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
                     "Invalid method",
                 );
-                panic!("")
+                unreachable!();
             }
         }
     }
