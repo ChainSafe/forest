@@ -3,6 +3,7 @@ use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
 use libp2p::mdns::{Mdns, MdnsEvent};
+use libp2p::ping::{Ping, PingEvent};
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::tokio_io::{AsyncRead, AsyncWrite};
 use libp2p::NetworkBehaviour;
@@ -12,6 +13,7 @@ use libp2p::NetworkBehaviour;
 pub struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
     pub gossipsub: Gossipsub<TSubstream>,
     pub mdns: Mdns<TSubstream>,
+    pub ping: Ping<TSubstream>,
     #[behaviour(ignore)]
     events: Vec<MyBehaviourEvent>,
 }
@@ -61,6 +63,13 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubE
     }
 }
 
+impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
+    for MyBehaviour<TSubstream>
+{
+    fn inject_event(&mut self, event: PingEvent) {
+    }
+}
+
 impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
     /// Consumes the events list when polled.
     fn poll<TBehaviourIn>(
@@ -80,6 +89,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
         MyBehaviour {
             gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
             mdns: Mdns::new().expect("Failed to create mDNS service"),
+            ping: Ping::default(),
             events: vec![],
         }
     }
