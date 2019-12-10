@@ -156,7 +156,7 @@ fn get_keypair(log: &Logger) -> Keypair {
 
 /// Generates a new libp2p keypair and saves to disk
 fn generate_new_peer_id(log: &Logger) -> Keypair {
-    let path_to_keystore = format!("{}{}", get_home_dir(), "/.ferret/libp2p/");
+    let path_to_keystore = get_home_dir() + "/.ferret/libp2p/";
     let generated_keypair = Keypair::generate_ed25519();
     info!(log, "Generated new keystore!");
 
