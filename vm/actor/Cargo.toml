@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 vm = {path = "../../vm"}
-crypto = {path = "../../crypto"}
 address = {path = "../address"}
 runtime = {path = "../runtime"}
 cid = "0.3.1"
