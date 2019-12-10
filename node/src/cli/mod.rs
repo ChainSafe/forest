@@ -3,7 +3,7 @@ mod config;
 pub use config::Config;
 
 use clap::{App, Arg};
-use node::utils::{read_file, read_toml};
+use utils::{read_file_to_string, read_toml};
 use slog::Logger;
 use std::io;
 
@@ -26,7 +26,7 @@ pub(super) fn cli(_log: &Logger) -> Result<Config, io::Error> {
 
     if let Some(config_file) = app.value_of("config") {
         // Read from config file
-        let toml = read_file(config_file.to_string())?;
+        let toml = read_file_to_string(config_file)?;
 
         // Parse and return the configuration file
         return Ok(read_toml(&toml)?);

@@ -21,17 +21,30 @@ pub fn write_to_file(message: &Vec<u8>, path: &str, file_name: &str) -> Result<(
     Ok(())
 }
 
-/// Read file if it exists in the filesystem
+/// Read file as a Vec<u8>
 ///
 /// # Arguments
 ///
 /// * `path` - A String representing the path to a file
-pub fn read_file(path: String) -> Result<Vec<u8>> {
+pub fn read_file_to_vec(path: &str) -> Result<Vec<u8>> {
     let mut file = File::open(path)?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
     Ok(buffer)
 }
+
+/// Read file as a String
+///
+/// # Arguments
+///
+/// * `path` - A String representing the path to a file
+pub fn read_file_to_string(path: &str) -> Result<String> {
+    let mut file = File::open(path)?;
+    let mut string = String::new();
+    file.read_to_string(&mut string)?;
+    Ok(string)
+}
+
 
 /// Gets the home directory of the current system.
 /// Will return correct path for windows, linux, and osx

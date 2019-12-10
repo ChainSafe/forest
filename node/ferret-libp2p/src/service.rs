@@ -1,10 +1,10 @@
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
-use utils::{read_file, get_home_dir, write_to_file};
+use utils::{read_file_to_vec, get_home_dir, write_to_file};
 use futures::{Async, Stream};
 use libp2p::{
     core, core::muxing::StreamMuxerBox, core::nodes::Substream, core::transport::boxed::Boxed,
-    gossipsub::TopicHash, identity, mplex, secio, yamux, PeerId, Swarm, Transport,
+    gossipsub::TopicHash, identity::{Keypair, ed25519}, mplex, secio, yamux, PeerId, Swarm, Transport,
 };
 use slog::{debug, error, info, Logger};
 use std::io::{Error, ErrorKind};
@@ -20,16 +20,16 @@ pub struct Libp2pService {
 impl Libp2pService {
     /// Constructs a Libp2pService
     pub fn new(log: &Logger, config: &Libp2pConfig) -> Self {
-        let local_key = get_keypair();
-        let local_peer_id = PeerId::from(local_key.public());
+        let net_keypair = get_keypair(log);
+        let peer_id = PeerId::from(net_keypair.public());
 
-        info!(log, "Local peer id: {:?}", local_peer_id);
+        info!(log, "Local peer id: {:?}", peer_id);
 
-        let transport = build_transport(local_key.clone());
+        let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
-            let be = MyBehaviour::new(&local_key);
-            Swarm::new(transport, be, local_peer_id)
+            let be = MyBehaviour::new(&net_keypair);
+            Swarm::new(transport, be, peer_id)
         };
 
         for node in config.bootstrap_peers.clone() {
@@ -103,7 +103,7 @@ pub enum NetworkEvent {
     },
 }
 
-fn build_transport(local_key: identity::Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
+fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::dns::DnsConfig::new(transport);
 
@@ -121,32 +121,46 @@ fn build_transport(local_key: identity::Keypair) -> Boxed<(PeerId, StreamMuxerBo
 }
 
 /// Fetch keypair from disk, or generate a new one if its not available
-fn get_keypair() -> identity::Keypair {
-    let path_to_keypair = format!("{}{}", get_home_dir(), "/.ferret/libp2p/keypair");
-    let local_keypair = match read_file(path_to_keypair) {
-        Err(_) => return generate_new_peer_id(),
-        Ok(buffer) => {
+fn get_keypair(log: &Logger) -> Keypair {
+    let path_to_keystore = format!("{}{}", get_home_dir(), "/.ferret/libp2p/keypair");
+    let local_keypair = match read_file_to_vec(&path_to_keystore) {
+        Err(e) => {
+            info!(log, "Networking keystore not found!");
+            debug!(log, "Error {:?}", e);
+            return generate_new_peer_id(log)
+        },
+        Ok(mut vec) => {
             // If decoding fails, generate new peer id
-            // TODO Log that the error occured
             // TODO rename old file to keypair.old(?)
-            match identity::ed25519::decode(buffer) {
-                Ok(kp) => kp,
-                Err(_) => return generate_new_peer_id(),
+            match ed25519::Keypair::decode(&mut vec) {
+                Ok(kp) => {
+                    info!(log, "Recovered keystore from {:?}", &path_to_keystore);
+                    kp
+                },
+                Err(e) => {
+                    info!(log, "Could not decode networking keystore!");
+                    debug!(log, "Error {:?}", e);
+                    return generate_new_peer_id(log)
+                },
             }
         }
     };
 
-    local_keypair
+    Keypair::Ed25519(local_keypair)
 }
 
 /// Generates a new libp2p keypair and saves to disk
-fn generate_new_peer_id() -> identity::Keypair {
-    let path_to_keypair = format!("{}{}", get_home_dir(), "/.ferret/libp2p/");
-    let local_keypair = identity::Keypair::generate_ed25519();
-    let encoded_bytes = local_keypair.encode();
-    if let Err(e) = write_to_file(encoded_bytes, &path_to_keypair, "keypair") {
-        // TODO Handle error
-    };
+fn generate_new_peer_id(log: &Logger) -> Keypair {
+    let path_to_keystore = format!("{}{}", get_home_dir(), "/.ferret/libp2p/");
+    let generated_keypair = Keypair::generate_ed25519();
+    info!(log, "Generated new keystore!");
 
-    local_keypair
+    if let Keypair::Ed25519(key) = generated_keypair.clone() {
+        if let Err(e) = write_to_file(&key.encode().to_vec(), &path_to_keystore, "keypair") {
+            info!(log, "Could not write keystore to disk!");
+            debug!(log, "Error {:?}", e);
+        };        
+    }
+    
+    generated_keypair
 }
