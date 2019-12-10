@@ -12,7 +12,7 @@ use toml;
 /// * `message`   - Contents that will be written to the file
 /// * `path`      - Filesystem path of where the file will be written to
 /// * `file_name` - Desired filename
-pub fn write_to_file(message: &Vec<u8>, path: &str, file_name: &str) -> Result<()> {
+pub fn write_to_file(message: &[u8], path: &str, file_name: &str) -> Result<()> {
     // Create path if it doesn't exist
     create_dir_all(Path::new(&path))?;
     let join = format!("{}{}", path, file_name);
@@ -44,7 +44,6 @@ pub fn read_file_to_string(path: &str) -> Result<String> {
     file.read_to_string(&mut string)?;
     Ok(string)
 }
-
 
 /// Gets the home directory of the current system.
 /// Will return correct path for windows, linux, and osx

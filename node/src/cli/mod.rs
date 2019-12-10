@@ -3,9 +3,9 @@ mod config;
 pub use config::Config;
 
 use clap::{App, Arg};
-use utils::{read_file_to_string, read_toml};
 use slog::Logger;
 use std::io;
+use utils::{read_file_to_string, read_toml};
 
 pub(super) fn cli(_log: &Logger) -> Result<Config, io::Error> {
     let app = App::new("Ferret")

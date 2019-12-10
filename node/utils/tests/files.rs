@@ -1,4 +1,4 @@
-use utils::{read_file_to_vec, read_file_to_string, read_toml, write_to_file};
+use utils::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
 
 use serde_derive::Deserialize;
 use std::fs::remove_dir_all;
@@ -77,7 +77,6 @@ fn read_from_file_string() {
         }
     }
 }
-
 
 // For test_read_toml()
 #[derive(Deserialize)]

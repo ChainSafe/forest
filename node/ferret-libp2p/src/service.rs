@@ -1,14 +1,19 @@
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
-use utils::{read_file_to_vec, get_home_dir, write_to_file};
 use futures::{Async, Stream};
 use libp2p::{
-    core, core::muxing::StreamMuxerBox, core::nodes::Substream, core::transport::boxed::Boxed,
-    gossipsub::TopicHash, identity::{Keypair, ed25519}, mplex, secio, yamux, PeerId, Swarm, Transport,
+    core,
+    core::muxing::StreamMuxerBox,
+    core::nodes::Substream,
+    core::transport::boxed::Boxed,
+    gossipsub::TopicHash,
+    identity::{ed25519, Keypair},
+    mplex, secio, yamux, PeerId, Swarm, Transport,
 };
-use slog::{trace, debug, error, info, Logger};
+use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
+use utils::{get_home_dir, read_file_to_vec, write_to_file};
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
@@ -127,8 +132,8 @@ fn get_keypair(log: &Logger) -> Keypair {
         Err(e) => {
             info!(log, "Networking keystore not found!");
             trace!(log, "Error {:?}", e);
-            return generate_new_peer_id(log)
-        },
+            return generate_new_peer_id(log);
+        }
         Ok(mut vec) => {
             // If decoding fails, generate new peer id
             // TODO rename old file to keypair.old(?)
@@ -136,12 +141,12 @@ fn get_keypair(log: &Logger) -> Keypair {
                 Ok(kp) => {
                     info!(log, "Recovered keystore from {:?}", &path_to_keystore);
                     kp
-                },
+                }
                 Err(e) => {
                     info!(log, "Could not decode networking keystore!");
                     trace!(log, "Error {:?}", e);
-                    return generate_new_peer_id(log)
-                },
+                    return generate_new_peer_id(log);
+                }
             }
         }
     };
@@ -159,8 +164,8 @@ fn generate_new_peer_id(log: &Logger) -> Keypair {
         if let Err(e) = write_to_file(&key.encode().to_vec(), &path_to_keystore, "keypair") {
             info!(log, "Could not write keystore to disk!");
             trace!(log, "Error {:?}", e);
-        };        
+        };
     }
-    
+
     generated_keypair
 }
