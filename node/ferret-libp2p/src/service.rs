@@ -6,7 +6,7 @@ use libp2p::{
     core, core::muxing::StreamMuxerBox, core::nodes::Substream, core::transport::boxed::Boxed,
     gossipsub::TopicHash, identity::{Keypair, ed25519}, mplex, secio, yamux, PeerId, Swarm, Transport,
 };
-use slog::{debug, error, info, Logger};
+use slog::{trace, debug, error, info, Logger};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
@@ -126,7 +126,7 @@ fn get_keypair(log: &Logger) -> Keypair {
     let local_keypair = match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
             info!(log, "Networking keystore not found!");
-            debug!(log, "Error {:?}", e);
+            trace!(log, "Error {:?}", e);
             return generate_new_peer_id(log)
         },
         Ok(mut vec) => {
@@ -139,7 +139,7 @@ fn get_keypair(log: &Logger) -> Keypair {
                 },
                 Err(e) => {
                     info!(log, "Could not decode networking keystore!");
-                    debug!(log, "Error {:?}", e);
+                    trace!(log, "Error {:?}", e);
                     return generate_new_peer_id(log)
                 },
             }
@@ -158,7 +158,7 @@ fn generate_new_peer_id(log: &Logger) -> Keypair {
     if let Keypair::Ed25519(key) = generated_keypair.clone() {
         if let Err(e) = write_to_file(&key.encode().to_vec(), &path_to_keystore, "keypair") {
             info!(log, "Could not write keystore to disk!");
-            debug!(log, "Error {:?}", e);
+            trace!(log, "Error {:?}", e);
         };        
     }
     
