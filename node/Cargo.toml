@@ -9,14 +9,12 @@ edition = "2018"
 [dependencies]
 network = { path = "network" }
 ferret-libp2p = { path = "ferret-libp2p"}
-
+utils = { path = "utils" }
 
 libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "3f9b030e29c9b31f9fe6f2ed27be4a813e2b3701" }
 tokio = "0.1.22"
 futures = "0.1.29"
 clap = "2.33.0"
-dirs = "2.0.2"
-toml = "0.5.5"
 chrono = "0.4.9"
 serde = "1.0"
 log = "0.4.8"

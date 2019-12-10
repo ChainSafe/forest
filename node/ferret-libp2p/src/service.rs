@@ -2,12 +2,18 @@ use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
 use futures::{Async, Stream};
 use libp2p::{
-    core, core::muxing::StreamMuxerBox, core::nodes::Substream, core::transport::boxed::Boxed,
-    gossipsub::TopicHash, identity, mplex, secio, yamux, PeerId, Swarm, Transport,
+    core,
+    core::muxing::StreamMuxerBox,
+    core::nodes::Substream,
+    core::transport::boxed::Boxed,
+    gossipsub::TopicHash,
+    identity::{ed25519, Keypair},
+    mplex, secio, yamux, PeerId, Swarm, Transport,
 };
-use slog::{debug, error, info, Logger};
+use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
+use utils::{get_home_dir, read_file_to_vec, write_to_file};
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
@@ -19,16 +25,16 @@ pub struct Libp2pService {
 impl Libp2pService {
     /// Constructs a Libp2pService
     pub fn new(log: &Logger, config: &Libp2pConfig) -> Self {
-        // TODO @Greg do local storage
-        let local_key = identity::Keypair::generate_ed25519();
-        let local_peer_id = PeerId::from(local_key.public());
-        info!(log, "Local peer id: {:?}", local_peer_id);
+        let net_keypair = get_keypair(log);
+        let peer_id = PeerId::from(net_keypair.public());
 
-        let transport = build_transport(local_key.clone());
+        info!(log, "Local peer id: {:?}", peer_id);
+
+        let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
-            let be = MyBehaviour::new(log.clone(), &local_key);
-            Swarm::new(transport, be, local_peer_id)
+            let be = MyBehaviour::new(log.clone(), &net_keypair);
+            Swarm::new(transport, be, peer_id)
         };
 
         for node in config.bootstrap_peers.clone() {
@@ -102,7 +108,7 @@ pub enum NetworkEvent {
     },
 }
 
-pub fn build_transport(local_key: identity::Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
+pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::dns::DnsConfig::new(transport);
 
@@ -117,4 +123,49 @@ pub fn build_transport(local_key: identity::Keypair) -> Boxed<(PeerId, StreamMux
         .timeout(Duration::from_secs(20))
         .map_err(|err| Error::new(ErrorKind::Other, err))
         .boxed()
+}
+
+/// Fetch keypair from disk, or generate a new one if its not available
+fn get_keypair(log: &Logger) -> Keypair {
+    let path_to_keystore = get_home_dir() + "/.ferret/libp2p/keypair";
+    let local_keypair = match read_file_to_vec(&path_to_keystore) {
+        Err(e) => {
+            info!(log, "Networking keystore not found!");
+            trace!(log, "Error {:?}", e);
+            return generate_new_peer_id(log);
+        }
+        Ok(mut vec) => {
+            // If decoding fails, generate new peer id
+            // TODO rename old file to keypair.old(?)
+            match ed25519::Keypair::decode(&mut vec) {
+                Ok(kp) => {
+                    info!(log, "Recovered keystore from {:?}", &path_to_keystore);
+                    kp
+                }
+                Err(e) => {
+                    info!(log, "Could not decode networking keystore!");
+                    trace!(log, "Error {:?}", e);
+                    return generate_new_peer_id(log);
+                }
+            }
+        }
+    };
+
+    Keypair::Ed25519(local_keypair)
+}
+
+/// Generates a new libp2p keypair and saves to disk
+fn generate_new_peer_id(log: &Logger) -> Keypair {
+    let path_to_keystore = get_home_dir() + "/.ferret/libp2p/";
+    let generated_keypair = Keypair::generate_ed25519();
+    info!(log, "Generated new keystore!");
+
+    if let Keypair::Ed25519(key) = generated_keypair.clone() {
+        if let Err(e) = write_to_file(&key.encode(), &path_to_keystore, "keypair") {
+            info!(log, "Could not write keystore to disk!");
+            trace!(log, "Error {:?}", e);
+        };
+    }
+
+    generated_keypair
 }
