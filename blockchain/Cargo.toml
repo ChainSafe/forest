@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 vm = {path = "../vm"}
 address = {path = "../vm/address"}
+message = {path = "../vm/message"}
 libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "3f9b030e29c9b31f9fe6f2ed27be4a813e2b3701" }
 cid = "0.3.1"
 multihash = "0.8.0"

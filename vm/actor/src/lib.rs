@@ -1,10 +1,8 @@
 mod builtin;
 mod code;
-mod method;
 
 pub use self::builtin::*;
 pub use self::code::*;
-pub use self::method::*;
 
 use cid::Cid;
 use encoding::{Cbor, CodecProtocol, Error as EncodingError};

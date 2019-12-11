@@ -5,8 +5,8 @@ use super::TipSetKeys;
 
 use address::Address;
 use cid::{Cid, Codec, Prefix, Version};
+use message::UnsignedMessage;
 use multihash::Hash;
-use vm::message::Message;
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B
@@ -65,7 +65,7 @@ pub struct BlockHeader {
 /// Block defines a full block
 pub struct Block {
     header: BlockHeader,
-    messages: Vec<Message>,
+    messages: Vec<UnsignedMessage>,
 }
 
 impl BlockHeader {

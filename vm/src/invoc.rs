@@ -1,4 +1,14 @@
-use crate::ExitCode;
+use crate::{ExitCode, MethodNum, MethodParams, TokenAmount};
+
+use address::Address;
+
+/// Input variables for actor method invocation.
+pub struct InvocInput {
+    pub to: Address,
+    pub method: MethodNum,
+    pub params: MethodParams,
+    pub value: TokenAmount,
+}
 
 /// Output variables for actor method invocation.
 pub struct InvocOutput {

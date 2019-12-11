@@ -1,13 +1,13 @@
-use crate::actor::{
-    ActorCode, ActorID, CodeID, MethodNum, MethodParams, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
+use crate::{ActorID, CodeID};
+use vm::{
+    ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
 };
-use crate::runtime::{InvocOutput, Runtime};
-use crate::{ExitCode, SysCode};
 
 use address::Address;
 use encoding::Cbor;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
 
 /// InitActorState is reponsible for creating

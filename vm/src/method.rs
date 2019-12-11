@@ -1,6 +1,6 @@
 use encoding::{Cbor, Error as EncodingError};
 
-#[derive(Clone)]
+#[derive(Default, Clone, PartialEq, Debug)]
 pub struct MethodNum(pub i32); // TODO: add constraints to this
 
 /// Base actor send method
@@ -14,7 +14,7 @@ pub const METHOD_CRON: isize = 2;
 // TODO revisit on complete spec
 pub const METHOD_PLACEHOLDER: isize = 3;
 
-#[derive(Default)]
+#[derive(Default, Clone, PartialEq, Debug)]
 pub struct MethodParams(pub Vec<u8>); // TODO
 
 impl MethodParams {

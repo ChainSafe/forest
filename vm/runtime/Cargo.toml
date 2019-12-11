@@ -1,0 +1,12 @@
+[package]
+name = "runtime"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+vm = {path = "../../vm"}
+crypto = {path = "../../crypto"}
+address = {path = "../address"}
+message = {path = "../message"}
+cid = "0.3.1"

@@ -1,17 +1,14 @@
 #![allow(dead_code)]
-mod input;
-mod output;
+mod actor_code;
 
-pub use self::input::*;
-pub use self::output::*;
-
-use super::message::Message;
-use super::{ExitCode, TokenAmount};
+pub use self::actor_code::*;
 
 use address::Address;
 use cid::Cid;
 use crypto::Signature;
+use message::UnsignedMessage;
 use std::any::Any;
+use vm::{ExitCode, InvocInput, InvocOutput, TokenAmount};
 
 // TODO: ref #64
 pub struct ChainEpoch;
@@ -78,7 +75,7 @@ pub trait Runtime {
     /// Retrieves value received in VM.
     fn value_received(&self) -> TokenAmount;
 
-    fn verify_signature(&self, signer_actor: Address, sig: Signature, m: Message) -> bool;
+    fn verify_signature(&self, signer_actor: Address, sig: Signature, m: UnsignedMessage) -> bool;
 
     /// Run a (pure function) computation, consuming the gas cost associated with that function.
     /// This mechanism is intended to capture the notion of an ABI between the VM and native

@@ -2,7 +2,10 @@
 members = [
     "blockchain",
     "vm",
+    "vm/actor",
     "vm/address",
+    "vm/message",
+    "vm/runtime",
     "node",
     "crypto",
     "encoding"
