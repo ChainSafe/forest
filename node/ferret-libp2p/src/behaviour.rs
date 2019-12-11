@@ -2,6 +2,7 @@ use futures::Async;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
+use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::mdns::{Mdns, MdnsEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
@@ -18,6 +19,7 @@ pub struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
     pub gossipsub: Gossipsub<TSubstream>,
     pub mdns: Mdns<TSubstream>,
     pub ping: Ping<TSubstream>,
+    pub identify: Identify<TSubstream>,
     #[behaviour(ignore)]
     events: Vec<MyBehaviourEvent>,
     #[behaviour(ignore)]
@@ -104,6 +106,29 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     }
 }
 
+impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
+    for MyBehaviour<TSubstream>
+{
+    fn inject_event(&mut self, event: IdentifyEvent) {
+        match event {
+            IdentifyEvent::Received {
+                peer_id,
+                info,
+                observed_addr,
+            } => {
+                debug!(self.log, "Identified Peer {:?}", peer_id);
+                debug!(self.log, "protocol_version {:}?", info.protocol_version);
+                debug!(self.log, "agent_version {:?}", info.agent_version);
+                debug!(self.log, "listening_ addresses {:?}", info.listen_addrs);
+                debug!(self.log, "observed_address {:?}", observed_addr);
+                debug!(self.log, "protocols {:?}", info.protocols);
+            }
+            IdentifyEvent::Sent { .. } => (),
+            IdentifyEvent::Error { .. } => (),
+        }
+    }
+}
+
 impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
     /// Consumes the events list when polled.
     fn poll<TBehaviourIn>(
@@ -124,6 +149,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
             gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
             mdns: Mdns::new().expect("Failed to create mDNS service"),
             ping: Ping::default(),
+            identify: Identify::new("ferret/libp2p".into(), "0.0.1".into(), local_key.public()),
             log,
             events: vec![],
         }
