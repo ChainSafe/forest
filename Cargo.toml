@@ -7,6 +7,7 @@ members = [
     "vm/message",
     "vm/runtime",
     "node",
+    "node/clock",
     "crypto",
     "encoding"
 ]

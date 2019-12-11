@@ -1,8 +1,6 @@
-#![allow(dead_code)]
-
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 
-const ISO_FORMAT: &str = "%FT%X.%.9F";
+const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
 
 pub struct ChainEpoch(i64);
