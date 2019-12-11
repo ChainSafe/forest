@@ -1,11 +1,12 @@
-use crate::actor::{ActorCode, MethodNum, MethodParams, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
-use crate::runtime::{ChainEpoch, InvocOutput, Runtime};
-use crate::{ExitCode, SysCode, TokenAmount};
-
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use runtime::{ActorCode, ChainEpoch, Runtime};
 use std::collections::HashMap;
+use vm::{
+    ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_PLACEHOLDER,
+};
 
 pub struct Reward {
     pub start_epoch: ChainEpoch,
