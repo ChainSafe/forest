@@ -116,12 +116,12 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEv
                 info,
                 observed_addr,
             } => {
-                println!("Identified Peer {:?}", peer_id);
-                println!("protocol_version {:}?", info.protocol_version);
-                println!("agent_version {:?}", info.agent_version);
-                println!("listening_ addresses {:?}", info.listen_addrs);
-                println!("observed_address {:?}", observed_addr);
-                println!("protocols {:?}", info.protocols);
+                debug!(self.log, "Identified Peer {:?}", peer_id);
+                debug!(self.log, "protocol_version {:}?", info.protocol_version);
+                debug!(self.log, "agent_version {:?}", info.agent_version);
+                debug!(self.log, "listening_ addresses {:?}", info.listen_addrs);
+                debug!(self.log, "observed_address {:?}", observed_addr);
+                debug!(self.log, "protocols {:?}", info.protocols);
             }
             IdentifyEvent::Sent { .. } => (),
             IdentifyEvent::Error { .. } => (),
