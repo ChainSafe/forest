@@ -1,10 +1,8 @@
-use crate::actor::{ActorCode, MethodNum, MethodParams, METHOD_CONSTRUCTOR};
-use crate::runtime::{InvocOutput, Runtime};
-use crate::{ExitCode, SysCode};
-
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use runtime::{ActorCode, Runtime};
+use vm::{ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR};
 
 /// AccountActorState includes the address for the actor
 pub struct AccountActorState {
