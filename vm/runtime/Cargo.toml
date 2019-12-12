@@ -10,3 +10,4 @@ crypto = {path = "../../crypto"}
 address = {path = "../address"}
 message = {path = "../message"}
 cid = "0.3.1"
+clock = {path = "../../node/clock"}
