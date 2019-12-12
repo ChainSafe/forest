@@ -15,7 +15,6 @@ libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "3f9b030e29c9b31f
 tokio = "0.1.22"
 futures = "0.1.29"
 clap = "2.33.0"
-chrono = "0.4.9"
 serde = "1.0"
 log = "0.4.8"
 slog = "2.5.2"

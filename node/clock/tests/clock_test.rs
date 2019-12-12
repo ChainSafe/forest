@@ -1,4 +1,4 @@
-use node::clock::ChainEpochClock;
+use clock::ChainEpochClock;
 
 #[test]
 fn create_chain_epoch_clock() {
