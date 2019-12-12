@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "3f9b030e29c9b31f9fe6f2ed27be4a813e2b3701" }
+utils = { path = "../utils" }
 tokio = "0.1.22"
 futures = "0.1.29"
 log = "0.4.8"

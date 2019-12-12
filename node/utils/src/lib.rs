@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use dirs::home_dir;
 use serde;
 use std::fs::{create_dir_all, File};
@@ -14,25 +12,37 @@ use toml;
 /// * `message`   - Contents that will be written to the file
 /// * `path`      - Filesystem path of where the file will be written to
 /// * `file_name` - Desired filename
-pub fn write_string_to_file(message: &str, path: &str, file_name: &str) -> Result<()> {
+pub fn write_to_file(message: &[u8], path: &str, file_name: &str) -> Result<()> {
     // Create path if it doesn't exist
-    create_dir_all(Path::new(&path))?;
+    create_dir_all(Path::new(path))?;
     let join = format!("{}{}", path, file_name);
     let mut file = File::create(join.to_owned())?;
-    file.write_all(&message.as_bytes())?;
+    file.write_all(message)?;
     Ok(())
 }
 
-/// Read file if it exists in the filesystem
+/// Read file as a Vec<u8>
 ///
 /// # Arguments
 ///
 /// * `path` - A String representing the path to a file
-pub fn read_file(path: String) -> Result<String> {
+pub fn read_file_to_vec(path: &str) -> Result<Vec<u8>> {
     let mut file = File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    Ok(buffer)
+}
+
+/// Read file as a String
+///
+/// # Arguments
+///
+/// * `path` - A String representing the path to a file
+pub fn read_file_to_string(path: &str) -> Result<String> {
+    let mut file = File::open(path)?;
+    let mut string = String::new();
+    file.read_to_string(&mut string)?;
+    Ok(string)
 }
 
 /// Gets the home directory of the current system.

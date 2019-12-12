@@ -1,9 +1,10 @@
-#![allow(dead_code)]
-
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 
-const ISO_FORMAT: &str = "%FT%X.%.9F";
-const EPOCH_DURATION: i8 = 15;
+const _ISO_FORMAT: &str = "%FT%X.%.9F";
+const EPOCH_DURATION: i32 = 15;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChainEpoch(pub i64);
 
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
 /// systems.
@@ -34,7 +35,7 @@ impl ChainEpochClock {
     }
 
     /// Returns the genesis time as a DateTime<Utc>
-    pub fn get_time(&self) -> DateTime<Utc> {
+    pub fn get_genesis_time(&self) -> DateTime<Utc> {
         self.genesis_time
     }
 
@@ -43,10 +44,22 @@ impl ChainEpochClock {
     /// # Arguments
     ///
     /// * `time` - A DateTime<Utx> representing the chosen time.
+    pub fn epoch_at_time(&self, time: &DateTime<Utc>) -> ChainEpoch {
+        let difference = time.signed_duration_since(self.genesis_time);
+        let epochs = (difference / EPOCH_DURATION)
+            .num_nanoseconds()
+            .expect("Epoch_at_time failed");
+        ChainEpoch(epochs)
+    }
+}
+
+impl ChainEpoch {
+    // Returns ChainEpoch based on the given timestamp
     ///
-    /// TODO: Should time be a unix time stamp?
-    pub fn epoch_at_time(&self, time: DateTime<Utc>) {
-        let _difference = time.signed_duration_since(self.genesis_time);
-        // TODO Finish this based on spec
+    /// # Arguments
+    ///
+    /// * `timestamp` - An i64 representing a unix timestamp
+    pub fn new(timestamp: i64) -> ChainEpoch {
+        ChainEpoch(timestamp)
     }
 }

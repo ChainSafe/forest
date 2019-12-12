@@ -1,10 +1,8 @@
 [package]
-name = "vm"
+name = "clock"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-num-bigint = "0.2.3"
-address = {path = "./address"}
-encoding = {path = "../encoding"}
+chrono = "0.4.9"

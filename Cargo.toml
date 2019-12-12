@@ -2,8 +2,12 @@
 members = [
     "blockchain",
     "vm",
+    "vm/actor",
     "vm/address",
+    "vm/message",
+    "vm/runtime",
     "node",
+    "node/clock",
     "crypto",
     "encoding"
 ]

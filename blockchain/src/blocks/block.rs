@@ -4,16 +4,14 @@ use super::ticket::{Ticket, VRFProofIndex};
 use super::TipSetKeys;
 use address::Address;
 use cid::{Cid, Codec, Prefix, Version};
+use clock::ChainEpoch;
 use crypto::Signature;
+use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
-use vm::message::SignedMessage;
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B
 const DEFAULT_HASH_FUNCTION: Hash = Hash::Keccak256;
-// TODO remove stubbed ChainEpoch
-#[derive(Clone, Debug, PartialEq)]
-pub struct ChainEpoch;
 // TODO determine the purpose for these structures, currently spec includes them but with no definition
 struct ChallengeTicketsCommitment {}
 struct PoStCandidate {}
@@ -73,7 +71,7 @@ pub struct BlockHeader {
 pub struct Block {
     header: BlockHeader,
     // TODO will rename to UnSignedMessage once changes are in
-    bls_messages: SignedMessage,
+    bls_messages: UnsignedMessage,
     secp_messages: SignedMessage,
 }
 
@@ -90,6 +88,7 @@ struct ElectionPoStVerifyInfo {
     candidates: PoStCandidate,
     randomness: PoStRandomness,
     proof: PoStProof,
+    messages: Vec<UnsignedMessage>,
 }
 
 impl BlockHeader {

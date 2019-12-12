@@ -159,9 +159,10 @@ impl TipSetKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::block::{ChainEpoch, TxMeta};
+    use crate::blocks::block::TxMeta;
     use address::Address;
     use cid::{Cid, Codec, Version};
+    use clock::ChainEpoch;
 
     const WEIGHT: u64 = 1;
     const CACHED_BYTES: u8 = 0;
@@ -190,7 +191,7 @@ mod tests {
                 cids: vec![cids[3].clone()],
             },
             weight: WEIGHT,
-            epoch: ChainEpoch,
+            epoch: ChainEpoch::new(1),
             miner_address: Address::new_secp256k1(ticket_p.clone()).unwrap(),
             messages: TxMeta {
                 bls_messages: cids[0].clone(),
