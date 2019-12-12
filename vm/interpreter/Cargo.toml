@@ -1,0 +1,11 @@
+[package]
+name = "interpreter"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+state_tree = {path = "../state_tree"}
+address = {path = "../address"}
+message = {path = "../message"}
+clock = {path = "../../node/clock"}
