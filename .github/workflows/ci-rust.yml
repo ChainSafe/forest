@@ -18,7 +18,7 @@ jobs:
           command: test
 
   fmt:
-    name: format
+    name: rustfmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -34,7 +34,7 @@ jobs:
           args: --all -- --check
 
   clippy:
-    name: lint
+    name: clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
