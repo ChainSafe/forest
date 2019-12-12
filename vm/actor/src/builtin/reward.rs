@@ -1,7 +1,7 @@
 use address::Address;
+use clock::ChainEpoch;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use clock::ChainEpoch;
 use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
 use vm::{
