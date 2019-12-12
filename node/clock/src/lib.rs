@@ -4,7 +4,7 @@ const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ChainEpoch(pub i64);
+pub struct ChainEpoch(i64);
 
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
 /// systems.
