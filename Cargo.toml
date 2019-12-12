@@ -9,6 +9,7 @@ members = [
     "vm/state_tree",
     "vm/interpreter",
     "node",
+    "node/clock",
     "crypto",
     "encoding"
 ]

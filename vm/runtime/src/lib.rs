@@ -5,13 +5,12 @@ pub use self::actor_code::*;
 
 use address::Address;
 use cid::Cid;
+use clock::ChainEpoch;
 use crypto::Signature;
 use message::UnsignedMessage;
 use std::any::Any;
 use vm::{ExitCode, InvocInput, InvocOutput, TokenAmount};
 
-// TODO: ref #64
-pub struct ChainEpoch;
 pub struct Randomness; // TODO
 pub struct CallerPattern; // TODO
 pub struct ActorStateHandle; // TODO
