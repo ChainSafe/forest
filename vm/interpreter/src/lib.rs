@@ -1,9 +1,10 @@
 use address::Address;
+use clock::ChainEpoch;
 use message::{MessageReceipt, SignedMessage, UnsignedMessage};
 use state_tree::StateTree;
 use std::error::Error;
 
-pub struct VMInterpreter {}
+pub struct VMInterpreter {} // TODO add context necessary
 impl VMInterpreter {
     /// Apply all messages from a tipset
     pub fn apply_tip_set_messages(
@@ -36,5 +37,5 @@ pub struct BlockMessages {
 /// Represents the messages from a tipset, grouped by block.
 pub struct TipSetMessages {
     _blocks: Vec<BlockMessages>,
-    _epoch: u64,
+    _epoch: ChainEpoch,
 }

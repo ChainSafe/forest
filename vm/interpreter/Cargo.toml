@@ -8,3 +8,4 @@ edition = "2018"
 state_tree = {path = "../state_tree"}
 address = {path = "../address"}
 message = {path = "../message"}
+clock = {path = "../../node/clock"}
