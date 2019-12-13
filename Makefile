@@ -4,6 +4,7 @@ clean-all:
 clean:
 	@echo "Cleaning local packages..."
 	@cargo clean -p node
+	@cargo clean -p clock
 	@cargo clean -p ferret-libp2p
 	@cargo clean -p network
 	@cargo clean -p blockchain
@@ -12,6 +13,8 @@ clean:
 	@cargo clean -p actor
 	@cargo clean -p message
 	@cargo clean -p runtime
+	@cargo clean -p state_tree
+	@cargo clean -p interpreter
 	@cargo clean -p crypto
 	@cargo clean -p encoding
 	@echo "Done cleaning."
