@@ -61,7 +61,7 @@ impl Address {
         if bz.len() < 2 {
             Err(Error::InvalidLength)
         } else {
-            let mut copy = bz.clone();
+            let mut copy = bz;
             let protocol = Protocol::from_byte(copy.remove(0)).ok_or(Error::UnknownProtocol)?;
             Address::new(protocol, copy)
         }
@@ -213,11 +213,10 @@ fn encode(addr: &Address, network: Network) -> String {
     match addr.protocol {
         Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
             let ingest = addr.to_bytes();
-            let cksm = checksum(ingest);
             let mut bz = addr.payload();
 
             // payload bytes followed by calculated checksum
-            bz.extend(cksm.clone());
+            bz.extend(checksum(ingest));
             format!(
                 "{}{}{}",
                 network.to_prefix(),
