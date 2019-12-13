@@ -7,9 +7,6 @@ pub struct MethodNum(i32); // TODO: add constraints to this
 
 impl MethodNum {
     /// Constructor for new MethodNum
-    ///
-    /// # Arguments
-    /// * `num` - method number
     pub fn new(num: i32) -> Self {
         Self(num)
     }
@@ -48,14 +45,14 @@ impl Deref for Serialized {
 impl Serialized {
     /// Constructor if data is encoded already
     ///
-    /// # Arguments
+    /// ### Arguments
     /// * `bytes` - vector of bytes to use as serialized data
     pub fn new(bytes: Vec<u8>) -> Self {
         Self { bytes }
     }
     /// Contructor for encoding Cbor encodable structure
     ///
-    /// # Arguments
+    /// ### Arguments
     /// * `obj` - Cbor encodable type
     pub fn serialize(obj: impl Cbor) -> Result<Self, EncodingError> {
         Ok(Self {
@@ -76,7 +73,6 @@ pub struct MethodParams {
 
 impl Deref for MethodParams {
     type Target = Vec<Serialized>;
-
     fn deref(&self) -> &Self::Target {
         &self.params
     }
