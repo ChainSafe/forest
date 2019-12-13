@@ -1,6 +1,6 @@
 use address::Address;
 use encoding::Cbor;
-use vm::{MethodParams, Serialized, MethodNum};
+use vm::{MethodNum, MethodParams, Serialized};
 
 #[test]
 fn params_usage() {
