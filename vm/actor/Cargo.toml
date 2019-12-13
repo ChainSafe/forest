@@ -13,3 +13,4 @@ num-bigint = "0.2.3"
 encoding = {path = "../../encoding"}
 num-traits = "0.2"
 num-derive = "0.2"
+clock = {path = "../../node/clock"}

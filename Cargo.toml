@@ -6,6 +6,8 @@ members = [
     "vm/address",
     "vm/message",
     "vm/runtime",
+    "vm/state_tree",
+    "vm/interpreter",
     "node",
     "node/clock",
     "crypto",

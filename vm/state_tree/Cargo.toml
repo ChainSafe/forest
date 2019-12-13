@@ -1,0 +1,10 @@
+[package]
+name = "state_tree"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+actor = {path = "../actor"}
+address = {path = "../address"}
+vm = {path = "../../vm"}
