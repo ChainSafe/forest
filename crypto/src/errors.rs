@@ -13,12 +13,12 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::SigningError(ref s) => write!(f, "Could not sign data: {}", s),
-            Error::InvalidRecovery(ref s) => {
+        match self {
+            Error::SigningError(s) => write!(f, "Could not sign data: {}", s),
+            Error::InvalidRecovery(s) => {
                 write!(f, "Could not recover public key from signature: {}", s)
             }
-            Error::InvalidPubKey(ref s) => {
+            Error::InvalidPubKey(s) => {
                 write!(f, "Invalid generated pub key to create address: {}", s)
             }
         }

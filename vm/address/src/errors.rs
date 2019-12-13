@@ -16,23 +16,23 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
+        match self {
             Error::UnknownNetwork => write!(f, "Unknown address network"),
             Error::UnknownProtocol => write!(f, "Unknown address protocol"),
             Error::InvalidPayload => write!(f, "Invalid address payload"),
             Error::InvalidLength => write!(f, "Invalid address length"),
-            Error::InvalidPayloadLength(ref len) => write!(
+            Error::InvalidPayloadLength(len) => write!(
                 f,
                 "Invalid payload length, wanted: {} got: {}",
                 PAYLOAD_HASH_LEN, len
             ),
-            Error::InvalidBLSLength(ref len) => write!(
+            Error::InvalidBLSLength(len) => write!(
                 f,
                 "Invalid BLS pub key length, wanted: {} got: {}",
                 BLS_PUB_LEN, len
             ),
             Error::InvalidChecksum => write!(f, "Invalid address checksum"),
-            Error::Base32Decoding(ref err) => write!(f, "Decoding error: {}", err),
+            Error::Base32Decoding(err) => write!(f, "Decoding error: {}", err),
         }
     }
 }

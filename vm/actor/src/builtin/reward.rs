@@ -38,7 +38,7 @@ pub enum RewardMethod {
 impl RewardMethod {
     /// from_method_num converts a method number into an RewardMethod enum
     fn from_method_num(m: MethodNum) -> Option<RewardMethod> {
-        FromPrimitive::from_i32(m.0)
+        FromPrimitive::from_i32(m.into())
     }
 }
 

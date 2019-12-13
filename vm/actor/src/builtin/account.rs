@@ -17,7 +17,7 @@ pub enum AccountMethod {
 impl AccountMethod {
     /// from_method_num converts a method number into an AccountMethod enum
     fn from_method_num(m: MethodNum) -> Option<AccountMethod> {
-        FromPrimitive::from_i32(m.0)
+        FromPrimitive::from_i32(m.into())
     }
 }
 
@@ -41,7 +41,7 @@ impl ActorCode for AccountActorCode {
     ) -> InvocOutput {
         match AccountMethod::from_method_num(method) {
             Some(AccountMethod::Constructor) => {
-                rt.assert(params.0.is_empty());
+                rt.assert(params.is_empty());
                 AccountActorCode::constructor(rt)
             }
             _ => {
