@@ -86,7 +86,7 @@ impl ActorCode for InitActorCode {
                 let addr_res = Address::unmarshal_cbor(&arg_pop(params, rt).bytes());
 
                 // validate addr deserialization and parameters
-                check_args(params, rt, !addr_res.is_err());
+                check_args(params, rt, addr_res.is_ok());
                 arg_end(params, rt);
 
                 // Errors checked, get actor by address
