@@ -5,6 +5,16 @@ use std::ops::{Deref, DerefMut};
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct MethodNum(i32); // TODO: add constraints to this
 
+impl MethodNum {
+    /// Constructor for new MethodNum
+    ///
+    /// # Arguments
+    /// * `num` - method number
+    pub fn new(num: i32) -> Self {
+        Self(num)
+    }
+}
+
 impl From<MethodNum> for i32 {
     fn from(method_num: MethodNum) -> i32 {
         method_num.0

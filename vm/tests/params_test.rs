@@ -1,6 +1,6 @@
 use address::Address;
 use encoding::Cbor;
-use vm::{MethodParams, Serialized};
+use vm::{MethodParams, Serialized, MethodNum};
 
 #[test]
 fn params_usage() {
@@ -18,4 +18,11 @@ fn cbor_params() {
     params.insert(0, Serialized::serialize(addr.clone()).unwrap());
     let encoded_addr = params.remove(0);
     assert_eq!(Address::unmarshal_cbor(&encoded_addr).unwrap(), addr);
+}
+
+#[test]
+fn method_num() {
+    // Test constructor available publicly
+    let method = MethodNum::new(1);
+    assert_eq!(1, method.into());
 }
