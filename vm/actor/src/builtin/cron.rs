@@ -27,7 +27,7 @@ pub enum CronMethod {
 impl CronMethod {
     /// from_method_num converts a method number into an CronMethod enum
     fn from_method_num(m: MethodNum) -> Option<CronMethod> {
-        FromPrimitive::from_i32(m.0)
+        FromPrimitive::from_i32(m.into())
     }
 }
 
@@ -77,11 +77,11 @@ impl ActorCode for CronActorCode {
     ) -> InvocOutput {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {
-                rt.assert(params.0.is_empty());
+                rt.assert(params.is_empty());
                 CronActorCode::constructor(rt)
             }
             Some(CronMethod::Cron) => {
-                rt.assert(params.0.is_empty());
+                rt.assert(params.is_empty());
                 self.epoch_tick(rt)
             }
             _ => {

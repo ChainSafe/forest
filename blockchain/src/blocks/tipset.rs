@@ -38,10 +38,6 @@ impl Tipset {
         for i in 0..headers.len() {
             if i > 0 {
                 // Skip redundant check
-                // check height is equal
-                if headers[i].height != headers[0].height {
-                    return Err(Error::UndefinedTipSet("heights are not equal".to_string()));
-                }
                 // check parent cids are equal
                 if !headers[i].parents.equals(headers[0].parents.clone()) {
                     return Err(Error::UndefinedTipSet(
@@ -135,10 +131,6 @@ impl Tipset {
     fn key(&self) -> TipSetKeys {
         self.key.clone()
     }
-    /// height returns the block number of a tipset
-    fn height(&self) -> u64 {
-        self.blocks[0].height
-    }
     /// parents returns the CIDs of the parents of the blocks in the tipset
     fn parents(&self) -> TipSetKeys {
         self.blocks[0].parents.clone()
@@ -167,12 +159,12 @@ impl TipSetKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blocks::block::TxMeta;
     use address::Address;
     use cid::{Cid, Codec, Version};
+    use clock::ChainEpoch;
 
     const WEIGHT: u64 = 1;
-    const EPOCH: u64 = 1;
-    const HEIGHT: u64 = 1;
     const CACHED_BYTES: u8 = 0;
 
     fn template_key(data: &[u8]) -> Cid {
@@ -199,15 +191,18 @@ mod tests {
                 cids: vec![cids[3].clone()],
             },
             weight: WEIGHT,
-            epoch: EPOCH,
-            height: HEIGHT,
+            epoch: ChainEpoch::new(1),
             miner_address: Address::new_secp256k1(ticket_p.clone()).unwrap(),
-            messages: cids[0].clone(),
+            messages: TxMeta {
+                bls_messages: cids[0].clone(),
+                secp_messages: cids[0].clone(),
+            },
             message_receipts: cids[0].clone(),
             state_root: cids[0].clone(),
             timestamp,
             ticket: Ticket { vrfproof: ticket_p },
             election_proof: vec![],
+            bls_aggregate: vec![1, 2, 3],
             cached_cid: cid,
             cached_bytes: CACHED_BYTES,
         }
@@ -262,12 +257,6 @@ mod tests {
     fn is_empty_test() {
         let tipset = setup();
         assert_eq!(Tipset::is_empty(&tipset), false);
-    }
-
-    #[test]
-    fn height_test() {
-        let tipset = setup();
-        assert_eq!(Tipset::height(&tipset), 1);
     }
 
     #[test]
