@@ -19,7 +19,7 @@ pub fn check_args(_params: &MethodParams, rt: &dyn Runtime, cond: bool) {
 }
 
 pub fn arg_pop(params: &mut MethodParams, rt: &dyn Runtime) -> Serialized {
-    check_args(params, rt, params.is_empty());
+    check_args(params, rt, !params.is_empty());
     params.remove(0)
 }
 
