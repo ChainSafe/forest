@@ -1,10 +1,7 @@
-#![allow(dead_code)]
-
-use crate::signature::verify_bls_sig;
-use crate::signature::BLS_SIG_LEN;
+use crate::signature::{verify_bls_sig, BLS_SIG_LEN};
 use bls_signatures::{Serialize, Signature};
 
-struct VRFPublicKey(Vec<u8>);
+pub struct VRFPublicKey(Vec<u8>);
 
 /// VRFResult is the output from running a VRF
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -14,18 +11,18 @@ impl VRFResult {
     pub fn new(output: Vec<u8>) -> Self {
         Self(output)
     }
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         self.0.clone()
     }
     /// Returns max value based on `BLS_SIG_LEN`
-    fn max_value() -> Vec<u8> {
-        vec![std::u8::MAX; BLS_SIG_LEN]
+    pub fn max_value() -> Self {
+        Self::new([std::u8::MAX; BLS_SIG_LEN].to_vec())
     }
-    fn validate_syntax() -> bool {
+    pub fn validate_syntax(&self) -> bool {
         unimplemented!()
     }
     /// Asserts whether `input` was used with `pk` to produce `Self.output`
-    fn verify(&self, input: Vec<u8>, pk: VRFPublicKey) -> bool {
+    pub fn verify(&self, input: Vec<u8>, pk: VRFPublicKey) -> bool {
         match Signature::from_bytes(&self.0) {
             Ok(sig) => verify_bls_sig(input, pk.0, sig.as_bytes()),
             Err(_) => false,
@@ -50,11 +47,11 @@ mod tests {
 
         let genesis = VRFResult::new(input.as_bytes());
 
-        let sig = privk.sign(&genesis.as_bytes());
+        let sig = privk.sign(&genesis.to_bytes());
         let res = VRFResult::new(sig.as_bytes());
 
         let pubk = VRFPublicKey(privk.public_key().as_bytes());
 
-        assert!(res.verify(genesis.as_bytes(), pubk));
+        assert!(res.verify(genesis.to_bytes(), pubk));
     }
 }

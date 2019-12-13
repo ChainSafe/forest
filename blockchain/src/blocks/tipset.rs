@@ -244,7 +244,7 @@ mod tests {
         let tipset = setup();
         let expected_value = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
         let min = Tipset::min_ticket(&tipset).unwrap();
-        assert_eq!(min.vrfproof.as_bytes(), expected_value);
+        assert_eq!(min.vrfproof.to_bytes(), expected_value);
     }
 
     #[test]
