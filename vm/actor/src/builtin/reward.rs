@@ -44,7 +44,6 @@ impl RewardMethod {
 
 #[derive(Clone)]
 pub struct RewardActorCode;
-
 impl RewardActorCode {
     /// Constructor for Reward actor
     pub(crate) fn constructor(_rt: &dyn Runtime) -> InvocOutput {
@@ -71,6 +70,7 @@ impl ActorCode for RewardActorCode {
         _params: &MethodParams,
     ) -> InvocOutput {
         match RewardMethod::from_method_num(method) {
+            // TODO determine parameters for each method on finished spec
             Some(RewardMethod::Constructor) => RewardActorCode::constructor(rt),
             Some(RewardMethod::MintReward) => RewardActorCode::mint_reward(rt),
             Some(RewardMethod::WithdrawReward) => RewardActorCode::withdraw_reward(rt),

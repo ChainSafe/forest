@@ -6,7 +6,7 @@ use vm::{
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{ActorCode, Runtime};
+use runtime::{arg_end, ActorCode, Runtime};
 
 /// CronActorState has no internal state
 #[derive(Default)]
@@ -42,7 +42,7 @@ pub struct CronActorCode {
 
 impl CronActorCode {
     /// Constructor for Cron actor
-    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    pub fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Intentionally left blank
         rt.success_return()
     }
@@ -77,11 +77,13 @@ impl ActorCode for CronActorCode {
     ) -> InvocOutput {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {
-                rt.assert(params.is_empty());
+                // Assert no parameters passed
+                arg_end(params, rt);
                 CronActorCode::constructor(rt)
             }
             Some(CronMethod::Cron) => {
-                rt.assert(params.is_empty());
+                // Assert no parameters passed
+                arg_end(params, rt);
                 self.epoch_tick(rt)
             }
             _ => {

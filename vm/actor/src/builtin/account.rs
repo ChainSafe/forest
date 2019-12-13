@@ -1,7 +1,7 @@
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{ActorCode, Runtime};
+use runtime::{arg_end, ActorCode, Runtime};
 use vm::{ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR};
 
 /// AccountActorState includes the address for the actor
@@ -41,7 +41,8 @@ impl ActorCode for AccountActorCode {
     ) -> InvocOutput {
         match AccountMethod::from_method_num(method) {
             Some(AccountMethod::Constructor) => {
-                rt.assert(params.is_empty());
+                // Assert no parameters passed
+                arg_end(params, rt);
                 AccountActorCode::constructor(rt)
             }
             _ => {
