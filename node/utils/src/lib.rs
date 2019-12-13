@@ -16,7 +16,7 @@ pub fn write_to_file(message: &[u8], path: &str, file_name: &str) -> Result<()> 
     // Create path if it doesn't exist
     create_dir_all(Path::new(path))?;
     let join = format!("{}{}", path, file_name);
-    let mut file = File::create(join.to_owned())?;
+    let mut file = File::create(join)?;
     file.write_all(message)?;
     Ok(())
 }
