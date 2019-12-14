@@ -43,18 +43,18 @@ impl InitMethod {
 
 pub struct InitActorCode;
 impl InitActorCode {
-    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Acquire state
         // Update actor substate
 
         rt.success_return()
     }
-    pub(crate) fn exec(rt: &dyn Runtime, _code: CodeID, _params: &MethodParams) -> InvocOutput {
+    fn exec(rt: &dyn Runtime, _code: CodeID, _params: &MethodParams) -> InvocOutput {
         // TODO
         let addr = Address::new_id(0).unwrap();
         rt.value_return(addr.marshal_cbor().unwrap())
     }
-    pub(crate) fn get_actor_id_for_address(rt: &dyn Runtime, _address: Address) -> InvocOutput {
+    fn get_actor_id_for_address(rt: &dyn Runtime, _address: Address) -> InvocOutput {
         // TODO
         rt.value_return(ActorID(0).marshal_cbor().unwrap())
     }
@@ -73,13 +73,14 @@ impl ActorCode for InitActorCode {
             Some(InitMethod::Constructor) => {
                 // validate no arguments passed in
                 arg_end(params, rt);
-                InitActorCode::constructor(rt)
+
+                Self::constructor(rt)
             }
             Some(InitMethod::Exec) => {
                 // TODO deserialize CodeID on finished spec
                 let _ = arg_pop(params, rt);
                 check_args(params, rt, true);
-                InitActorCode::exec(rt, CodeID::Init, params)
+                Self::exec(rt, CodeID::Init, params)
             }
             Some(InitMethod::GetActorIDForAddress) => {
                 // Pop and unmarshall address parameter
@@ -90,7 +91,7 @@ impl ActorCode for InitActorCode {
                 arg_end(params, rt);
 
                 // Errors checked, get actor by address
-                InitActorCode::get_actor_id_for_address(rt, addr_res.unwrap())
+                Self::get_actor_id_for_address(rt, addr_res.unwrap())
             }
             _ => {
                 // Method number does not match available, abort in runtime

@@ -46,17 +46,17 @@ impl RewardMethod {
 pub struct RewardActorCode;
 impl RewardActorCode {
     /// Constructor for Reward actor
-    pub(crate) fn constructor(_rt: &dyn Runtime) -> InvocOutput {
+    fn constructor(_rt: &dyn Runtime) -> InvocOutput {
         // TODO
         unimplemented!();
     }
     /// Mints a reward and puts into state reward map
-    pub(crate) fn mint_reward(_rt: &dyn Runtime) -> InvocOutput {
+    fn mint_reward(_rt: &dyn Runtime) -> InvocOutput {
         // TODO
         unimplemented!();
     }
     /// Withdraw available funds from reward map
-    pub(crate) fn withdraw_reward(_rt: &dyn Runtime) -> InvocOutput {
+    fn withdraw_reward(_rt: &dyn Runtime) -> InvocOutput {
         // TODO
         unimplemented!();
     }
@@ -71,9 +71,9 @@ impl ActorCode for RewardActorCode {
     ) -> InvocOutput {
         match RewardMethod::from_method_num(method) {
             // TODO determine parameters for each method on finished spec
-            Some(RewardMethod::Constructor) => RewardActorCode::constructor(rt),
-            Some(RewardMethod::MintReward) => RewardActorCode::mint_reward(rt),
-            Some(RewardMethod::WithdrawReward) => RewardActorCode::withdraw_reward(rt),
+            Some(RewardMethod::Constructor) => Self::constructor(rt),
+            Some(RewardMethod::MintReward) => Self::mint_reward(rt),
+            Some(RewardMethod::WithdrawReward) => Self::withdraw_reward(rt),
             _ => {
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),

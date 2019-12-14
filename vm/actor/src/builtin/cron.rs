@@ -42,14 +42,14 @@ pub struct CronActorCode {
 
 impl CronActorCode {
     /// Constructor for Cron actor
-    pub fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Intentionally left blank
         rt.success_return()
     }
     /// epoch_tick executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    pub fn epoch_tick(&self, rt: &dyn Runtime) -> InvocOutput {
+    fn epoch_tick(&self, rt: &dyn Runtime) -> InvocOutput {
         // self.entries is basically a static registry for now, loaded
         // in the interpreter static registry.
         for entry in self.entries.clone() {
@@ -79,7 +79,7 @@ impl ActorCode for CronActorCode {
             Some(CronMethod::Constructor) => {
                 // Assert no parameters passed
                 arg_end(params, rt);
-                CronActorCode::constructor(rt)
+                Self::constructor(rt)
             }
             Some(CronMethod::Cron) => {
                 // Assert no parameters passed

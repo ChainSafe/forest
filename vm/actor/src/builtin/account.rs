@@ -26,7 +26,7 @@ pub struct AccountActorCode;
 
 impl AccountActorCode {
     /// Constructor for Account actor
-    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Intentionally left blank
         rt.success_return()
     }
@@ -43,7 +43,7 @@ impl ActorCode for AccountActorCode {
             Some(AccountMethod::Constructor) => {
                 // Assert no parameters passed
                 arg_end(params, rt);
-                AccountActorCode::constructor(rt)
+                Self::constructor(rt)
             }
             _ => {
                 rt.abort(
