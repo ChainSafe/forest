@@ -3,6 +3,12 @@ use bls_signatures::{Serialize, Signature};
 
 pub struct VRFPublicKey(Vec<u8>);
 
+impl VRFPublicKey {
+    pub fn new(input: Vec<u8>) -> Self {
+        Self(input)
+    }
+}
+
 /// VRFResult is the output from running a VRF
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct VRFResult(Vec<u8>);
@@ -33,7 +39,6 @@ impl VRFResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::is_valid_signature;
     use bls_signatures::{PrivateKey, Serialize};
     use rand::{Rng, SeedableRng, XorShiftRng};
 
@@ -50,7 +55,7 @@ mod tests {
         let sig = privk.sign(&genesis.to_bytes());
         let res = VRFResult::new(sig.as_bytes());
 
-        let pubk = VRFPublicKey(privk.public_key().as_bytes());
+        let pubk = VRFPublicKey::new(privk.public_key().as_bytes());
 
         assert!(res.verify(genesis.to_bytes(), pubk));
     }
