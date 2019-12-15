@@ -73,7 +73,7 @@ mod tests {
         let act_s = ActorState::new(CodeID::Account, cid.clone(), BigUint::default(), 1);
         let act_a = ActorState::new(CodeID::Account, cid.clone(), BigUint::default(), 2);
         let addr = Address::new_id(1).unwrap();
-        let mut tree = HamtStateTree::new();
+        let mut tree = HamtStateTree::default();
 
         // test address not in cache
         assert_eq!(tree.get_actor(addr.clone()), None);
