@@ -7,6 +7,9 @@ use encoding::blake2b_256;
 
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 
+pub const BLS_SIG_LEN: usize = 96; // bytes
+pub const BLS_PUB_LEN: usize = 48; // bytes
+
 /// Signature, represented in bytes, of any key protocol
 pub type Signature = Vec<u8>;
 
@@ -20,8 +23,8 @@ pub fn is_valid_signature(data: Vec<u8>, addr: Address, sig: Signature) -> bool 
 }
 
 /// returns true if a bls signature is valid
-fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> bool {
-    if pub_k.len() != 48 || sig.len() != 96 {
+pub(crate) fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> bool {
+    if pub_k.len() != BLS_PUB_LEN || sig.len() != BLS_SIG_LEN {
         // validates pubkey length and signature length for protocol
         return false;
     }

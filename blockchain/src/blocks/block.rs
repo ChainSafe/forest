@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::ticket::{Ticket, VRFProofIndex};
+use super::ticket::Ticket;
 use super::TipSetKeys;
 use address::Address;
 use cid::{Cid, Codec, Prefix, Version};
@@ -52,9 +52,6 @@ pub struct BlockHeader {
     pub timestamp: u64,
     /// ticket is the ticket submitted with this block
     pub ticket: Ticket,
-    /// election_proof is the "scratched ticket" proving that this block won
-    /// an election
-    pub election_proof: VRFProofIndex,
 
     // SIGNATURES
     //
