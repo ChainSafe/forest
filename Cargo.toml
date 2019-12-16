@@ -1,6 +1,9 @@
 [workspace]
 members = [
     "blockchain",
+    "blockchain/blocks",
+    "blockchain/chain",
+    "blockchain/chain_sync",
     "vm",
     "vm/actor",
     "vm/address",

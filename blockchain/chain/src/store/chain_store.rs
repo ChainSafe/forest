@@ -1,8 +1,11 @@
 #![allow(dead_code)]
+#![allow(unused_variables)]
+
 use super::TipIndex;
-use crate::blocks::TipSet;
-use crate::network::NetworkMessage;
+//use crate::blocks::TipSet;
+use blocks::Tipset;
 use cid::Cid;
+use network::NetworkMessage;
 
 pub struct Store {
     // TODO add Blockstore
@@ -14,7 +17,7 @@ pub struct Store {
     genesis: Cid,
 
     // head is the tipset at the head of the best-known chain.
-    head: TipSet,
+    head: Tipset,
 
     // notifications is a pubsub channel that publishes an event every time the head changes.
     // We operate under the assumption that tipsets published to this channel
@@ -22,6 +25,6 @@ pub struct Store {
     // Successive published tipsets may be supersets of previously published tipsets.
     notifications: NetworkMessage,
 
-    // Tracks tipsets by height/parentset for use by expected consensus.
+    // Tracks tipsets by epoch/parentset for use by expected consensus.
     tip_index: TipIndex,
 }

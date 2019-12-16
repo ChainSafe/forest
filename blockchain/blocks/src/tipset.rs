@@ -7,15 +7,16 @@ use super::ticket::Ticket;
 use cid::Cid;
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
+#[derive(Clone)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
-    key: TipSetKeys,
+    pub key: TipSetKeys,
 }
 
 /// TipSetKeys is a set of CIDs forming a unique key for a TipSet
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
@@ -159,7 +160,7 @@ impl TipSetKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::block::TxMeta;
+    use crate::block::TxMeta;
     use address::Address;
     use cid::{Cid, Codec, Version};
     use clock::ChainEpoch;
