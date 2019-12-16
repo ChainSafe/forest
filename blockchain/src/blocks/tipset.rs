@@ -163,6 +163,7 @@ mod tests {
     use address::Address;
     use cid::{Cid, Codec, Version};
     use clock::ChainEpoch;
+    use crypto::VRFResult;
 
     const WEIGHT: u64 = 1;
     const CACHED_BYTES: u8 = 0;
@@ -200,8 +201,9 @@ mod tests {
             message_receipts: cids[0].clone(),
             state_root: cids[0].clone(),
             timestamp,
-            ticket: Ticket { vrfproof: ticket_p },
-            election_proof: vec![],
+            ticket: Ticket {
+                vrfproof: VRFResult::new(ticket_p),
+            },
             bls_aggregate: vec![1, 2, 3],
             cached_cid: cid,
             cached_bytes: CACHED_BYTES,
@@ -237,7 +239,7 @@ mod tests {
         let tipset = setup();
         let expected_value = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
         let min = Tipset::min_ticket(&tipset).unwrap();
-        assert_eq!(min.vrfproof, expected_value);
+        assert_eq!(min.vrfproof.to_bytes(), expected_value);
     }
 
     #[test]
