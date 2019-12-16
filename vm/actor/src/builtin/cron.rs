@@ -6,7 +6,7 @@ use vm::{
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{ActorCode, Runtime};
+use runtime::{arg_end, ActorCode, Runtime};
 
 /// CronActorState has no internal state
 #[derive(Default)]
@@ -42,14 +42,14 @@ pub struct CronActorCode {
 
 impl CronActorCode {
     /// Constructor for Cron actor
-    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Intentionally left blank
         rt.success_return()
     }
     /// epoch_tick executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    pub fn epoch_tick(&self, rt: &dyn Runtime) -> InvocOutput {
+    fn epoch_tick(&self, rt: &dyn Runtime) -> InvocOutput {
         // self.entries is basically a static registry for now, loaded
         // in the interpreter static registry.
         for entry in self.entries.clone() {
@@ -77,11 +77,13 @@ impl ActorCode for CronActorCode {
     ) -> InvocOutput {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {
-                rt.assert(params.is_empty());
-                CronActorCode::constructor(rt)
+                // Assert no parameters passed
+                arg_end(params, rt);
+                Self::constructor(rt)
             }
             Some(CronMethod::Cron) => {
-                rt.assert(params.is_empty());
+                // Assert no parameters passed
+                arg_end(params, rt);
                 self.epoch_tick(rt)
             }
             _ => {
