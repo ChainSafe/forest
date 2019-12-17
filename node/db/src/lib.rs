@@ -9,17 +9,20 @@ pub trait DatabaseService {
 }
 
 pub trait Write {
-    fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<(), io:Error>;
-    fn put<K, V>(&self, key: K, value: V) -> Result<(), io:Error> where K: AsRef<[u8]>, V: AsRef<[u8]>;
+    fn delete(&self, key: vec<u8>) -> Result<(), io:Error>;
+    fn bulk_delete(&self, keys: [vec<u8>]) -> Result<(), io::Error>;
+    fn put(&self, key: vec<u8>, value: vec<u8>) -> Result<(), io:Error>;
+    fn bulk_put(&self, keys: [vec<u8>], values: [vec<u8>]) -> Result<(), io::Error>;
 }
 
 pub trait Read {
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<vec<u8>, io::Error>;
-    fn exists<K: AsRef<[u8]>>(&self, key: K) -> bool;
+    fn get(&self, key: vec<u8>) -> Result<vec<u8>, io::Error>;
+    fn bulk_get(&self, keys: [vec<u8>]) -> Result<[vec<u8>], io::Error>;
+    fn exists(&self, key: vec<u8>) -> bool;
+    fn bulk_exists(&self, keys: [vec<u8>]) -> [bool]; // Might not be usefull
 }
 
 #[derive(Debug)]
 struct DB {
-    path: String,
-
+    path: String
 }
