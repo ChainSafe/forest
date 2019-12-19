@@ -7,6 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+address = {path = "../../vm/address"}
 cid = "0.3.1"
+clock = {path = "../../node/clock"}
+crypto = {path = "../../crypto"}
 blocks = {path = "../blocks"}
 network = {path = "../../node/network"}
+multihash = "0.8.0"

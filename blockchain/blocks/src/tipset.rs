@@ -5,11 +5,12 @@ use super::block::BlockHeader;
 use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
+use clock::ChainEpoch;
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
-    blocks: Vec<BlockHeader>,
+    pub blocks: Vec<BlockHeader>,
     pub key: TipSetKeys,
 }
 
@@ -125,7 +126,7 @@ impl Tipset {
         self.blocks.len()
     }
     /// is_empty returns true if no blocks present in tipset
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.blocks.is_empty()
     }
     /// key returns a key for the tipset.
@@ -133,12 +134,16 @@ impl Tipset {
         self.key.clone()
     }
     /// parents returns the CIDs of the parents of the blocks in the tipset
-    fn parents(&self) -> TipSetKeys {
+    pub fn parents(&self) -> TipSetKeys {
         self.blocks[0].parents.clone()
     }
     /// weight returns the tipset's calculated weight
     fn weight(&self) -> u64 {
         self.blocks[0].weight
+    }
+    /// tip_epoch returns the tipset's epoch
+    pub fn tip_epoch(&self) -> ChainEpoch {
+        self.blocks[0].epoch.clone()
     }
 }
 

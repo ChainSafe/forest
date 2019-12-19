@@ -2,12 +2,11 @@
 #![allow(unused_variables)]
 
 use super::TipIndex;
-//use crate::blocks::TipSet;
 use blocks::Tipset;
 use cid::Cid;
 use network::NetworkMessage;
 
-pub struct Store {
+struct Store {
     // TODO add Blockstore
     // TODO add IPLD Store
     // TODO add StateTreeLoader
@@ -20,11 +19,8 @@ pub struct Store {
     head: Tipset,
 
     // notifications is a pubsub channel that publishes an event every time the head changes.
-    // We operate under the assumption that tipsets published to this channel
-    // will always be queued and delivered to subscribers in the order discovered.
-    // Successive published tipsets may be supersets of previously published tipsets.
     notifications: NetworkMessage,
 
-    // Tracks tipsets by epoch/parentset for use by expected consensus.
+    // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     tip_index: TipIndex,
 }

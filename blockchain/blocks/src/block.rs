@@ -19,7 +19,7 @@ struct PoStRandomness {}
 struct PoStProof {}
 
 /// BlockHeader defines header of a block in the Filecoin blockchain
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BlockHeader {
     /// CHAIN LINKING
     ///
@@ -73,7 +73,7 @@ pub struct Block {
 }
 
 /// TxMeta tracks the merkleroots of both secp and bls messages separately
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TxMeta {
     pub bls_messages: Cid,
     pub secp_messages: Cid,

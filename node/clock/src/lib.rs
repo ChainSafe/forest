@@ -3,7 +3,7 @@ use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ChainEpoch(i64);
 
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
