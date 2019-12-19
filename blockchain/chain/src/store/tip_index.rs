@@ -13,11 +13,11 @@ pub struct TipSetMetadata {
     // tipset_state_root is the root of aggregate state after applying tipset
     tipset_state_root: Cid,
 
-    // tipset is the set of blocks that forms the tip set
-    tipset: Tipset,
-
     // tipset_receipts_root is receipts from all message contained within this tipset
     tipset_receipts_root: Cid,
+
+    // tipset is the set of blocks that forms the tip set
+    tipset: Tipset,
 }
 
 /// TipIndex tracks tipsets and their states by TipsetKeys and ChainEpoch
@@ -40,7 +40,7 @@ impl TipIndex {
     /// put adds an entry to TipIndex's hashmap
     /// After this call the input TipSetMetadata can be looked up by the TipsetKey of
     /// the tipset, or the tipset's epoch
-    pub fn put(&mut self, meta: TipSetMetadata) -> Result<bool, Error> {
+    pub fn put(&mut self, meta: &TipSetMetadata) -> Result<(), Error> {
         if meta.tipset.is_empty() {
             return Err(Error::NoBlocks);
         }
@@ -49,61 +49,56 @@ impl TipIndex {
         // retrieve epoch to be used as hash map key
         let epoch_key = meta.tipset.tip_epoch();
         // insert value by parent_key into hash map
-        self.metadata_by_parent_key
-            .insert(parent_key.clone(), meta.clone());
+        self.metadata_by_parent_key.insert(parent_key, meta.clone());
         // insert value by epoch_key into hash map
         self.metadata_by_epoch.insert(epoch_key, meta.clone());
-        Ok(true)
+        Ok(())
     }
     /// get_by_parent_key returns the tipset given by TipSetKey(e.g. parents())
-    pub fn get_by_parent_key(&self, key: TipSetKeys) -> Result<TipSetMetadata, Error> {
-        match self.metadata_by_parent_key.get(&key) {
-            Some(val) => Ok(val.clone()),
-            _ => Err(Error::UndefinedKey("invalid TipSetKey key".to_string())),
-        }
+    pub fn get_by_parent_key(&self, key: &TipSetKeys) -> Result<TipSetMetadata, Error> {
+        self.metadata_by_parent_key
+            .get(key)
+            .cloned()
+            .ok_or_else(|| Error::UndefinedKey("invalid tipset key".to_string()))
     }
     /// get_by_epoch_key returns the tipset given by ChainEpoch(e.g. tip_epoch())
-    pub fn get_by_epoch_key(&self, key: ChainEpoch) -> Result<TipSetMetadata, Error> {
-        match self.metadata_by_epoch.get(&key) {
-            Some(val) => Ok(val.clone()),
-            _ => Err(Error::UndefinedKey("invalid chain epoch key".to_string())),
-        }
+    pub fn get_by_epoch_key(&self, key: &ChainEpoch) -> Result<TipSetMetadata, Error> {
+        self.metadata_by_epoch
+            .get(key)
+            .cloned()
+            .ok_or_else(|| Error::UndefinedKey("invalid chain epoch key".to_string()))
     }
 
     /// get_tipset_by_parents returns a tipset by TipSetKeys
-    pub fn get_tipset_by_parents(&self, key: TipSetKeys) -> Result<Tipset, Error> {
-        let result = self.get_by_parent_key(key)?;
-        Ok(result.tipset)
+    pub fn get_tipset_by_parents(&self, key: &TipSetKeys) -> Result<Tipset, Error> {
+        Ok(self.get_by_parent_key(key).map(|r| r.tipset)?)
     }
 
     /// get_tipset_by_epoch returns a tipset by ChainEpoch
-    pub fn get_tipset_by_epoch(&self, key: ChainEpoch) -> Result<Tipset, Error> {
-        let result = self.get_by_epoch_key(key)?;
-        Ok(result.tipset)
+    pub fn get_tipset_by_epoch(&self, key: &ChainEpoch) -> Result<Tipset, Error> {
+        Ok(self.get_by_epoch_key(key).map(|r| r.tipset)?)
     }
 
     /// get_tipset_state_root_by_parents returns the tipset_state_root
-    pub fn get_tipset_state_root_by_parents(&self, key: TipSetKeys) -> Result<Cid, Error> {
-        let result = self.get_by_parent_key(key)?;
-        Ok(result.tipset_state_root)
+    pub fn get_tipset_state_root_by_parents(&self, key: &TipSetKeys) -> Result<Cid, Error> {
+        Ok(self.get_by_parent_key(key).map(|r| r.tipset_state_root)?)
     }
 
     /// get_tipset_state_root_by_epoch returns the tipset_state_root
-    pub fn get_tipset_state_root_by_epoch(&self, key: ChainEpoch) -> Result<Cid, Error> {
-        let result = self.get_by_epoch_key(key)?;
-        Ok(result.tipset_state_root)
+    pub fn get_tipset_state_root_by_epoch(&self, key: &ChainEpoch) -> Result<Cid, Error> {
+        Ok(self.get_by_epoch_key(key).map(|r| r.tipset_state_root)?)
     }
 
     /// get_tipset_receipts_root_by_parents returns the tipset_receipts_root
-    pub fn get_tipset_receipts_root_by_parents(&self, key: TipSetKeys) -> Result<Cid, Error> {
-        let result = self.get_by_parent_key(key)?;
-        Ok(result.tipset_receipts_root)
+    pub fn get_tipset_receipts_root_by_parents(&self, key: &TipSetKeys) -> Result<Cid, Error> {
+        Ok(self
+            .get_by_parent_key(key)
+            .map(|r| r.tipset_receipts_root)?)
     }
 
     /// get_tipset_receipts_root_by_epoch returns the tipset_receipts_root
-    pub fn get_tipset_receipts_root_by_epoch(&self, key: ChainEpoch) -> Result<Cid, Error> {
-        let result = self.get_by_epoch_key(key)?;
-        Ok(result.tipset_state_root)
+    pub fn get_tipset_receipts_root_by_epoch(&self, key: &ChainEpoch) -> Result<Cid, Error> {
+        Ok(self.get_by_epoch_key(key).map(|r| r.tipset_receipts_root)?)
     }
 }
 
@@ -171,8 +166,8 @@ mod tests {
         let tip_set = setup();
         TipSetMetadata {
             tipset_state_root: tip_set.blocks[0].state_root.clone(),
-            tipset: tip_set.clone(),
             tipset_receipts_root: tip_set.blocks[0].message_receipts.clone(),
+            tipset: tip_set,
         }
     }
 
@@ -180,85 +175,86 @@ mod tests {
     fn put_test() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        assert!(
-            TipIndex::put(&mut tip, meta.clone()).is_ok(),
-            "error setting tip index hash map"
-        )
+        assert!(tip.put(&meta).is_ok(), "error setting tip index hash map")
     }
 
     #[test]
     fn get_by_parent_key_test() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        TipIndex::put(&mut tip, meta.clone()).unwrap();
-        let result = TipIndex::get_by_parent_key(&tip, meta.tipset.parents()).unwrap();
-        assert_eq!(result, meta.clone());
+        tip.put(&meta).unwrap();
+        let result = tip.get_by_parent_key(&meta.tipset.parents()).unwrap();
+        assert_eq!(result, meta);
     }
 
     #[test]
     fn get_by_epoch_key_test() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        TipIndex::put(&mut tip, meta.clone()).unwrap();
-        let result = TipIndex::get_by_epoch_key(&tip, meta.tipset.tip_epoch()).unwrap();
-        assert_eq!(result, meta.clone());
+        tip.put(&meta).unwrap();
+        let result = tip.get_by_epoch_key(&meta.tipset.tip_epoch()).unwrap();
+        assert_eq!(result, meta);
     }
 
     #[test]
     fn get_tipset_by_parents_test() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        TipIndex::put(&mut tip, meta.clone()).unwrap();
-        let result = TipIndex::get_tipset_by_parents(&tip, meta.tipset.parents()).unwrap();
-        assert_eq!(result, meta.tipset.clone());
+        tip.put(&meta).unwrap();
+        let result = tip.get_tipset_by_parents(&meta.tipset.parents()).unwrap();
+        assert_eq!(result, meta.tipset);
     }
 
     #[test]
     fn get_state_root_by_parents_test() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        TipIndex::put(&mut tip, meta.clone()).unwrap();
-        let result =
-            TipIndex::get_tipset_state_root_by_parents(&tip, meta.tipset.parents()).unwrap();
-        assert_eq!(result, meta.tipset_state_root.clone());
+        tip.put(&meta).unwrap();
+        let result = tip
+            .get_tipset_state_root_by_parents(&meta.tipset.parents())
+            .unwrap();
+        assert_eq!(result, meta.tipset_state_root);
     }
 
     #[test]
     fn get_receipts_root_by_parents() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        TipIndex::put(&mut tip, meta.clone()).unwrap();
-        let result =
-            TipIndex::get_tipset_receipts_root_by_parents(&tip, meta.tipset.parents()).unwrap();
-        assert_eq!(result, meta.tipset_receipts_root.clone());
+        tip.put(&meta).unwrap();
+        let result = tip
+            .get_tipset_receipts_root_by_parents(&meta.tipset.parents())
+            .unwrap();
+        assert_eq!(result, meta.tipset_receipts_root);
     }
 
     #[test]
     fn get_tipset_by_epoch_test() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        TipIndex::put(&mut tip, meta.clone()).unwrap();
-        let result = TipIndex::get_tipset_by_epoch(&tip, meta.tipset.tip_epoch()).unwrap();
-        assert_eq!(result, meta.tipset.clone());
+        tip.put(&meta).unwrap();
+        let result = tip.get_tipset_by_epoch(&meta.tipset.tip_epoch()).unwrap();
+        assert_eq!(result, meta.tipset);
     }
 
     #[test]
     fn get_state_root_by_epoch_test() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        TipIndex::put(&mut tip, meta.clone()).unwrap();
-        let result =
-            TipIndex::get_tipset_state_root_by_epoch(&tip, meta.tipset.tip_epoch()).unwrap();
-        assert_eq!(result, meta.tipset_state_root.clone());
+        tip.put(&meta).unwrap();
+        let result = tip
+            .get_tipset_state_root_by_epoch(&meta.tipset.tip_epoch())
+            .unwrap();
+        assert_eq!(result, meta.tipset_state_root);
     }
 
     #[test]
     fn get_receipts_root_by_epoch() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
-        TipIndex::put(&mut tip, meta.clone()).unwrap();
-        let result =
-            TipIndex::get_tipset_receipts_root_by_epoch(&tip, meta.tipset.tip_epoch()).unwrap();
-        assert_eq!(result, meta.tipset_receipts_root.clone());
+        tip.put(&meta).unwrap();
+        let result = tip
+            .get_tipset_receipts_root_by_epoch(&meta.tipset.tip_epoch())
+            .unwrap();
+        assert_eq!(result, meta.tipset_receipts_root);
     }
 }

@@ -11,7 +11,7 @@ use clock::ChainEpoch;
 #[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     pub blocks: Vec<BlockHeader>,
-    pub key: TipSetKeys,
+    key: TipSetKeys,
 }
 
 /// TipSetKeys is a set of CIDs forming a unique key for a TipSet
