@@ -37,6 +37,18 @@ pub struct ActorState {
     sequence: u64,
 }
 
+impl ActorState {
+    /// Constructor for actor state
+    pub fn new(code_id: CodeID, state: Cid, balance: BigUint, sequence: u64) -> Self {
+        Self {
+            code_id,
+            state,
+            balance,
+            sequence,
+        }
+    }
+}
+
 /// Actor trait which defines the common functionality of system Actors
 pub trait Actor {
     /// Returns Actor Cid
