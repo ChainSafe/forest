@@ -154,19 +154,19 @@ mod tests {
     pub fn header_setup() -> Vec<BlockHeader> {
         let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
         let cids = key_setup();
-        return vec![template_header(data0.clone(), cids[0].clone(), 1)];
+        return vec![template_header(data0, cids[0].clone(), 1)];
     }
 
     pub fn setup() -> Tipset {
         let headers = header_setup();
-        Tipset::new(headers.clone()).expect("tipset is invalid")
+        Tipset::new(headers).expect("tipset is invalid")
     }
 
     fn meta_setup() -> TipSetMetadata {
         let tip_set = setup();
         TipSetMetadata {
-            tipset_state_root: tip_set.blocks[0].state_root.clone(),
-            tipset_receipts_root: tip_set.blocks[0].message_receipts.clone(),
+            tipset_state_root: tip_set.blocks()[0].state_root.clone(),
+            tipset_receipts_root: tip_set.blocks()[0].message_receipts.clone(),
             tipset: tip_set,
         }
     }

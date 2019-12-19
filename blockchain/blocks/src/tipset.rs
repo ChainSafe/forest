@@ -10,7 +10,7 @@ use clock::ChainEpoch;
 /// Blocks in a tipset are canonically ordered by ticket size
 #[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
-    pub blocks: Vec<BlockHeader>,
+    blocks: Vec<BlockHeader>,
     key: TipSetKeys,
 }
 
@@ -23,6 +23,10 @@ pub struct TipSetKeys {
 }
 
 impl Tipset {
+    /// blocks returns vec of blocks from tipset
+    pub fn blocks(&self) -> Vec<BlockHeader> {
+        self.blocks.clone()
+    }
     /// new builds a new TipSet from a collection of blocks
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all specify identical
     /// epoch, parents, weight, height, state root, receipt root;
