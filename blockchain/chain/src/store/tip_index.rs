@@ -2,8 +2,8 @@ use super::errors::Error;
 use blocks::{TipSetKeys, Tipset};
 use cid::Cid;
 use clock::ChainEpoch;
-use std::collections::HashMap;
-
+use std::collections::{hash_map::DefaultHasher, HashMap};
+use std::hash::{Hash, Hasher};
 /// TipSetMetadata is the type stored as the value in the TipIndex hashmap.  It contains
 /// a tipset pointing to blocks, the root cid of the chain's state after
 /// applying the messages in this tipset to it's parent state, and the cid of the receipts
@@ -20,21 +20,38 @@ pub struct TipSetMetadata {
     tipset: Tipset,
 }
 
+/// Trait to allow metadata to be indexed by multiple types of structs
+pub trait Index {
+    fn hash_key(&self) -> u64;
+}
+impl Index for ChainEpoch {
+    fn hash_key(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash::<DefaultHasher>(&mut hasher);
+        hasher.finish()
+    }
+}
+impl Index for TipSetKeys {
+    fn hash_key(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash::<DefaultHasher>(&mut hasher);
+        hasher.finish()
+    }
+}
+
 /// TipIndex tracks tipsets and their states by TipsetKeys and ChainEpoch
 #[derive(Default)]
 pub struct TipIndex {
-    // metadata_by_tipset_key allows lookup of recorded Tipsets and their state roots by TipsetKey
-    metadata_by_parent_key: HashMap<TipSetKeys, TipSetMetadata>,
-    // metadata_by_tipset_key allows lookup of recorded Tipsets and their state roots by Epoch
-    metadata_by_epoch: HashMap<ChainEpoch, TipSetMetadata>,
+    // metadata_by_tipset_key allows lookup of recorded Tipsets and their state roots
+    // by TipsetKey and Epoch
+    metadata: HashMap<u64, TipSetMetadata>,
 }
 
 impl TipIndex {
     /// constructor
     pub fn new() -> Self {
         Self {
-            metadata_by_parent_key: HashMap::new(),
-            metadata_by_epoch: HashMap::new(),
+            metadata: HashMap::new(),
         }
     }
     /// put adds an entry to TipIndex's hashmap
@@ -49,56 +66,30 @@ impl TipIndex {
         // retrieve epoch to be used as hash map key
         let epoch_key = meta.tipset.tip_epoch();
         // insert value by parent_key into hash map
-        self.metadata_by_parent_key.insert(parent_key, meta.clone());
+        self.metadata.insert(parent_key.hash_key(), meta.clone());
         // insert value by epoch_key into hash map
-        self.metadata_by_epoch.insert(epoch_key, meta.clone());
+        self.metadata.insert(epoch_key.hash_key(), meta.clone());
         Ok(())
     }
-    /// get_by_parent_key returns the tipset given by TipSetKey(e.g. parents())
-    pub fn get_by_parent_key(&self, key: &TipSetKeys) -> Result<TipSetMetadata, Error> {
-        self.metadata_by_parent_key
-            .get(key)
+    /// get returns the tipset given by hashed key
+    fn get(&self, key: u64) -> Result<TipSetMetadata, Error> {
+        self.metadata
+            .get(&key)
             .cloned()
-            .ok_or_else(|| Error::UndefinedKey("invalid tipset key".to_string()))
-    }
-    /// get_by_epoch_key returns the tipset given by ChainEpoch(e.g. tip_epoch())
-    pub fn get_by_epoch_key(&self, key: &ChainEpoch) -> Result<TipSetMetadata, Error> {
-        self.metadata_by_epoch
-            .get(key)
-            .cloned()
-            .ok_or_else(|| Error::UndefinedKey("invalid chain epoch key".to_string()))
+            .ok_or_else(|| Error::UndefinedKey("invalid metadata key".to_string()))
     }
 
-    /// get_tipset_by_parents returns a tipset by TipSetKeys
-    pub fn get_tipset_by_parents(&self, key: &TipSetKeys) -> Result<Tipset, Error> {
-        Ok(self.get_by_parent_key(key).map(|r| r.tipset)?)
+    /// get_tipset returns a tipset
+    pub fn get_tipset(&self, idx: &dyn Index) -> Result<Tipset, Error> {
+        Ok(self.get(idx.hash_key()).map(|r| r.tipset)?)
     }
-
-    /// get_tipset_by_epoch returns a tipset by ChainEpoch
-    pub fn get_tipset_by_epoch(&self, key: &ChainEpoch) -> Result<Tipset, Error> {
-        Ok(self.get_by_epoch_key(key).map(|r| r.tipset)?)
+    /// get_tipset_state_root returns the tipset_state_root
+    pub fn get_tipset_state_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
+        Ok(self.get(idx.hash_key()).map(|r| r.tipset_state_root)?)
     }
-
-    /// get_tipset_state_root_by_parents returns the tipset_state_root
-    pub fn get_tipset_state_root_by_parents(&self, key: &TipSetKeys) -> Result<Cid, Error> {
-        Ok(self.get_by_parent_key(key).map(|r| r.tipset_state_root)?)
-    }
-
-    /// get_tipset_state_root_by_epoch returns the tipset_state_root
-    pub fn get_tipset_state_root_by_epoch(&self, key: &ChainEpoch) -> Result<Cid, Error> {
-        Ok(self.get_by_epoch_key(key).map(|r| r.tipset_state_root)?)
-    }
-
-    /// get_tipset_receipts_root_by_parents returns the tipset_receipts_root
-    pub fn get_tipset_receipts_root_by_parents(&self, key: &TipSetKeys) -> Result<Cid, Error> {
-        Ok(self
-            .get_by_parent_key(key)
-            .map(|r| r.tipset_receipts_root)?)
-    }
-
-    /// get_tipset_receipts_root_by_epoch returns the tipset_receipts_root
-    pub fn get_tipset_receipts_root_by_epoch(&self, key: &ChainEpoch) -> Result<Cid, Error> {
-        Ok(self.get_by_epoch_key(key).map(|r| r.tipset_receipts_root)?)
+    /// get_tipset_receipts_root returns the tipset_receipts_root
+    pub fn get_tipset_receipts_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
+        Ok(self.get(idx.hash_key()).map(|r| r.tipset_receipts_root)?)
     }
 }
 
@@ -179,39 +170,32 @@ mod tests {
     }
 
     #[test]
-    fn get_by_parent_key_test() {
+    fn get_from_hashmap() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_by_parent_key(&meta.tipset.parents()).unwrap();
+        let mut hasher = DefaultHasher::new();
+        meta.tipset.parents().hash::<DefaultHasher>(&mut hasher);
+        let result = tip.get(hasher.finish()).unwrap();
         assert_eq!(result, meta);
     }
 
     #[test]
-    fn get_by_epoch_key_test() {
+    fn get_tipset_by_parents() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_by_epoch_key(&meta.tipset.tip_epoch()).unwrap();
-        assert_eq!(result, meta);
-    }
-
-    #[test]
-    fn get_tipset_by_parents_test() {
-        let meta = meta_setup();
-        let mut tip = TipIndex::new();
-        tip.put(&meta).unwrap();
-        let result = tip.get_tipset_by_parents(&meta.tipset.parents()).unwrap();
+        let result = tip.get_tipset(&meta.tipset.parents()).unwrap();
         assert_eq!(result, meta.tipset);
     }
 
     #[test]
-    fn get_state_root_by_parents_test() {
+    fn get_state_root_by_parents() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
         let result = tip
-            .get_tipset_state_root_by_parents(&meta.tipset.parents())
+            .get_tipset_receipts_root(&meta.tipset.parents())
             .unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
@@ -222,28 +206,26 @@ mod tests {
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
         let result = tip
-            .get_tipset_receipts_root_by_parents(&meta.tipset.parents())
+            .get_tipset_receipts_root(&meta.tipset.parents())
             .unwrap();
         assert_eq!(result, meta.tipset_receipts_root);
     }
 
     #[test]
-    fn get_tipset_by_epoch_test() {
+    fn get_tipset_by_epoch() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset_by_epoch(&meta.tipset.tip_epoch()).unwrap();
+        let result = tip.get_tipset(&meta.tipset.tip_epoch()).unwrap();
         assert_eq!(result, meta.tipset);
     }
 
     #[test]
-    fn get_state_root_by_epoch_test() {
+    fn get_state_root_by_epoch() {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip
-            .get_tipset_state_root_by_epoch(&meta.tipset.tip_epoch())
-            .unwrap();
+        let result = tip.get_tipset_state_root(&meta.tipset.tip_epoch()).unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
 
@@ -253,7 +235,7 @@ mod tests {
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
         let result = tip
-            .get_tipset_receipts_root_by_epoch(&meta.tipset.tip_epoch())
+            .get_tipset_receipts_root(&meta.tipset.tip_epoch())
             .unwrap();
         assert_eq!(result, meta.tipset_receipts_root);
     }
