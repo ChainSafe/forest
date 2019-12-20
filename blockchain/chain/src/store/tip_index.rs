@@ -42,7 +42,7 @@ impl Index for TipSetKeys {
 /// TipIndex tracks tipsets and their states by TipsetKeys and ChainEpoch
 #[derive(Default)]
 pub struct TipIndex {
-    // metadata_by_tipset_key allows lookup of recorded Tipsets and their state roots
+    // metadata allows lookup of recorded Tipsets and their state roots
     // by TipsetKey and Epoch
     metadata: HashMap<u64, TipSetMetadata>,
 }
