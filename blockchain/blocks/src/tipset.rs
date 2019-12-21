@@ -5,8 +5,10 @@ use super::block::BlockHeader;
 use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
+use clock::ChainEpoch;
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
+#[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,
@@ -15,12 +17,16 @@ pub struct Tipset {
 /// TipSetKeys is a set of CIDs forming a unique key for a TipSet
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
 
 impl Tipset {
+    /// blocks returns vec of blocks from tipset
+    pub fn blocks(&self) -> Vec<BlockHeader> {
+        self.blocks.clone()
+    }
     /// new builds a new TipSet from a collection of blocks
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all specify identical
     /// epoch, parents, weight, height, state root, receipt root;
@@ -124,7 +130,7 @@ impl Tipset {
         self.blocks.len()
     }
     /// is_empty returns true if no blocks present in tipset
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.blocks.is_empty()
     }
     /// key returns a key for the tipset.
@@ -132,12 +138,16 @@ impl Tipset {
         self.key.clone()
     }
     /// parents returns the CIDs of the parents of the blocks in the tipset
-    fn parents(&self) -> TipSetKeys {
+    pub fn parents(&self) -> TipSetKeys {
         self.blocks[0].parents.clone()
     }
     /// weight returns the tipset's calculated weight
     fn weight(&self) -> u64 {
         self.blocks[0].weight
+    }
+    /// tip_epoch returns the tipset's epoch
+    pub fn tip_epoch(&self) -> ChainEpoch {
+        self.blocks[0].epoch.clone()
     }
 }
 
@@ -159,7 +169,7 @@ impl TipSetKeys {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::block::TxMeta;
+    use crate::block::TxMeta;
     use address::Address;
     use cid::{Cid, Codec, Version};
     use clock::ChainEpoch;

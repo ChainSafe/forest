@@ -1,0 +1,13 @@
+[package]
+name = "blocks"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+address = {path = "../../vm/address"}
+crypto = {path = "../../crypto"}
+message = {path = "../../vm/message"}
+clock = {path = "../../node/clock"}
+cid = "0.3.1"
+multihash = "0.8.0"

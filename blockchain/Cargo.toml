@@ -4,14 +4,5 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-vm = {path = "../vm"}
-address = {path = "../vm/address"}
-crypto = {path = "../crypto"}
 message = {path = "../vm/message"}
-clock = {path = "../node/clock"}
-libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "3f9b030e29c9b31f9fe6f2ed27be4a813e2b3701" }
-cid = "0.3.1"
-multihash = "0.8.0"
