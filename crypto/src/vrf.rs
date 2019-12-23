@@ -3,13 +3,14 @@ use bls_signatures::{Serialize, Signature};
 
 pub struct VRFPublicKey(Vec<u8>);
 
+/// TODO
 impl VRFPublicKey {
     pub fn new(input: Vec<u8>) -> Self {
         Self(input)
     }
 }
 
-/// VRFResult is the output from running a VRF
+/// The output from running a VRF
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct VRFResult(Vec<u8>);
 
