@@ -10,7 +10,7 @@ impl VRFPublicKey {
 }
 
 /// VRFResult is the output from running a VRF
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default)]
 pub struct VRFResult(Vec<u8>);
 
 impl VRFResult {
