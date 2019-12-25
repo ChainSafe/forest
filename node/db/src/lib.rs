@@ -1,25 +1,23 @@
 use std::io;
+use std::path::Path;
 
-// Note some DB's may auto close at end of lifetime, should still be handled
+// Note DB's auto close at end of lifetime
 // Note key might be vec<u8>
-// Note do we need a tokio runtime?
 pub trait DatabaseService {
-    fn open(&self) -> Result<(), io::Error>;
-    fn close(&self) -> Result<(), io::Error>;
+    fn open(path: &Path) -> Result<Self, io::Error>;
 }
 
 pub trait Write {
+    fn write(&self, key: vec<u8>, value: vec<u8>) -> Result<(), io:Error>;
     fn delete(&self, key: vec<u8>) -> Result<(), io:Error>;
+    fn bulk_write(&self, keys: [vec<u8>], values: [vec<u8>]) -> Result<(), io::Error>;
     fn bulk_delete(&self, keys: [vec<u8>]) -> Result<(), io::Error>;
-    fn put(&self, key: vec<u8>, value: vec<u8>) -> Result<(), io:Error>;
-    fn bulk_put(&self, keys: [vec<u8>], values: [vec<u8>]) -> Result<(), io::Error>;
 }
 
 pub trait Read {
-    fn get(&self, key: vec<u8>) -> Result<vec<u8>, io::Error>;
-    fn bulk_get(&self, keys: [vec<u8>]) -> Result<[vec<u8>], io::Error>;
+    fn read(&self, key: vec<u8>) -> Result<vec<u8>, io::Error>;
     fn exists(&self, key: vec<u8>) -> bool;
-    fn bulk_exists(&self, keys: [vec<u8>]) -> [bool]; // Might not be usefull
+    fn bulk_read(&self, keys: [vec<u8>]) -> Result<[vec<u8>], io::Error>;
 }
 
 #[derive(Debug)]
