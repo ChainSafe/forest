@@ -1,57 +1,63 @@
-use rocksdb::{DB, Options, WriteBatch}
+use super::errors::Error;
+use super::traits::{Read, Write};
+use rocksdb::{Options, WriteBatch, DB};
 use std::path::Path;
 
-struct RocksDb {
-    db: DB
+#[derive(Debug)]
+pub struct RocksDb {
+    pub db: DB,
 }
 
-// General TODOs methods should apply a where to ensure the values are CBOR compatible
-
-impl DatabaseService for RocksDb {
-    pub fn open(path: &Path) -> Result<(), io:Error> {
+impl RocksDb {
+    pub fn open(path: &Path) -> Result<Self, Error> {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         let db = DB::open(&db_opts, path)?;
-        Ok(Self {
-            db: db
-        })
+        Ok(Self { db })
     }
 }
 
 impl Write for RocksDb {
-    pub fn write(&self, key: vec<u8>, value: vec<u8>) -> Result<(), io:Error> {
-        self.db.put(key, value)?
+    fn write(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), Error> {
+        self.db.put(key, value)?;
+        Ok(())
     }
 
-    pub fn delete(&self, key: vec<u8>) -> Result<(), io:Error> {
-        self.db.delete(key)?
+    fn delete(&self, key: Vec<u8>) -> Result<(), Error> {
+        self.db.delete(key)?;
+        Ok(())
     }
 
-    pub fn bulk_write(&self, keys: [vec<u8>], values: [vec<u8>]) -> Result<(), io::Error> {
+    fn bulk_write(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<(), Error> {
         let mut batch = WriteBatch::default();
-        for (k,v) in keys.iter().zip(values.iter()) {
-            batch.put(k, v);
+        for (k, v) in keys.iter().zip(values.iter()) {
+            batch.put(k, v)?;
         }
-        self.db.write(batch)?
+        self.db.write(batch)?;
+        Ok(())
     }
 
-    pub fn bulk_delete(&self, keys: [vec<u8>]) -> Result<(), io::Error> {}
+    fn bulk_delete(&self, _keys: &[Vec<u8>]) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 impl Read for RocksDb {
-    pub fn read(&self, key: vec<u8>) -> Result<vec<u8>, io::Error> {
-        self.db
+    fn read(&self, _key: Vec<u8>) -> Result<Vec<u8>, Error> {
+        Ok(vec![])
     }
 
-    pub fn exists(&self, key: vec<u8>) -> bool {
-        // pinned key 
+    fn exists(&self, key: Vec<u8>) -> bool {
+        // pinned key
         let result = self.db.get_pinned(key);
         match result {
-            Some(x) => return true,
-            None => return false,
+            Ok(_) => true,
+            Err(_) => false,
         }
     }
 
-    pub fn bulk_read(&self, keys: [vec<u8>]) -> Result<[vec<u8>], io::Error>;
+    // fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<&[Vec<u8>], Error> {
+    //     let v = [vec![]];
+    //     Ok(&v)
+    // }
 }
-
