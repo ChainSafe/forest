@@ -14,7 +14,7 @@ impl<'a> Deref for SyncBucket<'a> {
     }
 }
 
-impl<'a> DerefMut for SyncBucket<'a> {
+impl DerefMut for SyncBucket<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.tips
     }
