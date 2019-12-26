@@ -61,10 +61,7 @@ impl Read for RocksDb {
     where
         K: AsRef<[u8]>,
     {
-        match self.db.get(key) {
-            Ok(value) => Ok(value),
-            Err(e) => Err(Error::from(e)),
-        }
+        self.db.get(key).map_err(Error::from)
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, Error>

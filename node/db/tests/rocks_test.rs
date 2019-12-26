@@ -12,8 +12,8 @@ fn start() {
 #[test]
 fn write() {
     let path = DBPath::new("write_rocks_test");
-    let key = vec![1];
-    let value = vec![1];
+    let key = [1];
+    let value = [1];
 
     let db: RocksDb = RocksDb::start(path.as_ref()).unwrap();
     RocksDb::write(&db, key, value).unwrap();
@@ -22,19 +22,19 @@ fn write() {
 #[test]
 fn read() {
     let path = DBPath::new("read_rocks_test");
-    let key = vec![0];
-    let value = vec![1];
+    let key = [0];
+    let value = [1];
     let db = RocksDb::start(path.as_ref()).unwrap();
     RocksDb::write(&db, key.clone(), value.clone()).unwrap();
     let res = RocksDb::read(&db, key).unwrap().unwrap();
-    assert_eq!(value, res);
+    assert_eq!(value.to_vec(), res);
 }
 
 #[test]
 fn exists() {
     let path = DBPath::new("exists_rocks_test");
-    let key = vec![0];
-    let value = vec![1];
+    let key = [0];
+    let value = [1];
     let db = RocksDb::start(path.as_ref()).unwrap();
     RocksDb::write(&db, key.clone(), value.clone()).unwrap();
     let res = RocksDb::exists(&db, key).unwrap();
@@ -44,7 +44,7 @@ fn exists() {
 #[test]
 fn does_not_exist() {
     let path = DBPath::new("does_not_exists_rocks_test");
-    let key = vec![0];
+    let key = [0];
     let db = RocksDb::start(path.as_ref()).unwrap();
     let res = RocksDb::exists(&db, key).unwrap();
     assert_eq!(res, false);
@@ -53,8 +53,8 @@ fn does_not_exist() {
 #[test]
 fn delete() {
     let path = DBPath::new("delete_rocks_test");
-    let key = vec![0];
-    let value = vec![1];
+    let key = [0];
+    let value = [1];
     let db = RocksDb::start(path.as_ref()).unwrap();
     RocksDb::write(&db, key.clone(), value.clone()).unwrap();
     let res = RocksDb::exists(&db, key.clone()).unwrap();
@@ -67,8 +67,8 @@ fn delete() {
 #[test]
 fn bulk_write() {
     let path = DBPath::new("bulk_write_rocks_test");
-    let keys = [vec![0], vec![1], vec![2]];
-    let values = [vec![0], vec![1], vec![2]];
+    let keys = [[0], [1], [2]];
+    let values = [[0], [1], [2]];
     let db = RocksDb::start(path.as_ref()).unwrap();
     RocksDb::bulk_write(&db, &keys, &values).unwrap();
     for k in keys.iter() {
@@ -80,8 +80,8 @@ fn bulk_write() {
 #[test]
 fn bulk_read() {
     let path = DBPath::new("bulk_read_rocks_test");
-    let keys = [vec![0], vec![1], vec![2]];
-    let values = [vec![0], vec![1], vec![2]];
+    let keys = [[0], [1], [2]];
+    let values = [[0], [1], [2]];
     let db = RocksDb::start(path.as_ref()).unwrap();
     RocksDb::bulk_write(&db, &keys, &values).unwrap();
     let results = RocksDb::bulk_read(&db, &keys).unwrap();
@@ -96,8 +96,8 @@ fn bulk_read() {
 #[test]
 fn bulk_delete() {
     let path = DBPath::new("bulk_delete_rocks_test");
-    let keys = [vec![0], vec![1], vec![2]];
-    let values = [vec![0], vec![1], vec![2]];
+    let keys = [[0], [1], [2]];
+    let values = [[0], [1], [2]];
     let db = RocksDb::start(path.as_ref()).unwrap();
     RocksDb::bulk_write(&db, &keys, &values).unwrap();
     RocksDb::bulk_delete(&db, &keys).unwrap();
