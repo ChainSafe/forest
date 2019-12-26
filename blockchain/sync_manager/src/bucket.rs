@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 
 /// SyncBucket defines a bucket of tipsets to sync
 #[derive(Clone, Default)]
-pub(crate) struct SyncBucket<'a> {
+struct SyncBucket<'a> {
     tips: Vec<&'a Tipset>,
 }
 
