@@ -23,7 +23,6 @@ fn write() {
         Ok(db) => db,
         Err(e) => panic!("{:?}", e),
     };
-    println!("{:?}", &db);
 
     if let Err(e) = RocksDb::write(&db, key, value) {
         panic!("{:?}", e);
