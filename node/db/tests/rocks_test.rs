@@ -128,6 +128,27 @@ fn bulk_write() {
 }
 
 #[test]
+fn bulk_read() {
+    let path = DBPath::new("bulk_read_rocks_test");
+    let keys = [vec![0], vec![1], vec![2]];
+    let values = [vec![0], vec![1], vec![2]];
+    let db = match RocksDb::open(&path.path.as_path()) {
+        Ok(db) => db,
+        Err(e) => panic!("{:?}", e),
+    };
+    if let Err(e) = RocksDb::bulk_write(&db, &keys, &values) {
+        panic!("{:?}", e);
+    };
+    let results = match RocksDb::bulk_read(&db, &keys) {
+        Ok(res) => res,
+        Err(e) => panic!("{:?}", e),
+    };
+    for (results, value) in results.iter().zip(values.iter()) {
+        assert_eq!(results, value);
+    }
+}
+
+#[test]
 fn bulk_delete() {
     let path = DBPath::new("bulk_delete_rocks_test");
     let keys = [vec![0], vec![1], vec![2]];

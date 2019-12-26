@@ -15,5 +15,5 @@ pub trait Write {
 pub trait Read {
     fn read(&self, key: Vec<u8>) -> Result<Vec<u8>, Error>;
     fn exists(&self, key: Vec<u8>) -> Result<bool, Error>;
-    // fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<&[Vec<u8>], Error>;
+    fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>, Error>;
 }

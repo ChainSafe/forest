@@ -56,7 +56,6 @@ impl Read for RocksDb {
     }
 
     fn exists(&self, key: Vec<u8>) -> Result<bool, Error> {
-        // pinned key
         let result = self.db.get_pinned(key);
         match result {
             Ok(val) => Ok(val.is_some()),
@@ -64,8 +63,15 @@ impl Read for RocksDb {
         }
     }
 
-    // fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<&[Vec<u8>], Error> {
-    //     let v = [vec![]];
-    //     Ok(&v)
-    // }
+    fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>, Error> {
+        let mut v = Vec::new();
+        for k in keys.into_iter() {
+            match self.db.get(k) {
+                Ok(Some(val)) => v.push(val),
+                Ok(None) => return Err(Error::NoValue),
+                Err(e) => return Err(Error::from(e)),
+            }
+        }
+        Ok(v.clone())
+    }
 }
