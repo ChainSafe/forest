@@ -25,8 +25,8 @@ fn read() {
     let key = [0];
     let value = [1];
     let db = RocksDb::start(path.as_ref()).unwrap();
-    RocksDb::write(&db, key.clone(), value.clone()).unwrap();
-    let res = RocksDb::read(&db, key).unwrap().unwrap();
+    db.write(key.clone(), value.clone()).unwrap();
+    let res = db.read(key).unwrap().unwrap();
     assert_eq!(value.to_vec(), res);
 }
 
@@ -36,8 +36,8 @@ fn exists() {
     let key = [0];
     let value = [1];
     let db = RocksDb::start(path.as_ref()).unwrap();
-    RocksDb::write(&db, key.clone(), value.clone()).unwrap();
-    let res = RocksDb::exists(&db, key).unwrap();
+    db.write(key.clone(), value.clone()).unwrap();
+    let res = db.exists(key).unwrap();
     assert_eq!(res, true);
 }
 
@@ -46,7 +46,7 @@ fn does_not_exist() {
     let path = DBPath::new("does_not_exists_rocks_test");
     let key = [0];
     let db = RocksDb::start(path.as_ref()).unwrap();
-    let res = RocksDb::exists(&db, key).unwrap();
+    let res = db.exists(key).unwrap();
     assert_eq!(res, false);
 }
 
@@ -56,11 +56,11 @@ fn delete() {
     let key = [0];
     let value = [1];
     let db = RocksDb::start(path.as_ref()).unwrap();
-    RocksDb::write(&db, key.clone(), value.clone()).unwrap();
-    let res = RocksDb::exists(&db, key.clone()).unwrap();
+    db.write(key.clone(), value.clone()).unwrap();
+    let res = db.exists(key.clone()).unwrap();
     assert_eq!(res, true);
-    RocksDb::delete(&db, key.clone()).unwrap();
-    let res = RocksDb::exists(&db, key.clone()).unwrap();
+    db.delete(key.clone()).unwrap();
+    let res = db.exists(key.clone()).unwrap();
     assert_eq!(res, false);
 }
 
@@ -70,9 +70,9 @@ fn bulk_write() {
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
     let db = RocksDb::start(path.as_ref()).unwrap();
-    RocksDb::bulk_write(&db, &keys, &values).unwrap();
+    db.bulk_write(&keys, &values).unwrap();
     for k in keys.iter() {
-        let res = RocksDb::exists(&db, k.clone()).unwrap();
+        let res = db.exists(k.clone()).unwrap();
         assert_eq!(res, true);
     }
 }
@@ -83,8 +83,8 @@ fn bulk_read() {
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
     let db = RocksDb::start(path.as_ref()).unwrap();
-    RocksDb::bulk_write(&db, &keys, &values).unwrap();
-    let results = RocksDb::bulk_read(&db, &keys).unwrap();
+    db.bulk_write(&keys, &values).unwrap();
+    let results = db.bulk_read(&keys).unwrap();
     for (result, value) in results.iter().zip(values.iter()) {
         match result {
             Some(v) => assert_eq!(v, value),
@@ -99,8 +99,8 @@ fn bulk_delete() {
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
     let db = RocksDb::start(path.as_ref()).unwrap();
-    RocksDb::bulk_write(&db, &keys, &values).unwrap();
-    RocksDb::bulk_delete(&db, &keys).unwrap();
+    db.bulk_write(&keys, &values).unwrap();
+    db.bulk_delete(&keys).unwrap();
     for k in keys.iter() {
         let res = RocksDb::exists(&db, k.clone()).unwrap();
         assert_eq!(res, false);
