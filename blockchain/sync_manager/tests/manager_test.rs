@@ -12,11 +12,13 @@ fn schedule_tipset() {
         .build()
         .unwrap();
 
-    let tipset = Tipset::new(vec![header]).unwrap();
+    let tipset = Tipset::new(vec![header.clone()]).unwrap();
     let mut manager = SyncManager::default();
     manager.schedule_tipset(&tipset);
     {
         // Test scheduling inside different scope
         manager.schedule_tipset(&tipset);
     }
+
+    manager.schedule_tipset(&tipset);
 }

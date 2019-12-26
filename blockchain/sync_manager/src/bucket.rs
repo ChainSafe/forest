@@ -48,7 +48,7 @@ impl<'a> SyncBucket<'a> {
 /// Set of tipset buckets
 #[derive(Default)]
 pub(crate) struct SyncBucketSet<'a> {
-    buckets: Vec<&'a mut SyncBucket<'a>>,
+    buckets: Vec<SyncBucket<'a>>,
 }
 
 impl<'a> SyncBucketSet<'a> {
@@ -56,8 +56,10 @@ impl<'a> SyncBucketSet<'a> {
         for b in self.buckets.iter_mut() {
             if b.same_chain_as(tipset) {
                 b.push(tipset);
+                return;
             }
         }
+        self.buckets.push(SyncBucket::_new(vec![tipset]))
     }
 }
 
