@@ -153,7 +153,7 @@ impl Tipset {
         self.blocks.is_empty()
     }
     /// key returns a key for the tipset.
-    fn key(&self) -> TipSetKeys {
+    pub fn key(&self) -> TipSetKeys {
         self.key.clone()
     }
     /// parents returns the CIDs of the parents of the blocks in the tipset

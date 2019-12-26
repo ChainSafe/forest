@@ -2,7 +2,8 @@ use blocks::Tipset;
 use std::ops::{Deref, DerefMut};
 
 /// SyncBucket defines a bucket of tipsets to sync
-struct SyncBucket<'a> {
+#[derive(Clone, Default)]
+pub(crate) struct SyncBucket<'a> {
     tips: Vec<&'a Tipset>,
 }
 
@@ -33,6 +34,31 @@ impl<'a> SyncBucket<'a> {
         // return max value pointer
         self.iter().max_by_key(|a| a.weight()).copied()
     }
+    fn same_chain_as(&mut self, ts: &Tipset) -> bool {
+        for t in self.tips.iter_mut() {
+            if ts == *t || ts.key() == t.parents() || ts.parents() == t.key() {
+                return true;
+            }
+        }
+
+        false
+    }
+}
+
+/// Set of tipset buckets
+#[derive(Default)]
+pub(crate) struct SyncBucketSet<'a> {
+    buckets: Vec<&'a mut SyncBucket<'a>>,
+}
+
+impl<'a> SyncBucketSet<'a> {
+    pub(crate) fn insert(&mut self, tipset: &'a Tipset) {
+        for b in self.buckets.iter_mut() {
+            if b.same_chain_as(tipset) {
+                b.push(tipset);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -52,7 +78,7 @@ mod tests {
     }
 
     #[test]
-    fn base_constructor() {
+    fn base_bucket_constructor() {
         SyncBucket::_new(Vec::new());
     }
 
