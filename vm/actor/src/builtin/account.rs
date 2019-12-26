@@ -1,7 +1,7 @@
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{ActorCode, Runtime};
+use runtime::{arg_end, ActorCode, Runtime};
 use vm::{ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR};
 
 /// AccountActorState includes the address for the actor
@@ -26,7 +26,7 @@ pub struct AccountActorCode;
 
 impl AccountActorCode {
     /// Constructor for Account actor
-    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Intentionally left blank
         rt.success_return()
     }
@@ -41,8 +41,9 @@ impl ActorCode for AccountActorCode {
     ) -> InvocOutput {
         match AccountMethod::from_method_num(method) {
             Some(AccountMethod::Constructor) => {
-                rt.assert(params.is_empty());
-                AccountActorCode::constructor(rt)
+                // Assert no parameters passed
+                arg_end(params, rt);
+                Self::constructor(rt)
             }
             _ => {
                 rt.abort(

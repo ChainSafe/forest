@@ -1,6 +1,12 @@
-on: pull_request
- 
 name: Rust CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   test:
@@ -8,12 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+
+      - name: Toolchain setup
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: actions-rs/cargo@v1
+
+      - name: Cargo test
+        uses: actions-rs/cargo@v1
         with:
           command: test
 
@@ -22,13 +32,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - name: Toolchain setup
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
       - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
@@ -38,13 +50,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-v0-${{ github.sha }}
+          restore-keys:  ${{ runner.os }}-cargo-registry-v0-
+      - name: Cache cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-v0-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-cargo-index-v0-
+      - name: Cache target dir
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-v0-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-cargo-build-target-v0-
+
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
       - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D warnings
+
+  publish_docs:
+      name: Publish Documentation
+      needs: [clippy, test]
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@master
+        - name: Install Rust
+          run: rustup update beta && rustup default beta
+        - name: Build documentation
+          run: cargo doc --no-deps --all-features
+        - name: Publish documentation
+          run: |
+            cd target/doc
+            git init
+            git add .
+            git -c user.name='ci' -c user.email='ci' commit -m 'Deploy documentation'
+            git push -f -q https://git:${{ secrets.github_token }}@github.com/${{ github.repository }} HEAD:gh-pages
+          if: github.event_name == 'push' && github.event.ref == 'refs/heads/master'

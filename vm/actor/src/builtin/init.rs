@@ -7,7 +7,7 @@ use address::Address;
 use encoding::Cbor;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{ActorCode, Runtime};
+use runtime::{arg_end, arg_pop, check_args, ActorCode, Runtime};
 use std::collections::HashMap;
 
 /// InitActorState is reponsible for creating
@@ -43,19 +43,20 @@ impl InitMethod {
 
 pub struct InitActorCode;
 impl InitActorCode {
-    pub(crate) fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor(rt: &dyn Runtime) -> InvocOutput {
         // Acquire state
         // Update actor substate
 
         rt.success_return()
     }
-    pub(crate) fn exec(_r: &dyn Runtime, _code: CodeID, _params: &MethodParams) -> Address {
+    fn exec(rt: &dyn Runtime, _code: CodeID, _params: &MethodParams) -> InvocOutput {
         // TODO
-        Address::new_id(0).unwrap()
+        let addr = Address::new_id(0).unwrap();
+        rt.value_return(addr.marshal_cbor().unwrap())
     }
-    pub(crate) fn get_actor_id_for_address(_r: &dyn Runtime, _address: Address) -> ActorID {
+    fn get_actor_id_for_address(rt: &dyn Runtime, _address: Address) -> InvocOutput {
         // TODO
-        ActorID(0)
+        rt.value_return(ActorID(0).marshal_cbor().unwrap())
     }
 }
 
@@ -64,22 +65,36 @@ impl ActorCode for InitActorCode {
         &self,
         rt: &dyn Runtime,
         method: MethodNum,
-        params: &MethodParams,
+        params_in: &MethodParams,
     ) -> InvocOutput {
+        // Create mutable copy of params for usage in functions
+        let params: &mut MethodParams = &mut params_in.clone();
         match InitMethod::from_method_num(method) {
-            Some(InitMethod::Constructor) => InitActorCode::constructor(rt),
+            Some(InitMethod::Constructor) => {
+                // validate no arguments passed in
+                arg_end(params, rt);
+
+                Self::constructor(rt)
+            }
             Some(InitMethod::Exec) => {
-                // TODO get codeID from params
-                let addr = InitActorCode::exec(rt, CodeID::Init, params);
-                rt.value_return(addr.marshal_cbor().unwrap())
+                // TODO deserialize CodeID on finished spec
+                let _ = arg_pop(params, rt);
+                check_args(params, rt, true);
+                Self::exec(rt, CodeID::Init, params)
             }
             Some(InitMethod::GetActorIDForAddress) => {
-                // TODO get address from params
-                let actor =
-                    InitActorCode::get_actor_id_for_address(rt, Address::new_id(1).unwrap());
-                rt.value_return(actor.marshal_cbor().unwrap())
+                // Pop and unmarshall address parameter
+                let addr_res = Address::unmarshal_cbor(&arg_pop(params, rt).bytes());
+
+                // validate addr deserialization and parameters
+                check_args(params, rt, addr_res.is_ok());
+                arg_end(params, rt);
+
+                // Errors checked, get actor by address
+                Self::get_actor_id_for_address(rt, addr_res.unwrap())
             }
             _ => {
+                // Method number does not match available, abort in runtime
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
                     "Invalid method",

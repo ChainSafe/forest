@@ -1,4 +1,4 @@
-use crate::blocks::TipSetKeys;
+use blocks::TipSetKeys;
 use libp2p::PeerId;
 use std::fmt;
 
