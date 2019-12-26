@@ -49,8 +49,7 @@ fn template_cid() -> Cid {
 #[derive(Clone, Debug, PartialEq, Builder)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
-    /// CHAIN LINKING
-    ///
+    // CHAIN LINKING
     /// Parents is the set of parents this block was based on. Typically one,
     /// but can be several in the case where there were multiple winning ticket-
     /// holders for an epoch
@@ -59,16 +58,16 @@ pub struct BlockHeader {
     /// weight is the aggregate chain weight of the parent set
     #[builder(default)]
     pub weight: u64,
+
     /// epoch is the period in which a new block is generated. There may be multiple rounds in an epoch
     #[builder(default)]
     pub epoch: ChainEpoch,
-    /// MINER INFO
-    ///
+
+    // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
     pub miner_address: Address,
 
-    /// STATE
-    ///
+    // STATE
     /// messages contains the merkle links for bls_messages and secp_messages
     #[builder(default)]
     pub messages: TxMeta,
@@ -81,8 +80,7 @@ pub struct BlockHeader {
     #[builder(default = "template_cid()")]
     pub state_root: Cid,
 
-    /// CONSENSUS
-    ///
+    // CONSENSUS
     /// timestamp, in seconds since the Unix epoch, at which this block was created
     #[builder(default)]
     pub timestamp: u64,
@@ -92,9 +90,10 @@ pub struct BlockHeader {
     pub ticket: Ticket,
 
     // SIGNATURES
+    /// aggregate signature of miner in block
     pub bls_aggregate: Signature,
 
-    /// CACHE
+    // CACHE
     #[builder(default = "template_cid()")]
     pub cached_cid: Cid,
 
