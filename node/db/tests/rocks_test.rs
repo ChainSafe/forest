@@ -1,32 +1,22 @@
 mod db_utils;
 
-use db::{rocks::RocksDb, traits::Read, traits::Write};
+use db::{rocks::RocksDb, DatabaseService, Read, Write};
 use db_utils::DBPath;
 
 #[test]
-fn open() {
-    let path = DBPath::new("open_rocks_test");
-    if let Err(e) = RocksDb::open(&path.path.as_path()) {
-        // cleanup_file("./test-db");
-        panic!("{:?}", e);
-    };
+fn start() {
+    let path = DBPath::new("start_rocks_test");
+    RocksDb::start(path.as_ref()).unwrap();
 }
 
 #[test]
 fn write() {
     let path = DBPath::new("write_rocks_test");
-
     let key = vec![1];
     let value = vec![1];
 
-    let db: RocksDb = match RocksDb::open(&path.path.as_path()) {
-        Ok(db) => db,
-        Err(e) => panic!("{:?}", e),
-    };
-
-    if let Err(e) = RocksDb::write(&db, key, value) {
-        panic!("{:?}", e);
-    }
+    let db: RocksDb = RocksDb::start(path.as_ref()).unwrap();
+    RocksDb::write(&db, key, value).unwrap();
 }
 
 #[test]
@@ -34,19 +24,10 @@ fn read() {
     let path = DBPath::new("read_rocks_test");
     let key = vec![0];
     let value = vec![1];
-    let db = match RocksDb::open(&path.path.as_path()) {
-        Ok(db) => db,
-        Err(e) => panic!("{:?}", e),
-    };
-    if let Err(e) = RocksDb::write(&db, key.clone(), value.clone()) {
-        panic!("{:?}", e);
-    }
-    match RocksDb::read(&db, key) {
-        Ok(res) => {
-            assert_eq!(value, res);
-        }
-        Err(e) => panic!("{:?}", e),
-    }
+    let db = RocksDb::start(path.as_ref()).unwrap();
+    RocksDb::write(&db, key.clone(), value.clone()).unwrap();
+    let res = RocksDb::read(&db, key).unwrap().unwrap();
+    assert_eq!(value, res);
 }
 
 #[test]
@@ -54,31 +35,19 @@ fn exists() {
     let path = DBPath::new("exists_rocks_test");
     let key = vec![0];
     let value = vec![1];
-    let db = match RocksDb::open(&path.path.as_path()) {
-        Ok(db) => db,
-        Err(e) => panic!("{:?}", e),
-    };
-    if let Err(e) = RocksDb::write(&db, key.clone(), value.clone()) {
-        panic!("{:?}", e);
-    }
-    match RocksDb::exists(&db, key) {
-        Ok(res) => assert_eq!(res, true),
-        Err(e) => panic!(e),
-    }
+    let db = RocksDb::start(path.as_ref()).unwrap();
+    RocksDb::write(&db, key.clone(), value.clone()).unwrap();
+    let res = RocksDb::exists(&db, key).unwrap();
+    assert_eq!(res, true);
 }
 
 #[test]
 fn does_not_exist() {
     let path = DBPath::new("does_not_exists_rocks_test");
     let key = vec![0];
-    let db = match RocksDb::open(&path.path.as_path()) {
-        Ok(db) => db,
-        Err(e) => panic!("{:?}", e),
-    };
-    match RocksDb::exists(&db, key) {
-        Ok(res) => assert_eq!(res, false),
-        Err(e) => panic!(e),
-    }
+    let db = RocksDb::start(path.as_ref()).unwrap();
+    let res = RocksDb::exists(&db, key).unwrap();
+    assert_eq!(res, false);
 }
 
 #[test]
@@ -86,24 +55,13 @@ fn delete() {
     let path = DBPath::new("delete_rocks_test");
     let key = vec![0];
     let value = vec![1];
-    let db = match RocksDb::open(&path.path.as_path()) {
-        Ok(db) => db,
-        Err(e) => panic!("{:?}", e),
-    };
-    if let Err(e) = RocksDb::write(&db, key.clone(), value.clone()) {
-        panic!("{:?}", e);
-    }
-    match RocksDb::exists(&db, key.clone()) {
-        Ok(res) => assert_eq!(res, true),
-        Err(e) => panic!(e),
-    }
-    if let Err(e) = RocksDb::delete(&db, key.clone()) {
-        panic!("{:?}", e);
-    }
-    match RocksDb::exists(&db, key.clone()) {
-        Ok(res) => assert_eq!(res, false),
-        Err(e) => panic!(e),
-    }
+    let db = RocksDb::start(path.as_ref()).unwrap();
+    RocksDb::write(&db, key.clone(), value.clone()).unwrap();
+    let res = RocksDb::exists(&db, key.clone()).unwrap();
+    assert_eq!(res, true);
+    RocksDb::delete(&db, key.clone()).unwrap();
+    let res = RocksDb::exists(&db, key.clone()).unwrap();
+    assert_eq!(res, false);
 }
 
 #[test]
@@ -111,18 +69,11 @@ fn bulk_write() {
     let path = DBPath::new("bulk_write_rocks_test");
     let keys = [vec![0], vec![1], vec![2]];
     let values = [vec![0], vec![1], vec![2]];
-    let db = match RocksDb::open(&path.path.as_path()) {
-        Ok(db) => db,
-        Err(e) => panic!("{:?}", e),
-    };
-    if let Err(e) = RocksDb::bulk_write(&db, &keys, &values) {
-        panic!("{:?}", e);
-    };
+    let db = RocksDb::start(path.as_ref()).unwrap();
+    RocksDb::bulk_write(&db, &keys, &values).unwrap();
     for k in keys.iter() {
-        match RocksDb::exists(&db, k.clone()) {
-            Ok(res) => assert_eq!(res, true),
-            Err(e) => panic!(e),
-        }
+        let res = RocksDb::exists(&db, k.clone()).unwrap();
+        assert_eq!(res, true);
     }
 }
 
@@ -131,19 +82,14 @@ fn bulk_read() {
     let path = DBPath::new("bulk_read_rocks_test");
     let keys = [vec![0], vec![1], vec![2]];
     let values = [vec![0], vec![1], vec![2]];
-    let db = match RocksDb::open(&path.path.as_path()) {
-        Ok(db) => db,
-        Err(e) => panic!("{:?}", e),
-    };
-    if let Err(e) = RocksDb::bulk_write(&db, &keys, &values) {
-        panic!("{:?}", e);
-    };
-    let results = match RocksDb::bulk_read(&db, &keys) {
-        Ok(res) => res,
-        Err(e) => panic!("{:?}", e),
-    };
-    for (results, value) in results.iter().zip(values.iter()) {
-        assert_eq!(results, value);
+    let db = RocksDb::start(path.as_ref()).unwrap();
+    RocksDb::bulk_write(&db, &keys, &values).unwrap();
+    let results = RocksDb::bulk_read(&db, &keys).unwrap();
+    for (result, value) in results.iter().zip(values.iter()) {
+        match result {
+            Some(v) => assert_eq!(v, value),
+            None => panic!("No values found!"),
+        }
     }
 }
 
@@ -152,20 +98,11 @@ fn bulk_delete() {
     let path = DBPath::new("bulk_delete_rocks_test");
     let keys = [vec![0], vec![1], vec![2]];
     let values = [vec![0], vec![1], vec![2]];
-    let db = match RocksDb::open(&path.path.as_path()) {
-        Ok(db) => db,
-        Err(e) => panic!("{:?}", e),
-    };
-    if let Err(e) = RocksDb::bulk_write(&db, &keys, &values) {
-        panic!("{:?}", e);
-    };
-    if let Err(e) = RocksDb::bulk_delete(&db, &keys) {
-        panic!("{:?}", e);
-    }
+    let db = RocksDb::start(path.as_ref()).unwrap();
+    RocksDb::bulk_write(&db, &keys, &values).unwrap();
+    RocksDb::bulk_delete(&db, &keys).unwrap();
     for k in keys.iter() {
-        match RocksDb::exists(&db, k.clone()) {
-            Ok(res) => assert_eq!(res, false),
-            Err(e) => panic!(e),
-        }
+        let res = RocksDb::exists(&db, k.clone()).unwrap();
+        assert_eq!(res, false);
     }
 }

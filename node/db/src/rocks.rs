@@ -1,15 +1,15 @@
 use super::errors::Error;
-use super::traits::{Read, Write};
+use super::{DatabaseService, Read, Write};
 use rocksdb::{Options, WriteBatch, DB};
 use std::path::Path;
 
 #[derive(Debug)]
 pub struct RocksDb {
-    pub db: DB,
+    db: DB,
 }
 
-impl RocksDb {
-    pub fn open(path: &Path) -> Result<Self, Error> {
+impl DatabaseService for RocksDb {
+    fn start(path: &Path) -> Result<Self, Error> {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         let db = DB::open(&db_opts, path)?;
@@ -18,14 +18,19 @@ impl RocksDb {
 }
 
 impl Write for RocksDb {
-    fn write(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), Error> {
-        self.db.put(key, value)?;
-        Ok(())
+    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        Ok(self.db.put(key, value)?)
     }
 
-    fn delete(&self, key: Vec<u8>) -> Result<(), Error> {
-        self.db.delete(key)?;
-        Ok(())
+    fn delete<K>(&self, key: K) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        Ok(self.db.delete(key)?)
     }
 
     fn bulk_write(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<(), Error> {
@@ -33,8 +38,7 @@ impl Write for RocksDb {
         for (k, v) in keys.iter().zip(values.iter()) {
             batch.put(k, v)?;
         }
-        self.db.write(batch)?;
-        Ok(())
+        Ok(self.db.write(batch)?)
     }
 
     fn bulk_delete(&self, keys: &[Vec<u8>]) -> Result<(), Error> {
@@ -46,32 +50,34 @@ impl Write for RocksDb {
 }
 
 impl Read for RocksDb {
-    fn read(&self, key: Vec<u8>) -> Result<Vec<u8>, Error> {
+    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
         match self.db.get(key) {
-            Ok(Some(value)) => Ok(value),
-            // TODO figure out how to actually handle this
-            Ok(None) => Err(Error::NoValue),
+            Ok(value) => Ok(value),
             Err(e) => Err(Error::from(e)),
         }
     }
 
-    fn exists(&self, key: Vec<u8>) -> Result<bool, Error> {
-        let result = self.db.get_pinned(key);
-        match result {
-            Ok(val) => Ok(val.is_some()),
-            Err(e) => Err(Error::from(e)),
-        }
+    fn exists<K>(&self, key: K) -> Result<bool, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        self.db
+            .get_pinned(key)
+            .map(|v| v.is_some())
+            .map_err(Error::from)
     }
 
-    fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>, Error> {
-        let mut v = Vec::new();
+    fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, Error> {
+        let mut v = Vec::with_capacity(keys.len());
         for k in keys.iter() {
             match self.db.get(k) {
-                Ok(Some(val)) => v.push(val),
-                Ok(None) => return Err(Error::NoValue),
+                Ok(val) => v.push(val),
                 Err(e) => return Err(Error::from(e)),
             }
         }
-        Ok(v.clone())
+        Ok(v)
     }
 }

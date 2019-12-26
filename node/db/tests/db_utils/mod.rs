@@ -1,11 +1,8 @@
 // Taken from
 // https://github.com/rust-rocksdb/rust-rocksdb/blob/master/tests/util/mod.rs
-extern crate rocksdb;
-
+use rocksdb::{Options, DB};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-use rocksdb::{Options, DB};
 
 /// Ensures that DB::Destroy is called for this database when DBPath is dropped.
 pub struct DBPath {
