@@ -1,3 +1,5 @@
+// Taken from
+// https://github.com/rust-rocksdb/rust-rocksdb/blob/master/tests/util/mod.rs
 extern crate rocksdb;
 
 use std::path::{Path, PathBuf};

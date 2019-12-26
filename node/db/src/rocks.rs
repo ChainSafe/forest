@@ -48,18 +48,16 @@ impl Read for RocksDb {
             Ok(Some(value)) => Ok(value),
             // TODO figure out how to actually handle this
             Ok(None) => Err(Error::NoValue),
-            Err(e) => {
-                Err(Error::from(e))
-            }
+            Err(e) => Err(Error::from(e)),
         }
     }
 
-    fn exists(&self, key: Vec<u8>) -> bool {
+    fn exists(&self, key: Vec<u8>) -> Result<bool, Error> {
         // pinned key
         let result = self.db.get_pinned(key);
         match result {
-            Ok(_) => true,
-            Err(_) => false,
+            Ok(val) => Ok(val.is_some()),
+            Err(e) => Err(Error::from(e)),
         }
     }
 
