@@ -109,7 +109,7 @@ fn delete() {
 
 #[test]
 fn bulk_write() {
-    let path = DBPath::new("delete_rocks_test");
+    let path = DBPath::new("bulk_write_rocks_test");
     let keys = [vec![0], vec![1], vec![2]];
     let values = [vec![0], vec![1], vec![2]];
     let db = match RocksDb::open(&path.path.as_path()) {
@@ -122,6 +122,29 @@ fn bulk_write() {
     for k in keys.iter() {
         match RocksDb::exists(&db, k.clone()) {
             Ok(res) => assert_eq!(res, true),
+            Err(e) => panic!(e)
+        }
+    }
+}
+
+#[test]
+fn bulk_delete() {
+    let path = DBPath::new("bulk_delete_rocks_test");
+    let keys = [vec![0], vec![1], vec![2]];
+    let values = [vec![0], vec![1], vec![2]];
+    let db = match RocksDb::open(&path.path.as_path()) {
+        Ok(db) => db,
+        Err(e) => panic!("{:?}", e),
+    };
+    if let Err(e) = RocksDb::bulk_write(&db, &keys, &values) {
+        panic!("{:?}", e);
+    };
+    if let Err(e) = RocksDb::bulk_delete(&db, &keys) {
+        panic!("{:?}", e);
+    }
+    for k in keys.iter() {
+        match RocksDb::exists(&db, k.clone()) {
+            Ok(res) => assert_eq!(res, false),
             Err(e) => panic!(e)
         }
     }

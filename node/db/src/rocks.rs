@@ -37,7 +37,10 @@ impl Write for RocksDb {
         Ok(())
     }
 
-    fn bulk_delete(&self, _keys: &[Vec<u8>]) -> Result<(), Error> {
+    fn bulk_delete(&self, keys: &[Vec<u8>]) -> Result<(), Error> {
+        for k in keys.iter() {
+            self.db.delete(k)?;
+        }
         Ok(())
     }
 }
