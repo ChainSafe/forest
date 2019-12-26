@@ -1,7 +1,7 @@
 mod db_utils;
 
-use db::{rocks::RocksDb, traits::Write, traits::Read};
-use db_utils::{DBPath};
+use db::{rocks::RocksDb, traits::Read, traits::Write};
+use db_utils::DBPath;
 
 #[test]
 fn open() {
@@ -15,7 +15,7 @@ fn open() {
 #[test]
 fn write() {
     let path = DBPath::new("write_rocks_test");
-    
+
     let key = vec![1];
     let value = vec![1];
 
@@ -44,7 +44,7 @@ fn read() {
     match RocksDb::read(&db, key) {
         Ok(res) => {
             assert_eq!(value, res);
-        },
+        }
         Err(e) => panic!("{:?}", e),
     }
 }
@@ -63,7 +63,7 @@ fn exists() {
     }
     match RocksDb::exists(&db, key) {
         Ok(res) => assert_eq!(res, true),
-        Err(e) => panic!(e)
+        Err(e) => panic!(e),
     }
 }
 
@@ -77,7 +77,7 @@ fn does_not_exist() {
     };
     match RocksDb::exists(&db, key) {
         Ok(res) => assert_eq!(res, false),
-        Err(e) => panic!(e)
+        Err(e) => panic!(e),
     }
 }
 
@@ -95,14 +95,14 @@ fn delete() {
     }
     match RocksDb::exists(&db, key.clone()) {
         Ok(res) => assert_eq!(res, true),
-        Err(e) => panic!(e)
+        Err(e) => panic!(e),
     }
     if let Err(e) = RocksDb::delete(&db, key.clone()) {
         panic!("{:?}", e);
     }
     match RocksDb::exists(&db, key.clone()) {
         Ok(res) => assert_eq!(res, false),
-        Err(e) => panic!(e)
+        Err(e) => panic!(e),
     }
 }
 
@@ -121,7 +121,7 @@ fn bulk_write() {
     for k in keys.iter() {
         match RocksDb::exists(&db, k.clone()) {
             Ok(res) => assert_eq!(res, true),
-            Err(e) => panic!(e)
+            Err(e) => panic!(e),
         }
     }
 }
@@ -165,7 +165,7 @@ fn bulk_delete() {
     for k in keys.iter() {
         match RocksDb::exists(&db, k.clone()) {
             Ok(res) => assert_eq!(res, false),
-            Err(e) => panic!(e)
+            Err(e) => panic!(e),
         }
     }
 }

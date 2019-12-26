@@ -65,7 +65,7 @@ impl Read for RocksDb {
 
     fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>, Error> {
         let mut v = Vec::new();
-        for k in keys.into_iter() {
+        for k in keys.iter() {
             match self.db.get(k) {
                 Ok(Some(val)) => v.push(val),
                 Ok(None) => return Err(Error::NoValue),
