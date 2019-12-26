@@ -18,8 +18,13 @@ pub trait Write {
     fn delete<K>(&self, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>;
-    fn bulk_write(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<(), Error>;
-    fn bulk_delete(&self, keys: &[Vec<u8>]) -> Result<(), Error>;
+    fn bulk_write<K, V>(&self, keys: &[K], values: &[V]) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>;
+    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>;
 }
 
 pub trait Read {
@@ -29,5 +34,7 @@ pub trait Read {
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>;
-    fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, Error>;
+    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
+    where
+        K: AsRef<[u8]>;
 }

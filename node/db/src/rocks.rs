@@ -33,7 +33,11 @@ impl Write for RocksDb {
         Ok(self.db.delete(key)?)
     }
 
-    fn bulk_write(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<(), Error> {
+    fn bulk_write<K, V>(&self, keys: &[K], values: &[V]) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
         let mut batch = WriteBatch::default();
         for (k, v) in keys.iter().zip(values.iter()) {
             batch.put(k, v)?;
@@ -41,7 +45,10 @@ impl Write for RocksDb {
         Ok(self.db.write(batch)?)
     }
 
-    fn bulk_delete(&self, keys: &[Vec<u8>]) -> Result<(), Error> {
+    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
         for k in keys.iter() {
             self.db.delete(k)?;
         }
@@ -70,7 +77,10 @@ impl Read for RocksDb {
             .map_err(Error::from)
     }
 
-    fn bulk_read(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, Error> {
+    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
         let mut v = Vec::with_capacity(keys.len());
         for k in keys.iter() {
             match self.db.get(k) {
