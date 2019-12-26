@@ -1,47 +1,51 @@
-use db::{rocks::RocksDb, traits::Write};
-use std::fs::remove_dir_all;
-use std::path::Path;
+mod db_utils;
 
-// Please use with caution, remove_dir_all will completely delete a directory
-fn cleanup_file(path: &str) {
-    if let Err(e) = remove_dir_all(path) {
-        panic!("cleanup_file() path: {:?} failed: {:?}", path, e);
-    }
-}
+use db::{rocks::RocksDb, traits::Write, traits::Read};
+use db_utils::{DBPath};
 
 #[test]
 fn open() {
-    let path = Path::new("./test-db");
-    if let Err(e) = RocksDb::open(path) {
+    let path = DBPath::new("open_rocks_test");
+    if let Err(e) = RocksDb::open(&path.path.as_path()) {
+        // cleanup_file("./test-db");
         panic!("{:?}", e);
     };
-    cleanup_file("./test-db");
 }
 
 #[test]
 fn write() {
-    let path = Path::new("./test-db");
+    let path = DBPath::new("write_rocks_test");
+    
     let key = vec![1];
     let value = vec![1];
 
-    cleanup_file("./test-db");
-
-    let db: RocksDb = match RocksDb::open(path) {
-        Ok(db) => {
-            println!("here");
-            db
-        }
-        Err(e) => {
-            println!("here2");
-            panic!("{:?}", e);
-        }
+    let db: RocksDb = match RocksDb::open(&path.path.as_path()) {
+        Ok(db) => db,
+        Err(e) => panic!("{:?}", e),
     };
     println!("{:?}", &db);
 
-    match RocksDb::write(&db, key, value) {
-        Ok(_) => cleanup_file("./test-db"),
-        Err(e) => {
-            panic!("{:?}", e);
-        }
+    if let Err(e) = RocksDb::write(&db, key, value) {
+        panic!("{:?}", e);
+    }
+}
+
+#[test]
+fn read() {
+    let path = DBPath::new("read_rocks_test");
+    let key = vec![0];
+    let value = vec![1];
+    let db = match RocksDb::open(&path.path.as_path()) {
+        Ok(db) => db,
+        Err(e) => panic!("{:?}", e),
+    };
+    if let Err(e) = RocksDb::write(&db, key.clone(), value.clone()) {
+        panic!("{:?}", e);
+    }
+    match RocksDb::read(&db, key) {
+        Ok(res) => {
+            assert_eq!(value, res);
+        },
+        Err(e) => panic!("{:?}", e),
     }
 }

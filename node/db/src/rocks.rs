@@ -43,8 +43,15 @@ impl Write for RocksDb {
 }
 
 impl Read for RocksDb {
-    fn read(&self, _key: Vec<u8>) -> Result<Vec<u8>, Error> {
-        Ok(vec![])
+    fn read(&self, key: Vec<u8>) -> Result<Vec<u8>, Error> {
+        match self.db.get(key) {
+            Ok(Some(value)) => Ok(value),
+            // TODO figure out how to actually handle this
+            Ok(None) => Err(Error::NoValue),
+            Err(e) => {
+                Err(Error::from(e))
+            }
+        }
     }
 
     fn exists(&self, key: Vec<u8>) -> bool {
