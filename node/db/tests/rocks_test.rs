@@ -16,7 +16,7 @@ fn write() {
     let value = [1];
 
     let db: RocksDb = RocksDb::start(path.as_ref()).unwrap();
-    RocksDb::write(&db, key, value).unwrap();
+    db.write(key, value).unwrap();
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn bulk_delete() {
     db.bulk_write(&keys, &values).unwrap();
     db.bulk_delete(&keys).unwrap();
     for k in keys.iter() {
-        let res = RocksDb::exists(&db, k.clone()).unwrap();
+        let res = db.exists(k.clone()).unwrap();
         assert_eq!(res, false);
     }
 }
