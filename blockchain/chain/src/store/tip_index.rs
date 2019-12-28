@@ -106,7 +106,7 @@ mod tests {
     use crypto::VRFResult;
 
     const WEIGHT: u64 = 1;
-    const CACHED_BYTES: u8 = 0;
+    const CACHED_BYTES: [u8; 1] = [0];
 
     fn template_key(data: &[u8]) -> Cid {
         let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
@@ -140,7 +140,7 @@ mod tests {
             },
             bls_aggregate: vec![1, 2, 3],
             cached_cid: cid,
-            cached_bytes: CACHED_BYTES,
+            cached_bytes: CACHED_BYTES.to_vec(),
         }
     }
 

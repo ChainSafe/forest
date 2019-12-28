@@ -114,23 +114,22 @@ mod tests {
         set.insert(&tipset1);
         assert_eq!(set.buckets.len(), 1);
         assert_eq!(set.buckets[0].tips.len(), 1);
-        
+
         // Assert a tipset on non relating chain is put in another bucket
         let tipset2 = Tipset::new(vec![create_header(2, b"2", b"2")]).unwrap();
         set.insert(&tipset2);
         assert_eq!(set.buckets.len(), 2);
         assert_eq!(set.buckets[1].tips.len(), 1);
-        
+
         // Assert a tipset connected to the first
         let tipset3 = Tipset::new(vec![create_header(3, b"1", b"1")]).unwrap();
         set.insert(&tipset3);
         assert_eq!(set.buckets.len(), 2);
         assert_eq!(set.buckets[0].tips.len(), 2);
-        
+
         // Assert that tipsets that are already added are not added twice
         set.insert(&tipset1);
         assert_eq!(set.buckets.len(), 2);
         assert_eq!(set.buckets[0].tips.len(), 2);
-        
     }
 }
