@@ -11,4 +11,7 @@ impl<'a> SyncManager<'a> {
         // TODO implement interactions for syncing state when SyncManager built out
         self.sync_queue.insert(tipset);
     }
+    pub fn select_sync_target(&self) -> Option<&'a Tipset> {
+        self.sync_queue.heaviest()
+    }
 }

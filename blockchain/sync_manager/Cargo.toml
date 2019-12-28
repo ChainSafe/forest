@@ -1,11 +1,12 @@
 [package]
 name = "sync_manager"
 version = "0.1.0"
-authors = ["austinabell <austinabell8@gmail.com>"]
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 address = {path = "../../vm/address"}
 blocks = {path = "../blocks"}
+
+[dev-dependencies]
+cid = "0.3.1"
