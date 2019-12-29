@@ -6,7 +6,7 @@ pub use self::code::*;
 
 use cid::Cid;
 use encoding::{Cbor, CodecProtocol, Error as EncodingError};
-use num_bigint::BigUint;
+use ferret_bigint::UBigInt;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Default)]
 pub struct ActorID(u64);
@@ -33,13 +33,13 @@ impl Cbor for ActorID {
 pub struct ActorState {
     code_id: CodeID,
     state: Cid,
-    balance: BigUint,
+    balance: UBigInt,
     sequence: u64,
 }
 
 impl ActorState {
     /// Constructor for actor state
-    pub fn new(code_id: CodeID, state: Cid, balance: BigUint, sequence: u64) -> Self {
+    pub fn new(code_id: CodeID, state: Cid, balance: UBigInt, sequence: u64) -> Self {
         Self {
             code_id,
             state,

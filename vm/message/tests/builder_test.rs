@@ -1,7 +1,7 @@
 use address::Address;
 use crypto::{Signature, Signer};
+use ferret_bigint::UBigInt;
 use message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::BigUint;
 use std::error::Error;
 use vm::{MethodNum, MethodParams, TokenAmount};
 
@@ -26,8 +26,8 @@ fn unsigned_message_builder() {
         .value(TokenAmount::new(0))
         .method_num(MethodNum::default())
         .params(MethodParams::default())
-        .gas_limit(BigUint::default())
-        .gas_price(BigUint::default())
+        .gas_limit(UBigInt::default())
+        .gas_price(UBigInt::default())
         .build()
         .unwrap();
     assert_eq!(message.from(), from_addr.clone());
@@ -36,8 +36,8 @@ fn unsigned_message_builder() {
     assert_eq!(message.method_num(), MethodNum::default());
     assert_eq!(message.params(), MethodParams::default());
     assert_eq!(message.value(), TokenAmount::new(0));
-    assert_eq!(message.gas_price(), BigUint::default());
-    assert_eq!(message.gas_limit(), BigUint::default());
+    assert_eq!(message.gas_price(), UBigInt::default());
+    assert_eq!(message.gas_limit(), UBigInt::default());
     let mut mb = UnsignedMessage::builder();
     mb.to(to_addr.clone());
     mb.from(from_addr.clone());

@@ -5,7 +5,7 @@ use crate::{MethodNum, MethodParams};
 use address::Address;
 use derive_builder::Builder;
 use encoding::{Cbor, CodecProtocol, Error as EncodingError};
-use num_bigint::BigUint;
+use ferret_bigint::UBigInt;
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
@@ -13,7 +13,7 @@ use num_bigint::BigUint;
 /// ```
 /// use message::{UnsignedMessage, Message};
 /// use vm::{TokenAmount, MethodParams, MethodNum};
-/// use num_bigint::BigUint;
+/// use ferret_bigint::UBigInt;
 /// use address::Address;
 ///
 /// // Use the builder pattern to generate a message
@@ -24,8 +24,8 @@ use num_bigint::BigUint;
 ///     .value(TokenAmount::new(0)) // optional
 ///     .method_num(MethodNum::default()) // optional
 ///     .params(MethodParams::default()) // optional
-///     .gas_limit(BigUint::default()) // optional
-///     .gas_price(BigUint::default()) // optional
+///     .gas_limit(UBigInt::default()) // optional
+///     .gas_price(UBigInt::default()) // optional
 ///     .build()
 ///     .unwrap();
 ///
@@ -51,9 +51,9 @@ pub struct UnsignedMessage {
     #[builder(default)]
     params: MethodParams,
     #[builder(default)]
-    gas_price: BigUint,
+    gas_price: UBigInt,
     #[builder(default)]
-    gas_limit: BigUint,
+    gas_limit: UBigInt,
 }
 
 impl UnsignedMessage {
@@ -88,11 +88,11 @@ impl Message for UnsignedMessage {
         self.params.clone()
     }
     /// gas_price returns gas price for the message
-    fn gas_price(&self) -> BigUint {
+    fn gas_price(&self) -> UBigInt {
         self.gas_price.clone()
     }
     /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> BigUint {
+    fn gas_limit(&self) -> UBigInt {
         self.gas_limit.clone()
     }
 }

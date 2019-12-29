@@ -9,7 +9,7 @@ vm = {path = "../../vm"}
 address = {path = "../address"}
 runtime = {path = "../runtime"}
 cid = "0.3.1"
-num-bigint = "0.2.3"
+ferret_bigint = {path = "../../math/bigint"}
 encoding = {path = "../../encoding"}
 num-traits = "0.2"
 num-derive = "0.2"

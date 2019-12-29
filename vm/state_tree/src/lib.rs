@@ -65,13 +65,13 @@ mod tests {
     use super::*;
     use actor::{ActorState, CodeID};
     use cid::{Cid, Codec, Version};
-    use num_bigint::BigUint;
+    use ferret_bigint::UBigInt;
 
     #[test]
     fn get_set_cache() {
         let cid = Cid::new(Codec::DagProtobuf, Version::V1, &[0u8]);
-        let act_s = ActorState::new(CodeID::Account, cid.clone(), BigUint::default(), 1);
-        let act_a = ActorState::new(CodeID::Account, cid.clone(), BigUint::default(), 2);
+        let act_s = ActorState::new(CodeID::Account, cid.clone(), UBigInt::default(), 1);
+        let act_a = ActorState::new(CodeID::Account, cid.clone(), UBigInt::default(), 2);
         let addr = Address::new_id(1).unwrap();
         let mut tree = HamtStateTree::default();
 

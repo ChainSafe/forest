@@ -4,7 +4,7 @@ use vm::{MethodNum, MethodParams, TokenAmount};
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::{Cbor, CodecProtocol, Error as EncodingError};
-use num_bigint::BigUint;
+use ferret_bigint::UBigInt;
 
 /// SignedMessage represents a wrapped message with signature bytes
 #[derive(PartialEq, Clone, Debug)]
@@ -58,11 +58,11 @@ impl Message for SignedMessage {
         self.message.params()
     }
     /// gas_price returns gas price for the message
-    fn gas_price(&self) -> BigUint {
+    fn gas_price(&self) -> UBigInt {
         self.message.gas_price()
     }
     /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> BigUint {
+    fn gas_limit(&self) -> UBigInt {
         self.message.gas_limit()
     }
 }

@@ -1,0 +1,8 @@
+[package]
+name = "ferret_bigint"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+num-bigint = "0.2.3"

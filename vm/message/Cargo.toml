@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 vm = {path = "../../vm"}
 address = {path = "../address"}
-num-bigint = "0.2.3"
+ferret_bigint = {path = "../../math/bigint"}
 encoding = {path = "../../encoding"}
 crypto = {path = "../../crypto"}
 derive_builder = "0.9"

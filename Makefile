@@ -17,6 +17,7 @@ clean:
 	@cargo clean -p interpreter
 	@cargo clean -p crypto
 	@cargo clean -p encoding
+	@cargo clean -p bigint
 	@echo "Done cleaning."
 
 lint: clean
