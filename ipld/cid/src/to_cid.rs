@@ -35,7 +35,7 @@ impl<'a> ToCid for &'a str {
 
 impl ToCid for str {
     fn to_cid(&self) -> Result<Cid, Error> {
-        static IPFS_DELIMETER: &'static str = "/ipfs/";
+        static IPFS_DELIMETER: &str = "/ipfs/";
 
         let hash = match self.find(IPFS_DELIMETER) {
             Some(index) => &self[index + IPFS_DELIMETER.len()..],
@@ -49,7 +49,7 @@ impl ToCid for str {
         let (_, decoded) = if Version::is_v0_str(hash) {
             // TODO: could avoid the roundtrip here and just use underlying
             // base-x base58btc decoder here.
-            let hash = multibase::Base::Base58btc.code().to_string() + &hash;
+            let hash = multibase::Base::Base58btc.code().to_string() + hash;
 
             multibase::decode(hash)
         } else {

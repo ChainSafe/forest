@@ -73,7 +73,7 @@ impl Cid {
         BaseCid {
             version: prefix.version,
             codec: prefix.codec.to_owned(),
-            hash: hash,
+            hash,
         }
         .into()
     }
