@@ -1,12 +1,12 @@
 mod db_utils;
 
-use db::{rocks::RocksDb, DatabaseService, Read, Write};
+use db::{rocks::RocksDb, Read, Write};
 use db_utils::DBPath;
 
 #[test]
 fn start() {
     let path = DBPath::new("start_rocks_test");
-    RocksDb::start(path.as_ref()).unwrap();
+    RocksDb::open(path.as_ref()).unwrap();
 }
 
 #[test]
@@ -15,7 +15,7 @@ fn write() {
     let key = [1];
     let value = [1];
 
-    let db: RocksDb = RocksDb::start(path.as_ref()).unwrap();
+    let db: RocksDb = RocksDb::open(path.as_ref()).unwrap();
     db.write(key, value).unwrap();
 }
 
@@ -24,7 +24,7 @@ fn read() {
     let path = DBPath::new("read_rocks_test");
     let key = [0];
     let value = [1];
-    let db = RocksDb::start(path.as_ref()).unwrap();
+    let db = RocksDb::open(path.as_ref()).unwrap();
     db.write(key.clone(), value.clone()).unwrap();
     let res = db.read(key).unwrap().unwrap();
     assert_eq!(value.to_vec(), res);
@@ -35,7 +35,7 @@ fn exists() {
     let path = DBPath::new("exists_rocks_test");
     let key = [0];
     let value = [1];
-    let db = RocksDb::start(path.as_ref()).unwrap();
+    let db = RocksDb::open(path.as_ref()).unwrap();
     db.write(key.clone(), value.clone()).unwrap();
     let res = db.exists(key).unwrap();
     assert_eq!(res, true);
@@ -45,7 +45,7 @@ fn exists() {
 fn does_not_exist() {
     let path = DBPath::new("does_not_exists_rocks_test");
     let key = [0];
-    let db = RocksDb::start(path.as_ref()).unwrap();
+    let db = RocksDb::open(path.as_ref()).unwrap();
     let res = db.exists(key).unwrap();
     assert_eq!(res, false);
 }
@@ -55,7 +55,7 @@ fn delete() {
     let path = DBPath::new("delete_rocks_test");
     let key = [0];
     let value = [1];
-    let db = RocksDb::start(path.as_ref()).unwrap();
+    let db = RocksDb::open(path.as_ref()).unwrap();
     db.write(key.clone(), value.clone()).unwrap();
     let res = db.exists(key.clone()).unwrap();
     assert_eq!(res, true);
@@ -69,7 +69,7 @@ fn bulk_write() {
     let path = DBPath::new("bulk_write_rocks_test");
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
-    let db = RocksDb::start(path.as_ref()).unwrap();
+    let db = RocksDb::open(path.as_ref()).unwrap();
     db.bulk_write(&keys, &values).unwrap();
     for k in keys.iter() {
         let res = db.exists(k.clone()).unwrap();
@@ -82,7 +82,7 @@ fn bulk_read() {
     let path = DBPath::new("bulk_read_rocks_test");
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
-    let db = RocksDb::start(path.as_ref()).unwrap();
+    let db = RocksDb::open(path.as_ref()).unwrap();
     db.bulk_write(&keys, &values).unwrap();
     let results = db.bulk_read(&keys).unwrap();
     for (result, value) in results.iter().zip(values.iter()) {
@@ -98,7 +98,7 @@ fn bulk_delete() {
     let path = DBPath::new("bulk_delete_rocks_test");
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
-    let db = RocksDb::start(path.as_ref()).unwrap();
+    let db = RocksDb::open(path.as_ref()).unwrap();
     db.bulk_write(&keys, &values).unwrap();
     db.bulk_delete(&keys).unwrap();
     for k in keys.iter() {

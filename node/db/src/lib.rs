@@ -2,13 +2,6 @@ pub mod errors;
 pub mod rocks;
 
 use errors::Error;
-use std::path::Path;
-
-pub trait DatabaseService {
-    fn start(path: &Path) -> Result<Self, Error>
-    where
-        Self: Sized;
-}
 
 pub trait Write {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>

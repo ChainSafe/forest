@@ -1,5 +1,5 @@
 use super::errors::Error;
-use super::{DatabaseService, Read, Write};
+use super::{Read, Write};
 use rocksdb::{Options, WriteBatch, DB};
 use std::path::Path;
 
@@ -8,8 +8,8 @@ pub struct RocksDb {
     db: DB,
 }
 
-impl DatabaseService for RocksDb {
-    fn start(path: &Path) -> Result<Self, Error> {
+impl RocksDb {
+    pub fn open(path: &Path) -> Result<Self, Error> {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         let db = DB::open(&db_opts, path)?;
