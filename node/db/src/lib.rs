@@ -1,7 +1,10 @@
-pub mod errors;
-pub mod rocks;
+mod errors;
+mod memory;
+mod rocks;
 
-use errors::Error;
+pub use errors::Error;
+pub use memory::*;
+pub use rocks::*;
 
 pub trait Write {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
