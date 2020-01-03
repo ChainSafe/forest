@@ -5,10 +5,12 @@ use db::{DatabaseService, RocksDb};
 use db_utils::DBPath;
 
 #[test]
-fn start() {
+fn open() {
     let path = DBPath::new("start_rocks_test");
     let mut db = RocksDb::new(path.as_ref());
-    db.open().unwrap();
+    subtests::open(&mut db);
+    // Calling open on opened db should not error
+    subtests::open(&mut db);
 }
 
 #[test]

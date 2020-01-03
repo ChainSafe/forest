@@ -3,8 +3,11 @@ mod subtests;
 use db::MemoryDB;
 
 #[test]
-fn start() {
-    MemoryDB::default();
+fn open() {
+    let mut db = MemoryDB::default();
+    subtests::open(&mut db);
+    // Calling open on opened db should not error
+    subtests::open(&mut db);
 }
 
 #[test]

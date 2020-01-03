@@ -1,8 +1,15 @@
-use db::{Read, Write};
+use db::{DatabaseService, Read, Write};
+
+pub fn open<DB>(db: &mut DB)
+where
+    DB: DatabaseService,
+{
+    db.open().unwrap();
+}
 
 pub fn write<DB>(db: &DB)
 where
-    DB: Read + Write,
+    DB: Write,
 {
     let key = [1];
     let value = [1];
