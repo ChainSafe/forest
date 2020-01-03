@@ -1,5 +1,5 @@
 use super::Error;
-use super::{Read, Write};
+use super::{DatabaseService, Read, Write};
 use parking_lot::RwLock;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
@@ -7,6 +7,17 @@ use std::hash::{Hash, Hasher};
 /// A thread-safe `HashMap` wrapper.
 pub struct MemoryDB {
     db: RwLock<HashMap<u64, Vec<u8>>>,
+}
+
+impl MemoryDB {
+    fn db_index<K>(key: K) -> u64
+    where
+        K: AsRef<[u8]>,
+    {
+        let mut hasher = DefaultHasher::new();
+        key.as_ref().hash::<DefaultHasher>(&mut hasher);
+        hasher.finish()
+    }
 }
 
 impl Clone for MemoryDB {
@@ -17,23 +28,15 @@ impl Clone for MemoryDB {
     }
 }
 
-impl MemoryDB {
-    /// Create a new, empty database.
-    pub fn open() -> Self {
+impl Default for MemoryDB {
+    fn default() -> Self {
         Self {
             db: RwLock::new(HashMap::new()),
         }
     }
-
-    fn db_index<K>(key: K) -> u64
-    where
-        K: AsRef<[u8]>,
-    {
-        let mut hasher = DefaultHasher::new();
-        key.as_ref().hash::<DefaultHasher>(&mut hasher);
-        hasher.finish()
-    }
 }
+
+impl DatabaseService for MemoryDB {}
 
 impl Write for MemoryDB {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
