@@ -21,6 +21,18 @@ impl RocksDb {
         }
     }
 
+    pub fn open(&mut self) -> Result<(), Error> {
+        match &self.status {
+            DbStatus::Unopened(path) => {
+                let mut db_opts = Options::default();
+                db_opts.create_if_missing(true);
+                self.status = DbStatus::Open(DB::open(&db_opts, path)?);
+                Ok(())
+            }
+            DbStatus::Open(_) => Ok(()),
+        }
+    }
+
     pub fn db(&self) -> Result<&DB, Error> {
         match &self.status {
             DbStatus::Unopened(_) => Err(Error::new("Unopened database used".to_string())),
@@ -31,15 +43,7 @@ impl RocksDb {
 
 impl DatabaseService for RocksDb {
     fn open(&mut self) -> Result<(), Error> {
-        match &self.status {
-            DbStatus::Unopened(path) => {
-                let mut db_opts = Options::default();
-                db_opts.create_if_missing(true);
-                self.status = DbStatus::Open(DB::open(&db_opts, path)?);
-                Ok(())
-            }
-            DbStatus::Open(_) => Ok(()),
-        }
+        self.open()
     }
 }
 
