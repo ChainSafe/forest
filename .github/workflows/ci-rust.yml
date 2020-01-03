@@ -106,6 +106,14 @@ jobs:
       - uses: actions/checkout@master
       - name: Install Rust
         run: rustup update beta && rustup default beta
+
+      # TODO: Remove once libp2p fork fixed
+      - name: Update protobuf version
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+          args: -p protobuf --precise 2.8.1
+
       - name: Build documentation
         run: cargo doc --no-deps --all-features
       - name: Publish documentation
