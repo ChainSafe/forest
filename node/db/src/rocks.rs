@@ -1,11 +1,11 @@
 use super::errors::Error;
 use super::{DatabaseService, Read, Write};
 use rocksdb::{Options, WriteBatch, DB};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 enum DbStatus {
-    Unopened(String),
+    Unopened(PathBuf),
     Open(DB),
 }
 
@@ -14,10 +14,22 @@ pub struct RocksDb {
     status: DbStatus,
 }
 
+/// RocksDb is used as the KV store for Ferret
+///
+/// Usage:
+/// ```no_run
+/// use db::RocksDb;
+///
+/// let mut db = RocksDb::new("test_db");
+/// db.open();
+/// ```
 impl RocksDb {
-    pub fn new(path: &Path) -> Self {
+    pub fn new<P>(path: P) -> Self
+    where
+        P: AsRef<Path>,
+    {
         Self {
-            status: DbStatus::Unopened(path.to_string_lossy().to_string()),
+            status: DbStatus::Unopened(path.as_ref().to_path_buf()),
         }
     }
 
