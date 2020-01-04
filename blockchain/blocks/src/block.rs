@@ -18,11 +18,11 @@ struct PoStCandidate {}
 struct PoStRandomness {}
 struct PoStProof {}
 
-/// BlockHeader defines header of a block in the Filecoin blockchain
+/// Header of a block
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockHeader {
-    /// CHAIN LINKING
-    ///
+    // CHAIN LINKING
+
     /// Parents is the set of parents this block was based on. Typically one,
     /// but can be several in the case where there were multiple winning ticket-
     /// holders for an epoch
@@ -32,13 +32,13 @@ pub struct BlockHeader {
     /// epoch is the period in which a new block is generated. There may be multiple rounds in an epoch
     pub epoch: ChainEpoch,
 
-    /// MINER INFO
-    ///
+    // MINER INFO
+
     /// miner_address is the address of the miner actor that mined this block
     pub miner_address: Address,
 
-    /// STATE
-    ///
+    // STATE
+
     /// messages contains the merkle links for bls_messages and secp_messages
     pub messages: TxMeta,
     /// message_receipts is the Cid of the root of an array of MessageReceipts
@@ -46,25 +46,24 @@ pub struct BlockHeader {
     /// state_root is a cid pointer to the state tree after application of the transactions state transitions
     pub state_root: Cid,
 
-    /// CONSENSUS
-    ///
-    /// timestamp, in seconds since the Unix epoch, at which this block was created
+    // CONSENSUS
+
+    /// seconds since the Unix epoch, at which this block was created
     pub timestamp: u64,
-    /// ticket is the ticket submitted with this block
+    /// the ticket submitted with this block
     pub ticket: Ticket,
 
     // SIGNATURES
-    //
     pub bls_aggregate: Signature,
 
-    /// CACHE
-    ///
+    // CACHE
+    /// stores the cid for the block after the first call to `cid()`
     pub cached_cid: Cid,
-
+    /// stores the hashed bytes of the block after the fist call to `cid()`
     pub cached_bytes: u8,
 }
 
-/// Block defines a full block
+/// A complete block
 pub struct Block {
     header: BlockHeader,
     // TODO will rename to UnSignedMessage once changes are in
@@ -72,7 +71,7 @@ pub struct Block {
     secp_messages: SignedMessage,
 }
 
-/// TxMeta tracks the merkleroots of both secp and bls messages separately
+/// Ttracks the merkleroots of both secp and bls messages separately
 #[derive(Clone, Debug, PartialEq)]
 pub struct TxMeta {
     pub bls_messages: Cid,
@@ -89,7 +88,7 @@ struct ElectionPoStVerifyInfo {
 }
 
 impl BlockHeader {
-    /// cid returns the content id of this header
+    /// returns the content id of this header
     pub fn cid(&mut self) -> Cid {
         // TODO
         // Encode blockheader into cache_bytes

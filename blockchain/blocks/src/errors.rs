@@ -2,7 +2,9 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    // TODO: Needs docs
     UndefinedTipSet(String),
+    /// The given tipset has no blocks
     NoBlocks,
 }
 
