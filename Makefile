@@ -32,4 +32,7 @@ release:
 test:
 	cargo test
 
-.PHONY: clean clean-all lint build release test
+license:
+	./scripts/add_license.sh
+
+.PHONY: clean clean-all lint build release test license
