@@ -50,14 +50,16 @@ pub fn get_home_dir() -> String {
 ///
 /// # Example
 ///```
+/// use serde_derive::Deserialize;
+/// use utils::{read_toml};
+///
 /// #[derive(Deserialize)]
 /// struct Config {
 ///     name: String
 /// };
 ///
-/// let path = "./config.toml".to_owned();
-/// let toml_string = read_file(path).unwrap();
-/// read_toml(toml_string)
+/// let toml_string = "[config]\nname = \"ferret\"\n";
+/// let config = read_toml::<Config>(toml_string);
 /// ```
 pub fn read_toml<S>(toml_string: &str) -> Result<S>
 where
