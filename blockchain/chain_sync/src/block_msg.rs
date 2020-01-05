@@ -16,7 +16,7 @@ pub struct BlockMsg {
 }
 
 impl BlockMsg {
-    /// Creates a BlockMsg container for peer id a head tipset key and chain height
+    /// Creates a BlockMsg container
     fn _new(_source: PeerId, _sender: PeerId, _head: TipSetKeys, _height: u64) -> Self {
         Self {
             _source,
