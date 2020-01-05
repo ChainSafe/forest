@@ -22,7 +22,6 @@ struct PoStProof {}
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockHeader {
     // CHAIN LINKING
-
     /// Parents is the set of parents this block was based on. Typically one,
     /// but can be several in the case where there were multiple winning ticket-
     /// holders for an epoch
@@ -33,12 +32,10 @@ pub struct BlockHeader {
     pub epoch: ChainEpoch,
 
     // MINER INFO
-
     /// miner_address is the address of the miner actor that mined this block
     pub miner_address: Address,
 
     // STATE
-
     /// messages contains the merkle links for bls_messages and secp_messages
     pub messages: TxMeta,
     /// message_receipts is the Cid of the root of an array of MessageReceipts
@@ -47,7 +44,6 @@ pub struct BlockHeader {
     pub state_root: Cid,
 
     // CONSENSUS
-
     /// seconds since the Unix epoch, at which this block was created
     pub timestamp: u64,
     /// the ticket submitted with this block
