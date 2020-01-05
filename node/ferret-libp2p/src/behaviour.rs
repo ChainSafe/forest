@@ -61,7 +61,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubE
     for MyBehaviour<TSubstream>
 {
     fn inject_event(&mut self, message: GossipsubEvent) {
-        if let GossipsubEvent::Message(_, message) = message {
+        if let GossipsubEvent::Message(_, _, message) = message {
             self.events.push(MyBehaviourEvent::GossipMessage {
                 source: message.source,
                 topics: message.topics,
