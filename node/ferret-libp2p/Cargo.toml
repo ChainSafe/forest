@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "65d413ecf32b7ffaa2b607d9c6ce93640fed50cf" }
+libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "776d13ef046358964c7d64cda3295a3a3cb24743" }
 utils = { path = "../utils" }
 tokio = "0.1.22"
 futures = "0.1.29"

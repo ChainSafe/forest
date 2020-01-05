@@ -22,13 +22,6 @@ jobs:
           toolchain: stable
           override: true
 
-      # TODO: Remove once libp2p fork fixed
-      - name: Update protobuf version
-        uses: actions-rs/cargo@v1
-        with:
-          command: update
-          args: -p protobuf --precise 2.8.1
-
       - name: Cargo test
         uses: actions-rs/cargo@v1
         with:
@@ -39,12 +32,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+
       - name: Toolchain setup
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
+
       - run: rustup component add rustfmt
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
@@ -84,13 +79,6 @@ jobs:
           override: true
       - run: rustup component add clippy
 
-      # TODO: Remove once libp2p fork fixed
-      - name: Update protobuf version
-        uses: actions-rs/cargo@v1
-        with:
-          command: update
-          args: -p protobuf --precise 2.8.1
-
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
@@ -106,13 +94,6 @@ jobs:
       - uses: actions/checkout@master
       - name: Install Rust
         run: rustup update beta && rustup default beta
-
-      # TODO: Remove once libp2p fork fixed
-      - name: Update protobuf version
-        uses: actions-rs/cargo@v1
-        with:
-          command: update
-          args: -p protobuf --precise 2.8.1
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features
