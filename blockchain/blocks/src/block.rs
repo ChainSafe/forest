@@ -71,7 +71,7 @@ pub struct Block {
     secp_messages: SignedMessage,
 }
 
-/// Ttracks the merkleroots of both secp and bls messages separately
+/// Tracks the merkleroots of both secp and bls messages separately
 #[derive(Clone, Debug, PartialEq)]
 pub struct TxMeta {
     pub bls_messages: Cid,
