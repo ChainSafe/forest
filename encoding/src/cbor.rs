@@ -1,5 +1,6 @@
 use super::errors::Error;
 
+/// Implemented for types that are CBOR encodable
 pub trait Cbor {
     fn unmarshal_cbor(bz: &[u8]) -> Result<Self, Error>
     where
