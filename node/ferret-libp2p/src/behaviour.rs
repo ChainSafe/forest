@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use futures::Async;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
