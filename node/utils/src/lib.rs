@@ -6,12 +6,7 @@ use std::path::Path;
 use toml;
 
 /// Writes a string to a specified file. Creates the desired path if it does not exist.
-///
-/// # Arguments
-///
-/// * `message`   - Contents that will be written to the file
-/// * `path`      - Filesystem path of where the file will be written to
-/// * `file_name` - Desired filename
+/// Note: `path` and `filename` are appended to produce the resulting file path.
 pub fn write_to_file(message: &[u8], path: &str, file_name: &str) -> Result<()> {
     // Create path if it doesn't exist
     create_dir_all(Path::new(path))?;
@@ -58,8 +53,9 @@ pub fn get_home_dir() -> String {
 ///     name: String
 /// };
 ///
-/// let toml_string = "[config]\nname = \"ferret\"\n";
-/// let config = read_toml::<Config>(toml_string);
+/// let toml_string = "name = \"ferret\"\n";
+/// let config: Config = read_toml(toml_string).unwrap();
+/// assert_eq!(config.name, "ferret");
 /// ```
 pub fn read_toml<S>(toml_string: &str) -> Result<S>
 where

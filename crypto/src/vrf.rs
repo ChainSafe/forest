@@ -3,7 +3,7 @@ use bls_signatures::{Serialize, Signature};
 
 pub struct VRFPublicKey(Vec<u8>);
 
-/// TODO
+/// Contains some public key type to be used for VRF verification
 impl VRFPublicKey {
     pub fn new(input: Vec<u8>) -> Self {
         Self(input)
