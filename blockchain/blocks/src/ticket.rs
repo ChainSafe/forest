@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use crypto::VRFResult;
 
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source

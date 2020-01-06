@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use num_bigint::BigUint;
 
 /// Wrapper around a big int variable to handle token specific functionality

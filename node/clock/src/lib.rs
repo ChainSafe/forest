@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";

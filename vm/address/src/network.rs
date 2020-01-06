@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use super::{MAINNET_PREFIX, TESTNET_PREFIX};
 
 /// Network defines the preconfigured networks to use with address encoding

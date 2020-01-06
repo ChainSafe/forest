@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use super::TipIndex;
 use blocks::Tipset;
 use cid::Cid;
