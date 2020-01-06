@@ -9,20 +9,36 @@ use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
 use clock::ChainEpoch;
+
+/// TipSetKeys is a set of CIDs forming a unique key for a TipSet
+/// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
+/// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct TipSetKeys {
+    pub cids: Vec<Cid>,
+}
+
+impl TipSetKeys {
+    /// equals checks whether the set contains exactly the same CIDs as another.
+    fn equals(&self, key: TipSetKeys) -> bool {
+        if self.cids.len() != key.cids.len() {
+            return false;
+        }
+        for i in 0..key.cids.len() {
+            if self.cids[i] != key.cids[i] {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// TipSet is an immutable set of blocks at the same height with the same parent set
 /// Blocks in a tipset are canonically ordered by ticket size
 #[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,
-}
-
-/// TipSetKeys is a set of CIDs forming a unique key for a TipSet
-/// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
-/// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct TipSetKeys {
-    pub cids: Vec<Cid>,
 }
 
 impl Tipset {
@@ -145,27 +161,12 @@ impl Tipset {
         self.blocks[0].parents.clone()
     }
     /// weight returns the tipset's calculated weight
-    fn weight(&self) -> u64 {
+    pub fn weight(&self) -> u64 {
         self.blocks[0].weight
     }
     /// tip_epoch returns the tipset's epoch
     pub fn tip_epoch(&self) -> ChainEpoch {
         self.blocks[0].epoch.clone()
-    }
-}
-
-impl TipSetKeys {
-    /// equals checks whether the set contains exactly the same CIDs as another.
-    fn equals(&self, key: TipSetKeys) -> bool {
-        if self.cids.len() != key.cids.len() {
-            return false;
-        }
-        for i in 0..key.cids.len() {
-            if self.cids[i] != key.cids[i] {
-                return false;
-            }
-        }
-        true
     }
 }
 
