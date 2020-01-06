@@ -3,7 +3,7 @@
 PAT_GPL="^// Copyright.*SPDX-License-Identifier: Apache-2.0\.$"
 PAT_OTHER="^// Copyright"
 
-for f in $(find . -type f | egrep '\.(c|cpp|rs)$'); do
+for f in $(find . -type f | egrep '\.(rs)$'); do
 	HEADER=$(head -16 $f)
 	if [[ $HEADER =~ $PAT_GPL ]]; then
 		BODY=$(tail -n +17 $f)
