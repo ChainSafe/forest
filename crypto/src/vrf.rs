@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::signature::{verify_bls_sig, BLS_SIG_LEN};
 use bls_signatures::{Serialize, Signature};
 

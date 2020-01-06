@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use super::BlockMsg;
 use std::io;
 /// BlockProposer allows callers to propose new blocks for inclusion in the chain
