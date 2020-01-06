@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::fmt;

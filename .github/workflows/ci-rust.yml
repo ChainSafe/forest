@@ -32,12 +32,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+
       - name: Toolchain setup
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
+
       - run: rustup component add rustfmt
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
@@ -56,7 +58,7 @@ jobs:
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-v0-${{ github.sha }}
-          restore-keys:  ${{ runner.os }}-cargo-registry-v0-
+          restore-keys: ${{ runner.os }}-cargo-registry-v0-
       - name: Cache cargo index
         uses: actions/cache@v1
         with:
@@ -84,20 +86,21 @@ jobs:
           args: -- -D warnings
 
   publish_docs:
-      name: Publish Documentation
-      needs: [clippy, test]
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@master
-        - name: Install Rust
-          run: rustup update beta && rustup default beta
-        - name: Build documentation
-          run: cargo doc --no-deps --all-features
-        - name: Publish documentation
-          run: |
-            cd target/doc
-            git init
-            git add .
-            git -c user.name='ci' -c user.email='ci' commit -m 'Deploy documentation'
-            git push -f -q https://git:${{ secrets.github_token }}@github.com/${{ github.repository }} HEAD:gh-pages
-          if: github.event_name == 'push' && github.event.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.event.ref == 'refs/heads/master'
+    name: Publish Documentation
+    needs: [clippy, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install Rust
+        run: rustup update beta && rustup default beta
+
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+      - name: Publish documentation
+        run: |
+          cd target/doc
+          git init
+          git add .
+          git -c user.name='ci' -c user.email='ci' commit -m 'Deploy documentation'
+          git push -f -q https://git:${{ secrets.github_token }}@github.com/${{ github.repository }} HEAD:gh-pages

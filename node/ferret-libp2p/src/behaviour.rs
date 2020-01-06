@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use futures::Async;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
@@ -61,7 +64,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubE
     for MyBehaviour<TSubstream>
 {
     fn inject_event(&mut self, message: GossipsubEvent) {
-        if let GossipsubEvent::Message(_, message) = message {
+        if let GossipsubEvent::Message(_, _, message) = message {
             self.events.push(MyBehaviourEvent::GossipMessage {
                 source: message.source,
                 topics: message.topics,
