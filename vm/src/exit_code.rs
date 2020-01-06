@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 /// ExitCode defines the exit code from the VM execution
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum ExitCode {
