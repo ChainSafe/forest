@@ -4,12 +4,13 @@
 use ferret_libp2p::config::Libp2pConfig;
 use ferret_libp2p::service::{Libp2pService, NetworkEvent};
 use futures::stream::Stream;
+use futures::channel::mpsc;
 use futures::{Async, Future};
+use async_std::task;
 use libp2p::gossipsub::Topic;
 use slog::{warn, Logger};
 use std::sync::{Arc, Mutex};
-use tokio::runtime::TaskExecutor;
-use tokio::sync::mpsc;
+
 
 /// Ingress events to the NetworkService
 pub enum NetworkMessage {
@@ -30,7 +31,6 @@ impl NetworkService {
         config: &Libp2pConfig,
         log: &Logger,
         outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
-        executor: &TaskExecutor,
     ) -> (
         Self,
         mpsc::UnboundedSender<NetworkMessage>,
@@ -69,7 +69,7 @@ fn start(
     message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
 ) -> tokio::sync::oneshot::Sender<u8> {
     let (network_exit, exit_rx) = tokio::sync::oneshot::channel();
-    executor.spawn(
+    task.spawn(
         poll(log, libp2p_service, outbound_transmitter, message_receiver)
             .select(exit_rx.then(|_| Ok(())))
             .then(move |_| Ok(())),
@@ -105,13 +105,13 @@ fn poll(
                 Ok(Async::Ready(Some(event))) => match event {
                     NetworkEvent::PubsubMessage {
                         source,
-                        topics,
+//                        topics,
                         message,
                     } => {
                         if outbound_transmitter
                             .try_send(NetworkEvent::PubsubMessage {
                                 source,
-                                topics,
+//                                topics,
                                 message,
                             })
                             .is_err()
