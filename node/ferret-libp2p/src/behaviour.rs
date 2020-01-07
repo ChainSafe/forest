@@ -1,25 +1,26 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::Async;
+use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
-use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
+//use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::mdns::{Mdns, MdnsEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
+use futures::task::Poll;
+use async_std::task;
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
-use libp2p::tokio_io::{AsyncRead, AsyncWrite};
 use libp2p::NetworkBehaviour;
 use slog::{debug, Logger};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MyBehaviourEvent", poll_method = "poll")]
 pub struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
-    pub gossipsub: Gossipsub<TSubstream>,
+//    pub gossipsub: Gossipsub<TSubstream>,
     pub mdns: Mdns<TSubstream>,
     pub ping: Ping<TSubstream>,
     pub identify: Identify<TSubstream>,
@@ -34,7 +35,7 @@ pub enum MyBehaviourEvent {
     ExpiredPeer(PeerId),
     GossipMessage {
         source: PeerId,
-        topics: Vec<TopicHash>,
+//        topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
 }
@@ -60,19 +61,19 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubEvent>
-    for MyBehaviour<TSubstream>
-{
-    fn inject_event(&mut self, message: GossipsubEvent) {
-        if let GossipsubEvent::Message(_, _, message) = message {
-            self.events.push(MyBehaviourEvent::GossipMessage {
-                source: message.source,
-                topics: message.topics,
-                message: message.data,
-            })
-        }
-    }
-}
+//impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubEvent>
+//    for MyBehaviour<TSubstream>
+//{
+//    fn inject_event(&mut self, message: GossipsubEvent) {
+//        if let GossipsubEvent::Message(_, _, message) = message {
+//            self.events.push(MyBehaviourEvent::GossipMessage {
+//                source: message.source,
+//                topics: message.topics,
+//                message: message.data,
+//            })
+//        }
+//    }
+//}
 
 impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     for MyBehaviour<TSubstream>
@@ -136,21 +137,21 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
     /// Consumes the events list when polled.
     fn poll<TBehaviourIn>(
         &mut self,
-    ) -> Async<NetworkBehaviourAction<TBehaviourIn, MyBehaviourEvent>> {
+    ) -> Poll<NetworkBehaviourAction<TBehaviourIn, MyBehaviourEvent>> {
         if !self.events.is_empty() {
-            return Async::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
+            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
         }
-        Async::NotReady
+        Poll::Pending
     }
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
     pub fn new(log: Logger, local_key: &Keypair) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
-        let gossipsub_config = GossipsubConfig::default();
+//        let gossipsub_config = GossipsubConfig::default();
         MyBehaviour {
-            gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
-            mdns: Mdns::new().expect("Failed to create mDNS service"),
+//            gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
+            mdns: task::block_on(Mdns::new()).expect("Could not start mDNS"),
             ping: Ping::default(),
             identify: Identify::new("ferret/libp2p".into(), "0.0.1".into(), local_key.public()),
             log,
@@ -158,11 +159,11 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
         }
     }
 
-    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) {
-        self.gossipsub.publish(topic, data);
-    }
-
-    pub fn subscribe(&mut self, topic: Topic) -> bool {
-        self.gossipsub.subscribe(topic)
-    }
+//    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) {
+//        self.gossipsub.publish(topic, data);
+//    }
+//
+//    pub fn subscribe(&mut self, topic: Topic) -> bool {
+//        self.gossipsub.subscribe(topic)
+//    }
 }

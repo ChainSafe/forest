@@ -3,20 +3,25 @@
 
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
-use futures::{Async, Stream};
+use futures::stream::Stream;
+use futures::task::{Poll, Context};
+use futures_util::stream::StreamExt;
+use async_std::task;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
     core::nodes::Substream,
     core::transport::boxed::Boxed,
-    gossipsub::TopicHash,
+//    gossipsub::TopicHash,
     identity::{ed25519, Keypair},
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
 use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
+use std::pin::Pin;
 use utils::{get_home_dir, read_file_to_vec, write_to_file};
+
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
@@ -59,9 +64,9 @@ impl Libp2pService {
         )
         .unwrap();
 
-        for topic in config.pubsub_topics.clone() {
-            swarm.subscribe(topic);
-        }
+//        for topic in config.pubsub_topics.clone() {
+//            swarm.subscribe(topic);
+//        }
 
         Libp2pService { swarm }
     }
@@ -69,35 +74,34 @@ impl Libp2pService {
 
 impl Stream for Libp2pService {
     type Item = NetworkEvent;
-    type Error = ();
 
     /// Continuously polls the Libp2p swarm to get events
-    fn poll(&mut self) -> Result<Async<Option<Self::Item>>, Self::Error> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
-            match self.swarm.poll() {
-                Ok(Async::Ready(Some(event))) => match event {
+            match self.swarm.poll_next_unpin(cx) {
+                Poll::Ready(Some(event)) => match event {
                     MyBehaviourEvent::DiscoveredPeer(peer) => {
                         libp2p::Swarm::dial(&mut self.swarm, peer);
                     }
                     MyBehaviourEvent::ExpiredPeer(_) => {}
                     MyBehaviourEvent::GossipMessage {
                         source,
-                        topics,
+//                        topics,
                         message,
                     } => {
-                        return Ok(Async::Ready(Option::from(NetworkEvent::PubsubMessage {
+                        return Poll::Ready(Option::from(NetworkEvent::PubsubMessage {
                             source,
-                            topics,
+//                            topics,
                             message,
-                        })));
+                        }));
                     }
                 },
-                Ok(Async::Ready(None)) => break,
-                Ok(Async::NotReady) => break,
+                Poll::Ready(None) => break,
+                Poll::Pending => break,
                 _ => break,
             }
         }
-        Ok(Async::NotReady)
+       Poll::Pending
     }
 }
 
@@ -106,14 +110,14 @@ impl Stream for Libp2pService {
 pub enum NetworkEvent {
     PubsubMessage {
         source: PeerId,
-        topics: Vec<TopicHash>,
+//        topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
 }
 
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
-    let transport = libp2p::dns::DnsConfig::new(transport);
+    let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
 
     transport
         .upgrade(core::upgrade::Version::V1)
