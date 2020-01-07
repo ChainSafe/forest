@@ -8,9 +8,9 @@ edition = "2018"
 vm = {path = "../../vm"}
 address = {path = "../address"}
 runtime = {path = "../runtime"}
-cid = "0.3.1"
 num-bigint = "0.2.3"
 encoding = {path = "../../encoding"}
 num-traits = "0.2"
 num-derive = "0.2"
 clock = {path = "../../node/clock"}
+cid = {path = "../../ipld/cid"}
