@@ -101,7 +101,7 @@ pub struct BlockHeader {
     pub cached_cid: Cid,
 
     #[builder(default)]
-    pub cached_bytes: u8,
+    pub cached_bytes: Vec<u8>,
 }
 
 impl BlockHeader {
@@ -155,9 +155,9 @@ impl BlockHeader {
             version: Version::V1,
             codec: Codec::DagCBOR,
             mh_type: DEFAULT_HASH_FUNCTION,
-            mh_len: 0,
+            mh_len: 8,
         };
-        let new_cid = Cid::new_from_prefix(&c, &[self.cached_bytes]);
+        let new_cid = Cid::new_from_prefix(&c, &self.cached_bytes);
         self.cached_cid = new_cid;
         self.cached_cid.clone()
     }

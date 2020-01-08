@@ -1,0 +1,12 @@
+[package]
+name = "sync_manager"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+address = {path = "../../vm/address"}
+blocks = {path = "../blocks"}
+
+[dev-dependencies]
+cid = "0.3.1"
