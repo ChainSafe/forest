@@ -6,7 +6,7 @@
 use super::ticket::Ticket;
 use super::TipSetKeys;
 use address::Address;
-use cid::{Cid, Codec, Version};
+use cid::{Cid, Codec, Prefix, Version};
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
@@ -151,7 +151,13 @@ impl BlockHeader {
         // Change DEFAULT_HASH_FUNCTION to utilize blake2b
         //
         // Currently content id for headers will be incomplete until encoding and supporting libraries are completed
-        let new_cid = Cid::new(Codec::DagCBOR, Version::V1, self.cached_bytes.as_ref());
+        let c = Prefix {
+            version: Version::V1,
+            codec: Codec::DagCBOR,
+            mh_type: DEFAULT_HASH_FUNCTION,
+            mh_len: 8,
+        };
+        let new_cid = Cid::new_from_prefix(&c, &self.cached_bytes);
         self.cached_cid = new_cid;
         self.cached_cid.clone()
     }
