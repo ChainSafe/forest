@@ -10,6 +10,7 @@ network = {path = "../../node/network"}
 cid = "0.3.1"
 clock = {path = "../../node/clock"}
 db = {path = "../../node/db"}
+num-bigint = "0.2.3"
 
 [dev-dependencies]
 address = {path = "../../vm/address"}
