@@ -4,3 +4,10 @@
 mod store;
 
 pub use self::store::*;
+
+/// Chain
+struct Chain {
+    // TODO add Message Store
+    // TODO add State Reader
+    _store: ChainStore
+}
