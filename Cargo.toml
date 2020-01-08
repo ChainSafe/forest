@@ -15,5 +15,6 @@ members = [
     "node",
     "node/clock",
     "crypto",
-    "encoding"
+    "encoding",
+    "ipld/cid"
 ]

@@ -8,6 +8,7 @@ edition = "2018"
 network = { path = "network" }
 ferret-libp2p = { path = "ferret-libp2p"}
 utils = { path = "utils" }
+db = { path = "db" }
 
 libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "776d13ef046358964c7d64cda3295a3a3cb24743" }
 tokio = "0.1.22"

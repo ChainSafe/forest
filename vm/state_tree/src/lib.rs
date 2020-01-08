@@ -67,12 +67,12 @@ impl StateTree for HamtStateTree {
 mod tests {
     use super::*;
     use actor::{ActorState, CodeID};
-    use cid::{Cid, Codec, Version};
+    use cid::Cid;
     use num_bigint::BigUint;
 
     #[test]
     fn get_set_cache() {
-        let cid = Cid::new(Codec::DagProtobuf, Version::V1, &[0u8]);
+        let cid = Cid::default();
         let act_s = ActorState::new(CodeID::Account, cid.clone(), BigUint::default(), 1);
         let act_a = ActorState::new(CodeID::Account, cid.clone(), BigUint::default(), 2);
         let addr = Address::new_id(1).unwrap();

@@ -24,6 +24,7 @@ clean:
 lint: clean
 	cargo fmt
 	cargo clippy -- -D warnings
+	./scripts/add_license.sh
 
 build:
 	cargo build
