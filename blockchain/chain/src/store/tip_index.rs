@@ -7,6 +7,18 @@ use cid::Cid;
 use clock::ChainEpoch;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
+
+pub trait Write {
+    fn put(&mut self, meta: &TipSetMetadata) -> Result<(), Error>;
+}
+
+pub trait Read {
+    fn get(&self, key: u64) -> Result<TipSetMetadata, Error>;
+    fn get_tipset(&self, idx: &dyn Index) -> Result<Tipset, Error>;
+    fn get_tipset_state_root(&self, idx: &dyn Index) -> Result<Cid, Error>;
+    fn get_tipset_receipts_root(&self, idx: &dyn Index) -> Result<Cid, Error>;
+}
+
 /// TipSetMetadata is the type stored as the value in the TipIndex hashmap.  It contains
 /// a tipset pointing to blocks, the root cid of the chain's state after
 /// applying the messages in this tipset to it's parent state, and the cid of the receipts
@@ -57,10 +69,13 @@ impl TipIndex {
             metadata: HashMap::new(),
         }
     }
+}
+
+impl Write for TipIndex {
     /// put adds an entry to TipIndex's hashmap
     /// After this call the input TipSetMetadata can be looked up by the TipsetKey of
     /// the tipset, or the tipset's epoch
-    pub fn put(&mut self, meta: &TipSetMetadata) -> Result<(), Error> {
+    fn put(&mut self, meta: &TipSetMetadata) -> Result<(), Error> {
         if meta.tipset.is_empty() {
             return Err(Error::NoBlocks);
         }
@@ -74,6 +89,9 @@ impl TipIndex {
         self.metadata.insert(epoch_key.hash_key(), meta.clone());
         Ok(())
     }
+}
+
+impl Read for TipIndex {
     /// get returns the tipset given by hashed key
     fn get(&self, key: u64) -> Result<TipSetMetadata, Error> {
         self.metadata
@@ -83,15 +101,15 @@ impl TipIndex {
     }
 
     /// get_tipset returns a tipset
-    pub fn get_tipset(&self, idx: &dyn Index) -> Result<Tipset, Error> {
+    fn get_tipset(&self, idx: &dyn Index) -> Result<Tipset, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset)?)
     }
     /// get_tipset_state_root returns the tipset_state_root
-    pub fn get_tipset_state_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
+    fn get_tipset_state_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_state_root)?)
     }
     /// get_tipset_receipts_root returns the tipset_receipts_root
-    pub fn get_tipset_receipts_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
+    fn get_tipset_receipts_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_receipts_root)?)
     }
 }

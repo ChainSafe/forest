@@ -2,6 +2,7 @@ pub mod errors;
 pub mod rocks;
 
 use errors::Error;
+pub use rocks::RocksDb;
 
 pub trait Write {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>

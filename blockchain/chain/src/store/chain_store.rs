@@ -4,13 +4,15 @@
 use super::TipIndex;
 use blocks::Tipset;
 use cid::Cid;
+use db::RocksDb as Blockstore;
 use network::service::NetworkMessage;
 
-pub struct _Store {
-    // TODO add Blockstore
+pub struct ChainStore {
     // TODO add IPLD Store
     // TODO add StateTreeLoader
-    // TODO add access to datastore operations
+
+    // key-value datastore
+    _db: Blockstore,
 
     // genesis is the CID of the genesis block.
     _genesis: Cid,
