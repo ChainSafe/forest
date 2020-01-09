@@ -1,108 +1,78 @@
 mod db_utils;
+mod subtests;
 
-use db::{rocks::RocksDb, Read, Write};
+use db::RocksDb;
 use db_utils::DBPath;
 
 #[test]
-fn start() {
+fn rocks_db_open() {
     let path = DBPath::new("start_rocks_test");
-    RocksDb::open(path.as_ref()).unwrap();
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    // Calling open on opened db should not error
+    subtests::open(&mut db);
 }
 
 #[test]
-fn write() {
+fn rocks_db_write() {
     let path = DBPath::new("write_rocks_test");
-    let key = [1];
-    let value = [1];
-
-    let db: RocksDb = RocksDb::open(path.as_ref()).unwrap();
-    db.write(key, value).unwrap();
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    subtests::write(&db);
 }
 
 #[test]
-fn read() {
+fn rocks_db_read() {
     let path = DBPath::new("read_rocks_test");
-    let key = [0];
-    let value = [1];
-    let db = RocksDb::open(path.as_ref()).unwrap();
-    db.write(key.clone(), value.clone()).unwrap();
-    let res = db.read(key).unwrap().unwrap();
-    assert_eq!(value.to_vec(), res);
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    subtests::read(&db);
 }
 
 #[test]
-fn exists() {
+fn rocks_db_exists() {
     let path = DBPath::new("exists_rocks_test");
-    let key = [0];
-    let value = [1];
-    let db = RocksDb::open(path.as_ref()).unwrap();
-    db.write(key.clone(), value.clone()).unwrap();
-    let res = db.exists(key).unwrap();
-    assert_eq!(res, true);
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    subtests::exists(&db);
 }
 
 #[test]
-fn does_not_exist() {
+fn rocks_db_does_not_exist() {
     let path = DBPath::new("does_not_exists_rocks_test");
-    let key = [0];
-    let db = RocksDb::open(path.as_ref()).unwrap();
-    let res = db.exists(key).unwrap();
-    assert_eq!(res, false);
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    subtests::does_not_exist(&db);
 }
 
 #[test]
-fn delete() {
+fn rocks_db_delete() {
     let path = DBPath::new("delete_rocks_test");
-    let key = [0];
-    let value = [1];
-    let db = RocksDb::open(path.as_ref()).unwrap();
-    db.write(key.clone(), value.clone()).unwrap();
-    let res = db.exists(key.clone()).unwrap();
-    assert_eq!(res, true);
-    db.delete(key.clone()).unwrap();
-    let res = db.exists(key.clone()).unwrap();
-    assert_eq!(res, false);
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    subtests::delete(&db);
 }
 
 #[test]
-fn bulk_write() {
+fn rocks_db_bulk_write() {
     let path = DBPath::new("bulk_write_rocks_test");
-    let keys = [[0], [1], [2]];
-    let values = [[0], [1], [2]];
-    let db = RocksDb::open(path.as_ref()).unwrap();
-    db.bulk_write(&keys, &values).unwrap();
-    for k in keys.iter() {
-        let res = db.exists(k.clone()).unwrap();
-        assert_eq!(res, true);
-    }
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    subtests::bulk_write(&db);
 }
 
 #[test]
-fn bulk_read() {
+fn rocks_db_bulk_read() {
     let path = DBPath::new("bulk_read_rocks_test");
-    let keys = [[0], [1], [2]];
-    let values = [[0], [1], [2]];
-    let db = RocksDb::open(path.as_ref()).unwrap();
-    db.bulk_write(&keys, &values).unwrap();
-    let results = db.bulk_read(&keys).unwrap();
-    for (result, value) in results.iter().zip(values.iter()) {
-        match result {
-            Some(v) => assert_eq!(v, value),
-            None => panic!("No values found!"),
-        }
-    }
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    subtests::bulk_read(&db);
 }
 
 #[test]
-fn bulk_delete() {
+fn rocks_db_bulk_delete() {
     let path = DBPath::new("bulk_delete_rocks_test");
-    let keys = [[0], [1], [2]];
-    let values = [[0], [1], [2]];
-    let db = RocksDb::open(path.as_ref()).unwrap();
-    db.bulk_write(&keys, &values).unwrap();
-    db.bulk_delete(&keys).unwrap();
-    for k in keys.iter() {
-        let res = db.exists(k.clone()).unwrap();
-        assert_eq!(res, false);
-    }
+    let mut db = RocksDb::new(path.as_ref());
+    subtests::open(&mut db);
+    subtests::bulk_delete(&db);
 }
