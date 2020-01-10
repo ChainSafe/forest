@@ -13,11 +13,14 @@ use blake2b_simd::Params;
 /// let hash = blake2b_variable(ingest, 20);
 /// assert_eq!(hash.len(), 20);
 /// ```
-pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
+pub fn blake2b_variable<I>(ingest: I, size: usize) -> Vec<u8>
+where
+    I: AsRef<[u8]>,
+{
     let hash = Params::new()
         .hash_length(size)
         .to_state()
-        .update(&ingest)
+        .update(ingest.as_ref())
         .finalize();
 
     hash.as_bytes().to_vec()
@@ -33,11 +36,14 @@ pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
 /// let hash = blake2b_256(ingest);
 /// assert_eq!(hash.len(), 32);
 /// ```
-pub fn blake2b_256(ingest: Vec<u8>) -> [u8; 32] {
+pub fn blake2b_256<I>(ingest: I) -> [u8; 32]
+where
+    I: AsRef<[u8]>,
+{
     let digest = Params::new()
         .hash_length(32)
         .to_state()
-        .update(&ingest)
+        .update(ingest.as_ref())
         .finalize();
 
     let mut ret = [0u8; 32];
@@ -51,12 +57,12 @@ mod tests {
 
     #[test]
     fn hash_length() {
-        let ingest = vec![1, 4, 2, 3];
-        let hash = blake2b_variable(ingest.clone(), 8);
+        let ingest = [1, 4, 2, 3];
+        let hash = blake2b_variable(ingest, 8);
         assert_eq!(hash.len(), 8);
-        let hash = blake2b_variable(ingest.clone(), 20);
+        let hash = blake2b_variable(ingest, 20);
         assert_eq!(hash.len(), 20);
-        let hash = blake2b_variable(ingest.clone(), 32);
+        let hash = blake2b_variable(ingest, 32);
         assert_eq!(hash.len(), 32);
     }
 }

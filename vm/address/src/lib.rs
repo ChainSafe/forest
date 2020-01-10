@@ -30,17 +30,21 @@ const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
 const BUFFER_SIZE: usize = 1024;
 
+// TODO pull network from config (probably)
+const NETWORK_DEFAULT: Network = Network::Testnet;
+
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub struct Address {
+    network: Network,
     protocol: Protocol,
     payload: Vec<u8>,
 }
 
 impl Address {
     /// Address constructor
-    fn new(protocol: Protocol, payload: Vec<u8>) -> Result<Self, Error> {
+    fn new(network: Network, protocol: Protocol, payload: Vec<u8>) -> Result<Self, Error> {
         // Validates the data satisfies the protocol specifications
         match protocol {
             Protocol::ID => (),
@@ -57,7 +61,11 @@ impl Address {
         }
 
         // Create validated address
-        Ok(Self { protocol, payload })
+        Ok(Self {
+            network,
+            protocol,
+            payload,
+        })
     }
     /// Creates address from encoded bytes
     pub fn from_bytes(bz: Vec<u8>) -> Result<Self, Error> {
@@ -66,7 +74,7 @@ impl Address {
         } else {
             let mut copy = bz;
             let protocol = Protocol::from_byte(copy.remove(0)).ok_or(Error::UnknownProtocol)?;
-            Address::new(protocol, copy)
+            Address::new(Network::Testnet, protocol, copy)
         }
     }
     /// Creates address from formatted string
@@ -75,9 +83,13 @@ impl Address {
             return Err(Error::InvalidLength);
         }
         // ensure the network character is valid before converting
-        if &addr[0..1] != MAINNET_PREFIX && &addr[0..1] != TESTNET_PREFIX {
-            return Err(Error::UnknownNetwork);
-        }
+        let network: Network = match &addr[0..1] {
+            TESTNET_PREFIX => Network::Testnet,
+            MAINNET_PREFIX => Network::Mainnet,
+            _ => {
+                return Err(Error::UnknownNetwork);
+            }
+        };
 
         // get protocol from second character
         let protocol: Protocol = match &addr[1..2] {
@@ -97,8 +109,8 @@ impl Address {
                 // 20 is max u64 as string
                 return Err(Error::InvalidLength);
             }
-            let i = raw.parse::<u64>()?;
-            return Address::new_id(i);
+            let id = raw.parse::<u64>()?;
+            return Address::new(network, Protocol::ID, to_leb_bytes(id)?);
         }
 
         // decode using byte32 encoding
@@ -125,32 +137,24 @@ impl Address {
             return Err(Error::InvalidChecksum);
         }
 
-        Address::new(protocol, payload)
+        Address::new(network, protocol, payload)
     }
 
     /// Generates new address using ID protocol
     pub fn new_id(id: u64) -> Result<Self, Error> {
-        let mut buf = [0; BUFFER_SIZE];
-
-        // write id to buffer in leb128 format
-        let mut writable = &mut buf[..];
-        let size = leb128::write::unsigned(&mut writable, id)?;
-
-        // Create byte vector from buffer
-        let vec = Vec::from(&buf[..size]);
-        Address::new(Protocol::ID, vec)
+        Address::new(NETWORK_DEFAULT, Protocol::ID, to_leb_bytes(id)?)
     }
     /// Generates new address using Secp256k1 pubkey
     pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, Error> {
-        Address::new(Protocol::Secp256k1, address_hash(pubkey))
+        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(pubkey))
     }
     /// Generates new address using the Actor protocol
     pub fn new_actor(data: Vec<u8>) -> Result<Self, Error> {
-        Address::new(Protocol::Actor, address_hash(data))
+        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(data))
     }
     /// Generates new address using BLS pubkey
     pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, Error> {
-        Address::new(Protocol::BLS, pubkey)
+        Address::new(NETWORK_DEFAULT, Protocol::BLS, pubkey)
     }
 
     /// Returns protocol for Address
@@ -194,7 +198,7 @@ impl Cbor for Address {
             protocol: CodecProtocol::Cbor,
         })?;
         // Create and return created address of unmarshalled bytes
-        Ok(Address::new(protocol, vec)?)
+        Ok(Address::new(NETWORK_DEFAULT, protocol, vec)?)
     }
     fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // encode bytes
@@ -239,6 +243,17 @@ fn encode(addr: &Address, network: Network) -> String {
             )
         }
     }
+}
+
+fn to_leb_bytes(id: u64) -> Result<Vec<u8>, Error> {
+    let mut buf = [0; BUFFER_SIZE];
+
+    // write id to buffer in leb128 format
+    let mut writable = &mut buf[..];
+    let size = leb128::write::unsigned(&mut writable, id)?;
+
+    // Create byte vector from buffer
+    Ok(Vec::from(&buf[..size]))
 }
 
 /// Checksum calculates the 4 byte checksum hash
