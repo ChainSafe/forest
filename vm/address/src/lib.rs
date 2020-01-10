@@ -14,6 +14,7 @@ use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
 use leb128;
 use serde_cbor::Value::Bytes;
 use serde_cbor::{from_slice, to_vec};
+use std::fmt;
 use std::hash::Hash;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -78,7 +79,7 @@ impl Address {
         }
     }
     /// Creates address from formatted string
-    pub fn from_string(addr: String) -> Result<Self, Error> {
+    pub fn from_string(addr: &str) -> Result<Self, Error> {
         if addr.len() > MAX_ADDRESS_LEN || addr.len() < 3 {
             return Err(Error::InvalidLength);
         }
@@ -171,12 +172,11 @@ impl Address {
         bz.insert(0, self.protocol() as u8);
         bz
     }
-    /// Returns encoded string from Address
-    pub fn to_string(&self, network: Option<Network>) -> String {
-        match network {
-            Some(net) => encode(self, net),
-            None => encode(self, Network::Testnet),
-        }
+}
+
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", encode(self))
     }
 }
 
@@ -216,7 +216,7 @@ impl From<Error> for EncodingError {
 }
 
 /// encode converts the address into a string
-fn encode(addr: &Address, network: Network) -> String {
+fn encode(addr: &Address) -> String {
     match addr.protocol {
         Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
             let ingest = addr.to_bytes();
@@ -226,7 +226,7 @@ fn encode(addr: &Address, network: Network) -> String {
             bz.extend(checksum(&ingest));
             format!(
                 "{}{}{}",
-                network.to_prefix(),
+                addr.network.to_prefix(),
                 addr.protocol().to_string(),
                 ADDRESS_ENCODER.encode(bz.as_mut()),
             )
@@ -237,7 +237,7 @@ fn encode(addr: &Address, network: Network) -> String {
             let mut readable = &buf[..];
             format!(
                 "{}{}{}",
-                network.to_prefix(),
+                addr.network.to_prefix(),
                 addr.protocol().to_string(),
                 leb128::read::unsigned(&mut readable).expect("should read encoded bytes"),
             )

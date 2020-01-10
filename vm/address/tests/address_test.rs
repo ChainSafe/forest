@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use address::{
-    checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
+    checksum, validate_checksum, Address, Error, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
 use encoding::Cbor;
 
@@ -38,10 +38,10 @@ struct AddressTestVec {
 
 fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
     // Test encoding to string
-    assert_eq!(expected.to_owned(), addr.to_string(Some(Network::Testnet)));
+    assert_eq!(expected.to_owned(), addr.to_string());
 
     // Test decoding from string
-    let decoded = Address::from_string(expected.to_owned()).unwrap();
+    let decoded = Address::from_string(expected).unwrap();
     assert_eq!(protocol, decoded.protocol());
 
     assert_eq!(addr.payload(), decoded.payload());
@@ -302,7 +302,7 @@ fn invalid_string_addresses() {
     ];
 
     for t in test_vectors.iter() {
-        let res = Address::from_string(t.input.to_owned());
+        let res = Address::from_string(t.input);
         match res {
             Err(e) => assert_eq!(e, t.expected),
             _ => assert!(false, "Addresses should have errored"),
@@ -491,7 +491,7 @@ fn cbor_encoding() {
     ];
 
     for t in test_vectors.iter() {
-        let res = Address::from_string(t.input.to_owned()).unwrap();
+        let res = Address::from_string(t.input).unwrap();
         let encoded = res.marshal_cbor().unwrap();
         // assert intermediate value is correct
         assert_eq!(encoded.clone(), t.encoded);
