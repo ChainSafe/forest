@@ -1,11 +1,11 @@
 #!/usr/bin/env sh
 
-PAT_APA="^// Copyright 2020 ChainSafe Systems\n// SPDX-License-Identifier: Apache-2.0"
+PAT_APA="^// Copyright 2020 ChainSafe Systems // SPDX-License-Identifier: Apache-2.0"
 
 valid=true
 for file in $(find . -type f -not -path "./target/*" | egrep '\.(rs)$'); do
-	HEADER=$(head -2 $file)
-	if ! pcregrep -Mq "$PAT_APA" "$file"; then
+	header_trimmed=$(echo $(head -2 $file))
+	if ! [[ $header_trimmed =~ $PAT_APA ]]; then
 		echo "$file was missing header"
 		cat copyright.txt $file > temp
 		mv temp $file
