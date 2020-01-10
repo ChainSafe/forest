@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 // Taken from
 // https://github.com/rust-rocksdb/rust-rocksdb/blob/master/tests/util/mod.rs
 use rocksdb::{Options, DB};
