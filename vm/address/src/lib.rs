@@ -133,7 +133,7 @@ impl Address {
         // validate checksum
         let mut ingest = payload.clone();
         ingest.insert(0, protocol as u8);
-        if !validate_checksum(ingest, cksm) {
+        if !validate_checksum(&ingest, cksm) {
             return Err(Error::InvalidChecksum);
         }
 
@@ -223,7 +223,7 @@ fn encode(addr: &Address, network: Network) -> String {
             let mut bz = addr.payload();
 
             // payload bytes followed by calculated checksum
-            bz.extend(checksum(ingest));
+            bz.extend(checksum(&ingest));
             format!(
                 "{}{}{}",
                 network.to_prefix(),
@@ -257,12 +257,12 @@ fn to_leb_bytes(id: u64) -> Result<Vec<u8>, Error> {
 }
 
 /// Checksum calculates the 4 byte checksum hash
-pub fn checksum(ingest: Vec<u8>) -> Vec<u8> {
+pub fn checksum(ingest: &[u8]) -> Vec<u8> {
     blake2b_variable(ingest, CHECKSUM_HASH_LEN)
 }
 
 /// Validates the checksum against the ingest data
-pub fn validate_checksum(ingest: Vec<u8>, expect: Vec<u8>) -> bool {
+pub fn validate_checksum(ingest: &[u8], expect: Vec<u8>) -> bool {
     let digest = checksum(ingest);
     digest == expect
 }

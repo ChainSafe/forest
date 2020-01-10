@@ -23,12 +23,12 @@ fn bytes() {
 
 #[test]
 fn generate_validate_checksum() {
-    let data: Vec<u8> = vec![0, 2, 3, 4, 5, 1, 2];
-    let other_data: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
-    let cksm = checksum(data.clone());
+    let data = [0, 2, 3, 4, 5, 1, 2];
+    let other_data = [1, 4, 3, 6, 7, 1, 2];
+    let cksm = checksum(&data);
     assert_eq!(cksm.len(), 4);
-    assert_eq!(validate_checksum(data.clone(), cksm.clone()), true);
-    assert_eq!(validate_checksum(other_data.clone(), cksm.clone()), false);
+    assert_eq!(validate_checksum(&data, cksm.clone()), true);
+    assert_eq!(validate_checksum(&other_data, cksm.clone()), false);
 }
 
 struct AddressTestVec {
