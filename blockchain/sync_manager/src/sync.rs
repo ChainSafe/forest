@@ -24,8 +24,8 @@ pub struct Syncer {
 
 impl Syncer {
     /// InformNewHead informs the syncer about a new potential tipset
-   /// This should be called when connecting to new peers, and additionally
-   /// when receiving new blocks from the network
+    /// This should be called when connecting to new peers, and additionally
+    /// when receiving new blocks from the network
     fn inform_new_head(&self, from: PeerId, full_block: Vec<Block>) {
         // check if full block is nil and if so return error
         if full_block.is_empty() {
@@ -35,9 +35,10 @@ impl Syncer {
             // TODO
             // validate message data and store in MessageStore
         }
+
         // TODO
         // send pubsub message indicating incoming blocks
-        // self.incoming::PubsubMessage{topics: "incoming", message: full_block}
+        // self.incoming.PubsubMessage{topics: "incoming", message: full_block}
 
         // TODO
         // Store incoming block header
