@@ -37,11 +37,10 @@ impl Syncer {
         }
         // TODO
         // send pubsub message indicating incoming blocks
-        //self.incoming::PubsubMessage{topics: "incoming", message: full_block}
+        // self.incoming::PubsubMessage{topics: "incoming", message: full_block}
 
         // TODO
         // Store incoming block header
-
 
         // TODO
         // Add peer to blocksync
@@ -50,6 +49,7 @@ impl Syncer {
         // ignore otherwise
 
         // set peer head
+        self.sync_manager.set_peer_head(from, )
 
     }
 

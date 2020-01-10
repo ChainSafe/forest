@@ -4,7 +4,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use super::block::BlockHeader;
+use super::block::{BlockHeader, Block};
 use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
@@ -31,6 +31,16 @@ impl TipSetKeys {
         }
         true
     }
+}
+
+pub struct FullTipset {
+    blocks: Vec<Block>,
+    tipset: Tipset,
+    cids: TipSetKeys,
+}
+
+impl FullTipset {
+
 }
 
 /// TipSet is an immutable set of blocks at the same height with the same parent set

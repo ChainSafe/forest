@@ -31,4 +31,7 @@ impl ChainStore {
         // TODO
         Ok(BigUint::from(0 as u32))
     }
+    pub fn persist_headers(&self, headers: Vec<BlockHeader>) {
+
+    }
 }
