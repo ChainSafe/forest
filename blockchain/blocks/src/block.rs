@@ -113,7 +113,6 @@ impl BlockHeader {
 /// Block defines a full block
 pub struct Block {
     header: BlockHeader,
-    // TODO will rename to UnSignedMessage once changes are in
     bls_messages: UnsignedMessage,
     secp_messages: SignedMessage,
 }
