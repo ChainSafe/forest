@@ -12,6 +12,7 @@ use crypto::Signature;
 use derive_builder::Builder;
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
+// use serde_derive::{Deserialize, Serialize};
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B
@@ -23,7 +24,7 @@ struct PoStRandomness {}
 struct PoStProof {}
 
 fn template_cid() -> Cid {
-    Cid::new(Codec::DagCBOR, Version::V1, &[])
+    Cid::default()
 }
 
 /// BlockHeader defines header of a block in the Filecoin blockchain

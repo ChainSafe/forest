@@ -9,6 +9,7 @@ use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
 use clock::ChainEpoch;
+// use serde_derive::{Deserialize, Serialize};
 
 /// TipSetKeys is a set of CIDs forming a unique key for a TipSet
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
@@ -106,7 +107,7 @@ impl Tipset {
         // break ticket ties with the header CIDs, which are distinct
         sorted_headers.sort_by_key(|header| {
             let mut h = header.clone();
-            (h.ticket.vrfproof.clone(), h.cid().hash)
+            (h.ticket.vrfproof.clone(), h.cid().hash.clone())
         });
 
         // TODO
@@ -175,7 +176,7 @@ mod tests {
     use super::*;
     use crate::block::TxMeta;
     use address::Address;
-    use cid::{Cid, Codec, Version};
+    use cid::{Cid, Codec};
     use clock::ChainEpoch;
     use crypto::VRFResult;
 
@@ -184,7 +185,7 @@ mod tests {
 
     fn template_key(data: &[u8]) -> Cid {
         let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
-        let cid = Cid::new(Codec::DagProtobuf, Version::V1, &h);
+        let cid = Cid::from_bytes_v1(Codec::DagProtobuf, h);
         return cid;
     }
 
