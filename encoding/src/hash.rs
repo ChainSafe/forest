@@ -13,10 +13,7 @@ use blake2b_simd::Params;
 /// let hash = blake2b_variable(ingest, 20);
 /// assert_eq!(hash.len(), 20);
 /// ```
-pub fn blake2b_variable<I>(ingest: I, size: usize) -> Vec<u8>
-where
-    I: AsRef<[u8]>,
-{
+pub fn blake2b_variable<I: AsRef<[u8]>>(ingest: I, size: usize) -> Vec<u8> {
     let hash = Params::new()
         .hash_length(size)
         .to_state()
@@ -36,10 +33,7 @@ where
 /// let hash = blake2b_256(ingest);
 /// assert_eq!(hash.len(), 32);
 /// ```
-pub fn blake2b_256<I>(ingest: I) -> [u8; 32]
-where
-    I: AsRef<[u8]>,
-{
+pub fn blake2b_256<I: AsRef<[u8]>>(ingest: I) -> [u8; 32] {
     let digest = Params::new()
         .hash_length(32)
         .to_state()
