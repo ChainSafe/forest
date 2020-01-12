@@ -43,8 +43,8 @@ fn template_cid() -> Cid {
 ///     .weight(0) //optional
 ///     .epoch(ChainEpoch::default()) //optional
 ///     .messages(TxMeta::default()) //optional
-///     .message_receipts(Cid::new(Codec::DagCBOR, Version::V1, &[])) //optional
-///     .state_root(Cid::new(Codec::DagCBOR, Version::V1, &[])) //optional
+///     .message_receipts(Cid::default()) //optional
+///     .state_root(Cid::default()) //optional
 ///     .timestamp(0) //optional
 ///     .ticket(Ticket::default()) //optional
 ///     .build()
