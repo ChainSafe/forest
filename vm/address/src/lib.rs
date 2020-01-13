@@ -75,7 +75,7 @@ impl Address {
         } else {
             let mut copy = bz;
             let protocol = Protocol::from_byte(copy.remove(0)).ok_or(Error::UnknownProtocol)?;
-            Address::new(Network::Testnet, protocol, copy)
+            Address::new(NETWORK_DEFAULT, protocol, copy)
         }
     }
     /// Creates address from formatted string
