@@ -72,9 +72,11 @@ pub struct BlockHeader {
     pub messages: TxMeta,
 
     /// message_receipts is the Cid of the root of an array of MessageReceipts
+    #[builder(default)]
     pub message_receipts: Cid,
 
     /// state_root is a cid pointer to the state tree after application of the transactions state transitions
+    #[builder(default)]
     pub state_root: Cid,
 
     // CONSENSUS
@@ -91,6 +93,7 @@ pub struct BlockHeader {
     pub bls_aggregate: Signature,
 
     // CACHE
+    #[builder(default)]
     pub cached_cid: Cid,
 
     #[builder(default)]
