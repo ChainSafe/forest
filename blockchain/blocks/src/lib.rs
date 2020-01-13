@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-mod blk_format;
 mod block;
 mod errors;
 mod ticket;
