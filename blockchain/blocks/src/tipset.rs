@@ -184,7 +184,7 @@ mod tests {
 
     fn template_key(data: &[u8]) -> Cid {
         let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
-        let cid = Cid::from_bytes_v1(Codec::DagProtobuf, h);
+        let cid = Cid::from_bytes_v1(Codec::DagCBOR, h);
         return cid;
     }
 

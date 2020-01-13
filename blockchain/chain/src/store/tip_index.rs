@@ -111,7 +111,7 @@ mod tests {
 
     fn template_key(data: &[u8]) -> Cid {
         let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
-        Cid::from_bytes_v1(Codec::DagProtobuf, &h)
+        Cid::from_bytes_v1(Codec::DagCBOR, &h)
     }
 
     // key_setup returns a vec of distinct CIDs
