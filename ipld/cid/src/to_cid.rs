@@ -1,13 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::{BaseCid, Cid, Codec, Error, Version};
 use integer_encoding::VarIntReader;
 use multibase;
 use multihash;
 use std::io::Cursor;
 use std::str::FromStr;
-
-use crate::{BaseCid, Cid, Codec, Error, Version};
 
 pub trait ToCid {
     fn to_cid(&self) -> Result<Cid, Error>;

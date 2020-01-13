@@ -12,7 +12,9 @@ use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
 use leb128;
-use serde_cbor::Value::Bytes;
+use serde::{de, ser};
+use serde_bytes;
+use serde_cbor::tags::Tagged;
 use serde_cbor::{from_slice, to_vec};
 use std::hash::Hash;
 
@@ -176,29 +178,43 @@ impl Address {
     }
 }
 
+impl ser::Serialize for Address {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let address_bytes = self.to_bytes();
+        let value = serde_bytes::Bytes::new(&address_bytes);
+        Tagged::new(None, &value).serialize(s)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for Address {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let mut bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        // Remove protocol byte
+        let protocol = Protocol::from_byte(bz.remove(0))
+            .ok_or(EncodingError::Unmarshalling {
+                description: format!("Invalid protocol byte: {}", bz[0]),
+                protocol: CodecProtocol::Cbor,
+            })
+            .map_err(de::Error::custom)?;
+        // Create and return created address of unmarshalled bytes
+        Ok(Address::new(protocol, bz).map_err(de::Error::custom)?)
+    }
+}
+
 impl Cbor for Address {
     fn unmarshal_cbor(bz: &[u8]) -> Result<Self, EncodingError> {
         // Convert cbor encoded to bytes
-        let mut vec = match from_slice(bz) {
-            Ok(Bytes(v)) => v,
-            _ => {
-                return Err(EncodingError::Unmarshalling {
-                    description: "Could not decode as bytes".to_owned(),
-                    protocol: CodecProtocol::Cbor,
-                });
-            }
-        };
-        // Remove protocol byte
-        let protocol = Protocol::from_byte(vec.remove(0)).ok_or(EncodingError::Unmarshalling {
-            description: format!("Invalid protocol byte: {}", bz[0]),
-            protocol: CodecProtocol::Cbor,
-        })?;
-        // Create and return created address of unmarshalled bytes
-        Ok(Address::new(protocol, vec)?)
+        Ok(from_slice(bz)?)
     }
     fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         // encode bytes
-        Ok(to_vec(&Bytes(self.to_bytes()))?)
+        Ok(to_vec(&self)?)
     }
 }
 
