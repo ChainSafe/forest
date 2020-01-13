@@ -3,7 +3,7 @@
 
 use blake2b_simd::Params;
 
-/// generates blake2b hash with provided size
+/// Generates blake2b hash with provided size.
 ///
 /// # Example
 /// ```
@@ -23,7 +23,7 @@ pub fn blake2b_variable(ingest: Vec<u8>, size: usize) -> Vec<u8> {
     hash.as_bytes().to_vec()
 }
 
-/// generates blake2b hash of fixed 32 bytes size
+/// Generates blake2b hash of fixed 32 bytes size.
 ///
 /// # Example
 /// ```

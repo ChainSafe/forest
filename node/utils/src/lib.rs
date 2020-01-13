@@ -8,13 +8,8 @@ use std::io::{prelude::*, Result};
 use std::path::Path;
 use toml;
 
-/// Writes a &str to a specified file.
-///
-/// # Argument
-///
-/// * `message`   - Contents that will be written to the file
-/// * `path`      - Filesystem path of where the file will be written to
-/// * `file_name` - Desired filename
+/// Writes a string to a specified file. Creates the desired path if it does not exist.
+/// Note: `path` and `filename` are appended to produce the resulting file path.
 pub fn write_to_file(message: &[u8], path: &str, file_name: &str) -> Result<()> {
     // Create path if it doesn't exist
     create_dir_all(Path::new(path))?;
@@ -24,11 +19,7 @@ pub fn write_to_file(message: &[u8], path: &str, file_name: &str) -> Result<()> 
     Ok(())
 }
 
-/// Read file as a Vec<u8>
-///
-/// # Arguments
-///
-/// * `path` - A String representing the path to a file
+/// Read file as a `Vec<u8>`
 pub fn read_file_to_vec(path: &str) -> Result<Vec<u8>> {
     let mut file = File::open(path)?;
     let mut buffer = Vec::new();
@@ -36,11 +27,7 @@ pub fn read_file_to_vec(path: &str) -> Result<Vec<u8>> {
     Ok(buffer)
 }
 
-/// Read file as a String
-///
-/// # Arguments
-///
-/// * `path` - A String representing the path to a file
+/// Read file as a `String`.
 pub fn read_file_to_string(path: &str) -> Result<String> {
     let mut file = File::open(path)?;
     let mut string = String::new();
@@ -49,28 +36,30 @@ pub fn read_file_to_string(path: &str) -> Result<String> {
 }
 
 /// Gets the home directory of the current system.
-/// Will return correct path for windows, linux, and osx
+/// Will return correct path for windows, linux, and osx.
+///
+/// # Panics
+/// We will panic if we cannot determine a home directory.
 pub fn get_home_dir() -> String {
-    // We will panic if we cannot determine a home directory.
     home_dir().unwrap().to_str().unwrap().to_owned()
 }
 
-/// Converts a toml
-///
-/// # Arguments
-///
-/// * `&str` - &str represenation of a toml file
+/// Converts a toml file represented as a string to `S`
 ///
 /// # Example
+///```
+/// use serde_derive::Deserialize;
+/// use utils::read_toml;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {
 ///     name: String
 /// };
 ///
-/// let path = "./config.toml".to_owned();
-/// let toml_string = read_file(path).unwrap();
-/// read_toml(toml_string)
+/// let toml_string = "name = \"ferret\"\n";
+/// let config: Config = read_toml(toml_string).unwrap();
+/// assert_eq!(config.name, "ferret");
+/// ```
 pub fn read_toml<S>(toml_string: &str) -> Result<S>
 where
     for<'de> S: serde::de::Deserialize<'de>,
