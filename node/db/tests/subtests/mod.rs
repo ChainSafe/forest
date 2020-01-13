@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use db::{DatabaseService, Read, Write};
 
 pub fn open<DB>(db: &mut DB)

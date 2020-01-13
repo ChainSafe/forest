@@ -47,6 +47,9 @@ jobs:
           command: fmt
           args: --all -- --check
 
+      - name: Check license headers
+        run: make license
+
   clippy:
     name: clippy
     runs-on: ubuntu-latest
