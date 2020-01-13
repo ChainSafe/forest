@@ -9,7 +9,6 @@ use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
 use clock::ChainEpoch;
-// use serde_derive::{Deserialize, Serialize};
 
 /// TipSetKeys is a set of CIDs forming a unique key for a TipSet
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in

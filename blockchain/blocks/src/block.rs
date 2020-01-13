@@ -12,7 +12,6 @@ use crypto::Signature;
 use derive_builder::Builder;
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
-// use serde_derive::{Deserialize, Serialize};
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B
