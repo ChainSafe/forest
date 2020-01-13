@@ -5,7 +5,9 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    /// Key was not found
     UndefinedKey(String),
+    /// Tipset contains no blocks
     NoBlocks,
 }
 

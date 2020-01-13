@@ -10,7 +10,7 @@ use super::ticket::Ticket;
 use cid::Cid;
 use clock::ChainEpoch;
 
-/// TipSetKeys is a set of CIDs forming a unique key for a TipSet
+/// A set of CIDs forming a unique key for a TipSet.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
@@ -19,7 +19,7 @@ pub struct TipSetKeys {
 }
 
 impl TipSetKeys {
-    /// equals checks whether the set contains exactly the same CIDs as another.
+    /// checks whether the set contains exactly the same CIDs as another.
     fn equals(&self, key: TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
             return false;
@@ -33,8 +33,8 @@ impl TipSetKeys {
     }
 }
 
-/// TipSet is an immutable set of blocks at the same height with the same parent set
-/// Blocks in a tipset are canonically ordered by ticket size
+/// An immutable set of blocks at the same height with the same parent set.
+/// Blocks in a tipset are canonically ordered by ticket size.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
@@ -42,14 +42,14 @@ pub struct Tipset {
 }
 
 impl Tipset {
-    /// blocks returns vec of blocks from tipset
+    /// Returns all blocks in tipset
     pub fn blocks(&self) -> Vec<BlockHeader> {
         self.blocks.clone()
     }
-    /// new builds a new TipSet from a collection of blocks
-    /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all specify identical
-    /// epoch, parents, weight, height, state root, receipt root;
-    /// contentID for headers are supposed to be distinct but until encoding is added will be equal
+    /// Builds a new TipSet from a collection of blocks.
+    /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
+    /// specify identical epoch, parents, weight, height, state root, receipt root;
+    /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
     pub fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
         // check header is non-empty
         if headers.is_empty() {
@@ -65,33 +65,33 @@ impl Tipset {
                 // Skip redundant check
                 // check parent cids are equal
                 if !headers[i].parents.equals(headers[0].parents.clone()) {
-                    return Err(Error::UndefinedTipSet(
+                    return Err(Error::InvalidTipSet(
                         "parent cids are not equal".to_string(),
                     ));
                 }
                 // check weights are equal
                 if headers[i].weight != headers[0].weight {
-                    return Err(Error::UndefinedTipSet("weights are not equal".to_string()));
+                    return Err(Error::InvalidTipSet("weights are not equal".to_string()));
                 }
                 // check state_roots are equal
                 if headers[i].state_root != headers[0].state_root.clone() {
-                    return Err(Error::UndefinedTipSet(
+                    return Err(Error::InvalidTipSet(
                         "state_roots are not equal".to_string(),
                     ));
                 }
                 // check epochs are equal
                 if headers[i].epoch != headers[0].epoch {
-                    return Err(Error::UndefinedTipSet("epochs are not equal".to_string()));
+                    return Err(Error::InvalidTipSet("epochs are not equal".to_string()));
                 }
                 // check message_receipts are equal
                 if headers[i].message_receipts != headers[0].message_receipts.clone() {
-                    return Err(Error::UndefinedTipSet(
+                    return Err(Error::InvalidTipSet(
                         "message_receipts are not equal".to_string(),
                     ));
                 }
                 // check miner_addresses are distinct
                 if headers[i].miner_address == headers[0].miner_address.clone() {
-                    return Err(Error::UndefinedTipSet(
+                    return Err(Error::InvalidTipSet(
                         "miner_addresses are not distinct".to_string(),
                     ));
                 }
@@ -124,14 +124,14 @@ impl Tipset {
         })
     }
 
-    /// min_ticket returns the smallest ticket of all blocks in the tipset
+    /// Returns the smallest ticket of all blocks in the tipset
     fn min_ticket(&self) -> Result<Ticket, Error> {
         if self.blocks.is_empty() {
             return Err(Error::NoBlocks);
         }
         Ok(self.blocks[0].ticket.clone())
     }
-    /// min_timestamp returns the smallest timestamp of all blocks in the tipset
+    /// Returns the smallest timestamp of all blocks in the tipset
     fn min_timestamp(&self) -> Result<u64, Error> {
         if self.blocks.is_empty() {
             return Err(Error::NoBlocks);
@@ -144,27 +144,27 @@ impl Tipset {
         }
         Ok(min)
     }
-    /// len returns the number of blocks in the tipset
+    /// Returns the number of blocks in the tipset
     fn len(&self) -> usize {
         self.blocks.len()
     }
-    /// is_empty returns true if no blocks present in tipset
+    /// Returns true if no blocks present in tipset
     pub fn is_empty(&self) -> bool {
         self.blocks.is_empty()
     }
-    /// key returns a key for the tipset.
+    /// Returns a key for the tipset.
     pub fn key(&self) -> TipSetKeys {
         self.key.clone()
     }
-    /// parents returns the CIDs of the parents of the blocks in the tipset
+    /// Returns the CIDs of the parents of the blocks in the tipset
     pub fn parents(&self) -> TipSetKeys {
         self.blocks[0].parents.clone()
     }
-    /// weight returns the tipset's calculated weight
+    /// Returns the tipset's calculated weight
     pub fn weight(&self) -> u64 {
         self.blocks[0].weight
     }
-    /// tip_epoch returns the tipset's epoch
+    /// Returns the tipset's epoch
     pub fn tip_epoch(&self) -> ChainEpoch {
         self.blocks[0].epoch.clone()
     }

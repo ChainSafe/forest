@@ -13,13 +13,13 @@ use std::hash::{Hash, Hasher};
 /// for these messages.
 #[derive(Clone, PartialEq, Debug)]
 pub struct TipSetMetadata {
-    // tipset_state_root is the root of aggregate state after applying tipset
+    /// Root of aggregate state after applying tipset
     tipset_state_root: Cid,
 
-    // tipset_receipts_root is receipts from all message contained within this tipset
+    /// Receipts from all message contained within this tipset
     tipset_receipts_root: Cid,
 
-    // tipset is the set of blocks that forms the tip set
+    /// The actual Tipset
     tipset: Tipset,
 }
 
@@ -27,6 +27,7 @@ pub struct TipSetMetadata {
 pub trait Index {
     fn hash_key(&self) -> u64;
 }
+
 impl Index for ChainEpoch {
     fn hash_key(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
@@ -42,7 +43,7 @@ impl Index for TipSetKeys {
     }
 }
 
-/// TipIndex tracks tipsets and their states by TipsetKeys and ChainEpoch
+/// Tracks tipsets and their states by TipsetKeys and ChainEpoch.
 #[derive(Default)]
 pub struct TipIndex {
     // metadata allows lookup of recorded Tipsets and their state roots
@@ -51,13 +52,13 @@ pub struct TipIndex {
 }
 
 impl TipIndex {
-    /// constructor
+    /// Creates new TipIndex with empty metadata
     pub fn new() -> Self {
         Self {
             metadata: HashMap::new(),
         }
     }
-    /// put adds an entry to TipIndex's hashmap
+    /// Adds an entry to TipIndex's metadata
     /// After this call the input TipSetMetadata can be looked up by the TipsetKey of
     /// the tipset, or the tipset's epoch
     pub fn put(&mut self, meta: &TipSetMetadata) -> Result<(), Error> {
@@ -74,7 +75,7 @@ impl TipIndex {
         self.metadata.insert(epoch_key.hash_key(), meta.clone());
         Ok(())
     }
-    /// get returns the tipset given by hashed key
+    /// Returns the tipset given by hashed key
     fn get(&self, key: u64) -> Result<TipSetMetadata, Error> {
         self.metadata
             .get(&key)
@@ -82,15 +83,15 @@ impl TipIndex {
             .ok_or_else(|| Error::UndefinedKey("invalid metadata key".to_string()))
     }
 
-    /// get_tipset returns a tipset
+    /// Returns the tipset corresponding to the index
     pub fn get_tipset(&self, idx: &dyn Index) -> Result<Tipset, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset)?)
     }
-    /// get_tipset_state_root returns the tipset_state_root
+    /// Returns the state root for the tipset corresponding to the index
     pub fn get_tipset_state_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_state_root)?)
     }
-    /// get_tipset_receipts_root returns the tipset_receipts_root
+    /// Returns the receipt root for the tipset corresponding to the index
     pub fn get_tipset_receipts_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_receipts_root)?)
     }

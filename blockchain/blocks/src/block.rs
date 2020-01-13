@@ -22,7 +22,7 @@ struct PoStCandidate {}
 struct PoStRandomness {}
 struct PoStProof {}
 
-/// BlockHeader defines header of a block in the Filecoin blockchain
+/// Header of a block
 ///
 /// Usage:
 /// ```
@@ -84,7 +84,7 @@ pub struct BlockHeader {
     #[builder(default)]
     pub timestamp: u64,
 
-    /// ticket is the ticket submitted with this block
+    /// the ticket submitted with this block
     #[builder(default)]
     pub ticket: Ticket,
 
@@ -93,9 +93,10 @@ pub struct BlockHeader {
     pub bls_aggregate: Signature,
 
     // CACHE
+    /// stores the cid for the block after the first call to `cid()`
     #[builder(default)]
     pub cached_cid: Cid,
-
+    /// stores the hashed bytes of the block after the fist call to `cid()`
     #[builder(default)]
     pub cached_bytes: Vec<u8>,
 }
@@ -106,7 +107,7 @@ impl BlockHeader {
     }
 }
 
-/// Block defines a full block
+/// A complete block
 pub struct Block {
     header: BlockHeader,
     // TODO will rename to UnSignedMessage once changes are in
@@ -114,7 +115,6 @@ pub struct Block {
     secp_messages: SignedMessage,
 }
 
-/// TxMeta tracks the merkleroots of both secp and bls messages separately
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct TxMeta {
     pub bls_messages: Cid,
@@ -131,7 +131,7 @@ struct ElectionPoStVerifyInfo {
 }
 
 impl BlockHeader {
-    /// cid returns the content id of this header
+    /// returns the content id of this header
     pub fn cid(&mut self) -> Cid {
         // TODO
         // Encode blockheader into cache_bytes

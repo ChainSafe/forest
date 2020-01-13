@@ -13,10 +13,10 @@ use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 pub const BLS_SIG_LEN: usize = 96; // bytes
 pub const BLS_PUB_LEN: usize = 48; // bytes
 
-/// Signature, represented in bytes, of any key protocol
+/// A cryptographic signature, represented in bytes, of any key protocol
 pub type Signature = Vec<u8>;
 
-/// checks if a signature is valid given data and address
+/// Checks if a signature is valid given data and address
 pub fn is_valid_signature(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
     match addr.protocol() {
         Protocol::BLS => verify_bls_sig(data, addr.payload(), sig),
@@ -25,7 +25,7 @@ pub fn is_valid_signature(data: Vec<u8>, addr: Address, sig: Signature) -> bool 
     }
 }
 
-/// returns true if a bls signature is valid
+/// Returns true if a bls signature is valid
 pub(crate) fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> bool {
     if pub_k.len() != BLS_PUB_LEN || sig.len() != BLS_SIG_LEN {
         // validates pubkey length and signature length for protocol
@@ -50,7 +50,7 @@ pub(crate) fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> b
     verify(&sig, &[hashed], &[pk])
 }
 
-/// returns true if a secp256k1 signature is valid
+/// Returns true if a secp256k1 signature is valid
 fn verify_secp256k1_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
     // blake2b 256 hash
     let hash = blake2b_256(data);
