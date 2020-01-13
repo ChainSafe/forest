@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use super::Error;
 use super::{DatabaseService, Read, Write};
 use parking_lot::RwLock;

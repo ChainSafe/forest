@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use blocks::Tipset;
 
 /// SyncBucket defines a bucket of tipsets to sync

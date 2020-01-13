@@ -21,10 +21,9 @@ clean:
 	@cargo clean -p encoding
 	@echo "Done cleaning."
 
-lint: clean
+lint: clean license
 	cargo fmt
 	cargo clippy -- -D warnings
-	./scripts/add_license.sh
 
 build:
 	cargo build

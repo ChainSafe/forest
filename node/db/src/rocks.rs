@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use super::errors::Error;
 use super::{DatabaseService, Read, Write};
 use rocksdb::{Options, WriteBatch, DB};
