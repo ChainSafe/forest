@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
@@ -6,20 +9,36 @@ use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
 use clock::ChainEpoch;
+
+/// A set of CIDs forming a unique key for a TipSet.
+/// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
+/// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct TipSetKeys {
+    pub cids: Vec<Cid>,
+}
+
+impl TipSetKeys {
+    /// checks whether the set contains exactly the same CIDs as another.
+    fn equals(&self, key: TipSetKeys) -> bool {
+        if self.cids.len() != key.cids.len() {
+            return false;
+        }
+        for i in 0..key.cids.len() {
+            if self.cids[i] != key.cids[i] {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,
-}
-
-/// A set of CIDs forming a unique key for a TipSet.
-/// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
-/// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct TipSetKeys {
-    pub cids: Vec<Cid>,
 }
 
 impl Tipset {
@@ -134,7 +153,7 @@ impl Tipset {
         self.blocks.is_empty()
     }
     /// Returns a key for the tipset.
-    fn key(&self) -> TipSetKeys {
+    pub fn key(&self) -> TipSetKeys {
         self.key.clone()
     }
     /// Returns the CIDs of the parents of the blocks in the tipset
@@ -142,27 +161,12 @@ impl Tipset {
         self.blocks[0].parents.clone()
     }
     /// Returns the tipset's calculated weight
-    fn weight(&self) -> u64 {
+    pub fn weight(&self) -> u64 {
         self.blocks[0].weight
     }
     /// Returns the tipset's epoch
     pub fn tip_epoch(&self) -> ChainEpoch {
         self.blocks[0].epoch.clone()
-    }
-}
-
-impl TipSetKeys {
-    /// checks whether the set contains exactly the same CIDs as another.
-    fn equals(&self, key: TipSetKeys) -> bool {
-        if self.cids.len() != key.cids.len() {
-            return false;
-        }
-        for i in 0..key.cids.len() {
-            if self.cids[i] != key.cids[i] {
-                return false;
-            }
-        }
-        true
     }
 }
 
@@ -176,7 +180,7 @@ mod tests {
     use crypto::VRFResult;
 
     const WEIGHT: u64 = 1;
-    const CACHED_BYTES: u8 = 0;
+    const CACHED_BYTES: [u8; 1] = [0];
 
     fn template_key(data: &[u8]) -> Cid {
         let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
@@ -216,7 +220,7 @@ mod tests {
             },
             bls_aggregate: vec![1, 2, 3],
             cached_cid: cid,
-            cached_bytes: CACHED_BYTES,
+            cached_bytes: CACHED_BYTES.to_vec(),
         }
     }
 

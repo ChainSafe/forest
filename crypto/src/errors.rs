@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use address::Error as AddressError;
 use encoding::Error as EncodingError;
 use secp256k1::Error as SecpError;

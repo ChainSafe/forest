@@ -1,9 +1,13 @@
-use super::TipIndex;
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
+use super::{Error, TipIndex};
 use blocks::Tipset;
 use cid::Cid;
 use network::service::NetworkMessage;
+use num_bigint::BigUint;
 
-pub struct _Store {
+pub struct ChainStore {
     // TODO add Blockstore
     // TODO add IPLD Store
     // TODO add StateTreeLoader
@@ -20,4 +24,11 @@ pub struct _Store {
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     _tip_index: TipIndex,
+}
+
+impl ChainStore {
+    pub fn weight(&self, _ts: &Tipset) -> Result<BigUint, Error> {
+        // TODO
+        Ok(BigUint::from(0 as u32))
+    }
 }

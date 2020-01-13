@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
 use futures::{Async, Stream};

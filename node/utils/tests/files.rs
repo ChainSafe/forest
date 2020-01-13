@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use utils::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
 
 use serde_derive::Deserialize;

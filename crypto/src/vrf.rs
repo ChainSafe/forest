@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use crate::signature::{verify_bls_sig, BLS_SIG_LEN};
 use bls_signatures::{Serialize, Signature};
 
@@ -10,8 +13,8 @@ impl VRFPublicKey {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 /// The output from running a VRF
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default)]
 pub struct VRFResult(Vec<u8>);
 
 impl VRFResult {

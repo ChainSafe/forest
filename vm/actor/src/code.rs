@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use cid::Cid;
 
 /// CodeID is the reference to the code which is attached to the Actor state.
@@ -36,7 +39,7 @@ impl CodeID {
 #[cfg(test)]
 mod test {
     use super::*;
-    use cid::{Cid, Codec, Version};
+    use cid::Cid;
 
     #[test]
     fn builtin_checks() {
@@ -49,9 +52,7 @@ mod test {
         assert!(CodeID::PaymentChannel.is_builtin());
         assert!(CodeID::StorageMiner.is_builtin());
 
-        assert!(
-            !CodeID::CustomCode(Cid::new(Codec::DagProtobuf, Version::V1, &[0u8])).is_builtin()
-        );
+        assert!(!CodeID::CustomCode(Cid::default()).is_builtin());
     }
 
     #[test]
@@ -65,8 +66,6 @@ mod test {
         assert!(!CodeID::Account.is_singleton());
         assert!(!CodeID::PaymentChannel.is_singleton());
         assert!(!CodeID::StorageMiner.is_singleton());
-        assert!(
-            !CodeID::CustomCode(Cid::new(Codec::DagProtobuf, Version::V1, &[0u8])).is_singleton()
-        );
+        assert!(!CodeID::CustomCode(Cid::default()).is_singleton());
     }
 }
