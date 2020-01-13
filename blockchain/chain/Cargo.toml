@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 blocks = {path = "../blocks"}
+db = {path = "../../node/db"}
 network = {path = "../../node/network"}
 cid = "0.3.1"
 clock = {path = "../../node/clock"}
