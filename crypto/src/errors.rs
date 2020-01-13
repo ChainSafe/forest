@@ -9,8 +9,11 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    /// Failed to produce a signature
     SigningError(String),
+    /// Unable to perform ecrecover with the given params
     InvalidRecovery(String),
+    /// Provided public key is not understood
     InvalidPubKey(String),
 }
 
