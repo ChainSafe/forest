@@ -34,12 +34,12 @@ impl StoragePowerMethod {
 pub struct StoragePowerActorCode;
 impl StoragePowerActorCode {
     /// Constructor for StoragePower actor
-    fn constructor(_rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) -> InvocOutput {
         // TODO
         unimplemented!();
     }
     /// Withdraw available funds from StoragePower map
-    fn get_total_storage(rt: &dyn Runtime) -> InvocOutput {
+    fn get_total_storage<RT: Runtime>(rt: &RT) -> InvocOutput {
         // TODO get actor state from storage and use as output
         let result = BigUint::from(0 as u32).to_bytes_be();
         rt.value_return(result)
@@ -47,9 +47,9 @@ impl StoragePowerActorCode {
 }
 
 impl ActorCode for StoragePowerActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
         params: &MethodParams,
     ) -> InvocOutput {
