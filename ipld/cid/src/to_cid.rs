@@ -84,7 +84,11 @@ impl ToCid for [u8] {
             // Verify that hash can be decoded, this is very cheap
             multihash::decode(self)?;
 
-            Ok(BaseCid::new(Codec::DagProtobuf, Version::V0, self).into())
+            Ok(Cid::from(BaseCid::new(
+                Codec::DagProtobuf,
+                Version::V0,
+                self,
+            )))
         } else {
             let mut cur = Cursor::new(self);
             let raw_version = cur.read_varint()?;
@@ -98,7 +102,7 @@ impl ToCid for [u8] {
             // Verify that hash can be decoded, this is very cheap
             multihash::decode(hash)?;
 
-            Ok(BaseCid::new(codec, version, hash).into())
+            Ok(Cid::from(BaseCid::new(codec, version, hash)))
         }
     }
 }

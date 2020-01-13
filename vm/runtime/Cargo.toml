@@ -9,5 +9,5 @@ vm = {path = "../../vm"}
 crypto = {path = "../../crypto"}
 address = {path = "../address"}
 message = {path = "../message"}
-cid = {path = "../../ipld/cid"}
+cid = {package = "ferret_cid", path = "../../ipld/cid"}
 clock = {path = "../../node/clock"}

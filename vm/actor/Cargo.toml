@@ -13,4 +13,4 @@ encoding = {path = "../../encoding"}
 num-traits = "0.2"
 num-derive = "0.2"
 clock = {path = "../../node/clock"}
-cid = {path = "../../ipld/cid"}
+cid = {package = "ferret_cid", path = "../../ipld/cid"}

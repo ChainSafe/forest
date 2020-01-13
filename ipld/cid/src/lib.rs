@@ -5,7 +5,13 @@ mod to_cid;
 
 pub use self::to_cid::ToCid;
 pub use dep_cid::{Cid as BaseCid, Codec, Error, Prefix, Version};
+use serde::de;
+use serde::ser;
+use serde_bytes;
+use serde_cbor::tags::Tagged;
 use std::ops::{Deref, DerefMut};
+
+const CBOR_TAG_CID: u64 = 42;
 
 /// Representation of an IPLD Cid
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
@@ -40,32 +46,50 @@ impl DerefMut for Cid {
     }
 }
 
+impl ser::Serialize for Cid {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let cid_bytes = self.cid.to_bytes();
+        let value = serde_bytes::Bytes::new(&cid_bytes);
+        Tagged::new(Some(CBOR_TAG_CID), &value).serialize(s)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for Cid {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
+        match tagged.tag {
+            // TODO verify this
+            Some(CBOR_TAG_CID) | None => Ok(tagged
+                .value
+                .to_vec()
+                .to_cid()
+                .map_err(|e| de::Error::custom(e.to_string()))?),
+            Some(_) => Err(de::Error::custom("unexpected tag")),
+        }
+    }
+}
+
 impl Cid {
     /// Cid constructor
     pub fn new(cid: BaseCid) -> Self {
         Self { cid }
     }
-    /// Constructs a v0 cid with a given codec and bytes
-    pub fn from_bytes_v0<B>(codec: Codec, bz: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
+
+    /// Constructs a cid with bytes using default version and codec
+    pub fn from_bytes_default<B: AsRef<[u8]>>(bz: B) -> Self {
         Self {
-            cid: BaseCid::new(codec, Version::V0, bz.as_ref()),
-        }
-    }
-    /// Constructs a v1 cid with a given codec and bytes
-    pub fn from_bytes_v1<B>(codec: Codec, bz: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
-        Self {
-            cid: BaseCid::new(codec, Version::V1, bz.as_ref()),
+            cid: BaseCid::new(Codec::DagCBOR, Version::V1, bz.as_ref()),
         }
     }
 
     /// Create a new CID from raw data (binary or multibase encoded string)
-    pub fn from<T: ToCid>(data: T) -> Result<Cid, Error> {
+    pub fn from_raw<T: ToCid>(data: T) -> Result<Cid, Error> {
         data.to_cid()
     }
 
@@ -73,11 +97,10 @@ impl Cid {
     pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Cid {
         let mut hash = multihash::encode(prefix.mh_type.to_owned(), data).unwrap();
         hash.truncate(prefix.mh_len + 2);
-        BaseCid {
+        Cid::from(BaseCid {
             version: prefix.version,
             codec: prefix.codec.to_owned(),
             hash,
-        }
-        .into()
+        })
     }
 }
