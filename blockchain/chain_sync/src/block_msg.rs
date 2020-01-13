@@ -5,8 +5,8 @@ use blocks::TipSetKeys;
 use libp2p::PeerId;
 use std::fmt;
 
-/// BlockMsg is a container used to decode pubsub messages into prior to validation and propagation
-/// see https://github.com/filecoin-project/go-filecoin/blob/master/internal/pkg/block/chain_info.go for reference
+/// A container used to decode pubsub messages into prior to validation and propagation.
+/// See https://github.com/filecoin-project/go-filecoin/blob/master/internal/pkg/block/chain_info.go for reference
 pub struct BlockMsg {
     // the originator of the TipSetKey propagation wave
     _source: PeerId,
@@ -19,7 +19,7 @@ pub struct BlockMsg {
 }
 
 impl BlockMsg {
-    /// new creates a BlockMsg container for peer id a head tipset key and chain height
+    /// Creates a BlockMsg container
     fn _new(_source: PeerId, _sender: PeerId, _head: TipSetKeys, _height: u64) -> Self {
         Self {
             _source,
@@ -30,8 +30,8 @@ impl BlockMsg {
     }
 }
 
-/// human-readable string representation of a block msg
 impl fmt::Display for BlockMsg {
+    /// Human-readable string representation of a block msg
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
