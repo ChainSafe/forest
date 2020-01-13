@@ -22,10 +22,6 @@ struct PoStCandidate {}
 struct PoStRandomness {}
 struct PoStProof {}
 
-fn template_cid() -> Cid {
-    Cid::default()
-}
-
 /// BlockHeader defines header of a block in the Filecoin blockchain
 ///
 /// Usage:
@@ -76,11 +72,9 @@ pub struct BlockHeader {
     pub messages: TxMeta,
 
     /// message_receipts is the Cid of the root of an array of MessageReceipts
-    #[builder(default = "template_cid()")]
     pub message_receipts: Cid,
 
     /// state_root is a cid pointer to the state tree after application of the transactions state transitions
-    #[builder(default = "template_cid()")]
     pub state_root: Cid,
 
     // CONSENSUS
@@ -97,7 +91,6 @@ pub struct BlockHeader {
     pub bls_aggregate: Signature,
 
     // CACHE
-    #[builder(default = "template_cid()")]
     pub cached_cid: Cid,
 
     #[builder(default)]
@@ -119,19 +112,10 @@ pub struct Block {
 }
 
 /// TxMeta tracks the merkleroots of both secp and bls messages separately
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct TxMeta {
     pub bls_messages: Cid,
     pub secp_messages: Cid,
-}
-
-impl Default for TxMeta {
-    fn default() -> Self {
-        Self {
-            bls_messages: template_cid(),
-            secp_messages: template_cid(),
-        }
-    }
 }
 
 /// ElectionPoStVerifyInfo seems to be connected to VRF
