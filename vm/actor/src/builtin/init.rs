@@ -64,9 +64,14 @@ impl InitActorCode {
 }
 
 impl ActorCode for InitActorCode {
-    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, params_in: &MethodParams) -> InvocOutput {
+    fn invoke_method<RT: Runtime>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &MethodParams,
+    ) -> InvocOutput {
         // Create mutable copy of params for usage in functions
-        let params: &mut MethodParams = &mut params_in.clone();
+        let params: &mut MethodParams = &mut params.clone();
         match InitMethod::from_method_num(method) {
             Some(InitMethod::Constructor) => {
                 // validate no arguments passed in
