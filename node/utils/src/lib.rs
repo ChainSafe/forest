@@ -49,7 +49,7 @@ pub fn get_home_dir() -> String {
 /// # Example
 ///```
 /// use serde_derive::Deserialize;
-/// use utils::{read_toml};
+/// use utils::read_toml;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {
