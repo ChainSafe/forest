@@ -12,6 +12,7 @@ use crypto::Signature;
 use derive_builder::Builder;
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
+use std::fmt;
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B
@@ -105,36 +106,9 @@ impl BlockHeader {
     pub fn builder() -> BlockHeaderBuilder {
         BlockHeaderBuilder::default()
     }
-}
-
-/// A complete block
-pub struct Block {
-    header: BlockHeader,
-    // TODO will rename to UnSignedMessage once changes are in
-    bls_messages: UnsignedMessage,
-    secp_messages: SignedMessage,
-}
-
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct TxMeta {
-    pub bls_messages: Cid,
-    pub secp_messages: Cid,
-}
-
-/// ElectionPoStVerifyInfo seems to be connected to VRF
-/// see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L1099
-struct ElectionPoStVerifyInfo {
-    candidates: PoStCandidate,
-    randomness: PoStRandomness,
-    proof: PoStProof,
-    messages: Vec<UnsignedMessage>,
-}
-
-impl BlockHeader {
-    /// returns the content id of this header
+    /// cid returns the content id of this header
     pub fn cid(&mut self) -> Cid {
-        // TODO
-        // Encode blockheader into cache_bytes
+        // TODO Encode blockheader using CBOR into cache_bytes
         // Change DEFAULT_HASH_FUNCTION to utilize blake2b
         //
         // Currently content id for headers will be incomplete until encoding and supporting libraries are completed
@@ -148,4 +122,57 @@ impl BlockHeader {
         self.cached_cid = new_cid;
         self.cached_cid.clone()
     }
+}
+
+/// A complete block
+pub struct Block {
+    header: BlockHeader,
+    bls_messages: UnsignedMessage,
+    secp_messages: SignedMessage,
+}
+
+/// Used to extract required encoded data and cid for persistent block storage
+pub trait RawBlock {
+    fn raw_data(&self) -> Vec<u8>;
+    fn cid(&self) -> Cid;
+    fn multihash(&self) -> Hash;
+}
+
+impl RawBlock for Block {
+    /// returns the block raw contents as a byte array
+    fn raw_data(&self) -> Vec<u8> {
+        // TODO should serialize block header using CBOR encoding
+        self.header.cached_bytes.clone()
+    }
+    /// returns the content identifier of the block
+    fn cid(&self) -> Cid {
+        self.header.clone().cid()
+    }
+    /// returns the hash contained in the block CID
+    fn multihash(&self) -> Hash {
+        self.header.cached_cid.prefix().mh_type
+    }
+}
+
+/// human-readable string representation of a block CID
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "block: {:?}", self.header.cached_cid.clone())
+    }
+}
+
+/// Tracks the merkleroots of both secp and bls messages separately
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct TxMeta {
+    pub bls_messages: Cid,
+    pub secp_messages: Cid,
+}
+
+/// ElectionPoStVerifyInfo seems to be connected to VRF
+/// see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L1099
+struct ElectionPoStVerifyInfo {
+    candidates: PoStCandidate,
+    randomness: PoStRandomness,
+    proof: PoStProof,
+    messages: Vec<UnsignedMessage>,
 }
