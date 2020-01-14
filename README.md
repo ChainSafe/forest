@@ -6,12 +6,24 @@ A Filecoin implementation written in Rust.
 
 Based on the [Filecoin Protocol Specification](https://filecoin-project.github.io/specs/).
 
-### Development
+## Development
 
-Testing: `cargo test`
+See [`Makefile`](./Makefile) for additional commands.
 
-Linting: `cargo fmt && cargo clippy -- -D warnings`
+#### Build/Run
+`cargo build && ./target/debug/node`
 
-See `Makefile` for additional commands.
+#### Testing
+`cargo test`
 
-Documentation: https://chainsafe.github.io/ferret/
+#### Linting
+`cargo fmt && cargo clippy -- -D warnings`
+
+#### Documentation
+https://chainsafe.github.io/ferret/
+
+### License 
+Ferret is licensed under the Apache License 2.0.
+
+### Contributing
+Please see [CONTRIBUTING.md](/CONTRIBUTING.md).
