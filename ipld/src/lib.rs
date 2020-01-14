@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use serde::de;
+use encoding::de;
+use encoding::tags::current_cbor_tag;
 use serde::Deserialize;
-use serde_cbor::tags::current_cbor_tag;
 use std::collections::BTreeMap;
 use std::fmt;
 

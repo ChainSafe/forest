@@ -5,10 +5,7 @@ mod to_cid;
 
 pub use self::to_cid::ToCid;
 pub use dep_cid::{Cid as BaseCid, Codec, Error, Prefix, Version};
-use serde::de;
-use serde::ser;
-use serde_bytes;
-use serde_cbor::tags::Tagged;
+use encoding::{de, ser, serde_bytes, tags::Tagged};
 use std::ops::{Deref, DerefMut};
 
 const CBOR_TAG_CID: u64 = 42;

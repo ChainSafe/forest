@@ -10,10 +10,10 @@ pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
+use encoding::{
+    blake2b_variable, de, ser, serde_bytes, Cbor, CodecProtocol, Error as EncodingError,
+};
 use leb128;
-use serde::{de, ser};
-use serde_bytes;
 use std::hash::Hash;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
