@@ -6,10 +6,7 @@ use crate::{ser, to_vec};
 
 /// Implemented for types that are CBOR encodable
 pub trait Cbor: ser::Serialize {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, Error>
-    where
-        Self: ser::Serialize,
-    {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, Error> {
         Ok(to_vec(&self)?)
     }
 }

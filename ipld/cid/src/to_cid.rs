@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{BaseCid, Cid, Codec, Error, Version};
+use crate::{Cid, Codec, Error, Version};
 use integer_encoding::VarIntReader;
 use multibase;
 use multihash;
@@ -81,13 +81,9 @@ impl ToCid for [u8] {
     fn to_cid(&self) -> Result<Cid, Error> {
         if Version::is_v0_binary(self) {
             // Verify that hash can be decoded, this is very cheap
-            multihash::decode(self)?;
+            let hash = multihash::Multihash::from_bytes(self.to_vec())?;
 
-            Ok(Cid::from(BaseCid::new(
-                Codec::DagProtobuf,
-                Version::V0,
-                self,
-            )))
+            Ok(Cid::new(Codec::DagProtobuf, Version::V0, hash))
         } else {
             let mut cur = Cursor::new(self);
             let raw_version = cur.read_varint()?;
@@ -99,9 +95,10 @@ impl ToCid for [u8] {
             let hash = &self[cur.position() as usize..];
 
             // Verify that hash can be decoded, this is very cheap
-            multihash::decode(hash)?;
+            // TODO verify this (was previously using all bytes)
+            let hash = multihash::Multihash::from_bytes(hash.to_vec())?;
 
-            Ok(Cid::from(BaseCid::new(codec, version, hash)))
+            Ok(Cid::new(codec, version, hash))
         }
     }
 }

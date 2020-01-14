@@ -14,4 +14,4 @@ num-bigint = "0.2.3"
 [dev-dependencies]
 address = {path = "../../vm/address"}
 crypto = {path = "../../crypto"}
-multihash = "0.8.0"
+multihash = "0.9.3"
