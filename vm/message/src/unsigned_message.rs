@@ -7,8 +7,8 @@ use crate::{MethodNum, MethodParams};
 
 use address::Address;
 use derive_builder::Builder;
-use encoding::{Cbor, CodecProtocol, Error as EncodingError};
-use num_bigint::BigUint;
+use encoding::Cbor;
+use serde::{Deserialize, Serialize};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
@@ -27,8 +27,8 @@ use num_bigint::BigUint;
 ///     .value(TokenAmount::new(0)) // optional
 ///     .method_num(MethodNum::default()) // optional
 ///     .params(MethodParams::default()) // optional
-///     .gas_limit(BigUint::default()) // optional
-///     .gas_price(BigUint::default()) // optional
+///     .gas_limit(0) // optional
+///     .gas_price(0) // optional
 ///     .build()
 ///     .unwrap();
 ///
@@ -40,7 +40,7 @@ use num_bigint::BigUint;
 /// let msg = message_builder.build().unwrap();
 /// assert_eq!(msg.sequence(), 1);
 /// ```
-#[derive(PartialEq, Clone, Debug, Builder)]
+#[derive(PartialEq, Clone, Debug, Builder, Serialize, Deserialize)]
 #[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
     from: Address,
@@ -54,9 +54,9 @@ pub struct UnsignedMessage {
     #[builder(default)]
     params: MethodParams,
     #[builder(default)]
-    gas_price: BigUint,
+    gas_price: u128,
     #[builder(default)]
-    gas_limit: BigUint,
+    gas_limit: u128,
 }
 
 impl UnsignedMessage {
@@ -91,28 +91,14 @@ impl Message for UnsignedMessage {
         self.params.clone()
     }
     /// gas_price returns gas price for the message
-    fn gas_price(&self) -> BigUint {
-        self.gas_price.clone()
+    fn gas_price(&self) -> u128 {
+        self.gas_price
     }
     /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> BigUint {
-        self.gas_limit.clone()
+    fn gas_limit(&self) -> u128 {
+        self.gas_limit
     }
 }
 
-impl Cbor for UnsignedMessage {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-}
+// TODO modify unsigned message encoding format when needed
+impl Cbor for UnsignedMessage {}

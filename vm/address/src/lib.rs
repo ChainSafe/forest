@@ -14,8 +14,6 @@ use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
 use leb128;
 use serde::{de, ser};
 use serde_bytes;
-use serde_cbor::tags::Tagged;
-use serde_cbor::{from_slice, to_vec};
 use std::hash::Hash;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -185,7 +183,7 @@ impl ser::Serialize for Address {
     {
         let address_bytes = self.to_bytes();
         let value = serde_bytes::Bytes::new(&address_bytes);
-        Tagged::new(None, &value).serialize(s)
+        serde_bytes::Serialize::serialize(value, s)
     }
 }
 
@@ -207,16 +205,7 @@ impl<'de> de::Deserialize<'de> for Address {
     }
 }
 
-impl Cbor for Address {
-    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, EncodingError> {
-        // Convert cbor encoded to bytes
-        Ok(from_slice(bz)?)
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // encode bytes
-        Ok(to_vec(&self)?)
-    }
-}
+impl Cbor for Address {}
 
 impl From<Error> for EncodingError {
     fn from(err: Error) -> EncodingError {

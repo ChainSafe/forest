@@ -4,7 +4,7 @@
 use address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
-use encoding::Cbor;
+use encoding::{from_slice, Cbor};
 
 #[test]
 fn bytes() {
@@ -495,7 +495,7 @@ fn cbor_encoding() {
         let encoded = res.marshal_cbor().unwrap();
         // assert intermediate value is correct
         assert_eq!(encoded.clone(), t.encoded);
-        let rec = Address::unmarshal_cbor(encoded.as_ref()).unwrap();
+        let rec: Address = from_slice(&encoded).unwrap();
         // assert decoded Address is equal to initial one
         assert_eq!(rec, res);
     }

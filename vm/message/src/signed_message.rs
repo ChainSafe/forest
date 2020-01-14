@@ -6,11 +6,11 @@ use vm::{MethodNum, MethodParams, TokenAmount};
 
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
-use encoding::{Cbor, CodecProtocol, Error as EncodingError};
-use num_bigint::BigUint;
+use encoding::Cbor;
+use serde::{Deserialize, Serialize};
 
 /// SignedMessage represents a wrapped message with signature bytes
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct SignedMessage {
     message: UnsignedMessage,
     signature: Signature,
@@ -61,28 +61,14 @@ impl Message for SignedMessage {
         self.message.params()
     }
     /// gas_price returns gas price for the message
-    fn gas_price(&self) -> BigUint {
+    fn gas_price(&self) -> u128 {
         self.message.gas_price()
     }
     /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> BigUint {
+    fn gas_limit(&self) -> u128 {
         self.message.gas_limit()
     }
 }
 
-impl Cbor for SignedMessage {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-}
+// TODO modify signed message encoding format when needed
+impl Cbor for SignedMessage {}
