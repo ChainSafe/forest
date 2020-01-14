@@ -1,9 +1,17 @@
 # Ferret
+![](https://github.com/ChainSafe/ferret/workflows/Rust%20CI/badge.svg?branch=master)
+
+### [WIP]
 A Filecoin implementation written in Rust.
 
-### Run
-1. `make build`
-2. `./target/debug/node --help` 
+Based on the [Filecoin Protocol Specification](https://filecoin-project.github.io/specs/).
 
-### Before Making a PR
-1. `make lint`
+### Development
+
+Testing: `cargo test`
+
+Linting: `cargo fmt && cargo clippy -- -D warnings`
+
+See `Makefile` for additional commands.
+
+Documentation: https://chainsafe.github.io/ferret/
