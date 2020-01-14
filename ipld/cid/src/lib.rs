@@ -76,7 +76,7 @@ impl<'de> de::Deserialize<'de> for Cid {
 
 impl Cid {
     /// Create a new CID.
-    fn new(codec: Codec, version: Version, hash: Multihash) -> Cid {
+    pub fn new(codec: Codec, version: Version, hash: Multihash) -> Cid {
         Cid {
             version,
             codec,
