@@ -9,4 +9,4 @@ address = {path = "../../vm/address"}
 blocks = {path = "../blocks"}
 
 [dev-dependencies]
-cid = "0.3.1"
+cid = {path = "../../ipld/cid"}
