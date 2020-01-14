@@ -1,7 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
+use encoding::Cbor;
 use ferret_cid::{Cid, Codec, Error, Prefix, Version};
+use multihash;
+use multihash::Hash::Blake2b512;
+use serde::Serialize;
 use std::collections::HashMap;
 
 #[test]
@@ -100,4 +104,36 @@ fn test_hash() {
     let cid = Cid::new_from_prefix(&prefix, &data).unwrap();
     map.insert(cid.clone(), data.clone());
     assert_eq!(&data, map.get(&cid).unwrap());
+}
+
+#[test]
+fn test_default() {
+    let data: Vec<u8> = vec![1, 2, 3];
+
+    let cid = Cid::from_bytes_default(&data).unwrap();
+
+    let prefix = cid.prefix();
+    assert_eq!(prefix.version, Version::V1);
+    assert_eq!(prefix.codec, Codec::DagCBOR);
+    assert_eq!(prefix.mh_type, Blake2b512);
+    assert_eq!(
+        prefix.mh_len,
+        // 4 is Blake2b512 code length (3) + 1, change if default changes
+        (Blake2b512.size() + 4) as usize
+    );
+}
+
+#[derive(Serialize, Copy, Clone)]
+struct TestCborStruct {
+    name: &'static str,
+}
+impl Cbor for TestCborStruct {}
+
+#[test]
+fn test_cbor_to_cid() {
+    let obj = TestCborStruct { name: "test" };
+
+    let enc = Cid::from_cbor_default(obj).unwrap();
+    let bz_enc = Cid::from_bytes_default(&obj.marshal_cbor().unwrap()).unwrap();
+    assert_eq!(enc, bz_enc);
 }
