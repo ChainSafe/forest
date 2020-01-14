@@ -102,7 +102,7 @@ mod tests {
     use super::*;
     use address::Address;
     use blocks::{BlockHeader, Ticket, Tipset, TxMeta};
-    use cid::{Cid, Codec, Version};
+    use cid::{Cid, Codec};
     use clock::ChainEpoch;
     use crypto::VRFResult;
 
@@ -111,7 +111,7 @@ mod tests {
 
     fn template_key(data: &[u8]) -> Cid {
         let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
-        Cid::new(Codec::DagProtobuf, Version::V1, &h)
+        Cid::from_bytes_v1(Codec::DagCBOR, &h)
     }
 
     // key_setup returns a vec of distinct CIDs

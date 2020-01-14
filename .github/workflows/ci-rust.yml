@@ -104,6 +104,7 @@ jobs:
         run: |
           cd target/doc
           git init
+          echo '<meta http-equiv="refresh" content="0; url=https://chainsafe.github.io/ferret/node/index.html">' > index.html
           git add .
           git -c user.name='ci' -c user.email='ci' commit -m 'Deploy documentation'
           git push -f -q https://git:${{ secrets.github_token }}@github.com/${{ github.repository }} HEAD:gh-pages

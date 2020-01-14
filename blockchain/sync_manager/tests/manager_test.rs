@@ -3,12 +3,12 @@
 
 use address::Address;
 use blocks::{BlockHeader, TipSetKeys, Tipset};
-use cid::{Cid, Codec, Version};
+use cid::{Cid, Codec};
 use sync_manager::SyncManager;
 
 fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
     let x = TipSetKeys {
-        cids: vec![Cid::new(Codec::DagCBOR, Version::V1, parent_bz)],
+        cids: vec![Cid::from_bytes_v1(Codec::DagCBOR, parent_bz)],
     };
     BlockHeader::builder()
         .parents(x)
