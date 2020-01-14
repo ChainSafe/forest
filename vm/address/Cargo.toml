@@ -11,4 +11,4 @@ data-encoding = "2.1.2"
 data-encoding-macro = "0.1.7"
 leb128 = "0.2.1"
 encoding = {path = "../../encoding"}
-serde_cbor = "0.10.2"
+serde_cbor = "0.11.0"

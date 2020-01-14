@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 blocks = {path = "../blocks"}
 network = {path = "../../node/network"}
-cid = "0.3.1"
+cid = {path = "../../ipld/cid"}
 clock = {path = "../../node/clock"}
 num-bigint = "0.2.3"
 

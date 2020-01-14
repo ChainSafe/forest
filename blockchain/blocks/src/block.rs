@@ -23,10 +23,6 @@ struct PoStCandidate {}
 struct PoStRandomness {}
 struct PoStProof {}
 
-fn template_cid() -> Cid {
-    Cid::new(Codec::DagCBOR, Version::V1, &[])
-}
-
 /// Header of a block
 ///
 /// Usage:
@@ -43,8 +39,8 @@ fn template_cid() -> Cid {
 ///     .weight(0) //optional
 ///     .epoch(ChainEpoch::default()) //optional
 ///     .messages(TxMeta::default()) //optional
-///     .message_receipts(Cid::new(Codec::DagCBOR, Version::V1, &[])) //optional
-///     .state_root(Cid::new(Codec::DagCBOR, Version::V1, &[])) //optional
+///     .message_receipts(Cid::default()) //optional
+///     .state_root(Cid::default()) //optional
 ///     .timestamp(0) //optional
 ///     .ticket(Ticket::default()) //optional
 ///     .build()
@@ -77,11 +73,11 @@ pub struct BlockHeader {
     pub messages: TxMeta,
 
     /// message_receipts is the Cid of the root of an array of MessageReceipts
-    #[builder(default = "template_cid()")]
+    #[builder(default)]
     pub message_receipts: Cid,
 
     /// state_root is a cid pointer to the state tree after application of the transactions state transitions
-    #[builder(default = "template_cid()")]
+    #[builder(default)]
     pub state_root: Cid,
 
     // CONSENSUS
@@ -99,7 +95,7 @@ pub struct BlockHeader {
 
     // CACHE
     /// stores the cid for the block after the first call to `cid()`
-    #[builder(default = "template_cid()")]
+    #[builder(default)]
     pub cached_cid: Cid,
     /// stores the hashed bytes of the block after the fist call to `cid()`
     #[builder(default)]
@@ -161,24 +157,15 @@ impl RawBlock for Block {
 /// human-readable string representation of a block CID
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "block: {}", self.header.cached_cid.clone())
+        write!(f, "block: {:?}", self.header.cached_cid.clone())
     }
 }
 
 /// Tracks the merkleroots of both secp and bls messages separately
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct TxMeta {
     pub bls_messages: Cid,
     pub secp_messages: Cid,
-}
-
-impl Default for TxMeta {
-    fn default() -> Self {
-        Self {
-            bls_messages: template_cid(),
-            secp_messages: template_cid(),
-        }
-    }
 }
 
 /// ElectionPoStVerifyInfo seems to be connected to VRF
