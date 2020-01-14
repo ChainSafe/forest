@@ -16,9 +16,10 @@ pub enum NetworkMessage {
     PubsubMessage { topics: Topic, message: Vec<u8> },
 }
 
-/// The NetworkService receives commands through a channel which communicates with Libp2p.
-/// It also listens to the Libp2p service for
+/// Receives commands through a channel which communicates with Libp2p.
+/// It also listens to the Libp2p service for messages.
 pub struct NetworkService {
+    /// Libp2p instance
     pub libp2p: Arc<Mutex<Libp2pService>>,
 }
 

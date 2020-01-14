@@ -13,13 +13,13 @@ use std::hash::{Hash, Hasher};
 /// for these messages.
 #[derive(Clone, PartialEq, Debug)]
 pub struct TipSetMetadata {
-    // tipset_state_root is the root of aggregate state after applying tipset
+    /// Root of aggregate state after applying tipset
     tipset_state_root: Cid,
 
-    // tipset_receipts_root is receipts from all message contained within this tipset
+    /// Receipts from all message contained within this tipset
     tipset_receipts_root: Cid,
 
-    // tipset is the set of blocks that forms the tip set
+    /// The actual Tipset
     tipset: Tipset,
 }
 
@@ -34,7 +34,7 @@ pub trait Index: Hash {
 impl Index for ChainEpoch {}
 impl Index for TipSetKeys {}
 
-/// TipIndex tracks tipsets and their states by TipsetKeys and ChainEpoch
+/// Tracks tipsets and their states by TipsetKeys and ChainEpoch.
 #[derive(Default)]
 pub struct TipIndex {
     // metadata allows lookup of recorded Tipsets and their state roots
@@ -43,13 +43,13 @@ pub struct TipIndex {
 }
 
 impl TipIndex {
-    /// constructor
+    /// Creates new TipIndex with empty metadata
     pub fn new() -> Self {
         Self {
             metadata: HashMap::new(),
         }
     }
-    /// put adds an entry to TipIndex's hashmap
+    /// Adds an entry to TipIndex's metadata
     /// After this call the input TipSetMetadata can be looked up by the TipsetKey of
     /// the tipset, or the tipset's epoch
     pub fn put(&mut self, meta: &TipSetMetadata) -> Result<(), Error> {
@@ -66,7 +66,7 @@ impl TipIndex {
         self.metadata.insert(epoch_key.hash_key(), meta.clone());
         Ok(())
     }
-    /// get returns the tipset given by hashed key
+    /// Returns the tipset given by hashed key
     fn get(&self, key: u64) -> Result<TipSetMetadata, Error> {
         self.metadata
             .get(&key)
@@ -93,7 +93,7 @@ mod tests {
     use super::*;
     use address::Address;
     use blocks::{BlockHeader, Ticket, Tipset, TxMeta};
-    use cid::{Cid, Codec, Version};
+    use cid::{Cid, Codec};
     use clock::ChainEpoch;
     use crypto::VRFResult;
 
@@ -102,7 +102,7 @@ mod tests {
 
     fn template_key(data: &[u8]) -> Cid {
         let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
-        Cid::new(Codec::DagProtobuf, Version::V1, &h)
+        Cid::from_bytes_v1(Codec::DagCBOR, &h)
     }
 
     // key_setup returns a vec of distinct CIDs

@@ -6,31 +6,35 @@ use bls_signatures::{Serialize, Signature};
 
 pub struct VRFPublicKey(Vec<u8>);
 
+/// Contains some public key type to be used for VRF verification
 impl VRFPublicKey {
     pub fn new(input: Vec<u8>) -> Self {
         Self(input)
     }
 }
 
-/// VRFResult is the output from running a VRF
+/// The output from running a VRF
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default)]
 pub struct VRFResult(Vec<u8>);
 
 impl VRFResult {
+    /// Creates a VRFResult from a raw vector
     pub fn new(output: Vec<u8>) -> Self {
         Self(output)
     }
+    /// Returns clone of underlying vector
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.clone()
     }
-    /// Returns max value based on `BLS_SIG_LEN`
+    /// Returns max value based on [BLS_SIG_LEN](constant.BLS_SIG_LEN.html)
     pub fn max_value() -> Self {
         Self::new([std::u8::MAX; BLS_SIG_LEN].to_vec())
     }
+    /// Validates syntax...
     pub fn validate_syntax(&self) -> bool {
         unimplemented!()
     }
-    /// Asserts whether `input` was used with `pk` to produce `Self.output`
+    /// Asserts whether `input` was used with `pk` to produce this VRFOutput
     pub fn verify(&self, input: Vec<u8>, pk: VRFPublicKey) -> bool {
         match Signature::from_bytes(&self.0) {
             Ok(sig) => verify_bls_sig(input, pk.0, sig.as_bytes()),

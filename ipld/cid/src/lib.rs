@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 mod to_cid;
 
 pub use self::to_cid::ToCid;
