@@ -5,13 +5,13 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-blocks = {path = "../blocks"}
-network = {path = "../../node/network"}
-cid = {path = "../../ipld/cid"}
-clock = {path = "../../node/clock"}
+blocks = { path = "../blocks" }
+network = { path = "../../node/network" }
+cid = { package = "ferret_cid", path = "../../ipld/cid" }
+clock = { path = "../../node/clock" }
 num-bigint = "0.2.3"
 
 [dev-dependencies]
-address = {path = "../../vm/address"}
-crypto = {path = "../../crypto"}
-multihash = "0.8.0"
+address = { path = "../../vm/address" }
+crypto = { path = "../../crypto" }
+multihash = "0.9.3"

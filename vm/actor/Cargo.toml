@@ -5,12 +5,13 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-vm = {path = "../../vm"}
-address = {path = "../address"}
-runtime = {path = "../runtime"}
+vm = { path = "../../vm" }
+address = { path = "../address" }
+runtime = { path = "../runtime" }
 num-bigint = "0.2.3"
-encoding = {path = "../../encoding"}
+encoding = { path = "../../encoding" }
 num-traits = "0.2"
 num-derive = "0.2"
-clock = {path = "../../node/clock"}
-cid = {path = "../../ipld/cid"}
+clock = { path = "../../node/clock" }
+cid = { package = "ferret_cid", path = "../../ipld/cid" }
+serde = { version = "1.0", features = ["derive"] }

@@ -1,11 +1,12 @@
 [package]
-name = "cid"
+name = "ferret_cid"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-dep_cid = {package = "cid", version = "0.3.1"}
-multihash = "0.8.0"
+multihash = "0.9.3"
 multibase = "0.6.0"
 integer-encoding = "1.0.3"
+encoding = { path = "../../encoding" }
+serde = { version = "1.0", features = ["derive"] }
