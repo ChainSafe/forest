@@ -10,8 +10,10 @@ use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
+use encoding::Cbor;
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 // DefaultHashFunction represents the default hashing function to use
@@ -46,7 +48,7 @@ struct PoStProof {}
 ///     .build()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Builder)]
+#[derive(Clone, Debug, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -102,6 +104,8 @@ pub struct BlockHeader {
     pub cached_bytes: Vec<u8>,
 }
 
+impl Cbor for BlockHeader {}
+
 impl BlockHeader {
     pub fn builder() -> BlockHeaderBuilder {
         BlockHeaderBuilder::default()
@@ -156,7 +160,7 @@ impl fmt::Display for Block {
 }
 
 /// Tracks the merkleroots of both secp and bls messages separately
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct TxMeta {
     pub bls_messages: Cid,
     pub secp_messages: Cid,

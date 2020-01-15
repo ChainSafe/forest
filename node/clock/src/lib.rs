@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
+use serde::{Deserialize, Serialize};
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 /// An epoch represents a single valid state in the blockchain
 pub struct ChainEpoch(i64);
 
