@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::errors::Error;
+use crate::{ser, to_vec};
 
 /// Implemented for types that are CBOR encodable
-pub trait Cbor {
-    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, Error>
-    where
-        Self: Sized;
-    fn marshal_cbor(&self) -> Result<Vec<u8>, Error>;
+pub trait Cbor: ser::Serialize {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, Error> {
+        Ok(to_vec(&self)?)
+    }
 }

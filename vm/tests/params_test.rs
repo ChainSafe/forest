@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use address::Address;
-use encoding::Cbor;
+use encoding::from_slice;
 use vm::{MethodNum, MethodParams, Serialized};
 
 #[test]
@@ -20,7 +20,7 @@ fn cbor_params() {
     let addr = Address::new_id(1).unwrap();
     params.insert(0, Serialized::serialize(addr.clone()).unwrap());
     let encoded_addr = params.remove(0);
-    assert_eq!(Address::unmarshal_cbor(&encoded_addr).unwrap(), addr);
+    assert_eq!(from_slice::<Address>(&encoded_addr).unwrap(), addr);
 }
 
 #[test]

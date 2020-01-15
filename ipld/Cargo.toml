@@ -1,0 +1,13 @@
+[package]
+name = "ferret_ipld"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+encoding = { path = "../encoding" }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+cid = { package = "ferret_cid", path = "../ipld/cid" }
+encoding = { path = "../encoding" }

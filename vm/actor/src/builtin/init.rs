@@ -7,7 +7,7 @@ use vm::{
 };
 
 use address::Address;
-use encoding::Cbor;
+use encoding::{from_slice, Cbor};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{arg_end, arg_pop, check_args, ActorCode, Runtime};
@@ -87,7 +87,7 @@ impl ActorCode for InitActorCode {
             }
             Some(InitMethod::GetActorIDForAddress) => {
                 // Pop and unmarshall address parameter
-                let addr_res = Address::unmarshal_cbor(&arg_pop(params, rt).bytes());
+                let addr_res = from_slice(&arg_pop(params, rt).bytes());
 
                 // validate addr deserialization and parameters
                 check_args(params, rt, addr_res.is_ok());

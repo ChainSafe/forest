@@ -5,10 +5,10 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-actor = {path = "../actor"}
-address = {path = "../address"}
-vm = {path = "../../vm"}
-cid = {path = "../../ipld/cid"}
+actor = { path = "../actor" }
+address = { path = "../address" }
+vm = { path = "../../vm" }
+cid = { package = "ferret_cid", path = "../../ipld/cid" }
 
 [dev-dependencies]
 num-bigint = "0.2.3"

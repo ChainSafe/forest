@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{Message, UnsignedMessage};
-use vm::{MethodNum, MethodParams, TokenAmount};
-
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
-use encoding::{Cbor, CodecProtocol, Error as EncodingError};
+use encoding::Cbor;
 use num_bigint::BigUint;
+use serde::{Deserialize, Serialize};
+use vm::{MethodNum, MethodParams, TokenAmount};
 
 /// SignedMessage represents a wrapped message with signature bytes
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct SignedMessage {
     message: UnsignedMessage,
     signature: Signature,
@@ -70,19 +70,5 @@ impl Message for SignedMessage {
     }
 }
 
-impl Cbor for SignedMessage {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-}
+// TODO modify signed message encoding format when needed
+impl Cbor for SignedMessage {}

@@ -19,6 +19,8 @@ clean:
 	@cargo clean -p interpreter
 	@cargo clean -p crypto
 	@cargo clean -p encoding
+	@cargo clean -p ferret_cid
+	@cargo clean -p ferret_ipld
 	@echo "Done cleaning."
 
 lint: clean license
