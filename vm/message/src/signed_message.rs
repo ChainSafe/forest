@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{Message, UnsignedMessage};
-use vm::{MethodNum, MethodParams, TokenAmount};
-use num_bigint::BigUint;
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::Cbor;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
+use vm::{MethodNum, MethodParams, TokenAmount};
 
 /// SignedMessage represents a wrapped message with signature bytes
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
