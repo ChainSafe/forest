@@ -8,3 +8,4 @@ edition = "2018"
 num-bigint = "0.2.3"
 address = {path = "./address"}
 encoding = {path = "../encoding"}
+serde = {version = "1.0", features = ["derive"]}

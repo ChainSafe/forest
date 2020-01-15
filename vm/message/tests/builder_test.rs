@@ -56,8 +56,6 @@ fn unsigned_message_builder() {
 }
 
 #[test]
-// TODO remove should_panic once cbor encoding unsigned message complete
-#[should_panic]
 fn generate_signed_message() {
     let unsigned_msg = UnsignedMessage::builder()
         .to(Address::new_id(1).unwrap())

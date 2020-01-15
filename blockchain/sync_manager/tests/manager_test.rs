@@ -1,11 +1,14 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use address::Address;
 use blocks::{BlockHeader, TipSetKeys, Tipset};
-use cid::{Cid, Codec, Version};
+use cid::Cid;
 use sync_manager::SyncManager;
 
 fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
     let x = TipSetKeys {
-        cids: vec![Cid::new(Codec::DagCBOR, Version::V1, parent_bz)],
+        cids: vec![Cid::from_bytes_default(parent_bz).unwrap()],
     };
     BlockHeader::builder()
         .parents(x)

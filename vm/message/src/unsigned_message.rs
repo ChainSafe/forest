@@ -7,8 +7,9 @@ use crate::{MethodNum, MethodParams};
 
 use address::Address;
 use derive_builder::Builder;
-use encoding::{Cbor, CodecProtocol, Error as EncodingError};
+use encoding::Cbor;
 use num_bigint::BigUint;
+use serde::{Deserialize, Serialize};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
@@ -40,7 +41,7 @@ use num_bigint::BigUint;
 /// let msg = message_builder.build().unwrap();
 /// assert_eq!(msg.sequence(), 1);
 /// ```
-#[derive(PartialEq, Clone, Debug, Builder)]
+#[derive(PartialEq, Clone, Debug, Builder, Serialize, Deserialize)]
 #[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
     from: Address,
@@ -100,19 +101,5 @@ impl Message for UnsignedMessage {
     }
 }
 
-impl Cbor for UnsignedMessage {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-}
+// TODO modify unsigned message encoding format when needed
+impl Cbor for UnsignedMessage {}

@@ -6,12 +6,13 @@
 use super::ticket::Ticket;
 use super::TipSetKeys;
 use address::Address;
-use cid::{Cid, Codec, Prefix, Version};
+use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
+use std::fmt;
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B
@@ -22,11 +23,7 @@ struct PoStCandidate {}
 struct PoStRandomness {}
 struct PoStProof {}
 
-fn template_cid() -> Cid {
-    Cid::new(Codec::DagCBOR, Version::V1, &[])
-}
-
-/// BlockHeader defines header of a block in the Filecoin blockchain
+/// Header of a block
 ///
 /// Usage:
 /// ```
@@ -42,8 +39,8 @@ fn template_cid() -> Cid {
 ///     .weight(0) //optional
 ///     .epoch(ChainEpoch::default()) //optional
 ///     .messages(TxMeta::default()) //optional
-///     .message_receipts(Cid::new(Codec::DagCBOR, Version::V1, &[])) //optional
-///     .state_root(Cid::new(Codec::DagCBOR, Version::V1, &[])) //optional
+///     .message_receipts(Cid::default()) //optional
+///     .state_root(Cid::default()) //optional
 ///     .timestamp(0) //optional
 ///     .ticket(Ticket::default()) //optional
 ///     .build()
@@ -76,11 +73,11 @@ pub struct BlockHeader {
     pub messages: TxMeta,
 
     /// message_receipts is the Cid of the root of an array of MessageReceipts
-    #[builder(default = "template_cid()")]
+    #[builder(default)]
     pub message_receipts: Cid,
 
     /// state_root is a cid pointer to the state tree after application of the transactions state transitions
-    #[builder(default = "template_cid()")]
+    #[builder(default)]
     pub state_root: Cid,
 
     // CONSENSUS
@@ -88,7 +85,7 @@ pub struct BlockHeader {
     #[builder(default)]
     pub timestamp: u64,
 
-    /// ticket is the ticket submitted with this block
+    /// the ticket submitted with this block
     #[builder(default)]
     pub ticket: Ticket,
 
@@ -97,9 +94,10 @@ pub struct BlockHeader {
     pub bls_aggregate: Signature,
 
     // CACHE
-    #[builder(default = "template_cid()")]
+    /// stores the cid for the block after the first call to `cid()`
+    #[builder(default)]
     pub cached_cid: Cid,
-
+    /// stores the hashed bytes of the block after the fist call to `cid()`
     #[builder(default)]
     pub cached_bytes: Vec<u8>,
 }
@@ -108,29 +106,60 @@ impl BlockHeader {
     pub fn builder() -> BlockHeaderBuilder {
         BlockHeaderBuilder::default()
     }
+    /// cid returns the content id of this header
+    pub fn cid(&mut self) -> Cid {
+        // TODO Encode blockheader using CBOR into cache_bytes
+        // Change DEFAULT_HASH_FUNCTION to utilize blake2b
+        //
+        // Currently content id for headers will be incomplete until encoding and supporting libraries are completed
+        let new_cid = Cid::from_bytes_default(&self.cached_bytes).unwrap();
+        self.cached_cid = new_cid;
+        self.cached_cid.clone()
+    }
 }
 
-/// Block defines a full block
+/// A complete block
 pub struct Block {
     header: BlockHeader,
     bls_messages: UnsignedMessage,
     secp_messages: SignedMessage,
 }
 
-/// TxMeta tracks the merkleroots of both secp and bls messages separately
-#[derive(Clone, Debug, PartialEq)]
+/// Used to extract required encoded data and cid for persistent block storage
+pub trait RawBlock {
+    fn raw_data(&self) -> Vec<u8>;
+    fn cid(&self) -> Cid;
+    fn multihash(&self) -> Hash;
+}
+
+impl RawBlock for Block {
+    /// returns the block raw contents as a byte array
+    fn raw_data(&self) -> Vec<u8> {
+        // TODO should serialize block header using CBOR encoding
+        self.header.cached_bytes.clone()
+    }
+    /// returns the content identifier of the block
+    fn cid(&self) -> Cid {
+        self.header.clone().cid()
+    }
+    /// returns the hash contained in the block CID
+    fn multihash(&self) -> Hash {
+        self.header.cached_cid.prefix().mh_type
+    }
+}
+
+/// human-readable string representation of a block CID
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "block: {:?}", self.header.cached_cid.clone())
+    }
+}
+
+/// Tracks the merkleroots of both secp and bls messages separately
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct TxMeta {
     pub bls_messages: Cid,
     pub secp_messages: Cid,
-}
-
-impl Default for TxMeta {
-    fn default() -> Self {
-        Self {
-            bls_messages: template_cid(),
-            secp_messages: template_cid(),
-        }
-    }
 }
 
 /// ElectionPoStVerifyInfo seems to be connected to VRF
@@ -140,24 +169,4 @@ struct ElectionPoStVerifyInfo {
     randomness: PoStRandomness,
     proof: PoStProof,
     messages: Vec<UnsignedMessage>,
-}
-
-impl BlockHeader {
-    /// cid returns the content id of this header
-    pub fn cid(&mut self) -> Cid {
-        // TODO
-        // Encode blockheader into cache_bytes
-        // Change DEFAULT_HASH_FUNCTION to utilize blake2b
-        //
-        // Currently content id for headers will be incomplete until encoding and supporting libraries are completed
-        let c = Prefix {
-            version: Version::V1,
-            codec: Codec::DagCBOR,
-            mh_type: DEFAULT_HASH_FUNCTION,
-            mh_len: 8,
-        };
-        let new_cid = Cid::new_from_prefix(&c, &self.cached_bytes);
-        self.cached_cid = new_cid;
-        self.cached_cid.clone()
-    }
 }

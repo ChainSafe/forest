@@ -50,7 +50,7 @@ impl Syncer {
         // ignore otherwise
 
         // set peer head
-        self.sync_manager.set_peer_head(from, )
+        // self.sync_manager.set_peer_head(from, )
 
     }
 

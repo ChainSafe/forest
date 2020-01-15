@@ -19,12 +19,13 @@ clean:
 	@cargo clean -p interpreter
 	@cargo clean -p crypto
 	@cargo clean -p encoding
+	@cargo clean -p ferret_cid
+	@cargo clean -p ferret_ipld
 	@echo "Done cleaning."
 
-lint: clean
+lint: clean license
 	cargo fmt
 	cargo clippy -- -D warnings
-	./scripts/add_license.sh
 
 build:
 	cargo build
@@ -37,5 +38,8 @@ test:
 
 license:
 	./scripts/add_license.sh
+
+docs:
+	cargo doc --no-deps --all-features
 
 .PHONY: clean clean-all lint build release test license

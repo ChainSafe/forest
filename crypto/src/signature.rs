@@ -13,11 +13,11 @@ use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 pub const BLS_SIG_LEN: usize = 96; // bytes
 pub const BLS_PUB_LEN: usize = 48; // bytes
 
-/// Signature, represented in bytes, of any key protocol
+/// A cryptographic signature, represented in bytes, of any key protocol
 pub type Signature = Vec<u8>;
 
-/// checks if a signature is valid given data and address
-pub fn is_valid_signature(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
+/// Checks if a signature is valid given data and address
+pub fn is_valid_signature(data: &[u8], addr: Address, sig: Signature) -> bool {
     match addr.protocol() {
         Protocol::BLS => verify_bls_sig(data, addr.payload(), sig),
         Protocol::Secp256k1 => verify_secp256k1_sig(data, addr, sig),
@@ -25,15 +25,15 @@ pub fn is_valid_signature(data: Vec<u8>, addr: Address, sig: Signature) -> bool 
     }
 }
 
-/// returns true if a bls signature is valid
-pub(crate) fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> bool {
+/// Returns true if a bls signature is valid
+pub(crate) fn verify_bls_sig(data: &[u8], pub_k: Vec<u8>, sig: Signature) -> bool {
     if pub_k.len() != BLS_PUB_LEN || sig.len() != BLS_SIG_LEN {
         // validates pubkey length and signature length for protocol
         return false;
     }
 
     // hash data to be verified
-    let hashed = bls_hash(data.as_ref());
+    let hashed = bls_hash(data);
 
     // generate public key object from bytes
     let pk = match BlsPubKey::from_bytes(&pub_k) {
@@ -50,8 +50,8 @@ pub(crate) fn verify_bls_sig(data: Vec<u8>, pub_k: Vec<u8>, sig: Signature) -> b
     verify(&sig, &[hashed], &[pk])
 }
 
-/// returns true if a secp256k1 signature is valid
-fn verify_secp256k1_sig(data: Vec<u8>, addr: Address, sig: Signature) -> bool {
+/// Returns true if a secp256k1 signature is valid
+fn verify_secp256k1_sig(data: &[u8], addr: Address, sig: Signature) -> bool {
     // blake2b 256 hash
     let hash = blake2b_256(data);
 
@@ -116,11 +116,11 @@ mod tests {
         let addr = Address::new_bls(pk.as_bytes()).unwrap();
 
         assert_eq!(
-            is_valid_signature(msg.clone(), addr, signature_bytes.clone()),
+            is_valid_signature(&msg, addr, signature_bytes.clone()),
             true
         );
         assert_eq!(
-            verify_bls_sig(msg.clone(), pk.as_bytes(), signature_bytes.clone()),
+            verify_bls_sig(&msg, pk.as_bytes(), signature_bytes.clone()),
             true
         );
     }
