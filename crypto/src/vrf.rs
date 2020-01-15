@@ -37,7 +37,7 @@ impl VRFResult {
     /// Asserts whether `input` was used with `pk` to produce this VRFOutput
     pub fn verify(&self, input: Vec<u8>, pk: VRFPublicKey) -> bool {
         match Signature::from_bytes(&self.0) {
-            Ok(sig) => verify_bls_sig(input, pk.0, sig.as_bytes()),
+            Ok(sig) => verify_bls_sig(&input, pk.0, sig.as_bytes()),
             Err(_) => false,
         }
     }
