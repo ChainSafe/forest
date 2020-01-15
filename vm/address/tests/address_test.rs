@@ -5,6 +5,7 @@ use address::{
     checksum, validate_checksum, Address, Error, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
 use encoding::Cbor;
+use std::str::FromStr;
 
 #[test]
 fn bytes() {
