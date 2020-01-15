@@ -1,5 +1,9 @@
 # Contribuiting to Ferret
 
+## Submitting Code
+
+Please use `make lint` to ensure code is properly formatted, license headers are present, and to run the linter. 
+
 ## Documentation
 
 Please use the following guidelines while documenting code. Except for inline comments, these should all be doc comments (`///`).

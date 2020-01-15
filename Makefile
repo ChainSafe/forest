@@ -39,4 +39,7 @@ test:
 license:
 	./scripts/add_license.sh
 
+docs:
+	cargo doc --no-deps --all-features
+
 .PHONY: clean clean-all lint build release test license
