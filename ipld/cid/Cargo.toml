@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 multihash = "0.9.3"
-multibase = "0.6.0"
+multibase = "0.7.0"
 integer-encoding = "1.0.3"
 encoding = { path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
