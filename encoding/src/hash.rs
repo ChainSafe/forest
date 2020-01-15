@@ -17,7 +17,7 @@ pub fn blake2b_variable(ingest: &[u8], size: usize) -> Vec<u8> {
     let hash = Params::new()
         .hash_length(size)
         .to_state()
-        .update(ingest.as_ref())
+        .update(ingest)
         .finalize();
 
     hash.as_bytes().to_vec()
@@ -37,7 +37,7 @@ pub fn blake2b_256(ingest: &[u8]) -> [u8; 32] {
     let digest = Params::new()
         .hash_length(32)
         .to_state()
-        .update(ingest.as_ref())
+        .update(ingest)
         .finalize();
 
     let mut ret = [0u8; 32];
