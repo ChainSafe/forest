@@ -132,7 +132,7 @@ mod tests {
     }
     #[test]
     #[should_panic]
-    // TODO remove should_panic once lowercase base32 
+    // TODO remove should_panic once lowercase base32 implemented in multibase
     fn verify_base32_lower() {
         let t_str = "bafy2bzaced2esi3bximo7jezgdjxkwpiu4vom3rvg44cienfsdgllheuiphee";
         let decoded = &decode_str(&t_str).unwrap();
