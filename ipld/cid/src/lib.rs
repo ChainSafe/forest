@@ -39,7 +39,7 @@ impl Default for Cid {
     fn default() -> Self {
         Self::new(
             Codec::Raw,
-            Version::V0,
+            Version::V1,
             multihash::encode(Hash::Blake2b512, &[]).unwrap(),
         )
     }
@@ -92,7 +92,7 @@ impl Cid {
             version: Version::V1,
             codec: Codec::DagCBOR,
             mh_type: Hash::Blake2b512,
-            mh_len: 64, // TODO verify cid hash length and type
+            mh_len: 64 - 1, // TODO verify cid hash length and type
         };
         Ok(Self::new_from_prefix(&prefix, bz)?)
     }
