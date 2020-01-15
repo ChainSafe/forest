@@ -10,6 +10,7 @@ pub use signed_message::*;
 pub use unsigned_message::*;
 
 use address::Address;
+use num_bigint::BigUint;
 use vm::{MethodNum, MethodParams, TokenAmount};
 
 pub trait Message {
@@ -26,8 +27,7 @@ pub trait Message {
     /// params returns the encoded parameters for the method call
     fn params(&self) -> MethodParams;
     /// gas_price returns gas price for the message
-    // TODO: change u128 to BigUint if needed in future
-    fn gas_price(&self) -> u128;
+    fn gas_price(&self) -> BigUint;
     /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> u128;
+    fn gas_limit(&self) -> BigUint;
 }

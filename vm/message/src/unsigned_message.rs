@@ -8,6 +8,7 @@ use crate::{MethodNum, MethodParams};
 use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
@@ -27,8 +28,8 @@ use serde::{Deserialize, Serialize};
 ///     .value(TokenAmount::new(0)) // optional
 ///     .method_num(MethodNum::default()) // optional
 ///     .params(MethodParams::default()) // optional
-///     .gas_limit(0) // optional
-///     .gas_price(0) // optional
+///     .gas_limit(BigUint::default()) // optional
+///     .gas_price(BigUint::default()) // optional
 ///     .build()
 ///     .unwrap();
 ///
@@ -54,9 +55,9 @@ pub struct UnsignedMessage {
     #[builder(default)]
     params: MethodParams,
     #[builder(default)]
-    gas_price: u128,
+    gas_price: BigUint,
     #[builder(default)]
-    gas_limit: u128,
+    gas_limit: BigUint,
 }
 
 impl UnsignedMessage {
@@ -91,12 +92,12 @@ impl Message for UnsignedMessage {
         self.params.clone()
     }
     /// gas_price returns gas price for the message
-    fn gas_price(&self) -> u128 {
-        self.gas_price
+    fn gas_price(&self) -> BigUint {
+        self.gas_price.clone()
     }
     /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> u128 {
-        self.gas_limit
+    fn gas_limit(&self) -> BigUint {
+        self.gas_limit.clone()
     }
 }
 

@@ -3,7 +3,7 @@
 
 use super::{Message, UnsignedMessage};
 use vm::{MethodNum, MethodParams, TokenAmount};
-
+use num_bigint::BigUint;
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::Cbor;
@@ -61,11 +61,11 @@ impl Message for SignedMessage {
         self.message.params()
     }
     /// gas_price returns gas price for the message
-    fn gas_price(&self) -> u128 {
+    fn gas_price(&self) -> BigUint {
         self.message.gas_price()
     }
     /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> u128 {
+    fn gas_limit(&self) -> BigUint {
         self.message.gas_limit()
     }
 }
