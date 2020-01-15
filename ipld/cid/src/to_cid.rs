@@ -4,7 +4,7 @@
 use crate::{Cid, Codec, Error, Version};
 use integer_encoding::VarIntReader;
 use multibase;
-use multihash;
+use multihash::Multihash;
 use std::io::Cursor;
 use std::str::FromStr;
 
@@ -81,7 +81,7 @@ impl ToCid for [u8] {
     fn to_cid(&self) -> Result<Cid, Error> {
         if Version::is_v0_binary(self) {
             // Verify that hash can be decoded, this is very cheap
-            let hash = multihash::Multihash::from_bytes(self.to_vec())?;
+            let hash = Multihash::from_bytes(self.to_vec())?;
 
             Ok(Cid::new(Codec::DagProtobuf, Version::V0, hash))
         } else {
@@ -96,7 +96,7 @@ impl ToCid for [u8] {
 
             // Verify that hash can be decoded, this is very cheap
             // TODO verify this (was previously using all bytes)
-            let hash = multihash::Multihash::from_bytes(hash.to_vec())?;
+            let hash = Multihash::from_bytes(hash.to_vec())?;
 
             Ok(Cid::new(codec, version, hash))
         }

@@ -12,7 +12,7 @@ pub use self::to_cid::ToCid;
 pub use self::version::Version;
 use encoding::{de, ser, serde_bytes, tags::Tagged, Cbor};
 use integer_encoding::{VarIntReader, VarIntWriter};
-use multihash::Multihash;
+use multihash::{Hash, Multihash};
 use std::fmt;
 use std::io::Cursor;
 
@@ -23,7 +23,7 @@ const CBOR_TAG_CID: u64 = 42;
 pub struct Prefix {
     pub version: Version,
     pub codec: Codec,
-    pub mh_type: multihash::Hash,
+    pub mh_type: Hash,
     pub mh_len: usize,
 }
 
@@ -40,7 +40,7 @@ impl Default for Cid {
         Self::new(
             Codec::Raw,
             Version::V0,
-            multihash::encode(multihash::Hash::Blake2b512, &[]).unwrap(),
+            multihash::encode(Hash::Blake2b512, &[]).unwrap(),
         )
     }
 }
@@ -89,7 +89,7 @@ impl Cid {
         let prefix = Prefix {
             version: Version::V1,
             codec: Codec::DagCBOR,
-            mh_type: multihash::Hash::Blake2b512,
+            mh_type: Hash::Blake2b512,
             mh_len: 64, // TODO verify cid hash length and type
         };
         Ok(Self::new_from_prefix(&prefix, bz)?)
@@ -198,7 +198,7 @@ impl Prefix {
         let version = Version::from(raw_version)?;
         let codec = Codec::from(raw_codec)?;
 
-        let mh_type = multihash::Hash::from_code(raw_mh_type as u16).ok_or(Error::ParsingError)?;
+        let mh_type = Hash::from_code(raw_mh_type as u16).ok_or(Error::ParsingError)?;
 
         let mh_len = cur.read_varint()?;
 
