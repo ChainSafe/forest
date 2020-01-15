@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use encoding::Cbor;
+use encoding::{from_slice, to_vec, Cbor};
 use ferret_cid::{Cid, Codec, Error, Prefix, Version};
 use multihash;
 use multihash::Hash::Blake2b512;
@@ -136,4 +136,21 @@ fn test_cbor_to_cid() {
     let enc = Cid::from_cbor_default(obj).unwrap();
     let bz_enc = Cid::from_bytes_default(&obj.marshal_cbor().unwrap()).unwrap();
     assert_eq!(enc, bz_enc);
+}
+
+#[test]
+fn vector_cid_serialize_round() {
+    let cids = vec![
+        Cid::from_bytes_default(&[0, 1]).unwrap(),
+        Cid::from_bytes_default(&[1, 2]).unwrap(),
+        Cid::from_bytes_default(&[3, 2]).unwrap(),
+    ];
+
+    // Serialize cids with cbor
+    let enc = to_vec(&cids).unwrap();
+
+    // decode cbor bytes to vector again
+    let dec: Vec<Cid> = from_slice(&enc).unwrap();
+
+    assert_eq!(cids, dec);
 }

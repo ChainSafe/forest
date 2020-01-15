@@ -45,6 +45,8 @@ impl Default for Cid {
     }
 }
 
+impl Cbor for Cid {}
+
 impl ser::Serialize for Cid {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
