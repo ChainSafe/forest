@@ -12,6 +12,7 @@ use encoding::Cbor;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
+/// Identifier for Actors, includes builtin and initialized actors
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ActorID(u64);
 

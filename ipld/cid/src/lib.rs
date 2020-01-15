@@ -150,6 +150,7 @@ impl Cid {
         res
     }
 
+    /// Returns encoded bytes of a cid
     pub fn to_bytes(&self) -> Vec<u8> {
         match self.version {
             Version::V0 => self.to_bytes_v0(),
@@ -157,6 +158,7 @@ impl Cid {
         }
     }
 
+    /// Returns prefix for Cid format
     pub fn prefix(&self) -> Prefix {
         Prefix {
             version: self.version,
@@ -190,6 +192,7 @@ impl fmt::Display for Cid {
 }
 
 impl Prefix {
+    /// Generate new prefix from encoded bytes
     pub fn new_from_bytes(data: &[u8]) -> Result<Prefix, Error> {
         let mut cur = Cursor::new(data);
 
@@ -212,6 +215,7 @@ impl Prefix {
         })
     }
 
+    /// Encodes prefix to bytes
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut res = Vec::with_capacity(4);
 

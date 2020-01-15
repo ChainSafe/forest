@@ -8,6 +8,7 @@ use multihash::Multihash;
 use std::io::Cursor;
 use std::str::FromStr;
 
+/// Trait used to convert objects to Cid (Currently not necessary, but keeping in line with dep)
 pub trait ToCid {
     fn to_cid(&self) -> Result<Cid, Error>;
 }

@@ -3,6 +3,7 @@
 
 use crate::Error;
 
+/// Cid protocol version
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Version {
     V0,
@@ -12,6 +13,7 @@ pub enum Version {
 use Version::*;
 
 impl Version {
+    /// Generates version from integer value
     pub fn from(raw: u64) -> Result<Version, Error> {
         match raw {
             0 => Ok(V0),
@@ -20,12 +22,14 @@ impl Version {
         }
     }
 
+    /// Returns true if string is version 0
     pub fn is_v0_str(data: &str) -> bool {
         // v0 is a base58btc encoded sha hash, so it has
         // fixed length and always begins with "Qm"
         data.len() == 46 && data.starts_with("Qm")
     }
 
+    /// Returns true if bytes is version 0
     pub fn is_v0_binary(data: &[u8]) -> bool {
         data.len() == 34 && data.starts_with(&[0x12, 0x20])
     }

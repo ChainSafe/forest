@@ -7,6 +7,7 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::fmt;
 
+/// Represents IPLD data structure used when serializing and deserializing data
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ipld {
     Null,
@@ -20,6 +21,8 @@ pub enum Ipld {
     Link(Vec<u8>),
 }
 
+/// Struct used in deserialization to decode cbor encoded data (including Cid tagged)
+/// values to Ipld data type
 pub struct IpldVisitor;
 
 impl<'de> de::Visitor<'de> for IpldVisitor {
