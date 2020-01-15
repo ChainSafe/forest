@@ -16,6 +16,7 @@ use serde_cbor::Value::Bytes;
 use serde_cbor::{from_slice, to_vec};
 use std::fmt;
 use std::hash::Hash;
+use std::str::FromStr;
 
 /// defines the encoder for base32 encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {
@@ -78,8 +79,49 @@ impl Address {
             Address::new(NETWORK_DEFAULT, protocol, copy)
         }
     }
-    /// Creates address from formatted string
-    pub fn from_string(addr: &str) -> Result<Self, Error> {
+
+    /// Generates new address using ID protocol
+    pub fn new_id(id: u64) -> Result<Self, Error> {
+        Address::new(NETWORK_DEFAULT, Protocol::ID, to_leb_bytes(id)?)
+    }
+    /// Generates new address using Secp256k1 pubkey
+    pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, Error> {
+        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(&pubkey))
+    }
+    /// Generates new address using the Actor protocol
+    pub fn new_actor(data: Vec<u8>) -> Result<Self, Error> {
+        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(&data))
+    }
+    /// Generates new address using BLS pubkey
+    pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, Error> {
+        Address::new(NETWORK_DEFAULT, Protocol::BLS, pubkey)
+    }
+
+    /// Returns protocol for Address
+    pub fn protocol(&self) -> Protocol {
+        self.protocol
+    }
+    /// Returns data payload of Address
+    pub fn payload(&self) -> Vec<u8> {
+        self.payload.clone()
+    }
+    /// Returns encoded bytes of Address
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bz: Vec<u8> = self.payload();
+        bz.insert(0, self.protocol() as u8);
+        bz
+    }
+}
+
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", encode(self))
+    }
+}
+
+impl FromStr for Address {
+    type Err = Error;
+    fn from_str(addr: &str) -> Result<Self, Error> {
         if addr.len() > MAX_ADDRESS_LEN || addr.len() < 3 {
             return Err(Error::InvalidLength);
         }
@@ -139,44 +181,6 @@ impl Address {
         }
 
         Address::new(network, protocol, payload)
-    }
-
-    /// Generates new address using ID protocol
-    pub fn new_id(id: u64) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::ID, to_leb_bytes(id)?)
-    }
-    /// Generates new address using Secp256k1 pubkey
-    pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(&pubkey))
-    }
-    /// Generates new address using the Actor protocol
-    pub fn new_actor(data: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(&data))
-    }
-    /// Generates new address using BLS pubkey
-    pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::BLS, pubkey)
-    }
-
-    /// Returns protocol for Address
-    pub fn protocol(&self) -> Protocol {
-        self.protocol
-    }
-    /// Returns data payload of Address
-    pub fn payload(&self) -> Vec<u8> {
-        self.payload.clone()
-    }
-    /// Returns encoded bytes of Address
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bz: Vec<u8> = self.payload();
-        bz.insert(0, self.protocol() as u8);
-        bz
-    }
-}
-
-impl fmt::Display for Address {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", encode(self))
     }
 }
 

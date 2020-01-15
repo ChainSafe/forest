@@ -41,7 +41,7 @@ fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
     assert_eq!(expected.to_owned(), addr.to_string());
 
     // Test decoding from string
-    let decoded = Address::from_string(expected).unwrap();
+    let decoded = Address::from_str(expected).unwrap();
     assert_eq!(protocol, decoded.protocol());
 
     assert_eq!(addr.payload(), decoded.payload());
@@ -302,7 +302,7 @@ fn invalid_string_addresses() {
     ];
 
     for t in test_vectors.iter() {
-        let res = Address::from_string(t.input);
+        let res = Address::from_str(t.input);
         match res {
             Err(e) => assert_eq!(e, t.expected),
             _ => assert!(false, "Addresses should have errored"),
@@ -491,7 +491,7 @@ fn cbor_encoding() {
     ];
 
     for t in test_vectors.iter() {
-        let res = Address::from_string(t.input).unwrap();
+        let res = Address::from_str(t.input).unwrap();
         let encoded = res.marshal_cbor().unwrap();
         // assert intermediate value is correct
         assert_eq!(encoded.clone(), t.encoded);
