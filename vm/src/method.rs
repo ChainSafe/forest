@@ -1,11 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use encoding::{Cbor, Error as EncodingError};
+use encoding::{ser, to_vec, Error as EncodingError};
+use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
 /// Method number indicator for calling actor methods
-#[derive(Default, Clone, PartialEq, Debug)]
+#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MethodNum(i32); // TODO: add constraints to this
 
 impl MethodNum {
@@ -33,7 +34,7 @@ pub const METHOD_CRON: isize = 2;
 pub const METHOD_PLACEHOLDER: isize = 3;
 
 /// Serialized bytes to be used as individual parameters into actor methods
-#[derive(Default, Clone, PartialEq, Debug)]
+#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Serialized {
     bytes: Vec<u8>,
 }
@@ -47,21 +48,17 @@ impl Deref for Serialized {
 
 impl Serialized {
     /// Constructor if data is encoded already
-    ///
-    /// ### Arguments
-    /// * `bytes` - vector of bytes to use as serialized data
     pub fn new(bytes: Vec<u8>) -> Self {
         Self { bytes }
     }
+
     /// Contructor for encoding Cbor encodable structure
-    ///
-    /// ### Arguments
-    /// * `obj` - Cbor encodable type
-    pub fn serialize(obj: impl Cbor) -> Result<Self, EncodingError> {
+    pub fn serialize<O: ser::Serialize>(obj: O) -> Result<Self, EncodingError> {
         Ok(Self {
-            bytes: obj.marshal_cbor()?,
+            bytes: to_vec(&obj)?,
         })
     }
+
     /// Returns serialized bytes
     pub fn bytes(&self) -> Vec<u8> {
         self.bytes.clone()
@@ -69,7 +66,7 @@ impl Serialized {
 }
 
 /// Method parameters used in Actor execution
-#[derive(Default, Clone, PartialEq, Debug)]
+#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MethodParams {
     params: Vec<Serialized>,
 }

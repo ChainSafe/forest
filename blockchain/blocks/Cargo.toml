@@ -5,11 +5,11 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-address = {path = "../../vm/address"}
-crypto = {path = "../../crypto"}
-message = {path = "../../vm/message"}
-clock = {path = "../../node/clock"}
-cid = {path = "../../ipld/cid"}
-multihash = "0.8.0"
+address = { path = "../../vm/address" }
+crypto = { path = "../../crypto" }
+message = { path = "../../vm/message" }
+clock = { path = "../../node/clock" }
+cid = { package = "ferret_cid", path = "../../ipld/cid" }
+multihash = "0.9.3"
 derive_builder = "0.9"
 serde_cbor = "0.11.0"

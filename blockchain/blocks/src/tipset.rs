@@ -106,7 +106,7 @@ impl Tipset {
         // break ticket ties with the header CIDs, which are distinct
         sorted_headers.sort_by_key(|header| {
             let mut h = header.clone();
-            (h.ticket.vrfproof.clone(), h.cid().hash.clone())
+            (h.ticket.vrfproof.clone(), h.cid().to_bytes())
         });
 
         // TODO
@@ -175,7 +175,7 @@ mod tests {
     use super::*;
     use crate::block::TxMeta;
     use address::Address;
-    use cid::{Cid, Codec};
+    use cid::Cid;
     use clock::ChainEpoch;
     use crypto::VRFResult;
 
@@ -183,9 +183,7 @@ mod tests {
     const CACHED_BYTES: [u8; 1] = [0];
 
     fn template_key(data: &[u8]) -> Cid {
-        let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
-        let cid = Cid::from_bytes_v1(Codec::DagCBOR, h);
-        return cid;
+        Cid::from_bytes_default(data).unwrap()
     }
 
     // key_setup returns a vec of 4 distinct CIDs

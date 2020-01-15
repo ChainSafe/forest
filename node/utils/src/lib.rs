@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use dirs::home_dir;
-use serde;
 use std::fs::{create_dir_all, File};
 use std::io::{prelude::*, Result};
 use std::path::Path;
@@ -47,8 +46,8 @@ pub fn get_home_dir() -> String {
 /// Converts a toml file represented as a string to `S`
 ///
 /// # Example
-///```
-/// use serde_derive::Deserialize;
+/// ```
+/// use serde::Deserialize;
 /// use utils::read_toml;
 ///
 /// #[derive(Deserialize)]

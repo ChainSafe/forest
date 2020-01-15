@@ -10,10 +10,10 @@ pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{blake2b_variable, Cbor, CodecProtocol, Error as EncodingError};
+use encoding::{
+    blake2b_variable, de, ser, serde_bytes, Cbor, CodecProtocol, Error as EncodingError,
+};
 use leb128;
-use serde_cbor::Value::Bytes;
-use serde_cbor::{from_slice, to_vec};
 use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -184,31 +184,36 @@ impl FromStr for Address {
     }
 }
 
-impl Cbor for Address {
-    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, EncodingError> {
-        // Convert cbor encoded to bytes
-        let mut vec = match from_slice(bz) {
-            Ok(Bytes(v)) => v,
-            _ => {
-                return Err(EncodingError::Unmarshalling {
-                    description: "Could not decode as bytes".to_owned(),
-                    protocol: CodecProtocol::Cbor,
-                });
-            }
-        };
-        // Remove protocol byte
-        let protocol = Protocol::from_byte(vec.remove(0)).ok_or(EncodingError::Unmarshalling {
-            description: format!("Invalid protocol byte: {}", bz[0]),
-            protocol: CodecProtocol::Cbor,
-        })?;
-        // Create and return created address of unmarshalled bytes
-        Ok(Address::new(NETWORK_DEFAULT, protocol, vec)?)
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // encode bytes
-        Ok(to_vec(&Bytes(self.to_bytes()))?)
+impl ser::Serialize for Address {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let address_bytes = self.to_bytes();
+        let value = serde_bytes::Bytes::new(&address_bytes);
+        serde_bytes::Serialize::serialize(value, s)
     }
 }
+
+impl<'de> de::Deserialize<'de> for Address {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let mut bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        // Remove protocol byte
+        let protocol = Protocol::from_byte(bz.remove(0))
+            .ok_or(EncodingError::Unmarshalling {
+                description: format!("Invalid protocol byte: {}", bz[0]),
+                protocol: CodecProtocol::Cbor,
+            })
+            .map_err(de::Error::custom)?;
+        // Create and return created address of unmarshalled bytes
+        Ok(Address::new(NETWORK_DEFAULT, protocol, bz).map_err(de::Error::custom)?)
+    }
+}
+
+impl Cbor for Address {}
 
 impl From<Error> for EncodingError {
     fn from(err: Error) -> EncodingError {

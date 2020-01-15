@@ -74,11 +74,11 @@ mod tests {
     use super::*;
     use address::Address;
     use blocks::{BlockHeader, TipSetKeys};
-    use cid::{Cid, Codec};
+    use cid::Cid;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         let x = TipSetKeys {
-            cids: vec![Cid::from_bytes_v1(Codec::DagCBOR, parent_bz)],
+            cids: vec![Cid::from_bytes_default(parent_bz).unwrap()],
         };
         BlockHeader::builder()
             .parents(x)

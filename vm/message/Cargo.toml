@@ -5,10 +5,10 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-vm = {path = "../../vm"}
-address = {path = "../address"}
-num-bigint = "0.2.3"
-encoding = {path = "../../encoding"}
-crypto = {path = "../../crypto"}
+vm = { path = "../../vm" }
+address = { path = "../address" }
+num-bigint = { version = "0.2.3", features = ["serde"] }
+encoding = { path = "../../encoding" }
+crypto = { path = "../../crypto" }
 derive_builder = "0.9"
-
+serde = { version = "1.0", features = ["derive"] }
