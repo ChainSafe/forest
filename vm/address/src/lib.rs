@@ -147,11 +147,11 @@ impl Address {
     }
     /// Generates new address using Secp256k1 pubkey
     pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(pubkey))
+        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(&pubkey))
     }
     /// Generates new address using the Actor protocol
     pub fn new_actor(data: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(data))
+        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(&data))
     }
     /// Generates new address using BLS pubkey
     pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, Error> {
@@ -268,6 +268,6 @@ pub fn validate_checksum(ingest: &[u8], expect: Vec<u8>) -> bool {
 }
 
 /// Returns an address hash for given data
-fn address_hash(ingest: Vec<u8>) -> Vec<u8> {
+fn address_hash(ingest: &[u8]) -> Vec<u8> {
     blake2b_variable(ingest, PAYLOAD_HASH_LEN)
 }
