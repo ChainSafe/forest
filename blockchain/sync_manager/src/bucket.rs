@@ -119,8 +119,6 @@ mod tests {
 
         // Assert a tipset on non relating chain is put in another bucket
         let tipset2 = Tipset::new(vec![create_header(2, b"2", b"2")]).unwrap();
-        println!("1{:?}\n{:?}\n", tipset1.parents(), tipset1.key());
-        println!("2{:?}\n{:?}\n", tipset2.parents(), tipset2.key());
         set.insert(&tipset2);
         assert_eq!(
             set.buckets.len(),

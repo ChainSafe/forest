@@ -5,7 +5,7 @@ use super::ticket::Ticket;
 use super::TipSetKeys;
 use super::TxMeta;
 use address::Address;
-use cid::{Cid, Error as CidError};
+use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
@@ -144,14 +144,10 @@ impl BlockHeader {
         &self.bls_aggregate
     }
     /// Getter for BlockHeader cid
-    pub fn cid(&self) -> Result<Cid, CidError> {
-        // TODO Encode blockheader using CBOR into cache_bytes
-        // Currently content id for headers will be incomplete until encoding and supporting libraries are completed
-        if let Some(cache_cid) = self.cached_cid.clone() {
-            Ok(cache_cid)
-        } else {
-            Ok(Cid::from_bytes_default(&self.marshal_cbor()?)?)
-        }
+    pub fn cid(&self) -> Cid {
+        // TODO determine another way to remove need to keep cid as option
+        // Cache should be initialized, so unwrapping here is fine
+        self.cached_cid.as_ref().unwrap().clone()
     }
     /// Updates cache and returns mutable reference of header back
     pub fn update_cache(&mut self) -> &mut Self {
@@ -160,13 +156,5 @@ impl BlockHeader {
             self.cached_cid = Cid::from_bytes_default(&bz).ok();
         }
         self
-    }
-    /// Returns the cached id
-    pub fn cached_cid(&self) -> Cid {
-        if let Some(cid) = &self.cached_cid {
-            cid.clone()
-        } else {
-            Cid::default()
-        }
     }
 }

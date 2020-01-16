@@ -40,7 +40,7 @@ impl RawBlock for Block {
     }
     /// returns the content identifier of the block
     fn cid(&self) -> Cid {
-        self.header.cached_cid()
+        self.header.cid()
     }
     /// returns the hash contained in the block CID
     fn multihash(&self) -> Hash {

@@ -101,17 +101,13 @@ impl Tipset {
             sorted_headers.push(headers[i].clone());
             // push header cid into vec for unique check
             // TODO make sure header
-            cids.push(headers[i].cached_cid());
+            cids.push(headers[i].cid());
         }
 
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
-        sorted_headers.sort_by_key(|header| {
-            (
-                header.ticket().vrfproof.clone(),
-                header.cached_cid().to_bytes(),
-            )
-        });
+        sorted_headers
+            .sort_by_key(|header| (header.ticket().vrfproof.clone(), header.cid().to_bytes()));
 
         // TODO Have a check the ensures CIDs are distinct
         // blocked by cid generation/ caching
