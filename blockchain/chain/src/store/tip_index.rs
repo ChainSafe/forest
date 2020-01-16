@@ -24,24 +24,15 @@ pub struct TipSetMetadata {
 }
 
 /// Trait to allow metadata to be indexed by multiple types of structs
-pub trait Index {
-    fn hash_key(&self) -> u64;
-}
-
-impl Index for ChainEpoch {
+pub trait Index: Hash {
     fn hash_key(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash::<DefaultHasher>(&mut hasher);
         hasher.finish()
     }
 }
-impl Index for TipSetKeys {
-    fn hash_key(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.hash::<DefaultHasher>(&mut hasher);
-        hasher.finish()
-    }
-}
+impl Index for ChainEpoch {}
+impl Index for TipSetKeys {}
 
 /// Tracks tipsets and their states by TipsetKeys and ChainEpoch.
 #[derive(Default)]
@@ -83,16 +74,16 @@ impl TipIndex {
             .ok_or_else(|| Error::UndefinedKey("invalid metadata key".to_string()))
     }
 
-    /// Returns the tipset corresponding to the index
-    pub fn get_tipset(&self, idx: &dyn Index) -> Result<Tipset, Error> {
+    /// get_tipset returns a tipset
+    pub fn get_tipset<I: Index>(&self, idx: &I) -> Result<Tipset, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset)?)
     }
-    /// Returns the state root for the tipset corresponding to the index
-    pub fn get_tipset_state_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
+    /// get_tipset_state_root returns the tipset_state_root
+    pub fn get_tipset_state_root<I: Index>(&self, idx: &I) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_state_root)?)
     }
-    /// Returns the receipt root for the tipset corresponding to the index
-    pub fn get_tipset_receipts_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
+    /// get_tipset_receipts_root returns the tipset_receipts_root
+    pub fn get_tipset_receipts_root<I: Index>(&self, idx: &I) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_receipts_root)?)
     }
 }
