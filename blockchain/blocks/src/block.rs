@@ -3,9 +3,9 @@
 
 #![allow(dead_code)]
 
-use super::{BlockHeader, RawBlock};
+use super::BlockHeader;
 use cid::Cid;
-use encoding::{Cbor, Error as EncodingError};
+use encoding::Cbor;
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
 use serde::{Deserialize, Serialize};
@@ -33,26 +33,10 @@ pub struct Block {
 
 impl Cbor for Block {}
 
-impl RawBlock for Block {
-    /// returns the block raw contents as a byte array
-    fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO should serialize block header using CBOR encoding
-        self.marshal_cbor()
-    }
-    /// returns the content identifier of the block
-    fn cid(&self) -> Cid {
-        self.header.cid().clone()
-    }
-    /// returns the hash contained in the block CID
-    fn multihash(&self) -> Hash {
-        self.cid().prefix().mh_type
-    }
-}
-
 /// human-readable string representation of a block CID
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "block: {:?}", self.cid())
+        write!(f, "block: {:?}", self.header.cid())
     }
 }
 

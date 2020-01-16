@@ -1,13 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{Ticket, TipSetKeys, TxMeta};
+use super::{RawBlock, Ticket, TipSetKeys, TxMeta};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
-use encoding::Cbor;
+use encoding::{Cbor, Error as EncodingError};
+use multihash::Hash;
 use serde::{Deserialize, Serialize};
 
 /// Header of a block
@@ -96,6 +97,22 @@ pub struct BlockHeader {
 // https://github.com/ChainSafe/ferret/issues/143
 
 impl Cbor for BlockHeader {}
+
+impl RawBlock for BlockHeader {
+    /// returns the block raw contents as a byte array
+    fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
+        // TODO should serialize block header using CBOR encoding
+        self.marshal_cbor()
+    }
+    /// returns the content identifier of the block
+    fn cid(&self) -> Cid {
+        self.cid().clone()
+    }
+    /// returns the hash contained in the block CID
+    fn multihash(&self) -> Hash {
+        self.cid().prefix().mh_type
+    }
+}
 
 impl BlockHeader {
     /// Generates a BlockHeader builder as a constructor

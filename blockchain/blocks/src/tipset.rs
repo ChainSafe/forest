@@ -22,7 +22,7 @@ pub struct TipSetKeys {
 
 impl TipSetKeys {
     /// checks whether the set contains exactly the same CIDs as another.
-    fn equals(&self, key: TipSetKeys) -> bool {
+    fn equals(&self, key: &TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
             return false;
         }
@@ -66,7 +66,7 @@ impl Tipset {
             if i > 0 {
                 // Skip redundant check
                 // check parent cids are equal
-                if headers[i].parents() != headers[0].parents() {
+                if !headers[i].parents().equals(headers[0].parents()) {
                     return Err(Error::InvalidTipSet(
                         "parent cids are not equal".to_string(),
                     ));
@@ -286,6 +286,9 @@ mod tests {
         let tipset_keys = TipSetKeys {
             cids: key_setup().clone(),
         };
-        assert_eq!(TipSetKeys::equals(&tipset_keys, tipset_keys.clone()), true);
+        let tipset_keys2 = TipSetKeys {
+            cids: key_setup().clone(),
+        };
+        assert_eq!(tipset_keys.equals(&tipset_keys2), true);
     }
 }
