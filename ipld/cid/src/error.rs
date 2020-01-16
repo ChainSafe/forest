@@ -1,22 +1,27 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
+use encoding::Error as EncodingError;
 use multibase;
 use multihash;
 use std::{error, fmt, io};
 
 /// Error types
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Error {
     UnknownCodec,
     InputTooShort,
     ParsingError,
     InvalidCidVersion,
+    Other(String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(error::Error::description(self))
+        match self {
+            Error::Other(err) => write!(f, "Other cid Error: {}", err.clone()),
+            _ => f.write_str(error::Error::description(self)),
+        }
     }
 }
 
@@ -24,11 +29,12 @@ impl error::Error for Error {
     fn description(&self) -> &str {
         use self::Error::*;
 
-        match *self {
+        match self {
             UnknownCodec => "Unknown codec",
             InputTooShort => "Input too short",
             ParsingError => "Failed to parse multihash",
             InvalidCidVersion => "Unrecognized CID version",
+            Other(_) => "Other Cid Error",
         }
     }
 }
@@ -66,5 +72,11 @@ impl From<multihash::DecodeError> for Error {
 impl From<Error> for fmt::Error {
     fn from(_: Error) -> fmt::Error {
         fmt::Error {}
+    }
+}
+
+impl From<EncodingError> for Error {
+    fn from(err: EncodingError) -> Error {
+        Error::Other(err.to_string())
     }
 }

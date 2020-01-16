@@ -4,23 +4,25 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use super::block::BlockHeader;
-use super::errors::Error;
-use super::ticket::Ticket;
+use super::{BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
+use serde::{Deserialize, Serialize};
 
 /// A set of CIDs forming a unique key for a TipSet.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
 
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
+
 impl TipSetKeys {
     /// checks whether the set contains exactly the same CIDs as another.
-    fn equals(&self, key: TipSetKeys) -> bool {
+    fn equals(&self, key: &TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
             return false;
         }
@@ -64,33 +66,33 @@ impl Tipset {
             if i > 0 {
                 // Skip redundant check
                 // check parent cids are equal
-                if !headers[i].parents.equals(headers[0].parents.clone()) {
+                if !headers[i].parents().equals(headers[0].parents()) {
                     return Err(Error::InvalidTipSet(
                         "parent cids are not equal".to_string(),
                     ));
                 }
                 // check weights are equal
-                if headers[i].weight != headers[0].weight {
+                if headers[i].weight() != headers[0].weight() {
                     return Err(Error::InvalidTipSet("weights are not equal".to_string()));
                 }
                 // check state_roots are equal
-                if headers[i].state_root != headers[0].state_root.clone() {
+                if headers[i].state_root() != headers[0].state_root() {
                     return Err(Error::InvalidTipSet(
                         "state_roots are not equal".to_string(),
                     ));
                 }
                 // check epochs are equal
-                if headers[i].epoch != headers[0].epoch {
+                if headers[i].epoch() != headers[0].epoch() {
                     return Err(Error::InvalidTipSet("epochs are not equal".to_string()));
                 }
                 // check message_receipts are equal
-                if headers[i].message_receipts != headers[0].message_receipts.clone() {
+                if headers[i].message_receipts() != headers[0].message_receipts() {
                     return Err(Error::InvalidTipSet(
                         "message_receipts are not equal".to_string(),
                     ));
                 }
                 // check miner_addresses are distinct
-                if headers[i].miner_address == headers[0].miner_address.clone() {
+                if headers[i].miner_address() == headers[0].miner_address() {
                     return Err(Error::InvalidTipSet(
                         "miner_addresses are not distinct".to_string(),
                     ));
@@ -98,20 +100,16 @@ impl Tipset {
             }
             // push headers into vec for sorting
             sorted_headers.push(headers[i].clone());
-            // push header cid into vec for unique check
-            cids.push(headers[i].clone().cid());
+            // push header cid into vec for unique check (can be changed to hashset later)
+            cids.push(headers[i].cid().clone());
         }
 
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
-        sorted_headers.sort_by_key(|header| {
-            let mut h = header.clone();
-            (h.ticket.vrfproof.clone(), h.cid().to_bytes())
-        });
+        sorted_headers
+            .sort_by_key(|header| (header.ticket().vrfproof.clone(), header.cid().to_bytes()));
 
-        // TODO
-        // Have a check the ensures CIDs are distinct
-        // blocked by CBOR encoding
+        // TODO Have a check the ensures CIDs are distinct
 
         // return tipset where sorted headers have smallest ticket size is in the 0th index
         // and the distinct keys
@@ -129,17 +127,17 @@ impl Tipset {
         if self.blocks.is_empty() {
             return Err(Error::NoBlocks);
         }
-        Ok(self.blocks[0].ticket.clone())
+        Ok(self.blocks[0].ticket().clone())
     }
     /// Returns the smallest timestamp of all blocks in the tipset
     fn min_timestamp(&self) -> Result<u64, Error> {
         if self.blocks.is_empty() {
             return Err(Error::NoBlocks);
         }
-        let mut min = self.blocks[0].timestamp;
+        let mut min = self.blocks[0].timestamp();
         for i in 1..self.blocks.len() {
-            if self.blocks[i].timestamp < min {
-                min = self.blocks[i].timestamp
+            if self.blocks[i].timestamp() < min {
+                min = self.blocks[i].timestamp()
             }
         }
         Ok(min)
@@ -153,30 +151,28 @@ impl Tipset {
         self.blocks.is_empty()
     }
     /// Returns a key for the tipset.
-    pub fn key(&self) -> TipSetKeys {
-        self.key.clone()
+    pub fn key(&self) -> &TipSetKeys {
+        &self.key
     }
     /// Returns the CIDs of the parents of the blocks in the tipset
-    pub fn parents(&self) -> TipSetKeys {
-        self.blocks[0].parents.clone()
+    pub fn parents(&self) -> &TipSetKeys {
+        &self.blocks[0].parents()
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> u64 {
-        self.blocks[0].weight
+        self.blocks[0].weight()
     }
     /// Returns the tipset's epoch
-    pub fn tip_epoch(&self) -> ChainEpoch {
-        self.blocks[0].epoch.clone()
+    pub fn tip_epoch(&self) -> &ChainEpoch {
+        self.blocks[0].epoch()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::block::TxMeta;
     use address::Address;
     use cid::Cid;
-    use clock::ChainEpoch;
     use crypto::VRFResult;
 
     const WEIGHT: u64 = 1;
@@ -199,27 +195,21 @@ mod tests {
     // template_header defines a block header used in testing
     fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
         let cids = key_setup();
-        BlockHeader {
-            parents: TipSetKeys {
+        let header = BlockHeader::builder()
+            .parents(TipSetKeys {
                 cids: vec![cids[3].clone()],
-            },
-            weight: WEIGHT,
-            epoch: ChainEpoch::new(1),
-            miner_address: Address::new_secp256k1(ticket_p.clone()).unwrap(),
-            messages: TxMeta {
-                bls_messages: cids[0].clone(),
-                secp_messages: cids[0].clone(),
-            },
-            message_receipts: cids[0].clone(),
-            state_root: cids[0].clone(),
-            timestamp,
-            ticket: Ticket {
+            })
+            .miner_address(Address::new_secp256k1(ticket_p.clone()).unwrap())
+            .timestamp(timestamp)
+            .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),
-            },
-            bls_aggregate: vec![1, 2, 3],
-            cached_cid: cid,
-            cached_bytes: CACHED_BYTES.to_vec(),
-        }
+            })
+            .weight(WEIGHT)
+            .cached_cid(cid)
+            .build()
+            .unwrap();
+
+        header
     }
 
     // header_setup returns a vec of block headers to be used for testing purposes
@@ -278,7 +268,7 @@ mod tests {
         let tipset = setup();
         let expected_value = template_key(b"the best test content out there");
         assert_eq!(
-            Tipset::parents(&tipset),
+            *tipset.parents(),
             TipSetKeys {
                 cids: vec!(expected_value)
             }
@@ -288,7 +278,7 @@ mod tests {
     #[test]
     fn weight_test() {
         let tipset = setup();
-        assert_eq!(Tipset::weight(&tipset), 1);
+        assert_eq!(tipset.weight(), WEIGHT);
     }
 
     #[test]
@@ -296,6 +286,9 @@ mod tests {
         let tipset_keys = TipSetKeys {
             cids: key_setup().clone(),
         };
-        assert_eq!(TipSetKeys::equals(&tipset_keys, tipset_keys.clone()), true);
+        let tipset_keys2 = TipSetKeys {
+            cids: key_setup().clone(),
+        };
+        assert_eq!(tipset_keys.equals(&tipset_keys2), true);
     }
 }

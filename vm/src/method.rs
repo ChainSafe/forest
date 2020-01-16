@@ -9,6 +9,9 @@ use std::ops::{Deref, DerefMut};
 #[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MethodNum(i32); // TODO: add constraints to this
 
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
+
 impl MethodNum {
     /// Constructor for new MethodNum
     pub fn new(num: i32) -> Self {
@@ -38,6 +41,9 @@ pub const METHOD_PLACEHOLDER: isize = 3;
 pub struct Serialized {
     bytes: Vec<u8>,
 }
+
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
 
 impl Deref for Serialized {
     type Target = Vec<u8>;
@@ -70,6 +76,9 @@ impl Serialized {
 pub struct MethodParams {
     params: Vec<Serialized>,
 }
+
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
 
 impl Deref for MethodParams {
     type Target = Vec<Serialized>;
