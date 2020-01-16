@@ -25,7 +25,7 @@ pub struct RewardActorState {
 }
 
 impl RewardActorState {
-    pub fn withdraw_reward(_rt: &dyn Runtime, _owner: Address) -> TokenAmount {
+    pub fn withdraw_reward<RT: Runtime>(_rt: &RT, _owner: Address) -> TokenAmount {
         // TODO
         TokenAmount::new(0)
     }
@@ -49,26 +49,26 @@ impl RewardMethod {
 pub struct RewardActorCode;
 impl RewardActorCode {
     /// Constructor for Reward actor
-    fn constructor(_rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) -> InvocOutput {
         // TODO
         unimplemented!();
     }
     /// Mints a reward and puts into state reward map
-    fn mint_reward(_rt: &dyn Runtime) -> InvocOutput {
+    fn mint_reward<RT: Runtime>(_rt: &RT) -> InvocOutput {
         // TODO
         unimplemented!();
     }
     /// Withdraw available funds from reward map
-    fn withdraw_reward(_rt: &dyn Runtime) -> InvocOutput {
+    fn withdraw_reward<RT: Runtime>(_rt: &RT) -> InvocOutput {
         // TODO
         unimplemented!();
     }
 }
 
 impl ActorCode for RewardActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
         _params: &MethodParams,
     ) -> InvocOutput {
