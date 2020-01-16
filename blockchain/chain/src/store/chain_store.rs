@@ -2,9 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{Error, TipIndex};
-use blocks::{BlockHeader, Tipset};
+use blocks::RawBlock;
+use blocks::Tipset;
 use cid::Cid;
+use db::Error as DbError;
+use db::Read;
 use db::RocksDb as Blockstore;
+use db::Write;
 use network::service::NetworkMessage;
 use num_bigint::BigUint;
 
@@ -13,7 +17,7 @@ pub struct ChainStore {
     // TODO add StateTreeLoader
 
     // key-value datastore
-    _db: Blockstore,
+    db: Blockstore,
 
     // CID of the genesis block.
     _genesis: Cid,
@@ -33,11 +37,16 @@ impl ChainStore {
         // TODO
         Ok(BigUint::from(0 as u32))
     }
-    pub fn persist_headers(&self, _headers: Vec<BlockHeader>) {
+    pub fn persist_headers(&self, tip: &Tipset) -> Result<(), DbError> {
         // TODO serialize and put blocks into raw format
-        // TODO should be stored as
-
-        //self._db.exists(headers.)
-        // self._db.bulk_write(headers.cid(), headers)
+        let mut raw_header_data = Vec::new();
+        let mut keys = Vec::new();
+        for i in 0..tip.blocks().len() {
+            if !self.db.exists(tip.blocks[i].get_cid().key())? {
+                raw_header_data.push(tip.blocks[i].raw_data());
+                keys.push(tip.blocks[i].get_cid().key());
+            }
+        }
+        Ok(self.db.bulk_write(&keys, &raw_header_data)?)
     }
 }

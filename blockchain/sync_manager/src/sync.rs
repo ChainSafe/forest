@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use super::manager::SyncManager;
-use blocks::{Tipset, Block};
+use blocks::{Tipset, Block, FullTipset};
 use libp2p::core::PeerId;
 use chain::ChainStore;
 use network::service::NetworkMessage;
@@ -23,25 +23,24 @@ pub struct Syncer {
 }
 
 impl Syncer {
-    /// InformNewHead informs the syncer about a new potential tipset
+    /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    fn inform_new_head(&self, from: PeerId, full_block: Vec<Block>) {
+    fn inform_new_head(&self, from: PeerId, fts: FullTipset) {
         // check if full block is nil and if so return error
-        if full_block.is_empty() {
+        if fts.blocks.is_empty() {
             return Err(Error::NoBlocks);
         }
-        for b in 0..full_block {
-            // TODO
-            // validate message data and store in MessageStore
+        // TODO validate message data
+        for i in 0..fts.blocks.len() {
+            self.validate_msg_data(fts.blocks[i])
         }
 
         // TODO
         // send pubsub message indicating incoming blocks
-        // self.incoming.PubsubMessage{topics: "incoming", message: full_block}
 
-        // TODO
         // Store incoming block header
+        self.chain_store.persist_headers(fts.tipset());
 
         // TODO
         // Add peer to blocksync
@@ -49,13 +48,19 @@ impl Syncer {
         // compare targetweight to heaviest weight stored
         // ignore otherwise
 
+
         // set peer head
-        // self.sync_manager.set_peer_head(from, )
+        self.sync_manager.set_peer_head(from, fts.tipset());
 
     }
 
     fn validate_msg_data(&self, block: Block) {
-        // TODO
+        // TODO call compute_msg_data to get message roots
         unimplemented!()
     }
+    fn compute_msg_data(&self, block: Block) {
+        //TODO 
+        unimplemented!()
+    }
+    
 }

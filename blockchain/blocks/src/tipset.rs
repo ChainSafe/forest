@@ -4,7 +4,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use super::block::BlockHeader;
+use super::block::{Block, BlockHeader};
 use super::errors::Error;
 use super::ticket::Ticket;
 use cid::Cid;
@@ -37,7 +37,7 @@ impl TipSetKeys {
 /// Blocks in a tipset are canonically ordered by ticket size.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
-    blocks: Vec<BlockHeader>,
+    pub blocks: Vec<BlockHeader>,
     key: TipSetKeys,
 }
 
@@ -167,6 +167,23 @@ impl Tipset {
     /// Returns the tipset's epoch
     pub fn tip_epoch(&self) -> ChainEpoch {
         self.blocks[0].epoch.clone()
+    }
+}
+
+pub struct FullTipset {
+    blocks: Vec<Block>,
+}
+
+impl FullTipset {
+    pub fn new(&self, blks: Vec<Block>) -> Self {
+        Self { blocks: blks }
+    }
+    pub fn tipset(&self) -> Tipset {
+        let mut headers = Vec::new();
+        for i in 0..self.blocks.len() {
+            headers.push(self.blocks[i].header.clone())
+        }
+        Tipset::new(headers).unwrap()
     }
 }
 

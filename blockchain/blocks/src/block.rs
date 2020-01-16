@@ -120,7 +120,7 @@ impl BlockHeader {
 
 /// A complete block
 pub struct Block {
-    header: BlockHeader,
+    pub header: BlockHeader,
     bls_messages: UnsignedMessage,
     secp_messages: SignedMessage,
 }
@@ -128,30 +128,30 @@ pub struct Block {
 /// Used to extract required encoded data and cid for persistent block storage
 pub trait RawBlock {
     fn raw_data(&self) -> Vec<u8>;
-    fn cid(&self) -> Cid;
+    fn get_cid(&self) -> Cid;
     fn multihash(&self) -> Hash;
 }
 
-impl RawBlock for Block {
+impl RawBlock for BlockHeader {
     /// returns the block raw contents as a byte array
     fn raw_data(&self) -> Vec<u8> {
         // TODO should serialize block header using CBOR encoding
-        self.header.cached_bytes.clone()
+        self.cached_bytes.clone()
     }
     /// returns the content identifier of the block
-    fn cid(&self) -> Cid {
-        self.header.clone().cid()
+    fn get_cid(&self) -> Cid {
+        self.clone().cid()
     }
     /// returns the hash contained in the block CID
     fn multihash(&self) -> Hash {
-        self.header.cached_cid.prefix().mh_type
+        self.cached_cid.prefix().mh_type
     }
 }
 
 /// human-readable string representation of a block CID
-impl fmt::Display for Block {
+impl fmt::Display for BlockHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "block: {:?}", self.header.cached_cid.clone())
+        write!(f, "block: {:?}", self.cached_cid.clone())
     }
 }
 

@@ -9,6 +9,8 @@ pub enum Error {
     UndefinedKey(String),
     /// Tipset contains no blocks
     NoBlocks,
+    /// Keys are already written to store
+    KeysExist,
 }
 
 impl fmt::Display for Error {
@@ -16,6 +18,7 @@ impl fmt::Display for Error {
         match self {
             Error::UndefinedKey(msg) => write!(f, "Invalid key: {}", msg),
             Error::NoBlocks => write!(f, "No blocks for tipset"),
+            Error::KeysExist => write!(f, "Keys already exist in store"),
         }
     }
 }
