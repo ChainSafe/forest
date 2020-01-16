@@ -29,16 +29,16 @@ pub struct AccountActorCode;
 
 impl AccountActorCode {
     /// Constructor for Account actor
-    fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(rt: &RT) -> InvocOutput {
         // Intentionally left blank
         rt.success_return()
     }
 }
 
 impl ActorCode for AccountActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
         params: &MethodParams,
     ) -> InvocOutput {

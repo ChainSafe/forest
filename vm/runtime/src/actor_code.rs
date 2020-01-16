@@ -6,26 +6,26 @@ use vm::{InvocOutput, MethodNum, MethodParams, Serialized};
 
 pub trait ActorCode {
     /// Invokes method with runtime on the actor's code
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
         params: &MethodParams,
     ) -> InvocOutput;
 }
 
-pub fn check_args(_params: &MethodParams, rt: &dyn Runtime, cond: bool) {
+pub fn check_args<RT: Runtime>(_params: &MethodParams, rt: &RT, cond: bool) {
     if !cond {
         rt.abort_arg();
     }
     // TODO assume params validation on finished spec
 }
 
-pub fn arg_pop(params: &mut MethodParams, rt: &dyn Runtime) -> Serialized {
+pub fn arg_pop<RT: Runtime>(params: &mut MethodParams, rt: &RT) -> Serialized {
     check_args(params, rt, !params.is_empty());
     params.remove(0)
 }
 
-pub fn arg_end(params: &MethodParams, rt: &dyn Runtime) {
+pub fn arg_end<RT: Runtime>(params: &MethodParams, rt: &RT) {
     check_args(params, rt, params.is_empty())
 }
