@@ -207,7 +207,9 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset_state_root(&meta.tipset.tip_epoch().clone()).unwrap();
+        let result = tip
+            .get_tipset_state_root(&meta.tipset.tip_epoch().clone())
+            .unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
 
