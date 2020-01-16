@@ -1,9 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use super::ticket::Ticket;
-use super::TipSetKeys;
-use super::TxMeta;
+use super::{Ticket, TipSetKeys, TxMeta};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -32,7 +30,7 @@ use serde::{Deserialize, Serialize};
 ///     .state_root(Cid::default()) // optional
 ///     .timestamp(0) // optional
 ///     .ticket(Ticket::default()) // optional
-///     .build()
+///     .build_and_validate()
 ///     .unwrap();
 /// ```
 #[derive(Clone, Debug, PartialEq, Builder, Serialize, Deserialize)]
@@ -146,8 +144,7 @@ impl BlockHeader {
     }
     /// Getter for BlockHeader cid
     pub fn cid(&self) -> &Cid {
-        // TODO determine another way to remove need to keep cid as option
-        // Cache should be initialized, so unwrapping here is fine
+        // Cache should be initialized, otherwise will return default Cid
         &self.cached_cid
     }
     /// Updates cache and returns mutable reference of header back

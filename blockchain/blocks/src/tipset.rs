@@ -4,8 +4,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use super::errors::Error;
-use super::{BlockHeader, Ticket};
+use super::{BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
 use serde::{Deserialize, Serialize};
@@ -64,7 +63,6 @@ impl Tipset {
 
         // loop through headers and validate conditions against 0th header
         for i in 0..headers.len() {
-            // TODO Should verify headers' caches are updated
             if i > 0 {
                 // Skip redundant check
                 // check parent cids are equal
@@ -102,8 +100,7 @@ impl Tipset {
             }
             // push headers into vec for sorting
             sorted_headers.push(headers[i].clone());
-            // push header cid into vec for unique check
-            // TODO make sure header
+            // push header cid into vec for unique check (can be changed to hashset later)
             cids.push(headers[i].cid().clone());
         }
 
@@ -113,7 +110,6 @@ impl Tipset {
             .sort_by_key(|header| (header.ticket().vrfproof.clone(), header.cid().to_bytes()));
 
         // TODO Have a check the ensures CIDs are distinct
-        // blocked by cid generation/ caching
 
         // return tipset where sorted headers have smallest ticket size is in the 0th index
         // and the distinct keys
@@ -167,8 +163,8 @@ impl Tipset {
         self.blocks[0].weight()
     }
     /// Returns the tipset's epoch
-    pub fn tip_epoch(&self) -> ChainEpoch {
-        self.blocks[0].epoch().clone()
+    pub fn tip_epoch(&self) -> &ChainEpoch {
+        self.blocks[0].epoch()
     }
 }
 

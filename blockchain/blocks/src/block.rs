@@ -3,11 +3,9 @@
 
 #![allow(dead_code)]
 
-use super::BlockHeader;
-use super::RawBlock;
+use super::{BlockHeader, RawBlock};
 use cid::Cid;
-use encoding::Cbor;
-use encoding::Error as EncodingError;
+use encoding::{Cbor, Error as EncodingError};
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
 use serde::{Deserialize, Serialize};

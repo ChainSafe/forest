@@ -198,7 +198,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset(&meta.tipset.tip_epoch()).unwrap();
+        let result = tip.get_tipset(&meta.tipset.tip_epoch().clone()).unwrap();
         assert_eq!(result, meta.tipset);
     }
 
@@ -207,7 +207,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset_state_root(&meta.tipset.tip_epoch()).unwrap();
+        let result = tip.get_tipset_state_root(&meta.tipset.tip_epoch().clone()).unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
 
@@ -217,7 +217,7 @@ mod tests {
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
         let result = tip
-            .get_tipset_receipts_root(&meta.tipset.tip_epoch())
+            .get_tipset_receipts_root(&meta.tipset.tip_epoch().clone())
             .unwrap();
         assert_eq!(result, meta.tipset_receipts_root);
     }
