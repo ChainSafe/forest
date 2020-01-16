@@ -116,7 +116,7 @@ mod tests {
 
     // template_header defines a block header used in testing
     fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
-        let mut header = BlockHeader::builder()
+        let header = BlockHeader::builder()
             .parents(TipSetKeys::default())
             .miner_address(Address::new_id(0).unwrap())
             .bls_aggregate(vec![])
@@ -124,9 +124,9 @@ mod tests {
             .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),
             })
+            .cached_cid(cid)
             .build()
             .unwrap();
-        header.cached_cid = Some(cid);
 
         header
     }

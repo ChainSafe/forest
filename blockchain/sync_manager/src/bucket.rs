@@ -73,19 +73,17 @@ impl<'a> SyncBucketSet<'a> {
 mod tests {
     use super::*;
     use address::Address;
-    use blocks::{BlockHeader, TipSetKeys};
+    use blocks::BlockHeader;
     use cid::Cid;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
-        let mut header = BlockHeader::builder()
-            .parents(TipSetKeys::default())
+        let header = BlockHeader::builder()
             .miner_address(Address::new_id(0).unwrap())
-            .bls_aggregate(vec![])
             .weight(weight)
+            .cached_bytes(cached_bytes.to_vec())
+            .cached_cid(Cid::from_bytes_default(parent_bz).unwrap())
             .build()
             .unwrap();
-        header.cached_bytes = Some(cached_bytes.to_vec());
-        header.cached_cid = Some(Cid::from_bytes_default(parent_bz).unwrap());
         header
     }
 

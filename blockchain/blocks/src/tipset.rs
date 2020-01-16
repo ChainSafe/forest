@@ -101,7 +101,7 @@ impl Tipset {
             sorted_headers.push(headers[i].clone());
             // push header cid into vec for unique check
             // TODO make sure header
-            cids.push(headers[i].cid());
+            cids.push(headers[i].cid().clone());
         }
 
         // sort headers by ticket size
@@ -196,7 +196,7 @@ mod tests {
     // template_header defines a block header used in testing
     fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
         let cids = key_setup();
-        let mut header = BlockHeader::builder()
+        let header = BlockHeader::builder()
             .parents(TipSetKeys {
                 cids: vec![cids[3].clone()],
             })
@@ -207,9 +207,9 @@ mod tests {
                 vrfproof: VRFResult::new(ticket_p),
             })
             .weight(WEIGHT)
+            .cached_cid(cid)
             .build()
             .unwrap();
-        header.cached_cid = Some(cid);
 
         header
     }

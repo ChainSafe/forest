@@ -22,16 +22,16 @@ use serde::{Deserialize, Serialize};
 /// use clock::ChainEpoch;
 ///
 /// BlockHeader::builder()
-///     .parents(TipSetKeys::default())
-///     .miner_address(Address::new_id(0).unwrap())
-///     .bls_aggregate(vec![])
-///     .weight(0) //optional
-///     .epoch(ChainEpoch::default()) //optional
-///     .messages(TxMeta::default()) //optional
-///     .message_receipts(Cid::default()) //optional
-///     .state_root(Cid::default()) //optional
-///     .timestamp(0) //optional
-///     .ticket(Ticket::default()) //optional
+///     .miner_address(Address::new_id(0).unwrap()) // optional
+///     .bls_aggregate(vec![]) // optional
+///     .parents(TipSetKeys::default()) // optional
+///     .weight(0) // optional
+///     .epoch(ChainEpoch::default()) // optional
+///     .messages(TxMeta::default()) // optional
+///     .message_receipts(Cid::default()) // optional
+///     .state_root(Cid::default()) // optional
+///     .timestamp(0) // optional
+///     .ticket(Ticket::default()) // optional
 ///     .build()
 ///     .unwrap();
 /// ```
@@ -42,6 +42,7 @@ pub struct BlockHeader {
     /// Parents is the set of parents this block was based on. Typically one,
     /// but can be several in the case where there were multiple winning ticket-
     /// holders for an epoch
+    #[builder(default)]
     parents: TipSetKeys,
 
     /// weight is the aggregate chain weight of the parent set
@@ -52,7 +53,6 @@ pub struct BlockHeader {
     /// There may be multiple rounds in an epoch
     #[builder(default)]
     epoch: ChainEpoch,
-
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
     miner_address: Address,
@@ -75,25 +75,22 @@ pub struct BlockHeader {
     /// timestamp, in seconds since the Unix epoch, at which this block was created
     #[builder(default)]
     timestamp: u64,
-
     /// the ticket submitted with this block
     #[builder(default)]
     ticket: Ticket,
-
     // SIGNATURES
     /// aggregate signature of miner in block
+    #[builder(default)]
     bls_aggregate: Signature,
-
     // CACHE
     /// stores the cid for the block after the first call to `cid()`
-    #[builder(setter(skip))]
     #[serde(skip_serializing)]
-    // TODO remove public visibility on cache values once tests reliance on them are removed
-    pub cached_cid: Option<Cid>,
+    #[builder(default)]
+    cached_cid: Cid,
     /// stores the hashed bytes of the block after the fist call to `cid()`
-    #[builder(setter(skip))]
     #[serde(skip_serializing)]
-    pub cached_bytes: Option<Vec<u8>>,
+    #[builder(default)]
+    cached_bytes: Vec<u8>,
 }
 
 impl Cbor for BlockHeader {}
@@ -144,17 +141,29 @@ impl BlockHeader {
         &self.bls_aggregate
     }
     /// Getter for BlockHeader cid
-    pub fn cid(&self) -> Cid {
+    pub fn cid(&self) -> &Cid {
         // TODO determine another way to remove need to keep cid as option
         // Cache should be initialized, so unwrapping here is fine
-        self.cached_cid.as_ref().unwrap().clone()
+        &self.cached_cid
     }
     /// Updates cache and returns mutable reference of header back
-    pub fn update_cache(&mut self) -> &mut Self {
-        self.cached_bytes = self.marshal_cbor().ok();
-        if let Some(bz) = &self.cached_bytes {
-            self.cached_cid = Cid::from_bytes_default(&bz).ok();
-        }
-        self
+    fn update_cache(&mut self) -> Result<(), String> {
+        self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
+        self.cached_cid = Cid::from_bytes_default(&self.cached_bytes).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}
+
+impl BlockHeaderBuilder {
+    pub fn build_and_validate(&self) -> Result<BlockHeader, String> {
+        // Convert header builder into header struct
+        let mut header = self.build()?;
+
+        // TODO add validation function
+
+        // Fill header cache with raw bytes and cid
+        header.update_cache()?;
+
+        Ok(header)
     }
 }
