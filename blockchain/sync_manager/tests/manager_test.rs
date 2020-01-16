@@ -10,14 +10,16 @@ fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHea
     let x = TipSetKeys {
         cids: vec![Cid::from_bytes_default(parent_bz).unwrap()],
     };
-    BlockHeader::builder()
+    let mut header = BlockHeader::builder()
         .parents(x)
-        .cached_bytes(cached_bytes.to_vec()) // TODO change to however cached bytes are generated in future
         .miner_address(Address::new_id(0).unwrap())
         .bls_aggregate(vec![])
         .weight(weight)
         .build()
-        .unwrap()
+        .unwrap();
+    // TODO remove reliance on setting cached bytes specifically
+    header.cached_bytes = Some(cached_bytes.to_vec());
+    header
 }
 
 #[test]
