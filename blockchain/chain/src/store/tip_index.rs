@@ -100,7 +100,6 @@ impl TipIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
     use blocks::{BlockHeader, Ticket, Tipset};
     use cid::Cid;
     use crypto::VRFResult;
@@ -117,9 +116,6 @@ mod tests {
     // template_header defines a block header used in testing
     fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
         let header = BlockHeader::builder()
-            .parents(TipSetKeys::default())
-            .miner_address(Address::new_id(0).unwrap())
-            .bls_aggregate(vec![])
             .timestamp(timestamp)
             .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),

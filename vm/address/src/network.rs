@@ -10,6 +10,12 @@ pub enum Network {
     Testnet,
 }
 
+impl Default for Network {
+    fn default() -> Self {
+        Network::Testnet
+    }
+}
+
 impl Network {
     /// to_prefix is used to convert the network into a string
     /// used when converting address to string

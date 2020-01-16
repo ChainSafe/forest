@@ -55,6 +55,7 @@ pub struct BlockHeader {
     epoch: ChainEpoch,
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
+    #[builder(default)]
     miner_address: Address,
 
     // STATE

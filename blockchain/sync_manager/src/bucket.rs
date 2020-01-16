@@ -72,13 +72,11 @@ impl<'a> SyncBucketSet<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
     use blocks::BlockHeader;
     use cid::Cid;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         let header = BlockHeader::builder()
-            .miner_address(Address::new_id(0).unwrap())
             .weight(weight)
             .cached_bytes(cached_bytes.to_vec())
             .cached_cid(Cid::from_bytes_default(parent_bz).unwrap())

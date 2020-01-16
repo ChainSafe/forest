@@ -204,7 +204,6 @@ mod tests {
                 cids: vec![cids[3].clone()],
             })
             .miner_address(Address::new_secp256k1(ticket_p.clone()).unwrap())
-            .bls_aggregate(vec![])
             .timestamp(timestamp)
             .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),
