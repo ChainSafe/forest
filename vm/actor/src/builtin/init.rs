@@ -46,32 +46,32 @@ impl InitMethod {
 
 pub struct InitActorCode;
 impl InitActorCode {
-    fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(rt: &RT) -> InvocOutput {
         // Acquire state
         // Update actor substate
 
         rt.success_return()
     }
-    fn exec(rt: &dyn Runtime, _code: CodeID, _params: &MethodParams) -> InvocOutput {
+    fn exec<RT: Runtime>(rt: &RT, _code: CodeID, _params: &MethodParams) -> InvocOutput {
         // TODO
         let addr = Address::new_id(0).unwrap();
         rt.value_return(addr.marshal_cbor().unwrap())
     }
-    fn get_actor_id_for_address(rt: &dyn Runtime, _address: Address) -> InvocOutput {
+    fn get_actor_id_for_address<RT: Runtime>(rt: &RT, _address: Address) -> InvocOutput {
         // TODO
         rt.value_return(ActorID(0).marshal_cbor().unwrap())
     }
 }
 
 impl ActorCode for InitActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
-        params_in: &MethodParams,
+        params: &MethodParams,
     ) -> InvocOutput {
         // Create mutable copy of params for usage in functions
-        let params: &mut MethodParams = &mut params_in.clone();
+        let params: &mut MethodParams = &mut params.clone();
         match InitMethod::from_method_num(method) {
             Some(InitMethod::Constructor) => {
                 // validate no arguments passed in
