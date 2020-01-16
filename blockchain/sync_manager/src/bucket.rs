@@ -72,22 +72,17 @@ impl<'a> SyncBucketSet<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
-    use blocks::{BlockHeader, TipSetKeys};
+    use blocks::BlockHeader;
     use cid::Cid;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
-        let x = TipSetKeys {
-            cids: vec![Cid::from_bytes_default(parent_bz).unwrap()],
-        };
-        BlockHeader::builder()
-            .parents(x)
-            .cached_bytes(cached_bytes.to_vec()) // TODO change to however cached bytes are generated in future
-            .miner_address(Address::new_id(0).unwrap())
-            .bls_aggregate(vec![])
+        let header = BlockHeader::builder()
             .weight(weight)
+            .cached_bytes(cached_bytes.to_vec())
+            .cached_cid(Cid::from_bytes_default(parent_bz).unwrap())
             .build()
-            .unwrap()
+            .unwrap();
+        header
     }
 
     #[test]
@@ -121,14 +116,27 @@ mod tests {
         // Assert a tipset on non relating chain is put in another bucket
         let tipset2 = Tipset::new(vec![create_header(2, b"2", b"2")]).unwrap();
         set.insert(&tipset2);
-        assert_eq!(set.buckets.len(), 2);
+        assert_eq!(
+            set.buckets.len(),
+            2,
+            "Inserting seperate tipset should create new bucket"
+        );
         assert_eq!(set.buckets[1].tips.len(), 1);
 
         // Assert a tipset connected to the first
         let tipset3 = Tipset::new(vec![create_header(3, b"1", b"1")]).unwrap();
+        assert_eq!(tipset1.key(), tipset3.key());
         set.insert(&tipset3);
-        assert_eq!(set.buckets.len(), 2);
-        assert_eq!(set.buckets[0].tips.len(), 2);
+        assert_eq!(
+            set.buckets.len(),
+            2,
+            "Inserting into first chain should not create 3rd bucket"
+        );
+        assert_eq!(
+            set.buckets[0].tips.len(),
+            2,
+            "Should be 2 tipsets in bucket 0"
+        );
 
         // Assert that tipsets that are already added are not added twice
         set.insert(&tipset1);

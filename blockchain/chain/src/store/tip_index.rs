@@ -91,14 +91,9 @@ impl TipIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
-    use blocks::{BlockHeader, Ticket, Tipset, TxMeta};
+    use blocks::{BlockHeader, Ticket, Tipset};
     use cid::Cid;
-    use clock::ChainEpoch;
     use crypto::VRFResult;
-
-    const WEIGHT: u64 = 1;
-    const CACHED_BYTES: [u8; 1] = [0];
 
     fn template_key(data: &[u8]) -> Cid {
         Cid::from_bytes_default(data).unwrap()
@@ -111,28 +106,16 @@ mod tests {
 
     // template_header defines a block header used in testing
     fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
-        let cids = key_setup();
-        BlockHeader {
-            parents: TipSetKeys {
-                cids: vec![cids[0].clone()],
-            },
-            weight: WEIGHT,
-            epoch: ChainEpoch::new(1),
-            miner_address: Address::new_secp256k1(ticket_p.clone()).unwrap(),
-            messages: TxMeta {
-                bls_messages: cids[0].clone(),
-                secp_messages: cids[0].clone(),
-            },
-            message_receipts: cids[0].clone(),
-            state_root: cids[0].clone(),
-            timestamp,
-            ticket: Ticket {
+        let header = BlockHeader::builder()
+            .timestamp(timestamp)
+            .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),
-            },
-            bls_aggregate: vec![1, 2, 3],
-            cached_cid: cid,
-            cached_bytes: CACHED_BYTES.to_vec(),
-        }
+            })
+            .cached_cid(cid)
+            .build()
+            .unwrap();
+
+        header
     }
 
     // header_setup returns a vec of block headers to be used for testing purposes
@@ -150,8 +133,8 @@ mod tests {
     fn meta_setup() -> TipSetMetadata {
         let tip_set = setup();
         TipSetMetadata {
-            tipset_state_root: tip_set.blocks()[0].state_root.clone(),
-            tipset_receipts_root: tip_set.blocks()[0].message_receipts.clone(),
+            tipset_state_root: tip_set.blocks()[0].state_root().clone(),
+            tipset_receipts_root: tip_set.blocks()[0].message_receipts().clone(),
             tipset: tip_set,
         }
     }
@@ -179,7 +162,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset(&meta.tipset.parents()).unwrap();
+        let result = tip.get_tipset(meta.tipset.parents()).unwrap();
         assert_eq!(result, meta.tipset);
     }
 
@@ -188,9 +171,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip
-            .get_tipset_receipts_root(&meta.tipset.parents())
-            .unwrap();
+        let result = tip.get_tipset_receipts_root(meta.tipset.parents()).unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
 
@@ -199,9 +180,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip
-            .get_tipset_receipts_root(&meta.tipset.parents())
-            .unwrap();
+        let result = tip.get_tipset_receipts_root(meta.tipset.parents()).unwrap();
         assert_eq!(result, meta.tipset_receipts_root);
     }
 
@@ -210,7 +189,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset(&meta.tipset.tip_epoch()).unwrap();
+        let result = tip.get_tipset(&meta.tipset.tip_epoch().clone()).unwrap();
         assert_eq!(result, meta.tipset);
     }
 
@@ -219,7 +198,9 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset_state_root(&meta.tipset.tip_epoch()).unwrap();
+        let result = tip
+            .get_tipset_state_root(&meta.tipset.tip_epoch().clone())
+            .unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
 
@@ -229,7 +210,7 @@ mod tests {
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
         let result = tip
-            .get_tipset_receipts_root(&meta.tipset.tip_epoch())
+            .get_tipset_receipts_root(&meta.tipset.tip_epoch().clone())
             .unwrap();
         assert_eq!(result, meta.tipset_receipts_root);
     }

@@ -60,6 +60,9 @@ pub struct UnsignedMessage {
     gas_limit: BigUint,
 }
 
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
+
 impl UnsignedMessage {
     pub fn builder() -> MessageBuilder {
         MessageBuilder::default()
