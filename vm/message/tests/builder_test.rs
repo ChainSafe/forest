@@ -33,14 +33,14 @@ fn unsigned_message_builder() {
         .gas_price(BigUint::default())
         .build()
         .unwrap();
-    assert_eq!(message.from().clone(), from_addr.clone());
-    assert_eq!(message.to().clone(), to_addr.clone());
+    assert_eq!(message.from(), &from_addr.clone());
+    assert_eq!(message.to(), &to_addr.clone());
     assert_eq!(message.sequence(), 0);
-    assert_eq!(message.method_num().clone(), MethodNum::default());
-    assert_eq!(message.params().clone(), MethodParams::default());
-    assert_eq!(message.value().clone(), TokenAmount::new(0));
-    assert_eq!(message.gas_price().clone(), BigUint::default());
-    assert_eq!(message.gas_limit().clone(), BigUint::default());
+    assert_eq!(message.method_num(), &MethodNum::default());
+    assert_eq!(message.params(), &MethodParams::default());
+    assert_eq!(message.value(), &TokenAmount::new(0));
+    assert_eq!(message.gas_price(), &BigUint::default());
+    assert_eq!(message.gas_limit(), &BigUint::default());
     let mut mb = UnsignedMessage::builder();
     mb.to(to_addr.clone());
     mb.from(from_addr.clone());
@@ -50,8 +50,8 @@ fn unsigned_message_builder() {
     }
     // test unwrapping
     let u_msg = mb.build().unwrap();
-    assert_eq!(u_msg.from().clone(), from_addr.clone());
-    assert_eq!(u_msg.to().clone(), to_addr.clone());
+    assert_eq!(u_msg.from(), &from_addr.clone());
+    assert_eq!(u_msg.to(), &to_addr.clone());
     assert_eq!(u_msg.sequence(), 1);
 }
 
@@ -66,6 +66,6 @@ fn generate_signed_message() {
     let signed_msg = SignedMessage::new(&unsigned_msg, &DummySigner).unwrap();
 
     // Assert message and signature are expected
-    assert_eq!(signed_msg.message().clone(), unsigned_msg);
-    assert_eq!(signed_msg.signature().clone(), DUMMY_SIG.to_vec());
+    assert_eq!(signed_msg.message(), &unsigned_msg);
+    assert_eq!(signed_msg.signature(), &DUMMY_SIG.to_vec());
 }
