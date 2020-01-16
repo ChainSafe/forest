@@ -16,6 +16,9 @@ pub struct SignedMessage {
     signature: Signature,
 }
 
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
+
 impl SignedMessage {
     pub fn new(msg: &UnsignedMessage, s: &impl Signer) -> Result<SignedMessage, CryptoError> {
         let bz = msg.marshal_cbor()?;

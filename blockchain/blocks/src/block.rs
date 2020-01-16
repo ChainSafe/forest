@@ -30,6 +30,9 @@ pub struct Block {
     secp_messages: SignedMessage,
 }
 
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
+
 impl Cbor for Block {}
 
 impl RawBlock for Block {
@@ -61,6 +64,9 @@ pub struct TxMeta {
     pub bls_messages: Cid,
     pub secp_messages: Cid,
 }
+
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
 
 /// ElectionPoStVerifyInfo seems to be connected to VRF
 /// see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L1099

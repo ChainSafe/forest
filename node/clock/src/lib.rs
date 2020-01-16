@@ -11,6 +11,9 @@ const EPOCH_DURATION: i32 = 15;
 /// An epoch represents a single valid state in the blockchain
 pub struct ChainEpoch(i64);
 
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
+
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
 /// systems.
 pub struct ChainEpochClock {
