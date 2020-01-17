@@ -10,19 +10,26 @@ use network::service::NetworkMessage;
 
 #[derive(Default)]
 pub struct Syncer {
+    // TODO add ability to send msg to all subscribers indicating incoming blocks
+    // TODO add state manager
+    // TODO add block sync
+
     // manages sync buckets
-    sync_manager: SyncManager,
+    _sync_manager: SyncManager,
     // access and store tipsets / blocks / messages
     chain_store: ChainStore,
     // the known genesis tipset
-    genesis: Tipset,
+    _genesis: Tipset,
     // self peerId
-    own: PeerId,
-    // publish message to to all subscribers indicating incoming blocks
-    incoming: NetworkMessage
+    _own: PeerId,
 }
 
 impl Syncer {
+    /// constructor
+    pub fn new(&self) -> Self {
+        
+    }
+
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
@@ -35,23 +42,20 @@ impl Syncer {
         for i in 0..fts.blocks.len() {
             self.validate_msg_data(fts.blocks[i])
         }
+        // TODO send pubsub message indicating incoming blocks
+        // TODO Add peer to blocksync
 
-        // TODO
-        // send pubsub message indicating incoming blocks
-
-        // Store incoming block header
-        self.chain_store.persist_headers(fts.tipset());
-
-        // TODO
-        // Add peer to blocksync
-
-        // compare targetweight to heaviest weight stored
-        // ignore otherwise
-
-
-        // set peer head
-        self.sync_manager.set_peer_head(from, fts.tipset());
-
+        // compare targetweight to heaviest weight stored; ignore otherwise
+        let best_weight = self.chain_store.get_heaviest_tipset().blocks()[0].weight();
+        let target_weight = fts.tipset().blocks()[0].weight();
+        if !target_weight.lt(best_weight) {
+            // Store incoming block header
+            self.chain_store.persist_headers(fts.tipset());
+            // set peer head
+            self.sync_manager.set_peer_head(from, fts.tipset());
+        }
+        // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
+        return
     }
 
     fn validate_msg_data(&self, block: Block) {

@@ -2,13 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{Error, TipIndex};
-use blocks::RawBlock;
-use blocks::Tipset;
+use blocks::{BlockHeader, RawBlock, Tipset};
 use cid::Cid;
 use db::Error as DbError;
-use db::Read;
 use db::RocksDb as Blockstore;
-use db::Write;
+use db::{Read, Write};
 use network::service::NetworkMessage;
 use num_bigint::BigUint;
 
@@ -23,7 +21,7 @@ pub struct ChainStore {
     _genesis: Cid,
 
     // Tipset at the head of the best-known chain.
-    _head: Tipset,
+    heaviest: Tipset,
 
     // A pubsub channel that publishes an event every time the head changes.
     _notifications: NetworkMessage,
@@ -33,20 +31,27 @@ pub struct ChainStore {
 }
 
 impl ChainStore {
+    pub fn set_genesis(&self, _header: BlockHeader) {}
     pub fn weight(&self, _ts: &Tipset) -> Result<BigUint, Error> {
         // TODO
         Ok(BigUint::from(0 as u32))
     }
     pub fn persist_headers(&self, tip: &Tipset) -> Result<(), DbError> {
-        // TODO serialize and put blocks into raw format
         let mut raw_header_data = Vec::new();
         let mut keys = Vec::new();
         for i in 0..tip.blocks().len() {
-            if !self.db.exists(tip.blocks[i].get_cid().key())? {
-                raw_header_data.push(tip.blocks[i].raw_data());
-                keys.push(tip.blocks[i].get_cid().key());
+            if !self.db.exists(tip.blocks[i].cid().key())? {
+                raw_header_data.push(
+                    tip.blocks[i]
+                        .raw_data()
+                        .map_err(|_e| DbError::new("Cbor Error".to_string()))?,
+                );
+                keys.push(tip.blocks[i].cid().key())
             }
         }
         Ok(self.db.bulk_write(&keys, &raw_header_data)?)
+    }
+    pub fn get_heaviest_tipset(&self) -> &Tipset {
+        &self.heaviest
     }
 }

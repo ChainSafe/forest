@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::signature::{verify_bls_sig, BLS_SIG_LEN};
-use bls_signatures::{Serialize, Signature};
+use bls_signatures::{Serialize as BlsSerialize, Signature};
+use serde::{Deserialize, Serialize};
 
 pub struct VRFPublicKey(Vec<u8>);
 
@@ -14,8 +15,11 @@ impl VRFPublicKey {
 }
 
 /// The output from running a VRF
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct VRFResult(Vec<u8>);
+
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
 
 impl VRFResult {
     /// Creates a VRFResult from a raw vector
@@ -42,6 +46,9 @@ impl VRFResult {
         }
     }
 }
+
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/ferret/issues/143
 
 #[cfg(test)]
 mod tests {

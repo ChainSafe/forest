@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 chrono = "0.4.9"
+serde = { version = "1.0", features = ["derive"] }
