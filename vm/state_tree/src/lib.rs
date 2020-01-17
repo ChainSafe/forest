@@ -6,8 +6,8 @@ use address::Address;
 use std::collections::HashMap;
 
 pub trait StateTree {
-    fn get_actor(&self, addr: Address) -> Option<ActorState>;
-    fn set_actor(&mut self, addr: Address, actor: ActorState) -> Result<(), String>;
+    fn get_actor(&self, addr: &Address) -> Option<ActorState>;
+    fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String>;
 }
 
 struct HamtNode; // TODO
@@ -34,11 +34,11 @@ impl Default for HamtStateTree {
 }
 
 impl StateTree for HamtStateTree {
-    fn get_actor(&self, address: Address) -> Option<ActorState> {
+    fn get_actor(&self, address: &Address) -> Option<ActorState> {
         // TODO resolve ID address
 
         // Check cache for actor state
-        if let Some(addr) = self.actor_cache.get(&address) {
+        if let Some(addr) = self.actor_cache.get(address) {
             return Some(addr.clone());
         }
 
@@ -46,11 +46,11 @@ impl StateTree for HamtStateTree {
         // TODO
         None
     }
-    fn set_actor(&mut self, addr: Address, actor: ActorState) -> Result<(), String> {
+    fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String> {
         // TODO resolve ID address
 
         // Set actor state in cache
-        if let Some(act) = self.actor_cache.insert(addr, actor.clone()) {
+        if let Some(act) = self.actor_cache.insert(addr.clone(), actor.clone()) {
             if act == actor {
                 // New value is same as cached, no need to set in hamt
                 return Ok(());
@@ -79,14 +79,14 @@ mod tests {
         let mut tree = HamtStateTree::default();
 
         // test address not in cache
-        assert_eq!(tree.get_actor(addr.clone()), None);
+        assert_eq!(tree.get_actor(&addr), None);
         // test successful insert
-        assert_eq!(tree.set_actor(addr.clone(), act_s.clone()), Ok(()));
+        assert_eq!(tree.set_actor(&addr, act_s.clone()), Ok(()));
         // test inserting with different data
-        assert_eq!(tree.set_actor(addr.clone(), act_a.clone()), Ok(()));
+        assert_eq!(tree.set_actor(&addr, act_a.clone()), Ok(()));
         // Assert insert with same data returns ok
-        assert_eq!(tree.set_actor(addr.clone(), act_a.clone()), Ok(()));
+        assert_eq!(tree.set_actor(&addr, act_a.clone()), Ok(()));
         // test getting set item
-        assert_eq!(tree.get_actor(addr.clone()).unwrap(), act_a);
+        assert_eq!(tree.get_actor(&addr).unwrap(), act_a);
     }
 }

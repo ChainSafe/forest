@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{ExitCode, MethodNum, MethodParams, TokenAmount};
-
 use address::Address;
 
 /// Input variables for actor method invocation.

@@ -7,6 +7,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
+
 /// TipSetMetadata is the type stored as the value in the TipIndex hashmap.  It contains
 /// a tipset pointing to blocks, the root cid of the chain's state after
 /// applying the messages in this tipset to it's parent state, and the cid of the receipts
@@ -74,15 +75,15 @@ impl TipIndex {
             .ok_or_else(|| Error::UndefinedKey("invalid metadata key".to_string()))
     }
 
-    /// get_tipset returns a tipset
+    /// Returns the tipset corresponding to the hashed index
     pub fn get_tipset<I: Index>(&self, idx: &I) -> Result<Tipset, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset)?)
     }
-    /// get_tipset_state_root returns the tipset_state_root
+    /// Returns the state root for the tipset corresponding to the index
     pub fn get_tipset_state_root<I: Index>(&self, idx: &I) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_state_root)?)
     }
-    /// get_tipset_receipts_root returns the tipset_receipts_root
+    /// Returns the receipt root for the tipset corresponding to the index
     pub fn get_tipset_receipts_root<I: Index>(&self, idx: &I) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_receipts_root)?)
     }
