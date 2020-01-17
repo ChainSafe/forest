@@ -71,36 +71,36 @@ impl UnsignedMessage {
 
 impl Message for UnsignedMessage {
     /// from returns the from address of the message
-    fn from(&self) -> Address {
-        self.from.clone()
+    fn from(&self) -> &Address {
+        &self.from
     }
     /// to returns the destination address of the message
-    fn to(&self) -> Address {
-        self.to.clone()
+    fn to(&self) -> &Address {
+        &self.to
     }
     /// sequence returns the message sequence or nonce
     fn sequence(&self) -> u64 {
         self.sequence
     }
     /// value returns the amount sent in message
-    fn value(&self) -> TokenAmount {
-        self.value.clone()
+    fn value(&self) -> &TokenAmount {
+        &self.value
     }
     /// method_num returns the method number to be called
-    fn method_num(&self) -> MethodNum {
-        self.method_num.clone()
+    fn method_num(&self) -> &MethodNum {
+        &self.method_num
     }
     /// params returns the encoded parameters for the method call
-    fn params(&self) -> MethodParams {
-        self.params.clone()
+    fn params(&self) -> &MethodParams {
+        &self.params
     }
     /// gas_price returns gas price for the message
-    fn gas_price(&self) -> BigUint {
-        self.gas_price.clone()
+    fn gas_price(&self) -> &BigUint {
+        &self.gas_price
     }
     /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> BigUint {
-        self.gas_limit.clone()
+    fn gas_limit(&self) -> &BigUint {
+        &self.gas_limit
     }
 }
 
