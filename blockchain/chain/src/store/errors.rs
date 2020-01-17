@@ -31,7 +31,11 @@ impl fmt::Display for Error {
             Error::NoBlocks => write!(f, "No blocks for tipset"),
             Error::KeysExist => write!(f, "Keys already exist in store"),
             Error::KVError(msg) => write!(f, "Error originating from Key-Value store: {}", msg),
-            Error::BlkError(msg) => write!(f, "Error originating from construction of blockchain structures: {}", msg),
+            Error::BlkError(msg) => write!(
+                f,
+                "Error originating from construction of blockchain structures: {}",
+                msg
+            ),
             Error::EncodingError(msg) => write!(f, "Error originating from Encoding type: {}", msg),
         }
     }

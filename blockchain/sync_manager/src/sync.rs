@@ -6,7 +6,6 @@ use super::manager::SyncManager;
 use blocks::{Tipset, Block, FullTipset};
 use libp2p::core::PeerId;
 use chain::ChainStore;
-use network::service::NetworkMessage;
 
 #[derive(Default)]
 pub struct Syncer {
