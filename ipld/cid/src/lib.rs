@@ -17,6 +17,8 @@ use std::fmt;
 use std::io::Cursor;
 
 const CBOR_TAG_CID: u64 = 42;
+/// multibase identity prefix
+/// https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#link-format
 const MULTIBASE_IDENTITY: u8 = 0;
 
 /// Prefix represents all metadata of a CID, without the actual content.
