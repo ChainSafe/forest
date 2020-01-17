@@ -25,10 +25,7 @@ pub struct Syncer {
 }
 
 impl Syncer {
-    /// constructor
-    pub fn new(&self) -> Self {
-        
-    }
+    /// TODO add constructor
 
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
@@ -51,7 +48,7 @@ impl Syncer {
         if !target_weight.lt(best_weight) {
             // Store incoming block header
             self.chain_store.persist_headers(fts.tipset());
-            // set peer head
+            // Set peer head
             self.sync_manager.set_peer_head(from, fts.tipset());
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
@@ -60,10 +57,12 @@ impl Syncer {
 
     fn validate_msg_data(&self, block: Block) {
         // TODO call compute_msg_data to get message roots
+        // TODO compare message roots to header roots
+        // TODO store message into message store
         unimplemented!()
     }
     fn compute_msg_data(&self, block: Block) {
-        //TODO 
+        // TODO compute message roots 
         unimplemented!()
     }
     
