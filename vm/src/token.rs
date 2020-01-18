@@ -20,7 +20,8 @@ impl ser::Serialize for TokenAmount {
     where
         S: ser::Serializer,
     {
-        let bz = self.0.to_bytes_be();
+        let mut bz = self.0.to_bytes_be();
+        bz.insert(0, 0); // Sign byte (filecoin spec)
         let value = serde_bytes::Bytes::new(&bz);
         serde_bytes::Serialize::serialize(value, s)
     }
@@ -32,6 +33,6 @@ impl<'de> de::Deserialize<'de> for TokenAmount {
         D: de::Deserializer<'de>,
     {
         let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
-        Ok(TokenAmount(BigUint::from_bytes_be(bz)))
+        Ok(TokenAmount(BigUint::from_bytes_be(&bz[1..])))
     }
 }

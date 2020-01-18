@@ -20,7 +20,7 @@ pub enum AccountMethod {
 impl AccountMethod {
     /// from_method_num converts a method number into an AccountMethod enum
     fn from_method_num(m: MethodNum) -> Option<AccountMethod> {
-        FromPrimitive::from_i32(m.into())
+        FromPrimitive::from_u64(u64::from(m))
     }
 }
 

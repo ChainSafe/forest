@@ -40,7 +40,7 @@ pub enum InitMethod {
 impl InitMethod {
     /// from_method_num converts a method number into an InitMethod enum
     fn from_method_num(m: MethodNum) -> Option<InitMethod> {
-        FromPrimitive::from_i32(m.into())
+        FromPrimitive::from_u64(u64::from(m))
     }
 }
 

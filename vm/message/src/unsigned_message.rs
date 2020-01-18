@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::Message;
-use crate::TokenAmount;
-use crate::{MethodNum, MethodParams};
-
 use address::Address;
 use derive_builder::Builder;
-use encoding::Cbor;
+use encoding::{de, ser, Cbor};
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
+use vm::{MethodNum, MethodParams, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
@@ -41,7 +39,7 @@ use serde::{Deserialize, Serialize};
 /// let msg = message_builder.build().unwrap();
 /// assert_eq!(msg.sequence(), 1);
 /// ```
-#[derive(PartialEq, Clone, Debug, Builder, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Debug, Builder)]
 #[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
     from: Address,
@@ -60,12 +58,60 @@ pub struct UnsignedMessage {
     gas_limit: BigUint,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
-
 impl UnsignedMessage {
     pub fn builder() -> MessageBuilder {
         MessageBuilder::default()
+    }
+}
+
+/// Structure defines how the fields are cbor encoded as an unsigned message
+#[derive(Serialize, Deserialize)]
+struct CborUnsignedMessage(
+    Address,      // To
+    Address,      // from
+    u64,          // Sequence
+    TokenAmount,  // Value
+    BigUint,      // GasPrice
+    BigUint,      // GasLimit
+    MethodNum,    // Method
+    MethodParams, // Params
+);
+
+impl ser::Serialize for UnsignedMessage {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let value: CborUnsignedMessage = CborUnsignedMessage(
+            self.to.clone(),
+            self.from.clone(),
+            self.sequence,
+            self.value.clone(),
+            self.gas_price.clone(),
+            self.gas_limit.clone(),
+            self.method_num,
+            self.params.clone(),
+        );
+        CborUnsignedMessage::serialize(&value, s)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for UnsignedMessage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let cm = CborUnsignedMessage::deserialize(deserializer)?;
+        Ok(Self {
+            to: cm.0,
+            from: cm.1,
+            sequence: cm.2,
+            value: cm.3,
+            gas_price: cm.4,
+            gas_limit: cm.5,
+            method_num: cm.6,
+            params: cm.7,
+        })
     }
 }
 
