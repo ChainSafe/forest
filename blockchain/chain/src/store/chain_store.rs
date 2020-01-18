@@ -9,9 +9,11 @@ use encoding::from_slice;
 use network::service::NetworkMessage;
 use num_bigint::BigUint;
 
+#[derive(Default)]
 pub struct ChainStore {
     // TODO add IPLD Store
     // TODO add StateTreeLoader
+    // TODO add a pubsub channel that publishes an event every time the head changes.
 
     // key-value datastore
     db: Blockstore,
@@ -21,9 +23,6 @@ pub struct ChainStore {
 
     // Tipset at the head of the best-known chain.
     heaviest: Tipset,
-
-    // A pubsub channel that publishes an event every time the head changes.
-    _notifications: NetworkMessage,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     _tip_index: TipIndex,
@@ -43,10 +42,11 @@ impl ChainStore {
     pub fn persist_headers(&self, tip: &Tipset) -> Result<(), DbError> {
         let mut raw_header_data = Vec::new();
         let mut keys = Vec::new();
-        for i in 0..tip.blocks().len() {
-            if !self.db.exists(tip.blocks[i].cid().key())? {
-                raw_header_data.push(tip.blocks[i].raw_data()?);
-                keys.push(tip.blocks[i].cid().key())
+        // loop through block to push blockheader raw data and cid into vector to be stored
+        for block in tip.blocks() {
+            if !self.db.exists(block.cid().key())? {
+                raw_header_data.push(block.raw_data()?);
+                keys.push(block.cid().key());
             }
         }
         Ok(self.db.bulk_write(&keys, &raw_header_data)?)

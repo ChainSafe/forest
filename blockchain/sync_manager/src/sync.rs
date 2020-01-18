@@ -3,18 +3,18 @@
 
 use super::errors::Error;
 use super::manager::SyncManager;
-use blocks::{Tipset, Block, FullTipset};
-use libp2p::core::PeerId;
+use blocks::{Block, FullTipset, Tipset};
 use chain::ChainStore;
+use libp2p::core::PeerId;
 
 #[derive(Default)]
-pub struct Syncer {
+pub struct Syncer<'_> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
     // TODO add state manager
     // TODO add block sync
 
     // manages sync buckets
-    _sync_manager: SyncManager,
+    _sync_manager: SyncManager<'_>,
     // access and store tipsets / blocks / messages
     chain_store: ChainStore,
     // the known genesis tipset
@@ -31,12 +31,12 @@ impl Syncer {
     /// when receiving new blocks from the network
     fn inform_new_head(&self, from: PeerId, fts: FullTipset) {
         // check if full block is nil and if so return error
-        if fts.blocks.is_empty() {
+        if fts.blocks().is_empty() {
             return Err(Error::NoBlocks);
         }
         // TODO validate message data
-        for i in 0..fts.blocks.len() {
-            self.validate_msg_data(fts.blocks[i])
+        for block in fts.blocks() {
+            self.validate_msg_data(block)
         }
         // TODO send pubsub message indicating incoming blocks
         // TODO Add peer to blocksync
@@ -51,18 +51,16 @@ impl Syncer {
             self.sync_manager.set_peer_head(from, fts.tipset());
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
-        return
     }
 
-    fn validate_msg_data(&self, block: Block) {
+    fn validate_msg_data(&self, block: &Block) {
         // TODO call compute_msg_data to get message roots
         // TODO compare message roots to header roots
         // TODO store message into message store
         unimplemented!()
     }
-    fn compute_msg_data(&self, block: Block) {
-        // TODO compute message roots 
+    fn compute_msg_data(&self, block: &Block) {
+        // TODO compute message roots
         unimplemented!()
     }
-    
 }

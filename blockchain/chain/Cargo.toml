@@ -11,6 +11,7 @@ network = { path = "../../node/network" }
 cid = { package = "ferret_cid", path = "../../ipld/cid" }
 clock = { path = "../../node/clock" }
 num-bigint = "0.2.3"
+
 encoding = { path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = { version = "0.11.0", features = ["tags"] }

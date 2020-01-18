@@ -12,7 +12,7 @@ enum DbStatus {
     Open(DB),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RocksDb {
     status: DbStatus,
 }

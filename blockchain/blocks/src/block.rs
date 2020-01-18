@@ -9,7 +9,6 @@ use encoding::Cbor;
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 // DefaultHashFunction represents the default hashing function to use
 // TODO SHOULD BE BLAKE2B256 (256 hashing not implemented)
@@ -23,22 +22,22 @@ struct PoStProof {}
 /// A complete block
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Block {
-    pub header: BlockHeader,
+    header: BlockHeader,
     bls_messages: UnsignedMessage,
     secp_messages: SignedMessage,
+}
+
+impl Block {
+    /// Returns reference to BlockHeader
+    pub fn get_header(&self) -> BlockHeader {
+        self.header.clone()
+    }
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
 // https://github.com/ChainSafe/ferret/issues/143
 
 impl Cbor for Block {}
-
-/// human-readable string representation of a block CID
-impl fmt::Display for BlockHeader {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "block: {:?}", self.cid())
-    }
-}
 
 /// Tracks the merkleroots of both secp and bls messages separately
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
