@@ -23,6 +23,7 @@ impl Ticket {
     }
 }
 
+/// PoSt election candidates
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct EPostTicket {
     partial: Vec<u8>,
@@ -30,6 +31,7 @@ pub struct EPostTicket {
     challenge_index: u64
 }
 
+/// Proof of Spacetime election proof
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct EPostProof {
     proof: Vec<u8>,
