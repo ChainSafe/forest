@@ -3,9 +3,8 @@
 
 use blocks::Error as BlkErr;
 use db::Error as DbErr;
-use encoding::Error as EncErr;
+use encoding::{error::Error as SerdeErr, Error as EncErr};
 use serde::Deserialize;
-use serde_cbor::error::Error as SerdeErr;
 use std::fmt;
 
 #[derive(Debug, PartialEq, Deserialize)]

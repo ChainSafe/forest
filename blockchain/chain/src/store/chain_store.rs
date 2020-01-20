@@ -6,7 +6,6 @@ use blocks::{BlockHeader, RawBlock, Tipset};
 use cid::Cid;
 use db::{Error as DbError, Read, RocksDb as Blockstore, Write};
 use encoding::from_slice;
-use network::service::NetworkMessage;
 use num_bigint::BigUint;
 
 #[derive(Default)]
@@ -29,6 +28,8 @@ pub struct ChainStore {
 }
 
 impl ChainStore {
+    /// TODO add constructor
+
     pub fn weight(&self, _ts: &Tipset) -> Result<BigUint, Error> {
         // TODO
         Ok(BigUint::from(0 as u32))
@@ -54,7 +55,12 @@ impl ChainStore {
     /// Returns genesis blockheader from blockstore
     pub fn get_genesis(&self) -> Result<BlockHeader, Error> {
         let bz = self.db.read(self.genesis.key())?;
-        from_slice(&bz.unwrap())?
+        match bz {
+            None => Err(Error::UndefinedKey(
+                "Genesis key does not exist".to_string(),
+            )),
+            Some(ref x) => from_slice(&x)?,
+        }
     }
     /// Returns heaviest tipset from blockstore
     pub fn get_heaviest_tipset(&self) -> &Tipset {

@@ -20,7 +20,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Other(err) => write!(f, "Other cid Error: {}", err.clone()),
-            _ => f.write_str(error::Error::description(self)),
+            _ => f.write_str(&self.to_string()),
         }
     }
 }

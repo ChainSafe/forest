@@ -20,6 +20,6 @@ impl<'a> SyncManager<'a> {
     }
     pub fn set_peer_head(&self, _peer: PeerId, _ts: Tipset) {
         // TODO
-        unimplemented!()
+        todo!()
     }
 }
