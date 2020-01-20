@@ -11,4 +11,4 @@ vm = { path = "../../vm" }
 cid = { package = "ferret_cid", path = "../../ipld/cid" }
 
 [dev-dependencies]
-num-bigint = "0.2.3"
+num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "e63039f89fa5ba5f3c02f7be9de00652d52e5056" }

@@ -51,14 +51,9 @@ struct TestVector {
 
 fn encode_assert_cbor(message: &UnsignedMessage, expected: &[u8]) {
     let enc_bz: Vec<u8> = to_vec(message).expect("cbor serialization failed");
-    // TODO remove hex encoding
-    // enc_bz.iter().for_each(|b| print!("{:b}", b));
-    // println!();
-    // expected.iter().for_each(|b| print!("{:b}", b));
-    // use hex::encode;
-    // assert_eq!(encode(&enc_bz), encode(expected));
-    // TODO remove only checking first bytes (after bigint and method param encoding format)
-    assert_eq!(&enc_bz[..53], &expected[..53]);
+
+    // TODO remove only checking first bytes (after method param encoding format)
+    assert_eq!(&enc_bz[..81], &expected[..81]);
 }
 
 #[test]

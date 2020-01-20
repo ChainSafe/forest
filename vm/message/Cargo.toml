@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 vm = { path = "../../vm" }
 address = { path = "../address" }
-num-bigint = { version = "0.2.3", features = ["serde"] }
+num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "e63039f89fa5ba5f3c02f7be9de00652d52e5056", features = ["serde_derive"] }
 encoding = { path = "../../encoding" }
 crypto = { path = "../../crypto" }
 derive_builder = "0.9"
