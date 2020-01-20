@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
 /// Method number indicator for calling actor methods
-#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MethodNum(i32); // TODO: add constraints to this
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
