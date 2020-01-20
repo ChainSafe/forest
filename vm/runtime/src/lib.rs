@@ -31,16 +31,16 @@ pub trait Runtime {
     fn randomness(&self, epoch: ChainEpoch, offset: u64) -> Randomness;
 
     /// Not necessarily the actor in the From field of the initial on-chain Message.
-    fn immediate_caller(&self) -> Address;
-    fn validate_immediate_caller_is(&self, caller: Address);
+    fn immediate_caller(&self) -> &Address;
+    fn validate_immediate_caller_is(&self, caller: &Address);
     fn validate_immediate_caller_accept_any(&self);
     fn validate_immediate_caller_matches(&self, caller_pattern: CallerPattern); // TODO add caller pattern
 
     /// The address of the actor receiving the message.
-    fn curr_receiver(&self) -> Address;
+    fn curr_receiver(&self) -> &Address;
 
     /// The actor who mined the block in which the initial on-chain message appears.
-    fn top_level_block_winner(&self) -> Address;
+    fn top_level_block_winner(&self) -> &Address;
 
     fn acquire_state(&self) -> ActorStateHandle; // TODO add actor state handle
 
@@ -97,12 +97,12 @@ pub trait Runtime {
     /// Create an actor in the state tree. May only be called by InitActor.
     fn create_actor(
         &self,
-        state_cid: Cid,
-        a: Address,
+        state_cid: &Cid,
+        a: &Address,
         init_balance: TokenAmount,
         constructor_params: dyn Any, // TODO define params
     );
 
-    fn ipld_get(&self, c: Cid) -> Result<Vec<u8>, String>; // TODO add error type
+    fn ipld_get(&self, c: &Cid) -> Result<Vec<u8>, String>; // TODO add error type
     fn ipld_put(&self, object: IPLDObject) -> Cid; // TODO define IPLD object
 }
