@@ -27,8 +27,8 @@ impl Ticket {
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct EPostTicket {
     partial: Vec<u8>,
-    sector_ID: u64,
-    challenge_index: u64
+    sector_id: u64,
+    challenge_index: u64,
 }
 
 /// Proof of Spacetime election proof
@@ -36,5 +36,5 @@ pub struct EPostTicket {
 pub struct EPostProof {
     proof: Vec<u8>,
     post_rand: Vec<u8>,
-    candidates: Vec<EPostTicket>
+    candidates: Vec<EPostTicket>,
 }

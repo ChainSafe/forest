@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{RawBlock, Ticket, TipSetKeys, TxMeta, EPostProof};
+use super::{EPostProof, RawBlock, Ticket, TipSetKeys, TxMeta};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -175,11 +175,17 @@ impl BlockHeader {
         &self.cached_cid
     }
     /// Getter for BlockHeader fork_signal
-    pub fn fork_signal(&self) -> u64 { self.fork_signal }
+    pub fn fork_signal(&self) -> u64 {
+        self.fork_signal
+    }
     /// Getter for BlockHeader epost_verify
-    pub fn epost_verify(&self) -> &EPostProof { &self.epost_verify }
+    pub fn epost_verify(&self) -> &EPostProof {
+        &self.epost_verify
+    }
     /// Getter for BlockHeader signature
-    pub fn signature(&self) -> &Signature { &self.signature }
+    pub fn signature(&self) -> &Signature {
+        &self.signature
+    }
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
