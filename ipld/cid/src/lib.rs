@@ -17,6 +17,9 @@ use std::fmt;
 use std::io::Cursor;
 
 const CBOR_TAG_CID: u64 = 42;
+/// multibase identity prefix
+/// https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#link-format
+const MULTIBASE_IDENTITY: u8 = 0;
 
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -52,7 +55,12 @@ impl ser::Serialize for Cid {
     where
         S: ser::Serializer,
     {
-        let cid_bytes = self.to_bytes();
+        let mut cid_bytes = self.to_bytes();
+
+        // TODO determine if identity multibase prefix should just be included for IPLD links
+        // or for all Cid bytes (byte is irrelevant and redundant)
+        cid_bytes.insert(0, MULTIBASE_IDENTITY);
+
         let value = serde_bytes::Bytes::new(&cid_bytes);
         Tagged::new(Some(CBOR_TAG_CID), &value).serialize(s)
     }
@@ -65,12 +73,15 @@ impl<'de> de::Deserialize<'de> for Cid {
     {
         let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
         match tagged.tag {
-            // TODO verify this
-            Some(CBOR_TAG_CID) | None => Ok(tagged
-                .value
-                .to_vec()
-                .to_cid()
-                .map_err(|e| de::Error::custom(e.to_string()))?),
+            Some(CBOR_TAG_CID) | None => {
+                let mut bz = tagged.value.to_vec();
+
+                if bz.first() == Some(&MULTIBASE_IDENTITY) {
+                    bz.remove(0);
+                }
+
+                Ok(bz.to_cid().map_err(|e| de::Error::custom(e.to_string()))?)
+            }
             Some(_) => Err(de::Error::custom("unexpected tag")),
         }
     }

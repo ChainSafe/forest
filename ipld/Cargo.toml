@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 encoding = { path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
+cid = { package = "ferret_cid", path = "../ipld/cid" }
 
 [dev-dependencies]
-cid = { package = "ferret_cid", path = "../ipld/cid" }
 encoding = { path = "../encoding" }
