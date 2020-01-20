@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
+use cid::Cid;
 use encoding::de;
 use encoding::tags::current_cbor_tag;
 use serde::Deserialize;
@@ -18,7 +19,7 @@ pub enum Ipld {
     Bytes(Vec<u8>),
     List(Vec<Ipld>),
     Map(BTreeMap<String, Ipld>),
-    Link(Vec<u8>),
+    Link(Cid),
 }
 
 /// Struct used in deserialization to decode cbor encoded data (including Cid tagged)
@@ -140,11 +141,9 @@ impl<'de> de::Visitor<'de> for IpldVisitor {
     {
         match current_cbor_tag() {
             Some(42) => {
-                let link = match Ipld::deserialize(deserializer) {
-                    Ok(Ipld::Bytes(link)) => link,
-                    _ => return Err(de::Error::custom("bytes expected")),
-                };
-                Ok(Ipld::Link(link))
+                let cid = Cid::deserialize(deserializer)?;
+
+                Ok(Ipld::Link(cid))
             }
             Some(tag) => Err(de::Error::custom(format!("unexpected tag ({})", tag))),
             _ => Err(de::Error::custom("tag expected")),
