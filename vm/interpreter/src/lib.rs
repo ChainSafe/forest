@@ -2,30 +2,38 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use address::Address;
+use blocks::Tipset;
+use chain::ChainStore;
 use clock::ChainEpoch;
 use message::{MessageReceipt, SignedMessage, UnsignedMessage};
 use state_tree::StateTree;
-use std::error::Error;
+use vm::TokenAmount;
 
+/// Interpreter which handles execution of state transitioning messages and returns receipts
+/// from the vm execution.
 pub struct VMInterpreter {} // TODO add context necessary
 impl VMInterpreter {
     /// Apply all messages from a tipset
-    pub fn apply_tip_set_messages(
-        _in_tree: &impl StateTree,
-        _msgs: TipSetMessages,
-    ) -> Result<Vec<MessageReceipt>, Box<dyn Error>> {
+    /// Returns result StateTree and the receipts from the transactions
+    pub fn apply_tip_set_messages<ST: StateTree>(
+        _in_tree: &ST,
+        _tipset: &Tipset,
+        _msgs: &TipSetMessages,
+    ) -> (ST, Vec<MessageReceipt>) {
         // TODO
-        unimplemented!()
+        todo!()
     }
 
     /// Applies the state transition for a single message
-    pub fn apply_message(
-        _in_tree: &impl StateTree,
-        _msg: UnsignedMessage,
-        _miner_addr: Address,
-    ) -> Result<Vec<MessageReceipt>, Box<dyn Error>> {
+    /// Returns result StateTree, receipts from the transaction, and the miner penalty token amount
+    pub fn apply_message<ST: StateTree>(
+        _in_tree: &ST,
+        _chain: &ChainStore,
+        _msg: &UnsignedMessage,
+        _miner_addr: &Address,
+    ) -> (ST, MessageReceipt, TokenAmount) {
         // TODO
-        unimplemented!()
+        todo!()
     }
 }
 
