@@ -11,7 +11,7 @@ pub use unsigned_message::*;
 
 use address::Address;
 use num_bigint::BigUint;
-use vm::{MethodNum, MethodParams, TokenAmount};
+use vm::{MethodNum, Serialized, TokenAmount};
 
 pub trait Message {
     /// from returns the from address of the message
@@ -25,7 +25,7 @@ pub trait Message {
     /// method_num returns the method number to be called
     fn method_num(&self) -> &MethodNum;
     /// params returns the encoded parameters for the method call
-    fn params(&self) -> &MethodParams;
+    fn params(&self) -> &Serialized;
     /// gas_price returns gas price for the message
     fn gas_price(&self) -> &BigUint;
     /// gas_limit returns the gas limit for the message
