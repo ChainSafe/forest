@@ -22,3 +22,19 @@ impl Ticket {
         Self { vrfproof }
     }
 }
+
+/// PoSt election candidates
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+pub struct EPostTicket {
+    partial: Vec<u8>,
+    sector_id: u64,
+    challenge_index: u64,
+}
+
+/// Proof of Spacetime election proof
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+pub struct EPostProof {
+    proof: Vec<u8>,
+    post_rand: Vec<u8>,
+    candidates: Vec<EPostTicket>,
+}
