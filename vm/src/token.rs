@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use encoding::{de, ser, serde_bytes};
+use encoding::{de, ser};
 use num_bigint::BigUint;
 
 /// Wrapper around a big int variable to handle token specific functionality
@@ -20,10 +20,7 @@ impl ser::Serialize for TokenAmount {
     where
         S: ser::Serializer,
     {
-        let mut bz = self.0.to_bytes_be();
-        bz.insert(0, 0); // Sign byte (filecoin spec)
-        let value = serde_bytes::Bytes::new(&bz);
-        serde_bytes::Serialize::serialize(value, s)
+        self.0.serialize(s)
     }
 }
 
@@ -32,7 +29,6 @@ impl<'de> de::Deserialize<'de> for TokenAmount {
     where
         D: de::Deserializer<'de>,
     {
-        let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
-        Ok(TokenAmount(BigUint::from_bytes_be(&bz[1..])))
+        Ok(Self(BigUint::deserialize(deserializer)?))
     }
 }

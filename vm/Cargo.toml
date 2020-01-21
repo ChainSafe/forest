@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "e63039f89fa5ba5f3c02f7be9de00652d52e5056" }
+num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31", features = ["serde_derive"] }
 address = { path = "./address" }
 encoding = { path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
