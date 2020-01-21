@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use encoding::{ser, to_vec, Error as EncodingError};
+use encoding::{de, ser, serde_bytes, to_vec, Error as EncodingError};
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 /// Method number indicator for calling actor methods
 #[derive(Default, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
@@ -36,14 +36,31 @@ pub const METHOD_CRON: isize = 2;
 // TODO revisit on complete spec
 pub const METHOD_PLACEHOLDER: isize = 3;
 
-/// Serialized bytes to be used as individual parameters into actor methods
-#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
+/// Serialized bytes to be used as parameters into actor methods
+#[derive(Default, Clone, PartialEq, Debug)]
 pub struct Serialized {
     bytes: Vec<u8>,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+impl ser::Serialize for Serialized {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let value = serde_bytes::Bytes::new(&self.bytes);
+        serde_bytes::Serialize::serialize(value, s)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for Serialized {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        Ok(Serialized::new(bz))
+    }
+}
 
 impl Deref for Serialized {
     type Target = Vec<u8>;
@@ -68,27 +85,5 @@ impl Serialized {
     /// Returns serialized bytes
     pub fn bytes(&self) -> Vec<u8> {
         self.bytes.clone()
-    }
-}
-
-/// Method parameters used in Actor execution
-#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct MethodParams {
-    params: Vec<Serialized>,
-}
-
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
-
-impl Deref for MethodParams {
-    type Target = Vec<Serialized>;
-    fn deref(&self) -> &Self::Target {
-        &self.params
-    }
-}
-
-impl DerefMut for MethodParams {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.params
     }
 }
