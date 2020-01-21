@@ -6,7 +6,7 @@ use address::Address;
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
 use num_bigint::BigUint;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
@@ -64,25 +64,12 @@ impl UnsignedMessage {
     }
 }
 
-/// Structure defines how the fields are cbor encoded as an unsigned message
-#[derive(Serialize, Deserialize)]
-struct CborUnsignedMessage(
-    Address,     // To
-    Address,     // from
-    u64,         // Sequence
-    TokenAmount, // Value
-    BigUint,     // GasPrice
-    BigUint,     // GasLimit
-    MethodNum,   // Method
-    Serialized,  // Params
-);
-
 impl ser::Serialize for UnsignedMessage {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
-        let value: CborUnsignedMessage = CborUnsignedMessage(
+        (
             self.to.clone(),
             self.from.clone(),
             self.sequence,
@@ -91,8 +78,8 @@ impl ser::Serialize for UnsignedMessage {
             self.gas_limit.clone(),
             self.method_num,
             self.params.clone(),
-        );
-        CborUnsignedMessage::serialize(&value, s)
+        )
+            .serialize(s)
     }
 }
 
@@ -101,16 +88,17 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
     where
         D: de::Deserializer<'de>,
     {
-        let cm = CborUnsignedMessage::deserialize(deserializer)?;
+        let (to, from, sequence, value, gas_price, gas_limit, method_num, params) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Self {
-            to: cm.0,
-            from: cm.1,
-            sequence: cm.2,
-            value: cm.3,
-            gas_price: cm.4,
-            gas_limit: cm.5,
-            method_num: cm.6,
-            params: cm.7,
+            to,
+            from,
+            sequence,
+            value,
+            gas_price,
+            gas_limit,
+            method_num,
+            params,
         })
     }
 }
