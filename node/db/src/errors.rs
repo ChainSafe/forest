@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
+use blocks::Error as BlkErr;
+use encoding::Error as EncErr;
 use rocksdb;
 use std::fmt;
 
@@ -26,5 +28,17 @@ impl From<rocksdb::Error> for Error {
         Error {
             msg: String::from(e),
         }
+    }
+}
+
+impl From<BlkErr> for Error {
+    fn from(e: BlkErr) -> Error {
+        Error { msg: e.to_string() }
+    }
+}
+
+impl From<EncErr> for Error {
+    fn from(e: EncErr) -> Error {
+        Error { msg: e.to_string() }
     }
 }

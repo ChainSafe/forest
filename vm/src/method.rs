@@ -7,20 +7,20 @@ use std::ops::Deref;
 
 /// Method number indicator for calling actor methods
 #[derive(Default, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
-pub struct MethodNum(i32); // TODO: add constraints to this
+pub struct MethodNum(u64); // TODO: add constraints to this
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
 // https://github.com/ChainSafe/ferret/issues/143
 
 impl MethodNum {
     /// Constructor for new MethodNum
-    pub fn new(num: i32) -> Self {
+    pub fn new(num: u64) -> Self {
         Self(num)
     }
 }
 
-impl From<MethodNum> for i32 {
-    fn from(method_num: MethodNum) -> i32 {
+impl From<MethodNum> for u64 {
+    fn from(method_num: MethodNum) -> u64 {
         method_num.0
     }
 }
