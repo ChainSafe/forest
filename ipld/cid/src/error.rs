@@ -19,8 +19,11 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Error::UnknownCodec => write!(f, "Unknown codec"),
+            Error::InputTooShort => write!(f, "Input too short"),
+            Error::ParsingError => write!(f, "Failed to parse multihash"),
+            Error::InvalidCidVersion => write!(f, "Unrecognized CID version"),
             Error::Other(err) => write!(f, "Other cid Error: {}", err.clone()),
-            _ => f.write_str(error::Error::description(self)),
         }
     }
 }

@@ -3,6 +3,7 @@
 
 use super::bucket::SyncBucketSet;
 use blocks::Tipset;
+use libp2p::core::PeerId;
 
 #[derive(Default)]
 pub struct SyncManager<'a> {
@@ -16,5 +17,9 @@ impl<'a> SyncManager<'a> {
     }
     pub fn select_sync_target(&self) -> Option<&'a Tipset> {
         self.sync_queue.heaviest()
+    }
+    pub fn set_peer_head(&self, _peer: PeerId, _ts: Tipset) {
+        // TODO
+        todo!()
     }
 }
