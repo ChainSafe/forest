@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{RawBlock, Ticket, TipSetKeys, TxMeta};
+use super::{EPostProof, RawBlock, Ticket, TipSetKeys, TxMeta};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -71,6 +71,15 @@ pub struct BlockHeader {
     #[builder(default)]
     state_root: Cid,
 
+    #[builder(default)]
+    fork_signal: u64,
+
+    #[builder(default)]
+    signature: Signature,
+
+    #[builder(default)]
+    epost_verify: EPostProof,
+
     // CONSENSUS
     /// timestamp, in seconds since the Unix epoch, at which this block was created
     #[builder(default)]
@@ -87,6 +96,7 @@ pub struct BlockHeader {
     #[serde(skip_serializing)]
     #[builder(default)]
     cached_cid: Cid,
+
     /// stores the hashed bytes of the block after the fist call to `cid()`
     #[serde(skip_serializing)]
     #[builder(default)]
@@ -163,6 +173,18 @@ impl BlockHeader {
     pub fn cid(&self) -> &Cid {
         // Cache should be initialized, otherwise will return default Cid
         &self.cached_cid
+    }
+    /// Getter for BlockHeader fork_signal
+    pub fn fork_signal(&self) -> u64 {
+        self.fork_signal
+    }
+    /// Getter for BlockHeader epost_verify
+    pub fn epost_verify(&self) -> &EPostProof {
+        &self.epost_verify
+    }
+    /// Getter for BlockHeader signature
+    pub fn signature(&self) -> &Signature {
+        &self.signature
     }
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {

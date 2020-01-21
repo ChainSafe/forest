@@ -4,8 +4,8 @@
 use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{arg_end, ActorCode, Runtime};
-use vm::{ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR};
+use runtime::{ActorCode, Runtime};
+use vm::{ExitCode, InvocOutput, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
 
 /// State of storage power actor
 pub struct StoragePowerActorState {
@@ -51,15 +51,12 @@ impl ActorCode for StoragePowerActorCode {
         &self,
         rt: &RT,
         method: MethodNum,
-        params: &MethodParams,
+        _params: &Serialized,
     ) -> InvocOutput {
         match StoragePowerMethod::from_method_num(method) {
             // TODO determine parameters for each method on finished spec
             Some(StoragePowerMethod::Constructor) => Self::constructor(rt),
-            Some(StoragePowerMethod::GetTotalStorage) => {
-                arg_end(params, rt);
-                Self::get_total_storage(rt)
-            }
+            Some(StoragePowerMethod::GetTotalStorage) => Self::get_total_storage(rt),
             _ => {
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),

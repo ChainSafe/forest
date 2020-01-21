@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use vm::{
-    ExitCode, InvocInput, InvocOutput, MethodNum, MethodParams, SysCode, TokenAmount,
+    ExitCode, InvocInput, InvocOutput, MethodNum, Serialized, SysCode, TokenAmount,
     METHOD_CONSTRUCTOR, METHOD_CRON,
 };
 
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{arg_end, ActorCode, Runtime};
+use runtime::{ActorCode, Runtime};
 
 /// CronActorState has no internal state
 #[derive(Default)]
@@ -55,11 +55,11 @@ impl CronActorCode {
     fn epoch_tick<RT: Runtime>(&self, rt: &RT) -> InvocOutput {
         // self.entries is basically a static registry for now, loaded
         // in the interpreter static registry.
-        for entry in self.entries.clone() {
+        for entry in &self.entries {
             let res = rt.send_catching_errors(InvocInput {
-                to: entry.to_addr,
+                to: entry.to_addr.clone(),
                 method: entry.method_num,
-                params: MethodParams::default(),
+                params: Serialized::default(),
                 value: TokenAmount::new(0),
             });
             if let Err(e) = res {
@@ -76,17 +76,15 @@ impl ActorCode for CronActorCode {
         &self,
         rt: &RT,
         method: MethodNum,
-        params: &MethodParams,
+        _params: &Serialized,
     ) -> InvocOutput {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {
-                // Assert no parameters passed
-                arg_end(params, rt);
+                // TODO unfinished spec
                 Self::constructor(rt)
             }
             Some(CronMethod::Cron) => {
-                // Assert no parameters passed
-                arg_end(params, rt);
+                // TODO unfinished spec
                 self.epoch_tick(rt)
             }
             _ => {

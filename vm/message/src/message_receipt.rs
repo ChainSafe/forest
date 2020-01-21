@@ -4,7 +4,7 @@
 use num_bigint::BigUint;
 use vm::ExitCode;
 
-/// MessageReceipt is the result of a state transition from a message
+/// Result of a state transition from a message
 #[derive(PartialEq, Clone)]
 pub struct MessageReceipt {
     // TODO: determine if this is necessary, code returned from cbor

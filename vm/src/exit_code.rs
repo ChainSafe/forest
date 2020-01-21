@@ -4,11 +4,15 @@
 /// ExitCode defines the exit code from the VM execution
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum ExitCode {
+    /// Code for successful VM execution
     Success,
+    /// VM execution failed with system error
     SystemErrorCode(SysCode),
+    /// VM execution failed with a user code
     UserDefinedError(UserCode),
 }
 
+/// Defines the system error codes defined by the protocol
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum SysCode {
     /// ActorNotFound represents a failure to find an actor.
@@ -53,6 +57,7 @@ pub enum SysCode {
     MethodSubcallError,
 }
 
+/// defines user specific error codes from VM execution
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum UserCode {
     InsufficientFunds,

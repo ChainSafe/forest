@@ -7,14 +7,14 @@ use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
-use vm::{MethodNum, MethodParams, TokenAmount};
+use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
 /// Usage:
 /// ```
 /// use message::{UnsignedMessage, Message};
-/// use vm::{TokenAmount, MethodParams, MethodNum};
+/// use vm::{TokenAmount, Serialized, MethodNum};
 /// use num_bigint::BigUint;
 /// use address::Address;
 ///
@@ -25,7 +25,7 @@ use vm::{MethodNum, MethodParams, TokenAmount};
 ///     .sequence(0) // optional
 ///     .value(TokenAmount::new(0)) // optional
 ///     .method_num(MethodNum::default()) // optional
-///     .params(MethodParams::default()) // optional
+///     .params(Serialized::default()) // optional
 ///     .gas_limit(BigUint::default()) // optional
 ///     .gas_price(BigUint::default()) // optional
 ///     .build()
@@ -51,7 +51,7 @@ pub struct UnsignedMessage {
     #[builder(default)]
     method_num: MethodNum,
     #[builder(default)]
-    params: MethodParams,
+    params: Serialized,
     #[builder(default)]
     gas_price: BigUint,
     #[builder(default)]
@@ -67,14 +67,14 @@ impl UnsignedMessage {
 /// Structure defines how the fields are cbor encoded as an unsigned message
 #[derive(Serialize, Deserialize)]
 struct CborUnsignedMessage(
-    Address,      // To
-    Address,      // from
-    u64,          // Sequence
-    TokenAmount,  // Value
-    BigUint,      // GasPrice
-    BigUint,      // GasLimit
-    MethodNum,    // Method
-    MethodParams, // Params
+    Address,     // To
+    Address,     // from
+    u64,         // Sequence
+    TokenAmount, // Value
+    BigUint,     // GasPrice
+    BigUint,     // GasLimit
+    MethodNum,   // Method
+    Serialized,  // Params
 );
 
 impl ser::Serialize for UnsignedMessage {
@@ -116,39 +116,30 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
 }
 
 impl Message for UnsignedMessage {
-    /// from returns the from address of the message
     fn from(&self) -> &Address {
         &self.from
     }
-    /// to returns the destination address of the message
     fn to(&self) -> &Address {
         &self.to
     }
-    /// sequence returns the message sequence or nonce
     fn sequence(&self) -> u64 {
         self.sequence
     }
-    /// value returns the amount sent in message
     fn value(&self) -> &TokenAmount {
         &self.value
     }
-    /// method_num returns the method number to be called
     fn method_num(&self) -> &MethodNum {
         &self.method_num
     }
-    /// params returns the encoded parameters for the method call
-    fn params(&self) -> &MethodParams {
+    fn params(&self) -> &Serialized {
         &self.params
     }
-    /// gas_price returns gas price for the message
     fn gas_price(&self) -> &BigUint {
         &self.gas_price
     }
-    /// gas_limit returns the gas limit for the message
     fn gas_limit(&self) -> &BigUint {
         &self.gas_limit
     }
 }
 
-// TODO modify unsigned message encoding format when needed
 impl Cbor for UnsignedMessage {}

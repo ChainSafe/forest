@@ -6,7 +6,7 @@ use crypto::{Signature, Signer};
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::error::Error;
-use vm::{MethodNum, MethodParams, TokenAmount};
+use vm::{MethodNum, Serialized, TokenAmount};
 
 const DUMMY_SIG: [u8; 1] = [0u8];
 
@@ -28,7 +28,7 @@ fn unsigned_message_builder() {
         .sequence(0)
         .value(TokenAmount::new(0))
         .method_num(MethodNum::default())
-        .params(MethodParams::default())
+        .params(Serialized::default())
         .gas_limit(BigUint::default())
         .gas_price(BigUint::default())
         .build()
@@ -37,7 +37,7 @@ fn unsigned_message_builder() {
     assert_eq!(message.to(), &to_addr.clone());
     assert_eq!(message.sequence(), 0);
     assert_eq!(message.method_num(), &MethodNum::default());
-    assert_eq!(message.params(), &MethodParams::default());
+    assert_eq!(message.params(), &Serialized::default());
     assert_eq!(message.value(), &TokenAmount::new(0));
     assert_eq!(message.gas_price(), &BigUint::default());
     assert_eq!(message.gas_limit(), &BigUint::default());

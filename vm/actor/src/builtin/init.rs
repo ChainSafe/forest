@@ -3,14 +3,14 @@
 
 use crate::{ActorID, CodeID};
 use vm::{
-    ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
+    ExitCode, InvocOutput, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
 };
 
 use address::Address;
-use encoding::{from_slice, Cbor};
+use encoding::Cbor;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{arg_end, arg_pop, check_args, ActorCode, Runtime};
+use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
 
 /// InitActorState is reponsible for creating
@@ -52,7 +52,7 @@ impl InitActorCode {
 
         rt.success_return()
     }
-    fn exec<RT: Runtime>(rt: &RT, _code: CodeID, _params: &MethodParams) -> InvocOutput {
+    fn exec<RT: Runtime>(rt: &RT, _code: CodeID, _params: &Serialized) -> InvocOutput {
         // TODO
         let addr = Address::new_id(0).unwrap();
         rt.value_return(addr.marshal_cbor().unwrap())
@@ -68,33 +68,26 @@ impl ActorCode for InitActorCode {
         &self,
         rt: &RT,
         method: MethodNum,
-        params: &MethodParams,
+        params: &Serialized,
     ) -> InvocOutput {
         // Create mutable copy of params for usage in functions
-        let params: &mut MethodParams = &mut params.clone();
+        let params: &mut Serialized = &mut params.clone();
         match InitMethod::from_method_num(method) {
             Some(InitMethod::Constructor) => {
-                // validate no arguments passed in
-                arg_end(params, rt);
+                // TODO unfinished spec
 
                 Self::constructor(rt)
             }
             Some(InitMethod::Exec) => {
                 // TODO deserialize CodeID on finished spec
-                let _ = arg_pop(params, rt);
-                check_args(params, rt, true);
                 Self::exec(rt, CodeID::Init, params)
             }
             Some(InitMethod::GetActorIDForAddress) => {
-                // Pop and unmarshall address parameter
-                let addr_res = from_slice(&arg_pop(params, rt).bytes());
-
-                // validate addr deserialization and parameters
-                check_args(params, rt, addr_res.is_ok());
-                arg_end(params, rt);
+                // Unmarshall address parameter
+                // TODO unfinished spec
 
                 // Errors checked, get actor by address
-                Self::get_actor_id_for_address(rt, addr_res.unwrap())
+                Self::get_actor_id_for_address(rt, Address::default())
             }
             _ => {
                 // Method number does not match available, abort in runtime
