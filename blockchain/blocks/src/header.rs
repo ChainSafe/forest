@@ -19,10 +19,11 @@ use serde::{Deserialize, Serialize};
 /// use address::Address;
 /// use cid::{Cid, Codec, Prefix, Version};
 /// use clock::ChainEpoch;
+/// use crypto::Signature;
 ///
 /// BlockHeader::builder()
 ///     .miner_address(Address::new_id(0).unwrap()) // optional
-///     .bls_aggregate(vec![]) // optional
+///     .bls_aggregate(Signature(vec![])) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(0) // optional
 ///     .epoch(ChainEpoch::default()) // optional

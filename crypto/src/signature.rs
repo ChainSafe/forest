@@ -152,11 +152,11 @@ mod tests {
         let addr = Address::new_bls(pk.as_bytes()).unwrap();
 
         assert_eq!(
-            is_valid_signature(&msg, addr, signature_bytes.clone()),
+            is_valid_signature(&msg, addr, Signature(signature_bytes.clone())),
             true
         );
         assert_eq!(
-            verify_bls_sig(&msg, pk.as_bytes(), signature_bytes.clone()),
+            verify_bls_sig(&msg, pk.as_bytes(), Signature(signature_bytes.clone())),
             true
         );
     }
