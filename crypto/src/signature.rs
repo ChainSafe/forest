@@ -6,12 +6,7 @@ use address::{Address, Protocol};
 use bls_signatures::{
     hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
 };
-use encoding::{
-    blake2b_256,
-    de::{self, Deserializer},
-    ser::{self, Serializer},
-    serde_bytes,
-};
+use encoding::{blake2b_256, de, ser, serde_bytes};
 
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 
@@ -22,7 +17,7 @@ pub const BLS_PUB_LEN: usize = 48; // bytes
 
 /// A cryptographic signature, represented in bytes, of any key protocol
 #[derive(Clone, Debug, PartialEq, Default)]
-pub struct Signature(pub Vec<u8>);
+pub struct Signature(Vec<u8>);
 
 impl Deref for Signature {
     type Target = Vec<u8>;
@@ -33,9 +28,9 @@ impl Deref for Signature {
 }
 
 impl ser::Serialize for Signature {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer,
+        S: ser::Serializer,
     {
         let value = serde_bytes::Bytes::new(&self.0);
         serde_bytes::Serialize::serialize(value, serializer)
@@ -43,12 +38,19 @@ impl ser::Serialize for Signature {
 }
 
 impl<'de> de::Deserialize<'de> for Signature {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: Deserializer<'de>,
+        D: de::Deserializer<'de>,
     {
         let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
         Ok(Signature(bz))
+    }
+}
+
+impl Signature {
+    /// Creates a Signature given the raw bytes
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Signature(bytes)
     }
 }
 

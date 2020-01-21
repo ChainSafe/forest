@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// BlockHeader::builder()
 ///     .miner_address(Address::new_id(0).unwrap()) // optional
-///     .bls_aggregate(Signature(vec![])) // optional
+///     .bls_aggregate(Signature::new(vec![])) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(0) // optional
 ///     .epoch(ChainEpoch::default()) // optional

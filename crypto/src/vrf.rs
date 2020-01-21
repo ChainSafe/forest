@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::signature::{verify_bls_sig, BLS_SIG_LEN};
+use crate::signature::{self, verify_bls_sig, BLS_SIG_LEN};
 use bls_signatures::{Serialize as BlsSerialize, Signature};
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +41,7 @@ impl VRFResult {
     /// Asserts whether `input` was used with `pk` to produce this VRFOutput
     pub fn verify(&self, input: Vec<u8>, pk: VRFPublicKey) -> bool {
         match Signature::from_bytes(&self.0) {
-            Ok(sig) => verify_bls_sig(&input, pk.0, crate::signature::Signature(sig.as_bytes())),
+            Ok(sig) => verify_bls_sig(&input, pk.0, signature::Signature::new(sig.as_bytes())),
             Err(_) => false,
         }
     }
