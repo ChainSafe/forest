@@ -24,7 +24,7 @@ Steps to reproduce the behavior:
 
 **Environment (please complete the following information):**
  - OS: 
- - Version
+ - Rust version(e.g. `rustc --version`)
 
 **Other information and links**
 <!-- Add any other context about the problem here. -->
