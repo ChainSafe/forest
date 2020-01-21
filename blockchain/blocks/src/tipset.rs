@@ -165,10 +165,6 @@ impl Tipset {
     pub fn tip_epoch(&self) -> &ChainEpoch {
         self.blocks[0].epoch()
     }
-    /// Returs a reference to a tipset's blockheaders
-    pub fn get_headers(&self) -> &Vec<BlockHeader> {
-        &self.blocks
-    }
 }
 
 /// FullTipSet is an expanded version of the TipSet that contains all the blocks and messages
