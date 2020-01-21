@@ -11,6 +11,7 @@ use std::str::FromStr;
 
 impl TryFrom<String> for Cid {
     type Error = Error;
+
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Cid::try_from(value.as_str())
     }
@@ -18,6 +19,7 @@ impl TryFrom<String> for Cid {
 
 impl TryFrom<&str> for Cid {
     type Error = Error;
+
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let decoded = decode_str(value)?;
         Cid::try_from(decoded)
@@ -26,6 +28,7 @@ impl TryFrom<&str> for Cid {
 
 impl FromStr for Cid {
     type Err = Error;
+
     fn from_str(src: &str) -> Result<Self, Error> {
         Cid::try_from(src)
     }
