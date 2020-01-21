@@ -9,7 +9,7 @@ blocks = { path = "../blocks" }
 network = { path = "../../node/network" }
 cid = { package = "ferret_cid", path = "../../ipld/cid" }
 clock = { path = "../../node/clock" }
-num-bigint = "0.2.3"
+num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
 
 [dev-dependencies]
 address = { path = "../../vm/address" }

@@ -43,5 +43,5 @@ fn cbor_params() {
 fn method_num() {
     // Test constructor available publicly
     let method = MethodNum::new(1);
-    assert_eq!(1, method.into());
+    assert_eq!(1 as u64, u64::from(method));
 }
