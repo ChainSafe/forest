@@ -47,7 +47,7 @@ struct TestVector {
 }
 
 fn encode_assert_cbor(message: &UnsignedMessage, expected: &[u8]) {
-    let enc_bz: Vec<u8> = to_vec(message).expect("cbor serialization failed");
+    let enc_bz: Vec<u8> = to_vec(message).expect("Cbor serialization failed");
 
     // Assert the message is encoded in same format
     assert_eq!(enc_bz.as_slice(), expected);
@@ -65,11 +65,11 @@ fn unsigned_message_cbor_vectors() {
     file.read_to_string(&mut string).unwrap();
 
     let vectors: Vec<TestVector> =
-        serde_json::from_str(&string).expect("test vector deserialization failed");
+        serde_json::from_str(&string).expect("Test vector deserialization failed");
     for tv in vectors {
         encode_assert_cbor(
             &UnsignedMessage::from(tv.message),
-            &decode(tv.hex_cbor).expect("decoding cbor bytes failed"),
+            &decode(tv.hex_cbor).expect("Decoding cbor bytes failed"),
         )
     }
 }
