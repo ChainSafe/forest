@@ -29,8 +29,8 @@ pub struct Block {
 
 impl Block {
     /// Returns reference to BlockHeader
-    pub fn get_header(&self) -> BlockHeader {
-        self.header.clone()
+    pub fn to_header(&self) -> &BlockHeader {
+        &self.header
     }
 }
 

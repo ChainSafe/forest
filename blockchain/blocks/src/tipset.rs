@@ -190,7 +190,7 @@ impl FullTipset {
         let mut headers = Vec::new();
 
         for block in self.blocks() {
-            headers.push(block.get_header())
+            headers.push(block.to_header().clone())
         }
         Ok(Tipset::new(headers))?
     }
