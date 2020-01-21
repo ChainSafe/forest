@@ -1,14 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{ExitCode, MethodNum, MethodParams, TokenAmount};
+use crate::{ExitCode, MethodNum, Serialized, TokenAmount};
+
 use address::Address;
 
 /// Input variables for actor method invocation.
 pub struct InvocInput {
     pub to: Address,
     pub method: MethodNum,
-    pub params: MethodParams,
+    pub params: Serialized,
     pub value: TokenAmount,
 }
 

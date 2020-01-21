@@ -8,7 +8,7 @@ use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
 use vm::{
-    ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, TokenAmount, METHOD_CONSTRUCTOR,
+    ExitCode, InvocOutput, MethodNum, Serialized, SysCode, TokenAmount, METHOD_CONSTRUCTOR,
     METHOD_PLACEHOLDER,
 };
 
@@ -70,7 +70,7 @@ impl ActorCode for RewardActorCode {
         &self,
         rt: &RT,
         method: MethodNum,
-        _params: &MethodParams,
+        _params: &Serialized,
     ) -> InvocOutput {
         match RewardMethod::from_method_num(method) {
             // TODO determine parameters for each method on finished spec

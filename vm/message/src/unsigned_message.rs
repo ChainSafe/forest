@@ -3,7 +3,7 @@
 
 use super::Message;
 use crate::TokenAmount;
-use crate::{MethodNum, MethodParams};
+use crate::{MethodNum, Serialized};
 
 use address::Address;
 use derive_builder::Builder;
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// Usage:
 /// ```
 /// use message::{UnsignedMessage, Message};
-/// use vm::{TokenAmount, MethodParams, MethodNum};
+/// use vm::{TokenAmount, Serialized, MethodNum};
 /// use num_bigint::BigUint;
 /// use address::Address;
 ///
@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 ///     .sequence(0) // optional
 ///     .value(TokenAmount::new(0)) // optional
 ///     .method_num(MethodNum::default()) // optional
-///     .params(MethodParams::default()) // optional
+///     .params(Serialized::default()) // optional
 ///     .gas_limit(BigUint::default()) // optional
 ///     .gas_price(BigUint::default()) // optional
 ///     .build()
@@ -53,7 +53,7 @@ pub struct UnsignedMessage {
     #[builder(default)]
     method_num: MethodNum,
     #[builder(default)]
-    params: MethodParams,
+    params: Serialized,
     #[builder(default)]
     gas_price: BigUint,
     #[builder(default)]
@@ -85,7 +85,7 @@ impl Message for UnsignedMessage {
     fn method_num(&self) -> &MethodNum {
         &self.method_num
     }
-    fn params(&self) -> &MethodParams {
+    fn params(&self) -> &Serialized {
         &self.params
     }
     fn gas_price(&self) -> &BigUint {

@@ -7,7 +7,7 @@ use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::Cbor;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
-use vm::{MethodNum, MethodParams, TokenAmount};
+use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
@@ -54,7 +54,7 @@ impl Message for SignedMessage {
     fn method_num(&self) -> &MethodNum {
         self.message.method_num()
     }
-    fn params(&self) -> &MethodParams {
+    fn params(&self) -> &Serialized {
         self.message.params()
     }
     fn gas_price(&self) -> &BigUint {
