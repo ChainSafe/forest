@@ -8,11 +8,11 @@ mod version;
 
 pub use self::codec::Codec;
 pub use self::error::Error;
-pub use self::to_cid::ToCid;
 pub use self::version::Version;
 use encoding::{de, ser, serde_bytes, tags::Tagged, Cbor};
 use integer_encoding::{VarIntReader, VarIntWriter};
 use multihash::{Hash, Multihash};
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::io::Cursor;
 
@@ -80,7 +80,7 @@ impl<'de> de::Deserialize<'de> for Cid {
                     bz.remove(0);
                 }
 
-                Ok(bz.to_cid().map_err(|e| de::Error::custom(e.to_string()))?)
+                Ok(Cid::try_from(bz).map_err(|e| de::Error::custom(e.to_string()))?)
             }
             Some(_) => Err(de::Error::custom("unexpected tag")),
         }
@@ -116,8 +116,8 @@ impl Cid {
     }
 
     /// Create a new CID from raw data (binary or multibase encoded string)
-    pub fn from_raw_cid<T: ToCid>(data: T) -> Result<Cid, Error> {
-        data.to_cid()
+    pub fn from_raw_cid<T: TryInto<Cid>>(data: T) -> Result<Cid, T::Error> {
+        data.try_into()
     }
 
     /// Create a new CID from a prefix and some data.

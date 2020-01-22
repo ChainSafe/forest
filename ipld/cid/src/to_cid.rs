@@ -5,73 +5,55 @@ use crate::{Cid, Codec, Error, Version};
 use integer_encoding::VarIntReader;
 use multibase;
 use multihash::Multihash;
+use std::convert::TryFrom;
 use std::io::Cursor;
 use std::str::FromStr;
 
-/// Trait used to convert objects to Cid (Currently not necessary, but keeping in line with dep)
-pub trait ToCid {
-    fn to_cid(&self) -> Result<Cid, Error>;
-}
+impl TryFrom<String> for Cid {
+    type Error = Error;
 
-impl ToCid for Vec<u8> {
-    /// Create a Cid from a byte vector.
-    #[inline]
-    fn to_cid(&self) -> Result<Cid, Error> {
-        self.as_slice().to_cid()
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Cid::try_from(value.as_str())
     }
 }
 
-impl ToCid for String {
-    /// Create a Cid from an owned String.
-    #[inline]
-    fn to_cid(&self) -> Result<Cid, Error> {
-        self.as_str().to_cid()
-    }
-}
+impl TryFrom<&str> for Cid {
+    type Error = Error;
 
-impl<'a> ToCid for &'a str {
-    #[inline]
-    fn to_cid(&self) -> Result<Cid, Error> {
-        ToCid::to_cid(*self)
-    }
-}
-
-impl ToCid for str {
-    fn to_cid(&self) -> Result<Cid, Error> {
-        let decoded = decode_str(self)?;
-
-        decoded.to_cid()
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let decoded = decode_str(value)?;
+        Cid::try_from(decoded)
     }
 }
 
 impl FromStr for Cid {
     type Err = Error;
+
     fn from_str(src: &str) -> Result<Self, Error> {
-        src.to_cid()
+        Cid::try_from(src)
     }
 }
 
-impl<'a> ToCid for &'a [u8] {
-    #[inline]
-    fn to_cid(&self) -> Result<Cid, Error> {
-        ToCid::to_cid(*self)
+impl TryFrom<Vec<u8>> for Cid {
+    type Error = Error;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        Cid::try_from(value.as_slice())
     }
 }
 
-impl ToCid for [u8] {
-    /// Create a Cid from a byte slice.
-    fn to_cid(&self) -> Result<Cid, Error> {
-        if Version::is_v0_binary(self) {
+impl TryFrom<&[u8]> for Cid {
+    type Error = Error;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if Version::is_v0_binary(value) {
             // Verify that hash can be decoded, this is very cheap
-            let hash = Multihash::from_bytes(self.to_vec())?;
-
+            let hash = Multihash::from_bytes(value.to_vec())?;
             Ok(Cid::new(Codec::DagCBOR, Version::V0, hash))
         } else {
-            let (hash, version, codec) = decode_v1_bytes(self)?;
-
+            let (hash, version, codec) = decode_v1_bytes(value)?;
             // convert hash bytes to Multihash object
             let multihash = Multihash::from_bytes(hash)?;
-
             Ok(Cid::new(codec, version, multihash))
         }
     }
