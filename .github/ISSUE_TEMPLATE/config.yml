@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+    - name: Filecoin Slack Channel
+      url: https://join.slack.com/t/filecoinproject/shared_invite/enQtNTUwNTI1Mzk5MDYwLTY4YmFjMzRlZjFiNDc0NmI2N2JjMjk5YTAyMDUyODljODg3MGI0ZGRhZTI5ZDNkZTAyNjkyMzI1ODM1YjA1MWI
+      about: Please ask questions here.
+    - name: Filecoin Discussion Forum
+      url: https://discuss.filecoin.io/
+      about: Please ask and answer questions here.  
