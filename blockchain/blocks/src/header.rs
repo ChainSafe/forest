@@ -10,6 +10,7 @@ use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use multihash::Hash;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Header of a block
 ///
@@ -191,6 +192,13 @@ impl BlockHeader {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
         self.cached_cid = Cid::from_bytes_default(&self.cached_bytes).map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+
+/// human-readable string representation of a block CID
+impl fmt::Display for BlockHeader {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BlockHeader: {:?}", self.cid())
     }
 }
 

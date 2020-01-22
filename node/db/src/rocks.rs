@@ -4,6 +4,7 @@
 use super::errors::Error;
 use super::{DatabaseService, Read, Write};
 use rocksdb::{Options, WriteBatch, DB};
+use std::env::temp_dir;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -12,7 +13,13 @@ enum DbStatus {
     Open(DB),
 }
 
-#[derive(Debug)]
+impl Default for DbStatus {
+    fn default() -> Self {
+        Self::Unopened(Path::new(&temp_dir()).to_path_buf())
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct RocksDb {
     status: DbStatus,
 }
