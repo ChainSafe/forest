@@ -65,14 +65,14 @@ pub struct EPostProof {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct CborEPostTicket(
+struct CborEPostTicket(
     #[serde(with = "serde_bytes")] Vec<u8>, // partial
     u64,                                    // sector_id
     u64,                                    // challenge_index
 );
 
 #[derive(Serialize, Deserialize)]
-pub struct CborEPostProof(
+struct CborEPostProof(
     #[serde(with = "serde_bytes")] Vec<u8>, // proof
     #[serde(with = "serde_bytes")] Vec<u8>, // post_rand
     Vec<EPostTicket>,                       // candidates
