@@ -83,9 +83,8 @@ impl ser::Serialize for EPostTicket {
     where
         S: Serializer,
     {
-        let value: CborEPostTicket =
-            CborEPostTicket(self.partial.clone(), self.sector_id, self.challenge_index);
-        CborEPostTicket::serialize(&value, serializer)
+        CborEPostTicket(self.partial.clone(), self.sector_id, self.challenge_index)
+            .serialize(serializer)
     }
 }
 
@@ -94,11 +93,12 @@ impl<'de> de::Deserialize<'de> for EPostTicket {
     where
         D: Deserializer<'de>,
     {
-        let cm = CborEPostTicket::deserialize(deserializer)?;
+        let CborEPostTicket(partial, sector_id, challenge_index) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Self {
-            partial: cm.0,
-            sector_id: cm.1,
-            challenge_index: cm.2,
+            partial,
+            sector_id,
+            challenge_index,
         })
     }
 }
@@ -108,12 +108,12 @@ impl ser::Serialize for EPostProof {
     where
         S: Serializer,
     {
-        let value: CborEPostProof = CborEPostProof(
+        CborEPostProof(
             self.proof.clone(),
             self.post_rand.clone(),
             self.candidates.clone(),
-        );
-        CborEPostProof::serialize(&value, serializer)
+        )
+        .serialize(serializer)
     }
 }
 
@@ -122,11 +122,12 @@ impl<'de> de::Deserialize<'de> for EPostProof {
     where
         D: Deserializer<'de>,
     {
-        let cm = CborEPostProof::deserialize(deserializer)?;
+        let CborEPostProof(proof, post_rand, candidates) =
+            CborEPostProof::deserialize(deserializer)?;
         Ok(Self {
-            proof: cm.0,
-            post_rand: cm.1,
-            candidates: cm.2,
+            proof,
+            post_rand,
+            candidates,
         })
     }
 }

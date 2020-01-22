@@ -4,7 +4,6 @@
 use crate::signature::{verify_bls_sig, Signature, BLS_SIG_LEN};
 use bls_signatures::{Serialize as BlsSerialize, Signature as BLSSignature};
 use encoding::serde_bytes;
-
 use serde::{Deserialize, Serialize};
 
 pub struct VRFPublicKey(Vec<u8>);
