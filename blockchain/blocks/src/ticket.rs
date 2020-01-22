@@ -39,7 +39,7 @@ impl ser::Serialize for Ticket {
 }
 
 impl<'de> de::Deserialize<'de> for Ticket {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
