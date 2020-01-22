@@ -13,7 +13,7 @@ const DUMMY_SIG: [u8; 1] = [0u8];
 struct DummySigner;
 impl Signer for DummySigner {
     fn sign_bytes(&self, _: Vec<u8>, _: &Address) -> Result<Signature, Box<dyn Error>> {
-        Ok(DUMMY_SIG.to_vec())
+        Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }
 
@@ -67,5 +67,8 @@ fn generate_signed_message() {
 
     // Assert message and signature are expected
     assert_eq!(signed_msg.message(), &unsigned_msg);
-    assert_eq!(signed_msg.signature(), &DUMMY_SIG.to_vec());
+    assert_eq!(
+        signed_msg.signature(),
+        &Signature::new_secp256k1(DUMMY_SIG.to_vec())
+    );
 }
