@@ -136,7 +136,6 @@ mod tests {
     use super::*;
     use base64;
     use encoding::{from_slice, to_vec};
-    use hex::encode;
 
     // From Lotus
     const TICKET: [u8; 99] = [
