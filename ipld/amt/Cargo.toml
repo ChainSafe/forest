@@ -1,0 +1,8 @@
+[package]
+name = "amt"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+cid = { package = "ferret_cid", path = "../cid" }
