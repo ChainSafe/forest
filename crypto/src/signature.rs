@@ -6,15 +6,95 @@ use address::{Address, Protocol};
 use bls_signatures::{
     hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
 };
-use encoding::blake2b_256;
-
+use encoding::{blake2b_256, de, ser, serde_bytes};
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
+use std::ops::Deref;
 
 pub const BLS_SIG_LEN: usize = 96; // bytes
 pub const BLS_PUB_LEN: usize = 48; // bytes
 
+#[derive(Clone, Debug, PartialEq, FromPrimitive, Copy)]
+pub enum SignatureType {
+    Secp256 = 1,
+    BLS = 2,
+}
+
+// Just used for defaulting for block signatures, can be removed later if needed
+impl Default for SignatureType {
+    fn default() -> Self {
+        SignatureType::BLS
+    }
+}
+
+impl SignatureType {
+    /// Allows referencing back to Protocol from encoded byte
+    fn from_byte(b: u8) -> Option<SignatureType> {
+        FromPrimitive::from_u8(b)
+    }
+}
+
 /// A cryptographic signature, represented in bytes, of any key protocol
-pub type Signature = Vec<u8>;
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Signature {
+    sig_type: SignatureType,
+    bytes: Vec<u8>,
+}
+
+impl Deref for Signature {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.bytes
+    }
+}
+
+impl ser::Serialize for Signature {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let mut bytes = self.bytes.clone();
+        // Insert signature type byte
+        bytes.insert(0, self.sig_type as u8);
+
+        let value = serde_bytes::Bytes::new(&bytes);
+        serde_bytes::Serialize::serialize(value, serializer)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let mut bytes: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        // Remove signature type byte
+        let sig_type = SignatureType::from_byte(bytes.remove(0))
+            .ok_or_else(|| de::Error::custom("Invalid signature type byte (must be 1 or 2)"))?;
+
+        Ok(Signature { bytes, sig_type })
+    }
+}
+
+impl Signature {
+    /// Creates a SECP Signature given the raw bytes
+    pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
+        Self {
+            sig_type: SignatureType::Secp256,
+            bytes,
+        }
+    }
+
+    /// Creates a BLS Signature given the raw bytes
+    pub fn new_bls(bytes: Vec<u8>) -> Self {
+        Self {
+            sig_type: SignatureType::BLS,
+            bytes,
+        }
+    }
+}
 
 /// Checks if a signature is valid given data and address
 pub fn is_valid_signature(data: &[u8], addr: Address, sig: Signature) -> bool {
@@ -116,11 +196,15 @@ mod tests {
         let addr = Address::new_bls(pk.as_bytes()).unwrap();
 
         assert_eq!(
-            is_valid_signature(&msg, addr, signature_bytes.clone()),
+            is_valid_signature(&msg, addr, Signature::new_bls(signature_bytes.clone())),
             true
         );
         assert_eq!(
-            verify_bls_sig(&msg, pk.as_bytes(), signature_bytes.clone()),
+            verify_bls_sig(
+                &msg,
+                pk.as_bytes(),
+                Signature::new_bls(signature_bytes.clone())
+            ),
             true
         );
     }
