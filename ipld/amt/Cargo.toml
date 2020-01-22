@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 cid = { package = "ferret_cid", path = "../cid" }
+db = { path = "../../node/db" }
