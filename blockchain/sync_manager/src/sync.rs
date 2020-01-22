@@ -44,7 +44,8 @@ impl<'a> Syncer<'a> {
 
         // compare target_weight to heaviest weight stored; ignore otherwise
         let best_weight = self.chain_store.get_heaviest_tipset().blocks()[0].weight();
-        let target_weight = fts.tipset()?.blocks()[0].weight().clone();
+        let target_weight = fts.blocks()[0].to_header().weight();
+
         if !target_weight.lt(&best_weight) {
             // Store incoming block header
             self.chain_store.persist_headers(&fts.tipset()?).ok();
