@@ -7,7 +7,11 @@ use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
-use encoding::{Cbor, Error as EncodingError};
+use encoding::{
+    de::{self, Deserializer},
+    ser::{self, Serializer},
+    Cbor, Error as EncodingError,
+};
 use multihash::Hash;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
@@ -29,8 +33,9 @@ use std::fmt;
 ///     .bls_aggregate(Signature::new_bls(vec![])) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
+///     .height(0) // optional
 ///     .epoch(ChainEpoch::default()) // optional
-///     .messages(TxMeta::default()) // optional
+///     .messages(Cid::default()) // optional
 ///     .message_receipts(Cid::default()) // optional
 ///     .state_root(Cid::default()) // optional
 ///     .timestamp(0) // optional
@@ -52,8 +57,15 @@ pub struct BlockHeader {
     #[builder(default)]
     weight: BigUint,
 
+    /// height should be the same as epoch. However, in Lotus, it is a `u64`
+    /// TODO: investigate whether to keep height or epoch. Need height for CBOR encoding
+    #[builder(default)]
+    height: u64,
+
     /// epoch is the period in which a new block is generated.
-    /// There may be multiple rounds in an epoch
+    /// There may be multiple rounds in an epoch.
+    /// Does NOT get serialized currently.
+    /// TODO: investigate whether to keep height or epoch. epoch is spec compliant.
     #[builder(default)]
     epoch: ChainEpoch,
     // MINER INFO
@@ -62,9 +74,11 @@ pub struct BlockHeader {
     miner_address: Address,
 
     // STATE
-    /// messages contains the merkle links for bls_messages and secp_messages
+    /// messages contains the Cid to the merkle links for bls_messages and secp_messages
+    /// The spec shows that messages is a TxMeta, but Lotus has it as a Cid to a TxMeta.
+    /// TODO: Need to figure out how to convert TxMeta to a Cid
     #[builder(default)]
-    messages: TxMeta,
+    messages: Cid,
 
     /// message_receipts is the Cid of the root of an array of MessageReceipts
     #[builder(default)]
@@ -141,6 +155,10 @@ impl BlockHeader {
     pub fn weight(&self) -> &BigUint {
         &self.weight
     }
+    /// Getter for Blockheader height
+    pub fn height(&self) -> u64 {
+        self.height
+    }
     /// Getter for BlockHeader epoch
     pub fn epoch(&self) -> &ChainEpoch {
         &self.epoch
@@ -150,7 +168,7 @@ impl BlockHeader {
         &self.miner_address
     }
     /// Getter for BlockHeader messages
-    pub fn messages(&self) -> &TxMeta {
+    pub fn messages(&self) -> &Cid {
         &self.messages
     }
     /// Getter for BlockHeader message_receipts
