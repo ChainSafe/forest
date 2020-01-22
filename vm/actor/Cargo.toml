@@ -8,7 +8,7 @@ edition = "2018"
 vm = { path = "../../vm" }
 address = { path = "../address" }
 runtime = { path = "../runtime" }
-num-bigint = "0.2.3"
+num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
 encoding = { path = "../../encoding" }
 num-traits = "0.2"
 num-derive = "0.2"

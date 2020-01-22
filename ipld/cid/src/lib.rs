@@ -178,6 +178,10 @@ impl Cid {
             mh_len: self.hash.as_bytes().len(),
         }
     }
+    /// Returns cid in bytes to be stored in datastore
+    pub fn key(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
 }
 
 impl std::hash::Hash for Cid {

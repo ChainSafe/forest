@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod bucket;
+mod errors;
 mod manager;
+mod sync;
 
+pub use self::errors::*;
 pub use self::manager::SyncManager;

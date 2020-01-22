@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::Message;
-use crate::TokenAmount;
-use crate::{MethodNum, Serialized};
-
 use address::Address;
 use derive_builder::Builder;
-use encoding::Cbor;
+use encoding::{de, ser, Cbor};
 use num_bigint::BigUint;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
@@ -41,7 +39,7 @@ use serde::{Deserialize, Serialize};
 /// let msg = message_builder.build().unwrap();
 /// assert_eq!(msg.sequence(), 1);
 /// ```
-#[derive(PartialEq, Clone, Debug, Builder, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Debug, Builder)]
 #[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
     from: Address,
@@ -60,12 +58,48 @@ pub struct UnsignedMessage {
     gas_limit: BigUint,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
-
 impl UnsignedMessage {
     pub fn builder() -> MessageBuilder {
         MessageBuilder::default()
+    }
+}
+
+impl ser::Serialize for UnsignedMessage {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        (
+            self.to.clone(),
+            self.from.clone(),
+            self.sequence,
+            self.value.clone(),
+            self.gas_price.clone(),
+            self.gas_limit.clone(),
+            self.method_num,
+            self.params.clone(),
+        )
+            .serialize(s)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for UnsignedMessage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let (to, from, sequence, value, gas_price, gas_limit, method_num, params) =
+            Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            to,
+            from,
+            sequence,
+            value,
+            gas_price,
+            gas_limit,
+            method_num,
+            params,
+        })
     }
 }
 

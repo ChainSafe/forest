@@ -4,7 +4,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use super::{BlockHeader, Error, Ticket};
+use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
 use serde::{Deserialize, Serialize};
@@ -37,17 +37,13 @@ impl TipSetKeys {
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,
 }
 
 impl Tipset {
-    /// Returns all blocks in tipset
-    pub fn blocks(&self) -> Vec<BlockHeader> {
-        self.blocks.clone()
-    }
     /// Builds a new TipSet from a collection of blocks.
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
     /// specify identical epoch, parents, weight, height, state root, receipt root;
@@ -121,7 +117,10 @@ impl Tipset {
             },
         })
     }
-
+    /// Returns all blocks in tipset
+    pub fn blocks(&self) -> &Vec<BlockHeader> {
+        &self.blocks
+    }
     /// Returns the smallest ticket of all blocks in the tipset
     fn min_ticket(&self) -> Result<Ticket, Error> {
         if self.blocks.is_empty() {
@@ -165,6 +164,31 @@ impl Tipset {
     /// Returns the tipset's epoch
     pub fn tip_epoch(&self) -> &ChainEpoch {
         self.blocks[0].epoch()
+    }
+}
+
+/// FullTipSet is an expanded version of the TipSet that contains all the blocks and messages
+pub struct FullTipset {
+    blocks: Vec<Block>,
+}
+
+impl FullTipset {
+    /// constructor
+    pub fn new(blks: Vec<Block>) -> Self {
+        Self { blocks: blks }
+    }
+    /// Returns all blocks in a full tipset
+    pub fn blocks(&self) -> &Vec<Block> {
+        &self.blocks
+    }
+    /// Returns a Tipset
+    pub fn tipset(&self) -> Result<Tipset, Error> {
+        let mut headers = Vec::new();
+
+        for block in self.blocks() {
+            headers.push(block.to_header().clone())
+        }
+        Ok(Tipset::new(headers))?
     }
 }
 
