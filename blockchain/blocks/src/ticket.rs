@@ -43,10 +43,8 @@ impl<'de> de::Deserialize<'de> for Ticket {
     where
         D: Deserializer<'de>,
     {
-        let cm: VRFResult = Deserialize::deserialize(deserializer)?[0];
-        Ok(Self {
-            vrfproof: cm,
-        })
+        let [cm]: [VRFResult; 1] = Deserialize::deserialize(deserializer)?;
+        Ok(Self { vrfproof: cm })
     }
 }
 
