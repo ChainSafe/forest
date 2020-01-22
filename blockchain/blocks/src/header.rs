@@ -22,10 +22,11 @@ use std::fmt;
 /// use cid::{Cid, Codec, Prefix, Version};
 /// use clock::ChainEpoch;
 /// use num_bigint::BigUint;
+/// use crypto::Signature;
 ///
 /// BlockHeader::builder()
 ///     .miner_address(Address::new_id(0).unwrap()) // optional
-///     .bls_aggregate(vec![]) // optional
+///     .bls_aggregate(Signature::new_bls(vec![])) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(ChainEpoch::default()) // optional
