@@ -24,7 +24,7 @@ use std::fmt;
 ///
 /// BlockHeader::builder()
 ///     .miner_address(Address::new_id(0).unwrap()) // optional
-///     .bls_aggregate(Signature::new(vec![])) // optional
+///     .bls_aggregate(Signature::new_bls(vec![])) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(0) // optional
 ///     .epoch(ChainEpoch::default()) // optional
