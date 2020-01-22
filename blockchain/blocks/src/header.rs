@@ -43,7 +43,7 @@ use std::fmt;
 ///     .build_and_validate()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Builder, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Builder)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -64,7 +64,7 @@ pub struct BlockHeader {
 
     /// epoch is the period in which a new block is generated.
     /// There may be multiple rounds in an epoch.
-    /// Does NOT get serialized currently.
+    /// DOES NOT GET SERIALIZED
     /// TODO: investigate whether to keep height or epoch. epoch is spec compliant.
     #[builder(default)]
     epoch: ChainEpoch,
@@ -111,12 +111,12 @@ pub struct BlockHeader {
     bls_aggregate: Signature,
     // CACHE
     /// stores the cid for the block after the first call to `cid()`
-    #[serde(skip_serializing)]
+    /// DOES NOT GET SERIALIZED
     #[builder(default)]
     cached_cid: Cid,
 
     /// stores the hashed bytes of the block after the fist call to `cid()`
-    #[serde(skip_serializing)]
+    /// DOES NOT GET SERIALIZED
     #[builder(default)]
     cached_bytes: Vec<u8>,
 }
@@ -125,6 +125,90 @@ pub struct BlockHeader {
 // https://github.com/ChainSafe/ferret/issues/143
 
 impl Cbor for BlockHeader {}
+
+#[derive(Serialize, Deserialize)]
+pub struct CborBlockHeader(
+    Address,    // miner_address
+    Ticket,     // ticket
+    EPostProof, // epost_verify
+    TipSetKeys, // parents []cid
+    BigUint,    // weight
+    u64,        // height
+    //    ChainEpoch, // epoch
+    Cid,       // state_root
+    Cid,       // message_receipts
+    Cid,       // messages
+    Signature, // bls_aggregate
+    u64,       // timestamp
+    Signature, // signature
+    u64,       // fork_signal
+);
+
+impl ser::Serialize for BlockHeader {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        CborBlockHeader(
+            self.miner_address.clone(),
+            self.ticket.clone(),
+            self.epost_verify.clone(),
+            self.parents.clone(),
+            self.weight.clone(),
+            self.height,
+            self.state_root.clone(),
+            self.message_receipts.clone(),
+            self.messages.clone(),
+            self.bls_aggregate.clone(),
+            self.timestamp,
+            self.signature.clone(),
+            self.fork_signal,
+        )
+        .serialize(serializer)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for BlockHeader {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (
+            miner_address,
+            ticket,
+            epost_verify,
+            parents,
+            weight,
+            height,
+            state_root,
+            message_receipts,
+            messages,
+            bls_aggregate,
+            timestamp,
+            signature,
+            fork_signal,
+        ) = Deserialize::deserialize(deserializer)?;
+
+        let header = BlockHeader::builder()
+            .parents(parents)
+            .weight(weight)
+            .height(height)
+            .miner_address(miner_address)
+            .messages(messages)
+            .message_receipts(message_receipts)
+            .state_root(state_root)
+            .fork_signal(fork_signal)
+            .signature(signature)
+            .epost_verify(epost_verify)
+            .timestamp(timestamp)
+            .ticket(ticket)
+            .bls_aggregate(bls_aggregate)
+            .build_and_validate()
+            .unwrap();
+
+        Ok(header)
+    }
+}
 
 impl RawBlock for BlockHeader {
     /// returns the block raw contents as a byte array
