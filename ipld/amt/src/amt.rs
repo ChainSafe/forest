@@ -1,12 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{BlockStore, Error, Node, Root};
+use crate::{nodes_for_height, BlockStore, Error, Node, Root};
 use cid::Cid;
 use encoding::Cbor;
 
 const MAX_INDEX: u64 = 1 << 48 as u64;
-const WIDTH: u8 = 8;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct AMT<'a: 'db, 'db, DB>
@@ -30,7 +29,7 @@ where
     }
 
     // Getter for height
-    pub fn height(&self) -> u64 {
+    pub fn height(&self) -> u32 {
         self.root.height
     }
 
@@ -66,7 +65,7 @@ where
 
         let bz = val.marshal_cbor()?;
 
-        while i >= nodes_for_height(WIDTH as u64, self.height() as u32) {
+        while i >= nodes_for_height(self.height() as u32) {
             // node at index exists
             if !self.node().empty() {
                 // Flush non empty node
@@ -100,14 +99,22 @@ where
         Ok(())
     }
 
+    pub fn get(&mut self, i: u64) -> Result<Option<Vec<u8>>, Error> {
+        if i >= MAX_INDEX {
+            return Err(Error::OutOfRange(i));
+        }
+
+        if i >= nodes_for_height(self.height() + 1) {
+            return Ok(None);
+        }
+
+        self.root.node.get(self.block_store, self.height(), i)
+    }
+
     /// flush root
     pub fn flush(&mut self) -> Result<Cid, Error> {
         let height = self.height();
         self.root.node.flush(self.block_store, height)?;
         self.block_store.put(&self.root)
     }
-}
-
-fn nodes_for_height(width: u64, height: u32) -> u64 {
-    width.pow(height)
 }
