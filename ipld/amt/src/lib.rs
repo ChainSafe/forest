@@ -1,11 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
+mod amt;
 mod block_store;
 mod error;
 mod node;
 mod root;
 
+pub use self::amt::*;
 pub use self::block_store::*;
 pub use self::error::*;
 pub use self::node::*;
@@ -18,7 +20,7 @@ mod tests {
 
     #[test]
     fn constructor() {
-        Root::new(db::MemoryDB::default());
+        AMT::new(&db::MemoryDB::default());
     }
 
     #[test]

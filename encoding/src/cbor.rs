@@ -10,3 +10,9 @@ pub trait Cbor: ser::Serialize {
         Ok(to_vec(&self)?)
     }
 }
+
+impl Cbor for &[u8] {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, Error> {
+        Ok(to_vec(self)?)
+    }
+}

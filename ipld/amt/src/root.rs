@@ -1,29 +1,40 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{BlockStore, Node};
+use crate::Node;
+use encoding::{
+    de::{self, Deserialize},
+    ser, Cbor,
+};
 
-#[derive(PartialEq, Eq, Debug)]
-pub struct Root<'a, DB>
-where
-    DB: BlockStore,
-{
-    _height: u64,
-    _count: u64,
-    _node: Node<'a>,
-    block_store: DB,
+#[derive(PartialEq, Eq, Debug, Default)]
+pub struct Root<'a> {
+    pub(super) height: u64,
+    pub(super) count: u64,
+    pub(super) node: Node<'a>,
 }
 
-impl<'a, DB> Root<'a, DB>
-where
-    DB: BlockStore,
-{
-    pub fn new(block_store: DB) -> Self {
-        Self {
-            _height: 0,
-            _count: 0,
-            _node: Node::default(),
-            block_store,
-        }
+impl ser::Serialize for Root<'_> {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        (self.height, self.count, self.node.clone()).serialize(s)
     }
 }
+
+impl<'de> de::Deserialize<'de> for Root<'_> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let (height, count, node) = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            height,
+            count,
+            node,
+        })
+    }
+}
+
+impl Cbor for Root<'_> {}
