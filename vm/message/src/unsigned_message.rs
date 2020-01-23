@@ -3,9 +3,12 @@
 
 use super::Message;
 use address::Address;
+use cid::{Cid, Codec, Version};
 use derive_builder::Builder;
-use encoding::{de, ser, Cbor};
+use encoding::{de, ser, Cbor, Error as EncodingError};
+use multihash::{Hash, Multihash};
 use num_bigint::BigUint;
+use raw_block::RawBlock;
 use serde::Deserialize;
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -127,6 +130,23 @@ impl Message for UnsignedMessage {
     }
     fn gas_limit(&self) -> &BigUint {
         &self.gas_limit
+    }
+}
+
+impl RawBlock for UnsignedMessage {
+    /// returns the block raw contents as a byte array
+    fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
+        // TODO should serialize message using CBOR encoding
+        self.marshal_cbor()
+    }
+    /// returns the content identifier of the block
+    fn cid(&self) -> Cid {
+        let hash = Multihash::from_bytes(self.marshal_cbor().unwrap());
+        Cid::new(Codec::DagCBOR, Version::V1, hash.unwrap())
+    }
+    /// returns the hash contained in the block CID
+    fn multihash(&self) -> Hash {
+        self.cid().prefix().mh_type
     }
 }
 

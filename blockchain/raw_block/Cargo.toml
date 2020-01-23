@@ -1,17 +1,11 @@
 [package]
-name = "blocks"
+name = "raw_block"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-address = { path = "../../vm/address" }
-crypto = { path = "../../crypto" }
-message = { path = "../../vm/message" }
-clock = { path = "../../node/clock" }
 cid = { package = "ferret_cid", path = "../../ipld/cid" }
 multihash = "0.9.3"
-derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 encoding = { path = "../../encoding" }
-raw_block = { package = "raw_block", path = "../raw_block" }

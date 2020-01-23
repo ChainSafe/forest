@@ -13,8 +13,6 @@ pub enum Error {
     UndefinedKey(String),
     /// Tipset contains no blocks
     NoBlocks,
-    /// Keys are already written to store
-    KeyExists,
     /// Error originating from key-value store
     KVError(String),
     /// Error originating constructing blockchain structures
@@ -28,7 +26,6 @@ impl fmt::Display for Error {
         match self {
             Error::UndefinedKey(msg) => write!(f, "Invalid key: {}", msg),
             Error::NoBlocks => write!(f, "No blocks for tipset"),
-            Error::KeyExists => write!(f, "Keys already exist in store"),
             Error::KVError(msg) => write!(f, "Error originating from Key-Value store: {}", msg),
             Error::BlkError(msg) => write!(
                 f,

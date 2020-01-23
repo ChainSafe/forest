@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{EPostProof, RawBlock, Ticket, TipSetKeys, TxMeta};
+use super::{EPostProof, Ticket, TipSetKeys, TxMeta};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -9,6 +9,7 @@ use crypto::Signature;
 use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use multihash::Hash;
+use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

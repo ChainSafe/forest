@@ -7,7 +7,9 @@ use super::errors::Error;
 use super::manager::SyncManager;
 use blocks::{Block, FullTipset, Tipset};
 use chain::ChainStore;
+use cid::Cid;
 use libp2p::core::PeerId;
+use raw_block::RawBlock;
 
 pub struct Syncer<'a> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
@@ -17,7 +19,7 @@ pub struct Syncer<'a> {
     // manages sync buckets
     sync_manager: SyncManager<'a>,
     // access and store tipsets / blocks / messages
-    chain_store: ChainStore,
+    chain_store: ChainStore<'a>,
     // the known genesis tipset
     _genesis: Tipset,
     // self peerId
@@ -37,7 +39,7 @@ impl<'a> Syncer<'a> {
         }
         // TODO validate message data
         for block in fts.blocks() {
-            self.validate_msg_data(block)
+            self.validate_msg_data(block);
         }
         // TODO send pubsub message indicating incoming blocks
         // TODO Add peer to blocksync
@@ -55,14 +57,37 @@ impl<'a> Syncer<'a> {
         Ok(())
     }
 
-    fn validate_msg_data(&self, _block: &Block) {
-        // TODO call compute_msg_data to get message roots
-        // TODO compare message roots to header roots
-        // TODO store message into message store
-        todo!()
+    fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
+        let sm_root = self.compute_msg_data(block);
+        // TODO change message_receipts to messages() once #192 is in
+        if block.to_header().message_receipts() != sm_root {
+            return Err(Error::InvalidRoots);
+        }
+
+        for b in block.get_bls_msgs() {
+            // store in datastore
+            self.chain_store.put_messages(b.cid().key(), b.raw_data()?);
+        }
+        for b in block.get_secp_msgs() {
+            // store in datastore
+            self.chain_store.put_messages(b.cid().key(), b.raw_data()?);
+        }
+
+        Ok(())
     }
-    fn compute_msg_data(&self, _block: &Block) {
+    fn compute_msg_data(&self, block: &Block) -> &Cid {
         // TODO compute message roots
-        todo!()
+       
+        let mut bls_cids = Vec::new();
+        let mut secp_cids = Vec::new();
+
+        for b in block.get_bls_msgs() {
+            bls_cids.push(b.cid());
+        }
+        for b in block.get_secp_msgs() {
+            secp_cids.push(b.cid());
+        }
+        // Temporary until AMT structure is implemented
+        &block.to_header().cid()
     }
 }
