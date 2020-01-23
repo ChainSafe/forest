@@ -3,6 +3,7 @@
 
 use crate::signature::{verify_bls_sig, Signature, BLS_SIG_LEN};
 use bls_signatures::{Serialize as BlsSerialize, Signature as BLSSignature};
+use encoding::serde_bytes;
 use serde::{Deserialize, Serialize};
 
 pub struct VRFPublicKey(Vec<u8>);
@@ -16,7 +17,7 @@ impl VRFPublicKey {
 
 /// The output from running a VRF
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize)]
-pub struct VRFResult(Vec<u8>);
+pub struct VRFResult(#[serde(with = "serde_bytes")] Vec<u8>);
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
 // https://github.com/ChainSafe/ferret/issues/143
