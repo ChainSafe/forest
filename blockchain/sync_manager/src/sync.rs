@@ -42,9 +42,10 @@ impl<'a> Syncer<'a> {
         // TODO send pubsub message indicating incoming blocks
         // TODO Add peer to blocksync
 
-        // compare targetweight to heaviest weight stored; ignore otherwise
+        // compare target_weight to heaviest weight stored; ignore otherwise
         let best_weight = self.chain_store.get_heaviest_tipset().blocks()[0].weight();
-        let target_weight = fts.tipset()?.blocks()[0].weight();
+        let target_weight = fts.blocks()[0].to_header().weight();
+
         if !target_weight.lt(&best_weight) {
             // Store incoming block header
             self.chain_store.persist_headers(&fts.tipset()?).ok();

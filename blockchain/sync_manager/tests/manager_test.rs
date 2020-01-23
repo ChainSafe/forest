@@ -3,11 +3,12 @@
 
 use blocks::{BlockHeader, Tipset};
 use cid::Cid;
+use num_bigint::BigUint;
 use sync_manager::SyncManager;
 
 fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
     let header = BlockHeader::builder()
-        .weight(weight)
+        .weight(BigUint::from(weight))
         .cached_bytes(cached_bytes.to_vec())
         .cached_cid(Cid::from_bytes_default(parent_bz).unwrap())
         .build()

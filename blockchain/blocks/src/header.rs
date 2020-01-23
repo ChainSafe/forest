@@ -9,6 +9,7 @@ use crypto::Signature;
 use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use multihash::Hash;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -20,13 +21,14 @@ use std::fmt;
 /// use address::Address;
 /// use cid::{Cid, Codec, Prefix, Version};
 /// use clock::ChainEpoch;
+/// use num_bigint::BigUint;
 /// use crypto::Signature;
 ///
 /// BlockHeader::builder()
 ///     .miner_address(Address::new_id(0).unwrap()) // optional
 ///     .bls_aggregate(Signature::new_bls(vec![])) // optional
 ///     .parents(TipSetKeys::default()) // optional
-///     .weight(0) // optional
+///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(ChainEpoch::default()) // optional
 ///     .messages(TxMeta::default()) // optional
 ///     .message_receipts(Cid::default()) // optional
@@ -48,7 +50,7 @@ pub struct BlockHeader {
 
     /// weight is the aggregate chain weight of the parent set
     #[builder(default)]
-    weight: u64,
+    weight: BigUint,
 
     /// epoch is the period in which a new block is generated.
     /// There may be multiple rounds in an epoch
@@ -136,8 +138,8 @@ impl BlockHeader {
         &self.parents
     }
     /// Getter for BlockHeader weight
-    pub fn weight(&self) -> u64 {
-        self.weight
+    pub fn weight(&self) -> &BigUint {
+        &self.weight
     }
     /// Getter for BlockHeader epoch
     pub fn epoch(&self) -> &ChainEpoch {
