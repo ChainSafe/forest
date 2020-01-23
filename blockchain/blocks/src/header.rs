@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{EPostProof, RawBlock, Ticket, TipSetKeys, TxMeta};
+use super::{EPostProof, RawBlock, Ticket, TipSetKeys};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -21,7 +21,7 @@ use std::fmt;
 ///
 /// Usage:
 /// ```
-/// use blocks::{BlockHeader, TipSetKeys, Ticket, TxMeta};
+/// use blocks::{BlockHeader, TipSetKeys, Ticket};
 /// use address::Address;
 /// use cid::{Cid, Codec, Prefix, Version};
 /// use clock::ChainEpoch;
@@ -323,13 +323,12 @@ impl BlockHeaderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{EPostProof, RawBlock, Ticket, TipSetKeys, TxMeta};
+    use super::super::{EPostProof, Ticket, TipSetKeys};
 
     use crate::{BlockHeader, EPostTicket};
     use address::Address;
     use base64;
     use cid::Cid;
-    use clock::ChainEpoch;
     use crypto::{Signature, VRFResult};
     use encoding::from_slice;
     use encoding::to_vec;
