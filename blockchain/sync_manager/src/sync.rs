@@ -7,8 +7,9 @@ use super::errors::Error;
 use super::manager::SyncManager;
 use blocks::{Block, FullTipset, Tipset};
 use chain::ChainStore;
-use cid::Cid;
+use cid::{Cid, Codec, Version};
 use libp2p::core::PeerId;
+use multihash::Multihash;
 use raw_block::RawBlock;
 
 pub struct Syncer<'a> {
@@ -39,7 +40,7 @@ impl<'a> Syncer<'a> {
         }
         // TODO validate message data
         for block in fts.blocks() {
-            self.validate_msg_data(block);
+            self.validate_msg_data(block).ok();
         }
         // TODO send pubsub message indicating incoming blocks
         // TODO Add peer to blocksync
@@ -60,24 +61,28 @@ impl<'a> Syncer<'a> {
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
         let sm_root = self.compute_msg_data(block);
         // TODO change message_receipts to messages() once #192 is in
-        if block.to_header().message_receipts() != sm_root {
+        if block.to_header().message_receipts() != &sm_root {
             return Err(Error::InvalidRoots);
         }
 
         for b in block.get_bls_msgs() {
             // store in datastore
-            self.chain_store.put_messages(b.cid().key(), b.raw_data()?);
+            self.chain_store
+                .put_messages(b.cid().key(), b.raw_data()?)
+                .ok();
         }
         for b in block.get_secp_msgs() {
             // store in datastore
-            self.chain_store.put_messages(b.cid().key(), b.raw_data()?);
+            self.chain_store
+                .put_messages(b.cid().key(), b.raw_data()?)
+                .ok();
         }
 
         Ok(())
     }
-    fn compute_msg_data(&self, block: &Block) -> &Cid {
+    fn compute_msg_data(&self, block: &Block) -> Cid {
         // TODO compute message roots
-       
+
         let mut bls_cids = Vec::new();
         let mut secp_cids = Vec::new();
 
@@ -88,6 +93,7 @@ impl<'a> Syncer<'a> {
             secp_cids.push(b.cid());
         }
         // Temporary until AMT structure is implemented
-        &block.to_header().cid()
+        let hash = Multihash::from_bytes(vec![0, 0]);
+        Cid::new(Codec::DagCBOR, Version::V1, hash.unwrap())
     }
 }

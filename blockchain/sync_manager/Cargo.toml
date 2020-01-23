@@ -13,6 +13,7 @@ cid = { package = "ferret_cid", path = "../../ipld/cid" }
 chain = { path ="../chain" }
 message = { path = "../../vm/message" }
 raw_block = { package = "raw_block", path = "../raw_block" }
+multihash = "0.9.3"
 
 [dev-dependencies]
 cid = { package = "ferret_cid", path = "../../ipld/cid" }
