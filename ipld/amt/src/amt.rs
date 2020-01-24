@@ -3,7 +3,7 @@
 
 use crate::{nodes_for_height, BlockStore, Error, Node, Root};
 use cid::Cid;
-use encoding::Cbor;
+use encoding::{ser::Serialize, to_vec};
 
 const MAX_INDEX: u64 = 1 << 48 as u64;
 
@@ -58,12 +58,15 @@ where
         t.flush()
     }
     /// Set value at index
-    pub fn set<C: Cbor>(&mut self, i: u64, val: &C) -> Result<(), Error> {
+    pub fn set<S>(&mut self, i: u64, val: &S) -> Result<(), Error>
+    where
+        S: Serialize,
+    {
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
-        let bz = val.marshal_cbor()?;
+        let bz = to_vec(val)?;
 
         while i >= nodes_for_height(self.height() as u32) {
             // node at index exists

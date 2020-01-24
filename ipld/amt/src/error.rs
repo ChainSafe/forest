@@ -3,7 +3,7 @@
 
 use cid::Error as CidError;
 use db::Error as DBError;
-use encoding::Error as EncodingError;
+use encoding::error;
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
@@ -37,8 +37,8 @@ impl From<CidError> for Error {
     }
 }
 
-impl From<EncodingError> for Error {
-    fn from(e: EncodingError) -> Error {
+impl From<error::Error> for Error {
+    fn from(e: error::Error) -> Error {
         Error::Cbor(e.to_string())
     }
 }

@@ -23,14 +23,29 @@ pub(crate) fn nodes_for_height(height: u32) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use encoding::{ser::Serialize, to_vec};
+
+    fn assert_get<S, DB>(a: &mut AMT<DB>, i: u64, v: &S)
+    where
+        S: Serialize,
+        DB: BlockStore,
+    {
+        assert_eq!(a.get(i).unwrap().unwrap(), to_vec(&v).unwrap());
+    }
 
     #[test]
     fn constructor() {
         AMT::new(&db::MemoryDB::default());
     }
-
     #[test]
-    fn basic_get_set() {}
+    fn basic_get_set() {
+        let db = db::MemoryDB::default();
+        let mut a = AMT::new(&db);
+
+        a.set(2, &"foo").unwrap();
+        assert_eq!(a.get(2).unwrap().unwrap(), to_vec(&"foo").unwrap());
+        assert_get(&mut a, 2, &"foo");
+    }
 
     #[test]
     fn out_of_range() {}
