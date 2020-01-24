@@ -40,7 +40,7 @@ impl<'a> Syncer<'a> {
         }
         // validate message data
         for block in fts.blocks() {
-            self.validate_msg_data(block).ok();
+            self.validate_msg_data(block)?;
         }
         // TODO send pubsub message indicating incoming blocks
         // TODO Add peer to blocksync
@@ -51,7 +51,7 @@ impl<'a> Syncer<'a> {
 
         if !target_weight.lt(&best_weight) {
             // Store incoming block header
-            self.chain_store.persist_headers(&fts.tipset()?).ok();
+            self.chain_store.persist_headers(&fts.tipset()?)?;
             // Set peer head
             self.sync_manager.set_peer_head(from, fts.tipset()?);
         }
@@ -69,14 +69,12 @@ impl<'a> Syncer<'a> {
         for b in block.get_bls_msgs() {
             // store in datastore
             self.chain_store
-                .put_messages(b.cid()?.key(), b.raw_data()?)
-                .ok();
+                .put_messages(b.cid()?.key(), b.raw_data()?)?;
         }
         for b in block.get_secp_msgs() {
             // store in datastore
             self.chain_store
-                .put_messages(b.cid()?.key(), b.raw_data()?)
-                .ok();
+                .put_messages(b.cid()?.key(), b.raw_data()?)?;
         }
 
         Ok(())
@@ -93,7 +91,7 @@ impl<'a> Syncer<'a> {
         for b in block.get_secp_msgs() {
             secp_cids.push(b.cid());
         }
-        // Temporary until AMT structure is implemented
+        // TODO temporary until AMT structure is implemented
         // see Lotus implementation https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L338
         // will return a new CID representing both message roots
         let hash = Multihash::from_bytes(vec![0, 0]);

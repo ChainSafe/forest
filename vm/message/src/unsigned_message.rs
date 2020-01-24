@@ -134,12 +134,10 @@ impl Message for UnsignedMessage {
 }
 
 impl RawBlock for UnsignedMessage {
-    /// returns the block raw contents as a byte array
     fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
         // TODO should serialize message using CBOR encoding
         self.marshal_cbor()
     }
-    /// returns the content identifier of the block
     fn cid(&self) -> Result<Cid, CidError> {
         let hash = Multihash::from_bytes(self.marshal_cbor()?)?;
         Ok(Cid::new(Codec::DagCBOR, Version::V1, hash))

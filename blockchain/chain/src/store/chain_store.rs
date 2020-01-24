@@ -31,12 +31,9 @@ pub struct ChainStore<'a> {
 
 impl<'a> ChainStore<'a> {
     /// constructor
-    pub fn new<P>(path: P, gen: Cid, heaviest: &'a Tipset) -> Self
-    where
-        P: AsRef<Path>,
-    {
+    pub fn new(path: &Path, gen: Cid, heaviest: &'a Tipset) -> Self {
         Self {
-            db: Blockstore::new(path.as_ref().to_path_buf()),
+            db: Blockstore::new(path.to_path_buf()),
             tip_index: TipIndex::new(),
             genesis: gen,
             heaviest,
@@ -100,7 +97,7 @@ impl<'a> ChainStore<'a> {
     pub fn get_heaviest_tipset(&self) -> &Tipset {
         &self.heaviest
     }
-    /// Returns rockDB instance
+    /// Returns key-value store instance
     pub fn get_blockstore(&self) -> &Blockstore {
         &self.db
     }

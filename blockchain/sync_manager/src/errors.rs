@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use blocks::Error as BlkErr;
+use chain::Error as StoreErr;
 use cid::Error as CidErr;
+use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
 use std::fmt;
 
@@ -17,6 +19,10 @@ pub enum Error {
     InvalidCid(String),
     /// Error indicating an invalid root
     InvalidRoots,
+    /// Error indicating a chain store error
+    Store(String),
+    /// Error originating from key-value store
+    KeyValueStore(String),
 }
 
 impl fmt::Display for Error {
@@ -29,8 +35,12 @@ impl fmt::Display for Error {
                 "Error originating from construction of blockchain structures: {}",
                 msg
             ),
+            Error::KeyValueStore(msg) => {
+                write!(f, "Error originating from Key-Value store: {}", msg)
+            }
             Error::Encoding(msg) => write!(f, "Error originating from Encoding type: {}", msg),
             Error::InvalidCid(msg) => write!(f, "Error originating from CID construction: {}", msg),
+            Error::Store(msg) => write!(f, "Error originating from ChainStore: {}", msg),
         }
     }
 }
@@ -38,6 +48,12 @@ impl fmt::Display for Error {
 impl From<BlkErr> for Error {
     fn from(e: BlkErr) -> Error {
         Error::Blockchain(e.to_string())
+    }
+}
+
+impl From<DbErr> for Error {
+    fn from(e: DbErr) -> Error {
+        Error::KeyValueStore(e.to_string())
     }
 }
 
@@ -56,5 +72,11 @@ impl From<SerdeErr> for Error {
 impl From<CidErr> for Error {
     fn from(e: CidErr) -> Error {
         Error::InvalidCid(e.to_string())
+    }
+}
+
+impl From<StoreErr> for Error {
+    fn from(e: StoreErr) -> Error {
+        Error::Store(e.to_string())
     }
 }

@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 address = { path = "../../vm/address" }
 blocks = { path = "../blocks" }
+db = { path = "../../node/db" }
 encoding = { path = "../../encoding" }
 libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "776d13ef046358964c7d64cda3295a3a3cb24743" }
 cid = { package = "ferret_cid", path = "../../ipld/cid" }

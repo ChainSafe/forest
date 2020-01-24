@@ -3,4 +3,4 @@
 
 mod raw_block;
 
-pub use raw_block::*;
+pub use self::raw_block::*;
