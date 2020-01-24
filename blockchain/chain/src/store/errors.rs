@@ -16,9 +16,9 @@ pub enum Error {
     /// Error originating from key-value store
     KeyValueStore(String),
     /// Error originating constructing blockchain structures
-    BlkError(String),
+    Blockchain(String),
     /// Error originating from encoding arbitrary data
-    EncodingError(String),
+    Encoding(String),
 }
 
 impl fmt::Display for Error {
@@ -29,12 +29,12 @@ impl fmt::Display for Error {
             Error::KeyValueStore(msg) => {
                 write!(f, "Error originating from Key-Value store: {}", msg)
             }
-            Error::BlkError(msg) => write!(
+            Error::Blockchain(msg) => write!(
                 f,
                 "Error originating from construction of blockchain structures: {}",
                 msg
             ),
-            Error::EncodingError(msg) => write!(f, "Error originating from Encoding type: {}", msg),
+            Error::Encoding(msg) => write!(f, "Error originating from Encoding type: {}", msg),
         }
     }
 }
@@ -47,18 +47,18 @@ impl From<DbErr> for Error {
 
 impl From<BlkErr> for Error {
     fn from(e: BlkErr) -> Error {
-        Error::BlkError(e.to_string())
+        Error::Blockchain(e.to_string())
     }
 }
 
 impl From<EncErr> for Error {
     fn from(e: EncErr) -> Error {
-        Error::EncodingError(e.to_string())
+        Error::Encoding(e.to_string())
     }
 }
 
 impl From<SerdeErr> for Error {
     fn from(e: SerdeErr) -> Error {
-        Error::EncodingError(e.to_string())
+        Error::Encoding(e.to_string())
     }
 }
