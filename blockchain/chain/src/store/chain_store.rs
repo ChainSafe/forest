@@ -75,14 +75,14 @@ impl<'a> ChainStore<'a> {
         }
         Ok(self.db.bulk_write(&keys, &raw_header_data)?)
     }
-
+    /// Writes encoded message data to blockstore
     pub fn put_messages<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
         if self.db.exists(&key)? {
-            return Err(Error::KVError("Keys exist".to_string()));
+            return Err(Error::KeyValueStore("Keys exist".to_string()));
         }
         Ok(self.db.write(&key, value)?)
     }

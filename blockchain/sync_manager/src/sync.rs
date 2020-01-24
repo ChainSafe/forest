@@ -38,7 +38,7 @@ impl<'a> Syncer<'a> {
         if fts.blocks().is_empty() {
             return Err(Error::NoBlocks);
         }
-        // TODO validate message data
+        // validate message data
         for block in fts.blocks() {
             self.validate_msg_data(block).ok();
         }
@@ -69,13 +69,13 @@ impl<'a> Syncer<'a> {
         for b in block.get_bls_msgs() {
             // store in datastore
             self.chain_store
-                .put_messages(b.cid().key(), b.raw_data()?)
+                .put_messages(b.cid()?.key(), b.raw_data()?)
                 .ok();
         }
         for b in block.get_secp_msgs() {
             // store in datastore
             self.chain_store
-                .put_messages(b.cid().key(), b.raw_data()?)
+                .put_messages(b.cid()?.key(), b.raw_data()?)
                 .ok();
         }
 
@@ -94,6 +94,8 @@ impl<'a> Syncer<'a> {
             secp_cids.push(b.cid());
         }
         // Temporary until AMT structure is implemented
+        // see Lotus implementation https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L338
+        // will return a new CID representing both message roots
         let hash = Multihash::from_bytes(vec![0, 0]);
         Cid::new(Codec::DagCBOR, Version::V1, hash.unwrap())
     }

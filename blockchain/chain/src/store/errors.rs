@@ -14,7 +14,7 @@ pub enum Error {
     /// Tipset contains no blocks
     NoBlocks,
     /// Error originating from key-value store
-    KVError(String),
+    KeyValueStore(String),
     /// Error originating constructing blockchain structures
     BlkError(String),
     /// Error originating from encoding arbitrary data
@@ -26,7 +26,9 @@ impl fmt::Display for Error {
         match self {
             Error::UndefinedKey(msg) => write!(f, "Invalid key: {}", msg),
             Error::NoBlocks => write!(f, "No blocks for tipset"),
-            Error::KVError(msg) => write!(f, "Error originating from Key-Value store: {}", msg),
+            Error::KeyValueStore(msg) => {
+                write!(f, "Error originating from Key-Value store: {}", msg)
+            }
             Error::BlkError(msg) => write!(
                 f,
                 "Error originating from construction of blockchain structures: {}",
@@ -39,7 +41,7 @@ impl fmt::Display for Error {
 
 impl From<DbErr> for Error {
     fn from(e: DbErr) -> Error {
-        Error::KVError(e.to_string())
+        Error::KeyValueStore(e.to_string())
     }
 }
 

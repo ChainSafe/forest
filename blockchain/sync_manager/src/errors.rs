@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use blocks::Error as BlkErr;
+use cid::Error as CidErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
 use std::fmt;
 
@@ -12,6 +13,8 @@ pub enum Error {
     BlkError(String),
     /// Error originating from encoding arbitrary data
     EncodingError(String),
+    /// Error originating from CID construction
+    InvalidCid(String),
     /// Error indicating an invalid root
     InvalidRoots,
 }
@@ -27,6 +30,7 @@ impl fmt::Display for Error {
                 msg
             ),
             Error::EncodingError(msg) => write!(f, "Error originating from Encoding type: {}", msg),
+            Error::InvalidCid(msg) => write!(f, "Error originating from CID construction: {}", msg),
         }
     }
 }
@@ -46,5 +50,11 @@ impl From<EncErr> for Error {
 impl From<SerdeErr> for Error {
     fn from(e: SerdeErr) -> Error {
         Error::EncodingError(e.to_string())
+    }
+}
+
+impl From<CidErr> for Error {
+    fn from(e: CidErr) -> Error {
+        Error::InvalidCid(e.to_string())
     }
 }

@@ -3,10 +3,10 @@
 
 use super::Message;
 use address::Address;
-use cid::{Cid, Codec, Version};
+use cid::{Cid, Codec, Error as CidError, Version};
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor, Error as EncodingError};
-use multihash::{Hash, Multihash};
+use multihash::Multihash;
 use num_bigint::BigUint;
 use raw_block::RawBlock;
 use serde::Deserialize;
@@ -140,13 +140,9 @@ impl RawBlock for UnsignedMessage {
         self.marshal_cbor()
     }
     /// returns the content identifier of the block
-    fn cid(&self) -> Cid {
-        let hash = Multihash::from_bytes(self.marshal_cbor().unwrap());
-        Cid::new(Codec::DagCBOR, Version::V1, hash.unwrap())
-    }
-    /// returns the hash contained in the block CID
-    fn multihash(&self) -> Hash {
-        self.cid().prefix().mh_type
+    fn cid(&self) -> Result<Cid, CidError> {
+        let hash = Multihash::from_bytes(self.marshal_cbor()?)?;
+        Ok(Cid::new(Codec::DagCBOR, Version::V1, hash))
     }
 }
 
