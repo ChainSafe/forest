@@ -67,14 +67,12 @@ impl<'a> Syncer<'a> {
         }
 
         for b in block.get_bls_msgs() {
-            // store in datastore
             self.chain_store
-                .put_messages(b.cid()?.key(), b.raw_data()?)?;
+                .put_messages(&b.cid()?.key(), &b.raw_data()?)?;
         }
         for b in block.get_secp_msgs() {
-            // store in datastore
             self.chain_store
-                .put_messages(b.cid()?.key(), b.raw_data()?)?;
+                .put_messages(&b.cid()?.key(), &b.raw_data()?)?;
         }
 
         Ok(())
