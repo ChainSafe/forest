@@ -7,7 +7,7 @@ use super::errors::Error;
 use super::manager::SyncManager;
 use blocks::{Block, FullTipset, Tipset};
 use chain::ChainStore;
-use cid::{Cid, Codec, Version};
+use cid::{Cid, Codec, Error as CidError, Version};
 use libp2p::core::PeerId;
 use multihash::Multihash;
 use raw_block::RawBlock;
@@ -60,7 +60,7 @@ impl<'a> Syncer<'a> {
     }
 
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
-        let sm_root = self.compute_msg_data(block);
+        let sm_root = self.compute_msg_data(block)?;
         // TODO change message_receipts to messages() once #192 is in
         if block.to_header().message_receipts() != &sm_root {
             return Err(Error::InvalidRoots);
@@ -79,22 +79,20 @@ impl<'a> Syncer<'a> {
 
         Ok(())
     }
-    fn compute_msg_data(&self, block: &Block) -> Cid {
+    fn compute_msg_data(&self, block: &Block) -> Result<Cid, CidError> {
         // TODO compute message roots
 
-        let mut bls_cids = Vec::new();
-        let mut secp_cids = Vec::new();
+        let _bls_cids = cids_from_messages(block.get_bls_msgs())?;
+        let _secp_cids = cids_from_messages(block.get_secp_msgs())?;
 
-        for b in block.get_bls_msgs() {
-            bls_cids.push(b.cid());
-        }
-        for b in block.get_secp_msgs() {
-            secp_cids.push(b.cid());
-        }
         // TODO temporary until AMT structure is implemented
         // see Lotus implementation https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L338
         // will return a new CID representing both message roots
         let hash = Multihash::from_bytes(vec![0, 0]);
-        Cid::new(Codec::DagCBOR, Version::V1, hash.unwrap())
+        Ok(Cid::new(Codec::DagCBOR, Version::V1, hash.unwrap()))
     }
+}
+
+pub fn cids_from_messages<T: RawBlock>(messages: &[T]) -> Result<Vec<Cid>, CidError> {
+    messages.iter().map(RawBlock::cid).collect()
 }
