@@ -46,7 +46,7 @@ impl<'a> Syncer<'a> {
         // TODO Add peer to blocksync
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let best_weight = self.chain_store.get_heaviest_tipset().blocks()[0].weight();
+        let best_weight = self.chain_store.heaviest_tipset().blocks()[0].weight();
         let target_weight = fts.blocks()[0].to_header().weight();
 
         if !target_weight.lt(&best_weight) {
@@ -66,16 +66,16 @@ impl<'a> Syncer<'a> {
             return Err(Error::InvalidRoots);
         }
 
-        self.chain_store.put_messages(block.get_bls_msgs())?;
-        self.chain_store.put_messages(block.get_secp_msgs())?;
+        self.chain_store.put_messages(block.bls_msgs())?;
+        self.chain_store.put_messages(block.secp_msgs())?;
 
         Ok(())
     }
     fn compute_msg_data(&self, block: &Block) -> Result<Cid, CidError> {
         // TODO compute message roots
 
-        let _bls_cids = cids_from_messages(block.get_bls_msgs())?;
-        let _secp_cids = cids_from_messages(block.get_secp_msgs())?;
+        let _bls_cids = cids_from_messages(block.bls_msgs())?;
+        let _secp_cids = cids_from_messages(block.secp_msgs())?;
 
         // TODO temporary until AMT structure is implemented
         // see Lotus implementation https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L338

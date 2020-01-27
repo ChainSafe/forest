@@ -10,7 +10,6 @@ use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use num_bigint::BigUint;
 use raw_block::RawBlock;
-
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

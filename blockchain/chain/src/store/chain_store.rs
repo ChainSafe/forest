@@ -89,7 +89,7 @@ impl<'a> ChainStore<'a> {
         Ok(())
     }
     /// Returns genesis blockheader from blockstore
-    pub fn get_genesis(&self) -> Result<BlockHeader, Error> {
+    pub fn genesis(&self) -> Result<BlockHeader, Error> {
         let bz = self.db.read(self.genesis.key())?;
         match bz {
             None => Err(Error::UndefinedKey(
@@ -99,11 +99,11 @@ impl<'a> ChainStore<'a> {
         }
     }
     /// Returns heaviest tipset from blockstore
-    pub fn get_heaviest_tipset(&self) -> &Tipset {
+    pub fn heaviest_tipset(&self) -> &Tipset {
         &self.heaviest
     }
     /// Returns key-value store instance
-    pub fn get_blockstore(&self) -> &Blockstore {
+    pub fn blockstore(&self) -> &Blockstore {
         &self.db
     }
 }

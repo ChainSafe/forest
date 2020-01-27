@@ -32,10 +32,10 @@ impl Block {
     pub fn to_header(&self) -> &BlockHeader {
         &self.header
     }
-    pub fn get_bls_msgs(&self) -> &Vec<UnsignedMessage> {
+    pub fn bls_msgs(&self) -> &Vec<UnsignedMessage> {
         &self.bls_messages
     }
-    pub fn get_secp_msgs(&self) -> &Vec<SignedMessage> {
+    pub fn secp_msgs(&self) -> &Vec<SignedMessage> {
         &self.secp_messages
     }
 }
