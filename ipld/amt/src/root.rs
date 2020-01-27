@@ -4,17 +4,17 @@
 use crate::Node;
 use encoding::{
     de::{self, Deserialize},
-    ser, Cbor,
+    ser,
 };
 
 #[derive(PartialEq, Eq, Debug, Default)]
-pub struct Root<'a> {
+pub struct Root {
     pub(super) height: u32,
     pub(super) count: u64,
-    pub(super) node: Node<'a>,
+    pub(super) node: Node,
 }
 
-impl ser::Serialize for Root<'_> {
+impl ser::Serialize for Root {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
@@ -23,7 +23,7 @@ impl ser::Serialize for Root<'_> {
     }
 }
 
-impl<'de> de::Deserialize<'de> for Root<'_> {
+impl<'de> de::Deserialize<'de> for Root {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,
@@ -36,5 +36,3 @@ impl<'de> de::Deserialize<'de> for Root<'_> {
         })
     }
 }
-
-impl Cbor for Root<'_> {}

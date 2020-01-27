@@ -13,10 +13,10 @@ pub use self::error::*;
 pub use self::node::*;
 pub use self::root::*;
 
-const WIDTH: u64 = 8;
+const WIDTH: usize = 8;
 
 pub(crate) fn nodes_for_height(height: u32) -> u64 {
-    WIDTH.pow(height)
+    (WIDTH as u64).pow(height)
 }
 
 // TODO move tests to folder in crate

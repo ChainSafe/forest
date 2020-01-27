@@ -8,15 +8,15 @@ use encoding::{ser::Serialize, to_vec};
 const MAX_INDEX: u64 = 1 << 48 as u64;
 
 #[derive(PartialEq, Eq, Debug)]
-pub struct AMT<'a: 'db, 'db, DB>
+pub struct AMT<'db, DB>
 where
     DB: BlockStore,
 {
-    root: Root<'a>,
+    root: Root,
     block_store: &'db DB,
 }
 
-impl<'a: 'db, 'db, DB: BlockStore> AMT<'a, 'db, DB>
+impl<'db, DB: BlockStore> AMT<'db, DB>
 where
     DB: BlockStore,
 {
@@ -43,7 +43,7 @@ where
         &self.root.node
     }
     /// Sets root node
-    pub fn set_node(&mut self, node: Node<'a>) -> &mut Self {
+    pub fn set_node(&mut self, node: Node) -> &mut Self {
         self.root.node = node;
         self
     }
@@ -75,9 +75,9 @@ where
                 self.root.node.flush(self.block_store, self.height())?;
 
                 // ? why is flushed node being put in block store
-                let cid = self.block_store.put(self.node())?;
+                let _cid = self.block_store.put(self.node())?;
 
-                self.set_node(Node::new(vec![0x01], vec![cid]));
+                // self.set_node(Node::new(0x01, vec![cid]));
             }
             // Incrememnt height after each iteration
             self.root.height += 1;

@@ -21,6 +21,7 @@ clean:
 	@cargo clean -p encoding
 	@cargo clean -p ferret_cid
 	@cargo clean -p ferret_ipld
+	@cargo clean -p amt
 	@echo "Done cleaning."
 
 lint: clean license
