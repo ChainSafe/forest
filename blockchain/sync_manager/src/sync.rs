@@ -66,14 +66,8 @@ impl<'a> Syncer<'a> {
             return Err(Error::InvalidRoots);
         }
 
-        for b in block.get_bls_msgs() {
-            self.chain_store
-                .put_messages(&b.cid()?.key(), &b.raw_data()?)?;
-        }
-        for b in block.get_secp_msgs() {
-            self.chain_store
-                .put_messages(&b.cid()?.key(), &b.raw_data()?)?;
-        }
+        self.chain_store.put_messages(block.get_bls_msgs())?;
+        self.chain_store.put_messages(block.get_secp_msgs())?;
 
         Ok(())
     }

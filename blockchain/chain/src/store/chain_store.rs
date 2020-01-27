@@ -31,13 +31,17 @@ pub struct ChainStore<'a> {
 
 impl<'a> ChainStore<'a> {
     /// constructor
-    pub fn new(path: &Path, gen: Cid, heaviest: &'a Tipset) -> Self {
-        Self {
-            db: Blockstore::new(path.to_path_buf()),
+    pub fn new(path: &Path, gen: Cid, heaviest: &'a Tipset) -> Result<Self, Error> {
+        let mut db = Blockstore::new(path.to_path_buf());
+        // initialize key-value store
+        db.open()?;
+
+        Ok(Self {
+            db,
             tip_index: TipIndex::new(),
             genesis: gen,
             heaviest,
-        }
+        })
     }
     /// Sets tip_index tracker
     pub fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
@@ -73,11 +77,16 @@ impl<'a> ChainStore<'a> {
         Ok(self.db.bulk_write(&keys, &raw_header_data)?)
     }
     /// Writes encoded message data to blockstore
-    pub fn put_messages(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
-        if self.db.exists(&key)? {
-            return Err(Error::KeyValueStore("Keys exist".to_string()));
+    pub fn put_messages<T: RawBlock>(&self, msgs: &[T]) -> Result<(), Error> {
+        for m in msgs {
+            let key = m.cid()?.key();
+            let value = &m.raw_data()?;
+            if self.db.exists(&key)? {
+                return Err(Error::KeyValueStore("Keys exist".to_string()));
+            }
+            self.db.write(&key, value)?
         }
-        Ok(self.db.write(&key, value)?)
+        Ok(())
     }
     /// Returns genesis blockheader from blockstore
     pub fn get_genesis(&self) -> Result<BlockHeader, Error> {

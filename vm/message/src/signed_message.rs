@@ -3,10 +3,8 @@
 
 use super::{Message, UnsignedMessage};
 use address::Address;
-use cid::{Cid, Codec, Error as CidError, Version};
 use crypto::{Error as CryptoError, Signature, Signer};
-use encoding::{Cbor, Error as EncodingError};
-use multihash::Multihash;
+use encoding::Cbor;
 use num_bigint::BigUint;
 use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
@@ -68,15 +66,6 @@ impl Message for SignedMessage {
     }
 }
 
-impl RawBlock for SignedMessage {
-    fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO should serialize message using CBOR encoding
-        self.marshal_cbor()
-    }
-    fn cid(&self) -> Result<Cid, CidError> {
-        let hash = Multihash::from_bytes(self.marshal_cbor()?)?;
-        Ok(Cid::new(Codec::DagCBOR, Version::V1, hash))
-    }
-}
+impl RawBlock for SignedMessage {}
 
 impl Cbor for SignedMessage {}

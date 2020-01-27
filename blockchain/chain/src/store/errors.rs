@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use blocks::Error as BlkErr;
+use cid::Error as CidErr;
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
 use serde::Deserialize;
@@ -19,6 +20,8 @@ pub enum Error {
     Blockchain(String),
     /// Error originating from encoding arbitrary data
     Encoding(String),
+    /// Error originating from Cid creation
+    Cid(String),
 }
 
 impl fmt::Display for Error {
@@ -35,6 +38,7 @@ impl fmt::Display for Error {
                 msg
             ),
             Error::Encoding(msg) => write!(f, "Error originating from Encoding type: {}", msg),
+            Error::Cid(msg) => write!(f, "Error originating from from Cid creation: {}", msg),
         }
     }
 }
@@ -60,5 +64,11 @@ impl From<EncErr> for Error {
 impl From<SerdeErr> for Error {
     fn from(e: SerdeErr) -> Error {
         Error::Encoding(e.to_string())
+    }
+}
+
+impl From<CidErr> for Error {
+    fn from(e: CidErr) -> Error {
+        Error::Cid(e.to_string())
     }
 }

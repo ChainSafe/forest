@@ -8,3 +8,4 @@ edition = "2018"
 cid = { package = "ferret_cid", path = "../../ipld/cid" }
 serde = { version = "1.0", features = ["derive"] }
 encoding = { path = "../../encoding" }
+multihash = "0.9.3"

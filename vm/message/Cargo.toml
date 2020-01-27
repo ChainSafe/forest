@@ -13,8 +13,7 @@ encoding = { path = "../../encoding" }
 crypto = { path = "../../crypto" }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
-raw_block = { package = "raw_block", path = "../../blockchain/raw_block" }
-multihash = "0.9.3"
+raw_block = { path = "../../blockchain/raw_block" }
 
 [dev-dependencies]
 serde_json = "1.0"
