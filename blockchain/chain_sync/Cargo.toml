@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 blocks = {path = "../blocks"}
-libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "776d13ef046358964c7d64cda3295a3a3cb24743" }
+libp2p = "0.15.0"

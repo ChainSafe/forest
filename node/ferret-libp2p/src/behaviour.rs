@@ -1,26 +1,26 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
+use async_std::task;
 use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
-//use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
+use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::mdns::{Mdns, MdnsEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
-use futures::task::Poll;
-use async_std::task;
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
 use slog::{debug, Logger};
+use std::{error, task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MyBehaviourEvent", poll_method = "poll")]
-pub struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
-//    pub gossipsub: Gossipsub<TSubstream>,
+pub struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> {
+    pub gossipsub: Gossipsub<TSubstream>,
     pub mdns: Mdns<TSubstream>,
     pub ping: Ping<TSubstream>,
     pub identify: Identify<TSubstream>,
@@ -35,13 +35,13 @@ pub enum MyBehaviourEvent {
     ExpiredPeer(PeerId),
     GossipMessage {
         source: PeerId,
-//        topics: Vec<TopicHash>,
+        topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
-    for MyBehaviour<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+    NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour<TSubstream>
 {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
@@ -61,22 +61,22 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
     }
 }
 
-//impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubEvent>
-//    for MyBehaviour<TSubstream>
-//{
-//    fn inject_event(&mut self, message: GossipsubEvent) {
-//        if let GossipsubEvent::Message(_, _, message) = message {
-//            self.events.push(MyBehaviourEvent::GossipMessage {
-//                source: message.source,
-//                topics: message.topics,
-//                message: message.data,
-//            })
-//        }
-//    }
-//}
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+    NetworkBehaviourEventProcess<GossipsubEvent> for MyBehaviour<TSubstream>
+{
+    fn inject_event(&mut self, message: GossipsubEvent) {
+        if let GossipsubEvent::Message(_, _, message) = message {
+            self.events.push(MyBehaviourEvent::GossipMessage {
+                source: message.source,
+                topics: message.topics,
+                message: message.data,
+            })
+        }
+    }
+}
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
-    for MyBehaviour<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+    NetworkBehaviourEventProcess<PingEvent> for MyBehaviour<TSubstream>
 {
     fn inject_event(&mut self, event: PingEvent) {
         match event.result {
@@ -110,8 +110,8 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
-    for MyBehaviour<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+    NetworkBehaviourEventProcess<IdentifyEvent> for MyBehaviour<TSubstream>
 {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
@@ -133,10 +133,11 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEv
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
+impl<TSubstream: AsyncRead + AsyncWrite + Send + Unpin + 'static> MyBehaviour<TSubstream> {
     /// Consumes the events list when polled.
     fn poll<TBehaviourIn>(
         &mut self,
+        _: &mut Context,
     ) -> Poll<NetworkBehaviourAction<TBehaviourIn, MyBehaviourEvent>> {
         if !self.events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
@@ -145,13 +146,13 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> MyBehaviour<TSubstream> {
     pub fn new(log: Logger, local_key: &Keypair) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
-//        let gossipsub_config = GossipsubConfig::default();
+        let gossipsub_config = GossipsubConfig::default();
         MyBehaviour {
-//            gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
-            mdns: task::block_on(Mdns::new()).expect("Could not start mDNS"),
+            gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
+            mdns: Mdns::new().expect("Could not start mDNS"),
             ping: Ping::default(),
             identify: Identify::new("ferret/libp2p".into(), "0.0.1".into(), local_key.public()),
             log,
@@ -159,11 +160,11 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
         }
     }
 
-//    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) {
-//        self.gossipsub.publish(topic, data);
-//    }
-//
-//    pub fn subscribe(&mut self, topic: Topic) -> bool {
-//        self.gossipsub.subscribe(topic)
-//    }
+    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) {
+        self.gossipsub.publish(topic, data);
+    }
+
+    pub fn subscribe(&mut self, topic: Topic) -> bool {
+        self.gossipsub.subscribe(topic)
+    }
 }

@@ -11,8 +11,10 @@ use futures::channel::mpsc;
 use network::service::NetworkService;
 use slog::info;
 use std::error::Error;
+use async_std;
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[async_std::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let log = log::setup_logging();
     info!(log, "Starting Ferret");
 
@@ -27,5 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (_network_service, _net_tx, _exit_tx) =
         NetworkService::new(&config.network, &log, tx);
 
+
     info!(log, "Ferret finish shutdown");
+    Ok(())
 }

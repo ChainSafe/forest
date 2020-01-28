@@ -3,13 +3,16 @@
 
 use ferret_libp2p::config::Libp2pConfig;
 use ferret_libp2p::service::{Libp2pService, NetworkEvent};
-use futures::stream::Stream;
-use futures::channel::mpsc;
-use futures::{Async, Future};
+use futures::stream::{Stream, };
+use futures::channel::{mpsc, oneshot};
+use futures::future::{Future, Select, FutureExt, TryFutureExt};
+use futures::{select};
 use async_std::task;
 use libp2p::gossipsub::Topic;
 use slog::{warn, Logger};
 use std::sync::{Arc, Mutex};
+use std::{error, task::Context, task::Poll};
+use futures::prelude::*;
 
 
 /// Ingress events to the NetworkService
@@ -34,16 +37,15 @@ impl NetworkService {
     ) -> (
         Self,
         mpsc::UnboundedSender<NetworkMessage>,
-        tokio::sync::oneshot::Sender<u8>,
+        oneshot::Sender<u8>,
     ) {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::unbounded();
 
         let libp2p_service = Arc::new(Mutex::new(Libp2pService::new(log, config)));
 
         let exit_tx = start(
             log.clone(),
             libp2p_service.clone(),
-            executor,
             outbound_transmitter,
             rx,
         );
@@ -64,15 +66,23 @@ enum Error {}
 fn start(
     log: Logger,
     libp2p_service: Arc<Mutex<Libp2pService>>,
-    executor: &TaskExecutor,
     outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
     message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
-) -> tokio::sync::oneshot::Sender<u8> {
-    let (network_exit, exit_rx) = tokio::sync::oneshot::channel();
-    task.spawn(
-        poll(log, libp2p_service, outbound_transmitter, message_receiver)
-            .select(exit_rx.then(|_| Ok(())))
-            .then(move |_| Ok(())),
+) -> oneshot::Sender<u8> {
+    let (network_exit, exit_rx) = oneshot::channel();
+    task::spawn( async {
+        poll(log, libp2p_service, outbound_transmitter, message_receiver).await;
+    }
+//        select(
+//            poll(log, libp2p_service, outbound_transmitter, message_receiver),
+//            select(exit_rx.then(|_| async {Ok(())}))
+//        )
+//            .then(move |_| Ok(()))
+//        select!{
+//            () = poll(log, libp2p_service, outbound_transmitter, message_receiver) =>{},
+//            _ = exit_rx.then(|_| async {Ok(())}) => {}
+//        }
+
     );
 
     network_exit
@@ -83,11 +93,11 @@ fn poll(
     libp2p_service: Arc<Mutex<Libp2pService>>,
     mut outbound_transmitter: mpsc::UnboundedSender<NetworkEvent>,
     mut message_receiver: mpsc::UnboundedReceiver<NetworkMessage>,
-) -> impl futures::Future<Item = (), Error = Error> {
-    futures::future::poll_fn(move || -> Result<_, _> {
+) -> impl futures::Future<Output = Result<(), Error>> {
+    future::poll_fn(move |cx: &mut Context| {
         loop {
-            match message_receiver.poll() {
-                Ok(Async::Ready(Some(event))) => match event {
+            match message_receiver.try_next() {
+                Ok(Some(event))=> match event {
                     NetworkMessage::PubsubMessage { topics, message } => {
                         libp2p_service
                             .lock()
@@ -96,22 +106,21 @@ fn poll(
                             .publish(&topics, message);
                     }
                 },
-                Ok(Async::NotReady) => break,
                 _ => break,
             }
         }
         loop {
-            match libp2p_service.lock().unwrap().poll() {
-                Ok(Async::Ready(Some(event))) => match event {
+            match libp2p_service.lock().unwrap().poll_next_unpin(cx) {
+                Poll::Ready(Some(event)) => match event {
                     NetworkEvent::PubsubMessage {
                         source,
-//                        topics,
+                        topics,
                         message,
                     } => {
                         if outbound_transmitter
-                            .try_send(NetworkEvent::PubsubMessage {
+                            .unbounded_send(NetworkEvent::PubsubMessage {
                                 source,
-//                                topics,
+                                topics,
                                 message,
                             })
                             .is_err()
@@ -120,11 +129,11 @@ fn poll(
                         }
                     }
                 },
-                Ok(Async::Ready(None)) => unreachable!("Stream never ends"),
-                Ok(Async::NotReady) => break,
+                Poll::Ready(None) => unreachable!("Stream never ends"),
+                Poll::Pending => break,
                 _ => break,
             }
         }
-        Ok(Async::NotReady)
+        Poll::Pending
     })
 }

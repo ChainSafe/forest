@@ -3,23 +3,28 @@
 
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
-use futures::stream::Stream;
-use futures::task::{Poll, Context};
-use futures_util::stream::StreamExt;
 use async_std::task;
+use futures::stream::Stream;
+use futures::task::{Context, Poll};
+use futures_util::stream::StreamExt;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
     core::nodes::Substream,
     core::transport::boxed::Boxed,
-//    gossipsub::TopicHash,
+        gossipsub::TopicHash,
     identity::{ed25519, Keypair},
-    mplex, secio, yamux, PeerId, Swarm, Transport,
+    mplex,
+    secio,
+    yamux,
+    PeerId,
+    Swarm,
+    Transport,
 };
 use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
-use std::time::Duration;
 use std::pin::Pin;
+use std::time::Duration;
 use utils::{get_home_dir, read_file_to_vec, write_to_file};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
@@ -64,9 +69,9 @@ impl Libp2pService {
         )
         .unwrap();
 
-//        for topic in config.pubsub_topics.clone() {
-//            swarm.subscribe(topic);
-//        }
+        for topic in config.pubsub_topics.clone() {
+            swarm.subscribe(topic);
+        }
 
         Libp2pService { swarm }
     }
@@ -86,12 +91,12 @@ impl Stream for Libp2pService {
                     MyBehaviourEvent::ExpiredPeer(_) => {}
                     MyBehaviourEvent::GossipMessage {
                         source,
-//                        topics,
+                        topics,
                         message,
                     } => {
                         return Poll::Ready(Option::from(NetworkEvent::PubsubMessage {
                             source,
-//                            topics,
+                                                        topics,
                             message,
                         }));
                     }
@@ -101,7 +106,7 @@ impl Stream for Libp2pService {
                 _ => break,
             }
         }
-       Poll::Pending
+        Poll::Pending
     }
 }
 
@@ -110,7 +115,7 @@ impl Stream for Libp2pService {
 pub enum NetworkEvent {
     PubsubMessage {
         source: PeerId,
-//        topics: Vec<TopicHash>,
+                topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
 }
