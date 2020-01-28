@@ -38,6 +38,10 @@ impl TipSetKeys {
         }
         true
     }
+    /// Returns tipset keys
+    pub fn tipset_keys(&self) -> &Vec<Cid> {
+        &self.cids
+    }
 }
 
 impl ser::Serialize for TipSetKeys {

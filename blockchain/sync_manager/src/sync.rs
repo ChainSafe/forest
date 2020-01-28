@@ -5,7 +5,7 @@
 
 use super::errors::Error;
 use super::manager::SyncManager;
-use blocks::{Block, FullTipset, Tipset};
+use blocks::{Block, FullTipset, TipSetKeys, Tipset};
 use chain::ChainStore;
 use cid::{Cid, Codec, Error as CidError, Version};
 use libp2p::core::PeerId;
@@ -58,7 +58,8 @@ impl<'a> Syncer<'a> {
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
     }
-
+    /// Validates message root from header matches message root generated from the
+    /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
         let sm_root = self.compute_msg_data(block)?;
         // TODO change message_receipts to messages() once #192 is in
@@ -71,6 +72,7 @@ impl<'a> Syncer<'a> {
 
         Ok(())
     }
+    /// Returns message root CID from bls and secp message contained in the param Block
     fn compute_msg_data(&self, block: &Block) -> Result<Cid, CidError> {
         // TODO compute message roots
 
@@ -82,6 +84,37 @@ impl<'a> Syncer<'a> {
         // will return a new CID representing both message roots
         let hash = Multihash::from_bytes(vec![0, 0]);
         Ok(Cid::new(Codec::DagCBOR, Version::V1, hash.unwrap()))
+    }
+    /// Returns FullTipset from store if TipSetKeys exist in key-value store otherwise requests FullTipset
+    /// from block sync
+    fn fetch_tipsets(&self, _peer_id: PeerId, tsk: TipSetKeys) -> Result<FullTipset, Error> {
+        let fts = match self.load_fts(tsk) {
+            Ok(fts) => fts,
+            // TODO call into block sync to request FullTipset -> self.blocksync.get_full_tipset(_peer_id, tsk)
+            Err(e) => return Err(e), // blocksync
+        };
+        Ok(fts)
+    }
+    /// Returns a reconstructed FullTipset from store if keys exist
+    fn load_fts(&self, keys: TipSetKeys) -> Result<FullTipset, Error> {
+        let mut blocks = Vec::new();
+        // retrieve tipset from store based on passed in TipSetKeys
+        let ts = self.chain_store.tipset(keys.tipset_keys())?;
+        for b in ts.blocks() {
+            // retrieve bls and secp messages from specified BlockHeader
+            let (bls_msgs, secp_msgs) = self.chain_store.messages(&b)?;
+            // construct a full block
+            let full_block = Block {
+                header: b.clone(),
+                bls_messages: bls_msgs,
+                secp_messages: secp_msgs,
+            };
+            // push vector of full blocks to build FullTipset
+            blocks.push(full_block);
+        }
+        // construct FullTipset
+        let fts = FullTipset::new(blocks);
+        Ok(fts)
     }
 }
 

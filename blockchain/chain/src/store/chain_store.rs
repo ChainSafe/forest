@@ -6,6 +6,7 @@ use blocks::{BlockHeader, Tipset};
 use cid::Cid;
 use db::{Error as DbError, Read, RocksDb as Blockstore, Write};
 use encoding::from_slice;
+use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use raw_block::RawBlock;
 use std::path::Path;
@@ -105,5 +106,59 @@ impl<'a> ChainStore<'a> {
     /// Returns key-value store instance
     pub fn blockstore(&self) -> &Blockstore {
         &self.db
+    }
+    /// Returns Tipset from key-value store from provided keys
+    pub fn tipset(&self, keys: &[Cid]) -> Result<Tipset, Error> {
+        let mut block_headers = Vec::new();
+        for k in keys {
+            let raw_header = self.db.read(k.key())?;
+            if let Some(ref x) = raw_header {
+                // decode raw header into BlockHeader
+                let bh = from_slice(&x)?;
+                block_headers.push(bh);
+            }
+        }
+        // construct new Tipset to return
+        let ts = Tipset::new(block_headers)?;
+        Ok(ts)
+    }
+    /// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
+    /// of type SignedMessage
+    pub fn messages(
+        &self,
+        bh: &BlockHeader,
+    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
+        // TODO read_msg_cids from message root; returns bls_cids and secp_cids
+        // let (blscids, secpkcids) = read_msg_cids(bh.messages())
+        // temporarily using vec!(bh.message_receipts() until read_msg_cids is completed with AMT/HAMT
+        let bls_msgs: Vec<UnsignedMessage> = self.bls_messages(vec![bh.message_receipts()])?;
+        let secp_msgs: Vec<SignedMessage> = self.secp_messages(vec![bh.message_receipts()])?;
+        Ok((bls_msgs, secp_msgs))
+    }
+    /// Returns UnsignedMessages from key-value store
+    pub fn bls_messages(&self, keys: Vec<&Cid>) -> Result<Vec<UnsignedMessage>, Error> {
+        let mut block_messages = Vec::new();
+        for k in keys {
+            let raw_msgs = self.db.read(&k.key())?;
+            if let Some(ref x) = raw_msgs {
+                // decode raw messages into type UnsignedMessage
+                let msg = from_slice(&x)?;
+                block_messages.push(msg);
+            }
+        }
+        Ok(block_messages)
+    }
+    /// Returns SignedMessages from key-value store
+    pub fn secp_messages(&self, keys: Vec<&Cid>) -> Result<Vec<SignedMessage>, Error> {
+        let mut block_messages = Vec::new();
+        for k in keys {
+            let raw_msgs = self.db.read(&k.key())?;
+            if let Some(ref x) = raw_msgs {
+                // decode raw messages into type SignedMessage
+                let msg = from_slice(&x)?;
+                block_messages.push(msg);
+            }
+        }
+        Ok(block_messages)
     }
 }
