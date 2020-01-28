@@ -8,6 +8,7 @@ use encoding::{
     ser,
     serde_bytes::{ByteBuf, Bytes},
 };
+use std::u8;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum LinkNode {
@@ -45,7 +46,7 @@ fn values_to_vec<T>(_bmap: u8, _values: [T; WIDTH]) -> Vec<T> {
     todo!()
 }
 
-/// function turns the WIDTH length array into a vector for serialization
+/// function puts values from vector into shard array
 fn vec_to_values<T>(_bmap: u8, _values: Vec<T>) -> [T; WIDTH] {
     todo!()
 }
@@ -61,6 +62,8 @@ fn cids_from_links(links: &[LinkNode]) -> Result<Vec<Cid>, Error> {
         .collect()
 }
 
+// ? Can maybe combined with vec_to_values later
+/// Convert cids into linknode array
 fn cids_to_arr(_bmap: u8, _values: Vec<Cid>) -> [LinkNode; WIDTH] {
     todo!()
 }
@@ -96,8 +99,12 @@ impl<'de> de::Deserialize<'de> for Node {
         // TODO see if possible to remove bytebuf clone
         let values: Vec<Vec<u8>> = values.iter().map(|v| v.clone().into_vec()).collect();
 
-        // TODO make sure it's safe to index like this (should be)
-        let bmap: u8 = bmap_bz.as_slice()[0];
+        // Get bitmap byte from serialized bytes
+        let bmap: u8 = bmap_bz
+            .get(0)
+            .cloned()
+            .ok_or_else(|| de::Error::custom("Expected bitmap byte"))?;
+
         if links.is_empty() {
             let leaf_arr: [Vec<u8>; WIDTH] = vec_to_values(bmap, values);
             Ok(Self {
@@ -117,19 +124,19 @@ impl<'de> de::Deserialize<'de> for Node {
 impl Node {
     /// Constructor
     pub fn new(bmap: u8, vals: Values) -> Self {
-        Self {
-            bmap,
-            vals,
-        }
+        Self { bmap, vals }
     }
+
     pub fn flush<DB: BlockStore>(&mut self, _bs: &DB, _depth: u32) -> Result<(), Error> {
         // TODO
         todo!()
     }
+
     /// Check if node is empty
     pub(super) fn empty(&self) -> bool {
         self.bmap == 0
     }
+
     /// Check if node is empty
     pub(super) fn get<DB: BlockStore>(
         &mut self,
@@ -139,29 +146,71 @@ impl Node {
     ) -> Result<Option<Vec<u8>>, Error> {
         todo!()
     }
+
     /// set value in node
     pub(super) fn set<DB: BlockStore>(
         &mut self,
         _bs: &DB,
         height: u32,
-        _i: u64,
-        _val: &[u8],
+        i: u64,
+        val: &[u8],
     ) -> Result<bool, Error> {
-        if height == 0 {}
+        if height == 0 {
+            self.set_leaf(i as u8, val);
+        }
         todo!()
     }
-    // pub(super) fn load_node<DB: BlockStore>(
-    //     &mut self,
-    //     _bs: &DB,
-    //     i: u64,
-    //     _create: bool,
-    // ) -> Result<Node, Error> {
-    //     // if self.cache.is_empty() {
-    //     //     self.expand_links();
-    //     // } else if let Some(v) = self.cache.get(i as usize) {
-    //     //     return Ok(Node::clone(v));
-    //     // }
 
-    //     todo!()
-    // }
+    fn set_leaf(&mut self, i: u8, val: &[u8]) -> bool {
+        let already_set = self.get_bit(i);
+
+        match &mut self.vals {
+            Values::Leaf(v) => {
+                v[i as usize] = val.to_vec();
+                self.set_bit(i);
+                already_set
+            }
+            Values::Links(_) => panic!("set_leaf should never be called on a shard of links"),
+        }
+    }
+
+    /// Get bit from bitmap by index
+    fn get_bit(&self, i: u8) -> bool {
+        self.bmap & (1 << i) != 0
+    }
+
+    /// Set bit in bitmap for index
+    fn set_bit(&mut self, i: u8) {
+        self.bmap |= 1 << i;
+    }
+
+    /// Clear bit at index for bitmap
+    #[allow(dead_code)] // TODO remove
+    fn clear_bit(&mut self, i: u8) {
+        self.bmap &= u8::MAX - (1 << i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bitmap() {
+        let mut node = Node {
+            bmap: 0,
+            vals: Values::Leaf(Default::default()),
+        };
+        assert_eq!(node.bmap, 0);
+        node.set_bit(1);
+        assert_eq!(node.get_bit(1), true);
+        assert_eq!(node.bmap, 2);
+        node.clear_bit(1);
+        node.set_bit(0);
+        assert_eq!(node.get_bit(0), true);
+        assert_eq!(node.bmap, 1);
+        node.set_bit(7);
+        assert_eq!(node.get_bit(7), true);
+        assert_eq!(node.bmap, 129);
+    }
 }
