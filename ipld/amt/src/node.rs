@@ -9,10 +9,22 @@ use encoding::{
     serde_bytes::{ByteBuf, Bytes},
 };
 
-// TODO probably doesn't need to
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum LinkNode {
+    Cid(Cid),
+    Cached(Box<Node>),
+}
+
+// TODO remove if unneeded
+impl From<Cid> for LinkNode {
+    fn from(c: Cid) -> LinkNode {
+        LinkNode::Cid(c)
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Values {
-    Links([Cid; WIDTH]),
+    Links([LinkNode; WIDTH]),
     Leaf([Vec<u8>; WIDTH]),
 }
 
@@ -38,6 +50,21 @@ fn vec_to_values<T>(_bmap: u8, _values: Vec<T>) -> [T; WIDTH] {
     todo!()
 }
 
+/// Convert Link node into
+fn cids_from_links(links: &[LinkNode]) -> Result<Vec<Cid>, Error> {
+    links
+        .iter()
+        .map(|c| match c {
+            LinkNode::Cid(cid) => Ok(cid.clone()),
+            LinkNode::Cached(_) => Err(Error::Cached),
+        })
+        .collect()
+}
+
+fn cids_to_arr(_bmap: u8, _values: Vec<Cid>) -> [LinkNode; WIDTH] {
+    todo!()
+}
+
 impl ser::Serialize for Node {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -51,7 +78,8 @@ impl ser::Serialize for Node {
                 (bitmap_bz, [0u8; 0], values_to_vec(self.bmap, v.clone())).serialize(s)
             }
             Values::Links(v) => {
-                (bitmap_bz, values_to_vec(self.bmap, v.clone()), [0u8; 0]).serialize(s)
+                let cids = cids_from_links(v).map_err(|e| ser::Error::custom(e.to_string()))?;
+                (bitmap_bz, cids, [0u8; 0]).serialize(s)
             }
         }
     }
@@ -65,21 +93,19 @@ impl<'de> de::Deserialize<'de> for Node {
         let (bmap_bz, links, values): (ByteBuf, Vec<Cid>, Vec<ByteBuf>) =
             Deserialize::deserialize(deserializer)?;
 
-        // TODO see if remove bytebuf clone
+        // TODO see if possible to remove bytebuf clone
         let values: Vec<Vec<u8>> = values.iter().map(|v| v.clone().into_vec()).collect();
 
         // TODO make sure it's safe to index like this (should be)
         let bmap: u8 = bmap_bz.as_slice()[0];
         if links.is_empty() {
             let leaf_arr: [Vec<u8>; WIDTH] = vec_to_values(bmap, values);
-            // TODO get values based on links and values
             Ok(Self {
                 bmap,
                 vals: Values::Leaf(leaf_arr),
             })
         } else {
-            let link_arr: [Cid; WIDTH] = vec_to_values(bmap, links);
-            // TODO get values based on links and values
+            let link_arr: [LinkNode; WIDTH] = cids_to_arr(bmap, links);
             Ok(Self {
                 bmap,
                 vals: Values::Links(link_arr),
@@ -91,7 +117,10 @@ impl<'de> de::Deserialize<'de> for Node {
 impl Node {
     /// Constructor
     pub fn new(bmap: u8, vals: Values) -> Self {
-        Self { bmap, vals }
+        Self {
+            bmap,
+            vals,
+        }
     }
     pub fn flush<DB: BlockStore>(&mut self, _bs: &DB, _depth: u32) -> Result<(), Error> {
         // TODO

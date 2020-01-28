@@ -71,10 +71,7 @@ where
         while i >= nodes_for_height(self.height() as u32) {
             // node at index exists
             if !self.node().empty() {
-                // Flush non empty node
-                self.root.node.flush(self.block_store, self.height())?;
-
-                // ? why is flushed node being put in block store
+                // Get cid to be able to link from higher level shard
                 let _cid = self.block_store.put(self.node())?;
 
                 // self.set_node(Node::new(0x01, vec![cid]));

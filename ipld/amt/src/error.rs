@@ -12,6 +12,7 @@ pub enum Error {
     Cbor(String),
     Cid(String),
     Db(String),
+    Cached,
 }
 
 impl fmt::Display for Error {
@@ -21,6 +22,8 @@ impl fmt::Display for Error {
             Error::Cbor(msg) => write!(f, "Could not (de)serialize object: {}", msg),
             Error::Cid(msg) => write!(f, "Error generating Cid: {}", msg),
             Error::Db(msg) => write!(f, "Database Error: {}", msg),
+            // TODO add function to run in error description
+            Error::Cached => write!(f, "Tried to serialize without saving cache, must run <>"),
         }
     }
 }
