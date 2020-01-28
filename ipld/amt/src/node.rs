@@ -179,7 +179,7 @@ impl Node {
             Values::Leaf(v) => {
                 v[i as usize] = val.to_vec();
                 self.set_bit(i);
-                already_set
+                !already_set
             }
             Values::Links(_) => panic!("set_leaf should never be called on a shard of links"),
         }

@@ -14,6 +14,7 @@ pub use self::node::*;
 pub use self::root::*;
 
 const WIDTH: usize = 8;
+const MAX_INDEX: u64 = 1 << 48;
 
 pub(crate) fn nodes_for_height(height: u32) -> u64 {
     (WIDTH as u64).pow(height)
@@ -33,6 +34,13 @@ mod tests {
         assert_eq!(a.get(i).unwrap().unwrap(), to_vec(&v).unwrap());
     }
 
+    fn assert_count<DB>(a: &mut AMT<DB>, c: u64)
+    where
+        DB: BlockStore,
+    {
+        assert_eq!(a.count(), c);
+    }
+
     #[test]
     fn constructor() {
         AMT::new(&db::MemoryDB::default());
@@ -46,10 +54,24 @@ mod tests {
         a.set(2, &"foo").unwrap();
         assert_eq!(a.get(2).unwrap().unwrap(), to_vec(&"foo").unwrap());
         assert_get(&mut a, 2, &"foo");
+        assert_count(&mut a, 1);
     }
 
     #[test]
-    fn out_of_range() {}
+    fn out_of_range() {
+        let db = db::MemoryDB::default();
+        let mut a = AMT::new(&db);
+
+        let res = a.set(1 << 50, &"test");
+        assert_eq!(res.err(), Some(Error::OutOfRange(1 << 50)));
+
+        let res = a.set(MAX_INDEX, &"test");
+        assert_eq!(res.err(), Some(Error::OutOfRange(MAX_INDEX)));
+
+        // TODO enable once expansion built out
+        // let res = a.set(MAX_INDEX - 1, &"test");
+        // assert_eq!(res.err(), None);
+    }
 
     #[test]
     fn expand() {}

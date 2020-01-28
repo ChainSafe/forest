@@ -1,11 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{nodes_for_height, BlockStore, Error, Node, Root};
+use crate::{nodes_for_height, BlockStore, Error, Node, Root, MAX_INDEX};
 use cid::Cid;
 use encoding::{ser::Serialize, to_vec};
-
-const MAX_INDEX: u64 = 1 << 48 as u64;
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct AMT<'db, DB>
