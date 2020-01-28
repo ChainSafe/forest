@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{nodes_for_height, BlockStore, Error, WIDTH};
+use crate::{nodes_for_height, BitMap, BlockStore, Error, WIDTH};
 use cid::Cid;
 use encoding::{
     de::{self, Deserialize},
@@ -13,7 +13,14 @@ use std::u8;
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum LinkNode {
     Cid(Cid),
+    Empty,
     Cached(Box<Node>),
+}
+
+impl Default for LinkNode {
+    fn default() -> Self {
+        LinkNode::Empty
+    }
 }
 
 // TODO remove if unneeded
@@ -37,17 +44,18 @@ impl Default for Values {
 
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
 pub struct Node {
-    pub(super) bmap: u8,
+    pub(super) bmap: BitMap,
     pub(super) vals: Values,
 }
 
 /// function turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T>(_bmap: u8, _values: [T; WIDTH]) -> Vec<T> {
+fn values_to_vec<T>(_bmap: BitMap, _values: [T; WIDTH]) -> Vec<T> {
+    // for i in 0..WIDTH {}
     todo!()
 }
 
 /// function puts values from vector into shard array
-fn vec_to_values<T>(_bmap: u8, _values: Vec<T>) -> [T; WIDTH] {
+fn vec_to_values<T>(_bmap: BitMap, _values: Vec<T>) -> [T; WIDTH] {
     todo!()
 }
 
@@ -55,16 +63,17 @@ fn vec_to_values<T>(_bmap: u8, _values: Vec<T>) -> [T; WIDTH] {
 fn cids_from_links(links: &[LinkNode]) -> Result<Vec<Cid>, Error> {
     links
         .iter()
-        .map(|c| match c {
-            LinkNode::Cid(cid) => Ok(cid.clone()),
-            LinkNode::Cached(_) => Err(Error::Cached),
+        .filter_map(|c| match c {
+            LinkNode::Cid(cid) => Some(Ok(cid.clone())),
+            LinkNode::Cached(_) => Some(Err(Error::Cached)),
+            LinkNode::Empty => None,
         })
         .collect()
 }
 
 // ? Can maybe combined with vec_to_values later
 /// Convert cids into linknode array
-fn cids_to_arr(_bmap: u8, _values: Vec<Cid>) -> [LinkNode; WIDTH] {
+fn cids_to_arr(_bmap: BitMap, _values: Vec<Cid>) -> [LinkNode; WIDTH] {
     todo!()
 }
 
@@ -73,7 +82,7 @@ impl ser::Serialize for Node {
     where
         S: ser::Serializer,
     {
-        let bmap_arr = [self.bmap];
+        let bmap_arr = self.bmap.to_byte_array();
         let bitmap_bz = Bytes::new(&bmap_arr);
         match &self.vals {
             // TODO confirm that 0 array of 0u8 will serialize correctly
@@ -100,9 +109,9 @@ impl<'de> de::Deserialize<'de> for Node {
         let values: Vec<Vec<u8>> = values.iter().map(|v| v.clone().into_vec()).collect();
 
         // Get bitmap byte from serialized bytes
-        let bmap: u8 = bmap_bz
+        let bmap: BitMap = bmap_bz
             .get(0)
-            .cloned()
+            .map(|b| BitMap::new(*b))
             .ok_or_else(|| de::Error::custom("Expected bitmap byte"))?;
 
         if links.is_empty() {
@@ -124,7 +133,10 @@ impl<'de> de::Deserialize<'de> for Node {
 impl Node {
     /// Constructor
     pub fn new(bmap: u8, vals: Values) -> Self {
-        Self { bmap, vals }
+        Self {
+            bmap: BitMap::new(bmap),
+            vals,
+        }
     }
 
     pub fn flush<DB: BlockStore>(&mut self, _bs: &DB, _depth: u32) -> Result<(), Error> {
@@ -134,7 +146,7 @@ impl Node {
 
     /// Check if node is empty
     pub(super) fn empty(&self) -> bool {
-        self.bmap == 0
+        self.bmap.is_empty()
     }
 
     /// Check if node is empty
@@ -187,41 +199,17 @@ impl Node {
 
     /// Get bit from bitmap by index
     fn get_bit(&self, i: u64) -> bool {
-        self.bmap & (1 << i) != 0
+        self.bmap.get_bit(i)
     }
 
     /// Set bit in bitmap for index
     fn set_bit(&mut self, i: u64) {
-        self.bmap |= 1 << i;
+        self.bmap.set_bit(i)
     }
 
     /// Clear bit at index for bitmap
     #[allow(dead_code)] // TODO remove
     fn clear_bit(&mut self, i: u64) {
-        self.bmap &= u8::MAX - (1 << i)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bitmap() {
-        let mut node = Node {
-            bmap: 0,
-            vals: Values::Leaf(Default::default()),
-        };
-        assert_eq!(node.bmap, 0);
-        node.set_bit(1);
-        assert_eq!(node.get_bit(1), true);
-        assert_eq!(node.bmap, 0b10);
-        node.clear_bit(1);
-        node.set_bit(0);
-        assert_eq!(node.get_bit(0), true);
-        assert_eq!(node.bmap, 0b1);
-        node.set_bit(7);
-        assert_eq!(node.get_bit(7), true);
-        assert_eq!(node.bmap, 0b10000001);
+        self.bmap.clear_bit(i)
     }
 }

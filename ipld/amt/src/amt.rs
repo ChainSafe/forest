@@ -1,7 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{nodes_for_height, BlockStore, Error, Node, Root, MAX_INDEX};
+use crate::{
+    node::{LinkNode, Values},
+    nodes_for_height, BlockStore, Error, Node, Root, MAX_INDEX, WIDTH,
+};
 use cid::Cid;
 use encoding::{ser::Serialize, to_vec};
 
@@ -70,9 +73,13 @@ where
             // node at index exists
             if !self.node().empty() {
                 // Get cid to be able to link from higher level shard
-                let _cid = self.block_store.put(self.node())?;
+                let cid = self.block_store.put(self.node())?;
 
-                // self.set_node(Node::new(0x01, vec![cid]));
+                // Set links node with first index as cid
+                let mut new_links: [LinkNode; WIDTH] = Default::default();
+                new_links[0] = LinkNode::Cid(cid);
+
+                self.set_node(Node::new(0x01, Values::Links(new_links)));
             }
             // Incrememnt height after each iteration
             self.root.height += 1;

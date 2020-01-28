@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod amt;
+mod bitmap;
 mod block_store;
 mod error;
 mod node;
 mod root;
 
 pub use self::amt::*;
+pub use self::bitmap::*;
 pub use self::block_store::*;
 pub use self::error::*;
 pub use self::node::*;
@@ -74,26 +76,58 @@ mod tests {
     }
 
     #[test]
-    fn expand() {}
+    fn expand() {
+        // let db = db::MemoryDB::default();
+        // let mut a = AMT::new(&db);
+
+        // a.set(2, &"foo").unwrap();
+        // a.set(11, &"bar").unwrap();
+        // a.set(79, &"baz").unwrap();
+
+        // assert_get(&mut a, 2, &"foo");
+        // assert_get(&mut a, 11, &"bar");
+        // assert_get(&mut a, 79, &"baz");
+    }
 
     #[test]
-    fn bulk_insert() {}
+    fn bulk_insert() {
+        let db = db::MemoryDB::default();
+        let mut _a = AMT::new(&db);
+    }
 
     #[test]
-    fn chaos() {}
+    fn chaos() {
+        let db = db::MemoryDB::default();
+        let mut _a = AMT::new(&db);
+    }
 
     #[test]
-    fn bulk_insert_delete() {}
+    fn bulk_insert_delete() {
+        let db = db::MemoryDB::default();
+        let mut _a = AMT::new(&db);
+    }
 
     #[test]
-    fn delete() {}
+    fn delete() {
+        let db = db::MemoryDB::default();
+        let mut _a = AMT::new(&db);
+    }
 
     #[test]
-    fn delete_first_entry() {}
+    fn delete_first_entry() {
+        let db = db::MemoryDB::default();
+        let mut _a = AMT::new(&db);
+    }
 
     #[test]
-    fn delete_reduce_height() {}
+    fn delete_reduce_height() {
+        let db = db::MemoryDB::default();
+        let mut _a = AMT::new(&db);
+    }
 
     #[test]
-    fn loop_set_get() {}
+    fn loop_set_get() {
+        let db = db::MemoryDB::default();
+        let mut _a = AMT::new(&db);
+    }
 }
