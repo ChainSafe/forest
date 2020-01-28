@@ -68,7 +68,7 @@ where
 
         let bz = to_vec(val)?;
 
-        while i >= nodes_for_height(self.height() as u32) {
+        while i >= nodes_for_height(self.height() + 1 as u32) {
             // node at index exists
             if !self.node().empty() {
                 // Get cid to be able to link from higher level shard

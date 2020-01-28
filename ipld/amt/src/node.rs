@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{BlockStore, Error, WIDTH};
+use crate::{nodes_for_height, BlockStore, Error, WIDTH};
 use cid::Cid;
 use encoding::{
     de::{self, Deserialize},
@@ -141,9 +141,20 @@ impl Node {
     pub(super) fn get<DB: BlockStore>(
         &mut self,
         _bs: &DB,
-        _height: u32,
-        _i: u64,
+        height: u32,
+        i: u64,
     ) -> Result<Option<Vec<u8>>, Error> {
+        let sub_i = i / nodes_for_height(height);
+        if !self.get_bit(sub_i) {
+            return Ok(None);
+        }
+        if height == 0 {
+            if let Values::Leaf(v) = &self.vals {
+                return Ok(Some(v[i as usize].clone()));
+            }
+
+            return Ok(None);
+        }
         todo!()
     }
 
@@ -156,12 +167,12 @@ impl Node {
         val: &[u8],
     ) -> Result<bool, Error> {
         if height == 0 {
-            self.set_leaf(i as u8, val);
+            return Ok(self.set_leaf(i, val));
         }
         todo!()
     }
 
-    fn set_leaf(&mut self, i: u8, val: &[u8]) -> bool {
+    fn set_leaf(&mut self, i: u64, val: &[u8]) -> bool {
         let already_set = self.get_bit(i);
 
         match &mut self.vals {
@@ -175,18 +186,18 @@ impl Node {
     }
 
     /// Get bit from bitmap by index
-    fn get_bit(&self, i: u8) -> bool {
+    fn get_bit(&self, i: u64) -> bool {
         self.bmap & (1 << i) != 0
     }
 
     /// Set bit in bitmap for index
-    fn set_bit(&mut self, i: u8) {
+    fn set_bit(&mut self, i: u64) {
         self.bmap |= 1 << i;
     }
 
     /// Clear bit at index for bitmap
     #[allow(dead_code)] // TODO remove
-    fn clear_bit(&mut self, i: u8) {
+    fn clear_bit(&mut self, i: u64) {
         self.bmap &= u8::MAX - (1 << i)
     }
 }
@@ -204,13 +215,13 @@ mod tests {
         assert_eq!(node.bmap, 0);
         node.set_bit(1);
         assert_eq!(node.get_bit(1), true);
-        assert_eq!(node.bmap, 2);
+        assert_eq!(node.bmap, 0b10);
         node.clear_bit(1);
         node.set_bit(0);
         assert_eq!(node.get_bit(0), true);
-        assert_eq!(node.bmap, 1);
+        assert_eq!(node.bmap, 0b1);
         node.set_bit(7);
         assert_eq!(node.get_bit(7), true);
-        assert_eq!(node.bmap, 129);
+        assert_eq!(node.bmap, 0b10000001);
     }
 }

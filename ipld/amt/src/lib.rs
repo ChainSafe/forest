@@ -37,6 +37,7 @@ mod tests {
     fn constructor() {
         AMT::new(&db::MemoryDB::default());
     }
+
     #[test]
     fn basic_get_set() {
         let db = db::MemoryDB::default();
