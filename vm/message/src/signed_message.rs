@@ -6,6 +6,7 @@ use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::Cbor;
 use num_bigint::BigUint;
+use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -64,5 +65,7 @@ impl Message for SignedMessage {
         self.message.gas_limit()
     }
 }
+
+impl RawBlock for SignedMessage {}
 
 impl Cbor for SignedMessage {}

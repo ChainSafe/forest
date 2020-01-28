@@ -1,15 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{EPostProof, RawBlock, Ticket, TipSetKeys, TxMeta};
+use super::{EPostProof, Ticket, TipSetKeys, TxMeta};
 use address::Address;
-use cid::Cid;
+use cid::{Cid, Error as CidError};
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
-use multihash::Hash;
 use num_bigint::BigUint;
+use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -119,12 +119,8 @@ impl RawBlock for BlockHeader {
         self.marshal_cbor()
     }
     /// returns the content identifier of the block
-    fn cid(&self) -> Cid {
-        self.cid().clone()
-    }
-    /// returns the hash contained in the block CID
-    fn multihash(&self) -> Hash {
-        self.cid().prefix().mh_type
+    fn cid(&self) -> Result<Cid, CidError> {
+        Ok(self.cid().clone())
     }
 }
 

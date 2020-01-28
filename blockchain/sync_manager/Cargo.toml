@@ -7,8 +7,14 @@ edition = "2018"
 [dependencies]
 address = { path = "../../vm/address" }
 blocks = { path = "../blocks" }
+db = { path = "../../node/db" }
+encoding = { path = "../../encoding" }
 libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "776d13ef046358964c7d64cda3295a3a3cb24743" }
+cid = { package = "ferret_cid", path = "../../ipld/cid" }
 chain = { path ="../chain" }
+message = { path = "../../vm/message" }
+raw_block = { package = "raw_block", path = "../raw_block" }
+multihash = "0.9.3"
 
 [dev-dependencies]
 cid = { package = "ferret_cid", path = "../../ipld/cid" }

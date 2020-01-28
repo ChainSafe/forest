@@ -23,14 +23,20 @@ struct PoStProof {}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Block {
     header: BlockHeader,
-    bls_messages: UnsignedMessage,
-    secp_messages: SignedMessage,
+    bls_messages: Vec<UnsignedMessage>,
+    secp_messages: Vec<SignedMessage>,
 }
 
 impl Block {
     /// Returns reference to BlockHeader
     pub fn to_header(&self) -> &BlockHeader {
         &self.header
+    }
+    pub fn bls_msgs(&self) -> &Vec<UnsignedMessage> {
+        &self.bls_messages
+    }
+    pub fn secp_msgs(&self) -> &Vec<SignedMessage> {
+        &self.secp_messages
     }
 }
 

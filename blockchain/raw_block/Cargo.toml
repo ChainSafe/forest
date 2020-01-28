@@ -1,0 +1,11 @@
+[package]
+name = "raw_block"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+cid = { package = "ferret_cid", path = "../../ipld/cid" }
+serde = { version = "1.0", features = ["derive"] }
+encoding = { path = "../../encoding" }
+multihash = "0.9.3"
