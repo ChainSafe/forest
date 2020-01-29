@@ -11,7 +11,7 @@ use encoding::{
 use std::u8;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub enum LinkNode {
+pub(super) enum LinkNode {
     Cid(Cid),
     Empty,
     Cached(Box<Node>),
@@ -30,7 +30,7 @@ impl From<Cid> for LinkNode {
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub enum Values {
+pub(super) enum Values {
     Links([LinkNode; WIDTH]),
     Leaf([Vec<u8>; WIDTH]),
 }
@@ -42,7 +42,7 @@ impl Default for Values {
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
-pub struct Node {
+pub(super) struct Node {
     pub(super) bmap: BitMap,
     pub(super) vals: Values,
 }
@@ -146,14 +146,14 @@ impl<'de> de::Deserialize<'de> for Node {
 
 impl Node {
     /// Constructor
-    pub fn new(bmap: u8, vals: Values) -> Self {
+    pub(super) fn new(bmap: u8, vals: Values) -> Self {
         Self {
             bmap: BitMap::new(bmap),
             vals,
         }
     }
 
-    pub fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
+    pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
         if let Values::Links(l) = &mut self.vals {
             for link in &mut l.iter_mut() {
                 if let LinkNode::Cached(n) = link {

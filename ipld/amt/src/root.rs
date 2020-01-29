@@ -8,7 +8,7 @@ use encoding::{
 };
 
 #[derive(PartialEq, Eq, Debug, Default)]
-pub struct Root {
+pub(super) struct Root {
     pub(super) height: u32,
     pub(super) count: u64,
     pub(super) node: Node,

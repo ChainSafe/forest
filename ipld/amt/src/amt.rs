@@ -50,23 +50,7 @@ where
         self.root.count
     }
 
-    // Getter for node
-    pub fn node(&self) -> &Node {
-        &self.root.node
-    }
-
-    /// Getter for root of AMT
-    pub fn root(&self) -> &Root {
-        &self.root
-    }
-
-    /// Sets root node
-    pub fn set_node(&mut self, node: Node) {
-        self.root.node = node;
-    }
-
-    /// Constructor from array of cbor marshallable objects and return Cid
-    // ? Should this instead be a constructor
+    /// Generates an AMT with block store and array of cbor marshallable objects and returns Cid
     pub fn new_from_slice<S>(block_store: &'db DB, vals: &[&S]) -> Result<Cid, Error>
     where
         S: Serialize,
@@ -104,7 +88,7 @@ where
 
         while i >= nodes_for_height(self.height() + 1 as u32) {
             // node at index exists
-            if !self.node().empty() {
+            if !self.root.node.empty() {
                 // Save and get cid to be able to link from higher level node
                 self.root.node.flush(self.block_store)?;
 
@@ -115,10 +99,10 @@ where
                 let mut new_links: [LinkNode; WIDTH] = Default::default();
                 new_links[0] = LinkNode::Cid(cid);
 
-                self.set_node(Node::new(0x01, Values::Links(new_links)));
+                self.root.node = Node::new(0x01, Values::Links(new_links));
             } else {
                 // If first expansion is before a value inserted, convert base node to Link
-                self.set_node(Node::new(0x00, Values::Links(Default::default())));
+                self.root.node = Node::new(0x00, Values::Links(Default::default()));
             }
             // Incrememnt height after each iteration
             self.root.height += 1;
@@ -177,12 +161,12 @@ where
 
                         from_slice(&res)?
                     }
-                    _ => return Err(Error::Custom("Link index should match bitmap".to_owned())),
+                    _ => unreachable!("Link index should match bitmap"),
                 },
                 Values::Leaf(_) => unreachable!("Non zero height cannot be a leaf node"),
             };
 
-            self.set_node(sub_node);
+            self.root.node = sub_node;
             self.root.height -= 1;
         }
 

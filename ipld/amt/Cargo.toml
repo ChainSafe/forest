@@ -1,5 +1,5 @@
 [package]
-name = "amt"
+name = "ipld_amt"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
