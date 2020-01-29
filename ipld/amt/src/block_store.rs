@@ -7,7 +7,7 @@ use db::{MemoryDB, Read, RocksDb, Write};
 use encoding::{ser::Serialize, to_vec};
 
 pub trait BlockStore: Read + Write {
-    fn get(&self, cid: Cid) -> Result<Option<Vec<u8>>, Error> {
+    fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Error> {
         Ok(self.read(cid.to_bytes())?)
     }
     fn put<S>(&self, obj: &S) -> Result<Cid, Error>

@@ -63,6 +63,7 @@ where
     where
         S: Serialize,
     {
+        println!("SETTING {}", i);
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
@@ -72,8 +73,8 @@ where
         while i >= nodes_for_height(self.height() + 1 as u32) {
             // node at index exists
             if !self.node().empty() {
-                // Get cid to be able to link from higher level shard
-                let cid = self.block_store.put(self.node())?;
+                // Save and get cid to be able to link from higher level node
+                let cid = self.flush()?;
 
                 // Set links node with first index as cid
                 let mut new_links: [LinkNode; WIDTH] = Default::default();
@@ -105,6 +106,7 @@ where
     }
 
     pub fn get(&mut self, i: u64) -> Result<Option<Vec<u8>>, Error> {
+        println!("GETTING {}", i);
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
@@ -118,8 +120,7 @@ where
 
     /// flush root
     pub fn flush(&mut self) -> Result<Cid, Error> {
-        let height = self.height();
-        self.root.node.flush(self.block_store, height)?;
+        self.root.node.flush(self.block_store)?;
         self.block_store.put(&self.root)
     }
 }

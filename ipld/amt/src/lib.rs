@@ -77,16 +77,16 @@ mod tests {
 
     #[test]
     fn expand() {
-        // let db = db::MemoryDB::default();
-        // let mut a = AMT::new(&db);
+        let db = db::MemoryDB::default();
+        let mut a = AMT::new(&db);
 
-        // a.set(2, &"foo").unwrap();
-        // a.set(11, &"bar").unwrap();
-        // a.set(79, &"baz").unwrap();
+        a.set(2, &"foo").unwrap();
+        a.set(11, &"bar").unwrap();
+        a.set(79, &"baz").unwrap();
 
-        // assert_get(&mut a, 2, &"foo");
-        // assert_get(&mut a, 11, &"bar");
-        // assert_get(&mut a, 79, &"baz");
+        assert_get(&mut a, 2, &"foo");
+        assert_get(&mut a, 11, &"bar");
+        assert_get(&mut a, 79, &"baz");
     }
 
     #[test]

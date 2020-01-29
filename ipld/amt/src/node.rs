@@ -5,7 +5,7 @@ use crate::{nodes_for_height, BitMap, BlockStore, Error, WIDTH};
 use cid::Cid;
 use encoding::{
     de::{self, Deserialize},
-    ser,
+    from_slice, ser,
     serde_bytes::{ByteBuf, Bytes},
 };
 use std::u8;
@@ -49,9 +49,14 @@ pub struct Node {
 }
 
 /// function turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T>(_bmap: BitMap, _values: [T; WIDTH]) -> Vec<T> {
-    // for i in 0..WIDTH {}
-    todo!()
+fn values_to_vec<T: Clone>(bmap: BitMap, values: &[T; WIDTH]) -> Vec<T> {
+    let mut v: Vec<T> = Vec::new();
+    for i in 0..WIDTH {
+        if bmap.get_bit(i as u64) {
+            v.push(values[i].clone())
+        }
+    }
+    v
 }
 
 /// function puts values from vector into shard array
@@ -60,7 +65,7 @@ fn vec_to_values<T>(_bmap: BitMap, _values: Vec<T>) -> [T; WIDTH] {
 }
 
 /// Convert Link node into
-fn cids_from_links(links: &[LinkNode]) -> Result<Vec<Cid>, Error> {
+fn cids_from_links(links: &[LinkNode; WIDTH]) -> Result<Vec<Cid>, Error> {
     links
         .iter()
         .filter_map(|c| match c {
@@ -86,9 +91,7 @@ impl ser::Serialize for Node {
         let bitmap_bz = Bytes::new(&bmap_arr);
         match &self.vals {
             // TODO confirm that 0 array of 0u8 will serialize correctly
-            Values::Leaf(v) => {
-                (bitmap_bz, [0u8; 0], values_to_vec(self.bmap, v.clone())).serialize(s)
-            }
+            Values::Leaf(v) => (bitmap_bz, [0u8; 0], values_to_vec(self.bmap, &v)).serialize(s),
             Values::Links(v) => {
                 let cids = cids_from_links(v).map_err(|e| ser::Error::custom(e.to_string()))?;
                 (bitmap_bz, cids, [0u8; 0]).serialize(s)
@@ -139,9 +142,23 @@ impl Node {
         }
     }
 
-    pub fn flush<DB: BlockStore>(&mut self, _bs: &DB, _depth: u32) -> Result<(), Error> {
-        // TODO
-        todo!()
+    pub fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
+        if let Values::Links(l) = &mut self.vals {
+            for i in 0..l.len() {
+                if let LinkNode::Cached(n) = &mut l[i] {
+                    // flush sub node to clear caches
+                    n.flush(bs)?;
+
+                    // Puts node in blockstore and and retrieves it's CID
+                    let cid = bs.put(n)?;
+
+                    // Turn cached node into a Cid link
+                    l[i] = LinkNode::Cid(cid);
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Check if node is empty
@@ -173,15 +190,50 @@ impl Node {
     /// set value in node
     pub(super) fn set<DB: BlockStore>(
         &mut self,
-        _bs: &DB,
+        bs: &DB,
         height: u32,
         i: u64,
         val: &[u8],
     ) -> Result<bool, Error> {
+        println!("i: {}, height: {}, self: {:?}", i, height, self);
         if height == 0 {
             return Ok(self.set_leaf(i, val));
         }
-        todo!()
+
+        let nfh = nodes_for_height(height);
+
+        // If dividing by nodes for height should give an index for link in node
+        let idx: usize = (i / nfh) as usize;
+        assert!(idx < 8);
+
+        if let Values::Links(links) = &mut self.vals {
+            links[idx] = match &mut links[idx] {
+                LinkNode::Cid(cid) => {
+                    let res: Vec<u8> = bs
+                        .get(cid)?
+                        .ok_or(Error::Cid("Cid did not match any in database".to_owned()))?;
+
+                    LinkNode::Cached(Box::new(from_slice(&res)?))
+                }
+                LinkNode::Empty => {
+                    let node = match height {
+                        1 => Node::new(0, Values::Leaf(Default::default())),
+                        _ => Node::new(0, Values::Links(Default::default())),
+                    };
+                    LinkNode::Cached(Box::new(node))
+                }
+                LinkNode::Cached(node) => return node.set(bs, height - 1, i % nfh, val),
+            };
+
+            if let LinkNode::Cached(n) = &mut links[idx] {
+                n.set(bs, height - 1, i % nfh, val)
+            } else {
+                // TODO change how this panic is here
+                panic!("Based on code above should never reach this")
+            }
+        } else {
+            panic!("Node at non 0 height should never be values")
+        }
     }
 
     fn set_leaf(&mut self, i: u64, val: &[u8]) -> bool {
