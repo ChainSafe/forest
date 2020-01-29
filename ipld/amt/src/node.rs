@@ -120,7 +120,6 @@ impl<'de> de::Deserialize<'de> for Node {
         let (bmap_bz, links, values): (ByteBuf, Vec<Cid>, Vec<ByteBuf>) =
             Deserialize::deserialize(deserializer)?;
 
-        // TODO see if possible to remove bytebuf clone
         let values: Vec<Vec<u8>> = values.iter().map(|v| v.clone().into_vec()).collect();
 
         // Get bitmap byte from serialized bytes
@@ -188,7 +187,6 @@ impl Node {
         height: u32,
         i: u64,
     ) -> Result<Option<Vec<u8>>, Error> {
-        // println!("GETTER: i: {}, height: {}, self: {:?}", i, height, self);
         let sub_i = i / nodes_for_height(height);
         if !self.bmap.get_bit(sub_i) {
             return Ok(None);
@@ -222,7 +220,6 @@ impl Node {
         i: u64,
         val: &[u8],
     ) -> Result<bool, Error> {
-        // println!("SETTER: i: {}, height: {}, self: {:?}", i, height, self);
         if height == 0 {
             return Ok(self.set_leaf(i, val));
         }
