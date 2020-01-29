@@ -111,7 +111,7 @@ impl Stream for Libp2pService {
 }
 
 /// Events emitted by this Service to be listened by the NetworkService.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
         source: PeerId,
@@ -139,7 +139,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 
 /// Fetch keypair from disk, or generate a new one if its not available
 fn get_keypair(log: &Logger) -> Keypair {
-    let path_to_keystore = get_home_dir() + "/.ferret/libp2p/keypair";
+    let path_to_keystore = get_home_dir() + "/.ferret1/libp2p/keypair";
     let local_keypair = match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
             info!(log, "Networking keystore not found!");
@@ -168,7 +168,7 @@ fn get_keypair(log: &Logger) -> Keypair {
 
 /// Generates a new libp2p keypair and saves to disk
 fn generate_new_peer_id(log: &Logger) -> Keypair {
-    let path_to_keystore = get_home_dir() + "/.ferret/libp2p/";
+    let path_to_keystore = get_home_dir() + "/.ferret1/libp2p/";
     let generated_keypair = Keypair::generate_ed25519();
     info!(log, "Generated new keystore!");
 
