@@ -127,25 +127,39 @@ mod tests {
     }
 
     #[test]
-    fn chaos() {
-        let db = db::MemoryDB::default();
-        let mut _a = AMT::new(&db);
-    }
-
-    #[test]
-    fn bulk_insert_delete() {
-        let db = db::MemoryDB::default();
-        let mut _a = AMT::new(&db);
-    }
-
-    #[test]
     fn delete() {
         let db = db::MemoryDB::default();
-        let mut _a = AMT::new(&db);
+        let mut a = AMT::new(&db);
+        a.set(0, &"ferret").unwrap();
+        a.set(1, &"ferret").unwrap();
+        a.set(2, &"ferret").unwrap();
+        a.set(3, &"ferret").unwrap();
+        assert_eq!(a.count(), 4);
+
+        a.delete(1).unwrap();
+        assert!(a.get(1).unwrap().is_none());
+        assert_eq!(a.count(), 3);
+
+        assert_get(&mut a, 0, &"ferret");
+        assert_get(&mut a, 2, &"ferret");
+        assert_get(&mut a, 3, &"ferret");
     }
 
     #[test]
     fn delete_first_entry() {
+        // let db = db::MemoryDB::default();
+        // let mut a = AMT::new(&db);
+
+        // a.set(0, &"cat").unwrap();
+        // a.set(27, &"cat").unwrap();
+
+        // assert_eq!(a.count(), 2);
+        // a.delete(27).unwrap();
+        // assert_get(&mut a, 0, &"cat");
+    }
+
+    #[test]
+    fn bulk_insert_delete() {
         let db = db::MemoryDB::default();
         let mut _a = AMT::new(&db);
     }

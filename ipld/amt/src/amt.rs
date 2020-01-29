@@ -34,7 +34,7 @@ where
         // Load root bytes from database
         let root_bz = block_store
             .get(&cid)?
-            .ok_or(Error::Db("Root not found in database".to_owned()))?;
+            .ok_or_else(|| Error::Db("Root not found in database".to_owned()))?;
         let root: Root = from_slice(&root_bz)?;
 
         Ok(Self { root, block_store })
@@ -61,20 +61,36 @@ where
     }
 
     /// Sets root node
-    pub fn set_node(&mut self, node: Node) -> &mut Self {
+    pub fn set_node(&mut self, node: Node) {
         self.root.node = node;
-        self
     }
 
     /// Constructor from array of cbor marshallable objects and return Cid
     // ? Should this instead be a constructor
-    pub fn new_from_array(block_store: &'db DB, vals: Vec<&[u8]>) -> Result<Cid, Error> {
+    pub fn new_from_slice<S>(block_store: &'db DB, vals: &[&S]) -> Result<Cid, Error>
+    where
+        S: Serialize,
+    {
         let mut t = Self::new(block_store);
 
         t.batch_set(vals)?;
 
         t.flush()
     }
+
+    /// Get bytes at index of AMT
+    pub fn get(&mut self, i: u64) -> Result<Option<Vec<u8>>, Error> {
+        if i >= MAX_INDEX {
+            return Err(Error::OutOfRange(i));
+        }
+
+        if i >= nodes_for_height(self.height() + 1) {
+            return Ok(None);
+        }
+
+        self.root.node.get(self.block_store, self.height(), i)
+    }
+
     /// Set value at index
     pub fn set<S>(&mut self, i: u64, val: &S) -> Result<(), Error>
     where
@@ -120,26 +136,60 @@ where
     }
 
     /// Batch set (naive for now)
-    pub fn batch_set(&mut self, vals: Vec<&[u8]>) -> Result<(), Error> {
+    pub fn batch_set<S>(&mut self, vals: &[&S]) -> Result<(), Error>
+    where
+        S: Serialize,
+    {
         for (i, val) in vals.iter().enumerate() {
             self.set(i as u64, val)?;
         }
+
         Ok(())
     }
 
-    pub fn get(&mut self, i: u64) -> Result<Option<Vec<u8>>, Error> {
+    /// Delete item from AMT at index
+    pub fn delete(&mut self, i: u64) -> Result<bool, Error> {
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
         if i >= nodes_for_height(self.height() + 1) {
-            return Ok(None);
+            // Index was out of range of current AMT
+            return Ok(false);
         }
 
-        self.root.node.get(self.block_store, self.height(), i)
+        // Delete node from AMT
+        self.root.node.delete(self.block_store, self.height(), i)?;
+        self.root.count -= 1;
+
+        // Handle height changes from delete
+        while self.root.node.bmap == 0x01 && self.height() > 0 {
+            let sub_node: Node = match &self.root.node.vals {
+                Values::Links(l) => match l.get(0) {
+                    Some(LinkNode::Cached(node)) => *node.clone(),
+                    Some(LinkNode::Cid(cid)) => {
+                        let res: Vec<u8> = self.block_store.get(cid)?.ok_or_else(|| {
+                            Error::Cid("Cid did not match any in database".to_owned())
+                        })?;
+                        from_slice(&res)?
+                    }
+                    _ => return Err(Error::Custom("Link index should match bitmap".to_owned())),
+                },
+                Values::Leaf(_) => {
+                    return Err(Error::Custom(
+                        "nonzero height should be link node".to_owned(),
+                    ))
+                }
+            };
+
+            self.set_node(sub_node);
+            self.root.height -= 1;
+        }
+
+        Ok(true)
     }
 
-    /// flush root
+    /// flush root and return Cid used as key in block store
     pub fn flush(&mut self) -> Result<Cid, Error> {
         self.root.node.flush(self.block_store)?;
         self.block_store.put(&self.root)

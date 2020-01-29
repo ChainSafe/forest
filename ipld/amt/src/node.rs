@@ -100,7 +100,6 @@ impl ser::Serialize for Node {
         let bmap_arr = self.bmap.to_byte_array();
         let bitmap_bz = Bytes::new(&bmap_arr);
         match &self.vals {
-            // TODO confirm that 0 array of 0u8 will serialize correctly
             Values::Leaf(v) => (bitmap_bz, [0u8; 0], values_to_vec(self.bmap, &v)).serialize(s),
             Values::Links(v) => {
                 let cids = cids_from_links(v).map_err(|e| ser::Error::custom(e.to_string()))?;
@@ -257,11 +256,10 @@ impl Node {
             if let LinkNode::Cached(n) = &mut links[idx] {
                 n.set(bs, height - 1, i % nfh, val)
             } else {
-                // TODO change how this panic is here
-                panic!("Based on code above should never reach this")
+                Err(Error::InvalidAMT)
             }
         } else {
-            panic!("Node at non 0 height should never be values")
+            Err(Error::InvalidAMT)
         }
     }
 
@@ -276,6 +274,34 @@ impl Node {
             }
             Values::Links(_) => panic!("set_leaf should never be called on a shard of links"),
         }
+    }
+
+    /// delete value in AMT
+    pub(super) fn delete<DB: BlockStore>(
+        &mut self,
+        _bs: &DB,
+        height: u32,
+        i: u64,
+    ) -> Result<bool, Error> {
+        let sub_i = i / nodes_for_height(height);
+
+        if !self.bmap.get_bit(sub_i) {
+            // Value does not exist in AMT
+            return Ok(false);
+        }
+
+        if height == 0 {
+            if let Values::Leaf(_) = &self.vals {
+                // When deleting from node, should only need to clear bit from bitmap
+                self.bmap.clear_bit(i);
+                return Ok(true);
+            } else {
+                // Nodes at height 0 should always be Leaf variant
+                return Err(Error::InvalidAMT);
+            }
+        }
+
+        todo!();
     }
 }
 

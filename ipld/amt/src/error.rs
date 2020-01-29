@@ -14,6 +14,7 @@ pub enum Error {
     Db(String),
     Cached,
     Custom(String),
+    InvalidAMT,
 }
 
 impl fmt::Display for Error {
@@ -23,9 +24,12 @@ impl fmt::Display for Error {
             Error::Cbor(msg) => write!(f, "Could not (de)serialize object: {}", msg),
             Error::Cid(msg) => write!(f, "Error generating Cid: {}", msg),
             Error::Db(msg) => write!(f, "Database Error: {}", msg),
-            // TODO add function to run in error description
-            Error::Cached => write!(f, "Tried to serialize without saving cache, must run <>"),
+            Error::Cached => write!(
+                f,
+                "Tried to serialize without saving cache, run flush() on AMT before serializing"
+            ),
             Error::Custom(msg) => write!(f, "Custom AMT error: {}", msg),
+            Error::InvalidAMT => write!(f, "Invalid AMT, this is an unexpected error"),
         }
     }
 }
