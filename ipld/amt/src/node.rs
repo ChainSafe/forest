@@ -50,7 +50,7 @@ pub(super) struct Node {
     pub(super) vals: Values,
 }
 
-/// function turns the WIDTH length array into a vector for serialization
+/// Turns the WIDTH length array into a vector for serialization
 fn values_to_vec<T: Clone>(bmap: BitMap, values: &[T; WIDTH]) -> Vec<T> {
     let mut v: Vec<T> = Vec::new();
     for (i, _) in values.iter().enumerate().take(WIDTH) {
@@ -61,7 +61,7 @@ fn values_to_vec<T: Clone>(bmap: BitMap, values: &[T; WIDTH]) -> Vec<T> {
     v
 }
 
-/// function puts values from vector into shard array
+/// Puts values from vector into shard array
 fn vec_to_values<V, T>(bmap: BitMap, values: Vec<V>) -> Result<[T; WIDTH], Error>
 where
     V: Clone,
@@ -83,7 +83,7 @@ where
     Ok(r_arr)
 }
 
-/// Convert Link node into
+/// Convert Link node into vector of Cids
 fn cids_from_links(links: &[LinkNode; WIDTH]) -> Result<Vec<Cid>, Error> {
     links
         .iter()
@@ -147,7 +147,7 @@ impl<'de> de::Deserialize<'de> for Node {
 }
 
 impl Node {
-    /// Constructor
+    /// Constructor for node
     pub(super) fn new(bmap: u8, vals: Values) -> Self {
         Self {
             bmap: BitMap::new(bmap),
@@ -180,7 +180,7 @@ impl Node {
         self.bmap.is_empty()
     }
 
-    /// Check if node is empty
+    /// Gets value at given index of AMT given height
     pub(super) fn get<DB: BlockStore>(
         &mut self,
         bs: &DB,
@@ -212,7 +212,7 @@ impl Node {
         }
     }
 
-    /// set value in node
+    /// Set value in node
     pub(super) fn set<DB: BlockStore>(
         &mut self,
         bs: &DB,
@@ -277,7 +277,7 @@ impl Node {
         }
     }
 
-    /// delete value in AMT
+    /// Delete value in AMT by index
     pub(super) fn delete<DB: BlockStore>(
         &mut self,
         bs: &DB,
