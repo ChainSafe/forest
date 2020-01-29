@@ -88,6 +88,16 @@ mod tests {
         assert_get(&mut a, 2, &"foo");
         assert_get(&mut a, 11, &"bar");
         assert_get(&mut a, 79, &"baz");
+
+        // Flush and save root node and get cid
+        let c = a.flush().unwrap();
+
+        // Load amt with that cid
+        let mut new_amt = AMT::load(&db, c).unwrap();
+
+        assert_get(&mut new_amt, 2, &"foo");
+        assert_get(&mut new_amt, 11, &"bar");
+        assert_get(&mut new_amt, 79, &"baz");
     }
 
     #[test]

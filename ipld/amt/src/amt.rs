@@ -6,7 +6,7 @@ use crate::{
     nodes_for_height, BlockStore, Error, Node, Root, MAX_INDEX, WIDTH,
 };
 use cid::Cid;
-use encoding::{ser::Serialize, to_vec};
+use encoding::{from_slice, ser::Serialize, to_vec};
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct AMT<'db, DB>
@@ -27,6 +27,17 @@ where
             root: Root::default(),
             block_store,
         }
+    }
+
+    /// Constructs an AMT with a blockstore and a Cid of the root of the AMT
+    pub fn load(block_store: &'db DB, cid: Cid) -> Result<Self, Error> {
+        // Load root bytes from database
+        let root_bz = block_store
+            .get(&cid)?
+            .ok_or(Error::Db("Root not found in database".to_owned()))?;
+        let root: Root = from_slice(&root_bz)?;
+        
+        Ok(Self { root, block_store })
     }
 
     // Getter for height
@@ -74,7 +85,10 @@ where
             // node at index exists
             if !self.node().empty() {
                 // Save and get cid to be able to link from higher level node
-                let cid = self.flush()?;
+                self.root.node.flush(self.block_store)?;
+
+                // Get cid from storing root node
+                let cid = self.block_store.put(&self.root.node)?;
 
                 // Set links node with first index as cid
                 let mut new_links: [LinkNode; WIDTH] = Default::default();
