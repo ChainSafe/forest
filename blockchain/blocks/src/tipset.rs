@@ -7,12 +7,17 @@
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
-use serde::{Deserialize, Serialize};
+use encoding::{
+    de::{self, Deserializer},
+    ser::{self, Serializer},
+};
+use num_bigint::BigUint;
+use serde::Deserialize;
 
 /// A set of CIDs forming a unique key for a TipSet.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
@@ -32,6 +37,26 @@ impl TipSetKeys {
             }
         }
         true
+    }
+}
+
+impl ser::Serialize for TipSetKeys {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = self.cids.clone();
+        value.serialize(serializer)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for TipSetKeys {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let cids: Vec<Cid> = Deserialize::deserialize(deserializer)?;
+        Ok(TipSetKeys { cids })
     }
 }
 
@@ -158,8 +183,8 @@ impl Tipset {
         &self.blocks[0].parents()
     }
     /// Returns the tipset's calculated weight
-    pub fn weight(&self) -> u64 {
-        self.blocks[0].weight()
+    pub fn weight(&self) -> &BigUint {
+        &self.blocks[0].weight()
     }
     /// Returns the tipset's epoch
     pub fn tip_epoch(&self) -> &ChainEpoch {
@@ -198,6 +223,7 @@ mod tests {
     use address::Address;
     use cid::Cid;
     use crypto::VRFResult;
+    use num_bigint::BigUint;
 
     const WEIGHT: u64 = 1;
     const CACHED_BYTES: [u8; 1] = [0];
@@ -228,7 +254,7 @@ mod tests {
             .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),
             })
-            .weight(WEIGHT)
+            .weight(BigUint::from(WEIGHT))
             .cached_cid(cid)
             .build()
             .unwrap();
@@ -302,7 +328,7 @@ mod tests {
     #[test]
     fn weight_test() {
         let tipset = setup();
-        assert_eq!(tipset.weight(), WEIGHT);
+        assert_eq!(tipset.weight(), &BigUint::from(WEIGHT));
     }
 
     #[test]

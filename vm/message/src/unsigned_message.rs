@@ -6,6 +6,7 @@ use address::Address;
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
 use num_bigint::BigUint;
+use raw_block::RawBlock;
 use serde::Deserialize;
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -129,5 +130,7 @@ impl Message for UnsignedMessage {
         &self.gas_limit
     }
 }
+
+impl RawBlock for UnsignedMessage {}
 
 impl Cbor for UnsignedMessage {}

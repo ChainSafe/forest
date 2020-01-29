@@ -74,10 +74,11 @@ mod tests {
     use super::*;
     use blocks::BlockHeader;
     use cid::Cid;
+    use num_bigint::BigUint;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         let header = BlockHeader::builder()
-            .weight(weight)
+            .weight(BigUint::from(weight))
             .cached_bytes(cached_bytes.to_vec())
             .cached_cid(Cid::from_bytes_default(parent_bz).unwrap())
             .build()
@@ -97,12 +98,18 @@ mod tests {
 
         // Test the comparison of tipsets
         let bucket = SyncBucket::new(vec![&l_tip, &h_tip]);
-        assert_eq!(bucket.heaviest_tipset().unwrap().weight(), 3);
+        assert_eq!(
+            bucket.heaviest_tipset().unwrap().weight(),
+            &BigUint::from(3u8)
+        );
         assert_eq!(bucket.tips.len(), 2);
 
         // assert bucket with just one tipset still resolves
         let bucket = SyncBucket::new(vec![&l_tip]);
-        assert_eq!(bucket.heaviest_tipset().unwrap().weight(), 1);
+        assert_eq!(
+            bucket.heaviest_tipset().unwrap().weight(),
+            &BigUint::from(1u8)
+        );
     }
 
     #[test]
