@@ -256,10 +256,10 @@ impl Node {
             if let LinkNode::Cached(n) = &mut links[idx] {
                 n.set(bs, height - 1, i % nfh, val)
             } else {
-                Err(Error::InvalidAMT)
+                unreachable!("Value is set as cached")
             }
         } else {
-            Err(Error::InvalidAMT)
+            unreachable!("Non zero height in AMT is always Links type")
         }
     }
 
@@ -279,7 +279,7 @@ impl Node {
     /// delete value in AMT
     pub(super) fn delete<DB: BlockStore>(
         &mut self,
-        _bs: &DB,
+        bs: &DB,
         height: u32,
         i: u64,
     ) -> Result<bool, Error> {
@@ -290,18 +290,53 @@ impl Node {
             return Ok(false);
         }
 
-        if height == 0 {
-            if let Values::Leaf(_) = &self.vals {
+        match self {
+            Self {
+                vals: Values::Leaf(_),
+                bmap,
+            } => {
+                assert_eq!(
+                    height, 0,
+                    "Height must be 0 when clearing bit for leaf node"
+                );
+
                 // When deleting from node, should only need to clear bit from bitmap
-                self.bmap.clear_bit(i);
-                return Ok(true);
-            } else {
-                // Nodes at height 0 should always be Leaf variant
-                return Err(Error::InvalidAMT);
+                bmap.clear_bit(i);
+                Ok(true)
+            }
+            Self {
+                vals: Values::Links(l),
+                bmap,
+            } => {
+                let mut sub_node: Node = match &l[sub_i as usize] {
+                    LinkNode::Cached(n) => *n.clone(),
+                    LinkNode::Cid(cid) => {
+                        let res: Vec<u8> = bs.get(cid)?.ok_or_else(|| {
+                            Error::Cid("Cid did not match any in database".to_owned())
+                        })?;
+
+                        from_slice(&res)?
+                    }
+                    LinkNode::Empty => unreachable!("Bitmap value for index is set"),
+                };
+
+                // Follow node to delete from subnode
+                if !sub_node.delete(bs, height - 1, i % nodes_for_height(height))? {
+                    // Index to be deleted was not found
+                    return Ok(false);
+                }
+
+                // Value was deleted, move node to cache or clear bit if removing shard
+                l[sub_i as usize] = if sub_node.bmap.is_empty() {
+                    bmap.clear_bit(sub_i);
+                    LinkNode::Empty
+                } else {
+                    LinkNode::Cached(Box::new(sub_node))
+                };
+
+                Ok(true)
             }
         }
-
-        todo!();
     }
 }
 

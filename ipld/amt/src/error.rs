@@ -3,18 +3,24 @@
 
 use cid::Error as CidError;
 use db::Error as DBError;
-use encoding::error;
+use encoding::error::Error as EncodingError;
 use std::fmt;
 
+/// AMT Error
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    /// Index referenced it above arbitrary max set
     OutOfRange(u64),
+    /// Cbor encoding error
     Cbor(String),
+    /// Error generating a Cid for data
     Cid(String),
+    /// Error interacting with underlying database
     Db(String),
+    /// Error when trying to serialize an AMT without a flushed cache
     Cached,
+    /// Custom AMT error
     Custom(String),
-    InvalidAMT,
 }
 
 impl fmt::Display for Error {
@@ -29,7 +35,6 @@ impl fmt::Display for Error {
                 "Tried to serialize without saving cache, run flush() on AMT before serializing"
             ),
             Error::Custom(msg) => write!(f, "Custom AMT error: {}", msg),
-            Error::InvalidAMT => write!(f, "Invalid AMT, this is an unexpected error"),
         }
     }
 }
@@ -46,8 +51,8 @@ impl From<CidError> for Error {
     }
 }
 
-impl From<error::Error> for Error {
-    fn from(e: error::Error) -> Error {
+impl From<EncodingError> for Error {
+    fn from(e: EncodingError) -> Error {
         Error::Cbor(e.to_string())
     }
 }

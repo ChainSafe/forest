@@ -30,10 +30,10 @@ where
     }
 
     /// Constructs an AMT with a blockstore and a Cid of the root of the AMT
-    pub fn load(block_store: &'db DB, cid: Cid) -> Result<Self, Error> {
+    pub fn load(block_store: &'db DB, cid: &Cid) -> Result<Self, Error> {
         // Load root bytes from database
         let root_bz = block_store
-            .get(&cid)?
+            .get(cid)?
             .ok_or_else(|| Error::Db("Root not found in database".to_owned()))?;
         let root: Root = from_slice(&root_bz)?;
 
@@ -159,7 +159,10 @@ where
         }
 
         // Delete node from AMT
-        self.root.node.delete(self.block_store, self.height(), i)?;
+        if !self.root.node.delete(self.block_store, self.height(), i)? {
+            return Ok(false);
+        }
+
         self.root.count -= 1;
 
         // Handle height changes from delete
@@ -171,15 +174,12 @@ where
                         let res: Vec<u8> = self.block_store.get(cid)?.ok_or_else(|| {
                             Error::Cid("Cid did not match any in database".to_owned())
                         })?;
+
                         from_slice(&res)?
                     }
                     _ => return Err(Error::Custom("Link index should match bitmap".to_owned())),
                 },
-                Values::Leaf(_) => {
-                    return Err(Error::Custom(
-                        "nonzero height should be link node".to_owned(),
-                    ))
-                }
+                Values::Leaf(_) => unreachable!("Non zero height cannot be a leaf node"),
             };
 
             self.set_node(sub_node);

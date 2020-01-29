@@ -6,6 +6,7 @@ use cid::Cid;
 use db::{MemoryDB, Read, RocksDb, Write};
 use encoding::{ser::Serialize, to_vec};
 
+/// Wrapper for database to handle inserting and retrieving data from AMT with Cids
 pub trait BlockStore: Read + Write {
     /// Get bytes from block store by Cid
     fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Error> {

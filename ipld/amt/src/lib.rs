@@ -22,7 +22,6 @@ pub(crate) fn nodes_for_height(height: u32) -> u64 {
     (WIDTH as u64).pow(height)
 }
 
-// TODO move tests to folder in crate
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,7 +91,7 @@ mod tests {
         let c = a.flush().unwrap();
 
         // Load amt with that cid
-        let mut new_amt = AMT::load(&db, c).unwrap();
+        let mut new_amt = AMT::load(&db, &c).unwrap();
 
         assert_get(&mut new_amt, 2, &"foo");
         assert_get(&mut new_amt, 11, &"bar");
@@ -119,7 +118,7 @@ mod tests {
 
         // Flush and regenerate amt
         let c = a.flush().unwrap();
-        let mut new_amt = AMT::load(&db, c).unwrap();
+        let mut new_amt = AMT::load(&db, &c).unwrap();
 
         for i in 0..iterations {
             assert_get(&mut new_amt, i, &"foo foo bar");
@@ -143,36 +142,63 @@ mod tests {
         assert_get(&mut a, 0, &"ferret");
         assert_get(&mut a, 2, &"ferret");
         assert_get(&mut a, 3, &"ferret");
+
+        a.delete(0).unwrap();
+        a.delete(2).unwrap();
+        a.delete(3).unwrap();
+        assert_eq!(a.count(), 0);
+
+        a.set(23, &"dog").unwrap();
+        a.set(24, &"dog").unwrap();
+        a.delete(23).unwrap();
+        assert_eq!(a.count(), 1);
+
+        // Flush and regenerate amt
+        let c = a.flush().unwrap();
+        let regen_amt = AMT::load(&db, &c).unwrap();
+        assert_eq!(regen_amt.count(), 1);
+
+        // Test that a new amt inserting just at index 24 is the same
+        let mut new_amt = AMT::new(&db);
+        new_amt.set(24, &"dog").unwrap();
+        let c2 = new_amt.flush().unwrap();
+
+        assert_eq!(c, c2);
     }
 
     #[test]
     fn delete_first_entry() {
-        // let db = db::MemoryDB::default();
-        // let mut a = AMT::new(&db);
-
-        // a.set(0, &"cat").unwrap();
-        // a.set(27, &"cat").unwrap();
-
-        // assert_eq!(a.count(), 2);
-        // a.delete(27).unwrap();
-        // assert_get(&mut a, 0, &"cat");
-    }
-
-    #[test]
-    fn bulk_insert_delete() {
         let db = db::MemoryDB::default();
-        let mut _a = AMT::new(&db);
+        let mut a = AMT::new(&db);
+
+        a.set(0, &"cat").unwrap();
+        a.set(27, &"cat").unwrap();
+
+        assert_eq!(a.count(), 2);
+        a.delete(27).unwrap();
+        assert_get(&mut a, 0, &"cat");
     }
 
     #[test]
     fn delete_reduce_height() {
         let db = db::MemoryDB::default();
-        let mut _a = AMT::new(&db);
-    }
+        let mut a = AMT::new(&db);
 
-    #[test]
-    fn loop_set_get() {
-        let db = db::MemoryDB::default();
-        let mut _a = AMT::new(&db);
+        a.set(0, &"thing").unwrap();
+        let c1 = a.flush().unwrap();
+        println!("{:?}", a.root());
+
+        a.set(37, &"other").unwrap();
+        assert_eq!(a.height(), 1);
+        let c2 = a.flush().unwrap();
+
+        let mut a2 = AMT::load(&db, &c2).unwrap();
+        a2.delete(37).unwrap();
+        assert_eq!(a2.count(), 1);
+        assert_eq!(a2.height(), 0);
+
+        let c3 = a2.flush().unwrap();
+        println!("{:?}", a2.root());
+        assert_eq!(c1, c3);
     }
 }

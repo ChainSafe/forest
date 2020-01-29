@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cmp, u8};
+use std::{cmp, fmt, u8};
 
 #[derive(PartialEq, Eq, Clone, Debug, Default, Copy)]
 pub struct BitMap {
@@ -11,6 +11,18 @@ pub struct BitMap {
 impl cmp::PartialEq<u8> for BitMap {
     fn eq(&self, other: &u8) -> bool {
         self.b == *other
+    }
+}
+
+impl fmt::Binary for BitMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:08b}", self.b)
+    }
+}
+
+impl fmt::Display for BitMap {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:b}", self)
     }
 }
 
