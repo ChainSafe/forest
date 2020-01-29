@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 pub struct ActorID(u64);
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl Cbor for ActorID {}
 

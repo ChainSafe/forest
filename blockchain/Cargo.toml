@@ -5,4 +5,4 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-message = {path = "../vm/message"}
+message = { package = "forest_message", path = "../vm/message" }

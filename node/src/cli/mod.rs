@@ -11,7 +11,7 @@ use std::io;
 use utils::{read_file_to_string, read_toml};
 
 pub(super) fn cli(_log: &Logger) -> Result<Config, io::Error> {
-    let app = App::new("Ferret")
+    let app = App::new("Forest")
         .version("0.0.1")
         .author("ChainSafe Systems <info@chainsafe.io>")
         .about("Filecoin implementation in Rust.")

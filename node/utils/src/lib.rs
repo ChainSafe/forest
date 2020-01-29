@@ -55,9 +55,9 @@ pub fn get_home_dir() -> String {
 ///     name: String
 /// };
 ///
-/// let toml_string = "name = \"ferret\"\n";
+/// let toml_string = "name = \"forest\"\n";
 /// let config: Config = read_toml(toml_string).unwrap();
-/// assert_eq!(config.name, "ferret");
+/// assert_eq!(config.name, "forest");
 /// ```
 pub fn read_toml<S>(toml_string: &str) -> Result<S>
 where

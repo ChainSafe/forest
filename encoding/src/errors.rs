@@ -4,14 +4,14 @@
 use serde_cbor::error::Error as CborError;
 use std::fmt;
 
-/// Error type for encoding and decoding data through any Ferret supported protocol
+/// Error type for encoding and decoding data through any Forest supported protocol
 ///
 /// This error will provide any details about the data which was attempted to be
 /// encoded or decoded. The
 ///
 /// Usage:
 /// ```no_run
-/// use encoding::{Error, CodecProtocol};
+/// use forest_encoding::{Error, CodecProtocol};
 ///
 /// Error::Marshalling {
 ///     description: format!("{:?}", vec![0]),

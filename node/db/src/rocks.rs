@@ -24,7 +24,7 @@ pub struct RocksDb {
     status: DbStatus,
 }
 
-/// RocksDb is used as the KV store for Ferret
+/// RocksDb is used as the KV store for Forest
 ///
 /// Usage:
 /// ```no_run
