@@ -10,6 +10,7 @@ use encoding::{
 };
 use std::u8;
 
+/// This represents a link to another Node
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub(super) enum LinkNode {
     Cid(Cid),
@@ -29,6 +30,7 @@ impl From<Cid> for LinkNode {
     }
 }
 
+/// Values represents the underlying data of a node, whether it is a link or leaf node
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub(super) enum Values {
     Links([LinkNode; WIDTH]),
@@ -41,6 +43,7 @@ impl Default for Values {
     }
 }
 
+/// Node represents either a shard of values in the form of bytes or links to other nodes
 #[derive(PartialEq, Eq, Clone, Debug, Default)]
 pub(super) struct Node {
     pub(super) bmap: BitMap,
@@ -153,6 +156,7 @@ impl Node {
         }
     }
 
+    /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
         if let Values::Links(l) = &mut self.vals {
             for link in &mut l.iter_mut() {

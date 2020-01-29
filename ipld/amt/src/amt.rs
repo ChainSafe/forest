@@ -8,6 +8,25 @@ use crate::{
 use cid::Cid;
 use encoding::{from_slice, ser::Serialize, to_vec};
 
+/// Array Mapped Trie which allows for the insertion and persistence of data, serializable to a CID
+///
+/// Usage:
+/// ```
+/// use ipld_amt::AMT;
+///
+/// let db = db::MemoryDB::default();
+/// let mut amt = AMT::new(&db);
+///
+/// // Insert or remove any serializable values
+/// amt.set(2, &"foo").unwrap();
+/// amt.set(1, &"bar").unwrap();
+/// amt.delete(2).unwrap();
+/// assert_eq!(amt.count(), 1);
+/// let bar = amt.get(1).unwrap();
+///
+/// // Generate cid by calling flush to remove cache
+/// let cid = amt.flush().unwrap();
+/// ```
 #[derive(PartialEq, Eq, Debug)]
 pub struct AMT<'db, DB>
 where

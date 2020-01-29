@@ -3,6 +3,7 @@
 
 use std::{cmp, fmt, u8};
 
+/// Map of bits to indicate which indexes contain values and which are empty
 #[derive(PartialEq, Eq, Clone, Debug, Default, Copy)]
 pub struct BitMap {
     b: u8,

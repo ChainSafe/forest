@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0
+
 use encoding::{ser::Serialize, to_vec};
 use ipld_amt::*;
 
@@ -27,7 +30,6 @@ fn basic_get_set() {
     let mut a = AMT::new(&db);
 
     a.set(2, &"foo").unwrap();
-    assert_eq!(a.get(2).unwrap().unwrap(), to_vec(&"foo").unwrap());
     assert_get(&mut a, 2, &"foo");
     assert_count(&mut a, 1);
 }

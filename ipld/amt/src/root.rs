@@ -7,6 +7,7 @@ use encoding::{
     ser,
 };
 
+/// Root of an AMT vector, can be serialized and keeps track of height and count
 #[derive(PartialEq, Eq, Debug, Default)]
 pub(super) struct Root {
     pub(super) height: u32,
