@@ -70,7 +70,6 @@ mod tests {
         let res = a.set(MAX_INDEX, &"test");
         assert_eq!(res.err(), Some(Error::OutOfRange(MAX_INDEX)));
 
-        // TODO enable once expansion built out
         let res = a.set(MAX_INDEX - 1, &"test");
         assert_eq!(res.err(), None);
         assert_get(&mut a, MAX_INDEX - 1, &"test");
@@ -103,7 +102,28 @@ mod tests {
     #[test]
     fn bulk_insert() {
         let db = db::MemoryDB::default();
-        let mut _a = AMT::new(&db);
+        let mut a = AMT::new(&db);
+
+        let iterations: u64 = 5000;
+
+        for i in 0..iterations {
+            a.set(i, &"foo foo bar").unwrap();
+        }
+
+        for i in 0..iterations {
+            assert_get(&mut a, i, &"foo foo bar");
+        }
+
+        assert_eq!(a.count(), iterations);
+        assert!(nodes_for_height(a.height() + 1) > iterations);
+
+        // Flush and regenerate amt
+        let c = a.flush().unwrap();
+        let mut new_amt = AMT::load(&db, c).unwrap();
+
+        for i in 0..iterations {
+            assert_get(&mut new_amt, i, &"foo foo bar");
+        }
     }
 
     #[test]

@@ -36,7 +36,7 @@ where
             .get(&cid)?
             .ok_or(Error::Db("Root not found in database".to_owned()))?;
         let root: Root = from_slice(&root_bz)?;
-        
+
         Ok(Self { root, block_store })
     }
 
@@ -54,6 +54,12 @@ where
     pub fn node(&self) -> &Node {
         &self.root.node
     }
+
+    /// Getter for root of AMT
+    pub fn root(&self) -> &Root {
+        &self.root
+    }
+
     /// Sets root node
     pub fn set_node(&mut self, node: Node) -> &mut Self {
         self.root.node = node;
@@ -74,7 +80,6 @@ where
     where
         S: Serialize,
     {
-        println!("SETTING {}", i);
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }

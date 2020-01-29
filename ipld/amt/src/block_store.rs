@@ -7,9 +7,12 @@ use db::{MemoryDB, Read, RocksDb, Write};
 use encoding::{ser::Serialize, to_vec};
 
 pub trait BlockStore: Read + Write {
+    /// Get bytes from block store by Cid
     fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Error> {
         Ok(self.read(cid.to_bytes())?)
     }
+
+    /// Put an object in the block store and return the Cid identifier
     fn put<S>(&self, obj: &S) -> Result<Cid, Error>
     where
         S: Serialize,
