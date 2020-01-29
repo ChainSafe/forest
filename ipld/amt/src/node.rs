@@ -23,7 +23,6 @@ impl Default for LinkNode {
     }
 }
 
-// TODO remove if unneeded
 impl From<Cid> for LinkNode {
     fn from(c: Cid) -> LinkNode {
         LinkNode::Cid(c)
@@ -51,7 +50,7 @@ pub struct Node {
 /// function turns the WIDTH length array into a vector for serialization
 fn values_to_vec<T: Clone>(bmap: BitMap, values: &[T; WIDTH]) -> Vec<T> {
     let mut v: Vec<T> = Vec::new();
-    for i in 0..WIDTH {
+    for (i, _) in values.iter().enumerate().take(WIDTH) {
         if bmap.get_bit(i as u64) {
             v.push(values[i].clone())
         }
@@ -60,22 +59,21 @@ fn values_to_vec<T: Clone>(bmap: BitMap, values: &[T; WIDTH]) -> Vec<T> {
 }
 
 /// function puts values from vector into shard array
-fn vec_to_values<T>(bmap: BitMap, values: Vec<T>) -> Result<[T; WIDTH], Error>
+fn vec_to_values<V, T>(bmap: BitMap, values: Vec<V>) -> Result<[T; WIDTH], Error>
 where
-    T: Default + Clone,
+    V: Clone,
+    T: Default + From<V>,
 {
     let mut r_arr: [T; WIDTH] = Default::default();
 
     let mut v_iter = values.iter();
 
-    for i in 0..WIDTH {
+    for (i, e) in r_arr.iter_mut().enumerate().take(WIDTH) {
         if bmap.get_bit(i as u64) {
-            r_arr[i] = v_iter
+            let value = v_iter
                 .next()
-                .ok_or(Error::Custom(
-                    "Vector length does not match bitmap".to_owned(),
-                ))?
-                .clone();
+                .ok_or_else(|| Error::Custom("Vector length does not match bitmap".to_owned()))?;
+            *e = <T>::from(value.clone());
         }
     }
 
@@ -92,12 +90,6 @@ fn cids_from_links(links: &[LinkNode; WIDTH]) -> Result<Vec<Cid>, Error> {
             LinkNode::Empty => None,
         })
         .collect()
-}
-
-// ? Can maybe combined with vec_to_values later
-/// Convert cids into linknode array
-fn cids_to_arr(_bmap: BitMap, _values: Vec<Cid>) -> [LinkNode; WIDTH] {
-    todo!()
 }
 
 impl ser::Serialize for Node {
@@ -143,7 +135,8 @@ impl<'de> de::Deserialize<'de> for Node {
                 vals: Values::Leaf(leaf_arr),
             })
         } else {
-            let link_arr: [LinkNode; WIDTH] = cids_to_arr(bmap, links);
+            let link_arr: [LinkNode; WIDTH] =
+                vec_to_values(bmap, links).map_err(|e| de::Error::custom(e.to_string()))?;
             Ok(Self {
                 bmap,
                 vals: Values::Links(link_arr),
@@ -163,8 +156,8 @@ impl Node {
 
     pub fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
         if let Values::Links(l) = &mut self.vals {
-            for i in 0..l.len() {
-                if let LinkNode::Cached(n) = &mut l[i] {
+            for link in &mut l.iter_mut() {
+                if let LinkNode::Cached(n) = link {
                     // flush sub node to clear caches
                     n.flush(bs)?;
 
@@ -172,7 +165,7 @@ impl Node {
                     let cid = bs.put(n)?;
 
                     // Turn cached node into a Cid link
-                    l[i] = LinkNode::Cid(cid);
+                    *link = LinkNode::Cid(cid);
                 }
             }
         }
@@ -199,14 +192,12 @@ impl Node {
         }
 
         match &mut self.vals {
-            Values::Leaf(v) => {
-                return Ok(Some(v[i as usize].clone()));
-            }
+            Values::Leaf(v) => Ok(Some(v[i as usize].clone())),
             Values::Links(l) => match &mut l[sub_i as usize] {
                 LinkNode::Cid(cid) => {
-                    let res: Vec<u8> = bs
-                        .get(cid)?
-                        .ok_or(Error::Cid("Cid did not match any in database".to_owned()))?;
+                    let res: Vec<u8> = bs.get(cid)?.ok_or_else(|| {
+                        Error::Cid("Cid did not match any in database".to_owned())
+                    })?;
 
                     // pass back node to be queried
                     // TODO after benchmarking check if cache should be updated from get
@@ -215,7 +206,7 @@ impl Node {
                     node.get(bs, height - 1, i % nodes_for_height(height))
                 }
                 LinkNode::Cached(n) => n.get(bs, height - 1, i % nodes_for_height(height)),
-                LinkNode::Empty => return Ok(None),
+                LinkNode::Empty => Ok(None),
             },
         }
     }
@@ -246,9 +237,9 @@ impl Node {
         {
             links[idx] = match &mut links[idx] {
                 LinkNode::Cid(cid) => {
-                    let res: Vec<u8> = bs
-                        .get(cid)?
-                        .ok_or(Error::Cid("Cid did not match any in database".to_owned()))?;
+                    let res: Vec<u8> = bs.get(cid)?.ok_or_else(|| {
+                        Error::Cid("Cid did not match any in database".to_owned())
+                    })?;
 
                     LinkNode::Cached(Box::new(from_slice(&res)?))
                 }
