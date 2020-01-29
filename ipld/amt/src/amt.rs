@@ -81,6 +81,9 @@ where
                 new_links[0] = LinkNode::Cid(cid);
 
                 self.set_node(Node::new(0x01, Values::Links(new_links)));
+            } else {
+                // If first expansion is before a value inserted, convert base node to Link
+                self.set_node(Node::new(0x00, Values::Links(Default::default())));
             }
             // Incrememnt height after each iteration
             self.root.height += 1;
@@ -106,7 +109,6 @@ where
     }
 
     pub fn get(&mut self, i: u64) -> Result<Option<Vec<u8>>, Error> {
-        println!("GETTING {}", i);
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }

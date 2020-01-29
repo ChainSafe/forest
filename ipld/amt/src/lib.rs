@@ -71,8 +71,9 @@ mod tests {
         assert_eq!(res.err(), Some(Error::OutOfRange(MAX_INDEX)));
 
         // TODO enable once expansion built out
-        // let res = a.set(MAX_INDEX - 1, &"test");
-        // assert_eq!(res.err(), None);
+        let res = a.set(MAX_INDEX - 1, &"test");
+        assert_eq!(res.err(), None);
+        assert_get(&mut a, MAX_INDEX - 1, &"test");
     }
 
     #[test]
