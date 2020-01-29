@@ -5,7 +5,6 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-network = { path = "network" }
 ferret-libp2p = { path = "ferret-libp2p"}
 utils = { path = "utils" }
 db = { path = "db" }

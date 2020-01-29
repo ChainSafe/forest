@@ -30,6 +30,7 @@ pub struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'stat
     log: Logger,
 }
 
+#[derive(Debug)]
 pub enum MyBehaviourEvent {
     DiscoveredPeer(PeerId),
     ExpiredPeer(PeerId),

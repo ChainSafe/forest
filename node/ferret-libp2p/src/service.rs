@@ -4,6 +4,7 @@
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
 use async_std::task;
+use futures::channel::mpsc;
 use futures::stream::Stream;
 use futures::task::{Context, Poll};
 use futures_util::stream::StreamExt;
@@ -12,17 +13,13 @@ use libp2p::{
     core::muxing::StreamMuxerBox,
     core::nodes::Substream,
     core::transport::boxed::Boxed,
-        gossipsub::TopicHash,
+    gossipsub::TopicHash,
     identity::{ed25519, Keypair},
-    mplex,
-    secio,
-    yamux,
-    PeerId,
-    Swarm,
-    Transport,
+    mplex, secio, yamux, PeerId, Swarm, Transport,
 };
 use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
+use std::sync::{Mutex, Arc};
 use std::pin::Pin;
 use std::time::Duration;
 use utils::{get_home_dir, read_file_to_vec, write_to_file};
@@ -32,7 +29,10 @@ type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
-    pub swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
+    swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
+//    pub swarm: Arc<Mutex<Swarm<Libp2pStream, Libp2pBehaviour>>>,
+    libp2p_receiver: mpsc::UnboundedReceiver<u8>,
+    libp2p_sender: mpsc::UnboundedSender<u8>,
 }
 
 impl Libp2pService {
@@ -73,20 +73,23 @@ impl Libp2pService {
             swarm.subscribe(topic);
         }
 
-        Libp2pService { swarm }
+        let (libp2p_sender, libp2p_receiver) = mpsc::unbounded();
+        Libp2pService { swarm:swarm, libp2p_sender, libp2p_receiver }
+//        Libp2pService { swarm: Arc::new(Mutex::new(swarm)), libp2p_sender, libp2p_receiver }
     }
-}
 
-impl Stream for Libp2pService {
-    type Item = NetworkEvent;
-
-    /// Continuously polls the Libp2p swarm to get events
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    pub async fn run(self) -> Result<(), ()> {
+        enum MergeEvent {
+            Swarm(MyBehaviourEvent),
+            Pubsub,
+        };
+//        let mut swarm = self.swarm.clone();
+        let mut source = self.swarm.map(MergeEvent::Swarm);
         loop {
-            match self.swarm.poll_next_unpin(cx) {
-                Poll::Ready(Some(event)) => match event {
+            match source.next().await.unwrap() {
+                MergeEvent::Swarm(event) => match event {
                     MyBehaviourEvent::DiscoveredPeer(peer) => {
-                        libp2p::Swarm::dial(&mut self.swarm, peer);
+                        libp2p::Swarm::dial(&mut source.get_mut(), peer);
                     }
                     MyBehaviourEvent::ExpiredPeer(_) => {}
                     MyBehaviourEvent::GossipMessage {
@@ -94,28 +97,54 @@ impl Stream for Libp2pService {
                         topics,
                         message,
                     } => {
-                        return Poll::Ready(Option::from(NetworkEvent::PubsubMessage {
-                            source,
-                                                        topics,
-                            message,
-                        }));
+                       println!("PS MSG {:?} {:?} {:?}", source, topics, message);
                     }
                 },
-                Poll::Ready(None) => break,
-                Poll::Pending => break,
-                _ => break,
+                _ => {}
             }
         }
-        Poll::Pending
     }
 }
+
+//impl Stream for Libp2pService {
+//    type Item = NetworkEvent;
+//
+//    /// Continuously polls the Libp2p swarm to get events
+//    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+//        loop {
+//            match self.swarm.poll_next_unpin(cx) {
+//                Poll::Ready(Some(event)) => match event {
+//                    MyBehaviourEvent::DiscoveredPeer(peer) => {
+//                        libp2p::Swarm::dial(&mut self.swarm, peer);
+//                    }
+//                    MyBehaviourEvent::ExpiredPeer(_) => {}
+//                    MyBehaviourEvent::GossipMessage {
+//                        source,
+//                        topics,
+//                        message,
+//                    } => {
+//                        return Poll::Ready(Option::from(NetworkEvent::PubsubMessage {
+//                            source,
+//                            topics,
+//                            message,
+//                        }));
+//                    }
+//                },
+//                Poll::Ready(None) => break,
+//                Poll::Pending => break,
+//                _ => break,
+//            }
+//        }
+//        Poll::Pending
+//    }
+//}
 
 /// Events emitted by this Service to be listened by the NetworkService.
 #[derive(Clone, Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
         source: PeerId,
-                topics: Vec<TopicHash>,
+        topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
 }
