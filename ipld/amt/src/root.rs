@@ -36,3 +36,19 @@ impl<'de> de::Deserialize<'de> for Root {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use encoding::{from_slice, to_vec};
+
+    #[test]
+    fn serialize_symmetric() {
+        let mut root = Root::default();
+        root.height = 2;
+        root.count = 1;
+        root.node = Node::new(10, Default::default());
+        let rbz = to_vec(&root).unwrap();
+        assert_eq!(from_slice::<Root>(&rbz).unwrap(), root);
+    }
+}

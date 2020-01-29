@@ -13,6 +13,7 @@ pub enum Error {
     Cid(String),
     Db(String),
     Cached,
+    Custom(String),
 }
 
 impl fmt::Display for Error {
@@ -24,6 +25,7 @@ impl fmt::Display for Error {
             Error::Db(msg) => write!(f, "Database Error: {}", msg),
             // TODO add function to run in error description
             Error::Cached => write!(f, "Tried to serialize without saving cache, must run <>"),
+            Error::Custom(msg) => write!(f, "Custom AMT error: {}", msg),
         }
     }
 }

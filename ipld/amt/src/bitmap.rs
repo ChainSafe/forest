@@ -29,7 +29,6 @@ impl BitMap {
     }
 
     /// Clear bit at index for bitmap
-    #[allow(dead_code)] // TODO remove
     pub fn clear_bit(&mut self, i: u64) {
         self.b &= u8::MAX - (1 << i)
     }
