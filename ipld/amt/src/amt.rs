@@ -7,7 +7,7 @@ use crate::{
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 
-/// Array Mapped Trie which allows for the insertion and persistence of data, serializable to a CID
+/// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID
 ///
 /// Usage:
 /// ```
@@ -154,6 +154,7 @@ where
     }
 
     /// Batch set (naive for now)
+    // TODO Implement more efficient batch set to not have to traverse tree and keep cache for each
     pub fn batch_set<S>(&mut self, vals: &[&S]) -> Result<(), Error>
     where
         S: Serialize,
