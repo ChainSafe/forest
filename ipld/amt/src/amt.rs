@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    node::{LinkNode, Values},
+    node::{Link, Values},
     nodes_for_height, BlockStore, Error, Node, Root, MAX_INDEX, WIDTH,
 };
 use cid::Cid;
@@ -115,8 +115,8 @@ where
                 let cid = self.block_store.put(&self.root.node)?;
 
                 // Set links node with first index as cid
-                let mut new_links: [LinkNode; WIDTH] = Default::default();
-                new_links[0] = LinkNode::Cid(cid);
+                let mut new_links: [Option<Link>; WIDTH] = Default::default();
+                new_links[0] = Some(Link::Cid(cid));
 
                 self.root.node = Node::new(0x01, Values::Links(new_links));
             } else {
@@ -171,9 +171,9 @@ where
         // Handle height changes from delete
         while self.root.node.bmap == 0x01 && self.height() > 0 {
             let sub_node: Node = match &self.root.node.vals {
-                Values::Links(l) => match l.get(0) {
-                    Some(LinkNode::Cached(node)) => *node.clone(),
-                    Some(LinkNode::Cid(cid)) => {
+                Values::Links(l) => match &l[0] {
+                    Some(Link::Cached(node)) => *node.clone(),
+                    Some(Link::Cid(cid)) => {
                         let res: Vec<u8> = self.block_store.get(cid)?.ok_or_else(|| {
                             Error::Cid("Cid did not match any in database".to_owned())
                         })?;

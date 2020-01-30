@@ -32,14 +32,17 @@ impl BitMap {
     pub fn new(b: u8) -> Self {
         Self { b }
     }
+
     /// Converts bitmap to array of bytes
     pub fn to_byte_array(self) -> [u8; 1] {
         [self.b]
     }
+
     /// Checks if bitmap is empty
     pub fn is_empty(self) -> bool {
         self.b == 0
     }
+
     /// Get bit from bitmap by index
     pub fn get_bit(self, i: u64) -> bool {
         self.b & (1 << i) != 0
