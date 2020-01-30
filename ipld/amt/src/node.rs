@@ -23,24 +23,26 @@ impl From<Cid> for Link {
     }
 }
 
-/// Values represents the underlying data of a node, whether it is a link or leaf node
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub(super) enum Values {
-    Links([Option<Link>; WIDTH]),
-    Leaf([Option<Vec<u8>>; WIDTH]),
-}
-
-impl Default for Values {
-    fn default() -> Self {
-        Values::Leaf(Default::default())
-    }
-}
-
 /// Node represents either a shard of values in the form of bytes or links to other nodes
-#[derive(PartialEq, Eq, Clone, Debug, Default)]
-pub(super) struct Node {
-    pub(super) bmap: BitMap,
-    pub(super) vals: Values,
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub(crate) enum Node {
+    Link {
+        bmap: BitMap,
+        vals: [Option<Link>; WIDTH],
+    },
+    Leaf {
+        bmap: BitMap,
+        vals: [Option<Vec<u8>>; WIDTH],
+    },
+}
+
+impl Default for Node {
+    fn default() -> Self {
+        Node::Leaf {
+            bmap: Default::default(),
+            vals: Default::default(),
+        }
+    }
 }
 
 /// Turns the WIDTH length array into a vector for serialization
@@ -93,12 +95,16 @@ impl ser::Serialize for Node {
     where
         S: ser::Serializer,
     {
-        let bmap_arr = self.bmap.to_byte_array();
-        let bitmap_bz = Bytes::new(&bmap_arr);
-        match &self.vals {
-            Values::Leaf(v) => (bitmap_bz, [0u8; 0], values_to_vec(self.bmap, &v)).serialize(s),
-            Values::Links(v) => {
-                let cids = cids_from_links(v).map_err(|e| ser::Error::custom(e.to_string()))?;
+        match &self {
+            Node::Leaf { bmap, vals } => {
+                let bmap_arr = bmap.to_byte_array();
+                let bitmap_bz = Bytes::new(&bmap_arr);
+                (bitmap_bz, [0u8; 0], values_to_vec(*bmap, &vals)).serialize(s)
+            }
+            Node::Link { bmap, vals } => {
+                let bmap_arr = bmap.to_byte_array();
+                let bitmap_bz = Bytes::new(&bmap_arr);
+                let cids = cids_from_links(vals).map_err(|e| ser::Error::custom(e.to_string()))?;
                 (bitmap_bz, cids, [0u8; 0]).serialize(s)
             }
         }
@@ -124,34 +130,26 @@ impl<'de> de::Deserialize<'de> for Node {
         if links.is_empty() {
             let leaf_arr: [Option<Vec<u8>>; WIDTH] =
                 vec_to_values(bmap, values).map_err(|e| de::Error::custom(e.to_string()))?;
-            Ok(Self {
+            Ok(Self::Leaf {
                 bmap,
-                vals: Values::Leaf(leaf_arr),
+                vals: leaf_arr,
             })
         } else {
             let link_arr: [Option<Link>; WIDTH] =
                 vec_to_values(bmap, links).map_err(|e| de::Error::custom(e.to_string()))?;
-            Ok(Self {
+            Ok(Self::Link {
                 bmap,
-                vals: Values::Links(link_arr),
+                vals: link_arr,
             })
         }
     }
 }
 
 impl Node {
-    /// Constructor for node
-    pub(super) fn new(bmap: u8, vals: Values) -> Self {
-        Self {
-            bmap: BitMap::new(bmap),
-            vals,
-        }
-    }
-
     /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
-        if let Values::Links(l) = &mut self.vals {
-            for link in &mut l.iter_mut() {
+        if let Node::Link { vals, .. } = self {
+            for link in &mut vals.iter_mut() {
                 if let Some(Link::Cached(n)) = link {
                     // flush sub node to clear caches
                     n.flush(bs)?;
@@ -168,9 +166,16 @@ impl Node {
         Ok(())
     }
 
+    pub(super) fn bitmap(&self) -> &BitMap {
+        match self {
+            Node::Link { bmap, .. } => bmap,
+            Node::Leaf { bmap, .. } => bmap,
+        }
+    }
+
     /// Check if node is empty
     pub(super) fn empty(&self) -> bool {
-        self.bmap.is_empty()
+        self.bitmap().is_empty()
     }
 
     /// Gets value at given index of AMT given height
@@ -181,13 +186,13 @@ impl Node {
         i: u64,
     ) -> Result<Option<Vec<u8>>, Error> {
         let sub_i = i / nodes_for_height(height);
-        if !self.bmap.get_bit(sub_i) {
+        if !self.bitmap().get_bit(sub_i) {
             return Ok(None);
         }
 
-        match &mut self.vals {
-            Values::Leaf(v) => Ok(v[i as usize].clone()),
-            Values::Links(l) => match &mut l[sub_i as usize] {
+        match self {
+            Node::Leaf { vals, .. } => Ok(vals[i as usize].clone()),
+            Node::Link { vals, .. } => match &mut vals[sub_i as usize] {
                 Some(Link::Cid(cid)) => {
                     // TODO after benchmarking check if cache should be updated from get
                     let mut node: Node = bs.get_typed::<Node>(cid)?.ok_or_else(|| {
@@ -221,12 +226,8 @@ impl Node {
         let idx: usize = (i / nfh) as usize;
         assert!(idx < 8);
 
-        if let Node {
-            vals: Values::Links(links),
-            bmap,
-        } = self
-        {
-            links[idx] = match &mut links[idx] {
+        if let Node::Link { vals, bmap } = self {
+            vals[idx] = match &mut vals[idx] {
                 Some(Link::Cid(cid)) => {
                     let node: Node = bs.get_typed::<Node>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
@@ -236,8 +237,14 @@ impl Node {
                 }
                 None => {
                     let node = match height {
-                        1 => Node::new(0, Values::Leaf(Default::default())),
-                        _ => Node::new(0, Values::Links(Default::default())),
+                        1 => Node::Leaf {
+                            vals: Default::default(),
+                            bmap: Default::default(),
+                        },
+                        _ => Node::Link {
+                            vals: Default::default(),
+                            bmap: Default::default(),
+                        },
                     };
                     bmap.set_bit(idx as u64);
                     Some(Link::Cached(Box::new(node)))
@@ -245,7 +252,7 @@ impl Node {
                 Some(Link::Cached(node)) => return node.set(bs, height - 1, i % nfh, val),
             };
 
-            if let Some(Link::Cached(n)) = &mut links[idx] {
+            if let Some(Link::Cached(n)) = &mut vals[idx] {
                 n.set(bs, height - 1, i % nfh, val)
             } else {
                 unreachable!("Value is set as cached")
@@ -256,15 +263,15 @@ impl Node {
     }
 
     fn set_leaf(&mut self, i: u64, val: &[u8]) -> bool {
-        let already_set = self.bmap.get_bit(i);
+        let already_set = self.bitmap().get_bit(i);
 
-        match &mut self.vals {
-            Values::Leaf(v) => {
-                v[i as usize] = Some(val.to_vec());
-                self.bmap.set_bit(i);
+        match self {
+            Node::Leaf { vals, bmap } => {
+                vals[i as usize] = Some(val.to_vec());
+                bmap.set_bit(i);
                 !already_set
             }
-            Values::Links(_) => panic!("set_leaf should never be called on a shard of links"),
+            Node::Link { .. } => panic!("set_leaf should never be called on a shard of links"),
         }
     }
 
@@ -277,16 +284,13 @@ impl Node {
     ) -> Result<bool, Error> {
         let sub_i = i / nodes_for_height(height);
 
-        if !self.bmap.get_bit(sub_i) {
+        if !self.bitmap().get_bit(sub_i) {
             // Value does not exist in AMT
             return Ok(false);
         }
 
         match self {
-            Self {
-                vals: Values::Leaf(_),
-                bmap,
-            } => {
+            Self::Leaf { bmap, .. } => {
                 assert_eq!(
                     height, 0,
                     "Height must be 0 when clearing bit for leaf node"
@@ -296,11 +300,8 @@ impl Node {
                 bmap.clear_bit(i);
                 Ok(true)
             }
-            Self {
-                vals: Values::Links(l),
-                bmap,
-            } => {
-                let mut sub_node: Node = match &l[sub_i as usize] {
+            Self::Link { vals, bmap } => {
+                let mut sub_node: Node = match &vals[sub_i as usize] {
                     Some(Link::Cached(n)) => *n.clone(),
                     Some(Link::Cid(cid)) => bs.get_typed::<Node>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
@@ -315,7 +316,7 @@ impl Node {
                 }
 
                 // Value was deleted, move node to cache or clear bit if removing shard
-                l[sub_i as usize] = if sub_node.bmap.is_empty() {
+                vals[sub_i as usize] = if sub_node.bitmap().is_empty() {
                     bmap.clear_bit(sub_i);
                     None
                 } else {

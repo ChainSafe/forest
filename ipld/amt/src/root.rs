@@ -48,7 +48,7 @@ mod tests {
         let mut root = Root::default();
         root.height = 2;
         root.count = 1;
-        root.node = Node::new(0, Default::default());
+        root.node = Node::default();
         let rbz = to_vec(&root).unwrap();
         assert_eq!(from_slice::<Root>(&rbz).unwrap(), root);
     }

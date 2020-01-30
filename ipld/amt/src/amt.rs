@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    node::{Link, Values},
-    nodes_for_height, BlockStore, Error, Node, Root, MAX_INDEX, WIDTH,
+    node::Link, nodes_for_height, BitMap, BlockStore, Error, Node, Root, MAX_INDEX, WIDTH,
 };
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
@@ -128,10 +127,16 @@ where
                 let mut new_links: [Option<Link>; WIDTH] = Default::default();
                 new_links[0] = Some(Link::Cid(cid));
 
-                self.root.node = Node::new(0x01, Values::Links(new_links));
+                self.root.node = Node::Link {
+                    bmap: BitMap::new(0x01),
+                    vals: new_links,
+                };
             } else {
                 // If first expansion is before a value inserted, convert base node to Link
-                self.root.node = Node::new(0x00, Values::Links(Default::default()));
+                self.root.node = Node::Link {
+                    bmap: Default::default(),
+                    vals: Default::default(),
+                };
             }
             // Incrememnt height after each iteration
             self.root.height += 1;
@@ -179,9 +184,9 @@ where
         self.root.count -= 1;
 
         // Handle height changes from delete
-        while self.root.node.bmap == 0x01 && self.height() > 0 {
-            let sub_node: Node = match &self.root.node.vals {
-                Values::Links(l) => match &l[0] {
+        while *self.root.node.bitmap() == 0x01 && self.height() > 0 {
+            let sub_node: Node = match &self.root.node {
+                Node::Link { vals, .. } => match &vals[0] {
                     Some(Link::Cached(node)) => *node.clone(),
                     Some(Link::Cid(cid)) => {
                         self.block_store.get_typed::<Node>(cid)?.ok_or_else(|| {
@@ -190,7 +195,7 @@ where
                     }
                     _ => unreachable!("Link index should match bitmap"),
                 },
-                Values::Leaf(_) => unreachable!("Non zero height cannot be a leaf node"),
+                Node::Leaf { .. } => unreachable!("Non zero height cannot be a leaf node"),
             };
 
             self.root.node = sub_node;
