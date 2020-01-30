@@ -5,6 +5,7 @@ use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
 use async_std::task;
 use futures::channel::mpsc;
+use futures::select;
 use futures::stream::Stream;
 use futures::task::{Context, Poll};
 use futures_util::stream::StreamExt;
@@ -19,9 +20,10 @@ use libp2p::{
 };
 use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
-use std::sync::{Mutex, Arc};
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::borrow::BorrowMut;
 use utils::{get_home_dir, read_file_to_vec, write_to_file};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
@@ -39,8 +41,8 @@ pub enum NetworkEvent {
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
     swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
-    libp2p_receiver: mpsc::UnboundedReceiver<u8>,
-    libp2p_sender: mpsc::UnboundedSender<u8>,
+    pubsub_receiver: mpsc::UnboundedReceiver<u8>,
+    pubsub_sender: mpsc::UnboundedSender<u8>,
 }
 
 impl Libp2pService {
@@ -81,23 +83,27 @@ impl Libp2pService {
             swarm.subscribe(topic);
         }
 
-        let (libp2p_sender, libp2p_receiver) = mpsc::unbounded();
-        Libp2pService { swarm:swarm, libp2p_sender, libp2p_receiver }
-//        Libp2pService { swarm: Arc::new(Mutex::new(swarm)), libp2p_sender, libp2p_receiver }
+        let (pubsub_sender, pubsub_receiver) = mpsc::unbounded();
+        Libp2pService {
+            swarm: swarm,
+            pubsub_sender,
+            pubsub_receiver,
+        }
     }
 
     pub async fn run(self) -> Result<(), ()> {
         enum MergeEvent {
             Swarm(MyBehaviourEvent),
-            Pubsub,
+            Pubsub(u8),
         };
-//        let mut swarm = self.swarm.clone();
-        let mut source = self.swarm.map(MergeEvent::Swarm);
+        let mut swarm_stream = self.swarm.map(MergeEvent::Swarm).fuse();
+        let mut pubsub_stream = self.pubsub_receiver.map(MergeEvent::Pubsub).fuse();
         loop {
-            match source.next().await.unwrap() {
-                MergeEvent::Swarm(event) => match event {
-                    MyBehaviourEvent::DiscoveredPeer(peer) => {
-                        libp2p::Swarm::dial(&mut source.get_mut(), peer);
+            select! {
+                swarm_event = swarm_stream.next() => match swarm_event {
+                    Some(MergeEvent::Swarm(event)) => match event {
+                        MyBehaviourEvent::DiscoveredPeer(peer) => {
+                        libp2p::Swarm::dial(&mut swarm_stream.get_mut().get_mut(), peer);
                     }
                     MyBehaviourEvent::ExpiredPeer(_) => {}
                     MyBehaviourEvent::GossipMessage {
@@ -107,46 +113,16 @@ impl Libp2pService {
                     } => {
                        println!("PS MSG {:?} {:?} {:?}", source, topics, message);
                     }
+                    }
+                    _ => {}
                 },
-                _ => {}
-            }
+                pubsub_event = pubsub_stream.next() => match pubsub_event {
+                    _ => {}
+                }
+            };
         }
     }
 }
-
-//impl Stream for Libp2pService {
-//    type Item = NetworkEvent;
-//
-//    /// Continuously polls the Libp2p swarm to get events
-//    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-//        loop {
-//            match self.swarm.poll_next_unpin(cx) {
-//                Poll::Ready(Some(event)) => match event {
-//                    MyBehaviourEvent::DiscoveredPeer(peer) => {
-//                        libp2p::Swarm::dial(&mut self.swarm, peer);
-//                    }
-//                    MyBehaviourEvent::ExpiredPeer(_) => {}
-//                    MyBehaviourEvent::GossipMessage {
-//                        source,
-//                        topics,
-//                        message,
-//                    } => {
-//                        return Poll::Ready(Option::from(NetworkEvent::PubsubMessage {
-//                            source,
-//                            topics,
-//                            message,
-//                        }));
-//                    }
-//                },
-//                Poll::Ready(None) => break,
-//                Poll::Pending => break,
-//                _ => break,
-//            }
-//        }
-//        Poll::Pending
-//    }
-//}
-
 
 
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
@@ -168,7 +144,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 
 /// Fetch keypair from disk, or generate a new one if its not available
 fn get_keypair(log: &Logger) -> Keypair {
-    let path_to_keystore = get_home_dir() + "/.ferret1/libp2p/keypair";
+    let path_to_keystore = get_home_dir() + "/.ferret/libp2p/keypair";
     let local_keypair = match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
             info!(log, "Networking keystore not found!");
@@ -197,7 +173,7 @@ fn get_keypair(log: &Logger) -> Keypair {
 
 /// Generates a new libp2p keypair and saves to disk
 fn generate_new_peer_id(log: &Logger) -> Keypair {
-    let path_to_keystore = get_home_dir() + "/.ferret1/libp2p/";
+    let path_to_keystore = get_home_dir() + "/.ferret/libp2p/";
     let generated_keypair = Keypair::generate_ed25519();
     info!(log, "Generated new keystore!");
 
