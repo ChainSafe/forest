@@ -93,7 +93,7 @@ where
         self.root.node.get(self.block_store, self.height(), i)
     }
 
-    /// Get bytes at index of AMT
+    /// Gets a typed object from AMT by index
     pub fn get<T>(&mut self, i: u64) -> Result<Option<T>, Error>
     where
         T: DeserializeOwned,

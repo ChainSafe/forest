@@ -13,7 +13,7 @@ pub trait BlockStore: Read + Write {
         Ok(self.read(cid.to_bytes())?)
     }
 
-    /// Get bytes from block store by Cid
+    /// Get typed object from block store by Cid
     fn get_typed<T>(&self, cid: &Cid) -> Result<Option<T>, Error>
     where
         T: DeserializeOwned,
