@@ -4,7 +4,7 @@
 use super::{Error, TipIndex};
 use blocks::Tipset;
 use cid::Cid;
-use network::service::NetworkMessage;
+use ferret_libp2p::service::NetworkEvent;
 use num_bigint::BigUint;
 
 pub struct ChainStore {
@@ -20,7 +20,7 @@ pub struct ChainStore {
     _head: Tipset,
 
     // A pubsub channel that publishes an event every time the head changes.
-    _notifications: NetworkMessage,
+    _notifications: NetworkEvent,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     _tip_index: TipIndex,

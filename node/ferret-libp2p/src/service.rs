@@ -27,10 +27,18 @@ use utils::{get_home_dir, read_file_to_vec, write_to_file};
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
+/// Events emitted by this Service
+#[derive(Clone, Debug)]
+pub enum NetworkEvent {
+    PubsubMessage {
+        source: PeerId,
+        topics: Vec<TopicHash>,
+        message: Vec<u8>,
+    },
+}
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
     swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
-//    pub swarm: Arc<Mutex<Swarm<Libp2pStream, Libp2pBehaviour>>>,
     libp2p_receiver: mpsc::UnboundedReceiver<u8>,
     libp2p_sender: mpsc::UnboundedSender<u8>,
 }
@@ -139,15 +147,7 @@ impl Libp2pService {
 //    }
 //}
 
-/// Events emitted by this Service to be listened by the NetworkService.
-#[derive(Clone, Debug)]
-pub enum NetworkEvent {
-    PubsubMessage {
-        source: PeerId,
-        topics: Vec<TopicHash>,
-        message: Vec<u8>,
-    },
-}
+
 
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);

@@ -9,6 +9,7 @@ blocks = {path = "../blocks"}
 cid = "0.3.1"
 clock = {path = "../../node/clock"}
 num-bigint = "0.2.3"
+ferret-libp2p = {path = "../../node/ferret-libp2p"}
 
 [dev-dependencies]
 address = {path = "../../vm/address"}
