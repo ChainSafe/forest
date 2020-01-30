@@ -1,10 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use address::{
+use encoding::{from_slice, Cbor};
+use forest_address::{
     checksum, validate_checksum, Address, Error, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
-use encoding::{from_slice, Cbor};
 use std::str::FromStr;
 
 #[test]

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use encoding::{from_slice, to_vec, Cbor};
-use ferret_cid::{Cid, Codec, Error, Prefix, Version};
+use forest_cid::{Cid, Codec, Error, Prefix, Version};
 use multihash;
 use multihash::Hash::Blake2b512;
 use serde::Serialize;

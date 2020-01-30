@@ -6,12 +6,12 @@ edition = "2018"
 
 [dependencies]
 vm = { path = "../../vm" }
-address = { path = "../address" }
+address = { package = "forest_address", path = "../address" }
 runtime = { path = "../runtime" }
-num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
-encoding = { path = "../../encoding" }
+num-bigint = { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
+encoding = { package = "forest_encoding", path = "../../encoding" }
 num-traits = "0.2"
 num-derive = "0.2"
 clock = { path = "../../node/clock" }
-cid = { package = "ferret_cid", path = "../../ipld/cid" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
 serde = { version = "1.0", features = ["derive"] }

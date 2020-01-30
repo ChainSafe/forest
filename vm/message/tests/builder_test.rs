@@ -3,7 +3,7 @@
 
 use address::Address;
 use crypto::{Signature, Signer};
-use message::{Message, SignedMessage, UnsignedMessage};
+use forest_message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::error::Error;
 use vm::{MethodNum, Serialized, TokenAmount};

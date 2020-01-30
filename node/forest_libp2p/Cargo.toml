@@ -1,5 +1,5 @@
 [package]
-name = "ferret-libp2p"
+name = "forest_libp2p"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"

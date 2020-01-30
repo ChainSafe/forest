@@ -17,7 +17,7 @@ use std::fmt;
 ///
 /// Usage:
 /// ```
-/// use blocks::{BlockHeader, TipSetKeys, Ticket, TxMeta};
+/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket, TxMeta};
 /// use address::Address;
 /// use cid::{Cid, Codec, Prefix, Version};
 /// use clock::ChainEpoch;
@@ -108,7 +108,7 @@ pub struct BlockHeader {
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl Cbor for BlockHeader {}
 

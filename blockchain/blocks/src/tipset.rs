@@ -23,7 +23,7 @@ pub struct TipSetKeys {
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl TipSetKeys {
     /// checks whether the set contains exactly the same CIDs as another.

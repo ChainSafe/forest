@@ -1,4 +1,4 @@
-# Contribuiting to Ferret
+# Contribuiting to Forest
 
 ## Submitting Code
 
