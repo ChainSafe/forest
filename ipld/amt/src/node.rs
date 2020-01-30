@@ -5,7 +5,7 @@ use crate::{nodes_for_height, BitMap, BlockStore, Error, WIDTH};
 use cid::Cid;
 use encoding::{
     de::{self, Deserialize},
-    from_slice, ser,
+    ser,
     serde_bytes::{ByteBuf, Bytes},
 };
 use std::u8;
@@ -189,14 +189,12 @@ impl Node {
             Values::Leaf(v) => Ok(v[i as usize].clone()),
             Values::Links(l) => match &mut l[sub_i as usize] {
                 Some(Link::Cid(cid)) => {
-                    let res: Vec<u8> = bs.get(cid)?.ok_or_else(|| {
+                    // TODO after benchmarking check if cache should be updated from get
+                    let mut node: Node = bs.get_typed::<Node>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?;
 
-                    // pass back node to be queried
-                    // TODO after benchmarking check if cache should be updated from get
-                    let mut node: Node = from_slice(&res)?;
-
+                    // Get from node pulled into memory from Cid
                     node.get(bs, height - 1, i % nodes_for_height(height))
                 }
                 Some(Link::Cached(n)) => n.get(bs, height - 1, i % nodes_for_height(height)),
@@ -230,11 +228,11 @@ impl Node {
         {
             links[idx] = match &mut links[idx] {
                 Some(Link::Cid(cid)) => {
-                    let res: Vec<u8> = bs.get(cid)?.ok_or_else(|| {
+                    let node: Node = bs.get_typed::<Node>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?;
 
-                    Some(Link::Cached(Box::new(from_slice(&res)?)))
+                    Some(Link::Cached(Box::new(node)))
                 }
                 None => {
                     let node = match height {
@@ -304,13 +302,9 @@ impl Node {
             } => {
                 let mut sub_node: Node = match &l[sub_i as usize] {
                     Some(Link::Cached(n)) => *n.clone(),
-                    Some(Link::Cid(cid)) => {
-                        let res: Vec<u8> = bs.get(cid)?.ok_or_else(|| {
-                            Error::Cid("Cid did not match any in database".to_owned())
-                        })?;
-
-                        from_slice(&res)?
-                    }
+                    Some(Link::Cid(cid)) => bs.get_typed::<Node>(cid)?.ok_or_else(|| {
+                        Error::Cid("Cid did not match any in database".to_owned())
+                    })?,
                     None => unreachable!("Bitmap value for index is set"),
                 };
 

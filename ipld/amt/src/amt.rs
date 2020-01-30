@@ -6,7 +6,7 @@ use crate::{
     nodes_for_height, BlockStore, Error, Node, Root, MAX_INDEX, WIDTH,
 };
 use cid::Cid;
-use encoding::{from_slice, ser::Serialize, to_vec};
+use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 
 /// Array Mapped Trie which allows for the insertion and persistence of data, serializable to a CID
 ///
@@ -22,7 +22,7 @@ use encoding::{from_slice, ser::Serialize, to_vec};
 /// amt.set(1, &"bar").unwrap();
 /// amt.delete(2).unwrap();
 /// assert_eq!(amt.count(), 1);
-/// let bar = amt.get(1).unwrap();
+/// let bar: String = amt.get(1).unwrap().unwrap();
 ///
 /// // Generate cid by calling flush to remove cache
 /// let cid = amt.flush().unwrap();
@@ -51,10 +51,9 @@ where
     /// Constructs an AMT with a blockstore and a Cid of the root of the AMT
     pub fn load(block_store: &'db DB, cid: &Cid) -> Result<Self, Error> {
         // Load root bytes from database
-        let root_bz = block_store
-            .get(cid)?
+        let root: Root = block_store
+            .get_typed(cid)?
             .ok_or_else(|| Error::Db("Root not found in database".to_owned()))?;
-        let root: Root = from_slice(&root_bz)?;
 
         Ok(Self { root, block_store })
     }
@@ -82,7 +81,7 @@ where
     }
 
     /// Get bytes at index of AMT
-    pub fn get(&mut self, i: u64) -> Result<Option<Vec<u8>>, Error> {
+    pub fn get_bytes(&mut self, i: u64) -> Result<Option<Vec<u8>>, Error> {
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
@@ -92,6 +91,17 @@ where
         }
 
         self.root.node.get(self.block_store, self.height(), i)
+    }
+
+    /// Get bytes at index of AMT
+    pub fn get<T>(&mut self, i: u64) -> Result<Option<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        match self.get_bytes(i)? {
+            Some(b) => Ok(Some(from_slice(&b)?)),
+            None => Ok(None),
+        }
     }
 
     /// Set value at index
@@ -174,11 +184,9 @@ where
                 Values::Links(l) => match &l[0] {
                     Some(Link::Cached(node)) => *node.clone(),
                     Some(Link::Cid(cid)) => {
-                        let res: Vec<u8> = self.block_store.get(cid)?.ok_or_else(|| {
+                        self.block_store.get_typed::<Node>(cid)?.ok_or_else(|| {
                             Error::Cid("Cid did not match any in database".to_owned())
-                        })?;
-
-                        from_slice(&res)?
+                        })?
                     }
                     _ => unreachable!("Link index should match bitmap"),
                 },

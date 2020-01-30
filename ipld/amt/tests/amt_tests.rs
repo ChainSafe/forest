@@ -9,7 +9,7 @@ where
     S: Serialize,
     DB: BlockStore,
 {
-    assert_eq!(a.get(i).unwrap().unwrap(), to_vec(&v).unwrap());
+    assert_eq!(a.get_bytes(i).unwrap().unwrap(), to_vec(&v).unwrap());
 }
 
 fn assert_count<DB>(a: &mut AMT<DB>, c: u64)
@@ -111,7 +111,7 @@ fn delete() {
     assert_eq!(a.count(), 4);
 
     a.delete(1).unwrap();
-    assert!(a.get(1).unwrap().is_none());
+    assert!(a.get_bytes(1).unwrap().is_none());
     assert_eq!(a.count(), 3);
 
     assert_get(&mut a, 0, &"ferret");
