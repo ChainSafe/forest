@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use ferret_libp2p::config::Libp2pConfig;
-use ferret_libp2p::service::{Libp2pService, NetworkEvent};
+use forest_libp2p::config::Libp2pConfig;
+use forest_libp2p::service::{Libp2pService, NetworkEvent};
 use futures::stream::Stream;
 use futures::{Async, Future};
 use libp2p::gossipsub::Topic;

@@ -3,8 +3,8 @@
 
 use address::Address;
 use encoding::{from_slice, to_vec};
+use forest_message::UnsignedMessage;
 use hex::decode;
-use message::UnsignedMessage;
 use num_bigint::BigUint;
 use serde::Deserialize;
 use std::fs::File;

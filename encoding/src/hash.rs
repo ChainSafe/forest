@@ -7,7 +7,7 @@ use blake2b_simd::Params;
 ///
 /// # Example
 /// ```
-/// use encoding::blake2b_variable;
+/// use forest_encoding::blake2b_variable;
 ///
 /// let ingest: Vec<u8> = vec![];
 /// let hash = blake2b_variable(&ingest, 20);
@@ -27,7 +27,7 @@ pub fn blake2b_variable(ingest: &[u8], size: usize) -> Vec<u8> {
 ///
 /// # Example
 /// ```
-/// use encoding::blake2b_256;
+/// use forest_encoding::blake2b_256;
 ///
 /// let ingest: Vec<u8> = vec![];
 /// let hash = blake2b_256(&ingest);

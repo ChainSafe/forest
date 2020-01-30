@@ -1,5 +1,5 @@
 [package]
-name = "encoding"
+name = "forest_encoding"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"

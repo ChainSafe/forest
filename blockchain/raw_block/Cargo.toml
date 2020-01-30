@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-cid = { package = "ferret_cid", path = "../../ipld/cid" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
 serde = { version = "1.0", features = ["derive"] }
-encoding = { path = "../../encoding" }
+encoding = { package = "forest_encoding", path = "../../encoding" }
 multihash = "0.9.3"

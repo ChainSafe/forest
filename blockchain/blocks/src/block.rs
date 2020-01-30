@@ -41,7 +41,7 @@ impl Block {
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl Cbor for Block {}
 
@@ -53,7 +53,7 @@ pub struct TxMeta {
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 /// ElectionPoStVerifyInfo seems to be connected to VRF
 /// see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L1099

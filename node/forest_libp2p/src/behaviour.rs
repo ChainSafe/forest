@@ -152,7 +152,7 @@ impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
             gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
             mdns: Mdns::new().expect("Failed to create mDNS service"),
             ping: Ping::default(),
-            identify: Identify::new("ferret/libp2p".into(), "0.0.1".into(), local_key.public()),
+            identify: Identify::new("forest/libp2p".into(), "0.0.1".into(), local_key.public()),
             log,
             events: vec![],
         }
