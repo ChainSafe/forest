@@ -1,5 +1,5 @@
-# Ferret
-![](https://github.com/ChainSafe/ferret/workflows/Rust%20CI/badge.svg?branch=master)
+# Forest
+![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?branch=master)
 
 ### [WIP]
 A Filecoin implementation written in Rust.
@@ -20,10 +20,10 @@ See [`Makefile`](./Makefile) for additional commands.
 `cargo fmt && cargo clippy -- -D warnings`
 
 #### Documentation
-https://chainsafe.github.io/ferret/
+https://chainsafe.github.io/forest/
 
 ### License 
-Ferret is licensed under the Apache License 2.0.
+Forest is licensed under the Apache License 2.0.
 
 ### Contributing
 Please see [CONTRIBUTING.md](/CONTRIBUTING.md).
