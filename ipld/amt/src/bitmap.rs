@@ -1,12 +1,41 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
+use encoding::{de, ser, serde_bytes};
 use std::{cmp, fmt, u8};
 
 /// Map of bits to indicate which indexes contain values and which are empty
 #[derive(PartialEq, Eq, Clone, Debug, Default, Copy)]
 pub struct BitMap {
     b: u8,
+}
+
+impl ser::Serialize for BitMap {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let bitmap_bz = self.to_byte_array();
+        let value = serde_bytes::Bytes::new(&bitmap_bz);
+        serde_bytes::Serialize::serialize(value, s)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for BitMap {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+
+        // Get bitmap byte from serialized bytes
+        let bmap: BitMap = bz
+            .get(0)
+            .map(|b| BitMap::new(*b))
+            .ok_or_else(|| de::Error::custom("Expected bitmap byte"))?;
+
+        Ok(bmap)
+    }
 }
 
 impl cmp::PartialEq<u8> for BitMap {

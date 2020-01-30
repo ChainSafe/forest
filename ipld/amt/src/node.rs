@@ -6,7 +6,7 @@ use cid::Cid;
 use encoding::{
     de::{self, Deserialize},
     ser,
-    serde_bytes::{ByteBuf, Bytes},
+    serde_bytes::ByteBuf,
 };
 use std::u8;
 
@@ -96,16 +96,10 @@ impl ser::Serialize for Node {
         S: ser::Serializer,
     {
         match &self {
-            Node::Leaf { bmap, vals } => {
-                let bmap_arr = bmap.to_byte_array();
-                let bitmap_bz = Bytes::new(&bmap_arr);
-                (bitmap_bz, [0u8; 0], values_to_vec(*bmap, &vals)).serialize(s)
-            }
+            Node::Leaf { bmap, vals } => (bmap, [0u8; 0], values_to_vec(*bmap, &vals)).serialize(s),
             Node::Link { bmap, vals } => {
-                let bmap_arr = bmap.to_byte_array();
-                let bitmap_bz = Bytes::new(&bmap_arr);
                 let cids = cids_from_links(vals).map_err(|e| ser::Error::custom(e.to_string()))?;
-                (bitmap_bz, cids, [0u8; 0]).serialize(s)
+                (bmap, cids, [0u8; 0]).serialize(s)
             }
         }
     }
@@ -116,16 +110,10 @@ impl<'de> de::Deserialize<'de> for Node {
     where
         D: de::Deserializer<'de>,
     {
-        let (bmap_bz, links, values): (ByteBuf, Vec<Cid>, Vec<ByteBuf>) =
+        let (bmap, links, values): (BitMap, Vec<Cid>, Vec<ByteBuf>) =
             Deserialize::deserialize(deserializer)?;
 
         let values: Vec<Vec<u8>> = values.iter().map(|v| v.clone().into_vec()).collect();
-
-        // Get bitmap byte from serialized bytes
-        let bmap: BitMap = bmap_bz
-            .get(0)
-            .map(|b| BitMap::new(*b))
-            .ok_or_else(|| de::Error::custom("Expected bitmap byte"))?;
 
         if links.is_empty() {
             let leaf_arr: [Option<Vec<u8>>; WIDTH] =
