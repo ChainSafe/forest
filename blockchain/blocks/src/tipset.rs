@@ -3,7 +3,6 @@
 
 #![allow(unused_variables)]
 #![allow(dead_code)]
-
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;

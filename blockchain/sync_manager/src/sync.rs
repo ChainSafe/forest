@@ -100,12 +100,12 @@ impl<'a> Syncer<'a> {
         let mut blocks = Vec::new();
         // retrieve tipset from store based on passed in TipSetKeys
         let ts = self.chain_store.tipset(keys.tipset_keys())?;
-        for b in ts.blocks() {
+        for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) = self.chain_store.messages(&b)?;
+            let (bls_msgs, secp_msgs) = self.chain_store.messages(&header)?;
             // construct a full block
             let full_block = Block {
-                header: b.clone(),
+                header: header.clone(),
                 bls_messages: bls_msgs,
                 secp_messages: secp_msgs,
             };
