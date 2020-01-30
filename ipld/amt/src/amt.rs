@@ -5,7 +5,7 @@ use crate::{
     node::Link, nodes_for_height, BitMap, BlockStore, Error, Node, Root, MAX_INDEX, WIDTH,
 };
 use cid::Cid;
-use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
+use encoding::{de::DeserializeOwned, ser::Serialize};
 
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID
 ///
@@ -17,8 +17,8 @@ use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 /// let mut amt = AMT::new(&db);
 ///
 /// // Insert or remove any serializable values
-/// amt.set(2, &"foo").unwrap();
-/// amt.set(1, &"bar").unwrap();
+/// amt.set(2, "foo".to_owned()).unwrap();
+/// amt.set(1, "bar".to_owned()).unwrap();
 /// amt.delete(2).unwrap();
 /// assert_eq!(amt.count(), 1);
 /// let bar: String = amt.get(1).unwrap().unwrap();
@@ -26,18 +26,20 @@ use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 /// // Generate cid by calling flush to remove cache
 /// let cid = amt.flush().unwrap();
 /// ```
-#[derive(PartialEq, Eq, Debug)]
-pub struct AMT<'db, DB>
+#[derive(Debug)]
+pub struct AMT<'db, DB, V>
 where
     DB: BlockStore,
+    V: Clone + Default + Serialize + DeserializeOwned + PartialEq,
 {
-    root: Root,
+    root: Root<V>,
     block_store: &'db DB,
 }
 
-impl<'db, DB: BlockStore> AMT<'db, DB>
+impl<'db, DB: BlockStore, V> AMT<'db, DB, V>
 where
     DB: BlockStore,
+    V: Clone + Default + Serialize + DeserializeOwned + PartialEq,
 {
     /// Constructor for Root AMT node
     pub fn new(block_store: &'db DB) -> Self {
@@ -50,7 +52,7 @@ where
     /// Constructs an AMT with a blockstore and a Cid of the root of the AMT
     pub fn load(block_store: &'db DB, cid: &Cid) -> Result<Self, Error> {
         // Load root bytes from database
-        let root: Root = block_store
+        let root: Root<V> = block_store
             .get_typed(cid)?
             .ok_or_else(|| Error::Db("Root not found in database".to_owned()))?;
 
@@ -68,9 +70,9 @@ where
     }
 
     /// Generates an AMT with block store and array of cbor marshallable objects and returns Cid
-    pub fn new_from_slice<S>(block_store: &'db DB, vals: &[&S]) -> Result<Cid, Error>
+    pub fn new_from_slice(block_store: &'db DB, vals: &[V]) -> Result<Cid, Error>
     where
-        S: Serialize,
+        V: Serialize,
     {
         let mut t = Self::new(block_store);
 
@@ -80,7 +82,7 @@ where
     }
 
     /// Get bytes at index of AMT
-    pub fn get_bytes(&self, i: u64) -> Result<Option<Vec<u8>>, Error> {
+    pub fn get(&self, i: u64) -> Result<Option<V>, Error> {
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
@@ -92,27 +94,11 @@ where
         self.root.node.get(self.block_store, self.height(), i)
     }
 
-    /// Gets a typed object from AMT by index
-    pub fn get<T>(&self, i: u64) -> Result<Option<T>, Error>
-    where
-        T: DeserializeOwned,
-    {
-        match self.get_bytes(i)? {
-            Some(b) => Ok(Some(from_slice(&b)?)),
-            None => Ok(None),
-        }
-    }
-
     /// Set value at index
-    pub fn set<S>(&mut self, i: u64, val: &S) -> Result<(), Error>
-    where
-        S: Serialize,
-    {
+    pub fn set(&mut self, i: u64, val: V) -> Result<(), Error> {
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
-
-        let bz = to_vec(val)?;
 
         while i >= nodes_for_height(self.height() + 1 as u32) {
             // node at index exists
@@ -124,7 +110,7 @@ where
                 let cid = self.block_store.put(&self.root.node)?;
 
                 // Set links node with first index as cid
-                let mut new_links: [Option<Link>; WIDTH] = Default::default();
+                let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
                 new_links[0] = Some(Link::Cid(cid));
 
                 self.root.node = Node::Link {
@@ -145,7 +131,7 @@ where
         if self
             .root
             .node
-            .set(self.block_store, self.height(), i, &bz)?
+            .set(self.block_store, self.height(), i, val)?
         {
             self.root.count += 1;
         }
@@ -155,12 +141,12 @@ where
 
     /// Batch set (naive for now)
     // TODO Implement more efficient batch set to not have to traverse tree and keep cache for each
-    pub fn batch_set<S>(&mut self, vals: &[&S]) -> Result<(), Error>
+    pub fn batch_set(&mut self, vals: &[V]) -> Result<(), Error>
     where
-        S: Serialize,
+        V: Serialize,
     {
         for (i, val) in vals.iter().enumerate() {
-            self.set(i as u64, val)?;
+            self.set(i as u64, val.clone())?;
         }
 
         Ok(())
@@ -186,14 +172,12 @@ where
 
         // Handle height changes from delete
         while *self.root.node.bitmap() == 0x01 && self.height() > 0 {
-            let sub_node: Node = match &self.root.node {
+            let sub_node: Node<V> = match &self.root.node {
                 Node::Link { links, .. } => match &links[0] {
                     Some(Link::Cached(node)) => *node.clone(),
-                    Some(Link::Cid(cid)) => {
-                        self.block_store.get_typed::<Node>(cid)?.ok_or_else(|| {
-                            Error::Cid("Cid did not match any in database".to_owned())
-                        })?
-                    }
+                    Some(Link::Cid(cid)) => self.block_store.get_typed(cid)?.ok_or_else(|| {
+                        Error::Cid("Cid did not match any in database".to_owned())
+                    })?,
                     _ => unreachable!("Link index should match bitmap"),
                 },
                 Node::Leaf { .. } => unreachable!("Non zero height cannot be a leaf node"),

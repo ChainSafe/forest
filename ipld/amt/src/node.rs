@@ -4,39 +4,49 @@
 use crate::{nodes_for_height, BitMap, BlockStore, Error, WIDTH};
 use cid::Cid;
 use encoding::{
-    de::{self, Deserialize},
-    ser,
-    serde_bytes::ByteBuf,
+    de::{self, Deserialize, DeserializeOwned},
+    ser::{self, Serialize},
 };
-use std::u8;
 
 /// This represents a link to another Node
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub(super) enum Link {
+pub(super) enum Link<V>
+where
+    V: Clone + Serialize,
+{
     Cid(Cid),
-    Cached(Box<Node>),
+    Cached(Box<Node<V>>),
 }
 
-impl From<Cid> for Link {
-    fn from(c: Cid) -> Link {
+impl<V: Serialize> From<Cid> for Link<V>
+where
+    V: Clone,
+{
+    fn from(c: Cid) -> Link<V> {
         Link::Cid(c)
     }
 }
 
 /// Node represents either a shard of values in the form of bytes or links to other nodes
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub(crate) enum Node {
+pub(crate) enum Node<V: Serialize>
+where
+    V: Clone,
+{
     Link {
         bmap: BitMap,
-        links: [Option<Link>; WIDTH],
+        links: [Option<Link<V>>; WIDTH],
     },
     Leaf {
         bmap: BitMap,
-        vals: [Option<Vec<u8>>; WIDTH],
+        vals: [Option<V>; WIDTH],
     },
 }
 
-impl Default for Node {
+impl<V: Serialize> Default for Node<V>
+where
+    V: Clone,
+{
     fn default() -> Self {
         Node::Leaf {
             bmap: Default::default(),
@@ -79,7 +89,10 @@ where
 }
 
 /// Convert Link node into vector of Cids
-fn cids_from_links(links: &[Option<Link>; WIDTH]) -> Result<Vec<Cid>, Error> {
+fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<Cid>, Error>
+where
+    V: Clone + Serialize,
+{
     links
         .iter()
         .filter_map(|c| match c {
@@ -90,7 +103,10 @@ fn cids_from_links(links: &[Option<Link>; WIDTH]) -> Result<Vec<Cid>, Error> {
         .collect()
 }
 
-impl ser::Serialize for Node {
+impl<V> ser::Serialize for Node<V>
+where
+    V: Clone + ser::Serialize,
+{
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
@@ -105,16 +121,19 @@ impl ser::Serialize for Node {
     }
 }
 
-impl<'de> de::Deserialize<'de> for Node {
+impl<'de, V> de::Deserialize<'de> for Node<V>
+where
+    V: Serialize + DeserializeOwned + Clone,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,
     {
-        let (bmap, links, values): (BitMap, Vec<Cid>, Vec<ByteBuf>) =
+        let (bmap, links, values): (BitMap, Vec<Cid>, Vec<V>) =
             Deserialize::deserialize(deserializer)?;
 
         if links.is_empty() {
-            let values: Vec<Vec<u8>> = values.iter().map(|v| v.clone().into_vec()).collect();
+            // let values: Vec<Vec<u8>> = values.iter().map(|v| v.clone().into_vec()).collect();
 
             Ok(Self::Leaf {
                 bmap,
@@ -129,7 +148,10 @@ impl<'de> de::Deserialize<'de> for Node {
     }
 }
 
-impl Node {
+impl<V> Node<V>
+where
+    V: Clone + ser::Serialize,
+{
     /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
         if let Node::Link { links, .. } = self {
@@ -168,7 +190,10 @@ impl Node {
         bs: &DB,
         height: u32,
         i: u64,
-    ) -> Result<Option<Vec<u8>>, Error> {
+    ) -> Result<Option<V>, Error>
+    where
+        V: DeserializeOwned,
+    {
         let sub_i = i / nodes_for_height(height);
         if !self.bitmap().get_bit(sub_i) {
             return Ok(None);
@@ -179,7 +204,7 @@ impl Node {
             Node::Link { links, .. } => match &links[sub_i as usize] {
                 Some(Link::Cid(cid)) => {
                     // TODO after benchmarking check if cache should be updated from get
-                    let node: Node = bs.get_typed::<Node>(cid)?.ok_or_else(|| {
+                    let node: Node<V> = bs.get_typed::<Node<V>>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?;
 
@@ -198,8 +223,11 @@ impl Node {
         bs: &DB,
         height: u32,
         i: u64,
-        val: &[u8],
-    ) -> Result<bool, Error> {
+        val: V,
+    ) -> Result<bool, Error>
+    where
+        V: DeserializeOwned,
+    {
         if height == 0 {
             return Ok(self.set_leaf(i, val));
         }
@@ -213,7 +241,7 @@ impl Node {
         if let Node::Link { links, bmap } = self {
             links[idx] = match &mut links[idx] {
                 Some(Link::Cid(cid)) => {
-                    let node: Node = bs.get_typed::<Node>(cid)?.ok_or_else(|| {
+                    let node = bs.get_typed::<Node<V>>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?;
 
@@ -246,12 +274,12 @@ impl Node {
         }
     }
 
-    fn set_leaf(&mut self, i: u64, val: &[u8]) -> bool {
+    fn set_leaf(&mut self, i: u64, val: V) -> bool {
         let already_set = self.bitmap().get_bit(i);
 
         match self {
             Node::Leaf { vals, bmap } => {
-                vals[i as usize] = Some(val.to_vec());
+                vals[i as usize] = Some(val);
                 bmap.set_bit(i);
                 !already_set
             }
@@ -265,7 +293,10 @@ impl Node {
         bs: &DB,
         height: u32,
         i: u64,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, Error>
+    where
+        V: de::DeserializeOwned,
+    {
         let sub_i = i / nodes_for_height(height);
 
         if !self.bitmap().get_bit(sub_i) {
@@ -285,9 +316,9 @@ impl Node {
                 Ok(true)
             }
             Self::Link { links, bmap } => {
-                let mut sub_node: Node = match &links[sub_i as usize] {
+                let mut sub_node: Node<V> = match &links[sub_i as usize] {
                     Some(Link::Cached(n)) => *n.clone(),
-                    Some(Link::Cid(cid)) => bs.get_typed::<Node>(cid)?.ok_or_else(|| {
+                    Some(Link::Cid(cid)) => bs.get_typed(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?,
                     None => unreachable!("Bitmap value for index is set"),
@@ -322,6 +353,6 @@ mod tests {
     fn serialize_node_symmetric() {
         let node = Node::default();
         let nbz = to_vec(&node).unwrap();
-        assert_eq!(from_slice::<Node>(&nbz).unwrap(), node);
+        assert_eq!(from_slice::<Node<u8>>(&nbz).unwrap(), node);
     }
 }
