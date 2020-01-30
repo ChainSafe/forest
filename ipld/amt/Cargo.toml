@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-cid = { package = "ferret_cid", path = "../cid" }
+cid = { package = "forest_cid", path = "../cid" }
 db = { path = "../../node/db" }
-encoding = { path = "../../encoding" }
+encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
