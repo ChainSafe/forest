@@ -14,7 +14,7 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///
 /// Usage:
 /// ```
-/// use message::{UnsignedMessage, Message};
+/// use forest_message::{UnsignedMessage, Message};
 /// use vm::{TokenAmount, Serialized, MethodNum};
 /// use num_bigint::BigUint;
 /// use address::Address;

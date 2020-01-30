@@ -1,5 +1,5 @@
 [package]
-name = "ferret_cid"
+name = "forest_cid"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -8,5 +8,5 @@ edition = "2018"
 multihash = "0.9.3"
 multibase = "0.7.0"
 integer-encoding = "1.0.3"
-encoding = { path = "../../encoding" }
+encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }

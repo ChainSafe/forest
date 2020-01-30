@@ -1,15 +1,15 @@
 [package]
-name = "message"
+name = "forest_message"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
 vm = { path = "../../vm" }
-address = { path = "../address" }
-cid = { package = "ferret_cid", path = "../../ipld/cid" }
+address = { package = "forest_address", path = "../address" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
 num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31", features = ["serde_derive"] }
-encoding = { path = "../../encoding" }
+encoding = { package = "forest_encoding", path = "../../encoding" }
 crypto = { path = "../../crypto" }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }

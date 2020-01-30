@@ -5,7 +5,7 @@ mod cli;
 mod log;
 
 use self::cli::cli;
-use ferret_libp2p::service::NetworkEvent;
+use forest_libp2p::service::NetworkEvent;
 use futures::prelude::*;
 use network::service::NetworkService;
 use slog::info;
@@ -14,7 +14,7 @@ use tokio::sync::mpsc;
 
 fn main() {
     let log = log::setup_logging();
-    info!(log, "Starting Ferret");
+    info!(log, "Starting Forest");
 
     // Capture CLI inputs
     let config = cli(&log).expect("CLI error");
@@ -30,5 +30,5 @@ fn main() {
         NetworkService::new(&config.network, &log, tx, &rt.executor());
 
     rt.shutdown_on_idle().wait().unwrap();
-    info!(log, "Ferret finish shutdown");
+    info!(log, "Forest finish shutdown");
 }

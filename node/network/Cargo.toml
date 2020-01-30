@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-ferret-libp2p = { path = "../ferret-libp2p" }
+forest_libp2p = { path = "../forest_libp2p" }
 futures = "0.1.29"
 tokio = "0.1.22"
 libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "776d13ef046358964c7d64cda3295a3a3cb24743" }

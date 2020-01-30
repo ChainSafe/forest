@@ -1,13 +1,10 @@
 [package]
-name = "ferret_ipld"
+name = "forest_ipld"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-encoding = { path = "../encoding" }
+encoding = { package = "forest_encoding", path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
-cid = { package = "ferret_cid", path = "../ipld/cid" }
-
-[dev-dependencies]
-encoding = { path = "../encoding" }
+cid = { package = "forest_cid", path = "../ipld/cid" }
