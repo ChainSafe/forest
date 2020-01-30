@@ -80,7 +80,7 @@ where
     }
 
     /// Get bytes at index of AMT
-    pub fn get_bytes(&mut self, i: u64) -> Result<Option<Vec<u8>>, Error> {
+    pub fn get_bytes(&self, i: u64) -> Result<Option<Vec<u8>>, Error> {
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
@@ -93,7 +93,7 @@ where
     }
 
     /// Gets a typed object from AMT by index
-    pub fn get<T>(&mut self, i: u64) -> Result<Option<T>, Error>
+    pub fn get<T>(&self, i: u64) -> Result<Option<T>, Error>
     where
         T: DeserializeOwned,
     {

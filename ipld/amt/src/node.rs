@@ -164,7 +164,7 @@ impl Node {
 
     /// Gets value at given index of AMT given height
     pub(super) fn get<DB: BlockStore>(
-        &mut self,
+        &self,
         bs: &DB,
         height: u32,
         i: u64,
@@ -176,10 +176,10 @@ impl Node {
 
         match self {
             Node::Leaf { vals, .. } => Ok(vals[i as usize].clone()),
-            Node::Link { links, .. } => match &mut links[sub_i as usize] {
+            Node::Link { links, .. } => match &links[sub_i as usize] {
                 Some(Link::Cid(cid)) => {
                     // TODO after benchmarking check if cache should be updated from get
-                    let mut node: Node = bs.get_typed::<Node>(cid)?.ok_or_else(|| {
+                    let node: Node = bs.get_typed::<Node>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?;
 
