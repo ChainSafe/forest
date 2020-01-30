@@ -129,13 +129,13 @@ where
 
                 self.root.node = Node::Link {
                     bmap: BitMap::new(0x01),
-                    vals: new_links,
+                    links: new_links,
                 };
             } else {
                 // If first expansion is before a value inserted, convert base node to Link
                 self.root.node = Node::Link {
                     bmap: Default::default(),
-                    vals: Default::default(),
+                    links: Default::default(),
                 };
             }
             // Incrememnt height after each iteration
@@ -187,7 +187,7 @@ where
         // Handle height changes from delete
         while *self.root.node.bitmap() == 0x01 && self.height() > 0 {
             let sub_node: Node = match &self.root.node {
-                Node::Link { vals, .. } => match &vals[0] {
+                Node::Link { links, .. } => match &links[0] {
                     Some(Link::Cached(node)) => *node.clone(),
                     Some(Link::Cid(cid)) => {
                         self.block_store.get_typed::<Node>(cid)?.ok_or_else(|| {
