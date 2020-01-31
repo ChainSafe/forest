@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{Cid, Codec, Error, Version};
 use integer_encoding::VarIntReader;
