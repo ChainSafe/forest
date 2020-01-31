@@ -22,6 +22,7 @@ clean:
 	@cargo clean -p forest_encoding
 	@cargo clean -p forest_cid
 	@cargo clean -p forest_ipld
+	@cargo clean -p ipld_hamt
 	@echo "Done cleaning."
 
 lint: clean license
