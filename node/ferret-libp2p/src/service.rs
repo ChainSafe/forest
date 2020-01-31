@@ -4,7 +4,7 @@
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
 use async_std::task;
-use futures::channel::mpsc;
+use async_std::sync::{Sender, Receiver, channel};
 use futures::select;
 use futures::stream::Stream;
 use futures::task::{Context, Poll};
@@ -14,7 +14,7 @@ use libp2p::{
     core::muxing::StreamMuxerBox,
     core::nodes::Substream,
     core::transport::boxed::Boxed,
-    gossipsub::TopicHash,
+    gossipsub::{Topic, TopicHash},
     identity::{ed25519, Keypair},
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
@@ -41,8 +41,12 @@ pub enum NetworkEvent {
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
     swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
-    pubsub_receiver: mpsc::UnboundedReceiver<u8>,
-    pubsub_sender: mpsc::UnboundedSender<u8>,
+
+    pubsub_receiver_in: Receiver<(Topic, Vec<u8>)>,
+    pubsub_sender_in: Sender<(Topic, Vec<u8>)>,
+
+    pubsub_receiver_out: Receiver<u8>,
+    pubsub_sender_out: Sender<u8>,
 }
 
 impl Libp2pService {
@@ -83,21 +87,24 @@ impl Libp2pService {
             swarm.subscribe(topic);
         }
 
-        let (pubsub_sender, pubsub_receiver) = mpsc::unbounded();
+        let (pubsub_sender_in, pubsub_receiver_in) = channel(20);
+        let (pubsub_sender_out, pubsub_receiver_out) = channel(20);
         Libp2pService {
-            swarm: swarm,
-            pubsub_sender,
-            pubsub_receiver,
+            swarm,
+            pubsub_receiver_in,
+            pubsub_sender_in,
+            pubsub_receiver_out,
+            pubsub_sender_out
         }
     }
 
     pub async fn run(self) -> Result<(), ()> {
         enum MergeEvent {
             Swarm(MyBehaviourEvent),
-            Pubsub(u8),
+            Pubsub((Topic, Vec<u8>)),
         };
         let mut swarm_stream = self.swarm.map(MergeEvent::Swarm).fuse();
-        let mut pubsub_stream = self.pubsub_receiver.map(MergeEvent::Pubsub).fuse();
+        let mut pubsub_stream = self.pubsub_receiver_in.map(MergeEvent::Pubsub).fuse();
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
@@ -111,16 +118,28 @@ impl Libp2pService {
                         topics,
                         message,
                     } => {
-                       println!("PS MSG {:?} {:?} {:?}", source, topics, message);
+                        self.pubsub_sender_out.send(111).await;
                     }
                     }
-                    _ => {}
+                    None => break;
                 },
                 pubsub_event = pubsub_stream.next() => match pubsub_event {
-                    _ => {}
+                    Some(MergeEvent::Pubsub(payload)) => {
+                       swarm_stream.get_mut().get_mut().publish(&payload.0, payload.1);
+                    }
+                    None => break;
                 }
             };
         }
+        Ok(())
+    }
+
+    pub fn pubsub_sender (&self) -> Sender<(Topic, Vec<u8>)> {
+        self.pubsub_sender_in.clone()
+    }
+
+    pub fn pubsub_receiver(&self) -> Receiver<u8> {
+        self.pubsub_receiver_out.clone()
     }
 }
 
