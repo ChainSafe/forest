@@ -3,11 +3,8 @@
 
 use super::behaviour::{MyBehaviour, MyBehaviourEvent};
 use super::config::Libp2pConfig;
-use async_std::task;
-use async_std::sync::{Sender, Receiver, channel};
+use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
-use futures::stream::Stream;
-use futures::task::{Context, Poll};
 use futures_util::stream::StreamExt;
 use libp2p::{
     core,
@@ -20,10 +17,7 @@ use libp2p::{
 };
 use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
-use std::pin::Pin;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::borrow::BorrowMut;
 use utils::{get_home_dir, read_file_to_vec, write_to_file};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
@@ -45,14 +39,16 @@ pub struct Libp2pService {
     pubsub_receiver_in: Receiver<(Topic, Vec<u8>)>,
     pubsub_sender_in: Sender<(Topic, Vec<u8>)>,
 
-    pubsub_receiver_out: Receiver<u8>,
-    pubsub_sender_out: Sender<u8>,
+    pubsub_receiver_out: Receiver<NetworkEvent>,
+    pubsub_sender_out: Sender<NetworkEvent>,
+
+    log: Logger,
 }
 
 impl Libp2pService {
     /// Constructs a Libp2pService
-    pub fn new(log: &Logger, config: &Libp2pConfig) -> Self {
-        let net_keypair = get_keypair(log);
+    pub fn new(log: Logger, config: &Libp2pConfig) -> Self {
+        let net_keypair = get_keypair(&log);
         let peer_id = PeerId::from(net_keypair.public());
 
         info!(log, "Local peer id: {:?}", peer_id);
@@ -94,10 +90,12 @@ impl Libp2pService {
             pubsub_receiver_in,
             pubsub_sender_in,
             pubsub_receiver_out,
-            pubsub_sender_out
+            pubsub_sender_out,
+            log,
         }
     }
 
+    /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
     pub async fn run(self) -> Result<(), ()> {
         enum MergeEvent {
             Swarm(MyBehaviourEvent),
@@ -109,7 +107,7 @@ impl Libp2pService {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(MergeEvent::Swarm(event)) => match event {
-                        MyBehaviourEvent::DiscoveredPeer(peer) => {
+                    MyBehaviourEvent::DiscoveredPeer(peer) => {
                         libp2p::Swarm::dial(&mut swarm_stream.get_mut().get_mut(), peer);
                     }
                     MyBehaviourEvent::ExpiredPeer(_) => {}
@@ -118,32 +116,40 @@ impl Libp2pService {
                         topics,
                         message,
                     } => {
-                        self.pubsub_sender_out.send(111).await;
+                        info!(self.log, "Got a Gossip Message from {:?}", source);
+                        self.pubsub_sender_out.send(NetworkEvent::PubsubMessage {
+                            source,
+                            topics,
+                            message
+                        }).await;
                     }
                     }
-                    None => break;
+                    Some(MergeEvent::Pubsub(_)) => error!(self.log, "Should not happen"),
+                    None => ()
                 },
                 pubsub_event = pubsub_stream.next() => match pubsub_event {
                     Some(MergeEvent::Pubsub(payload)) => {
                        swarm_stream.get_mut().get_mut().publish(&payload.0, payload.1);
                     }
-                    None => break;
+                    Some(MergeEvent::Swarm(_)) => error!(self.log, "Should not happen"),
+                    None => ()
                 }
             };
         }
-        Ok(())
     }
 
-    pub fn pubsub_sender (&self) -> Sender<(Topic, Vec<u8>)> {
+    /// Returns a `Sender` allowing you to send messages over GossipSub
+    pub fn pubsub_sender(&self) -> Sender<(Topic, Vec<u8>)> {
         self.pubsub_sender_in.clone()
     }
 
-    pub fn pubsub_receiver(&self) -> Receiver<u8> {
+    /// Returns a `Receiver` to listen to GossipSub messages
+    pub fn pubsub_receiver(&self) -> Receiver<NetworkEvent> {
         self.pubsub_receiver_out.clone()
     }
 }
 
-
+/// Builds the transport stack that LibP2P will communicate over
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::dns::DnsConfig::new(transport).unwrap();

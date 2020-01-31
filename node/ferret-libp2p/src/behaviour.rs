@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0
 
-use async_std::task;
 use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
@@ -12,10 +11,10 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::NetworkBehaviour;
 use slog::{debug, Logger};
-use std::{error, task::Context, task::Poll};
+use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MyBehaviourEvent", poll_method = "poll")]

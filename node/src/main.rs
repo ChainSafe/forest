@@ -6,11 +6,7 @@ mod log;
 
 use self::cli::cli;
 use async_std::task;
-use ferret_libp2p::service::{Libp2pService, NetworkEvent};
-use futures::channel::mpsc;
-use futures::prelude::*;
-use futures::stream::Stream;
-use futures::stream::StreamExt;
+use ferret_libp2p::service::{Libp2pService};
 use slog::info;
 use std::error::Error;
 
@@ -23,7 +19,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config = cli(&log).expect("CLI error");
 
     let logger = log.clone();
-    let mut lp2p_service = Libp2pService::new(&logger, &config.network);
+
+    let lp2p_service = Libp2pService::new(logger, &config.network);
 
     task::block_on(async move {
         lp2p_service.run().await;
