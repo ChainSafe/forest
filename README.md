@@ -2,6 +2,7 @@
 ![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?branch=master)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Discord](https://img.shields.io/discord/593655374469660673.svg?label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
 [![](https://img.shields.io/twitter/follow/espadrine.svg?label=Follow&style=social)](https://twitter.com/chainsafeth)
 
 
@@ -26,14 +27,16 @@ rustc >= 1.40.0
 ## Usage
 ```bash
 # download ChainSafe Forest code
-$ git clone https://github.com/chainsafe/forest
-$ cd forest
+git clone https://github.com/chainsafe/forest
+cd forest
 
 cargo build && ./target/debug/node
 ```
 
 ### Testing
-`cargo test`
+```
+cargo test
+```
 
 ### Documentation
 https://chainsafe.github.io/forest/
