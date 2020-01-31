@@ -1,8 +1,8 @@
 ---
 name: Task requirement
 about: Required tasks to complete 
-title: '[TASK]🗃️ '
-labels: 'Priority: 3 - Medium'
+title: ''
+labels: 'Status: Needs Triage'
 assignees: ''
 
 ---
