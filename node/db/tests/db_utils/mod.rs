@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 // Taken from
 // https://github.com/rust-rocksdb/rust-rocksdb/blob/master/tests/util/mod.rs

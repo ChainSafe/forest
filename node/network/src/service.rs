@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_libp2p::config::Libp2pConfig;
 use forest_libp2p::service::{Libp2pService, NetworkEvent};
