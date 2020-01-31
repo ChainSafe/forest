@@ -5,4 +5,7 @@ contact_links:
       about: Please ask questions here.
     - name: Filecoin Discussion Forum
       url: https://discuss.filecoin.io/
-      about: Please ask and answer questions here.  
+      about: Please ask and answer questions here.
+    - name: ChainSafe Forest Implementation Forum
+      url: https://discord.gg/Q6A3YA2
+      about: Please ask forest specific questions here.      
