@@ -10,18 +10,12 @@ use encoding::{
 
 /// This represents a link to another Node
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub(super) enum Link<V>
-where
-    V: Clone + Serialize,
-{
+pub(super) enum Link<V> {
     Cid(Cid),
     Cached(Box<Node<V>>),
 }
 
-impl<V: Serialize> From<Cid> for Link<V>
-where
-    V: Clone,
-{
+impl<V> From<Cid> for Link<V> {
     fn from(c: Cid) -> Link<V> {
         Link::Cid(c)
     }
@@ -29,10 +23,9 @@ where
 
 /// Node represents either a shard of values in the form of bytes or links to other nodes
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub(crate) enum Node<V: Serialize>
-where
-    V: Clone,
-{
+// TODO benchmark boxing all variables
+#[allow(clippy::large_enum_variant)]
+pub(super) enum Node<V> {
     Link {
         bmap: BitMap,
         links: [Option<Link<V>>; WIDTH],
@@ -43,10 +36,7 @@ where
     },
 }
 
-impl<V: Serialize> Default for Node<V>
-where
-    V: Clone,
-{
+impl<V> Default for Node<V> {
     fn default() -> Self {
         Node::Leaf {
             bmap: Default::default(),
@@ -56,7 +46,10 @@ where
 }
 
 /// Turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T: Clone>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<T> {
+fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<T>
+where
+    T: Clone,
+{
     let mut v: Vec<T> = Vec::new();
     for (i, _) in values.iter().enumerate().take(WIDTH) {
         if bmap.get_bit(i as u64) {
@@ -89,10 +82,7 @@ where
 }
 
 /// Convert Link node into vector of Cids
-fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<Cid>, Error>
-where
-    V: Clone + Serialize,
-{
+fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<Cid>, Error> {
     links
         .iter()
         .filter_map(|c| match c {
@@ -103,9 +93,9 @@ where
         .collect()
 }
 
-impl<V> ser::Serialize for Node<V>
+impl<V> Serialize for Node<V>
 where
-    V: Clone + ser::Serialize,
+    V: Clone + Serialize,
 {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -121,9 +111,9 @@ where
     }
 }
 
-impl<'de, V> de::Deserialize<'de> for Node<V>
+impl<'de, V> Deserialize<'de> for Node<V>
 where
-    V: Serialize + DeserializeOwned + Clone,
+    V: Deserialize<'de> + Clone,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -133,8 +123,6 @@ where
             Deserialize::deserialize(deserializer)?;
 
         if links.is_empty() {
-            // let values: Vec<Vec<u8>> = values.iter().map(|v| v.clone().into_vec()).collect();
-
             Ok(Self::Leaf {
                 bmap,
                 vals: vec_to_values(bmap, values).map_err(|e| de::Error::custom(e.to_string()))?,
@@ -150,7 +138,7 @@ where
 
 impl<V> Node<V>
 where
-    V: Clone + ser::Serialize,
+    V: Clone + DeserializeOwned + Serialize,
 {
     /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
@@ -190,10 +178,7 @@ where
         bs: &DB,
         height: u32,
         i: u64,
-    ) -> Result<Option<V>, Error>
-    where
-        V: DeserializeOwned,
-    {
+    ) -> Result<Option<V>, Error> {
         let sub_i = i / nodes_for_height(height);
         if !self.bitmap().get_bit(sub_i) {
             return Ok(None);
@@ -224,10 +209,7 @@ where
         height: u32,
         i: u64,
         val: V,
-    ) -> Result<bool, Error>
-    where
-        V: DeserializeOwned,
-    {
+    ) -> Result<bool, Error> {
         if height == 0 {
             return Ok(self.set_leaf(i, val));
         }
@@ -293,10 +275,7 @@ where
         bs: &DB,
         height: u32,
         i: u64,
-    ) -> Result<bool, Error>
-    where
-        V: de::DeserializeOwned,
-    {
+    ) -> Result<bool, Error> {
         let sub_i = i / nodes_for_height(height);
 
         if !self.bitmap().get_bit(sub_i) {

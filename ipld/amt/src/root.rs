@@ -3,24 +3,31 @@
 
 use crate::Node;
 use encoding::{
-    de::{self, Deserialize, DeserializeOwned},
+    de::{self, Deserialize},
     ser::{self, Serialize},
 };
 
 /// Root of an AMT vector, can be serialized and keeps track of height and count
-#[derive(PartialEq, Debug, Default)]
-pub(super) struct Root<V>
-where
-    V: Clone + Serialize,
-{
+#[derive(PartialEq, Debug)]
+pub(super) struct Root<V> {
     pub(super) height: u32,
     pub(super) count: u64,
     pub(super) node: Node<V>,
 }
 
-impl<V> ser::Serialize for Root<V>
+impl<V> Default for Root<V> {
+    fn default() -> Self {
+        Self {
+            node: Node::default(),
+            count: 0,
+            height: 0,
+        }
+    }
+}
+
+impl<V> Serialize for Root<V>
 where
-    V: Clone + PartialEq + Serialize,
+    V: Clone + Serialize,
     Node<V>: Clone,
 {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
@@ -31,14 +38,13 @@ where
     }
 }
 
-impl<'de, V> de::Deserialize<'de> for Root<V>
+impl<'de, V> Deserialize<'de> for Root<V>
 where
-    V: Clone + PartialEq + Serialize + DeserializeOwned,
+    V: Clone + Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,
-        V: DeserializeOwned,
     {
         let (height, count, node) = Deserialize::deserialize(deserializer)?;
         Ok(Self {

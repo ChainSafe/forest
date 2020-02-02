@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::Error;
-use cid::Cid;
+use cid::{Cid, multihash::Hash};
 use db::{MemoryDB, Read, RocksDb, Write};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 
@@ -30,7 +30,7 @@ pub trait BlockStore: Read + Write {
         S: Serialize,
     {
         let bz = to_vec(obj)?;
-        let cid = Cid::from_bytes_default(&bz)?;
+        let cid = Cid::from_bytes(&bz, Hash::Blake2b256)?;
         self.write(cid.to_bytes(), bz)?;
         Ok(cid)
     }

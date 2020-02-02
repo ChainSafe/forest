@@ -30,7 +30,7 @@ use encoding::{de::DeserializeOwned, ser::Serialize};
 pub struct AMT<'db, DB, V>
 where
     DB: BlockStore,
-    V: Clone + Default + Serialize + DeserializeOwned + PartialEq,
+    V: Clone,
 {
     root: Root<V>,
     block_store: &'db DB,
@@ -39,7 +39,7 @@ where
 impl<'db, DB: BlockStore, V> AMT<'db, DB, V>
 where
     DB: BlockStore,
-    V: Clone + Default + Serialize + DeserializeOwned + PartialEq,
+    V: Clone + DeserializeOwned + Serialize,
 {
     /// Constructor for Root AMT node
     pub fn new(block_store: &'db DB) -> Self {
@@ -70,10 +70,7 @@ where
     }
 
     /// Generates an AMT with block store and array of cbor marshallable objects and returns Cid
-    pub fn new_from_slice(block_store: &'db DB, vals: &[V]) -> Result<Cid, Error>
-    where
-        V: Serialize,
-    {
+    pub fn new_from_slice(block_store: &'db DB, vals: &[V]) -> Result<Cid, Error> {
         let mut t = Self::new(block_store);
 
         t.batch_set(vals)?;
@@ -141,10 +138,7 @@ where
 
     /// Batch set (naive for now)
     // TODO Implement more efficient batch set to not have to traverse tree and keep cache for each
-    pub fn batch_set(&mut self, vals: &[V]) -> Result<(), Error>
-    where
-        V: Serialize,
-    {
+    pub fn batch_set(&mut self, vals: &[V]) -> Result<(), Error> {
         for (i, val) in vals.iter().enumerate() {
             self.set(i as u64, val.clone())?;
         }

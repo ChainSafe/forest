@@ -33,6 +33,13 @@ fn basic_get_set() {
     a.set(2, "foo".to_owned()).unwrap();
     assert_get(&mut a, 2, &"foo".to_owned());
     assert_count(&mut a, 1);
+
+    let c = a.flush().unwrap();
+    assert_eq!(
+        c.to_bytes(),
+        hex::decode("0171a0e40220399e5af31b9de428d05389c3337ee5ce39c498154b8ecef57c5e19d1b7ea5b6c")
+            .unwrap()
+    );
 }
 
 #[test]
@@ -140,6 +147,11 @@ fn delete() {
     let c2 = new_amt.flush().unwrap();
 
     assert_eq!(c, c2);
+    assert_eq!(
+        c.to_bytes(),
+        hex::decode("0171a0e40220e70f71845670991ec0daaf89f153ed5cb5b7c0138155f1ff192f916485b27f4b")
+            .unwrap()
+    );
 }
 
 #[test]
