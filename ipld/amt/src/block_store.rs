@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::Error;
-use cid::{Cid, multihash::Hash};
+use cid::{multihash::Hash, Cid};
 use db::{MemoryDB, Read, RocksDb, Write};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 
