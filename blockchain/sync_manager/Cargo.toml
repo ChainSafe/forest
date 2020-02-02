@@ -14,7 +14,7 @@ cid = { package = "forest_cid", path = "../../ipld/cid" }
 chain = { path ="../chain" }
 message = { package = "forest_message", path = "../../vm/message" }
 raw_block = { package = "raw_block", path = "../raw_block" }
-multihash = "0.9.3"
+multihash = { git = "https://github.com/austinabell/rust-multihash", rev = "56a8304b1b47697660dba7252d214be9829e137d" }
 
 [dev-dependencies]
 cid = { package = "forest_cid", path = "../../ipld/cid" }

@@ -19,4 +19,4 @@ message = { package = "forest_message", path = "../../vm/message" }
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
 crypto = { path = "../../crypto" }
-multihash = "0.9.3"
+multihash = { git = "https://github.com/austinabell/rust-multihash", rev = "56a8304b1b47697660dba7252d214be9829e137d" }

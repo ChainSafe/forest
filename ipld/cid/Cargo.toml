@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-multihash = "0.9.3"
+multihash = { git = "https://github.com/austinabell/rust-multihash", rev = "56a8304b1b47697660dba7252d214be9829e137d" }
 multibase = "0.7.0"
 integer-encoding = "1.0.3"
 encoding = { package = "forest_encoding", path = "../../encoding" }
