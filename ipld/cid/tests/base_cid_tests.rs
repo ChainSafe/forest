@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{from_slice, to_vec, Cbor};
 use forest_cid::{Cid, Codec, Error, Prefix, Version};
