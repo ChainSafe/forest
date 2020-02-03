@@ -1,11 +1,12 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Message, UnsignedMessage};
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::Cbor;
 use num_bigint::BigUint;
+use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -17,7 +18,7 @@ pub struct SignedMessage {
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl SignedMessage {
     pub fn new<S: Signer>(msg: &UnsignedMessage, signer: &S) -> Result<Self, CryptoError> {
@@ -64,5 +65,7 @@ impl Message for SignedMessage {
         self.message.gas_limit()
     }
 }
+
+impl RawBlock for SignedMessage {}
 
 impl Cbor for SignedMessage {}

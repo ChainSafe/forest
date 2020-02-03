@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
 use blocks::{TipSetKeys, Tipset};
@@ -15,13 +15,13 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone, PartialEq, Debug)]
 pub struct TipSetMetadata {
     /// Root of aggregate state after applying tipset
-    tipset_state_root: Cid,
+    pub tipset_state_root: Cid,
 
     /// Receipts from all message contained within this tipset
-    tipset_receipts_root: Cid,
+    pub tipset_receipts_root: Cid,
 
     /// The actual Tipset
-    tipset: Tipset,
+    pub tipset: Tipset,
 }
 
 /// Trait to allow metadata to be indexed by multiple types of structs

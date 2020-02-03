@@ -1,12 +1,11 @@
 [package]
-name = "forest_cid"
+name = "raw_block"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-multihash = "0.9.3"
-multibase = "0.7.0"
-integer-encoding = "1.0.3"
-encoding = { package = "forest_encoding", path = "../../encoding" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
 serde = { version = "1.0", features = ["derive"] }
+encoding = { package = "forest_encoding", path = "../../encoding" }
+multihash = "0.9.3"

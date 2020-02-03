@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de, ser, serde_bytes, to_vec, Error as EncodingError};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std::ops::Deref;
 pub struct MethodNum(u64); // TODO: add constraints to this
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl MethodNum {
     /// Constructor for new MethodNum

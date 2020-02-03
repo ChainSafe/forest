@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EPostProof, RawBlock, Ticket, TipSetKeys};
+use super::{EPostProof, Ticket, TipSetKeys, TxMeta};
 use address::Address;
-use cid::Cid;
+use cid::{Cid, Error as CidError};
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
@@ -14,6 +14,7 @@ use encoding::{
 };
 use multihash::Hash;
 use num_bigint::BigUint;
+use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -21,7 +22,7 @@ use std::fmt;
 ///
 /// Usage:
 /// ```
-/// use blocks::{BlockHeader, TipSetKeys, Ticket};
+/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket, TxMeta};
 /// use address::Address;
 /// use cid::{Cid, Codec, Prefix, Version};
 /// use clock::ChainEpoch;
@@ -122,7 +123,7 @@ pub struct BlockHeader {
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl Cbor for BlockHeader {}
 
@@ -217,12 +218,8 @@ impl RawBlock for BlockHeader {
         self.marshal_cbor()
     }
     /// returns the content identifier of the block
-    fn cid(&self) -> Cid {
-        self.cid().clone()
-    }
-    /// returns the hash contained in the block CID
-    fn multihash(&self) -> Hash {
-        self.cid().prefix().mh_type
+    fn cid(&self) -> Result<Cid, CidError> {
+        Ok(self.cid().clone())
     }
 }
 
@@ -445,7 +442,7 @@ mod tests {
             .miner_address(Address::new_id(1227).unwrap())
             .bls_aggregate(Signature::new_bls(base64::decode("lLZtMQuT27qNPC4a4AJ8fgdpfMaH1KGlndt+YppQsAdDAK1m4VYIlrY6wtbSAdQEAb1AswRaLdlt9YfJFCg/+mVVhFU648UqnvhRYeBtBZlEA+XMEaim1889O8Ca73PR").unwrap()))
             .parents(TipSetKeys{ cids: parents})
-            .weight(BigUint::from(91439483u64)) // This is not right
+            .weight(BigUint::from(91439483u64)) 
             .height(7205)
             .messages(Cid::try_from("BAFY2BZACECEESIZT2Q67TZB3WZMZLLTIHENHZ37AW4B24KFCUBR3AF42DIMRS".to_owned()).unwrap())
             .state_root(Cid::try_from("BAFY2BZACEDZ5KXJ6XLNYGKCNFQ6EFZMANDC4VF7NASPXXRHJOOKZEAJUVGFC4".to_owned()).unwrap())

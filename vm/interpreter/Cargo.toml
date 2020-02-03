@@ -6,9 +6,9 @@ edition = "2018"
 
 [dependencies]
 state_tree = { path = "../state_tree" }
-address = { path = "../address" }
-message = { path = "../message" }
-blocks = { path = "../../blockchain/blocks" }
+address = { package = "forest_address", path = "../address" }
+message = { package = "forest_message", path = "../message" }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 chain = { path = "../../blockchain/chain" }
 clock = { path = "../../node/clock" }
 vm = { path = "../" }

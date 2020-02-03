@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 vm = { path = "../../vm" }
 crypto = { path = "../../crypto" }
-address = { path = "../address" }
-message = { path = "../message" }
-cid = { package = "ferret_cid", path = "../../ipld/cid" }
+address = { package = "forest_address", path = "../address" }
+message = { package = "forest_message", path = "../message" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
 clock = { path = "../../node/clock" }

@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
 use encoding::{from_slice, to_vec};
-use ferret_ipld::Ipld;
+use forest_ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

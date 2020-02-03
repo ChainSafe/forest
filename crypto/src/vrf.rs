@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::signature::{verify_bls_sig, Signature, BLS_SIG_LEN};
 use bls_signatures::{Serialize as BlsSerialize, Signature as BLSSignature};
@@ -20,7 +20,7 @@ impl VRFPublicKey {
 pub struct VRFResult(#[serde(with = "serde_bytes")] Vec<u8>);
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl VRFResult {
     /// Creates a VRFResult from a raw vector
@@ -49,7 +49,7 @@ impl VRFResult {
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 #[cfg(test)]
 mod tests {

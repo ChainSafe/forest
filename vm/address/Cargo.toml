@@ -1,5 +1,5 @@
 [package]
-name = "address"
+name = "forest_address"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -10,4 +10,4 @@ num-derive = "0.2"
 data-encoding = "2.1.2"
 data-encoding-macro = "0.1.7"
 leb128 = "0.2.1"
-encoding = { path = "../../encoding" }
+encoding = { package = "forest_encoding", path = "../../encoding" }

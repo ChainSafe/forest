@@ -1,10 +1,10 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
 use encoding::{from_slice, to_vec};
+use forest_message::UnsignedMessage;
 use hex::decode;
-use message::UnsignedMessage;
 use num_bigint::BigUint;
 use serde::Deserialize;
 use std::fs::File;

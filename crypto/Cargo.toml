@@ -4,12 +4,10 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 blake2 = "0.8.1"
-address = {path = "../vm/address"}
-encoding = {path = "../encoding"}
+address = { package = "forest_address", path = "../vm/address" }
+encoding = { package = "forest_encoding", path = "../encoding" }
 libsecp256k1 = "0.2.1"
 bls-signatures = "0.2.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 #![allow(dead_code)]
 
@@ -23,8 +23,8 @@ struct PoStProof {}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Block {
     header: BlockHeader,
-    bls_messages: UnsignedMessage,
-    secp_messages: SignedMessage,
+    bls_messages: Vec<UnsignedMessage>,
+    secp_messages: Vec<SignedMessage>,
 }
 
 impl Block {
@@ -32,10 +32,16 @@ impl Block {
     pub fn to_header(&self) -> &BlockHeader {
         &self.header
     }
+    pub fn bls_msgs(&self) -> &Vec<UnsignedMessage> {
+        &self.bls_messages
+    }
+    pub fn secp_msgs(&self) -> &Vec<SignedMessage> {
+        &self.secp_messages
+    }
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 impl Cbor for Block {}
 
@@ -47,7 +53,7 @@ pub struct TxMeta {
 }
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/ferret/issues/143
+// https://github.com/ChainSafe/forest/issues/143
 
 /// ElectionPoStVerifyInfo seems to be connected to VRF
 /// see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L1099
