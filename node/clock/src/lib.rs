@@ -2,14 +2,36 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
-use serde::{Deserialize, Serialize};
+use encoding::{
+    de::{self, Deserializer},
+    ser::{self, Serializer},
+};
+use std::convert::TryInto;
+use std::num::TryFromIntError;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 /// An epoch represents a single valid state in the blockchain
-pub struct ChainEpoch(i64);
+pub struct ChainEpoch(u64);
+
+impl ser::Serialize for ChainEpoch {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for ChainEpoch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(ChainEpoch(de::Deserialize::deserialize(deserializer)?))
+    }
+}
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
 // https://github.com/ChainSafe/forest/issues/143
@@ -44,18 +66,18 @@ impl ChainEpochClock {
     }
 
     /// Returns the epoch at a given time
-    pub fn epoch_at_time(&self, time: &DateTime<Utc>) -> ChainEpoch {
+    pub fn epoch_at_time(&self, time: &DateTime<Utc>) -> Result<ChainEpoch, TryFromIntError> {
         let difference = time.signed_duration_since(self.genesis_time);
         let epochs = (difference / EPOCH_DURATION)
             .num_nanoseconds()
             .expect("Epoch_at_time failed");
-        ChainEpoch(epochs)
+        Ok(ChainEpoch(epochs.try_into()?))
     }
 }
 
 impl ChainEpoch {
     /// Returns ChainEpoch based on the given unix timestamp
-    pub fn new(timestamp: i64) -> ChainEpoch {
-        ChainEpoch(timestamp)
+    pub fn new(timestamp: i64) -> Result<ChainEpoch, TryFromIntError> {
+        Ok(ChainEpoch(timestamp.try_into()?))
     }
 }

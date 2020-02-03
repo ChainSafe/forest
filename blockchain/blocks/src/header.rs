@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EPostProof, Ticket, TipSetKeys, TxMeta};
+use super::{EPostProof, Ticket, TipSetKeys};
 use address::Address;
 use cid::{Cid, Error as CidError};
 use clock::ChainEpoch;
@@ -12,7 +12,6 @@ use encoding::{
     ser::{self, Serializer},
     Cbor, Error as EncodingError,
 };
-use multihash::Hash;
 use num_bigint::BigUint;
 use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
@@ -34,7 +33,6 @@ use std::fmt;
 ///     .bls_aggregate(Signature::new_bls(vec![])) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
-///     .height(0) // optional
 ///     .epoch(ChainEpoch::default()) // optional
 ///     .messages(Cid::default()) // optional
 ///     .message_receipts(Cid::default()) // optional
@@ -58,15 +56,8 @@ pub struct BlockHeader {
     #[builder(default)]
     weight: BigUint,
 
-    /// height should be the same as epoch. However, in Lotus, it is a `u64`
-    /// TODO: investigate whether to keep height or epoch. Need height for CBOR encoding
-    #[builder(default)]
-    height: u64,
-
     /// epoch is the period in which a new block is generated.
     /// There may be multiple rounds in an epoch.
-    /// DOES NOT GET SERIALIZED
-    /// TODO: investigate whether to keep height or epoch. epoch is spec compliant.
     #[builder(default)]
     epoch: ChainEpoch,
     // MINER INFO
@@ -112,12 +103,10 @@ pub struct BlockHeader {
     bls_aggregate: Signature,
     // CACHE
     /// stores the cid for the block after the first call to `cid()`
-    /// DOES NOT GET SERIALIZED
     #[builder(default)]
     cached_cid: Cid,
 
     /// stores the hashed bytes of the block after the fist call to `cid()`
-    /// DOES NOT GET SERIALIZED
     #[builder(default)]
     cached_bytes: Vec<u8>,
 }
@@ -134,15 +123,14 @@ pub struct CborBlockHeader(
     EPostProof, // epost_verify
     TipSetKeys, // parents []cid
     BigUint,    // weight
-    u64,        // height
-    //    ChainEpoch, // epoch
-    Cid,       // state_root
-    Cid,       // message_receipts
-    Cid,       // messages
-    Signature, // bls_aggregate
-    u64,       // timestamp
-    Signature, // signature
-    u64,       // fork_signal
+    ChainEpoch, // epoch
+    Cid,        // state_root
+    Cid,        // message_receipts
+    Cid,        // messages
+    Signature,  // bls_aggregate
+    u64,        // timestamp
+    Signature,  // signature
+    u64,        // fork_signal
 );
 
 impl ser::Serialize for BlockHeader {
@@ -156,7 +144,7 @@ impl ser::Serialize for BlockHeader {
             self.epost_verify.clone(),
             self.parents.clone(),
             self.weight.clone(),
-            self.height,
+            self.epoch.clone(),
             self.state_root.clone(),
             self.message_receipts.clone(),
             self.messages.clone(),
@@ -180,7 +168,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             epost_verify,
             parents,
             weight,
-            height,
+            epoch,
             state_root,
             message_receipts,
             messages,
@@ -193,7 +181,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
         let header = BlockHeader::builder()
             .parents(parents)
             .weight(weight)
-            .height(height)
+            .epoch(epoch)
             .miner_address(miner_address)
             .messages(messages)
             .message_receipts(message_receipts)
@@ -235,10 +223,6 @@ impl BlockHeader {
     /// Getter for BlockHeader weight
     pub fn weight(&self) -> &BigUint {
         &self.weight
-    }
-    /// Getter for Blockheader height
-    pub fn height(&self) -> u64 {
-        self.height
     }
     /// Getter for BlockHeader epoch
     pub fn epoch(&self) -> &ChainEpoch {
@@ -331,6 +315,7 @@ mod tests {
     use encoding::to_vec;
     use num_bigint::BigUint;
     use std::convert::TryFrom;
+    use clock::ChainEpoch;
 
     // From Lotus
     const HEADER_BYTES: &[u8] = &[
@@ -442,8 +427,8 @@ mod tests {
             .miner_address(Address::new_id(1227).unwrap())
             .bls_aggregate(Signature::new_bls(base64::decode("lLZtMQuT27qNPC4a4AJ8fgdpfMaH1KGlndt+YppQsAdDAK1m4VYIlrY6wtbSAdQEAb1AswRaLdlt9YfJFCg/+mVVhFU648UqnvhRYeBtBZlEA+XMEaim1889O8Ca73PR").unwrap()))
             .parents(TipSetKeys{ cids: parents})
-            .weight(BigUint::from(91439483u64)) 
-            .height(7205)
+            .weight(BigUint::from(91439483u64))
+            .epoch(ChainEpoch::new(7205).unwrap())
             .messages(Cid::try_from("BAFY2BZACECEESIZT2Q67TZB3WZMZLLTIHENHZ37AW4B24KFCUBR3AF42DIMRS".to_owned()).unwrap())
             .state_root(Cid::try_from("BAFY2BZACEDZ5KXJ6XLNYGKCNFQ6EFZMANDC4VF7NASPXXRHJOOKZEAJUVGFC4".to_owned()).unwrap())
             .message_receipts(Cid::try_from("BAFY2BZACECAE6NZYPUOHWAQOVMRP4A7HO6SPBC5QLWW4FKL25OREPPUKBEO2M".to_owned()).unwrap())
