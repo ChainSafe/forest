@@ -102,7 +102,7 @@ impl Libp2pService {
     }
 
     /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
-    pub async fn run(self) -> Result<(), ()> {
+    pub async fn run(self) {
         enum MergeEvent {
             Swarm(ForestBehaviourEvent),
             RPC(NetworkMessage),
@@ -131,7 +131,7 @@ impl Libp2pService {
                     }
                     }
                     Some(MergeEvent::RPC(_)) => unreachable!("This stream should never be able to receive RPC"),
-                    None => ()
+                    None => {break;}
                 },
                 rpc_message = pubsub_stream.next() => match rpc_message {
                     Some(MergeEvent::RPC(message)) =>  match message {
@@ -140,7 +140,7 @@ impl Libp2pService {
                         }
                     }
                     Some(MergeEvent::Swarm(_)) => unreachable!("This stream should never be able to receive Swarm"),
-                    None => ()
+                    None => {break;}
                 }
             };
         }

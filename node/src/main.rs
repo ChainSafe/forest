@@ -8,10 +8,9 @@ use self::cli::cli;
 use async_std::task;
 use forest_libp2p::service::Libp2pService;
 use slog::info;
-use std::error::Error;
 
 #[async_std::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() {
     let log = log::setup_logging();
     info!(log, "Starting Forest");
 
@@ -23,10 +22,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let lp2p_service = Libp2pService::new(logger, &config.network);
 
     task::block_on(async move {
-        let _ = lp2p_service.run().await;
+        lp2p_service.run().await;
     });
 
     info!(log, "Forest finish shutdown");
-
-    Ok(())
 }
