@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de::DeserializeOwned, ser::Serialize};
-use ipld_amt::*;
+use ipld_amt::{BlockStore, Error, AMT, MAX_INDEX};
+use std::fmt::Debug;
 
 fn assert_get<DB, V>(a: &mut AMT<DB, V>, i: u64, v: &V)
 where
-    V: Clone + Default + Serialize + DeserializeOwned + PartialEq + std::fmt::Debug,
+    V: Clone + Serialize + DeserializeOwned + PartialEq + Debug,
     DB: BlockStore,
 {
     assert_eq!(&a.get(i).unwrap().unwrap(), v);
@@ -15,7 +16,7 @@ where
 fn assert_count<DB, V>(a: &mut AMT<DB, V>, c: u64)
 where
     DB: BlockStore,
-    V: Clone + Default + Serialize + DeserializeOwned + PartialEq,
+    V: Clone + Serialize + DeserializeOwned + PartialEq,
 {
     assert_eq!(a.count(), c);
 }
