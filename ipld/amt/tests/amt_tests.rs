@@ -80,6 +80,12 @@ fn expand() {
     assert_get(&mut new_amt, 2, &"foo".to_owned());
     assert_get(&mut new_amt, 11, &"bar".to_owned());
     assert_get(&mut new_amt, 79, &"baz".to_owned());
+
+    assert_eq!(
+        c.to_bytes(),
+        hex::decode("0171a0e40220f5d01f51e18448e249c45307c2dfd26a3c7728b5d5ddac7740553b30ca2985ad")
+            .unwrap()
+    );
 }
 
 #[test]
@@ -106,6 +112,12 @@ fn bulk_insert() {
     for i in 0..iterations {
         assert_get(&mut new_amt, i, &"foo foo bar".to_owned());
     }
+
+    assert_eq!(
+        c.to_bytes(),
+        hex::decode("0171a0e40220d27143fde6ad4fa144e239289a1f3daf7175ecb76540f2441415bdb2865f3230")
+            .unwrap()
+    );
 }
 
 #[test]
@@ -172,6 +184,12 @@ fn delete_first_entry() {
     let new_amt: AMT<_, String> = AMT::load(&db, &c).unwrap();
     assert_eq!(new_amt.count(), 1);
     assert_eq!(new_amt.height(), 0);
+
+    assert_eq!(
+        c.to_bytes(),
+        hex::decode("0171a0e40220b917a6c5565fc6eac9d6f7fff04d3abaed0fefa074693b46da2432ddb7a1c31d")
+            .unwrap()
+    );
 }
 
 #[test]
@@ -179,7 +197,7 @@ fn delete_reduce_height() {
     let db = db::MemoryDB::default();
     let mut a = AMT::new(&db);
 
-    a.set(0, "thing".to_owned()).unwrap();
+    a.set(1, "thing".to_owned()).unwrap();
     let c1 = a.flush().unwrap();
 
     a.set(37, "other".to_owned()).unwrap();
@@ -193,4 +211,10 @@ fn delete_reduce_height() {
 
     let c3 = a2.flush().unwrap();
     assert_eq!(c1, c3);
+
+    assert_eq!(
+        c1.to_bytes(),
+        hex::decode("0171a0e4022084351c5e2d0f80c9455f0eec0c8aa0352a6ab9e758e5d998d80fbf3db2636751")
+            .unwrap()
+    );
 }
