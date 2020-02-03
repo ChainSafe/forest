@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Error as AddressError;
 use encoding::Error as EncodingError;
@@ -34,7 +34,7 @@ impl fmt::Display for Error {
 impl From<Box<dyn error::Error>> for Error {
     fn from(err: Box<dyn error::Error>) -> Error {
         // Pass error encountered in signer trait as module error type
-        Error::SigningError(err.description().to_string())
+        Error::SigningError(err.to_string())
     }
 }
 

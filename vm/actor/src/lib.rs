@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 mod builtin;
 mod code;
@@ -8,28 +8,18 @@ pub use self::builtin::*;
 pub use self::code::*;
 
 use cid::Cid;
-use encoding::{Cbor, CodecProtocol, Error as EncodingError};
+use encoding::Cbor;
 use num_bigint::BigUint;
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Default)]
+/// Identifier for Actors, includes builtin and initialized actors
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ActorID(u64);
 
-impl Cbor for ActorID {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-}
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/forest/issues/143
+
+impl Cbor for ActorID {}
 
 /// State of all actor implementations
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -52,10 +42,11 @@ impl ActorState {
     }
 }
 
+// TODO implement Actor for builtin actors on finished spec
 /// Actor trait which defines the common functionality of system Actors
 pub trait Actor {
     /// Returns Actor Cid
-    fn cid(&self) -> Cid;
+    fn cid(&self) -> &Cid;
     /// Actor public key, if it exists
     fn public_key(&self) -> Vec<u8>;
 }

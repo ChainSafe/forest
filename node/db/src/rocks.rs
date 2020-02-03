@@ -1,9 +1,10 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
 use super::{DatabaseService, Read, Write};
 use rocksdb::{Options, WriteBatch, DB};
+use std::env::temp_dir;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -12,12 +13,18 @@ enum DbStatus {
     Open(DB),
 }
 
-#[derive(Debug)]
+impl Default for DbStatus {
+    fn default() -> Self {
+        Self::Unopened(Path::new(&temp_dir()).to_path_buf())
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct RocksDb {
     status: DbStatus,
 }
 
-/// RocksDb is used as the KV store for Ferret
+/// RocksDb is used as the KV store for Forest
 ///
 /// Usage:
 /// ```no_run

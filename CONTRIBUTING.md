@@ -1,4 +1,8 @@
-# Contribuiting to Ferret
+# Contribuiting to Forest
+
+## Submitting Code
+
+Please use `make lint` to ensure code is properly formatted, license headers are present, and to run the linter. 
 
 ## Documentation
 

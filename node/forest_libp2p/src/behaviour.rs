@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use futures::prelude::*;
 use libp2p::core::identity::Keypair;
@@ -154,7 +154,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> MyBehaviour<TS
             gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
             mdns: Mdns::new().expect("Could not start mDNS"),
             ping: Ping::default(),
-            identify: Identify::new("ferret/libp2p".into(), "0.0.1".into(), local_key.public()),
+            identify: Identify::new("forest/libp2p".into(), "0.0.1".into(), local_key.public()),
             log,
             events: vec![],
         }

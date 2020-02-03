@@ -1,21 +1,21 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message;
-use crate::TokenAmount;
-use crate::{MethodNum, MethodParams};
-
 use address::Address;
 use derive_builder::Builder;
-use encoding::{Cbor, CodecProtocol, Error as EncodingError};
+use encoding::{de, ser, Cbor};
 use num_bigint::BigUint;
+use raw_block::RawBlock;
+use serde::Deserialize;
+use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
 /// Usage:
 /// ```
-/// use message::{UnsignedMessage, Message};
-/// use vm::{TokenAmount, MethodParams, MethodNum};
+/// use forest_message::{UnsignedMessage, Message};
+/// use vm::{TokenAmount, Serialized, MethodNum};
 /// use num_bigint::BigUint;
 /// use address::Address;
 ///
@@ -26,7 +26,7 @@ use num_bigint::BigUint;
 ///     .sequence(0) // optional
 ///     .value(TokenAmount::new(0)) // optional
 ///     .method_num(MethodNum::default()) // optional
-///     .params(MethodParams::default()) // optional
+///     .params(Serialized::default()) // optional
 ///     .gas_limit(BigUint::default()) // optional
 ///     .gas_price(BigUint::default()) // optional
 ///     .build()
@@ -52,7 +52,7 @@ pub struct UnsignedMessage {
     #[builder(default)]
     method_num: MethodNum,
     #[builder(default)]
-    params: MethodParams,
+    params: Serialized,
     #[builder(default)]
     gas_price: BigUint,
     #[builder(default)]
@@ -65,54 +65,72 @@ impl UnsignedMessage {
     }
 }
 
-impl Message for UnsignedMessage {
-    /// from returns the from address of the message
-    fn from(&self) -> Address {
-        self.from.clone()
-    }
-    /// to returns the destination address of the message
-    fn to(&self) -> Address {
-        self.to.clone()
-    }
-    /// sequence returns the message sequence or nonce
-    fn sequence(&self) -> u64 {
-        self.sequence
-    }
-    /// value returns the amount sent in message
-    fn value(&self) -> TokenAmount {
-        self.value.clone()
-    }
-    /// method_num returns the method number to be called
-    fn method_num(&self) -> MethodNum {
-        self.method_num.clone()
-    }
-    /// params returns the encoded parameters for the method call
-    fn params(&self) -> MethodParams {
-        self.params.clone()
-    }
-    /// gas_price returns gas price for the message
-    fn gas_price(&self) -> BigUint {
-        self.gas_price.clone()
-    }
-    /// gas_limit returns the gas limit for the message
-    fn gas_limit(&self) -> BigUint {
-        self.gas_limit.clone()
+impl ser::Serialize for UnsignedMessage {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        (
+            self.to.clone(),
+            self.from.clone(),
+            self.sequence,
+            self.value.clone(),
+            self.gas_price.clone(),
+            self.gas_limit.clone(),
+            self.method_num,
+            self.params.clone(),
+        )
+            .serialize(s)
     }
 }
 
-impl Cbor for UnsignedMessage {
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, EncodingError> {
-        // TODO
-        Err(EncodingError::Unmarshalling {
-            description: "Not Implemented".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO
-        Err(EncodingError::Marshalling {
-            description: format!("Not implemented, data: {:?}", self),
-            protocol: CodecProtocol::Cbor,
+impl<'de> de::Deserialize<'de> for UnsignedMessage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let (to, from, sequence, value, gas_price, gas_limit, method_num, params) =
+            Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            to,
+            from,
+            sequence,
+            value,
+            gas_price,
+            gas_limit,
+            method_num,
+            params,
         })
     }
 }
+
+impl Message for UnsignedMessage {
+    fn from(&self) -> &Address {
+        &self.from
+    }
+    fn to(&self) -> &Address {
+        &self.to
+    }
+    fn sequence(&self) -> u64 {
+        self.sequence
+    }
+    fn value(&self) -> &TokenAmount {
+        &self.value
+    }
+    fn method_num(&self) -> &MethodNum {
+        &self.method_num
+    }
+    fn params(&self) -> &Serialized {
+        &self.params
+    }
+    fn gas_price(&self) -> &BigUint {
+        &self.gas_price
+    }
+    fn gas_limit(&self) -> &BigUint {
+        &self.gas_limit
+    }
+}
+
+impl RawBlock for UnsignedMessage {}
+
+impl Cbor for UnsignedMessage {}

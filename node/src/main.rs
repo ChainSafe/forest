@@ -1,19 +1,19 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 mod cli;
 mod log;
 
 use self::cli::cli;
 use async_std::task;
-use ferret_libp2p::service::{Libp2pService};
+use forest_libp2p::service::{Libp2pService};
 use slog::info;
 use std::error::Error;
 
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let log = log::setup_logging();
-    info!(log, "Starting Ferret");
+    info!(log, "Starting Forest");
 
     // Capture CLI inputs
     let config = cli(&log).expect("CLI error");
@@ -25,6 +25,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     task::block_on(async move {
         lp2p_service.run().await;
     });
-    info!(log, "Ferret finish shutdown");
+
+    info!(log, "Forest finish shutdown");
+
     Ok(())
 }

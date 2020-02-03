@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
 use blocks::{TipSetKeys, Tipset};
@@ -7,6 +7,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
+
 /// TipSetMetadata is the type stored as the value in the TipIndex hashmap.  It contains
 /// a tipset pointing to blocks, the root cid of the chain's state after
 /// applying the messages in this tipset to it's parent state, and the cid of the receipts
@@ -14,34 +15,25 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone, PartialEq, Debug)]
 pub struct TipSetMetadata {
     /// Root of aggregate state after applying tipset
-    tipset_state_root: Cid,
+    pub tipset_state_root: Cid,
 
     /// Receipts from all message contained within this tipset
-    tipset_receipts_root: Cid,
+    pub tipset_receipts_root: Cid,
 
     /// The actual Tipset
-    tipset: Tipset,
+    pub tipset: Tipset,
 }
 
 /// Trait to allow metadata to be indexed by multiple types of structs
-pub trait Index {
-    fn hash_key(&self) -> u64;
-}
-
-impl Index for ChainEpoch {
+pub trait Index: Hash {
     fn hash_key(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash::<DefaultHasher>(&mut hasher);
         hasher.finish()
     }
 }
-impl Index for TipSetKeys {
-    fn hash_key(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.hash::<DefaultHasher>(&mut hasher);
-        hasher.finish()
-    }
-}
+impl Index for ChainEpoch {}
+impl Index for TipSetKeys {}
 
 /// Tracks tipsets and their states by TipsetKeys and ChainEpoch.
 #[derive(Default)]
@@ -83,16 +75,16 @@ impl TipIndex {
             .ok_or_else(|| Error::UndefinedKey("invalid metadata key".to_string()))
     }
 
-    /// Returns the tipset corresponding to the index
-    pub fn get_tipset(&self, idx: &dyn Index) -> Result<Tipset, Error> {
+    /// Returns the tipset corresponding to the hashed index
+    pub fn get_tipset<I: Index>(&self, idx: &I) -> Result<Tipset, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset)?)
     }
     /// Returns the state root for the tipset corresponding to the index
-    pub fn get_tipset_state_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
+    pub fn get_tipset_state_root<I: Index>(&self, idx: &I) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_state_root)?)
     }
     /// Returns the receipt root for the tipset corresponding to the index
-    pub fn get_tipset_receipts_root(&self, idx: &dyn Index) -> Result<Cid, Error> {
+    pub fn get_tipset_receipts_root<I: Index>(&self, idx: &I) -> Result<Cid, Error> {
         Ok(self.get(idx.hash_key()).map(|r| r.tipset_receipts_root)?)
     }
 }
@@ -100,18 +92,12 @@ impl TipIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
-    use blocks::{BlockHeader, Ticket, Tipset, TxMeta};
-    use cid::{Cid, Codec, Version};
-    use clock::ChainEpoch;
+    use blocks::{BlockHeader, Ticket, Tipset};
+    use cid::Cid;
     use crypto::VRFResult;
 
-    const WEIGHT: u64 = 1;
-    const CACHED_BYTES: [u8; 1] = [0];
-
     fn template_key(data: &[u8]) -> Cid {
-        let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
-        Cid::new(Codec::DagProtobuf, Version::V1, &h)
+        Cid::from_bytes_default(data).unwrap()
     }
 
     // key_setup returns a vec of distinct CIDs
@@ -121,28 +107,16 @@ mod tests {
 
     // template_header defines a block header used in testing
     fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
-        let cids = key_setup();
-        BlockHeader {
-            parents: TipSetKeys {
-                cids: vec![cids[0].clone()],
-            },
-            weight: WEIGHT,
-            epoch: ChainEpoch::new(1),
-            miner_address: Address::new_secp256k1(ticket_p.clone()).unwrap(),
-            messages: TxMeta {
-                bls_messages: cids[0].clone(),
-                secp_messages: cids[0].clone(),
-            },
-            message_receipts: cids[0].clone(),
-            state_root: cids[0].clone(),
-            timestamp,
-            ticket: Ticket {
+        let header = BlockHeader::builder()
+            .timestamp(timestamp)
+            .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),
-            },
-            bls_aggregate: vec![1, 2, 3],
-            cached_cid: cid,
-            cached_bytes: CACHED_BYTES.to_vec(),
-        }
+            })
+            .cached_cid(cid)
+            .build()
+            .unwrap();
+
+        header
     }
 
     // header_setup returns a vec of block headers to be used for testing purposes
@@ -160,8 +134,8 @@ mod tests {
     fn meta_setup() -> TipSetMetadata {
         let tip_set = setup();
         TipSetMetadata {
-            tipset_state_root: tip_set.blocks()[0].state_root.clone(),
-            tipset_receipts_root: tip_set.blocks()[0].message_receipts.clone(),
+            tipset_state_root: tip_set.blocks()[0].state_root().clone(),
+            tipset_receipts_root: tip_set.blocks()[0].message_receipts().clone(),
             tipset: tip_set,
         }
     }
@@ -189,7 +163,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset(&meta.tipset.parents()).unwrap();
+        let result = tip.get_tipset(meta.tipset.parents()).unwrap();
         assert_eq!(result, meta.tipset);
     }
 
@@ -198,9 +172,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip
-            .get_tipset_receipts_root(&meta.tipset.parents())
-            .unwrap();
+        let result = tip.get_tipset_receipts_root(meta.tipset.parents()).unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
 
@@ -209,9 +181,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip
-            .get_tipset_receipts_root(&meta.tipset.parents())
-            .unwrap();
+        let result = tip.get_tipset_receipts_root(meta.tipset.parents()).unwrap();
         assert_eq!(result, meta.tipset_receipts_root);
     }
 
@@ -220,7 +190,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset(&meta.tipset.tip_epoch()).unwrap();
+        let result = tip.get_tipset(&meta.tipset.tip_epoch().clone()).unwrap();
         assert_eq!(result, meta.tipset);
     }
 
@@ -229,7 +199,9 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset_state_root(&meta.tipset.tip_epoch()).unwrap();
+        let result = tip
+            .get_tipset_state_root(&meta.tipset.tip_epoch().clone())
+            .unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
 
@@ -239,7 +211,7 @@ mod tests {
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
         let result = tip
-            .get_tipset_receipts_root(&meta.tipset.tip_epoch())
+            .get_tipset_receipts_root(&meta.tipset.tip_epoch().clone())
             .unwrap();
         assert_eq!(result, meta.tipset_receipts_root);
     }

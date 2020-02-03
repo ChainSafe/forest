@@ -1,8 +1,7 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use dirs::home_dir;
-use serde;
 use std::fs::{create_dir_all, File};
 use std::io::{prelude::*, Result};
 use std::path::Path;
@@ -47,8 +46,8 @@ pub fn get_home_dir() -> String {
 /// Converts a toml file represented as a string to `S`
 ///
 /// # Example
-///```
-/// use serde_derive::Deserialize;
+/// ```
+/// use serde::Deserialize;
 /// use utils::read_toml;
 ///
 /// #[derive(Deserialize)]
@@ -56,9 +55,9 @@ pub fn get_home_dir() -> String {
 ///     name: String
 /// };
 ///
-/// let toml_string = "name = \"ferret\"\n";
+/// let toml_string = "name = \"forest\"\n";
 /// let config: Config = read_toml(toml_string).unwrap();
-/// assert_eq!(config.name, "ferret");
+/// assert_eq!(config.name, "forest");
 /// ```
 pub fn read_toml<S>(toml_string: &str) -> Result<S>
 where

@@ -5,5 +5,5 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-blocks = {path = "../blocks"}
 libp2p = "0.15.0"
+blocks = { package = "forest_blocks", path = "../blocks" }

@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{arg_end, ActorCode, Runtime};
-use vm::{ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR};
+use runtime::{ActorCode, Runtime};
+use vm::{ExitCode, InvocOutput, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
 
 /// State of storage power actor
 pub struct StoragePowerActorState {
@@ -26,7 +26,7 @@ pub enum StoragePowerMethod {
 impl StoragePowerMethod {
     /// from_method_num converts a method number into an StoragePowerMethod enum
     fn from_method_num(m: MethodNum) -> Option<StoragePowerMethod> {
-        FromPrimitive::from_i32(m.into())
+        FromPrimitive::from_u64(u64::from(m))
     }
 }
 
@@ -34,12 +34,12 @@ impl StoragePowerMethod {
 pub struct StoragePowerActorCode;
 impl StoragePowerActorCode {
     /// Constructor for StoragePower actor
-    fn constructor(_rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) -> InvocOutput {
         // TODO
         unimplemented!();
     }
     /// Withdraw available funds from StoragePower map
-    fn get_total_storage(rt: &dyn Runtime) -> InvocOutput {
+    fn get_total_storage<RT: Runtime>(rt: &RT) -> InvocOutput {
         // TODO get actor state from storage and use as output
         let result = BigUint::from(0 as u32).to_bytes_be();
         rt.value_return(result)
@@ -47,19 +47,16 @@ impl StoragePowerActorCode {
 }
 
 impl ActorCode for StoragePowerActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
-        params: &MethodParams,
+        _params: &Serialized,
     ) -> InvocOutput {
         match StoragePowerMethod::from_method_num(method) {
             // TODO determine parameters for each method on finished spec
             Some(StoragePowerMethod::Constructor) => Self::constructor(rt),
-            Some(StoragePowerMethod::GetTotalStorage) => {
-                arg_end(params, rt);
-                Self::get_total_storage(rt)
-            }
+            Some(StoragePowerMethod::GetTotalStorage) => Self::get_total_storage(rt),
             _ => {
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),

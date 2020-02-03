@@ -5,13 +5,18 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-blocks = {path = "../blocks"}
-cid = "0.3.1"
-clock = {path = "../../node/clock"}
-num-bigint = "0.2.3"
-ferret-libp2p = {path = "../../node/ferret-libp2p"}
+forest_libp2p = {path = "../../node/forest_libp2p"}
+blocks = { package = "forest_blocks", path = "../blocks" }
+db = { path = "../../node/db" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+clock = { path = "../../node/clock" }
+encoding = { package = "forest_encoding", path = "../../encoding" }
+serde = { version = "1.0", features = ["derive"] }
+num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
+raw_block = { package = "raw_block", path = "../raw_block" }
+message = { package = "forest_message", path = "../../vm/message" }
 
 [dev-dependencies]
-address = {path = "../../vm/address"}
-crypto = {path = "../../crypto"}
-multihash = "0.8.0"
+address = { package = "forest_address", path = "../../vm/address" }
+crypto = { path = "../../crypto" }
+multihash = "0.9.3"

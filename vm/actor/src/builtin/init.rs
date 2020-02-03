@@ -1,16 +1,16 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{ActorID, CodeID};
 use vm::{
-    ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
+    ExitCode, InvocOutput, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
 };
 
 use address::Address;
 use encoding::Cbor;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{arg_end, arg_pop, check_args, ActorCode, Runtime};
+use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
 
 /// InitActorState is reponsible for creating
@@ -40,61 +40,54 @@ pub enum InitMethod {
 impl InitMethod {
     /// from_method_num converts a method number into an InitMethod enum
     fn from_method_num(m: MethodNum) -> Option<InitMethod> {
-        FromPrimitive::from_i32(m.into())
+        FromPrimitive::from_u64(u64::from(m))
     }
 }
 
 pub struct InitActorCode;
 impl InitActorCode {
-    fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(rt: &RT) -> InvocOutput {
         // Acquire state
         // Update actor substate
 
         rt.success_return()
     }
-    fn exec(rt: &dyn Runtime, _code: CodeID, _params: &MethodParams) -> InvocOutput {
+    fn exec<RT: Runtime>(rt: &RT, _code: CodeID, _params: &Serialized) -> InvocOutput {
         // TODO
         let addr = Address::new_id(0).unwrap();
         rt.value_return(addr.marshal_cbor().unwrap())
     }
-    fn get_actor_id_for_address(rt: &dyn Runtime, _address: Address) -> InvocOutput {
+    fn get_actor_id_for_address<RT: Runtime>(rt: &RT, _address: Address) -> InvocOutput {
         // TODO
         rt.value_return(ActorID(0).marshal_cbor().unwrap())
     }
 }
 
 impl ActorCode for InitActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
-        params_in: &MethodParams,
+        params: &Serialized,
     ) -> InvocOutput {
         // Create mutable copy of params for usage in functions
-        let params: &mut MethodParams = &mut params_in.clone();
+        let params: &mut Serialized = &mut params.clone();
         match InitMethod::from_method_num(method) {
             Some(InitMethod::Constructor) => {
-                // validate no arguments passed in
-                arg_end(params, rt);
+                // TODO unfinished spec
 
                 Self::constructor(rt)
             }
             Some(InitMethod::Exec) => {
                 // TODO deserialize CodeID on finished spec
-                let _ = arg_pop(params, rt);
-                check_args(params, rt, true);
                 Self::exec(rt, CodeID::Init, params)
             }
             Some(InitMethod::GetActorIDForAddress) => {
-                // Pop and unmarshall address parameter
-                let addr_res = Address::unmarshal_cbor(&arg_pop(params, rt).bytes());
-
-                // validate addr deserialization and parameters
-                check_args(params, rt, addr_res.is_ok());
-                arg_end(params, rt);
+                // Unmarshall address parameter
+                // TODO unfinished spec
 
                 // Errors checked, get actor by address
-                Self::get_actor_id_for_address(rt, addr_res.unwrap())
+                Self::get_actor_id_for_address(rt, Address::default())
             }
             _ => {
                 // Method number does not match available, abort in runtime

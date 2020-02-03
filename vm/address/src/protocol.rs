@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -16,6 +16,12 @@ pub enum Protocol {
     Actor = 2,
     // BLS key addressing
     BLS = 3,
+}
+
+impl Default for Protocol {
+    fn default() -> Self {
+        Protocol::ID
+    }
 }
 
 impl Protocol {

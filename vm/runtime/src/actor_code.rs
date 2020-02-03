@@ -1,31 +1,17 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::Runtime;
-use vm::{InvocOutput, MethodNum, MethodParams, Serialized};
+use vm::{InvocOutput, MethodNum, Serialized};
 
+/// Interface for invoking methods on an Actor
 pub trait ActorCode {
-    /// Invokes method with runtime on the actor's code
-    fn invoke_method(
+    /// Invokes method with runtime on the actor's code. Method number will match one
+    /// defined by the Actor, and parameters will be serialized and used in execution
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
-        params: &MethodParams,
+        params: &Serialized,
     ) -> InvocOutput;
-}
-
-pub fn check_args(_params: &MethodParams, rt: &dyn Runtime, cond: bool) {
-    if !cond {
-        rt.abort_arg();
-    }
-    // TODO assume params validation on finished spec
-}
-
-pub fn arg_pop(params: &mut MethodParams, rt: &dyn Runtime) -> Serialized {
-    check_args(params, rt, !params.is_empty());
-    params.remove(0)
-}
-
-pub fn arg_end(params: &MethodParams, rt: &dyn Runtime) {
-    check_args(params, rt, params.is_empty())
 }

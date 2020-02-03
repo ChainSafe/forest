@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{arg_end, ActorCode, Runtime};
-use vm::{ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, METHOD_CONSTRUCTOR};
+use runtime::{ActorCode, Runtime};
+use vm::{ExitCode, InvocOutput, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
 
 /// AccountActorState includes the address for the actor
 pub struct AccountActorState {
@@ -20,7 +20,7 @@ pub enum AccountMethod {
 impl AccountMethod {
     /// from_method_num converts a method number into an AccountMethod enum
     fn from_method_num(m: MethodNum) -> Option<AccountMethod> {
-        FromPrimitive::from_i32(m.into())
+        FromPrimitive::from_u64(u64::from(m))
     }
 }
 
@@ -29,23 +29,22 @@ pub struct AccountActorCode;
 
 impl AccountActorCode {
     /// Constructor for Account actor
-    fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(rt: &RT) -> InvocOutput {
         // Intentionally left blank
         rt.success_return()
     }
 }
 
 impl ActorCode for AccountActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
-        params: &MethodParams,
+        _params: &Serialized,
     ) -> InvocOutput {
         match AccountMethod::from_method_num(method) {
             Some(AccountMethod::Constructor) => {
-                // Assert no parameters passed
-                arg_end(params, rt);
+                // TODO unfinished spec
                 Self::constructor(rt)
             }
             _ => {

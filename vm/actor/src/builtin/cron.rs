@@ -1,15 +1,15 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use vm::{
-    ExitCode, InvocInput, InvocOutput, MethodNum, MethodParams, SysCode, TokenAmount,
+    ExitCode, InvocInput, InvocOutput, MethodNum, Serialized, SysCode, TokenAmount,
     METHOD_CONSTRUCTOR, METHOD_CRON,
 };
 
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{arg_end, ActorCode, Runtime};
+use runtime::{ActorCode, Runtime};
 
 /// CronActorState has no internal state
 #[derive(Default)]
@@ -30,7 +30,7 @@ pub enum CronMethod {
 impl CronMethod {
     /// from_method_num converts a method number into an CronMethod enum
     fn from_method_num(m: MethodNum) -> Option<CronMethod> {
-        FromPrimitive::from_i32(m.into())
+        FromPrimitive::from_u64(u64::from(m))
     }
 }
 
@@ -45,21 +45,21 @@ pub struct CronActorCode {
 
 impl CronActorCode {
     /// Constructor for Cron actor
-    fn constructor(rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(rt: &RT) -> InvocOutput {
         // Intentionally left blank
         rt.success_return()
     }
     /// epoch_tick executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    fn epoch_tick(&self, rt: &dyn Runtime) -> InvocOutput {
+    fn epoch_tick<RT: Runtime>(&self, rt: &RT) -> InvocOutput {
         // self.entries is basically a static registry for now, loaded
         // in the interpreter static registry.
-        for entry in self.entries.clone() {
+        for entry in &self.entries {
             let res = rt.send_catching_errors(InvocInput {
-                to: entry.to_addr,
+                to: entry.to_addr.clone(),
                 method: entry.method_num,
-                params: MethodParams::default(),
+                params: Serialized::default(),
                 value: TokenAmount::new(0),
             });
             if let Err(e) = res {
@@ -72,21 +72,19 @@ impl CronActorCode {
 }
 
 impl ActorCode for CronActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
-        params: &MethodParams,
+        _params: &Serialized,
     ) -> InvocOutput {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {
-                // Assert no parameters passed
-                arg_end(params, rt);
+                // TODO unfinished spec
                 Self::constructor(rt)
             }
             Some(CronMethod::Cron) => {
-                // Assert no parameters passed
-                arg_end(params, rt);
+                // TODO unfinished spec
                 self.epoch_tick(rt)
             }
             _ => {

@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
 use clock::ChainEpoch;
@@ -8,7 +8,7 @@ use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
 use vm::{
-    ExitCode, InvocOutput, MethodNum, MethodParams, SysCode, TokenAmount, METHOD_CONSTRUCTOR,
+    ExitCode, InvocOutput, MethodNum, Serialized, SysCode, TokenAmount, METHOD_CONSTRUCTOR,
     METHOD_PLACEHOLDER,
 };
 
@@ -25,7 +25,7 @@ pub struct RewardActorState {
 }
 
 impl RewardActorState {
-    pub fn withdraw_reward(_rt: &dyn Runtime, _owner: Address) -> TokenAmount {
+    pub fn withdraw_reward<RT: Runtime>(_rt: &RT, _owner: Address) -> TokenAmount {
         // TODO
         TokenAmount::new(0)
     }
@@ -41,7 +41,7 @@ pub enum RewardMethod {
 impl RewardMethod {
     /// from_method_num converts a method number into an RewardMethod enum
     fn from_method_num(m: MethodNum) -> Option<RewardMethod> {
-        FromPrimitive::from_i32(m.into())
+        FromPrimitive::from_u64(u64::from(m))
     }
 }
 
@@ -49,28 +49,28 @@ impl RewardMethod {
 pub struct RewardActorCode;
 impl RewardActorCode {
     /// Constructor for Reward actor
-    fn constructor(_rt: &dyn Runtime) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) -> InvocOutput {
         // TODO
         unimplemented!();
     }
     /// Mints a reward and puts into state reward map
-    fn mint_reward(_rt: &dyn Runtime) -> InvocOutput {
+    fn mint_reward<RT: Runtime>(_rt: &RT) -> InvocOutput {
         // TODO
         unimplemented!();
     }
     /// Withdraw available funds from reward map
-    fn withdraw_reward(_rt: &dyn Runtime) -> InvocOutput {
+    fn withdraw_reward<RT: Runtime>(_rt: &RT) -> InvocOutput {
         // TODO
         unimplemented!();
     }
 }
 
 impl ActorCode for RewardActorCode {
-    fn invoke_method(
+    fn invoke_method<RT: Runtime>(
         &self,
-        rt: &dyn Runtime,
+        rt: &RT,
         method: MethodNum,
-        _params: &MethodParams,
+        _params: &Serialized,
     ) -> InvocOutput {
         match RewardMethod::from_method_num(method) {
             // TODO determine parameters for each method on finished spec

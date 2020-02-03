@@ -1,23 +1,19 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
-use blocks::{BlockHeader, TipSetKeys, Tipset};
-use cid::{Cid, Codec, Version};
+use blocks::{BlockHeader, Tipset};
+use cid::Cid;
+use num_bigint::BigUint;
 use sync_manager::SyncManager;
 
 fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
-    let x = TipSetKeys {
-        cids: vec![Cid::new(Codec::DagCBOR, Version::V1, parent_bz)],
-    };
-    BlockHeader::builder()
-        .parents(x)
-        .cached_bytes(cached_bytes.to_vec()) // TODO change to however cached bytes are generated in future
-        .miner_address(Address::new_id(0).unwrap())
-        .bls_aggregate(vec![])
-        .weight(weight)
+    let header = BlockHeader::builder()
+        .weight(BigUint::from(weight))
+        .cached_bytes(cached_bytes.to_vec())
+        .cached_cid(Cid::from_bytes_default(parent_bz).unwrap())
         .build()
-        .unwrap()
+        .unwrap();
+    header
 }
 
 #[test]

@@ -1,22 +1,26 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{Cbor, Error as EncodingError};
-use std::ops::{Deref, DerefMut};
+use encoding::{de, ser, serde_bytes, to_vec, Error as EncodingError};
+use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 /// Method number indicator for calling actor methods
-#[derive(Default, Clone, PartialEq, Debug)]
-pub struct MethodNum(i32); // TODO: add constraints to this
+#[derive(Default, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MethodNum(u64); // TODO: add constraints to this
+
+// TODO verify format or implement custom serialize/deserialize function (if necessary):
+// https://github.com/ChainSafe/forest/issues/143
 
 impl MethodNum {
     /// Constructor for new MethodNum
-    pub fn new(num: i32) -> Self {
+    pub fn new(num: u64) -> Self {
         Self(num)
     }
 }
 
-impl From<MethodNum> for i32 {
-    fn from(method_num: MethodNum) -> i32 {
+impl From<MethodNum> for u64 {
+    fn from(method_num: MethodNum) -> u64 {
         method_num.0
     }
 }
@@ -32,10 +36,30 @@ pub const METHOD_CRON: isize = 2;
 // TODO revisit on complete spec
 pub const METHOD_PLACEHOLDER: isize = 3;
 
-/// Serialized bytes to be used as individual parameters into actor methods
+/// Serialized bytes to be used as parameters into actor methods
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct Serialized {
     bytes: Vec<u8>,
+}
+
+impl ser::Serialize for Serialized {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let value = serde_bytes::Bytes::new(&self.bytes);
+        serde_bytes::Serialize::serialize(value, s)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for Serialized {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        Ok(Serialized::new(bz))
+    }
 }
 
 impl Deref for Serialized {
@@ -47,42 +71,19 @@ impl Deref for Serialized {
 
 impl Serialized {
     /// Constructor if data is encoded already
-    ///
-    /// ### Arguments
-    /// * `bytes` - vector of bytes to use as serialized data
     pub fn new(bytes: Vec<u8>) -> Self {
         Self { bytes }
     }
+
     /// Contructor for encoding Cbor encodable structure
-    ///
-    /// ### Arguments
-    /// * `obj` - Cbor encodable type
-    pub fn serialize(obj: impl Cbor) -> Result<Self, EncodingError> {
+    pub fn serialize<O: ser::Serialize>(obj: O) -> Result<Self, EncodingError> {
         Ok(Self {
-            bytes: obj.marshal_cbor()?,
+            bytes: to_vec(&obj)?,
         })
     }
+
     /// Returns serialized bytes
     pub fn bytes(&self) -> Vec<u8> {
         self.bytes.clone()
-    }
-}
-
-/// Method parameters used in Actor execution
-#[derive(Default, Clone, PartialEq, Debug)]
-pub struct MethodParams {
-    params: Vec<Serialized>,
-}
-
-impl Deref for MethodParams {
-    type Target = Vec<Serialized>;
-    fn deref(&self) -> &Self::Target {
-        &self.params
-    }
-}
-
-impl DerefMut for MethodParams {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.params
     }
 }

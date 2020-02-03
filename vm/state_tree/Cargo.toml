@@ -5,10 +5,10 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-actor = {path = "../actor"}
-address = {path = "../address"}
-vm = {path = "../../vm"}
-cid = {path = "../../ipld/cid"}
+actor = { path = "../actor" }
+address = { package = "forest_address", path = "../address" }
+vm = { path = "../../vm" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
 
 [dev-dependencies]
-num-bigint = "0.2.3"
+num-bigint = { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
