@@ -144,7 +144,7 @@ impl ser::Serialize for BlockHeader {
             self.epost_verify.clone(),
             self.parents.clone(),
             self.weight.clone(),
-            self.epoch.clone(),
+            self.epoch,
             self.state_root.clone(),
             self.message_receipts.clone(),
             self.messages.clone(),
