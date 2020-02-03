@@ -189,7 +189,7 @@ where
             Node::Link { links, .. } => match &links[sub_i as usize] {
                 Some(Link::Cid(cid)) => {
                     // TODO after benchmarking check if cache should be updated from get
-                    let node: Node<V> = bs.get_typed::<Node<V>>(cid)?.ok_or_else(|| {
+                    let node: Node<V> = bs.get::<Node<V>>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?;
 
@@ -223,7 +223,7 @@ where
         if let Node::Link { links, bmap } = self {
             links[idx] = match &mut links[idx] {
                 Some(Link::Cid(cid)) => {
-                    let node = bs.get_typed::<Node<V>>(cid)?.ok_or_else(|| {
+                    let node = bs.get::<Node<V>>(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?;
 
@@ -297,7 +297,7 @@ where
             Self::Link { links, bmap } => {
                 let mut sub_node: Node<V> = match &links[sub_i as usize] {
                     Some(Link::Cached(n)) => *n.clone(),
-                    Some(Link::Cid(cid)) => bs.get_typed(cid)?.ok_or_else(|| {
+                    Some(Link::Cid(cid)) => bs.get(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?,
                     None => unreachable!("Bitmap value for index is set"),

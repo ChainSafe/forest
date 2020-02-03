@@ -36,7 +36,7 @@ where
     block_store: &'db DB,
 }
 
-impl<'db, DB: BlockStore, V> AMT<'db, DB, V>
+impl<'db, DB, V> AMT<'db, DB, V>
 where
     DB: BlockStore,
     V: Clone + DeserializeOwned + Serialize,
@@ -53,7 +53,7 @@ where
     pub fn load(block_store: &'db DB, cid: &Cid) -> Result<Self, Error> {
         // Load root bytes from database
         let root: Root<V> = block_store
-            .get_typed(cid)?
+            .get(cid)?
             .ok_or_else(|| Error::Db("Root not found in database".to_owned()))?;
 
         Ok(Self { root, block_store })
@@ -78,7 +78,7 @@ where
         t.flush()
     }
 
-    /// Get bytes at index of AMT
+    /// Get value at index of AMT
     pub fn get(&self, i: u64) -> Result<Option<V>, Error> {
         if i >= MAX_INDEX {
             return Err(Error::OutOfRange(i));
@@ -169,7 +169,7 @@ where
             let sub_node: Node<V> = match &self.root.node {
                 Node::Link { links, .. } => match &links[0] {
                     Some(Link::Cached(node)) => *node.clone(),
-                    Some(Link::Cid(cid)) => self.block_store.get_typed(cid)?.ok_or_else(|| {
+                    Some(Link::Cid(cid)) => self.block_store.get(cid)?.ok_or_else(|| {
                         Error::Cid("Cid did not match any in database".to_owned())
                     })?,
                     _ => unreachable!("Link index should match bitmap"),
