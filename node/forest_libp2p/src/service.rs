@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::behaviour::{MyBehaviour, MyBehaviourEvent};
+use super::behaviour::{ForestBehaviour, ForestBehaviourEvent};
 use super::config::Libp2pConfig;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
@@ -21,7 +21,7 @@ use std::time::Duration;
 use utils::{get_home_dir, read_file_to_vec, write_to_file};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
-type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
+type Libp2pBehaviour = ForestBehaviour<Substream<StreamMuxerBox>>;
 
 /// Events emitted by this Service
 #[derive(Clone, Debug)]
@@ -32,12 +32,18 @@ pub enum NetworkEvent {
         message: Vec<u8>,
     },
 }
+
+/// Events into this Service
+#[derive(Clone, Debug)]
+pub enum NetworkMessage {
+    PubsubMessage { topic: Topic, message: Vec<u8> },
+}
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
     swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
 
-    pubsub_receiver_in: Receiver<(Topic, Vec<u8>)>,
-    pubsub_sender_in: Sender<(Topic, Vec<u8>)>,
+    pubsub_receiver_in: Receiver<NetworkMessage>,
+    pubsub_sender_in: Sender<NetworkMessage>,
 
     pubsub_receiver_out: Receiver<NetworkEvent>,
     pubsub_sender_out: Sender<NetworkEvent>,
@@ -56,7 +62,7 @@ impl Libp2pService {
         let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
-            let be = MyBehaviour::new(log.clone(), &net_keypair);
+            let be = ForestBehaviour::new(log.clone(), &net_keypair);
             Swarm::new(transport, be, peer_id)
         };
 
@@ -98,20 +104,20 @@ impl Libp2pService {
     /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
     pub async fn run(self) -> Result<(), ()> {
         enum MergeEvent {
-            Swarm(MyBehaviourEvent),
-            Pubsub((Topic, Vec<u8>)),
+            Swarm(ForestBehaviourEvent),
+            RPC(NetworkMessage),
         };
         let mut swarm_stream = self.swarm.map(MergeEvent::Swarm).fuse();
-        let mut pubsub_stream = self.pubsub_receiver_in.map(MergeEvent::Pubsub).fuse();
+        let mut pubsub_stream = self.pubsub_receiver_in.map(MergeEvent::RPC).fuse();
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(MergeEvent::Swarm(event)) => match event {
-                    MyBehaviourEvent::DiscoveredPeer(peer) => {
+                    ForestBehaviourEvent::DiscoveredPeer(peer) => {
                         libp2p::Swarm::dial(&mut swarm_stream.get_mut().get_mut(), peer);
                     }
-                    MyBehaviourEvent::ExpiredPeer(_) => {}
-                    MyBehaviourEvent::GossipMessage {
+                    ForestBehaviourEvent::ExpiredPeer(_) => {}
+                    ForestBehaviourEvent::GossipMessage {
                         source,
                         topics,
                         message,
@@ -124,14 +130,16 @@ impl Libp2pService {
                         }).await;
                     }
                     }
-                    Some(MergeEvent::Pubsub(_)) => error!(self.log, "Should not happen"),
+                    Some(MergeEvent::RPC(_)) => unreachable!("This stream should never be able to receive RPC"),
                     None => ()
                 },
-                pubsub_event = pubsub_stream.next() => match pubsub_event {
-                    Some(MergeEvent::Pubsub(payload)) => {
-                       swarm_stream.get_mut().get_mut().publish(&payload.0, payload.1);
+                rpc_message = pubsub_stream.next() => match rpc_message {
+                    Some(MergeEvent::RPC(message)) =>  match message {
+                        NetworkMessage::PubsubMessage{topic, message} => {
+                            swarm_stream.get_mut().get_mut().publish(&topic, message);
+                        }
                     }
-                    Some(MergeEvent::Swarm(_)) => error!(self.log, "Should not happen"),
+                    Some(MergeEvent::Swarm(_)) => unreachable!("This stream should never be able to receive Swarm"),
                     None => ()
                 }
             };
@@ -139,7 +147,7 @@ impl Libp2pService {
     }
 
     /// Returns a `Sender` allowing you to send messages over GossipSub
-    pub fn pubsub_sender(&self) -> Sender<(Topic, Vec<u8>)> {
+    pub fn pubsub_sender(&self) -> Sender<NetworkMessage> {
         self.pubsub_sender_in.clone()
     }
 
