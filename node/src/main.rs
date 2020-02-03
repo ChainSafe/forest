@@ -6,7 +6,7 @@ mod log;
 
 use self::cli::cli;
 use async_std::task;
-use forest_libp2p::service::{Libp2pService};
+use forest_libp2p::service::Libp2pService;
 use slog::info;
 use std::error::Error;
 
@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let lp2p_service = Libp2pService::new(logger, &config.network);
 
     task::block_on(async move {
-        lp2p_service.run().await;
+        let _ = lp2p_service.run().await;
     });
 
     info!(log, "Forest finish shutdown");

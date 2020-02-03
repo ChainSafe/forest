@@ -4,7 +4,6 @@
 use super::{Error, TipIndex, TipSetMetadata};
 use blocks::{BlockHeader, Tipset};
 use cid::Cid;
-use forest_libp2p::service::NetworkEvent;
 use db::{Error as DbError, Read, RocksDb as Blockstore, Write};
 use encoding::from_slice;
 use num_bigint::BigUint;
