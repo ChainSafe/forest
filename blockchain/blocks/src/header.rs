@@ -117,7 +117,7 @@ pub struct BlockHeader {
 impl Cbor for BlockHeader {}
 
 #[derive(Serialize, Deserialize)]
-pub struct CborBlockHeader(
+struct CborBlockHeader(
     Address,    // miner_address
     Ticket,     // ticket
     EPostProof, // epost_verify
@@ -310,12 +310,12 @@ mod tests {
     use address::Address;
     use base64;
     use cid::Cid;
+    use clock::ChainEpoch;
     use crypto::{Signature, VRFResult};
     use encoding::from_slice;
     use encoding::to_vec;
     use num_bigint::BigUint;
     use std::convert::TryFrom;
-    use clock::ChainEpoch;
 
     // From Lotus
     const HEADER_BYTES: &[u8] = &[
