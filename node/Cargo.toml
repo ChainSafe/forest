@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-forest_libp2p = { path = "forest_libp2p"}
+forest_libp2p = { path = "forest_libp2p" }
 utils = { path = "utils" }
 db = { path = "db" }
 libp2p = "0.15.0"
