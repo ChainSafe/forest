@@ -8,7 +8,7 @@ use super::manager::SyncManager;
 use amt::{block_store::BlockStore, AMT};
 use blocks::{Block, FullTipset, TipSetKeys, Tipset};
 use chain::ChainStore;
-use cid::Cid;
+use cid::{Cid, Error as CidError};
 use libp2p::core::PeerId;
 use message::MsgMeta;
 use raw_block::RawBlock;
@@ -75,12 +75,9 @@ impl<'a> Syncer<'a> {
     }
     /// Returns message root CID from bls and secp message contained in the param Block
     fn compute_msg_data(&self, block: &Block) -> Result<Cid, Error> {
-        // retrieve bls and secp messages
-        let bls_msgs = block.bls_msgs();
-        let secp_msgs = block.secp_msgs();
         // collect bls and secp cids
-        let bls_cids = bls_msgs.iter().map(|x| x.cid()).collect::<Vec<_>>();
-        let secp_cids = secp_msgs.iter().map(|x| x.cid()).collect::<Vec<_>>();
+        let bls_cids = cids_from_messages(block.bls_msgs())?;
+        let secp_cids = cids_from_messages(block.secp_msgs())?;
         // generate AMT and batch set message values
         let bls_root = AMT::new_from_slice(&self.chain_store.db, &bls_cids)?;
         let secp_root = AMT::new_from_slice(&self.chain_store.db, &secp_cids)?;
@@ -125,4 +122,8 @@ impl<'a> Syncer<'a> {
         let fts = FullTipset::new(blocks);
         Ok(fts)
     }
+}
+
+pub fn cids_from_messages<T: RawBlock>(messages: &[T]) -> Result<Vec<Cid>, CidError> {
+    messages.iter().map(RawBlock::cid).collect()
 }

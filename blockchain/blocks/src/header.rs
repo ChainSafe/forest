@@ -213,7 +213,7 @@ impl RawBlock for BlockHeader {
 
 impl BlockHeader {
     /// Generates a BlockHeader builder as a constructor
-    pub fn builder() -> BlockHeaderBuilder {
+    fn builder() -> BlockHeaderBuilder {
         BlockHeaderBuilder::default()
     }
     /// Getter for BlockHeader parents

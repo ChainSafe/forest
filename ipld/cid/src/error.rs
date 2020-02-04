@@ -4,10 +4,9 @@
 use encoding::Error as EncodingError;
 use multibase;
 use multihash;
-use serde::{Deserialize, Serialize};
 use std::{error, fmt, io};
 /// Error types
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Error {
     UnknownCodec,
     InputTooShort,
