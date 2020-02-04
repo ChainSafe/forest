@@ -11,6 +11,7 @@ pub use self::error::Error;
 pub use self::version::Version;
 use encoding::{de, ser, serde_bytes, tags::Tagged, Cbor};
 use integer_encoding::{VarIntReader, VarIntWriter};
+pub use multihash;
 use multihash::{Hash, Multihash};
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
@@ -104,6 +105,17 @@ impl Cid {
             codec: Codec::DagCBOR,
             mh_type: Hash::Blake2b512,
             mh_len: 64 - 1, // TODO verify cid hash length and type
+        };
+        Ok(Self::new_from_prefix(&prefix, bz)?)
+    }
+
+    /// Constructs a cid with bytes using default version and codec
+    pub fn from_bytes(bz: &[u8], hash: Hash) -> Result<Self, Error> {
+        let prefix = Prefix {
+            version: Version::V1,
+            codec: Codec::DagCBOR,
+            mh_type: hash,
+            mh_len: (hash.size()) as usize,
         };
         Ok(Self::new_from_prefix(&prefix, bz)?)
     }

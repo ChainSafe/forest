@@ -19,4 +19,4 @@ message = { package = "forest_message", path = "../../vm/message" }
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
 crypto = { path = "../../crypto" }
-multihash = "0.9.3"
+multihash = "0.9.4"
