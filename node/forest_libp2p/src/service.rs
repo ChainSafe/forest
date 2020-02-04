@@ -103,43 +103,37 @@ impl Libp2pService {
 
     /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
     pub async fn run(self) {
-        enum MergeEvent {
-            Swarm(ForestBehaviourEvent),
-            RPC(NetworkMessage),
-        };
-        let mut swarm_stream = self.swarm.map(MergeEvent::Swarm).fuse();
-        let mut pubsub_stream = self.pubsub_receiver_in.map(MergeEvent::RPC).fuse();
+        let mut swarm_stream = self.swarm.fuse();
+        let mut pubsub_stream = self.pubsub_receiver_in.fuse();
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
-                    Some(MergeEvent::Swarm(event)) => match event {
-                    ForestBehaviourEvent::DiscoveredPeer(peer) => {
-                        libp2p::Swarm::dial(&mut swarm_stream.get_mut().get_mut(), peer);
-                    }
-                    ForestBehaviourEvent::ExpiredPeer(_) => {}
-                    ForestBehaviourEvent::GossipMessage {
-                        source,
-                        topics,
-                        message,
-                    } => {
-                        info!(self.log, "Got a Gossip Message from {:?}", source);
-                        self.pubsub_sender_out.send(NetworkEvent::PubsubMessage {
+                    Some(event) => match event {
+                        ForestBehaviourEvent::DiscoveredPeer(peer) => {
+                            libp2p::Swarm::dial(&mut swarm_stream.get_mut(), peer);
+                        }
+                        ForestBehaviourEvent::ExpiredPeer(_) => {}
+                        ForestBehaviourEvent::GossipMessage {
                             source,
                             topics,
-                            message
-                        }).await;
+                            message,
+                        } => {
+                            info!(self.log, "Got a Gossip Message from {:?}", source);
+                            self.pubsub_sender_out.send(NetworkEvent::PubsubMessage {
+                                source,
+                                topics,
+                                message
+                            }).await;
+                        }
                     }
-                    }
-                    Some(MergeEvent::RPC(_)) => unreachable!("This stream should never be able to receive RPC"),
                     None => {break;}
                 },
                 rpc_message = pubsub_stream.next() => match rpc_message {
-                    Some(MergeEvent::RPC(message)) =>  match message {
+                    Some(message) =>  match message {
                         NetworkMessage::PubsubMessage{topic, message} => {
-                            swarm_stream.get_mut().get_mut().publish(&topic, message);
+                            swarm_stream.get_mut().publish(&topic, message);
                         }
                     }
-                    Some(MergeEvent::Swarm(_)) => unreachable!("This stream should never be able to receive Swarm"),
                     None => {break;}
                 }
             };
@@ -161,7 +155,6 @@ impl Libp2pService {
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
-
     transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(secio::SecioConfig::new(local_key))
@@ -177,7 +170,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 
 /// Fetch keypair from disk, or generate a new one if its not available
 fn get_keypair(log: &Logger) -> Keypair {
-    let path_to_keystore = get_home_dir() + "/.forest/libp2p/keypair";
+    let path_to_keystore = get_home_dir() + "/.forest1/libp2p/keypair";
     let local_keypair = match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
             info!(log, "Networking keystore not found!");
@@ -206,7 +199,7 @@ fn get_keypair(log: &Logger) -> Keypair {
 
 /// Generates a new libp2p keypair and saves to disk
 fn generate_new_peer_id(log: &Logger) -> Keypair {
-    let path_to_keystore = get_home_dir() + "/.forest/libp2p/";
+    let path_to_keystore = get_home_dir() + "/.forest1/libp2p/";
     let generated_keypair = Keypair::generate_ed25519();
     info!(log, "Generated new keystore!");
 
