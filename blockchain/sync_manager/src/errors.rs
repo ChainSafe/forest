@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use amt::Error as AmtErr;
 use blocks::Error as BlkErr;
 use chain::Error as StoreErr;
 use cid::Error as CidErr;
@@ -43,6 +44,7 @@ impl fmt::Display for Error {
             Error::Encoding(msg) => write!(f, "Error originating from Encoding type: {}", msg),
             Error::InvalidCid(msg) => write!(f, "Error originating from CID construction: {}", msg),
             Error::Store(msg) => write!(f, "Error originating from ChainStore: {}", msg),
+            Error::AMT(msg) => write!(f, "Error originating from the AMT: {}", msg),
         }
     }
 }
@@ -80,5 +82,11 @@ impl From<CidErr> for Error {
 impl From<StoreErr> for Error {
     fn from(e: StoreErr) -> Error {
         Error::Store(e.to_string())
+    }
+}
+
+impl From<AmtErr> for Error {
+    fn from(e: AmtErr) -> Error {
+        Error::AMT(e.to_string())
     }
 }

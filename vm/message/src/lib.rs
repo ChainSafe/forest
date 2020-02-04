@@ -10,7 +10,9 @@ pub use signed_message::*;
 pub use unsigned_message::*;
 
 use address::Address;
+use cid::Cid;
 use num_bigint::BigUint;
+use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 pub trait Message {
@@ -30,4 +32,10 @@ pub trait Message {
     fn gas_price(&self) -> &BigUint;
     /// Returns the gas limit for the message
     fn gas_limit(&self) -> &BigUint;
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MsgMeta {
+    pub bls_message_root: Cid,
+    pub secp_message_root: Cid,
 }

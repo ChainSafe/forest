@@ -8,7 +8,7 @@
 
 mod amt;
 mod bitmap;
-mod block_store;
+pub mod block_store;
 mod error;
 mod node;
 mod root;

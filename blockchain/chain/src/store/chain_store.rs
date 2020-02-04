@@ -135,7 +135,8 @@ impl<'a> ChainStore<'a> {
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
         // TODO read_msg_cids from message root; returns bls_cids and secp_cids
         // let (blscids, secpkcids) = read_msg_cids(bh.messages())
-        // temporarily using vec!(bh.message_receipts() until read_msg_cids is completed with AMT/HAMT
+        // temporarily using vec!(bh.message_receipts() until read_msg_cids is completed with HAMT
+
         let bls_msgs: Vec<UnsignedMessage> = self.messages_from_cids(Vec::new())?;
         let secp_msgs: Vec<SignedMessage> = self.messages_from_cids(Vec::new())?;
         Ok((bls_msgs, secp_msgs))
