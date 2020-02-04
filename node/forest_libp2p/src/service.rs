@@ -1,15 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::behaviour::{MyBehaviour, MyBehaviourEvent};
+use super::behaviour::{ForestBehaviour, ForestBehaviourEvent};
 use super::config::Libp2pConfig;
-use futures::{Async, Stream};
+use async_std::sync::{channel, Receiver, Sender};
+use futures::select;
+use futures_util::stream::StreamExt;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
     core::nodes::Substream,
     core::transport::boxed::Boxed,
-    gossipsub::TopicHash,
+    gossipsub::{Topic, TopicHash},
     identity::{ed25519, Keypair},
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
@@ -17,18 +19,42 @@ use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 use utils::{get_home_dir, read_file_to_vec, write_to_file};
-type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
-type Libp2pBehaviour = MyBehaviour<Substream<StreamMuxerBox>>;
 
+type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
+type Libp2pBehaviour = ForestBehaviour<Substream<StreamMuxerBox>>;
+
+/// Events emitted by this Service
+#[derive(Clone, Debug)]
+pub enum NetworkEvent {
+    PubsubMessage {
+        source: PeerId,
+        topics: Vec<TopicHash>,
+        message: Vec<u8>,
+    },
+}
+
+/// Events into this Service
+#[derive(Clone, Debug)]
+pub enum NetworkMessage {
+    PubsubMessage { topic: Topic, message: Vec<u8> },
+}
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
-    pub swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
+    swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
+
+    pubsub_receiver_in: Receiver<NetworkMessage>,
+    pubsub_sender_in: Sender<NetworkMessage>,
+
+    pubsub_receiver_out: Receiver<NetworkEvent>,
+    pubsub_sender_out: Sender<NetworkEvent>,
+
+    log: Logger,
 }
 
 impl Libp2pService {
     /// Constructs a Libp2pService
-    pub fn new(log: &Logger, config: &Libp2pConfig) -> Self {
-        let net_keypair = get_keypair(log);
+    pub fn new(log: Logger, config: &Libp2pConfig) -> Self {
+        let net_keypair = get_keypair(&log);
         let peer_id = PeerId::from(net_keypair.public());
 
         info!(log, "Local peer id: {:?}", peer_id);
@@ -36,7 +62,7 @@ impl Libp2pService {
         let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
-            let be = MyBehaviour::new(log.clone(), &net_keypair);
+            let be = ForestBehaviour::new(log.clone(), &net_keypair);
             Swarm::new(transport, be, peer_id)
         };
 
@@ -63,58 +89,72 @@ impl Libp2pService {
             swarm.subscribe(topic);
         }
 
-        Libp2pService { swarm }
+        let (pubsub_sender_in, pubsub_receiver_in) = channel(20);
+        let (pubsub_sender_out, pubsub_receiver_out) = channel(20);
+        Libp2pService {
+            swarm,
+            pubsub_receiver_in,
+            pubsub_sender_in,
+            pubsub_receiver_out,
+            pubsub_sender_out,
+            log,
+        }
     }
-}
 
-impl Stream for Libp2pService {
-    type Item = NetworkEvent;
-    type Error = ();
-
-    /// Continuously polls the Libp2p swarm to get events
-    fn poll(&mut self) -> Result<Async<Option<Self::Item>>, Self::Error> {
+    /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
+    pub async fn run(self) {
+        let mut swarm_stream = self.swarm.fuse();
+        let mut pubsub_stream = self.pubsub_receiver_in.fuse();
         loop {
-            match self.swarm.poll() {
-                Ok(Async::Ready(Some(event))) => match event {
-                    MyBehaviourEvent::DiscoveredPeer(peer) => {
-                        libp2p::Swarm::dial(&mut self.swarm, peer);
-                    }
-                    MyBehaviourEvent::ExpiredPeer(_) => {}
-                    MyBehaviourEvent::GossipMessage {
-                        source,
-                        topics,
-                        message,
-                    } => {
-                        return Ok(Async::Ready(Option::from(NetworkEvent::PubsubMessage {
+            select! {
+                swarm_event = swarm_stream.next() => match swarm_event {
+                    Some(event) => match event {
+                        ForestBehaviourEvent::DiscoveredPeer(peer) => {
+                            libp2p::Swarm::dial(&mut swarm_stream.get_mut(), peer);
+                        }
+                        ForestBehaviourEvent::ExpiredPeer(_) => {}
+                        ForestBehaviourEvent::GossipMessage {
                             source,
                             topics,
                             message,
-                        })));
+                        } => {
+                            info!(self.log, "Got a Gossip Message from {:?}", source);
+                            self.pubsub_sender_out.send(NetworkEvent::PubsubMessage {
+                                source,
+                                topics,
+                                message
+                            }).await;
+                        }
                     }
+                    None => {break;}
                 },
-                Ok(Async::Ready(None)) => break,
-                Ok(Async::NotReady) => break,
-                _ => break,
-            }
+                rpc_message = pubsub_stream.next() => match rpc_message {
+                    Some(message) =>  match message {
+                        NetworkMessage::PubsubMessage{topic, message} => {
+                            swarm_stream.get_mut().publish(&topic, message);
+                        }
+                    }
+                    None => {break;}
+                }
+            };
         }
-        Ok(Async::NotReady)
+    }
+
+    /// Returns a `Sender` allowing you to send messages over GossipSub
+    pub fn pubsub_sender(&self) -> Sender<NetworkMessage> {
+        self.pubsub_sender_in.clone()
+    }
+
+    /// Returns a `Receiver` to listen to GossipSub messages
+    pub fn pubsub_receiver(&self) -> Receiver<NetworkEvent> {
+        self.pubsub_receiver_out.clone()
     }
 }
 
-/// Events emitted by this Service to be listened by the NetworkService.
-#[derive(Clone)]
-pub enum NetworkEvent {
-    PubsubMessage {
-        source: PeerId,
-        topics: Vec<TopicHash>,
-        message: Vec<u8>,
-    },
-}
-
+/// Builds the transport stack that LibP2P will communicate over
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
-    let transport = libp2p::dns::DnsConfig::new(transport);
-
+    let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
     transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(secio::SecioConfig::new(local_key))

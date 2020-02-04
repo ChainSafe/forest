@@ -5,30 +5,25 @@ mod cli;
 mod log;
 
 use self::cli::cli;
-use forest_libp2p::service::NetworkEvent;
-use futures::prelude::*;
-use network::service::NetworkService;
+use async_std::task;
+use forest_libp2p::service::Libp2pService;
 use slog::info;
-use tokio::runtime::Runtime;
-use tokio::sync::mpsc;
 
-fn main() {
+#[async_std::main]
+async fn main() {
     let log = log::setup_logging();
     info!(log, "Starting Forest");
 
     // Capture CLI inputs
     let config = cli(&log).expect("CLI error");
 
-    // Create the tokio runtime
-    let rt = Runtime::new().unwrap();
+    let logger = log.clone();
 
-    // Create the channel so we can receive messages from NetworkService
-    let (tx, _rx) = mpsc::unbounded_channel::<NetworkEvent>();
-    // Create the default libp2p config
-    // Start the NetworkService. Returns net_tx so  you can pass messages in.
-    let (_network_service, _net_tx, _exit_tx) =
-        NetworkService::new(&config.network, &log, tx, &rt.executor());
+    let lp2p_service = Libp2pService::new(logger, &config.network);
 
-    rt.shutdown_on_idle().wait().unwrap();
+    task::block_on(async move {
+        lp2p_service.run().await;
+    });
+
     info!(log, "Forest finish shutdown");
 }
