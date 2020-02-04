@@ -213,7 +213,7 @@ impl RawBlock for BlockHeader {
 
 impl BlockHeader {
     /// Generates a BlockHeader builder as a constructor
-    fn builder() -> BlockHeaderBuilder {
+    pub fn builder() -> BlockHeaderBuilder {
         BlockHeaderBuilder::default()
     }
     /// Getter for BlockHeader parents
@@ -396,7 +396,7 @@ mod tests {
         assert_eq!(&header_bytes, &HEADER_BYTES)
     }
 
-    pub fn build_header() -> BlockHeader {
+    fn build_header() -> BlockHeader {
         let vrf_result = VRFResult::new(base64::decode("lmRJLzDpuVA7cUELHTguK9SFf+IVOaySG8t/0IbVeHHm3VwxzSNhi1JStix7REw6Apu6rcJQV1aBBkd39gQGxP8Abzj8YXH+RdSD5RV50OJHi35f3ixR0uhkY6+G08vV").unwrap());
         let ticket = Ticket::new(vrf_result);
 
