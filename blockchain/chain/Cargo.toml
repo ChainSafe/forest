@@ -5,9 +5,9 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+forest_libp2p = { path = "../../node/forest_libp2p" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
-network = { path = "../../node/network" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 clock = { path = "../../node/clock" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
