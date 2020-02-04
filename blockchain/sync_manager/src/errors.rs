@@ -23,6 +23,8 @@ pub enum Error {
     Store(String),
     /// Error originating from key-value store
     KeyValueStore(String),
+    /// Error originating from the AMT
+    AMT(String),
 }
 
 impl fmt::Display for Error {

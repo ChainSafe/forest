@@ -5,11 +5,11 @@
 
 use super::errors::Error;
 use super::manager::SyncManager;
+use amt::AMT;
 use blocks::{Block, FullTipset, TipSetKeys, Tipset};
 use chain::ChainStore;
-use cid::{Cid, Codec, Error as CidError, Version};
+use cid::{Cid, Error as CidError};
 use libp2p::core::PeerId;
-use multihash::Multihash;
 use raw_block::RawBlock;
 
 pub struct Syncer<'a> {
@@ -25,6 +25,11 @@ pub struct Syncer<'a> {
     _genesis: Tipset,
     // self peerId
     _own: PeerId,
+}
+
+struct MsgMeta {
+    bls_message_root: Cid,
+    secp_message_root: Cid,
 }
 
 impl<'a> Syncer<'a> {
@@ -74,16 +79,31 @@ impl<'a> Syncer<'a> {
     }
     /// Returns message root CID from bls and secp message contained in the param Block
     fn compute_msg_data(&self, block: &Block) -> Result<Cid, CidError> {
-        // TODO compute message roots
+        let bls_msgs = block.bls_msgs();
+        let secp_msgs = block.secp_msgs();
 
-        let _bls_cids = cids_from_messages(block.bls_msgs())?;
-        let _secp_cids = cids_from_messages(block.secp_msgs())?;
+        let mut bls_cids = Vec::new();
+        for bls_msg in bls_msgs {
+            bls_cids.push(bls_msg.cid());
+        }
 
-        // TODO temporary until AMT structure is implemented
-        // see Lotus implementation https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L338
-        // will return a new CID representing both message roots
-        let hash = Multihash::from_bytes(vec![0, 0]);
-        Ok(Cid::new(Codec::DagCBOR, Version::V1, hash.unwrap()))
+        let mut secp_cids = Vec::new();
+        for secp_msg in secp_msgs {
+            secp_cids.push(secp_msg.cid());
+        }
+
+        let mut amt = AMT::new(&self.chain_store.db);
+        let bls_root = AMT::new_from_slice(&self.chain_store.db, &bls_cids)?;
+        let secp_root = AMT::new_from_slice(&self.chain_store.db, &secp_cids)?;
+
+        let meta = MsgMeta {
+            bls_message_root: bls_root,
+            secp_message_root: secp_root,
+        };
+
+        let mrcid = self.chain_store.db.put(&meta);
+
+        Ok(mrcid)
     }
     /// Returns FullTipset from store if TipSetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
