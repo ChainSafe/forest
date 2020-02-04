@@ -8,7 +8,7 @@ use super::manager::SyncManager;
 use amt::{block_store::BlockStore, AMT};
 use blocks::{Block, FullTipset, TipSetKeys, Tipset};
 use chain::ChainStore;
-use cid::{Cid, Error as CidError};
+use cid::Cid;
 use libp2p::core::PeerId;
 use message::MsgMeta;
 use raw_block::RawBlock;
@@ -125,8 +125,4 @@ impl<'a> Syncer<'a> {
         let fts = FullTipset::new(blocks);
         Ok(fts)
     }
-}
-
-pub fn cids_from_messages<T: RawBlock>(messages: &[T]) -> Result<Vec<Cid>, CidError> {
-    messages.iter().map(RawBlock::cid).collect()
 }
