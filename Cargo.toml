@@ -17,5 +17,6 @@ members = [
     "crypto",
     "encoding",
     "ipld/cid",
+    "ipld/amt",
     "ipld",
 ]
