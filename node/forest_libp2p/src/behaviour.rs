@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use futures::Async;
+use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -12,24 +12,25 @@ use libp2p::ping::{
     Ping, PingEvent,
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
-use libp2p::tokio_io::{AsyncRead, AsyncWrite};
 use libp2p::NetworkBehaviour;
 use slog::{debug, Logger};
+use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "MyBehaviourEvent", poll_method = "poll")]
-pub struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
+#[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
+pub struct ForestBehaviour<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> {
     pub gossipsub: Gossipsub<TSubstream>,
     pub mdns: Mdns<TSubstream>,
     pub ping: Ping<TSubstream>,
     pub identify: Identify<TSubstream>,
     #[behaviour(ignore)]
-    events: Vec<MyBehaviourEvent>,
+    events: Vec<ForestBehaviourEvent>,
     #[behaviour(ignore)]
     log: Logger,
 }
 
-pub enum MyBehaviourEvent {
+#[derive(Debug)]
+pub enum ForestBehaviourEvent {
     DiscoveredPeer(PeerId),
     ExpiredPeer(PeerId),
     GossipMessage {
@@ -39,20 +40,20 @@ pub enum MyBehaviourEvent {
     },
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
-    for MyBehaviour<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+    NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour<TSubstream>
 {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
             MdnsEvent::Discovered(list) => {
                 for (peer, _) in list {
-                    self.events.push(MyBehaviourEvent::DiscoveredPeer(peer))
+                    self.events.push(ForestBehaviourEvent::DiscoveredPeer(peer))
                 }
             }
             MdnsEvent::Expired(list) => {
                 for (peer, _) in list {
                     if !self.mdns.has_node(&peer) {
-                        self.events.push(MyBehaviourEvent::ExpiredPeer(peer))
+                        self.events.push(ForestBehaviourEvent::ExpiredPeer(peer))
                     }
                 }
             }
@@ -60,12 +61,12 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubEvent>
-    for MyBehaviour<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+    NetworkBehaviourEventProcess<GossipsubEvent> for ForestBehaviour<TSubstream>
 {
     fn inject_event(&mut self, message: GossipsubEvent) {
         if let GossipsubEvent::Message(_, _, message) = message {
-            self.events.push(MyBehaviourEvent::GossipMessage {
+            self.events.push(ForestBehaviourEvent::GossipMessage {
                 source: message.source,
                 topics: message.topics,
                 message: message.data,
@@ -74,8 +75,8 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<GossipsubE
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
-    for MyBehaviour<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+    NetworkBehaviourEventProcess<PingEvent> for ForestBehaviour<TSubstream>
 {
     fn inject_event(&mut self, event: PingEvent) {
         match event.result {
@@ -109,8 +110,8 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<PingEvent>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEvent>
-    for MyBehaviour<TSubstream>
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+    NetworkBehaviourEventProcess<IdentifyEvent> for ForestBehaviour<TSubstream>
 {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
@@ -132,25 +133,26 @@ impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<IdentifyEv
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
+impl<TSubstream: AsyncRead + AsyncWrite + Send + Unpin + 'static> ForestBehaviour<TSubstream> {
     /// Consumes the events list when polled.
     fn poll<TBehaviourIn>(
         &mut self,
-    ) -> Async<NetworkBehaviourAction<TBehaviourIn, MyBehaviourEvent>> {
+        _: &mut Context,
+    ) -> Poll<NetworkBehaviourAction<TBehaviourIn, ForestBehaviourEvent>> {
         if !self.events.is_empty() {
-            return Async::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
+            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
         }
-        Async::NotReady
+        Poll::Pending
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite> MyBehaviour<TSubstream> {
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviour<TSubstream> {
     pub fn new(log: Logger, local_key: &Keypair) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
-        MyBehaviour {
+        ForestBehaviour {
             gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
-            mdns: Mdns::new().expect("Failed to create mDNS service"),
+            mdns: Mdns::new().expect("Could not start mDNS"),
             ping: Ping::default(),
             identify: Identify::new("forest/libp2p".into(), "0.0.1".into(), local_key.public()),
             log,

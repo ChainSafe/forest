@@ -5,5 +5,5 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+libp2p = "0.15.0"
 blocks = { package = "forest_blocks", path = "../blocks" }
-libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "776d13ef046358964c7d64cda3295a3a3cb24743" }
