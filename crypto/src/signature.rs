@@ -10,11 +10,13 @@ use encoding::{blake2b_256, de, ser, serde_bytes};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
-use std::ops::Deref;
 
-pub const BLS_SIG_LEN: usize = 96; // bytes
-pub const BLS_PUB_LEN: usize = 48; // bytes
+/// BLS signature length in bytes
+pub const BLS_SIG_LEN: usize = 96;
+/// BLS Public key length in bytes
+pub const BLS_PUB_LEN: usize = 48;
 
+/// Signature variants for Forest signatures
 #[derive(Clone, Debug, PartialEq, FromPrimitive, Copy)]
 pub enum SignatureType {
     Secp256 = 1,
@@ -40,14 +42,6 @@ impl SignatureType {
 pub struct Signature {
     sig_type: SignatureType,
     bytes: Vec<u8>,
-}
-
-impl Deref for Signature {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.bytes
-    }
 }
 
 impl ser::Serialize for Signature {
@@ -94,10 +88,20 @@ impl Signature {
             bytes,
         }
     }
+
+    /// Returns reference to signature bytes
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Returns reference to signature type
+    pub fn signature_type(&self) -> SignatureType {
+        self.sig_type
+    }
 }
 
 /// Checks if a signature is valid given data and address
-pub fn is_valid_signature(data: &[u8], addr: Address, sig: Signature) -> bool {
+pub fn is_valid_signature(data: &[u8], addr: &Address, sig: &Signature) -> bool {
     match addr.protocol() {
         Protocol::BLS => verify_bls_sig(data, addr.payload(), sig),
         Protocol::Secp256k1 => verify_secp256k1_sig(data, addr, sig),
@@ -106,8 +110,8 @@ pub fn is_valid_signature(data: &[u8], addr: Address, sig: Signature) -> bool {
 }
 
 /// Returns true if a bls signature is valid
-pub(crate) fn verify_bls_sig(data: &[u8], pub_k: Vec<u8>, sig: Signature) -> bool {
-    if pub_k.len() != BLS_PUB_LEN || sig.len() != BLS_SIG_LEN {
+pub(crate) fn verify_bls_sig(data: &[u8], pub_k: &[u8], sig: &Signature) -> bool {
+    if pub_k.len() != BLS_PUB_LEN || sig.bytes().len() != BLS_SIG_LEN {
         // validates pubkey length and signature length for protocol
         return false;
     }
@@ -121,7 +125,7 @@ pub(crate) fn verify_bls_sig(data: &[u8], pub_k: Vec<u8>, sig: Signature) -> boo
         Err(_) => return false,
     };
     // generate signature struct from bytes
-    let sig = match BlsSignature::from_bytes(sig.as_ref()) {
+    let sig = match BlsSignature::from_bytes(sig.bytes()) {
         Ok(v) => v,
         Err(_) => return false,
     };
@@ -131,18 +135,18 @@ pub(crate) fn verify_bls_sig(data: &[u8], pub_k: Vec<u8>, sig: Signature) -> boo
 }
 
 /// Returns true if a secp256k1 signature is valid
-fn verify_secp256k1_sig(data: &[u8], addr: Address, sig: Signature) -> bool {
+fn verify_secp256k1_sig(data: &[u8], addr: &Address, sig: &Signature) -> bool {
     // blake2b 256 hash
     let hash = blake2b_256(data);
 
     // Ecrecover with hash and signature
     let mut signature = [0u8; 65];
-    signature[..].clone_from_slice(sig.as_ref());
+    signature[..].clone_from_slice(sig.bytes());
     let rec_addr = ecrecover(&hash, &signature);
 
     // check address against recovered address
     match rec_addr {
-        Ok(r) => addr == r,
+        Ok(r) => addr == &r,
         Err(_) => false,
     }
 }
@@ -196,14 +200,14 @@ mod tests {
         let addr = Address::new_bls(pk.as_bytes()).unwrap();
 
         assert_eq!(
-            is_valid_signature(&msg, addr, Signature::new_bls(signature_bytes.clone())),
+            is_valid_signature(&msg, &addr, &Signature::new_bls(signature_bytes.clone())),
             true
         );
         assert_eq!(
             verify_bls_sig(
                 &msg,
-                pk.as_bytes(),
-                Signature::new_bls(signature_bytes.clone())
+                &pk.as_bytes(),
+                &Signature::new_bls(signature_bytes.clone())
             ),
             true
         );
