@@ -18,4 +18,5 @@ forest_blocks = { path = "../../blockchain/blocks" }
 forest_message = { path = "../../vm/message" }
 forest_encoding = { path = "../../encoding" }
 forest_cid  = { path = "../../ipld/cid" }
+bytes = "0.5.2"
 #blocksync = { path = "blocksync" }

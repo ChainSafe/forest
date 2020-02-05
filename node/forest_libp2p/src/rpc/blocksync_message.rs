@@ -1,11 +1,10 @@
 use forest_blocks::BlockHeader;
+use forest_cid::Cid;
 use forest_encoding::{
     de::{self, Deserialize, Deserializer},
     ser::{self, Serialize, Serializer},
 };
-use forest_encoding::{to_vec, Cbor};
 use forest_message::{SignedMessage, UnsignedMessage};
-use forest_cid::Cid;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Message {
@@ -16,8 +15,8 @@ pub struct Message {
 
 impl Serialize for Message {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         let value = (self.start.clone(), self.request_len, self.options);
         ser::Serialize::serialize(&value, serializer)
@@ -25,8 +24,8 @@ impl Serialize for Message {
 }
 impl<'de> Deserialize<'de> for Message {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let (start, request_len, options) = Deserialize::deserialize(deserializer)?;
         Ok(Message {
@@ -46,8 +45,8 @@ pub struct Response {
 
 impl Serialize for Response {
     fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         let value = (self.chain.clone(), self.status, self.message.clone());
         Serialize::serialize(&value, serializer)
@@ -55,8 +54,8 @@ impl Serialize for Response {
 }
 impl<'de> Deserialize<'de> for Response {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let (chain, status, message) = Deserialize::deserialize(deserializer)?;
         Ok(Response {
@@ -79,8 +78,8 @@ pub struct TipSetBundle {
 
 impl ser::Serialize for TipSetBundle {
     fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         let value = (
             self.blocks.clone(),
@@ -95,8 +94,8 @@ impl ser::Serialize for TipSetBundle {
 
 impl<'de> de::Deserialize<'de> for TipSetBundle {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let (blocks, secp_msgs, secp_msg_includes, bls_msgs, bls_msg_includes) =
             Deserialize::deserialize(deserializer)?;
