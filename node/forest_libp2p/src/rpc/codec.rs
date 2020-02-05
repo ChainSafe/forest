@@ -2,14 +2,27 @@ use super::rpc_message::{RPCRequest, RPCResponse};
 use bytes::BytesMut;
 use forest_encoding::{from_slice, to_vec};
 use futures_codec::{Decoder, Encoder};
+use std::fmt;
 
 pub struct InboundCodec;
 pub struct OutboundCodec;
 
+#[derive(Debug)]
 pub struct RPCError;
 impl From<std::io::Error> for RPCError {
     fn from(_: std::io::Error) -> Self {
         Self
+    }
+}
+impl fmt::Display for RPCError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Libp2pError")
+    }
+}
+
+impl std::error::Error for RPCError {
+    fn description(&self) -> &str {
+        "Libp2p RPC Error"
     }
 }
 
