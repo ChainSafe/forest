@@ -7,9 +7,15 @@ edition = "2018"
 [dependencies]
 utils = { path = "../utils" }
 libp2p = "0.15.0"
-futures = "0.3.1"
+futures = "0.3.2"
 futures-util = "0.3.1"
+futures_codec = "0.4.0"
 log = "0.4.8"
 slog = "2.5.2"
 async-std = { version  = "1.4.0", features = ["unstable"] }
 serde = { version = "1.0", features = ["derive"] }
+forest_blocks = { path = "../../blockchain/blocks" }
+forest_message = { path = "../../vm/message" }
+forest_encoding = { path = "../../encoding" }
+forest_cid  = { path = "../../ipld/cid" }
+#blocksync = { path = "blocksync" }
