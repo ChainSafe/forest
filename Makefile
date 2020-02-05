@@ -6,7 +6,6 @@ clean:
 	@cargo clean -p node
 	@cargo clean -p clock
 	@cargo clean -p forest_libp2p
-	@cargo clean -p network
 	@cargo clean -p blockchain
 	@cargo clean -p forest_blocks
 	@cargo clean -p chain_sync
@@ -23,6 +22,7 @@ clean:
 	@cargo clean -p forest_cid
 	@cargo clean -p forest_ipld
 	@cargo clean -p ipld_hamt
+	@cargo clean -p ipld_amt
 	@echo "Done cleaning."
 
 lint: clean license

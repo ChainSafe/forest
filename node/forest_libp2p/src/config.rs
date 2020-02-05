@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use libp2p::gossipsub::Topic;
 use serde::Deserialize;
@@ -9,7 +9,6 @@ use serde::Deserialize;
 pub struct Libp2pConfig {
     pub listening_multiaddr: String,
     pub bootstrap_peers: Vec<String>,
-
     #[serde(skip_deserializing)] // Always use default
     pub pubsub_topics: Vec<Topic>,
 }

@@ -8,4 +8,4 @@ edition = "2018"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 serde = { version = "1.0", features = ["derive"] }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-multihash = "0.9.3"
+multihash = "0.9.4"

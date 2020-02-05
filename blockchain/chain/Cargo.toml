@@ -5,9 +5,9 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+forest_libp2p = { path = "../../node/forest_libp2p" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
-network = { path = "../../node/network" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 clock = { path = "../../node/clock" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
@@ -19,4 +19,4 @@ message = { package = "forest_message", path = "../../vm/message" }
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
 crypto = { path = "../../crypto" }
-multihash = "0.9.3"
+multihash = "0.9.4"

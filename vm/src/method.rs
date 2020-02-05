@@ -1,5 +1,5 @@
 // Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de, ser, serde_bytes, to_vec, Error as EncodingError};
 use serde::{Deserialize, Serialize};
