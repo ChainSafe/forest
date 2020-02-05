@@ -3,7 +3,6 @@
 
 #![allow(unused_variables)]
 #![allow(dead_code)]
-
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
@@ -37,6 +36,10 @@ impl TipSetKeys {
             }
         }
         true
+    }
+    /// Returns tipset keys
+    pub fn tipset_keys(&self) -> &[Cid] {
+        &self.cids
     }
 }
 
