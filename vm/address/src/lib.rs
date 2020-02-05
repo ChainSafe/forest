@@ -102,12 +102,12 @@ impl Address {
         self.protocol
     }
     /// Returns data payload of Address
-    pub fn payload(&self) -> Vec<u8> {
-        self.payload.clone()
+    pub fn payload(&self) -> &[u8] {
+        &self.payload
     }
     /// Returns encoded bytes of Address
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bz: Vec<u8> = self.payload();
+        let mut bz: Vec<u8> = self.payload().to_vec();
         bz.insert(0, self.protocol() as u8);
         bz
     }
@@ -229,7 +229,7 @@ fn encode(addr: &Address) -> String {
     match addr.protocol {
         Protocol::Secp256k1 | Protocol::Actor | Protocol::BLS => {
             let ingest = addr.to_bytes();
-            let mut bz = addr.payload();
+            let mut bz = addr.payload().to_vec();
 
             // payload bytes followed by calculated checksum
             bz.extend(checksum(&ingest));
