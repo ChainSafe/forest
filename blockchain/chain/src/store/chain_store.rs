@@ -18,7 +18,7 @@ pub struct ChainStore<'a> {
     // TODO add a pubsub channel that publishes an event every time the head changes.
 
     // key-value datastore
-    pub db: Blockstore,
+    db: Blockstore,
 
     // CID of the genesis block.
     genesis: Cid,

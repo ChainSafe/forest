@@ -79,15 +79,15 @@ impl<'a> Syncer<'a> {
         let bls_cids = cids_from_messages(block.bls_msgs())?;
         let secp_cids = cids_from_messages(block.secp_msgs())?;
         // generate AMT and batch set message values
-        let bls_root = AMT::new_from_slice(&self.chain_store.db, &bls_cids)?;
-        let secp_root = AMT::new_from_slice(&self.chain_store.db, &secp_cids)?;
+        let bls_root = AMT::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
+        let secp_root = AMT::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
 
         let meta = MsgMeta {
             bls_message_root: bls_root,
             secp_message_root: secp_root,
         };
         // store message roots and receive meta_root
-        let meta_root = self.chain_store.db.put(&meta)?;
+        let meta_root = self.chain_store.blockstore().put(&meta)?;
 
         Ok(meta_root)
     }
