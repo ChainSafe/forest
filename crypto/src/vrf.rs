@@ -27,9 +27,9 @@ impl VRFResult {
     pub fn new(output: Vec<u8>) -> Self {
         Self(output)
     }
-    /// Returns clone of underlying vector
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.0.clone()
+    /// Returns reference to underlying vector
+    pub fn bytes(&self) -> &[u8] {
+        &self.0
     }
     /// Returns max value based on [BLS_SIG_LEN](constant.BLS_SIG_LEN.html)
     pub fn max_value() -> Self {
@@ -40,9 +40,9 @@ impl VRFResult {
         unimplemented!()
     }
     /// Asserts whether `input` was used with `pk` to produce this VRFOutput
-    pub fn verify(&self, input: Vec<u8>, pk: VRFPublicKey) -> bool {
+    pub fn verify(&self, input: &[u8], pk: &VRFPublicKey) -> bool {
         match BLSSignature::from_bytes(&self.0) {
-            Ok(sig) => verify_bls_sig(&input, pk.0, Signature::new_bls(sig.as_bytes())),
+            Ok(sig) => verify_bls_sig(input, &pk.0, &Signature::new_bls(sig.as_bytes())),
             Err(_) => false,
         }
     }
@@ -67,11 +67,11 @@ mod tests {
 
         let genesis = VRFResult::new(input.as_bytes());
 
-        let sig = privk.sign(&genesis.to_bytes());
+        let sig = privk.sign(genesis.bytes());
         let res = VRFResult::new(sig.as_bytes());
 
         let pubk = VRFPublicKey::new(privk.public_key().as_bytes());
 
-        assert!(res.verify(genesis.to_bytes(), pubk));
+        assert!(res.verify(genesis.bytes(), &pubk));
     }
 }
