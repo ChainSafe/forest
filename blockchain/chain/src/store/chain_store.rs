@@ -107,12 +107,12 @@ impl<'a> ChainStore<'a> {
     pub fn blockstore(&self) -> &Blockstore {
         &self.db
     }
-    /// Returns Tipset from key-value store from provided keys
-    pub fn tipset(&self, keys: &[Cid]) -> Result<Tipset, Error> {
+    /// Returns Tipset from key-value store from provided cids
+    pub fn tipset(&self, cids: &[Cid]) -> Result<Tipset, Error> {
         let mut block_headers = Vec::new();
-        for k in keys {
-            let raw_header = self.db.read(k.key())?;
-            if let Some(ref x) = raw_header {
+        for c in cids {
+            let raw_header = self.db.read(c.key())?;
+            if let Some(x) = raw_header {
                 // decode raw header into BlockHeader
                 let bh = from_slice(&x)?;
                 block_headers.push(bh);
@@ -133,9 +133,7 @@ impl<'a> ChainStore<'a> {
         &self,
         _bh: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        // TODO read_msg_cids from message root; returns bls_cids and secp_cids
-        // let (blscids, secpkcids) = read_msg_cids(bh.messages())
-        // temporarily using vec!(bh.message_receipts() until read_msg_cids is completed with HAMT
+        // TODO dependent on HAMT
 
         let bls_msgs: Vec<UnsignedMessage> = self.messages_from_cids(Vec::new())?;
         let secp_msgs: Vec<SignedMessage> = self.messages_from_cids(Vec::new())?;

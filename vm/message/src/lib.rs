@@ -12,11 +12,10 @@ pub use unsigned_message::*;
 use address::Address;
 use cid::Cid;
 use encoding::{
-    de::{self, Deserializer},
+    de::{self, Deserialize, Deserializer},
     ser::{self, Serializer},
 };
 use num_bigint::BigUint;
-use serde::Deserialize;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 pub trait Message {

@@ -38,7 +38,7 @@ impl TipSetKeys {
         true
     }
     /// Returns tipset keys
-    pub fn tipset_keys(&self) -> &Vec<Cid> {
+    pub fn tipset_keys(&self) -> &[Cid] {
         &self.cids
     }
 }

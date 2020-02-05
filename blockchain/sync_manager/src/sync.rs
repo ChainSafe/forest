@@ -5,7 +5,7 @@
 
 use super::errors::Error;
 use super::manager::SyncManager;
-use amt::{block_store::BlockStore, AMT};
+use amt::{BlockStore, AMT};
 use blocks::{Block, FullTipset, TipSetKeys, Tipset};
 use chain::ChainStore;
 use cid::{Cid, Error as CidError};

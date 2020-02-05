@@ -3,7 +3,7 @@
 
 mod errors;
 mod memory;
-pub mod rocks;
+mod rocks;
 
 pub use errors::Error;
 pub use memory::*;
