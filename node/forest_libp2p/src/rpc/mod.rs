@@ -1,11 +1,18 @@
-pub mod protocol;
-pub mod codec;
-pub mod blocksync_message;
-pub mod rpc_message;
-pub mod handler;
+mod blocksync_message;
+mod codec;
+mod handler;
+mod protocol;
+mod rpc_message;
+
+pub use blocksync_message::*;
+pub use codec::*;
+pub use handler::*;
+pub use protocol::*;
+pub use rpc_message::*;
 
 use crate::rpc::rpc_message::RPCResponse;
 use rpc_message::RPCRequest;
+
 /// The return type used in the behaviour and the resultant event from the protocols handler.
 #[derive(Debug)]
 pub enum RPCEvent {
@@ -30,8 +37,8 @@ pub enum RPCEvent {
 impl std::fmt::Display for RPCEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RPCEvent::Request(req) => write!(f, "RPC Request({:?})", req),
-            RPCEvent::Response(res) => write!(f, "RPC Response(id: {:?})", res),
+            RPCEvent::Request(req) => write!(f, "RPC Request(req: {:?})", req),
+            RPCEvent::Response(res) => write!(f, "RPC Response(res: {:?})", res),
         }
     }
 }

@@ -1,10 +1,11 @@
-use super::blocksync_message::{Message, Response};
+use super::{Message, Response};
+
 #[derive(Debug)]
 pub enum RPCRequest {
-    BlocksyncRequest(Message)
+    BlocksyncRequest(Message),
 }
 
 #[derive(Debug)]
 pub enum RPCResponse {
-    BlocksyncResponse(Response)
+    BlocksyncResponse(Response),
 }
