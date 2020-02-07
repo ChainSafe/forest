@@ -40,6 +40,12 @@ impl ActorState {
             sequence,
         }
     }
+    pub fn sequence(&self) -> &u64 {
+        &self.sequence
+    }
+    pub fn balance(&self) -> &BigUint {
+        &self.balance
+    }
 }
 
 // TODO implement Actor for builtin actors on finished spec

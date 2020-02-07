@@ -5,13 +5,18 @@
 
 use super::errors::Error;
 use super::manager::SyncManager;
+use address::Address;
 use amt::{BlockStore, AMT};
 use blocks::{Block, FullTipset, TipSetKeys, Tipset};
 use chain::ChainStore;
 use cid::{Cid, Error as CidError};
+use crypto::is_valid_signature;
 use libp2p::core::PeerId;
-use message::MsgMeta;
+use message::{Message, MsgMeta};
+use num_bigint::BigUint;
 use raw_block::RawBlock;
+use state::{HamtStateTree, StateTree};
+use std::collections::HashMap;
 
 pub struct Syncer<'a> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
@@ -63,8 +68,7 @@ impl<'a> Syncer<'a> {
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
         let sm_root = self.compute_msg_data(block)?;
-        // TODO change message_receipts to messages() once #192 is in
-        if block.to_header().message_receipts() != &sm_root {
+        if block.to_header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
 
@@ -121,6 +125,102 @@ impl<'a> Syncer<'a> {
         // construct FullTipset
         let fts = FullTipset::new(blocks);
         Ok(fts)
+    }
+    // Block message validation checks; see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L706
+    fn check_blk_msgs(&self, block: Block, tip: Tipset) -> Result<(), Error> {
+        for _m in block.bls_msgs() {
+            // TODO verify bls sigs 
+            // if !is_valid_signature(&m.cid()?.to_bytes(), m.from(), m.signature()) {
+            // }
+        }
+        // TODO verify_bls_aggregate
+
+        let mut balance = HashMap::new();
+        let mut sequence = HashMap::new();
+        // TODO retrieve tipset state and load state tree
+        // temporary
+        let mut tree = HamtStateTree::default();
+
+        // check msgs for validity
+        fn checkMsg<T: Message>(
+            msg: T,
+            seq: &mut HashMap<&Address, u64>,
+            bal: &mut HashMap<&Address, BigUint>,
+            tree: HamtStateTree,
+        ) -> Result<(), Error> 
+        {
+            match seq.get(&msg.from()) {
+                // address is present begin validity checks
+                Some(&addr) => {
+                    // sequence equality check
+                    if *seq
+                        .get(msg.from())
+                        .ok_or::<Error>(Err(Error::Message("Cannot retrieve sequence from address key".to_string()))?)
+                        .unwrap()
+                        != msg.sequence()
+                    {
+                        return Err(Error::Message("Sequences are not equal".to_string()));
+                    }
+                    // increment sequence by 1
+                    *seq.get(msg.from())
+                        .ok_or::<Error>(Err(Error::Message("Cannot retrieve sequence from address key".to_string()))?)
+                        .unwrap()
+                        + 1;
+                    // sufficient funds check
+                    if *bal
+                        .get(msg.from())
+                        .ok_or::<Error>(Err(Error::Message("Cannot retrieve balance from address key".to_string()))?)
+                        .unwrap()
+                        < msg.required_funds()
+                    {
+                        return Err(Error::Message("Insufficient funds".to_string()));
+                    }
+                    // update balance
+                    let mut v = bal
+                        .get(msg.from())
+                        .ok_or::<Error>(Err(Error::Message("Cannot retrieve balance from address key".to_string()))?)
+                        .unwrap();
+                    bal.insert(msg.from(), *v - msg.required_funds());
+                }
+                // sequence is not found, insert sequence and balance with address as key
+                _ => {
+                    let act = tree
+                        .get_actor(msg.from())
+                        .ok_or::<Error>(Err(Error::State("Cannot retrieve actor from state".to_string()))?)
+                        .unwrap();
+                    seq.insert(msg.from(), *act.sequence());
+                    bal.insert(msg.from(), *act.balance());
+                }
+            }
+            Ok(())
+        }
+        let bls_cids = Vec::new();
+        let secp_cids = Vec::new();
+        // loop through bls messages and check msg validity
+        for m in block.bls_msgs() {
+            checkMsg(*m, &mut sequence, &mut balance, tree)?;
+            bls_cids = cids_from_messages(block.bls_msgs())?;
+        }
+        // loop through secp messages and check msg validity and signature
+        for m in block.secp_msgs() {
+            checkMsg(*m, &mut sequence, &mut balance, tree)?;
+            // signature validation
+            if !is_valid_signature(&m.cid()?.to_bytes(), m.from(), m.signature()) {
+                return Err(Error::Message("Message signature is not valid".to_string()));
+            }
+            secp_cids = cids_from_messages(block.secp_msgs())?;
+        }
+        let bls_root = AMT::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
+        let secp_root = AMT::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
+
+        let meta = MsgMeta {
+            bls_message_root: bls_root,
+            secp_message_root: secp_root,
+        };
+        // store message roots and receive meta_root
+        let meta_root = self.chain_store.blockstore().put(&meta)?;
+
+        Ok(())
     }
 }
 

@@ -26,6 +26,10 @@ pub enum Error {
     KeyValueStore(String),
     /// Error originating from the AMT
     AMT(String),
+    /// Error originating from Messages
+    Message(String),
+    /// Error originating from state
+    State(String),
 }
 
 impl fmt::Display for Error {
@@ -45,6 +49,8 @@ impl fmt::Display for Error {
             Error::InvalidCid(msg) => write!(f, "Error originating from CID construction: {}", msg),
             Error::Store(msg) => write!(f, "Error originating from ChainStore: {}", msg),
             Error::AMT(msg) => write!(f, "Error originating from the AMT: {}", msg),
+            Error::Message(msg) => write!(f, "Error originating from the Message: {}", msg),
+            Error::State(msg) => write!(f, "Error originating from the State: {}", msg),
         }
     }
 }
