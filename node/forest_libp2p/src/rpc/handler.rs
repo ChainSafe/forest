@@ -1,6 +1,9 @@
-use super::codec::RPCError;
-use super::protocol::*;
-use super::{InboundCodec, OutboundCodec, RPCEvent, RPCRequest};
+use super::{
+    InboundCodec, InboundFramed, OutboundCodec, OutboundFramed, RPCError, RPCEvent, RPCProtocol,
+    RPCRequest, RPCResponse, RequestId,
+};
+use bytes::BytesMut;
+use fnv::FnvHashMap;
 use futures::prelude::*;
 use futures::{AsyncRead, AsyncWrite};
 use futures_codec::Framed;
@@ -11,9 +14,8 @@ use libp2p::swarm::{
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use smallvec::SmallVec;
 use std::{
-    io,
-    pin::Pin,
     task::{Context, Poll},
+    time::{Duration, Instant},
 };
 
 /// The time (in seconds) before a substream that is awaiting a response from the user times out.
@@ -26,30 +28,56 @@ where
     /// Upgrade configuration for the gossipsub protocol.
     listen_protocol: SubstreamProtocol<RPCProtocol>,
 
-    /// The single long-lived outbound substream.
-    outbound_substream: Option<OutboundSubstreamState<TSubstream>>,
+    /// If `Some`, something bad happened and we should shut down the handler with an error.
+    pending_error: Option<ProtocolsHandlerUpgrErr<RPCError>>,
 
-    /// The single long-lived inbound substream.
-    inbound_substream: Option<InboundSubstreamState<TSubstream>>,
+    /// Queue of events to produce in `poll()`.
+    events_out: SmallVec<[RPCEvent; 4]>,
+
+    /// Queue of outbound substreams to open.
+    dial_queue: SmallVec<[RPCEvent; 4]>,
+
+    /// Current number of concurrent outbound substreams being opened.
+    dial_negotiated: u32,
+
+    /// Map of current substreams awaiting a response to an RPC request.
+    inbound_substreams: FnvHashMap<RequestId, WaitingResponse<TSubstream>>,
+
+    /// The single long-lived outbound substream.
+    outbound_substreams: Vec<OutboundSubstreamState<TSubstream>>,
 
     /// Queue of values that we want to send to the remote.
     send_queue: SmallVec<[RPCRequest; 16]>,
+
+    /// Sequential ID for new substreams.
+    current_substream_id: RequestId,
+
+    /// After the given duration has elapsed, an inactive connection will shutdown.
+    inactive_timeout: Duration,
 
     /// Flag determining whether to maintain the connection to the peer.
     keep_alive: KeepAlive,
 }
 
-/// State of the inbound substream, opened either by us or by the remote.
-enum InboundSubstreamState<TSubstream>
+impl<TSubstream> RPCHandler<TSubstream>
 where
     TSubstream: AsyncRead + AsyncWrite,
 {
-    /// Waiting for a message from the remote. The idle state for an inbound substream.
-    WaitingInput(Framed<Negotiated<TSubstream>, InboundCodec>),
-    /// The substream is being closed.
-    Closing(Framed<Negotiated<TSubstream>, InboundCodec>),
-    /// An error occurred during processing.
-    Poisoned,
+    /// Opens an outbound substream with a request.
+    pub fn send_request(&mut self, rpc_event: RPCEvent) {
+        self.keep_alive = KeepAlive::Yes;
+
+        self.dial_queue.push(rpc_event);
+    }
+}
+
+/// An outbound substream is waiting a response from the user.
+struct WaitingResponse<TSubstream> {
+    /// The framed negotiated substream.
+    // TODO would be nice to not specify type explicitly here
+    substream: Framed<Negotiated<TSubstream>, InboundCodec>,
+    /// The time when the substream is closed.
+    timeout: Instant,
 }
 
 /// State of the outbound substream, opened either by us or by the remote.
@@ -57,16 +85,18 @@ enum OutboundSubstreamState<TSubstream>
 where
     TSubstream: AsyncRead + AsyncWrite,
 {
-    /// Waiting for the user to send a message. The idle state for an outbound substream.
-    WaitingOutput(Framed<Negotiated<TSubstream>, OutboundCodec>),
     /// Waiting to send a message to the remote.
-    PendingSend(Framed<Negotiated<TSubstream>, OutboundCodec>, RPCRequest),
-    /// Waiting to flush the substream so that the data arrives to the remote.
-    PendingFlush(Framed<Negotiated<TSubstream>, OutboundCodec>),
-    /// The substream is being closed. Used by either substream.
-    _Closing(Framed<Negotiated<TSubstream>, OutboundCodec>),
-    /// An error occurred during processing.
-    Poisoned,
+    PendingSend {
+        // TODO verify codec
+        substream: Framed<Negotiated<TSubstream>, InboundCodec>,
+        response: RPCResponse,
+    },
+    /// Request has been sent, awaiting response
+    PendingResponse {
+        substream: OutboundFramed<TSubstream>,
+        event: RPCEvent,
+        timeout: Instant,
+    },
 }
 
 impl<TSubstream> ProtocolsHandler for RPCHandler<TSubstream>
@@ -75,11 +105,11 @@ where
 {
     type InEvent = RPCEvent;
     type OutEvent = RPCEvent;
-    type Error = RPCError;
+    type Error = ProtocolsHandlerUpgrErr<RPCError>;
     type Substream = TSubstream;
     type InboundProtocol = RPCProtocol;
     type OutboundProtocol = RPCProtocol;
-    type OutboundOpenInfo = RPCRequest;
+    type OutboundOpenInfo = RPCEvent;
 
     fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol> {
         self.listen_protocol.clone()
@@ -87,35 +117,58 @@ where
 
     fn inject_fully_negotiated_inbound(
         &mut self,
-        substream: <Self::InboundProtocol as InboundUpgrade<Negotiated<Self::Substream>>>::Output,
+        out: <Self::InboundProtocol as InboundUpgrade<Negotiated<Self::Substream>>>::Output,
     ) {
-        println!("Negotiated inbound");
-        self.inbound_substream = Some(InboundSubstreamState::WaitingInput(substream));
+        let (req, substream) = out;
+
+        // New inbound request. Store the stream and tag the output.
+        let awaiting_stream = WaitingResponse {
+            substream,
+            timeout: Instant::now() + Duration::from_secs(RESPONSE_TIMEOUT),
+        };
+        self.inbound_substreams
+            .insert(self.current_substream_id, awaiting_stream);
+
+        self.events_out
+            .push(RPCEvent::Request(self.current_substream_id, req));
+        self.current_substream_id += 1;
     }
 
     fn inject_fully_negotiated_outbound(
         &mut self,
-        substream: <Self::OutboundProtocol as OutboundUpgrade<Negotiated<TSubstream>>>::Output,
-        message: Self::OutboundOpenInfo,
+        _substream: <Self::OutboundProtocol as OutboundUpgrade<Negotiated<TSubstream>>>::Output,
+        _rpc_event: Self::OutboundOpenInfo,
     ) {
-        // Should never establish a new outbound substream if one already exists.
-        // If this happens, an outbound message is not sent.
-        if self.outbound_substream.is_some() {
-            println!("Established an outbound substream with one already available");
-            // Add the message back to the send queue
-            self.send_queue.push(message);
+        // TODO verify outbound gets handled
+        self.dial_negotiated -= 1;
+
+        if self.dial_negotiated == 0
+            && self.dial_queue.is_empty()
+            && self.inbound_substreams.is_empty()
+        {
+            self.keep_alive = KeepAlive::Until(Instant::now() + self.inactive_timeout);
         } else {
-            self.outbound_substream = Some(OutboundSubstreamState::PendingSend(substream, message));
+            self.keep_alive = KeepAlive::Yes;
         }
+
+        // TODO keep stream open if other protocols require it in future
     }
 
-    fn inject_event(&mut self, message: Self::InEvent) {
-        if let RPCEvent::Request(r) = message {
-            println!("Adding event to queue");
-            self.send_queue.push(r);
-        } else {
-            // TODO remove this
-            panic!("This may happen but shouldn't");
+    fn inject_event(&mut self, rpc_event: Self::InEvent) {
+        match rpc_event {
+            RPCEvent::Request(_, _) => self.send_request(rpc_event),
+            RPCEvent::Response(rpc_id, res) => {
+                // check if the stream matching the response still exists
+                if let Some(waiting_stream) = self.inbound_substreams.remove(&rpc_id) {
+                    // only send one response per stream. This must be in the waiting state.
+                    self.outbound_substreams
+                        .push(OutboundSubstreamState::PendingSend {
+                            substream: waiting_stream.substream,
+                            response: res,
+                        });
+                }
+            }
+            RPCEvent::Error(_, _) => {}
         }
     }
 
@@ -145,174 +198,6 @@ where
             Self::Error,
         >,
     > {
-        // determine if we need to create the stream
-        if !self.send_queue.is_empty() && self.outbound_substream.is_none() {
-            let message = self.send_queue.remove(0);
-            self.send_queue.shrink_to_fit();
-            return Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest {
-                protocol: self.listen_protocol.clone(),
-                info: message,
-            });
-        }
-
-        loop {
-            match std::mem::replace(
-                &mut self.inbound_substream,
-                Some(InboundSubstreamState::Poisoned),
-            ) {
-                // inbound idle state
-                Some(InboundSubstreamState::WaitingInput(mut substream)) => {
-                    match substream.poll_next_unpin(cx) {
-                        Poll::Ready(Some(Ok(message))) => {
-                            self.inbound_substream =
-                                Some(InboundSubstreamState::WaitingInput(substream));
-                            return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Request(
-                                message,
-                            )));
-                        }
-                        Poll::Ready(Some(Err(e))) => {
-                            println!("Inbound substream error while awaiting input: {:?}", e);
-                            self.inbound_substream =
-                                Some(InboundSubstreamState::Closing(substream));
-                        }
-                        // peer closed the stream
-                        Poll::Ready(None) => {
-                            self.inbound_substream =
-                                Some(InboundSubstreamState::Closing(substream));
-                        }
-                        Poll::Pending => {
-                            self.inbound_substream =
-                                Some(InboundSubstreamState::WaitingInput(substream));
-                            break;
-                        }
-                    }
-                }
-                Some(InboundSubstreamState::Closing(mut substream)) => {
-                    match Sink::poll_close(Pin::new(&mut substream), cx) {
-                        Poll::Ready(res) => {
-                            if let Err(e) = res {
-                                // Don't close the connection but just drop the inbound substream.
-                                // In case the remote has more to send, they will open up a new
-                                // substream.
-                                println!("Inbound substream error while closing: {:?}", e);
-                            }
-
-                            self.inbound_substream = None;
-                            if self.outbound_substream.is_none() {
-                                self.keep_alive = KeepAlive::No;
-                            }
-                            break;
-                        }
-                        Poll::Pending => {
-                            self.inbound_substream =
-                                Some(InboundSubstreamState::Closing(substream));
-                            break;
-                        }
-                    }
-                }
-                None => {
-                    self.inbound_substream = None;
-                    break;
-                }
-                Some(InboundSubstreamState::Poisoned) => {
-                    panic!("Error occurred during inbound stream processing")
-                }
-            }
-        }
-
-        loop {
-            match std::mem::replace(
-                &mut self.outbound_substream,
-                Some(OutboundSubstreamState::Poisoned),
-            ) {
-                // outbound idle state
-                Some(OutboundSubstreamState::WaitingOutput(substream)) => {
-                    if !self.send_queue.is_empty() {
-                        let message = self.send_queue.remove(0);
-                        self.send_queue.shrink_to_fit();
-                        self.outbound_substream =
-                            Some(OutboundSubstreamState::PendingSend(substream, message));
-                    } else {
-                        self.outbound_substream =
-                            Some(OutboundSubstreamState::WaitingOutput(substream));
-                        break;
-                    }
-                }
-                Some(OutboundSubstreamState::PendingSend(mut substream, message)) => {
-                    match Sink::poll_ready(Pin::new(&mut substream), cx) {
-                        Poll::Ready(Ok(())) => {
-                            match Sink::start_send(Pin::new(&mut substream), message) {
-                                Ok(()) => {
-                                    self.outbound_substream =
-                                        Some(OutboundSubstreamState::PendingFlush(substream))
-                                }
-                                Err(e) => {
-                                    return Poll::Ready(ProtocolsHandlerEvent::Close(e));
-                                }
-                            }
-                        }
-                        Poll::Ready(Err(e)) => {
-                            println!("Outbound substream error while sending output: {:?}", e);
-                            return Poll::Ready(ProtocolsHandlerEvent::Close(e));
-                        }
-                        Poll::Pending => {
-                            self.outbound_substream =
-                                Some(OutboundSubstreamState::PendingSend(substream, message));
-                            break;
-                        }
-                    }
-                }
-                Some(OutboundSubstreamState::PendingFlush(mut substream)) => {
-                    match Sink::poll_flush(Pin::new(&mut substream), cx) {
-                        Poll::Ready(Ok(())) => {
-                            self.outbound_substream =
-                                Some(OutboundSubstreamState::WaitingOutput(substream))
-                        }
-                        Poll::Ready(Err(e)) => return Poll::Ready(ProtocolsHandlerEvent::Close(e)),
-                        Poll::Pending => {
-                            self.outbound_substream =
-                                Some(OutboundSubstreamState::PendingFlush(substream));
-                            break;
-                        }
-                    }
-                }
-                // Currently never used - manual shutdown may implement this in the future
-                Some(OutboundSubstreamState::_Closing(mut substream)) => {
-                    match Sink::poll_close(Pin::new(&mut substream), cx) {
-                        Poll::Ready(Ok(())) => {
-                            self.outbound_substream = None;
-                            if self.inbound_substream.is_none() {
-                                self.keep_alive = KeepAlive::No;
-                            }
-                            break;
-                        }
-                        Poll::Ready(Err(e)) => {
-                            println!("Outbound substream error while closing: {:?}", e);
-                            return Poll::Ready(ProtocolsHandlerEvent::Close(
-                                io::Error::new(
-                                    io::ErrorKind::BrokenPipe,
-                                    "Failed to close outbound substream",
-                                )
-                                .into(),
-                            ));
-                        }
-                        Poll::Pending => {
-                            self.outbound_substream =
-                                Some(OutboundSubstreamState::_Closing(substream));
-                            break;
-                        }
-                    }
-                }
-                None => {
-                    self.outbound_substream = None;
-                    break;
-                }
-                Some(OutboundSubstreamState::Poisoned) => {
-                    panic!("Error occurred during outbound stream processing")
-                }
-            }
-        }
-
-        Poll::Pending
+        todo!();
     }
 }

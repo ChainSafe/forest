@@ -27,8 +27,8 @@ impl std::error::Error for RPCError {
 }
 
 impl Encoder for InboundCodec {
-    type Item = RPCResponse;
     type Error = RPCError;
+    type Item = RPCResponse;
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {

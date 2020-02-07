@@ -1,8 +1,9 @@
-use super::codec::{InboundCodec, OutboundCodec, RPCError};
+use super::{InboundCodec, OutboundCodec, RPCError, RPCRequest};
+use bytes::BytesMut;
 use futures::prelude::*;
-use futures::{AsyncRead, AsyncWrite};
-use futures_codec::Framed;
-use libp2p::core::UpgradeInfo;
+use futures::{AsyncRead, AsyncReadExt, AsyncWrite};
+use futures_codec::{Decoder, Framed};
+use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use std::pin::Pin;
 
@@ -19,19 +20,28 @@ impl UpgradeInfo for RPCProtocol {
         vec![b"/fil/sync/blk/0.0.1"]
     }
 }
+pub type InboundFramed<TSocket> = Framed<TSocket, InboundCodec>;
+pub type InboundOutput<TSocket> = (RPCRequest, InboundFramed<TSocket>);
 
 impl<TSocket> InboundUpgrade<TSocket> for RPCProtocol
 where
     TSocket: AsyncWrite + AsyncRead + Unpin + Send + 'static,
 {
-    type Output = Framed<TSocket, InboundCodec>;
+    type Output = InboundOutput<TSocket>;
     type Error = RPCError;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
-    fn upgrade_inbound(self, socket: TSocket, _: Self::Info) -> Self::Future {
-        Box::pin(future::ok(Framed::new(socket, InboundCodec)))
+    fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
+        Box::pin(async move {
+            let mut bm = BytesMut::with_capacity(1024);
+            socket.read(&mut bm).await?;
+            let req = InboundCodec.decode(&mut bm)?.unwrap();
+            Ok((req, Framed::new(socket, InboundCodec)))
+        })
     }
 }
+
+pub type OutboundFramed<TSocket> = Framed<Negotiated<TSocket>, OutboundCodec>;
 
 impl<TSocket> OutboundUpgrade<TSocket> for RPCProtocol
 where
