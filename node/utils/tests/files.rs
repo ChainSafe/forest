@@ -122,10 +122,8 @@ fn count_files_in_a_dir() {
     let msg = "Hello World!";
     let path = "./test_string_read_file/";
     let file_name = "out.keystore";
-    if let Err(e) = write_to_file(&msg.as_bytes().to_vec(), &path, file_name) {
-        panic!(e);
-    }
-    match count_files(path.to_string()) {
+    write_to_file(msg.as_bytes(), &path, file_name).unwrap();
+    match count_files(path) {
         Ok(file_count) => {
             cleanup_file(path);
             assert_eq!(1, file_count);
