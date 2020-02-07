@@ -12,11 +12,21 @@ use super::RPCEvent;
 use std::marker::PhantomData;
 use futures::prelude::*;
 
-struct RPC<TSubstream> {
+pub struct RPC<TSubstream> {
     /// Queue of events to processed.
-    events: Vec<NetworkBehaviourAction<RPCEvent, RPCMessage>>,
+    /// TODO: This isn't correct
+    events: Vec<NetworkBehaviourAction<RPCEvent, RPCEvent>>,
     /// Pins the generic substream.
     marker: PhantomData<(TSubstream)>,
+}
+
+impl<TSubstream> RPC<TSubstream> {
+    pub fn new () -> Self {
+        RPC {
+            events: Vec::new(),
+            marker: PhantomData,
+        }
+    }
 }
 
 impl<TSubstream> NetworkBehaviour for RPC<TSubstream>
@@ -27,6 +37,7 @@ where
     type OutEvent = RPCEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
+       // RPCHandler::new()
         unimplemented!()
     }
 
