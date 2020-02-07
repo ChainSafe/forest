@@ -2,6 +2,7 @@ mod blocksync_message;
 mod codec;
 mod handler;
 mod protocol;
+mod behaviour;
 mod rpc_message;
 
 pub use blocksync_message::*;

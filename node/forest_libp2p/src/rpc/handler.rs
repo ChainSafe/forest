@@ -19,7 +19,7 @@ use std::{
 /// The time (in seconds) before a substream that is awaiting a response from the user times out.
 pub const RESPONSE_TIMEOUT: u64 = 10;
 
-struct RPCHandler<TSubstream>
+pub struct RPCHandler<TSubstream>
 where
     TSubstream: AsyncRead + AsyncWrite,
 {
