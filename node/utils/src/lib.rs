@@ -70,25 +70,32 @@ where
 /// Get file count in a certain directory
 /// Will return the number of files in the directory
 ///
-/// # Panics
-/// It will panic if:
+/// 
+/// # Error
+/// Error will be logged if:
 /// - The provided path doesn't exist.
 /// - The process lacks permissions to view the contents.
 /// - The path points at a non-directory file.
 ///
 /// # Example
-/// ```no_run
+/// ```
 /// use utils::count_files;
 /// use utils::get_home_dir;
 ///
 /// let path_to_keystore = get_home_dir() + "/.forest/libp2p/keypair";
-/// let file_count = count_files(path_to_keystore[0..path_to_keystore.len()-8].to_string());
-/// assert_eq!(file_count, 1);
+/// let dir_to_keystore = path_to_keystore.replace("/keypair", "");
+/// match count_files(&dir_to_keystore) {
+///     Err(e) => {
+///         info!(log, "Error {:?}", &e);
+///     }
+///     Ok(v) => {
+///     fs::rename(
+///             path_to_keystore.clone(),
+///             path_to_keystore.clone() + &format!(".old({:})", v),
+///         );
+///     }
+/// }
 /// ```
-pub fn count_files(dir: String) -> Result<u32> {
-    let mut file_count = 0;
-    for _i in read_dir(dir).expect("read files in the directory") {
-        file_count += 1;
-    }
-    Ok(file_count)
+pub fn count_files(dir: &str) -> Result<usize> {
+    Ok(read_dir(dir)?.enumerate().count())
 }
