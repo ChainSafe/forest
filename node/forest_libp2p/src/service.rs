@@ -16,9 +16,10 @@ use libp2p::{
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
 use slog::{debug, error, info, trace, Logger};
+use std::fs;
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-use utils::{get_home_dir, read_file_to_vec, write_to_file};
+use utils::{count_files, get_home_dir, read_file_to_vec, write_to_file};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = ForestBehaviour<Substream<StreamMuxerBox>>;
@@ -179,7 +180,7 @@ fn get_keypair(log: &Logger) -> Keypair {
         }
         Ok(mut vec) => {
             // If decoding fails, generate new peer id
-            // TODO rename old file to keypair.old(?)
+            // rename old file to keypair.old(number of old files in the directory)
             match ed25519::Keypair::decode(&mut vec) {
                 Ok(kp) => {
                     info!(log, "Recovered keystore from {:?}", &path_to_keystore);
@@ -188,6 +189,22 @@ fn get_keypair(log: &Logger) -> Keypair {
                 Err(e) => {
                     info!(log, "Could not decode networking keystore!");
                     trace!(log, "Error {:?}", e);
+                    // Get current number of old files
+                    let file_count =
+                        count_files(path_to_keystore[0..path_to_keystore.len() - 8].to_string());
+                    match file_count {
+                        Err(e) => {
+                            info!(log, "Error {:?}", &e);
+                        }
+                        Ok(v) => {
+                            fs::rename(
+                                path_to_keystore.clone(),
+                                path_to_keystore.clone() + &format!(".old({:})", v),
+                            )
+                            .expect("label the file as old key");
+                        }
+                    }
+                    // Generate new one
                     return generate_new_peer_id(log);
                 }
             }
