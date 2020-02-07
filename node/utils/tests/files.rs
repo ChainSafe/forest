@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use utils::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
+use utils::{count_files, read_file_to_string, read_file_to_vec, read_toml, write_to_file};
 
 use serde_derive::Deserialize;
 use std::fs::remove_dir_all;
@@ -115,4 +115,24 @@ fn read_from_toml() {
     assert_eq!(config.port, None);
     assert_eq!(config.keys.github, "xxxxxxxxxxxxxxxxx");
     assert_eq!(config.keys.travis.as_ref().unwrap(), "yyyyyyyyyyyyyyyyy");
+}
+
+#[test]
+fn count_files_in_a_dir() {
+    let msg = "Hello World!";
+    let path = "./test_string_read_file/";
+    let file_name = "out.keystore";
+    if let Err(e) = write_to_file(&msg.as_bytes().to_vec(), &path, file_name) {
+        panic!(e);
+    }
+    match count_files(path.to_string()) {
+        Ok(file_count) => {
+            cleanup_file(path);
+            assert_eq!(1, file_count);
+        }
+        Err(e) => {
+            cleanup_file(path);
+            panic!("{:?}", e);
+        }
+    }
 }
