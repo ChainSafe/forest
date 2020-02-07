@@ -16,10 +16,9 @@ use libp2p::{
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
 use slog::{debug, error, info, trace, Logger};
-use std::fs;
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-use utils::{count_files, get_home_dir, read_file_to_vec, write_to_file};
+use utils::{count_files, get_home_dir, read_file_to_vec, rename_file, write_to_file};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = ForestBehaviour<Substream<StreamMuxerBox>>;
@@ -172,6 +171,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 /// Fetch keypair from disk, or generate a new one if its not available
 fn get_keypair(log: &Logger) -> Keypair {
     let path_to_keystore = get_home_dir() + "/.forest/libp2p/keypair";
+    let dir_to_keystore = path_to_keystore.replace("/keypair", "");
     let local_keypair = match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
             info!(log, "Networking keystore not found!");
@@ -190,18 +190,20 @@ fn get_keypair(log: &Logger) -> Keypair {
                     info!(log, "Could not decode networking keystore!");
                     trace!(log, "Error {:?}", e);
                     // Get current number of old files
-                    let file_count =
-                        count_files(path_to_keystore[0..path_to_keystore.len() - 8].to_string());
-                    match file_count {
+                    match count_files(&dir_to_keystore) {
                         Err(e) => {
                             info!(log, "Error {:?}", &e);
                         }
                         Ok(v) => {
-                            fs::rename(
-                                path_to_keystore.clone(),
-                                path_to_keystore.clone() + &format!(".old({:})", v),
-                            )
-                            .expect("label the file as old key");
+                            match rename_file(
+                                &path_to_keystore.clone(),
+                                &format!("{}.old({})", path_to_keystore.clone(), v),
+                            ) {
+                                Err(e) => {
+                                    info!(log, "Error: {:?}", &e);
+                                }
+                                Ok(()) => {}
+                            }
                         }
                     }
                     // Generate new one
