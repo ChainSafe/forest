@@ -77,7 +77,7 @@ where
 /// - The path points at a non-directory file.
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use utils::count_files;
 /// use utils::get_home_dir;
 ///
