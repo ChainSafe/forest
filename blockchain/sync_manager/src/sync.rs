@@ -17,6 +17,7 @@ use num_bigint::BigUint;
 use raw_block::RawBlock;
 use state::{HamtStateTree, StateTree};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Syncer<'a> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
@@ -31,6 +32,24 @@ pub struct Syncer<'a> {
     _genesis: Tipset,
     // self peerId
     _own: PeerId,
+}
+
+struct MsgMetaData {
+    balance: BigUint,
+    sequence: u64,
+}
+
+struct MsgCheck {
+    metadata: HashMap<Address, MsgMetaData>,
+}
+
+impl MsgCheck {
+    /// Creates new MsgCheck with empty metadata
+    pub fn new() -> Self {
+        Self {
+            metadata: HashMap::new(),
+        }
+    }
 }
 
 impl<'a> Syncer<'a> {
@@ -127,89 +146,76 @@ impl<'a> Syncer<'a> {
         Ok(fts)
     }
     // Block message validation checks; see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L706
-    fn check_blk_msgs(&self, block: Block, tip: Tipset) -> Result<(), Error> {
+    fn check_blk_msgs(&self, block: Block, _tip: Tipset) -> Result<(), Error> {
         for _m in block.bls_msgs() {
-            // TODO verify bls sigs 
-            // if !is_valid_signature(&m.cid()?.to_bytes(), m.from(), m.signature()) {
-            // }
+            // TODO retrieve bls public keys for verify_bls_aggregate
         }
         // TODO verify_bls_aggregate
 
-        let mut balance = HashMap::new();
-        let mut sequence = HashMap::new();
-        // TODO retrieve tipset state and load state tree
-        // temporary
-        let mut tree = HamtStateTree::default();
-
         // check msgs for validity
-        fn checkMsg<T: Message>(
+        fn check_msg<T: Message>(
             msg: T,
-            seq: &mut HashMap<&Address, u64>,
-            bal: &mut HashMap<&Address, BigUint>,
-            tree: HamtStateTree,
-        ) -> Result<(), Error> 
+            msg_meta_data: &mut MsgCheck,
+            tree: &HamtStateTree,
+        ) -> Result<(), Error>
+        where
+            T: Message,
         {
-            match seq.get(&msg.from()) {
+            let updated_state: MsgMetaData = match msg_meta_data.metadata.get(msg.from()) {
                 // address is present begin validity checks
-                Some(&addr) => {
+                Some(MsgMetaData { sequence, balance }) => {
                     // sequence equality check
-                    if *seq
-                        .get(msg.from())
-                        .ok_or::<Error>(Err(Error::Message("Cannot retrieve sequence from address key".to_string()))?)
-                        .unwrap()
-                        != msg.sequence()
-                    {
+                    if *sequence != msg.sequence() {
                         return Err(Error::Message("Sequences are not equal".to_string()));
                     }
-                    // increment sequence by 1
-                    *seq.get(msg.from())
-                        .ok_or::<Error>(Err(Error::Message("Cannot retrieve sequence from address key".to_string()))?)
-                        .unwrap()
-                        + 1;
+
                     // sufficient funds check
-                    if *bal
-                        .get(msg.from())
-                        .ok_or::<Error>(Err(Error::Message("Cannot retrieve balance from address key".to_string()))?)
-                        .unwrap()
-                        < msg.required_funds()
-                    {
+                    if balance < &msg.required_funds() {
                         return Err(Error::Message("Insufficient funds".to_string()));
                     }
-                    // update balance
-                    let mut v = bal
-                        .get(msg.from())
-                        .ok_or::<Error>(Err(Error::Message("Cannot retrieve balance from address key".to_string()))?)
-                        .unwrap();
-                    bal.insert(msg.from(), *v - msg.required_funds());
+                    // update balance and increment sequence by 1
+                    MsgMetaData {
+                        balance: balance - msg.required_funds(),
+                        sequence: sequence + 1,
+                    }
                 }
                 // sequence is not found, insert sequence and balance with address as key
                 _ => {
-                    let act = tree
-                        .get_actor(msg.from())
-                        .ok_or::<Error>(Err(Error::State("Cannot retrieve actor from state".to_string()))?)
-                        .unwrap();
-                    seq.insert(msg.from(), *act.sequence());
-                    bal.insert(msg.from(), *act.balance());
+                    let actor = tree.get_actor(msg.from());
+                    if let Some(act) = actor {
+                        MsgMetaData {
+                            sequence: *act.sequence(),
+                            balance: act.balance().clone(),
+                        }
+                    } else {
+                        return Err(Error::Message("Sequences are not equal".to_string()));
+                    }
                 }
-            }
+            };
+            msg_meta_data
+                .metadata
+                .insert(msg.from().clone(), updated_state);
             Ok(())
         }
-        let bls_cids = Vec::new();
-        let secp_cids = Vec::new();
+
+        let mut msg_meta_data = MsgCheck::new();
+        // TODO retrieve tipset state and load state tree
+        // temporary
+        let tree = HamtStateTree::default();
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
-            checkMsg(*m, &mut sequence, &mut balance, tree)?;
-            bls_cids = cids_from_messages(block.bls_msgs())?;
+            check_msg(m.clone(), &mut msg_meta_data, &tree)?;
         }
         // loop through secp messages and check msg validity and signature
         for m in block.secp_msgs() {
-            checkMsg(*m, &mut sequence, &mut balance, tree)?;
+            check_msg(m.clone(), &mut msg_meta_data, &tree)?;
             // signature validation
             if !is_valid_signature(&m.cid()?.to_bytes(), m.from(), m.signature()) {
                 return Err(Error::Message("Message signature is not valid".to_string()));
             }
-            secp_cids = cids_from_messages(block.secp_msgs())?;
         }
+        let secp_cids = cids_from_messages(block.secp_msgs())?;
+        let bls_cids = cids_from_messages(block.bls_msgs())?;
         let bls_root = AMT::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
         let secp_root = AMT::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
 
@@ -218,7 +224,111 @@ impl<'a> Syncer<'a> {
             secp_message_root: secp_root,
         };
         // store message roots and receive meta_root
-        let meta_root = self.chain_store.blockstore().put(&meta)?;
+        self.chain_store.blockstore().put(&meta)?;
+
+        Ok(())
+    }
+
+    /// Should match up with 'Semantical Validation' in validation.md in the spec
+    pub fn validate(&self, block: Block) -> Result<(), Error> {
+        /* TODO block validation essentially involves 7 main checks:
+            1. time_check: Must have a valid timestamp
+            2. winner_check: Must verify it contains the winning ticket
+            3. message_check: All messages in the block must be valid
+            4. miner_check: Must be from a valid miner
+            5. block_sig_check: Must have a valid signature by the miner address of the final ticket
+            6. verify_ticket_vrf: Must be generated from the smallest ticket in the parent tipset and from same miner
+            7. verify_election_proof_check: Must include an election proof which is a valid signature by the miner address of the final ticket
+        */
+
+        // get header from full block
+        let header = block.to_header();
+        let _base_tipset = self.load_fts(TipSetKeys::new((*header.parents().cids).to_vec()))?;
+
+        // check if block has been signed
+        if header.signature().bytes().is_empty() {
+            return Err(Error::Blockchain("Signature is nil in header".to_string()));
+        }
+
+        /*
+        1. time_check rules:
+          - must include a timestamp not in the future
+          - must have a valid timestamp
+          - must be later than the earliest parent block time plus appropriate delay, which is BLOCK_DELAY
+        */
+
+        // Timestamp checks
+        // TODO include allowable clock drift
+        let time_now = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(n) => n.as_secs(),
+            Err(_) => {
+                return Err(Error::Validation(
+                    "SystemTime before UNIX EPOCH!".to_string(),
+                ))
+            }
+        };
+        if time_now < header.timestamp() {
+            return Err(Error::Validation("Timestamp from future".to_string()));
+        };
+        const FIXED_BLOCK_DELAY: u64 = 45;
+        // TODO add Sub trait to ChainEpoch type when it becomes u64 and re-work below for readability
+        // if header.timestamp() < base_tipset.tipset()?.min_timestamp()?+FIXED_BLOCK_DELAY*(*header.epoch() - *base_tipset.tipset()?.tip_epoch()) {
+        //     return Err(Error::Validation("Block was generated too soon".to_string()));
+        // }
+
+        /*
+        TODO
+        2. winner_check rules:
+          - TODOs missing the following pieces of data to validate ticket winner
+                - miner slashing
+                - miner power storage
+                - miner sector size
+                - fn is_ticket_winner()
+          - See lotus check here for more details: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L522
+        */
+
+        /*
+        TODO
+        3. message_check rules:
+            - All messages in the block must be valid
+            - The execution of each message, in the order they are in the block,
+             must produce a receipt matching the corresponding one in the receipt set of the block
+            - The resulting state root after all messages are applied, must match the one in the block
+           TODOs missing the following pieces of data to validate messages
+           - check_block_messages -> see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L705
+        */
+
+        /*
+        TODO
+        4. miner_check rules:
+            - Ensure miner is valid; miner_is_valid -> see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L460
+        */
+
+        /*
+        TODO
+        5. block_sig_check rules:
+            - Must have a valid signature by the miner address of the final ticket
+
+            TODOs missing the following pieces of data
+            - check_block_sigs -> see https://github.com/filecoin-project/lotus/blob/master/chain/types/blockheader_cgo.go#L13
+        */
+
+        /*
+        TODO
+        6. verify_ticket_vrf rules:
+            - the ticket must be generated from the smallest ticket in the parent tipset
+            - all tickets in the ticket array must have been generated by the same miner
+           TODOs
+           - Complete verify_vrf -> see https://github.com/filecoin-project/lotus/blob/master/chain/gen/gen.go#L600
+        */
+
+        /*
+        TODO
+        7. verify_election_proof_check rules:
+            - Must include an election proof which is a valid signature by the miner address of the final ticket
+            TODOs
+            - verify_election_proof -> see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L650
+        */
 
         Ok(())
     }

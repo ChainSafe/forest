@@ -30,6 +30,8 @@ pub enum Error {
     Message(String),
     /// Error originating from state
     State(String),
+    /// Error in validating arbitrary data
+    Validation(String),
 }
 
 impl fmt::Display for Error {
@@ -51,6 +53,7 @@ impl fmt::Display for Error {
             Error::AMT(msg) => write!(f, "Error originating from the AMT: {}", msg),
             Error::Message(msg) => write!(f, "Error originating from the Message: {}", msg),
             Error::State(msg) => write!(f, "Error originating from the State: {}", msg),
+            Error::Validation(msg) => write!(f, "Error validating data: {}", msg),
         }
     }
 }
