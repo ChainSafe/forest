@@ -11,6 +11,7 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
+use super::rpc::{RPC, RPCEvent};
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::NetworkBehaviour;
 use slog::{debug, Logger};
@@ -24,6 +25,7 @@ pub struct ForestBehaviour<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + '
     pub mdns: Mdns<TSubstream>,
     pub ping: Ping<TSubstream>,
     pub identify: Identify<TSubstream>,
+    pub rpc: RPC<TSubstream>,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
     #[behaviour(ignore)]
@@ -133,6 +135,11 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
         }
     }
 }
+impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
+NetworkBehaviourEventProcess<RPCEvent> for ForestBehaviour<TSubstream>
+{
+    fn inject_event(&mut self, event: RPCEvent) {}
+}
 
 impl<TSubstream: AsyncRead + AsyncWrite + Send + Unpin + 'static> ForestBehaviour<TSubstream> {
     /// Consumes the events list when polled.
@@ -156,6 +163,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviou
             mdns: Mdns::new().expect("Could not start mDNS"),
             ping: Ping::default(),
             identify: Identify::new("forest/libp2p".into(), "0.0.1".into(), local_key.public()),
+            rpc: RPC::new(),
             log,
             events: vec![],
         }
@@ -168,4 +176,8 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviou
     pub fn subscribe(&mut self, topic: Topic) -> bool {
         self.gossipsub.subscribe(topic)
     }
+
+//    pub fn send_rpc_message(&mut self, req: RPCEvent::Request()){
+//        unimplemented!()
+//    }
 }

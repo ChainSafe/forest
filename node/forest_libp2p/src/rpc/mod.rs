@@ -10,6 +10,7 @@ pub use codec::*;
 pub use handler::*;
 pub use protocol::*;
 pub use rpc_message::*;
+pub use behaviour::*;
 
 use crate::rpc::rpc_message::RPCResponse;
 use rpc_message::RPCRequest;
