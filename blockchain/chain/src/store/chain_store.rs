@@ -5,7 +5,8 @@ use super::{Error, TipIndex, TipSetMetadata};
 use blocks::{BlockHeader, Tipset};
 use cid::Cid;
 use db::{Error as DbError, Read, RocksDb as Blockstore, Write};
-use encoding::from_slice;
+use encoding::{de::DeserializeOwned, from_slice};
+use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use raw_block::RawBlock;
 use std::path::Path;
@@ -105,5 +106,52 @@ impl<'a> ChainStore<'a> {
     /// Returns key-value store instance
     pub fn blockstore(&self) -> &Blockstore {
         &self.db
+    }
+    /// Returns Tipset from key-value store from provided cids
+    pub fn tipset(&self, cids: &[Cid]) -> Result<Tipset, Error> {
+        let mut block_headers = Vec::new();
+        for c in cids {
+            let raw_header = self.db.read(c.key())?;
+            if let Some(x) = raw_header {
+                // decode raw header into BlockHeader
+                let bh = from_slice(&x)?;
+                block_headers.push(bh);
+            } else {
+                return Err(Error::KeyValueStore(
+                    "Key for header does not exist".to_string(),
+                ));
+            }
+        }
+        // construct new Tipset to return
+        let ts = Tipset::new(block_headers)?;
+        Ok(ts)
+    }
+
+    /// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
+    /// of type SignedMessage
+    pub fn messages(
+        &self,
+        _bh: &BlockHeader,
+    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
+        // TODO dependent on HAMT
+
+        let bls_msgs: Vec<UnsignedMessage> = self.messages_from_cids(Vec::new())?;
+        let secp_msgs: Vec<SignedMessage> = self.messages_from_cids(Vec::new())?;
+        Ok((bls_msgs, secp_msgs))
+    }
+    /// Returns messages from key-value store
+    pub fn messages_from_cids<T>(&self, keys: Vec<&Cid>) -> Result<Vec<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        keys.iter()
+            .map(|k| {
+                let value = self.db.read(&k.key())?;
+                let bytes = value.ok_or_else(|| Error::UndefinedKey(k.to_string()))?;
+
+                // Decode bytes into type T
+                from_slice(&bytes)?
+            })
+            .collect()
     }
 }

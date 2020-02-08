@@ -5,7 +5,6 @@ use encoding::Error as EncodingError;
 use multibase;
 use multihash;
 use std::{error, fmt, io};
-
 /// Error types
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Error {

@@ -6,7 +6,6 @@ clean:
 	@cargo clean -p node
 	@cargo clean -p clock
 	@cargo clean -p forest_libp2p
-	@cargo clean -p network
 	@cargo clean -p blockchain
 	@cargo clean -p forest_blocks
 	@cargo clean -p chain_sync

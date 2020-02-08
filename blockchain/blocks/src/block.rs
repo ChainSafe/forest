@@ -22,9 +22,9 @@ struct PoStProof {}
 /// A complete block
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Block {
-    header: BlockHeader,
-    bls_messages: Vec<UnsignedMessage>,
-    secp_messages: Vec<SignedMessage>,
+    pub header: BlockHeader,
+    pub bls_messages: Vec<UnsignedMessage>,
+    pub secp_messages: Vec<SignedMessage>,
 }
 
 impl Block {

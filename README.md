@@ -1,5 +1,5 @@
 # 🌲 Forest 
-![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?branch=master)
+![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?event=push&branch=master)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Discord](https://img.shields.io/discord/593655374469660673.svg?label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
@@ -14,23 +14,25 @@ Our crates:
 
 | crate | description |
 |-|-|
-| `blockchain` | chain structures and syncing functionality |
-| `crypto` | verification and signature definitions |
-| `encoding` | used for encoding and decoding |
+| `blockchain` | Chain structures and syncing functionality |
+| `crypto` | Verification and signature definitions |
+| `encoding` | Forest encoding and decoding |
 | `ipld` | IPLD data model for content-addressable data |
-| `node` | networking synchronization and storage |
-| `vm` | state transition and actor, message definitions |
+| `node` | Networking synchronization and storage |
+| `vm` | State transition and actor, message and address definitions |
 
 ## Dependencies
 rustc >= 1.40.0
 
 ## Usage
 ```bash
-# download ChainSafe Forest code
+# Clone repository
 git clone https://github.com/chainsafe/forest
 cd forest
 
-cargo build && ./target/debug/node
+# Build and run node
+cargo build
+./target/debug/node
 ```
 
 ### Testing
