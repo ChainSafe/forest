@@ -1,11 +1,19 @@
 use super::{Message, Response};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RPCRequest {
     BlocksyncRequest(Message),
 }
 
-#[derive(Debug)]
+impl RPCRequest {
+    pub fn expect_response(&self) -> bool {
+        match self {
+            RPCRequest::BlocksyncRequest(_) => true,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum RPCResponse {
     BlocksyncResponse(Response),
 }

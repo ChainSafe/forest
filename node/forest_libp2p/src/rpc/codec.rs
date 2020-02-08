@@ -8,10 +8,13 @@ pub struct InboundCodec;
 pub struct OutboundCodec;
 
 #[derive(Debug)]
-pub struct RPCError;
+pub enum RPCError {
+    Codec,
+    Custom(String),
+}
 impl From<std::io::Error> for RPCError {
-    fn from(_: std::io::Error) -> Self {
-        Self
+    fn from(err: std::io::Error) -> Self {
+        Self::Custom(err.to_string())
     }
 }
 impl fmt::Display for RPCError {
@@ -49,7 +52,7 @@ impl Decoder for InboundCodec {
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         Ok(Some(RPCRequest::BlocksyncRequest(
             // Reaplce map
-            from_slice(bz).map_err(|_| RPCError)?,
+            from_slice(bz).map_err(|_| RPCError::Codec)?,
         )))
     }
 }
@@ -76,7 +79,7 @@ impl Decoder for OutboundCodec {
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         Ok(Some(RPCResponse::BlocksyncResponse(
             // Reaplce map
-            from_slice(bz).map_err(|_| RPCError)?,
+            from_slice(bz).map_err(|_| RPCError::Codec)?,
         )))
     }
 }

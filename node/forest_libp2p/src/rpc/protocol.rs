@@ -2,7 +2,7 @@ use super::{InboundCodec, OutboundCodec, RPCError, RPCRequest};
 use bytes::BytesMut;
 use futures::prelude::*;
 use futures::{AsyncRead, AsyncReadExt, AsyncWrite};
-use futures_codec::{Decoder, Framed};
+use futures_codec::{Decoder, Encoder, Framed};
 use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use std::pin::Pin;
@@ -20,6 +20,7 @@ impl UpgradeInfo for RPCProtocol {
         vec![b"/fil/sync/blk/0.0.1"]
     }
 }
+
 pub type InboundFramed<TSocket> = Framed<TSocket, InboundCodec>;
 pub type InboundOutput<TSocket> = (RPCRequest, InboundFramed<TSocket>);
 
@@ -33,6 +34,7 @@ where
 
     fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
+            // TODO possibly can be done automatically somehow
             let mut bm = BytesMut::with_capacity(1024);
             socket.read(&mut bm).await?;
             let req = InboundCodec.decode(&mut bm)?.unwrap();
@@ -41,9 +43,22 @@ where
     }
 }
 
+pub struct RPCOutbound {
+    pub req: RPCRequest,
+}
+
+impl UpgradeInfo for RPCOutbound {
+    type Info = &'static [u8];
+    type InfoIter = Vec<Self::Info>;
+
+    fn protocol_info(&self) -> Self::InfoIter {
+        vec![b"/fil/sync/blk/0.0.1"]
+    }
+}
+
 pub type OutboundFramed<TSocket> = Framed<Negotiated<TSocket>, OutboundCodec>;
 
-impl<TSocket> OutboundUpgrade<TSocket> for RPCProtocol
+impl<TSocket> OutboundUpgrade<TSocket> for RPCOutbound
 where
     TSocket: AsyncWrite + AsyncRead + Unpin + Send + 'static,
 {
@@ -51,7 +66,13 @@ where
     type Error = RPCError;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
-    fn upgrade_outbound(self, socket: TSocket, _: Self::Info) -> Self::Future {
-        Box::pin(future::ok(Framed::new(socket, OutboundCodec)))
+    fn upgrade_outbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
+        Box::pin(async move {
+            // TODO possibly can be done automatically somehow
+            let mut bm = BytesMut::with_capacity(1024);
+            OutboundCodec.encode(self.req, &mut bm)?;
+            socket.write(&mut bm).await?;
+            Ok(Framed::new(socket, OutboundCodec))
+        })
     }
 }

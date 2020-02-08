@@ -1,8 +1,8 @@
+mod behaviour;
 mod blocksync_message;
 mod codec;
 mod handler;
 mod protocol;
-mod behaviour;
 mod rpc_message;
 
 pub use blocksync_message::*;
@@ -30,14 +30,15 @@ pub enum RPCEvent {
     Error(RequestId, RPCError),
 }
 
-// impl RPCEvent {
-//     pub fn id(&self) -> usize {
-//         match *self {
-//             RPCEvent::Request(request) => request,
-//             RPCEvent::Response(id) => id,
-//         }
-//     }
-// }
+impl RPCEvent {
+    pub fn id(&self) -> usize {
+        match *self {
+            RPCEvent::Request(id, _) => id,
+            RPCEvent::Response(id, _) => id,
+            RPCEvent::Error(id, _) => id,
+        }
+    }
+}
 
 impl std::fmt::Display for RPCEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
