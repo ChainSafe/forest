@@ -5,5 +5,5 @@
 
 pub mod behaviour;
 pub mod config;
-pub mod service;
 pub mod rpc;
+pub mod service;

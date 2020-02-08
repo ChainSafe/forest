@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::rpc_message::{RPCRequest, RPCResponse};
 use bytes::BytesMut;
 use forest_encoding::{from_slice, to_vec};
