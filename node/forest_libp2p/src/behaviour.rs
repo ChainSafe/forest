@@ -138,7 +138,14 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
 impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
 NetworkBehaviourEventProcess<RPCEvent> for ForestBehaviour<TSubstream>
 {
-    fn inject_event(&mut self, event: RPCEvent) {}
+    fn inject_event(&mut self, event: RPCEvent) {
+        match event {
+            RPCEvent::Request(req_id, req) =>{debug!(self.log, "{:?}, {:?}" , req, req_id)}
+            RPCEvent::Response(req_id, res) =>{debug!(self.log, "{:?}, {:?}" , res, req_id)}
+            RPCEvent::Error(req_id, err) =>{debug!(self.log, "{:?}, {:?}" , err, req_id)}
+        }
+    }
+
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite + Send + Unpin + 'static> ForestBehaviour<TSubstream> {
