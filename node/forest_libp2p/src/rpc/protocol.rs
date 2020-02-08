@@ -30,6 +30,7 @@ where
 {
     type Output = InboundOutput<TSocket>;
     type Error = RPCError;
+    #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
@@ -64,6 +65,7 @@ where
 {
     type Output = Framed<TSocket, OutboundCodec>;
     type Error = RPCError;
+    #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_outbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
@@ -71,7 +73,7 @@ where
             // TODO possibly can be done automatically somehow
             let mut bm = BytesMut::with_capacity(1024);
             OutboundCodec.encode(self.req, &mut bm)?;
-            socket.write(&mut bm).await?;
+            socket.write(&bm).await?;
             Ok(Framed::new(socket, OutboundCodec))
         })
     }

@@ -1,28 +1,25 @@
+use super::handler::RPCHandler;
+use super::RPCEvent;
+use futures::prelude::*;
+use futures::task::Context;
+use futures_util::task::Poll;
 use libp2p::core::ConnectedPoint;
 use libp2p::swarm::{
     protocols_handler::ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
-    SubstreamProtocol,
 };
-use futures::task::Context;
-use futures_util::task::Poll;
-use libp2p::{PeerId, Multiaddr};
-use super::handler::RPCHandler;
-use super::RPCEvent;
-use std::time::Duration;
-
+use libp2p::{Multiaddr, PeerId};
 use std::marker::PhantomData;
-use futures::prelude::*;
 
 pub struct RPC<TSubstream> {
     /// Queue of events to processed.
     /// TODO: This isn't correct
     events: Vec<NetworkBehaviourAction<RPCEvent, RPCEvent>>,
     /// Pins the generic substream.
-    marker: PhantomData<(TSubstream)>,
+    marker: PhantomData<TSubstream>,
 }
 
-impl<TSubstream> RPC<TSubstream> {
-    pub fn new () -> Self {
+impl<TSubstream> Default for RPC<TSubstream> {
+    fn default() -> Self {
         RPC {
             events: vec![],
             marker: PhantomData,
@@ -37,26 +34,40 @@ where
     type ProtocolsHandler = RPCHandler<TSubstream>;
     type OutEvent = RPCEvent;
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        RPCHandler::new(Duration::from_secs(20))
+        RPCHandler::default()
     }
 
-    fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+    fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
         vec![]
     }
 
-    fn inject_connected(&mut self, peer_id: PeerId, endpoint: ConnectedPoint) {
+    fn inject_connected(&mut self, _: PeerId, _: ConnectedPoint) {
         // Dont need to impl this
     }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId, endpoint: ConnectedPoint) {
+    fn inject_disconnected(&mut self, _: &PeerId, _: ConnectedPoint) {
         // Dont need to impl this
     }
 
-    fn inject_node_event(&mut self, peer_id: PeerId, event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent) {
-        self.events.push(NetworkBehaviourAction::GenerateEvent(event))
+    fn inject_node_event(
+        &mut self,
+        _: PeerId,
+        event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
+    ) {
+        self.events
+            .push(NetworkBehaviourAction::GenerateEvent(event))
     }
 
-    fn poll(&mut self, cx: &mut Context, params: &mut impl PollParameters) -> Poll<NetworkBehaviourAction<<Self::ProtocolsHandler as ProtocolsHandler>::InEvent, Self::OutEvent>> {
+    fn poll(
+        &mut self,
+        _: &mut Context,
+        _: &mut impl PollParameters,
+    ) -> Poll<
+        NetworkBehaviourAction<
+            <Self::ProtocolsHandler as ProtocolsHandler>::InEvent,
+            Self::OutEvent,
+        >,
+    > {
         if !self.events.is_empty() {
             return Poll::Ready(self.events.remove(0));
         }

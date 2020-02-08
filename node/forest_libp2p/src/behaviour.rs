@@ -170,7 +170,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviou
             mdns: Mdns::new().expect("Could not start mDNS"),
             ping: Ping::default(),
             identify: Identify::new("forest/libp2p".into(), "0.0.1".into(), local_key.public()),
-            rpc: RPC::new(),
+            rpc: RPC::default(),
             log,
             events: vec![],
         }
