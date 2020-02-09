@@ -39,13 +39,13 @@ struct MsgMetaData {
     balance: BigUint,
     sequence: u64,
 }
-
+/// Temporary state container during message validation check
 struct MsgCheck {
     metadata: HashMap<Address, MsgMetaData>,
 }
 
 impl MsgCheck {
-    /// Creates new MsgCheck with empty hash map
+    /// Constructor
     pub fn new() -> Self {
         Self {
             metadata: HashMap::new(),
@@ -182,7 +182,7 @@ impl<'a> Syncer<'a> {
                         sequence: sequence + 1,
                     }
                 }
-                // sequence is not found, insert sequence and balance with address as key
+                // MsgMetaData not found with provided address key, insert sequence and balance with address as key
                 _ => {
                     let actor = tree.get_actor(msg.from());
                     if let Some(act) = actor {
@@ -197,6 +197,7 @@ impl<'a> Syncer<'a> {
                     }
                 }
             };
+            // update hash map with updated state
             msg_meta_data
                 .metadata
                 .insert(msg.from().clone(), updated_state);
@@ -243,10 +244,10 @@ impl<'a> Syncer<'a> {
 
         // first check that it is not in the future; see https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
         // allowing for some small grace period to deal with small asynchrony
-        // using allowable_clock_drift from Lotus; see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L34:7
-        let allowable_clock_drift: u64 = 1;
+        // using ALLOWABLE_CLOCK_DRIFT from Lotus; see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L34:7
+        const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
         let time_now = SystemTime::now().duration_since(UNIX_EPOCH)?;
-        if header.timestamp() > time_now.as_secs() + allowable_clock_drift {
+        if header.timestamp() > time_now.as_secs() + ALLOWABLE_CLOCK_DRIFT {
             return Err(Error::Validation("Block was from the future".to_string()));
         }
         if header.timestamp() > time_now.as_secs() {

@@ -40,9 +40,11 @@ impl ActorState {
             sequence,
         }
     }
+    /// Returns sequence from actor state
     pub fn sequence(&self) -> &u64 {
         &self.sequence
     }
+    /// Returns balance from actor state
     pub fn balance(&self) -> &BigUint {
         &self.balance
     }
