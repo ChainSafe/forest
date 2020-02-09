@@ -145,8 +145,8 @@ impl<'a> Syncer<'a> {
         let fts = FullTipset::new(blocks);
         Ok(fts)
     }
-    // Block message validation checks; see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L706
-    fn check_blk_msgs(&self, block: Block, _tip: Tipset) -> Result<(), Error> {
+    // Block message validation checks
+    pub fn check_blk_msgs(&self, block: Block, _tip: Tipset) -> Result<(), Error> {
         for _m in block.bls_msgs() {
             // TODO retrieve bls public keys for verify_bls_aggregate
         }
@@ -166,12 +166,14 @@ impl<'a> Syncer<'a> {
                 Some(MsgMetaData { sequence, balance }) => {
                     // sequence equality check
                     if *sequence != msg.sequence() {
-                        return Err(Error::Message("Sequences are not equal".to_string()));
+                        return Err(Error::Validation("Sequences are not equal".to_string()));
                     }
 
                     // sufficient funds check
                     if balance < &msg.required_funds() {
-                        return Err(Error::Message("Insufficient funds".to_string()));
+                        return Err(Error::Validation(
+                            "Insufficient funds for message execution".to_string(),
+                        ));
                     }
                     // update balance and increment sequence by 1
                     MsgMetaData {
@@ -188,7 +190,9 @@ impl<'a> Syncer<'a> {
                             balance: act.balance().clone(),
                         }
                     } else {
-                        return Err(Error::Message("Sequences are not equal".to_string()));
+                        return Err(Error::State(
+                            "Could not retrieve actor from state tree".to_string(),
+                        ));
                     }
                 }
             };
@@ -211,124 +215,64 @@ impl<'a> Syncer<'a> {
             check_msg(m.clone(), &mut msg_meta_data, &tree)?;
             // signature validation
             if !is_valid_signature(&m.cid()?.to_bytes(), m.from(), m.signature()) {
-                return Err(Error::Message("Message signature is not valid".to_string()));
+                return Err(Error::Validation(
+                    "Message signature is not valid".to_string(),
+                ));
             }
         }
-        let secp_cids = cids_from_messages(block.secp_msgs())?;
-        let bls_cids = cids_from_messages(block.bls_msgs())?;
-        let bls_root = AMT::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
-        let secp_root = AMT::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
-
-        let meta = MsgMeta {
-            bls_message_root: bls_root,
-            secp_message_root: secp_root,
-        };
-        // store message roots and receive meta_root
-        self.chain_store.blockstore().put(&meta)?;
+        // validate message root from header matches message root
+        let sm_root = self.compute_msg_data(&block)?;
+        if block.to_header().messages() != &sm_root {
+            return Err(Error::InvalidRoots);
+        }
 
         Ok(())
     }
 
-    /// Should match up with 'Semantical Validation' in validation.md in the spec
+    /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     pub fn validate(&self, block: Block) -> Result<(), Error> {
-        /* TODO block validation essentially involves 7 main checks:
-            1. time_check: Must have a valid timestamp
-            2. winner_check: Must verify it contains the winning ticket
-            3. message_check: All messages in the block must be valid
-            4. miner_check: Must be from a valid miner
-            5. block_sig_check: Must have a valid signature by the miner address of the final ticket
-            6. verify_ticket_vrf: Must be generated from the smallest ticket in the parent tipset and from same miner
-            7. verify_election_proof_check: Must include an election proof which is a valid signature by the miner address of the final ticket
-        */
-
         // get header from full block
         let header = block.to_header();
-        let _base_tipset = self.load_fts(TipSetKeys::new((*header.parents().cids).to_vec()))?;
+        let base_tipset = self.load_fts(TipSetKeys::new((*header.parents().cids).to_vec()))?;
 
         // check if block has been signed
         if header.signature().bytes().is_empty() {
-            return Err(Error::Blockchain("Signature is nil in header".to_string()));
+            return Err(Error::Validation("Signature is nil in header".to_string()));
         }
 
-        /*
-        1. time_check rules:
-          - must include a timestamp not in the future
-          - must have a valid timestamp
-          - must be later than the earliest parent block time plus appropriate delay, which is BLOCK_DELAY
-        */
-
-        // Timestamp checks
-        // TODO include allowable clock drift
-        let time_now = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(n) => n.as_secs(),
-            Err(_) => {
-                return Err(Error::Validation(
-                    "SystemTime before UNIX EPOCH!".to_string(),
-                ))
-            }
-        };
-        if time_now < header.timestamp() {
-            return Err(Error::Validation("Timestamp from future".to_string()));
-        };
+        // first check that it is not in the future; see https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
+        // allowing for some small grace period to deal with small asynchrony
+        // using allowable_clock_drift from Lotus; see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L34:7
+        let allowable_clock_drift: u64 = 1;
+        let time_now = SystemTime::now().duration_since(UNIX_EPOCH)?;
+        if header.timestamp() > time_now.as_secs() + allowable_clock_drift {
+            return Err(Error::Validation("Block was from the future".to_string()));
+        }
+        if header.timestamp() > time_now.as_secs() {
+            return Err(Error::Validation(
+                "Got block from the future, but within threshold".to_string(),
+            ));
+        }
         const FIXED_BLOCK_DELAY: u64 = 45;
-        // TODO add Sub trait to ChainEpoch type when it becomes u64 and re-work below for readability
-        // if header.timestamp() < base_tipset.tipset()?.min_timestamp()?+FIXED_BLOCK_DELAY*(*header.epoch() - *base_tipset.tipset()?.tip_epoch()) {
-        //     return Err(Error::Validation("Block was generated too soon".to_string()));
-        // }
+        // check that it is appropriately delayed from its parents including null blocks
+        if header.timestamp()
+            < base_tipset.tipset()?.min_timestamp()?
+                + FIXED_BLOCK_DELAY
+                    * (*header.epoch() - *base_tipset.tipset()?.tip_epoch()).chain_epoch()
+        {
+            return Err(Error::Validation(
+                "Block was generated too soon".to_string(),
+            ));
+        }
 
-        /*
-        TODO
-        2. winner_check rules:
-          - TODOs missing the following pieces of data to validate ticket winner
-                - miner slashing
-                - miner power storage
-                - miner sector size
-                - fn is_ticket_winner()
-          - See lotus check here for more details: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L522
-        */
+        // check messages to ensure valid state transitions
+        self.check_blk_msgs(block, base_tipset.tipset()?)?;
 
-        /*
-        TODO
-        3. message_check rules:
-            - All messages in the block must be valid
-            - The execution of each message, in the order they are in the block,
-             must produce a receipt matching the corresponding one in the receipt set of the block
-            - The resulting state root after all messages are applied, must match the one in the block
-           TODOs missing the following pieces of data to validate messages
-           - check_block_messages -> see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L705
-        */
-
-        /*
-        TODO
-        4. miner_check rules:
-            - Ensure miner is valid; miner_is_valid -> see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L460
-        */
-
-        /*
-        TODO
-        5. block_sig_check rules:
-            - Must have a valid signature by the miner address of the final ticket
-
-            TODOs missing the following pieces of data
-            - check_block_sigs -> see https://github.com/filecoin-project/lotus/blob/master/chain/types/blockheader_cgo.go#L13
-        */
-
-        /*
-        TODO
-        6. verify_ticket_vrf rules:
-            - the ticket must be generated from the smallest ticket in the parent tipset
-            - all tickets in the ticket array must have been generated by the same miner
-           TODOs
-           - Complete verify_vrf -> see https://github.com/filecoin-project/lotus/blob/master/chain/gen/gen.go#L600
-        */
-
-        /*
-        TODO
-        7. verify_election_proof_check rules:
-            - Must include an election proof which is a valid signature by the miner address of the final ticket
-            TODOs
-            - verify_election_proof -> see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L650
-        */
+        // TODO winner_check
+        // TODO miner_check
+        // TODO block_sig_check
+        // TODO verify_ticket_vrf
+        // TODO verify_election_proof_check
 
         Ok(())
     }

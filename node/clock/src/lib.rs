@@ -8,6 +8,7 @@ use encoding::{
 };
 use std::convert::TryInto;
 use std::num::TryFromIntError;
+use std::ops::Sub;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
@@ -75,9 +76,23 @@ impl ChainEpochClock {
     }
 }
 
+impl Sub for ChainEpoch {
+    type Output = ChainEpoch;
+
+    fn sub(self, other: ChainEpoch) -> ChainEpoch {
+        ChainEpoch {
+            0: self.0 - other.0,
+        }
+    }
+}
+
 impl ChainEpoch {
     /// Returns ChainEpoch based on the given unix timestamp
     pub fn new(timestamp: i64) -> Result<ChainEpoch, TryFromIntError> {
         Ok(ChainEpoch(timestamp.try_into()?))
+    }
+    // Returns chain epoch
+    pub fn chain_epoch(&self) -> &u64 {
+        &self.0
     }
 }
