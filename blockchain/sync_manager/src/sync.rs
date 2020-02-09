@@ -34,6 +34,7 @@ pub struct Syncer<'a> {
     _own: PeerId,
 }
 
+/// Message data used to ensure valid state transition
 struct MsgMetaData {
     balance: BigUint,
     sequence: u64,
@@ -44,7 +45,7 @@ struct MsgCheck {
 }
 
 impl MsgCheck {
-    /// Creates new MsgCheck with empty metadata
+    /// Creates new MsgCheck with empty hash map
     pub fn new() -> Self {
         Self {
             metadata: HashMap::new(),
