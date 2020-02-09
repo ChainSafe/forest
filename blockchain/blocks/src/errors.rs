@@ -9,6 +9,8 @@ pub enum Error {
     InvalidTipSet(String),
     /// The given tipset has no blocks
     NoBlocks,
+    /// Invalid signature
+    InvalidSignature(String),
 }
 
 impl fmt::Display for Error {
@@ -16,6 +18,7 @@ impl fmt::Display for Error {
         match self {
             Error::InvalidTipSet(msg) => write!(f, "Invalid tipset: {}", msg),
             Error::NoBlocks => write!(f, "No blocks for tipset"),
+            Error::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
         }
     }
 }
