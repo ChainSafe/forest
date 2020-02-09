@@ -267,11 +267,15 @@ impl<'a> Syncer<'a> {
         }
 
         // check messages to ensure valid state transitions
-        self.check_blk_msgs(block, base_tipset.tipset()?)?;
+        self.check_blk_msgs(block.clone(), base_tipset.tipset()?)?;
+
+        // block signature check
+        // TODO need to pass in raw miner address; temp using header miner address
+        // see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L611
+        header.check_block_signature(header.miner_address())?;
 
         // TODO winner_check
         // TODO miner_check
-        // TODO block_sig_check
         // TODO verify_ticket_vrf
         // TODO verify_election_proof_check
 

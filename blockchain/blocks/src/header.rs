@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EPostProof, Ticket, TipSetKeys};
+use super::{EPostProof, Error, Ticket, TipSetKeys};
 use address::Address;
 use cid::{Cid, Error as CidError};
 use clock::ChainEpoch;
-use crypto::Signature;
+use crypto::{is_valid_signature, Signature};
 use derive_builder::Builder;
 use encoding::{
     de::{self, Deserializer},
@@ -277,6 +277,22 @@ impl BlockHeader {
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
         self.cached_cid = Cid::from_bytes_default(&self.cached_bytes).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    /// Check to ensure block signature is valid
+    pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
+        if self.signature().bytes().is_empty() {
+            return Err(Error::InvalidTipSet(
+                "Signature is nil in header".to_string(),
+            ));
+        }
+
+        if !is_valid_signature(&self.cid().to_bytes(), addr, self.signature()) {
+            return Err(Error::InvalidTipSet(
+                "Block signature is invalid".to_string(),
+            ));
+        }
+
         Ok(())
     }
 }
