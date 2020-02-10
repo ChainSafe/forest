@@ -39,19 +39,6 @@ struct MsgMetaData {
     balance: BigUint,
     sequence: u64,
 }
-/// Temporary state container during message validation check
-struct MsgCheck {
-    metadata: HashMap<Address, MsgMetaData>,
-}
-
-impl MsgCheck {
-    /// Constructor
-    pub fn new() -> Self {
-        Self {
-            metadata: HashMap::new(),
-        }
-    }
-}
 
 impl<'a> Syncer<'a> {
     /// TODO add constructor
@@ -148,21 +135,21 @@ impl<'a> Syncer<'a> {
     }
     // Block message validation checks
     pub fn check_blk_msgs(&self, block: Block, _tip: Tipset) -> Result<(), Error> {
-        for _m in block.bls_msgs() {
-            // TODO retrieve bls public keys for verify_bls_aggregate
-        }
+        // TODO retrieve bls public keys for verify_bls_aggregate
+        // for _m in block.bls_msgs() {
+        // }
         // TODO verify_bls_aggregate
 
         // check msgs for validity
         fn check_msg<T: Message>(
-            msg: T,
-            msg_meta_data: &mut MsgCheck,
+            msg: &T,
+            msg_meta_data: &mut HashMap<Address, MsgMetaData>,
             tree: &HamtStateTree,
         ) -> Result<(), Error>
         where
             T: Message,
         {
-            let updated_state: MsgMetaData = match msg_meta_data.metadata.get(msg.from()) {
+            let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
                 Some(MsgMetaData { sequence, balance }) => {
                     // sequence equality check
@@ -171,7 +158,7 @@ impl<'a> Syncer<'a> {
                     }
 
                     // sufficient funds check
-                    if balance < &msg.required_funds() {
+                    if *balance < msg.required_funds() {
                         return Err(Error::Validation(
                             "Insufficient funds for message execution".to_string(),
                         ));
@@ -183,38 +170,32 @@ impl<'a> Syncer<'a> {
                     }
                 }
                 // MsgMetaData not found with provided address key, insert sequence and balance with address as key
-                _ => {
-                    let actor = tree.get_actor(msg.from());
-                    if let Some(act) = actor {
-                        MsgMetaData {
-                            sequence: *act.sequence(),
-                            balance: act.balance().clone(),
-                        }
-                    } else {
-                        return Err(Error::State(
-                            "Could not retrieve actor from state tree".to_string(),
-                        ));
+                None => {
+                    let actor = tree.get_actor(msg.from()).ok_or_else(|| {
+                        Error::State("Could not retrieve actor from state tree".to_owned())
+                    })?;
+
+                    MsgMetaData {
+                        sequence: actor.sequence,
+                        balance: actor.balance,
                     }
                 }
             };
             // update hash map with updated state
-            msg_meta_data
-                .metadata
-                .insert(msg.from().clone(), updated_state);
+            msg_meta_data.insert(msg.from().clone(), updated_state);
             Ok(())
         }
-
-        let mut msg_meta_data = MsgCheck::new();
+        let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::new();
         // TODO retrieve tipset state and load state tree
         // temporary
         let tree = HamtStateTree::default();
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
-            check_msg(m.clone(), &mut msg_meta_data, &tree)?;
+            check_msg(m, &mut msg_meta_data, &tree)?;
         }
         // loop through secp messages and check msg validity and signature
         for m in block.secp_msgs() {
-            check_msg(m.clone(), &mut msg_meta_data, &tree)?;
+            check_msg(m, &mut msg_meta_data, &tree)?;
             // signature validation
             if !is_valid_signature(&m.cid()?.to_bytes(), m.from(), m.signature()) {
                 return Err(Error::Validation(
@@ -235,7 +216,6 @@ impl<'a> Syncer<'a> {
     pub fn validate(&self, block: Block) -> Result<(), Error> {
         // get header from full block
         let header = block.to_header();
-        let base_tipset = self.load_fts(TipSetKeys::new((*header.parents().cids).to_vec()))?;
 
         // check if block has been signed
         if header.signature().bytes().is_empty() {
@@ -255,6 +235,8 @@ impl<'a> Syncer<'a> {
                 "Got block from the future, but within threshold".to_string(),
             ));
         }
+
+        let base_tipset = self.load_fts(TipSetKeys::new(header.parents().cids.clone()))?;
         const FIXED_BLOCK_DELAY: u64 = 45;
         // check that it is appropriately delayed from its parents including null blocks
         if header.timestamp()

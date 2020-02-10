@@ -26,8 +26,8 @@ impl Cbor for ActorID {}
 pub struct ActorState {
     code_id: CodeID,
     state: Cid,
-    balance: BigUint,
-    sequence: u64,
+    pub balance: BigUint,
+    pub sequence: u64,
 }
 
 impl ActorState {
