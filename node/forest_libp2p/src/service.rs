@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::behaviour::{ForestBehaviour, ForestBehaviourEvent};
-use super::rpc::{RPCResponse,RPCRequest};
 use super::config::Libp2pConfig;
+use super::rpc::{RPCEvent, RPCRequest, RPCResponse};
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
@@ -50,8 +50,8 @@ pub enum NetworkMessage {
         message: Vec<u8>,
     },
     RPCRequest {
-        req_id: usize,
-        request: RPCRequest,
+        peer_id: PeerId,
+        request: RPCEvent,
     },
     RPCResponse {
         req_id: usize,
@@ -73,7 +73,7 @@ pub struct Libp2pService {
 impl Libp2pService {
     /// Constructs a Libp2pService
     pub fn new(log: Logger, config: &Libp2pConfig) -> Self {
-//        let net_keypair = get_keypair(&log, );
+        // let net_keypair = get_keypair(&log, );
         let net_keypair = Keypair::generate_ed25519();
 
         let peer_id = PeerId::from(net_keypair.public());
@@ -105,8 +105,6 @@ impl Libp2pService {
                 .expect("Incorrect MultiAddr Format"),
         )
         .unwrap();
-
-
 
         for topic in config.pubsub_topics.clone() {
             swarm.subscribe(topic);
@@ -151,12 +149,12 @@ impl Libp2pService {
                         ForestBehaviourEvent::RPCRequest {
                             req_id, request
                         } => {
-
+                            println!("Inbound request");
                         }
                         ForestBehaviourEvent::RPCResponse {
-                            req_id,response
+                            req_id, response
                         } => {
-
+                            println!("Received response");
                         }
                     }
                     None => {break;}
@@ -166,8 +164,13 @@ impl Libp2pService {
                         NetworkMessage::PubsubMessage{topic, message} => {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
-                        NetworkMessage::RPCRequest{req_id, request} => {}
-                        NetworkMessage::RPCResponse{req_id, response} => {}
+                        NetworkMessage::RPCRequest{peer_id, request} => {
+                            println!("Sent request");
+                            swarm_stream.get_mut().send_rpc_message(peer_id, request);
+                        }
+                        NetworkMessage::RPCResponse{req_id, response} => {
+                            println!("Sent response");
+                        }
                     }
                     None => {break;}
                 }

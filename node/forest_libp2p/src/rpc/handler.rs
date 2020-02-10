@@ -154,6 +154,8 @@ where
     ) {
         let (req, substream) = out;
 
+        println!("Request negotiated {:?}", req);
+
         // New inbound request. Store the stream and tag the output.
         let awaiting_stream = WaitingResponse {
             substream,
@@ -271,6 +273,8 @@ where
                     match substream.poll_next_unpin(cx) {
                         Poll::Ready(v) => {
                             if let Some(Err(err)) = v {
+                                println!("Error 1");
+
                                 return Poll::Ready(ProtocolsHandlerEvent::Custom(
                                     RPCEvent::Error(0, RPCError::Custom(err.to_string())),
                                 ));

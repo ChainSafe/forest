@@ -22,7 +22,10 @@ impl From<std::io::Error> for RPCError {
 }
 impl fmt::Display for RPCError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Libp2pError")
+        match self {
+            RPCError::Codec => write!(f, "Codec Error"),
+            RPCError::Custom(err) => write!(f, "{}", err),
+        }
     }
 }
 
@@ -53,6 +56,7 @@ impl Decoder for InboundCodec {
     type Item = RPCRequest;
 
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        println!("inbound decode fail");
         Ok(Some(RPCRequest::BlocksyncRequest(
             // Reaplce map
             from_slice(bz).map_err(|_| RPCError::Codec)?,
@@ -80,6 +84,8 @@ impl Decoder for OutboundCodec {
     type Item = RPCResponse;
 
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        println!("out decode fail");
+
         Ok(Some(RPCResponse::BlocksyncResponse(
             // Reaplce map
             from_slice(bz).map_err(|_| RPCError::Codec)?,
