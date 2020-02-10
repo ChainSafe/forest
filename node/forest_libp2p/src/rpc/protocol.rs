@@ -39,15 +39,16 @@ where
     fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             // TODO possibly can be done automatically somehow
-            let mut bm = BytesMut::with_capacity(1024);
+            let mut bm_v = Vec::with_capacity(1024);
             println!("PRE");
-            match socket.read(&mut bm).await {
+            match socket.read_to_end(&mut bm_v).await {
                 Err(e) => {
                     println!("ERR {}", e.to_string());
                     return Err(e.into());
                 }
-                _ => println!("fine"),
+                Ok(x) => println!("fine {:?}", x),
             }
+            let mut bm = BytesMut::from(&bm_v[..]);
             let req = InboundCodec.decode(&mut bm)?.unwrap();
             println!("{:?}", req);
             Ok((req, Framed::new(socket, InboundCodec)))
@@ -85,7 +86,9 @@ where
             // TODO possibly can be done automatically somehow
             let mut bm = BytesMut::with_capacity(1024);
             OutboundCodec.encode(self.req, &mut bm)?;
-            socket.write(&bm).await?;
+            println!("Writing {:?} bytes", socket.write_all(&bm).await?);
+            socket.flush().await;
+            socket.close().await;
             Ok(Framed::new(socket, OutboundCodec))
         })
     }
