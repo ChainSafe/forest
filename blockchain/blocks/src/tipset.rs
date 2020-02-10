@@ -220,7 +220,8 @@ impl FullTipset {
         for block in self.blocks() {
             headers.push(block.to_header().clone())
         }
-        Ok(Tipset::new(headers))?
+        let tip: Tipset = Tipset::new(headers)?;
+        Ok(tip)
     }
 }
 

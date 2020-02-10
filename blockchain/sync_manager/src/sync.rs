@@ -17,7 +17,6 @@ use num_bigint::BigUint;
 use raw_block::RawBlock;
 use state::{HamtStateTree, StateTree};
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Syncer<'a> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
@@ -113,7 +112,7 @@ impl<'a> Syncer<'a> {
         Ok(fts)
     }
     /// Returns a reconstructed FullTipset from store if keys exist
-    fn load_fts(&self, keys: TipSetKeys) -> Result<FullTipset, Error> {
+    pub fn load_fts(&self, keys: TipSetKeys) -> Result<FullTipset, Error> {
         let mut blocks = Vec::new();
         // retrieve tipset from store based on passed in TipSetKeys
         let ts = self.chain_store.tipset(keys.tipset_keys())?;
@@ -222,32 +221,9 @@ impl<'a> Syncer<'a> {
             return Err(Error::Validation("Signature is nil in header".to_string()));
         }
 
-        // first check that it is not in the future; see https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-        // allowing for some small grace period to deal with small asynchrony
-        // using ALLOWABLE_CLOCK_DRIFT from Lotus; see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L34:7
-        const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
-        let time_now = SystemTime::now().duration_since(UNIX_EPOCH)?;
-        if header.timestamp() > time_now.as_secs() + ALLOWABLE_CLOCK_DRIFT {
-            return Err(Error::Validation("Block was from the future".to_string()));
-        }
-        if header.timestamp() > time_now.as_secs() {
-            return Err(Error::Validation(
-                "Got block from the future, but within threshold".to_string(),
-            ));
-        }
-
         let base_tipset = self.load_fts(TipSetKeys::new(header.parents().cids.clone()))?;
-        const FIXED_BLOCK_DELAY: u64 = 45;
-        // check that it is appropriately delayed from its parents including null blocks
-        if header.timestamp()
-            < base_tipset.tipset()?.min_timestamp()?
-                + FIXED_BLOCK_DELAY
-                    * (*header.epoch() - *base_tipset.tipset()?.tip_epoch()).chain_epoch()
-        {
-            return Err(Error::Validation(
-                "Block was generated too soon".to_string(),
-            ));
-        }
+        // time stamp checks
+        header.validate_timestamps(&base_tipset)?;
 
         // check messages to ensure valid state transitions
         self.check_blk_msgs(block.clone(), base_tipset.tipset()?)?;

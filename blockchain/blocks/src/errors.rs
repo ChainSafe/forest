@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt;
+use std::{fmt, time::SystemTimeError as TimeErr};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -11,6 +11,8 @@ pub enum Error {
     NoBlocks,
     /// Invalid signature
     InvalidSignature(String),
+    /// Error in validating arbitrary data
+    Validation(String),
 }
 
 impl fmt::Display for Error {
@@ -19,6 +21,13 @@ impl fmt::Display for Error {
             Error::InvalidTipSet(msg) => write!(f, "Invalid tipset: {}", msg),
             Error::NoBlocks => write!(f, "No blocks for tipset"),
             Error::InvalidSignature(msg) => write!(f, "Invalid signature: {}", msg),
+            Error::Validation(msg) => write!(f, "Error validating data: {}", msg),
         }
+    }
+}
+
+impl From<TimeErr> for Error {
+    fn from(e: TimeErr) -> Error {
+        Error::Validation(e.to_string())
     }
 }
