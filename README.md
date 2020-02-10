@@ -31,8 +31,8 @@ git clone https://github.com/chainsafe/forest
 cd forest
 
 # Build and run node
-cargo build
-./target/debug/node
+cargo install --path forest
+forest
 ```
 
 ### Testing
