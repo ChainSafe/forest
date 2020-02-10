@@ -10,7 +10,7 @@ use std::fmt;
 pub struct InboundCodec;
 pub struct OutboundCodec;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RPCError {
     Codec,
     Custom(String),

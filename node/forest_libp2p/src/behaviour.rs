@@ -198,7 +198,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviou
         self.gossipsub.subscribe(topic)
     }
 
-//    pub fn send_rpc_message(&mut self, req: RPCEvent::Request()){
-//        unimplemented!()
-//    }
+    pub fn send_rpc_message(&mut self, peer_id: PeerId, req: RPCEvent){
+        self.rpc.send_rpc(peer_id, req);
+    }
 }
