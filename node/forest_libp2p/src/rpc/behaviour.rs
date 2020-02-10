@@ -21,6 +21,14 @@ pub struct RPC<TSubstream> {
     marker: PhantomData<TSubstream>,
 }
 
+impl<TSubstream> RPC<TSubstream> {
+    pub fn new() -> Self {
+        RPC::default()
+    }
+
+    pub fn send_rpc(&self, payload: RPCEvent) {}
+}
+
 impl<TSubstream> Default for RPC<TSubstream> {
     fn default() -> Self {
         RPC {

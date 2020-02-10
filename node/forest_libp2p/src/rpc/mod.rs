@@ -15,9 +15,6 @@ pub use handler::*;
 pub use protocol::*;
 pub use rpc_message::*;
 
-use crate::rpc::rpc_message::RPCResponse;
-use rpc_message::RPCRequest;
-
 type RequestId = usize;
 
 /// The return type used in the behaviour and the resultant event from the protocols handler.

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::behaviour::{ForestBehaviour, ForestBehaviourEvent};
+use super::rpc::{RPCResponse,RPCRequest};
 use super::config::Libp2pConfig;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
@@ -31,12 +32,31 @@ pub enum NetworkEvent {
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
+    RPCRequest {
+        req_id: usize,
+        request: RPCRequest,
+    },
+    RPCResponse {
+        req_id: usize,
+        response: RPCResponse,
+    },
 }
 
 /// Events into this Service
 #[derive(Clone, Debug)]
 pub enum NetworkMessage {
-    PubsubMessage { topic: Topic, message: Vec<u8> },
+    PubsubMessage {
+        topic: Topic,
+        message: Vec<u8>,
+    },
+    RPCRequest {
+        req_id: usize,
+        request: RPCRequest,
+    },
+    RPCResponse {
+        req_id: usize,
+        response: RPCResponse,
+    },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
@@ -44,7 +64,6 @@ pub struct Libp2pService {
 
     pubsub_receiver_in: Receiver<NetworkMessage>,
     pubsub_sender_in: Sender<NetworkMessage>,
-
     pubsub_receiver_out: Receiver<NetworkEvent>,
     pubsub_sender_out: Sender<NetworkEvent>,
 
@@ -125,6 +144,16 @@ impl Libp2pService {
                                 message
                             }).await;
                         }
+                        ForestBehaviourEvent::RPCRequest {
+                            req_id, request
+                        } => {
+
+                        }
+                        ForestBehaviourEvent::RPCResponse {
+                            req_id,response
+                        } => {
+
+                        }
                     }
                     None => {break;}
                 },
@@ -133,6 +162,8 @@ impl Libp2pService {
                         NetworkMessage::PubsubMessage{topic, message} => {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
+                        NetworkMessage::RPCRequest{req_id, request} => {}
+                        NetworkMessage::RPCResponse{req_id, response} => {}
                     }
                     None => {break;}
                 }

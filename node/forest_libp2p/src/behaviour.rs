@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::rpc::{RPCEvent, RPC};
+use super::rpc::{RPCRequest, RPCResponse};
 use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
@@ -40,6 +41,14 @@ pub enum ForestBehaviourEvent {
         source: PeerId,
         topics: Vec<TopicHash>,
         message: Vec<u8>,
+    },
+    RPCRequest {
+        request: RPCRequest,
+        req_id: usize,
+    },
+    RPCResponse {
+        response: RPCResponse,
+        req_id: usize,
     },
 }
 
@@ -140,8 +149,14 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
 {
     fn inject_event(&mut self, event: RPCEvent) {
         match event {
-            RPCEvent::Request(req_id, req) => debug!(self.log, "{:?}, {:?}", req, req_id),
-            RPCEvent::Response(req_id, res) => debug!(self.log, "{:?}, {:?}", res, req_id),
+            RPCEvent::Request(req_id, request) => {
+                self.events
+                    .push(ForestBehaviourEvent::RPCRequest { req_id, request });
+            }
+            RPCEvent::Response(req_id, response) => {
+                self.events
+                    .push(ForestBehaviourEvent::RPCResponse { req_id, response });
+            }
             RPCEvent::Error(req_id, err) => debug!(self.log, "{:?}, {:?}", err, req_id),
         }
     }
@@ -183,7 +198,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviou
         self.gossipsub.subscribe(topic)
     }
 
-    //    pub fn send_rpc_message(&mut self, req: RPCEvent::Request()){
-    //        unimplemented!()
-    //    }
+//    pub fn send_rpc_message(&mut self, req: RPCEvent::Request()){
+//        unimplemented!()
+//    }
 }
