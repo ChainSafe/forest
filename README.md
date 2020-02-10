@@ -31,7 +31,7 @@ git clone https://github.com/chainsafe/forest
 cd forest
 
 # Build and run node
-cargo install --path forest
+make install
 forest
 ```
 
