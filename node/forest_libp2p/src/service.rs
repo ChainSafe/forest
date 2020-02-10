@@ -60,7 +60,7 @@ pub enum NetworkMessage {
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
-    swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
+    pub swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
 
     pubsub_receiver_in: Receiver<NetworkMessage>,
     pubsub_sender_in: Sender<NetworkMessage>,
@@ -73,7 +73,9 @@ pub struct Libp2pService {
 impl Libp2pService {
     /// Constructs a Libp2pService
     pub fn new(log: Logger, config: &Libp2pConfig) -> Self {
-        let net_keypair = get_keypair(&log);
+//        let net_keypair = get_keypair(&log, );
+        let net_keypair = Keypair::generate_ed25519();
+
         let peer_id = PeerId::from(net_keypair.public());
 
         info!(log, "Local peer id: {:?}", peer_id);
@@ -103,6 +105,8 @@ impl Libp2pService {
                 .expect("Incorrect MultiAddr Format"),
         )
         .unwrap();
+
+
 
         for topic in config.pubsub_topics.clone() {
             swarm.subscribe(topic);
@@ -200,7 +204,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 }
 
 /// Fetch keypair from disk, or generate a new one if its not available
-fn get_keypair(log: &Logger) -> Keypair {
+fn get_keypair(log: &Logger, config: &Libp2pConfig) -> Keypair {
     let path_to_keystore = get_home_dir() + "/.forest/libp2p/keypair";
     let local_keypair = match read_file_to_vec(&path_to_keystore) {
         Err(e) => {

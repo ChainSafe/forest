@@ -41,8 +41,8 @@ fn test1() {
     let (lp2p1, lp2p2) = build_node_pair();
     task::block_on(async move{
         let han1 = task::spawn(async move {
+            let tx
             lp2p1.run().await;
-
         });
         let han2 = task::spawn(async move {
             lp2p2.run().await;

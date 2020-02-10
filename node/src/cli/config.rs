@@ -8,4 +8,5 @@ use serde::Deserialize;
 #[serde(default)]
 pub struct Config {
     pub network: Libp2pConfig,
+    pub data_dir: String,
 }
