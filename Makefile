@@ -3,6 +3,7 @@ clean-all:
 
 clean:
 	@echo "Cleaning local packages..."
+	@cargo clean -p forest
 	@cargo clean -p node
 	@cargo clean -p clock
 	@cargo clean -p forest_libp2p
@@ -27,6 +28,9 @@ clean:
 lint: clean license
 	cargo fmt
 	cargo clippy -- -D warnings
+
+install:
+	cargo install --path forest
 
 build:
 	cargo build
