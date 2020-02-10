@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "forest",
     "blockchain",
     "blockchain/blocks",
     "blockchain/chain",
