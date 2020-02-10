@@ -30,7 +30,7 @@ rustc >= 1.40.0
 git clone https://github.com/chainsafe/forest
 cd forest
 
-# Build and run node
+# Install binary to $HOME/.cargo/bin and run node
 make install
 forest
 ```
