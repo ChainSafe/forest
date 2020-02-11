@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EPostProof, Ticket, TipSetKeys};
+use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
 use cid::{Cid, Error as CidError};
 use clock::ChainEpoch;
-use crypto::Signature;
+use crypto::{is_valid_signature, Signature};
 use derive_builder::Builder;
 use encoding::{
     de::{self, Deserializer},
@@ -16,6 +16,7 @@ use num_bigint::BigUint;
 use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Header of a block
 ///
@@ -277,6 +278,48 @@ impl BlockHeader {
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
         self.cached_cid = Cid::from_bytes_default(&self.cached_bytes).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    /// Check to ensure block signature is valid
+    pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
+        if self.signature().bytes().is_empty() {
+            return Err(Error::InvalidSignature(
+                "Signature is nil in header".to_string(),
+            ));
+        }
+
+        if !is_valid_signature(&self.cid().to_bytes(), addr, self.signature()) {
+            return Err(Error::InvalidSignature(
+                "Block signature is invalid".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+    /// Validates timestamps to ensure BlockHeader was generated at the correct time
+    pub fn validate_timestamps(&self, base_tipset: &FullTipset) -> Result<(), Error> {
+        // first check that it is not in the future; see https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
+        // allowing for some small grace period to deal with small asynchrony
+        // using ALLOWABLE_CLOCK_DRIFT from Lotus; see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L34:7
+        const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
+        let time_now = SystemTime::now().duration_since(UNIX_EPOCH)?;
+        if self.timestamp() > time_now.as_secs() + ALLOWABLE_CLOCK_DRIFT
+            || self.timestamp() > time_now.as_secs()
+        {
+            return Err(Error::Validation("Header was from the future".to_string()));
+        }
+        const FIXED_BLOCK_DELAY: u64 = 45;
+        // check that it is appropriately delayed from its parents including null blocks
+        if self.timestamp()
+            < base_tipset.tipset()?.min_timestamp()?
+                + FIXED_BLOCK_DELAY
+                    * (*self.epoch() - *base_tipset.tipset()?.tip_epoch()).chain_epoch()
+        {
+            return Err(Error::Validation(
+                "Header was generated too soon".to_string(),
+            ));
+        }
+
         Ok(())
     }
 }
