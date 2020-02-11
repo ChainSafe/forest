@@ -112,7 +112,7 @@ impl<'a> Syncer<'a> {
         Ok(fts)
     }
     /// Returns a reconstructed FullTipset from store if keys exist
-    pub fn load_fts(&self, keys: TipSetKeys) -> Result<FullTipset, Error> {
+    fn load_fts(&self, keys: TipSetKeys) -> Result<FullTipset, Error> {
         let mut blocks = Vec::new();
         // retrieve tipset from store based on passed in TipSetKeys
         let ts = self.chain_store.tipset(keys.tipset_keys())?;
