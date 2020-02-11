@@ -18,7 +18,7 @@ use libp2p::{
 use slog::{debug, error, info, trace, Logger};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-use utils::{get_home_dir, read_file_to_vec, write_to_file};
+use utils::{get_home_dir, read_file_to_vec};
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = ForestBehaviour<Substream<StreamMuxerBox>>;
@@ -53,8 +53,7 @@ pub struct Libp2pService {
 
 impl Libp2pService {
     /// Constructs a Libp2pService
-    pub fn new(log: Logger, config: &Libp2pConfig) -> Self {
-        let net_keypair = get_keypair(&log);
+    pub fn new(log: Logger, config: &Libp2pConfig, net_keypair: Keypair) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
         info!(log, "Local peer id: {:?}", peer_id);
@@ -168,47 +167,25 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
         .boxed()
 }
 
-/// Fetch keypair from disk, or generate a new one if its not available
-fn get_keypair(log: &Logger) -> Keypair {
-    let path_to_keystore = get_home_dir() + "/.forest/libp2p/keypair";
-    let local_keypair = match read_file_to_vec(&path_to_keystore) {
+/// Fetch keypair from disk, returning none if it cannot be decoded
+pub fn get_keypair(log: &Logger, path: &str) -> Option<Keypair> {
+    let path_to_keystore = get_home_dir() + path;
+    match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
             info!(log, "Networking keystore not found!");
             trace!(log, "Error {:?}", e);
-            return generate_new_peer_id(log);
+            None
         }
-        Ok(mut vec) => {
-            // If decoding fails, generate new peer id
-            // TODO rename old file to keypair.old(?)
-            match ed25519::Keypair::decode(&mut vec) {
-                Ok(kp) => {
-                    info!(log, "Recovered keystore from {:?}", &path_to_keystore);
-                    kp
-                }
-                Err(e) => {
-                    info!(log, "Could not decode networking keystore!");
-                    trace!(log, "Error {:?}", e);
-                    return generate_new_peer_id(log);
-                }
+        Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
+            Ok(kp) => {
+                info!(log, "Recovered keystore from {:?}", &path_to_keystore);
+                Some(Keypair::Ed25519(kp))
             }
-        }
-    };
-
-    Keypair::Ed25519(local_keypair)
-}
-
-/// Generates a new libp2p keypair and saves to disk
-fn generate_new_peer_id(log: &Logger) -> Keypair {
-    let path_to_keystore = get_home_dir() + "/.forest/libp2p/";
-    let generated_keypair = Keypair::generate_ed25519();
-    info!(log, "Generated new keystore!");
-
-    if let Keypair::Ed25519(key) = generated_keypair.clone() {
-        if let Err(e) = write_to_file(&key.encode(), &path_to_keystore, "keypair") {
-            info!(log, "Could not write keystore to disk!");
-            trace!(log, "Error {:?}", e);
-        };
+            Err(e) => {
+                info!(log, "Could not decode networking keystore!");
+                trace!(log, "Error {:?}", e);
+                None
+            }
+        },
     }
-
-    generated_keypair
 }
