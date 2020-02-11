@@ -157,7 +157,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
                 self.events
                     .push(ForestBehaviourEvent::RPCResponse { req_id, response });
             }
-            RPCEvent::Error(req_id, err) => debug!(self.log, "{:?}, {:?}", err, req_id),
+            RPCEvent::Error(req_id, err) => debug!(self.log, "RPC Error {:?}, {:?}", err, req_id),
         }
     }
 }
@@ -198,7 +198,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviou
         self.gossipsub.subscribe(topic)
     }
 
-    pub fn send_rpc_message(&mut self, peer_id: PeerId, req: RPCEvent){
+    pub fn send_rpc_message(&mut self, peer_id: PeerId, req: RPCEvent) {
         self.rpc.send_rpc(peer_id, req);
     }
 }

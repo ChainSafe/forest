@@ -29,7 +29,6 @@ fn build_node_pair() -> (Libp2pService, Libp2pService) {
     let mut lp2p_service2 = Libp2pService::new(log.clone(), &config2);
 
     // dial each other
-
     Swarm::dial_addr(
         &mut lp2p_service2.swarm,
         "/ip4/127.0.0.1/tcp/10005".parse().unwrap(),

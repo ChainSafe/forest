@@ -3,7 +3,7 @@
 
 use super::rpc_message::{RPCRequest, RPCResponse};
 use bytes::BytesMut;
-use forest_encoding::{from_slice, to_vec};
+use forest_encoding::{error::Error as EncodingError, from_slice, to_vec};
 use futures_codec::{Decoder, Encoder};
 use std::fmt;
 
@@ -20,6 +20,13 @@ impl From<std::io::Error> for RPCError {
         Self::Custom(err.to_string())
     }
 }
+
+impl From<EncodingError> for RPCError {
+    fn from(_: EncodingError) -> Self {
+        Self::Codec
+    }
+}
+
 impl fmt::Display for RPCError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -42,7 +49,7 @@ impl Encoder for InboundCodec {
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
             RPCResponse::BlocksyncResponse(response) => {
-                let resp = to_vec(&response).unwrap();
+                let resp = to_vec(&response)?;
                 dst.clear();
                 dst.extend_from_slice(&resp);
                 Ok(())
@@ -56,10 +63,12 @@ impl Decoder for InboundCodec {
     type Item = RPCRequest;
 
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        println!("inbound decode fail");
         Ok(Some(RPCRequest::BlocksyncRequest(
             // Reaplce map
-            from_slice(bz).map_err(|_| RPCError::Codec)?,
+            from_slice(bz).map_err(|err| {
+                println!("InboundCodec decode ERR: {}", err);
+                RPCError::Codec
+            })?,
         )))
     }
 }
@@ -71,7 +80,7 @@ impl Encoder for OutboundCodec {
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
             RPCRequest::BlocksyncRequest(request) => {
-                let resp = to_vec(&request).unwrap();
+                let resp = to_vec(&request)?;
                 dst.clear();
                 dst.extend_from_slice(&resp);
                 Ok(())
@@ -84,11 +93,12 @@ impl Decoder for OutboundCodec {
     type Item = RPCResponse;
 
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        println!("out decode fail");
-
         Ok(Some(RPCResponse::BlocksyncResponse(
             // Reaplce map
-            from_slice(bz).map_err(|_| RPCError::Codec)?,
+            from_slice(bz).map_err(|err| {
+                println!("OutboundCodec decode ERR: {}", err);
+                RPCError::Codec
+            })?,
         )))
     }
 }
