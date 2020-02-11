@@ -3,6 +3,7 @@
 
 use super::rpc::{RPCEvent, RPC};
 use super::rpc::{RPCRequest, RPCResponse};
+use crate::rpc::RPCMessage;
 use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
@@ -35,6 +36,8 @@ pub struct ForestBehaviour<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + '
 
 #[derive(Debug)]
 pub enum ForestBehaviourEvent {
+    PeerDialed(PeerId),
+    PeerDisconnected(PeerId),
     DiscoveredPeer(PeerId),
     ExpiredPeer(PeerId),
     GossipMessage {
@@ -145,19 +148,30 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
     }
 }
 impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
-    NetworkBehaviourEventProcess<RPCEvent> for ForestBehaviour<TSubstream>
+    NetworkBehaviourEventProcess<RPCMessage> for ForestBehaviour<TSubstream>
 {
-    fn inject_event(&mut self, event: RPCEvent) {
+    fn inject_event(&mut self, event: RPCMessage) {
         match event {
-            RPCEvent::Request(req_id, request) => {
-                self.events
-                    .push(ForestBehaviourEvent::RPCRequest { req_id, request });
+            RPCMessage::PeerDialed(peer_id) => {
+                self.events.push(ForestBehaviourEvent::PeerDialed(peer_id));
             }
-            RPCEvent::Response(req_id, response) => {
+            RPCMessage::PeerDisconnected(peer_id) => {
                 self.events
-                    .push(ForestBehaviourEvent::RPCResponse { req_id, response });
+                    .push(ForestBehaviourEvent::PeerDisconnected(peer_id));
             }
-            RPCEvent::Error(req_id, err) => debug!(self.log, "RPC Error {:?}, {:?}", err, req_id),
+            RPCMessage::RPC(peer_id, rpc_event) => match rpc_event {
+                RPCEvent::Request(req_id, request) => {
+                    self.events
+                        .push(ForestBehaviourEvent::RPCRequest { req_id, request });
+                }
+                RPCEvent::Response(req_id, response) => {
+                    self.events
+                        .push(ForestBehaviourEvent::RPCResponse { req_id, response });
+                }
+                RPCEvent::Error(req_id, err) => {
+                    debug!(self.log, "RPC Error {:?}, {:?}", err, req_id)
+                }
+            },
         }
     }
 }

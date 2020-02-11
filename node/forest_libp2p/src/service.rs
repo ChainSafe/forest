@@ -128,6 +128,12 @@ impl Libp2pService {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(event) => match event {
+                        ForestBehaviourEvent::PeerDialed(peer_id) => {
+
+                        }
+                        ForestBehaviourEvent::PeerDisconnected(peer_id) => {
+
+                        }
                         ForestBehaviourEvent::DiscoveredPeer(peer) => {
                             libp2p::Swarm::dial(&mut swarm_stream.get_mut(), peer);
                         }

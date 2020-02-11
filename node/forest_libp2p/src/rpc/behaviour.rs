@@ -16,7 +16,7 @@ use std::marker::PhantomData;
 pub struct RPC<TSubstream> {
     /// Queue of events to processed.
     /// TODO: This isn't correct
-    events: Vec<NetworkBehaviourAction<RPCEvent, RPCEvent>>,
+    events: Vec<NetworkBehaviourAction<RPCEvent, RPCMessage>>,
     /// Pins the generic substream.
     marker: PhantomData<TSubstream>,
 }
@@ -41,12 +41,19 @@ impl<TSubstream> Default for RPC<TSubstream> {
     }
 }
 
+/// Messages sent to the user from the RPC protocol.
+pub enum RPCMessage {
+    RPC(PeerId, RPCEvent),
+    PeerDialed(PeerId),
+    PeerDisconnected(PeerId),
+}
+
 impl<TSubstream> NetworkBehaviour for RPC<TSubstream>
 where
     TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     type ProtocolsHandler = RPCHandler<TSubstream>;
-    type OutEvent = RPCEvent;
+    type OutEvent = RPCMessage;
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         RPCHandler::default()
     }
@@ -55,8 +62,13 @@ where
         vec![]
     }
 
-    fn inject_connected(&mut self, _: PeerId, _: ConnectedPoint) {
-        // Dont need to impl this
+    fn inject_connected(&mut self, peer_id: PeerId, connected_point: ConnectedPoint) {
+        // if initialised the connection, report this upwards to send the HELLO request
+        if let ConnectedPoint::Dialer { .. } = connected_point {
+            self.events.push(NetworkBehaviourAction::GenerateEvent(
+                RPCMessage::PeerDialed(peer_id),
+            ));
+        }
     }
 
     fn inject_disconnected(&mut self, _: &PeerId, _: ConnectedPoint) {
@@ -65,11 +77,13 @@ where
 
     fn inject_node_event(
         &mut self,
-        _: PeerId,
+        peer_id: PeerId,
         event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
     ) {
         self.events
-            .push(NetworkBehaviourAction::GenerateEvent(event))
+            .push(NetworkBehaviourAction::GenerateEvent(RPCMessage::RPC(
+                peer_id, event,
+            )))
     }
 
     fn poll(
