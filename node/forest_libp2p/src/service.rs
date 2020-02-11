@@ -167,27 +167,25 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
         .boxed()
 }
 
-/// Fetch keypair from disk, or generate a new one if its not available
+/// Fetch keypair from disk, returning none if it cannot be decoded
 pub fn get_keypair(log: &Logger, path: &str) -> Option<Keypair> {
     let path_to_keystore = get_home_dir() + path;
-    let local_keypair = match read_file_to_vec(&path_to_keystore) {
+    match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
             info!(log, "Networking keystore not found!");
             trace!(log, "Error {:?}", e);
-            return None;
+            None
         }
         Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
             Ok(kp) => {
                 info!(log, "Recovered keystore from {:?}", &path_to_keystore);
-                kp
+                Some(Keypair::Ed25519(kp))
             }
             Err(e) => {
                 info!(log, "Could not decode networking keystore!");
                 trace!(log, "Error {:?}", e);
-                return None;
+                None
             }
         },
-    };
-
-    Some(Keypair::Ed25519(local_keypair))
+    }
 }
