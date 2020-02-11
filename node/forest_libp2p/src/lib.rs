@@ -3,6 +3,10 @@
 
 #![recursion_limit = "1024"]
 
-pub mod behaviour;
-pub mod config;
-pub mod service;
+mod behaviour;
+mod config;
+mod service;
+
+pub use self::behaviour::*;
+pub use self::config::*;
+pub use self::service::*;
