@@ -7,7 +7,7 @@ use chain::Error as StoreErr;
 use cid::Error as CidErr;
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
-use std::fmt;
+use std::{fmt, time::SystemTimeError as TimeErr};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -26,6 +26,10 @@ pub enum Error {
     KeyValueStore(String),
     /// Error originating from the AMT
     AMT(String),
+    /// Error originating from state
+    State(String),
+    /// Error in validating arbitrary data
+    Validation(String),
 }
 
 impl fmt::Display for Error {
@@ -45,6 +49,8 @@ impl fmt::Display for Error {
             Error::InvalidCid(msg) => write!(f, "Error originating from CID construction: {}", msg),
             Error::Store(msg) => write!(f, "Error originating from ChainStore: {}", msg),
             Error::AMT(msg) => write!(f, "Error originating from the AMT: {}", msg),
+            Error::State(msg) => write!(f, "Error originating from the State: {}", msg),
+            Error::Validation(msg) => write!(f, "Error validating data: {}", msg),
         }
     }
 }
@@ -88,5 +94,11 @@ impl From<StoreErr> for Error {
 impl From<AmtErr> for Error {
     fn from(e: AmtErr) -> Error {
         Error::AMT(e.to_string())
+    }
+}
+
+impl From<TimeErr> for Error {
+    fn from(e: TimeErr) -> Error {
+        Error::Validation(e.to_string())
     }
 }

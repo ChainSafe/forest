@@ -25,6 +25,10 @@ pub struct TipSetKeys {
 // https://github.com/ChainSafe/forest/issues/143
 
 impl TipSetKeys {
+    /// constructor
+    pub fn new(cids: Vec<Cid>) -> Self {
+        Self { cids }
+    }
     /// checks whether the set contains exactly the same CIDs as another.
     fn equals(&self, key: &TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
@@ -157,7 +161,7 @@ impl Tipset {
         Ok(self.blocks[0].ticket().clone())
     }
     /// Returns the smallest timestamp of all blocks in the tipset
-    fn min_timestamp(&self) -> Result<u64, Error> {
+    pub fn min_timestamp(&self) -> Result<u64, Error> {
         if self.blocks.is_empty() {
             return Err(Error::NoBlocks);
         }
@@ -216,7 +220,8 @@ impl FullTipset {
         for block in self.blocks() {
             headers.push(block.to_header().clone())
         }
-        Ok(Tipset::new(headers))?
+        let tip: Tipset = Tipset::new(headers)?;
+        Ok(tip)
     }
 }
 

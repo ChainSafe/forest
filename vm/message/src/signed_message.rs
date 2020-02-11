@@ -64,6 +64,9 @@ impl Message for SignedMessage {
     fn gas_limit(&self) -> &BigUint {
         self.message.gas_limit()
     }
+    fn required_funds(&self) -> BigUint {
+        self.message.required_funds()
+    }
 }
 
 impl RawBlock for SignedMessage {}
