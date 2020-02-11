@@ -4,12 +4,13 @@
 #![cfg(test)]
 
 use async_std::task;
-use forest_libp2p::behaviour::ForestBehaviourEvent;
-use forest_libp2p::config::Libp2pConfig;
 use forest_libp2p::rpc::{Message, RPCEvent, RPCRequest, RPCResponse, Response};
-use forest_libp2p::service::{Libp2pService, NetworkMessage};
+use forest_libp2p::ForestBehaviourEvent;
+use forest_libp2p::Libp2pConfig;
+use forest_libp2p::{Libp2pService, NetworkMessage};
 use futures::future;
 use futures::prelude::*;
+use libp2p::identity::Keypair;
 use libp2p::swarm::Swarm;
 use slog::{o, warn, Drain};
 use slog_async;
@@ -31,8 +32,8 @@ fn build_node_pair() -> (Libp2pService, Libp2pService) {
     config1.listening_multiaddr = "/ip4/0.0.0.0/tcp/10005".to_owned();
     config2.listening_multiaddr = "/ip4/0.0.0.0/tcp/10006".to_owned();
 
-    let lp2p_service1 = Libp2pService::new(log.clone(), &config1);
-    let mut lp2p_service2 = Libp2pService::new(log.clone(), &config2);
+    let lp2p_service1 = Libp2pService::new(log.clone(), &config1, Keypair::generate_ed25519());
+    let mut lp2p_service2 = Libp2pService::new(log.clone(), &config2, Keypair::generate_ed25519());
 
     // dial each other
     Swarm::dial_addr(
@@ -47,7 +48,7 @@ fn build_node_pair() -> (Libp2pService, Libp2pService) {
 #[test]
 fn test1() {
     let (mut sender, mut receiver) = build_node_pair();
-    let sen_tx = sender.pubsub_sender();
+    // let sen_tx = sender.pubsub_sender();
     // let _sen_rx = sender.pubsub_receiver();
     // let rec_tx = sender.pubsub_sender();
     // let rec_rx = sender.pubsub_receiver();
@@ -67,7 +68,7 @@ fn test1() {
         message: "message".to_owned(),
     };
 
-    let rpc_msg = NetworkMessage::RPCRequest {
+    let _rpc_msg = NetworkMessage::RPCRequest {
         peer_id: Swarm::local_peer_id(&receiver.swarm).clone(),
         request: rpc_request.clone(),
     };

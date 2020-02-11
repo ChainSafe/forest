@@ -26,11 +26,9 @@ impl<TSubstream> RPC<TSubstream> {
         RPC::default()
     }
 
-    pub fn send_rpc(&mut self, peer_id: PeerId, payload: RPCEvent) {
-        self.events.push(NetworkBehaviourAction::SendEvent {
-            peer_id: peer_id,
-            event: payload,
-        });
+    pub fn send_rpc(&mut self, peer_id: PeerId, event: RPCEvent) {
+        self.events
+            .push(NetworkBehaviourAction::SendEvent { peer_id, event });
     }
 }
 

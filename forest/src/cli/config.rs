@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_libp2p::config::Libp2pConfig;
+use forest_libp2p::Libp2pConfig;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Default)]

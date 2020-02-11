@@ -129,6 +129,10 @@ impl Message for UnsignedMessage {
     fn gas_limit(&self) -> &BigUint {
         &self.gas_limit
     }
+    fn required_funds(&self) -> BigUint {
+        let total = self.gas_price() * self.gas_limit();
+        total + self.value().0.clone()
+    }
 }
 
 impl RawBlock for UnsignedMessage {}

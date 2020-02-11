@@ -24,10 +24,10 @@ impl Cbor for ActorID {}
 /// State of all actor implementations
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct ActorState {
-    code_id: CodeID,
-    state: Cid,
-    balance: BigUint,
-    sequence: u64,
+    pub code_id: CodeID,
+    pub state: Cid,
+    pub balance: BigUint,
+    pub sequence: u64,
 }
 
 impl ActorState {
