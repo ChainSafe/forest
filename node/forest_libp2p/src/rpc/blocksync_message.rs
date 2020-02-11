@@ -39,7 +39,7 @@ impl<'de> Deserialize<'de> for Message {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Response {
     pub chain: Vec<TipSetBundle>,
     pub status: u64,
@@ -69,7 +69,7 @@ impl<'de> Deserialize<'de> for Response {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TipSetBundle {
     pub blocks: Vec<BlockHeader>,
     pub secp_msgs: Vec<UnsignedMessage>,

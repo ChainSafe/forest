@@ -48,7 +48,7 @@ impl Encoder for InboundCodec {
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
-            RPCResponse::BlocksyncResponse(response) => {
+            RPCResponse::SuccessBlocksync(response) => {
                 let resp = to_vec(&response)?;
                 dst.clear();
                 dst.extend_from_slice(&resp);
@@ -63,7 +63,7 @@ impl Decoder for InboundCodec {
     type Item = RPCRequest;
 
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        Ok(Some(RPCRequest::BlocksyncRequest(
+        Ok(Some(RPCRequest::Blocksync(
             // Reaplce map
             from_slice(bz).map_err(|err| {
                 println!("InboundCodec decode ERR: {}", err);
@@ -79,7 +79,7 @@ impl Encoder for OutboundCodec {
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
-            RPCRequest::BlocksyncRequest(request) => {
+            RPCRequest::Blocksync(request) => {
                 let resp = to_vec(&request)?;
                 dst.clear();
                 dst.extend_from_slice(&resp);
@@ -93,8 +93,8 @@ impl Decoder for OutboundCodec {
     type Item = RPCResponse;
 
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        Ok(Some(RPCResponse::BlocksyncResponse(
-            // Reaplce map
+        Ok(Some(RPCResponse::SuccessBlocksync(
+            // Replace map
             from_slice(bz).map_err(|err| {
                 println!("OutboundCodec decode ERR: {}", err);
                 RPCError::Codec

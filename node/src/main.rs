@@ -7,8 +7,8 @@ mod log;
 use self::cli::cli;
 use async_std::task;
 use forest_libp2p::service::Libp2pService;
-use slog::info;
 use libp2p::Swarm;
+use slog::info;
 
 #[async_std::main]
 async fn main() {
@@ -22,7 +22,6 @@ async fn main() {
     config.network.listening_multiaddr = "/ip4/0.0.0.0/tcp/10006".to_owned();
 
     let lp2p_service = Libp2pService::new(logger, &config.network);
-
 
     task::block_on(async move {
         {

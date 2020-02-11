@@ -27,6 +27,7 @@ type Libp2pBehaviour = ForestBehaviour<Substream<StreamMuxerBox>>;
 /// Events emitted by this Service
 #[derive(Clone, Debug)]
 pub enum NetworkEvent {
+    // TODO This does not seem necessary to have another event type
     PubsubMessage {
         source: PeerId,
         topics: Vec<TopicHash>,
@@ -67,7 +68,8 @@ pub struct Libp2pService {
     pubsub_receiver_out: Receiver<NetworkEvent>,
     pubsub_sender_out: Sender<NetworkEvent>,
 
-    log: Logger,
+    // TODO remove pub and use logger in test better
+    pub log: Logger,
 }
 
 impl Libp2pService {

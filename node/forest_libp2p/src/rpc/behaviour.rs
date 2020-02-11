@@ -28,8 +28,8 @@ impl<TSubstream> RPC<TSubstream> {
 
     pub fn send_rpc(&mut self, peer_id: PeerId, payload: RPCEvent) {
         self.events.push(NetworkBehaviourAction::SendEvent {
-            peer_id: peer_id.clone(),
-            event: payload.clone(),
+            peer_id: peer_id,
+            event: payload,
         });
     }
 }
