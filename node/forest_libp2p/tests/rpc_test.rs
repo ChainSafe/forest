@@ -137,13 +137,5 @@ fn test1() {
     });
 
     // Unwrap future result, should wait until true result
-    // task::block_on(rpc_poll).unwrap();
-    task::block_on(async move {
-        let han1 = task::spawn(rpc_poll);
-
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        sen_tx.send(rpc_msg).await;
-
-        han1.await.unwrap();
-    });
+    task::block_on(rpc_poll).unwrap();
 }
