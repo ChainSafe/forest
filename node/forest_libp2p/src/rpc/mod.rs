@@ -18,7 +18,7 @@ pub use rpc_message::*;
 type RequestId = usize;
 
 /// The return type used in the behaviour and the resultant event from the protocols handler.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RPCEvent {
     /// An inbound/outbound request for RPC protocol. The first parameter is a sequential
     /// id which tracks an awaiting substream for the response.

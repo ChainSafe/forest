@@ -150,15 +150,8 @@ impl Libp2pService {
                                 message
                             }).await;
                         }
-                        ForestBehaviourEvent::RPCRequest {
-                            req_id, request
-                        } => {
-                            println!("Inbound request");
-                        }
-                        ForestBehaviourEvent::RPCResponse {
-                            req_id, response
-                        } => {
-                            println!("Received response");
+                        ForestBehaviourEvent::RPC(peer_id, event) => {
+                            println!("RPC event {:?}", event);
                         }
                     }
                     None => {break;}

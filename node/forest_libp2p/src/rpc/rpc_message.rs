@@ -3,7 +3,7 @@
 
 use super::{Message, Response};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RPCRequest {
     Blocksync(Message),
 }
@@ -16,7 +16,7 @@ impl RPCRequest {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RPCResponse {
     SuccessBlocksync(Response),
 }

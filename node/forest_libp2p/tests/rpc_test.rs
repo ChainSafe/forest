@@ -62,11 +62,14 @@ fn test1() {
         }),
     );
 
-    let rpc_response = Response {
-        chain: vec![],
-        status: 1,
-        message: "message".to_owned(),
-    };
+    let rpc_response = RPCEvent::Response(
+        1,
+        RPCResponse::SuccessBlocksync(Response {
+            chain: vec![],
+            status: 1,
+            message: "message".to_owned(),
+        }),
+    );
 
     let _rpc_msg = NetworkMessage::RPCRequest {
         peer_id: Swarm::local_peer_id(&receiver.swarm).clone(),
@@ -77,30 +80,21 @@ fn test1() {
         // Poll sender swarm
         match sender.swarm.poll_next_unpin(cx) {
             // TODO catch a dialed peer event to send request here instead
-            Poll::Ready(Some(ForestBehaviourEvent::DiscoveredPeer(_peer_id))) => {
+            Poll::Ready(Some(ForestBehaviourEvent::PeerDialed(peer_id))) => {
                 // Send a BlocksByRange request
                 warn!(sender.log, "Sender sending RPC request");
-                // TODO send rpc request here
-                // sender.pubsub_sender().send(rpc_request.clone());
-                return Poll::Ready(Err("Temporary failure".to_owned()));
+                sender.swarm.send_rpc_message(peer_id, rpc_request.clone());
             }
-            Poll::Ready(Some(ForestBehaviourEvent::RPCResponse { response, req_id })) => {
-                warn!(sender.log, "Sender received a response");
-                assert_eq!(req_id, 1);
-                match response {
-                    RPCResponse::SuccessBlocksync(res) => {
-                        assert_eq!(res, rpc_response.clone());
-                        // *messages_received.lock().unwrap() += 1;
+            Poll::Ready(Some(ForestBehaviourEvent::RPC(_, event))) => {
+                assert_eq!(event, rpc_response.clone());
+                match event {
+                    RPCEvent::Response(req_id, _) => {
+                        warn!(sender.log, "Sender received a response");
+                        assert_eq!(req_id, 1);
                         warn!(sender.log, "Received response");
                         return Poll::Ready(Ok(()));
                     }
-                    // RPCResponse::StreamTermination(ResponseTermination::BlocksByRange) => {
-                    //     // should be exactly 1 messages before terminating
-                    //     assert_eq!(*messages_received.lock().unwrap(), 1);
-                    //     // end the test
-                    //     return Poll::Ready(true);
-                    // }
-                    // _ => panic!("Invalid RPC received"),
+                    _ => panic!("Invalid RPC received"),
                 }
             }
             Poll::Ready(Some(_)) => {}
@@ -108,26 +102,18 @@ fn test1() {
         }
         // Poll receiver swarm
         match receiver.swarm.poll_next_unpin(cx) {
-            Poll::Ready(Some(ForestBehaviourEvent::RPCRequest { request, req_id })) => {
-                assert_eq!(req_id, 1);
-                match request {
-                    // Should receive the sent RPC request
-                    RPCRequest::Blocksync(_request) => {
-                        // TODO assert request here
-                        // assert_eq!(rpc_request.clone(), request);
+            Poll::Ready(Some(ForestBehaviourEvent::RPC(peer_id, event))) => {
+                assert_eq!(rpc_request.clone(), event);
+                match event {
+                    RPCEvent::Request(req_id, _) => {
+                        assert_eq!(req_id, 1);
 
                         // send the response
                         warn!(receiver.log, "Receiver got request");
 
-                        // TODO send response back here
-                        // receiver.swarm.send_rpc(
-                        //     peer_id.clone(),
-                        //     RPCEvent::Response(
-                        //         id,
-                        //         RPCErrorResponse::Success(rpc_response.clone()),
-                        //     ),
-                        // );
-                    } // _ => panic!("Received invalid RPC message"),
+                        sender.swarm.send_rpc_message(peer_id, rpc_response.clone());
+                    }
+                    _ => panic!("Received invalid RPC message"),
                 }
             }
             Poll::Ready(Some(_)) => (),

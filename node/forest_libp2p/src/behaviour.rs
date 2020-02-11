@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::rpc::{RPCEvent, RPC};
-use super::rpc::{RPCRequest, RPCResponse};
 use crate::rpc::RPCMessage;
 use futures::prelude::*;
 use libp2p::core::identity::Keypair;
@@ -45,14 +44,7 @@ pub enum ForestBehaviourEvent {
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
-    RPCRequest {
-        request: RPCRequest,
-        req_id: usize,
-    },
-    RPCResponse {
-        response: RPCResponse,
-        req_id: usize,
-    },
+    RPC(PeerId, RPCEvent),
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
@@ -161,12 +153,16 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
             }
             RPCMessage::RPC(peer_id, rpc_event) => match rpc_event {
                 RPCEvent::Request(req_id, request) => {
-                    self.events
-                        .push(ForestBehaviourEvent::RPCRequest { req_id, request });
+                    self.events.push(ForestBehaviourEvent::RPC(
+                        peer_id,
+                        RPCEvent::Request(req_id, request),
+                    ));
                 }
                 RPCEvent::Response(req_id, response) => {
-                    self.events
-                        .push(ForestBehaviourEvent::RPCResponse { req_id, response });
+                    self.events.push(ForestBehaviourEvent::RPC(
+                        peer_id,
+                        RPCEvent::Response(req_id, response),
+                    ));
                 }
                 RPCEvent::Error(req_id, err) => {
                     debug!(self.log, "RPC Error {:?}, {:?}", err, req_id)
