@@ -12,6 +12,7 @@ members = [
     "vm/message",
     "vm/runtime",
     "vm/state_tree",
+    "vm/state_manager",
     "vm/interpreter",
     "node",
     "node/clock",

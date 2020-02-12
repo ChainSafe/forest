@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
+use serde::{Deserialize, Serialize};
 
 /// CodeID is the reference to the code which is attached to the Actor state.
 /// There are builtin IDs and the option for custom code with a Cid
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum CodeID {
     Init,
     Cron,

@@ -15,3 +15,4 @@ num-derive = "0.2"
 clock = { path = "../../node/clock" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 serde = { version = "1.0", features = ["derive"] }
+libp2p = "0.15.0"

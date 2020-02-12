@@ -7,7 +7,8 @@ use chain::Error as StoreErr;
 use cid::Error as CidErr;
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
-use std::{fmt, time::SystemTimeError as TimeErr};
+use state_manager::Error as StErr;
+use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -97,8 +98,8 @@ impl From<AmtErr> for Error {
     }
 }
 
-impl From<TimeErr> for Error {
-    fn from(e: TimeErr) -> Error {
-        Error::Validation(e.to_string())
+impl From<StErr> for Error {
+    fn from(e: StErr) -> Error {
+        Error::State(e.to_string())
     }
 }
