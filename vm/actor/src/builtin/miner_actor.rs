@@ -82,7 +82,8 @@ impl<'de> de::Deserialize<'de> for MinerInfo {
         let MinerSer(owner, worker_address, strtype, sector_size) =
             Deserialize::deserialize(deserializer)?;
 
-        let peer_id = PeerId::from_str(&strtype).map_err(|_| de::Error::custom(""))?;
+        let peer_id = PeerId::from_str(&strtype)
+            .map_err(|_| de::Error::custom("Error parsing PeerId type to String"))?;
 
         Ok(Self {
             owner,

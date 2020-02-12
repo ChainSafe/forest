@@ -20,6 +20,10 @@ pub struct StateManager<'a> {
 }
 
 impl<'a> StateManager<'a> {
+    /// constructor
+    pub fn new(cs: &'a ChainStore, tree: HamtStateTree) -> Self {
+        Self { cs, tree }
+    }
     /// Loads actor state from IPLD Store
     fn load_actor_state<T>(&self, addr: &Address) -> Result<T, Error>
     where
@@ -30,7 +34,7 @@ impl<'a> StateManager<'a> {
             .get_actor(addr)
             .ok_or_else(|| Error::State("Could not retrieve actor from state tree".to_owned()))?;
         let act: T = self.cs.blockstore().get(&actor.state)?.ok_or_else(|| {
-            Error::State("Could not retrieve actor state from ipld store".to_owned())
+            Error::State("Could not retrieve actor state from IPLD store".to_owned())
         })?;
         Ok(act)
     }
