@@ -42,6 +42,7 @@ impl<TSubstream> Default for RPC<TSubstream> {
 }
 
 /// Messages sent to the user from the RPC protocol.
+#[derive(Debug)]
 pub enum RPCMessage {
     RPC(PeerId, RPCEvent),
     PeerDialed(PeerId),
