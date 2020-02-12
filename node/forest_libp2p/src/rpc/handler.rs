@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    InboundCodec, OutboundFramed, RPCError, RPCEvent, RPCOutbound, RPCProtocol, RPCResponse,
+    InboundCodec, OutboundFramed, RPCError, RPCEvent, RPCInbound, RPCOutbound, RPCResponse,
     RequestId,
 };
 use fnv::FnvHashMap;
@@ -28,7 +28,7 @@ where
     TSubstream: AsyncRead + AsyncWrite,
 {
     /// Upgrade configuration for RPC protocol.
-    listen_protocol: SubstreamProtocol<RPCProtocol>,
+    listen_protocol: SubstreamProtocol<RPCInbound>,
 
     /// If `Some`, something bad happened and we should shut down the handler with an error.
     pending_error: Option<ProtocolsHandlerUpgrErr<RPCError>>,
@@ -68,7 +68,7 @@ where
     /// Constructor for new RPC handler
     pub fn new(inactive_timeout: Duration) -> Self {
         RPCHandler {
-            listen_protocol: SubstreamProtocol::new(RPCProtocol),
+            listen_protocol: SubstreamProtocol::new(RPCInbound),
             pending_error: None,
             events_out: SmallVec::new(),
             dial_queue: SmallVec::new(),
@@ -140,7 +140,7 @@ where
     type OutEvent = RPCEvent;
     type Error = ProtocolsHandlerUpgrErr<RPCError>;
     type Substream = TSubstream;
-    type InboundProtocol = RPCProtocol;
+    type InboundProtocol = RPCInbound;
     type OutboundProtocol = RPCOutbound;
     type OutboundOpenInfo = RPCEvent;
 
@@ -153,8 +153,6 @@ where
         out: <Self::InboundProtocol as InboundUpgrade<Negotiated<Self::Substream>>>::Output,
     ) {
         let (req, substream) = out;
-
-        println!("Request negotiated {:?}", req);
 
         // New inbound request. Store the stream and tag the output.
         let awaiting_stream = WaitingResponse {
@@ -302,12 +300,11 @@ where
                                 ));
                             }
                             Some(Err(err)) => {
-                                return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Error(
-                                    event.id(),
-                                    RPCError::Custom(err.to_string()),
-                                )))
+                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
+                                    RPCEvent::Error(event.id(), RPCError::Custom(err.to_string())),
+                                ));
                             }
-                            _ => {
+                            None => {
                                 // stream closed early or nothing was sent
                                 return Poll::Ready(ProtocolsHandlerEvent::Custom(
                                     RPCEvent::Error(

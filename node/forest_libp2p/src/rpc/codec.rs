@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::rpc_message::{RPCRequest, RPCResponse};
+use super::{RPCRequest, RPCResponse};
 use bytes::BytesMut;
 use forest_encoding::{error::Error as EncodingError, from_slice, to_vec};
 use futures_codec::{Decoder, Encoder};
@@ -63,6 +63,10 @@ impl Decoder for InboundCodec {
     type Item = RPCRequest;
 
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        if bz.is_empty() {
+            return Ok(None);
+        }
+
         Ok(Some(RPCRequest::Blocksync(
             // Reaplce map
             from_slice(bz).map_err(|err| {
@@ -93,6 +97,10 @@ impl Decoder for OutboundCodec {
     type Item = RPCResponse;
 
     fn decode(&mut self, bz: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        if bz.is_empty() {
+            return Ok(None);
+        }
+
         Ok(Some(RPCResponse::SuccessBlocksync(
             // Replace map
             from_slice(bz).map_err(|err| {

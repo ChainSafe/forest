@@ -13,9 +13,9 @@ use std::pin::Pin;
 // const MAX_RPC_SIZE: u64 = 4_194_304;
 
 #[derive(Debug, Clone)]
-pub struct RPCProtocol;
+pub struct RPCInbound;
 
-impl UpgradeInfo for RPCProtocol {
+impl UpgradeInfo for RPCInbound {
     type Info = &'static [u8];
     type InfoIter = Vec<Self::Info>;
 
@@ -27,7 +27,7 @@ impl UpgradeInfo for RPCProtocol {
 pub type InboundFramed<TSocket> = Framed<TSocket, InboundCodec>;
 pub type InboundOutput<TSocket> = (RPCRequest, InboundFramed<TSocket>);
 
-impl<TSocket> InboundUpgrade<TSocket> for RPCProtocol
+impl<TSocket> InboundUpgrade<TSocket> for RPCInbound
 where
     TSocket: AsyncWrite + AsyncRead + Unpin + Send + 'static,
 {

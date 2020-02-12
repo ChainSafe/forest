@@ -47,6 +47,7 @@ fn build_node(port: u64) -> (Multiaddr, TestSwarm) {
         .boxed();
 
     let peer_id = public_key.clone().into_peer_id();
+    println!("Port: {}, id: {}", port, peer_id.clone());
     let behaviour = RPC::new();
     let mut swarm = Swarm::new(transport, behaviour, peer_id);
 
@@ -82,12 +83,13 @@ fn test_empty_rpc() {
             // Poll sender swarm
             match sender.poll_next_unpin(cx) {
                 Poll::Ready(Some(RPCMessage::PeerDialed(peer_id))) => {
+                    println!("SENDER dialed: {}", peer_id);
                     // Send a BlocksByRange request
                     sender.send_rpc(peer_id, RPCEvent::Request(1, rpc_request.clone()));
                 }
-                Poll::Ready(Some(RPCMessage::RPC(_, event))) => match event {
+                Poll::Ready(Some(RPCMessage::RPC(peer_id, event))) => match event {
                     RPCEvent::Response(req_id, res) => {
-                        println!("Sender received a response");
+                        println!("SENDER reponse from {}", peer_id);
                         assert_eq!(res, rpc_response.clone());
                         assert_eq!(req_id, 1);
                         println!("Received response");
@@ -105,10 +107,10 @@ fn test_empty_rpc() {
                             assert_eq!(rpc_request.clone(), req);
                             assert_eq!(req_id, 1);
                             // send the response
-                            println!("Receiver got request");
+                            println!("RECEIVER request from {}", peer_id);
                             sender.send_rpc(peer_id, RPCEvent::Response(1, rpc_response.clone()));
                         }
-                        ev => panic!("Rec invalid RPC received, {:?}", ev),
+                        ev => panic!("Receiver invalid RPC received, {:?}", ev),
                     }
                 }
                 _ => (),

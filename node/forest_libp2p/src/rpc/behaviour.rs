@@ -64,7 +64,6 @@ where
     }
 
     fn inject_connected(&mut self, peer_id: PeerId, connected_point: ConnectedPoint) {
-        // if initialised the connection, report this upwards to send the HELLO request
         if let ConnectedPoint::Dialer { .. } = connected_point {
             self.events.push(NetworkBehaviourAction::GenerateEvent(
                 RPCMessage::PeerDialed(peer_id),
@@ -72,8 +71,12 @@ where
         }
     }
 
-    fn inject_disconnected(&mut self, _: &PeerId, _: ConnectedPoint) {
-        // Dont need to impl this
+    fn inject_disconnected(&mut self, peer_id: &PeerId, connected_point: ConnectedPoint) {
+        if let ConnectedPoint::Dialer { .. } = connected_point {
+            self.events.push(NetworkBehaviourAction::GenerateEvent(
+                RPCMessage::PeerDisconnected(peer_id.clone()),
+            ));
+        }
     }
 
     fn inject_node_event(
