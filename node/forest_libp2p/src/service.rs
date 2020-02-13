@@ -153,7 +153,7 @@ impl Libp2pService {
                                         message: "handling requests not implemented".to_owned(),
                                     })));
                                 }
-                                _ => println!("Ignoring event {:?}", event),
+                                RPCEvent::Error(req_id, err) => info!(self.log, "Error with request {}: {:?}", req_id, err),
                             }
                         }
                     }
@@ -165,7 +165,6 @@ impl Libp2pService {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
                         NetworkMessage::RPC{peer_id, request} => {
-                            println!("Sent RPC message");
                             swarm_stream.get_mut().send_rpc(peer_id, request);
                         }
                     }

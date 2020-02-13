@@ -81,13 +81,11 @@ fn test_empty_rpc() {
             // Poll sender swarm
             match sender.poll_next_unpin(cx) {
                 Poll::Ready(Some(RPCMessage::PeerDialed(peer_id))) => {
-                    // println!("SENDER dialed: {}", peer_id);
                     // Send a BlocksByRange request
                     sender.send_rpc(peer_id, RPCEvent::Request(1, rpc_request.clone()));
                 }
                 Poll::Ready(Some(RPCMessage::RPC(_peer_id, event))) => match event {
                     RPCEvent::Response(req_id, res) => {
-                        // println!("SENDER reponse from {}", peer_id);
                         assert_eq!(res, rpc_response.clone());
                         assert_eq!(req_id, 1);
                         return Poll::Ready(Ok(()));
@@ -104,7 +102,6 @@ fn test_empty_rpc() {
                             assert_eq!(rpc_request.clone(), req);
                             assert_eq!(req_id, 1);
                             // send the response
-                            // println!("RECEIVER request from {}", peer_id);
                             receiver.send_rpc(peer_id, RPCEvent::Response(1, rpc_response.clone()));
                         }
                         ev => panic!("Receiver invalid RPC received, {:?}", ev),

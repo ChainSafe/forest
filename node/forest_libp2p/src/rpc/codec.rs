@@ -69,10 +69,7 @@ impl Decoder for InboundCodec {
 
         Ok(Some(RPCRequest::Blocksync(
             // Reaplce map
-            from_slice(bz).map_err(|err| {
-                println!("InboundCodec decode ERR: {}", err);
-                RPCError::Codec
-            })?,
+            from_slice(bz).map_err(|_| RPCError::Codec)?,
         )))
     }
 }
@@ -103,10 +100,7 @@ impl Decoder for OutboundCodec {
 
         Ok(Some(RPCResponse::Blocksync(
             // Replace map
-            from_slice(bz).map_err(|err| {
-                println!("OutboundCodec decode ERR: {}", err);
-                RPCError::Codec
-            })?,
+            from_slice(bz).map_err(|_| RPCError::Codec)?,
         )))
     }
 }
