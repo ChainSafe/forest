@@ -34,9 +34,6 @@ impl<'de> de::Deserialize<'de> for ChainEpoch {
     }
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
 /// systems.
 pub struct ChainEpochClock {

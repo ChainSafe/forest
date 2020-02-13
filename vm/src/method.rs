@@ -9,9 +9,6 @@ use std::ops::Deref;
 #[derive(Default, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MethodNum(u64); // TODO: add constraints to this
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
 impl MethodNum {
     /// Constructor for new MethodNum
     pub fn new(num: u64) -> Self {

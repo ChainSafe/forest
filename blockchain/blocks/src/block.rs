@@ -5,7 +5,7 @@
 
 use super::BlockHeader;
 use cid::Cid;
-use encoding::Cbor;
+use encoding::{de::Deserializer, ser::Serializer};
 use message::{SignedMessage, UnsignedMessage};
 use multihash::Hash;
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ struct PoStRandomness {}
 struct PoStProof {}
 
 /// A complete block
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Block {
     pub header: BlockHeader,
     pub bls_messages: Vec<UnsignedMessage>,
@@ -29,31 +29,52 @@ pub struct Block {
 
 impl Block {
     /// Returns reference to BlockHeader
-    pub fn to_header(&self) -> &BlockHeader {
+    pub fn header(&self) -> &BlockHeader {
         &self.header
     }
-    pub fn bls_msgs(&self) -> &Vec<UnsignedMessage> {
+    /// Returns reference to unsigned messages
+    pub fn bls_msgs(&self) -> &[UnsignedMessage] {
         &self.bls_messages
     }
-    pub fn secp_msgs(&self) -> &Vec<SignedMessage> {
+    /// Returns reference to signed Secp256k1 messages
+    pub fn secp_msgs(&self) -> &[SignedMessage] {
         &self.secp_messages
+    }
+    /// Returns cid for block from header
+    pub fn cid(&self) -> &Cid {
+        self.header.cid()
     }
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
-impl Cbor for Block {}
-
 /// Tracks the merkleroots of both secp and bls messages separately
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct TxMeta {
     pub bls_messages: Cid,
     pub secp_messages: Cid,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
+impl Serialize for TxMeta {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = (self.bls_messages.clone(), self.secp_messages.clone());
+        Serialize::serialize(&value, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for TxMeta {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (bls_messages, secp_messages) = Deserialize::deserialize(deserializer)?;
+        Ok(TxMeta {
+            bls_messages,
+            secp_messages,
+        })
+    }
+}
 
 /// ElectionPoStVerifyInfo seems to be connected to VRF
 /// see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L1099

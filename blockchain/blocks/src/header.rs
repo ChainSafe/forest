@@ -112,9 +112,6 @@ pub struct BlockHeader {
     cached_bytes: Vec<u8>,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
 impl Cbor for BlockHeader {}
 
 #[derive(Serialize, Deserialize)]
