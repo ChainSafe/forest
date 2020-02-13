@@ -4,7 +4,7 @@
 use encoding::{from_slice, to_vec, Cbor};
 use forest_cid::{Cid, Codec, Error, Prefix, Version};
 use multihash;
-use multihash::Hash::Blake2b512;
+use multihash::Hash::Blake2b256;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -110,16 +110,16 @@ fn test_hash() {
 fn test_default() {
     let data: Vec<u8> = vec![1, 2, 3];
 
-    let cid = Cid::from_bytes_default(&data).unwrap();
+    let cid = Cid::from_bytes(&data, Blake2b256).unwrap();
 
     let prefix = cid.prefix();
     assert_eq!(prefix.version, Version::V1);
     assert_eq!(prefix.codec, Codec::DagCBOR);
-    assert_eq!(prefix.mh_type, Blake2b512);
+    assert_eq!(prefix.mh_type, Blake2b256);
     assert_eq!(
         prefix.mh_len,
-        // 4 is Blake2b512 code length (3) + 1, change if default changes
-        (Blake2b512.size() + 4) as usize
+        // 4 is Blake2b256 code length (3) + 1, change if default changes
+        (Blake2b256.size() + 4) as usize
     );
 }
 
@@ -133,17 +133,17 @@ impl Cbor for TestCborStruct {}
 fn test_cbor_to_cid() {
     let obj = TestCborStruct { name: "test" };
 
-    let enc = Cid::from_cbor_default(obj).unwrap();
-    let bz_enc = Cid::from_bytes_default(&obj.marshal_cbor().unwrap()).unwrap();
+    let enc = Cid::from_cbor(obj, Blake2b256).unwrap();
+    let bz_enc = Cid::from_bytes(&obj.marshal_cbor().unwrap(), Blake2b256).unwrap();
     assert_eq!(enc, bz_enc);
 }
 
 #[test]
 fn vector_cid_serialize_round() {
     let cids = vec![
-        Cid::from_bytes_default(&[0, 1]).unwrap(),
-        Cid::from_bytes_default(&[1, 2]).unwrap(),
-        Cid::from_bytes_default(&[3, 2]).unwrap(),
+        Cid::from_bytes(&[0, 1], Blake2b256).unwrap(),
+        Cid::from_bytes(&[1, 2], Blake2b256).unwrap(),
+        Cid::from_bytes(&[3, 2], Blake2b256).unwrap(),
     ];
 
     // Serialize cids with cbor

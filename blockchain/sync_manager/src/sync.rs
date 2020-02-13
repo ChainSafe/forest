@@ -6,8 +6,9 @@
 use super::errors::Error;
 use super::manager::SyncManager;
 use address::Address;
-use amt::{BlockStore, AMT};
+use amt::AMT;
 use blocks::{Block, FullTipset, TipSetKeys, Tipset};
+use blockstore::BlockStore;
 use chain::ChainStore;
 use cid::{Cid, Error as CidError};
 use crypto::is_valid_signature;
