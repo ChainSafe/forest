@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::rpc::{RPCEvent, RPCRequest, RPCResponse};
+use super::rpc::{RPCEvent, RPCRequest, RPCResponse, Response};
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
@@ -44,18 +44,8 @@ pub enum NetworkEvent {
 /// Events into this Service
 #[derive(Clone, Debug)]
 pub enum NetworkMessage {
-    PubsubMessage {
-        topic: Topic,
-        message: Vec<u8>,
-    },
-    RPCRequest {
-        peer_id: PeerId,
-        request: RPCEvent,
-    },
-    RPCResponse {
-        req_id: usize,
-        response: RPCResponse,
-    },
+    PubsubMessage { topic: Topic, message: Vec<u8> },
+    RPC { peer_id: PeerId, request: RPCEvent },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
@@ -127,12 +117,13 @@ impl Libp2pService {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
-
+                            info!(self.log, "Peer dialed, {:?}", peer_id);
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
-
+                            info!(self.log, "Peer disconnected, {:?}", peer_id);
                         }
                         ForestBehaviourEvent::DiscoveredPeer(peer) => {
+                            info!(self.log, "Discovered: {:?}", peer);
                             libp2p::Swarm::dial(&mut swarm_stream.get_mut(), peer);
                         }
                         ForestBehaviourEvent::ExpiredPeer(_) => {}
@@ -149,7 +140,21 @@ impl Libp2pService {
                             }).await;
                         }
                         ForestBehaviourEvent::RPC(peer_id, event) => {
-                            println!("RPC event {:?}", event);
+                            info!(self.log, "RPC event {:?}", event);
+                            match event {
+                                RPCEvent::Response(req_id, res) => {
+                                    info!(self.log, "response: {:?}", res);
+                                }
+                                RPCEvent::Request(req_id, req) => {
+                                    // send the response
+                                    swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::Blocksync(Response {
+                                        chain: vec![],
+                                        status: 203,
+                                        message: "handling requests not implemented".to_owned(),
+                                    })));
+                                }
+                                _ => println!("Ignoring event {:?}", event),
+                            }
                         }
                     }
                     None => {break;}
@@ -159,12 +164,9 @@ impl Libp2pService {
                         NetworkMessage::PubsubMessage{topic, message} => {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
-                        NetworkMessage::RPCRequest{peer_id, request} => {
-                            println!("Sent request");
-                            swarm_stream.get_mut().send_rpc_message(peer_id, request);
-                        }
-                        NetworkMessage::RPCResponse{req_id, response} => {
-                            println!("Sent response");
+                        NetworkMessage::RPC{peer_id, request} => {
+                            println!("Sent RPC message");
+                            swarm_stream.get_mut().send_rpc(peer_id, request);
                         }
                     }
                     None => {break;}

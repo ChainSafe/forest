@@ -70,7 +70,7 @@ fn test_empty_rpc() {
         options: 0,
     });
 
-    let rpc_response = RPCResponse::SuccessBlocksync(Response {
+    let rpc_response = RPCResponse::Blocksync(Response {
         chain: vec![],
         status: 1,
         message: "message".to_owned(),

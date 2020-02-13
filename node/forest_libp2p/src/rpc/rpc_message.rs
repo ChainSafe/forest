@@ -18,5 +18,5 @@ impl RPCRequest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCResponse {
-    SuccessBlocksync(Response),
+    Blocksync(Response),
 }

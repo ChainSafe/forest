@@ -48,7 +48,7 @@ impl Encoder for InboundCodec {
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
-            RPCResponse::SuccessBlocksync(response) => {
+            RPCResponse::Blocksync(response) => {
                 let resp = to_vec(&response)?;
                 dst.clear();
                 dst.extend_from_slice(&resp);
@@ -101,7 +101,7 @@ impl Decoder for OutboundCodec {
             return Ok(None);
         }
 
-        Ok(Some(RPCResponse::SuccessBlocksync(
+        Ok(Some(RPCResponse::Blocksync(
             // Replace map
             from_slice(bz).map_err(|err| {
                 println!("OutboundCodec decode ERR: {}", err);
