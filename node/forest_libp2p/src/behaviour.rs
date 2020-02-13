@@ -18,7 +18,6 @@ use libp2p::NetworkBehaviour;
 use slog::{debug, Logger};
 use std::{task::Context, task::Poll};
 
-//use blocksync;
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
 pub struct ForestBehaviour<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> {

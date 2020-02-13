@@ -51,10 +51,10 @@ pub enum NetworkMessage {
 pub struct Libp2pService {
     pub swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
 
-    pubsub_receiver_in: Receiver<NetworkMessage>,
-    pubsub_sender_in: Sender<NetworkMessage>,
-    pubsub_receiver_out: Receiver<NetworkEvent>,
-    pubsub_sender_out: Sender<NetworkEvent>,
+    network_receiver_in: Receiver<NetworkMessage>,
+    network_sender_in: Sender<NetworkMessage>,
+    network_receiver_out: Receiver<NetworkEvent>,
+    network_sender_out: Sender<NetworkEvent>,
 
     log: Logger,
 }
@@ -96,14 +96,14 @@ impl Libp2pService {
             swarm.subscribe(topic);
         }
 
-        let (pubsub_sender_in, pubsub_receiver_in) = channel(20);
-        let (pubsub_sender_out, pubsub_receiver_out) = channel(20);
+        let (network_sender_in, network_receiver_in) = channel(20);
+        let (network_sender_out, network_receiver_out) = channel(20);
         Libp2pService {
             swarm,
-            pubsub_receiver_in,
-            pubsub_sender_in,
-            pubsub_receiver_out,
-            pubsub_sender_out,
+            network_receiver_in,
+            network_sender_in,
+            network_receiver_out,
+            network_sender_out,
             log,
         }
     }
@@ -111,7 +111,7 @@ impl Libp2pService {
     /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
     pub async fn run(self) {
         let mut swarm_stream = self.swarm.fuse();
-        let mut pubsub_stream = self.pubsub_receiver_in.fuse();
+        let mut network_stream = self.network_receiver_in.fuse();
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
@@ -133,7 +133,7 @@ impl Libp2pService {
                             message,
                         } => {
                             info!(self.log, "Got a Gossip Message from {:?}", source);
-                            self.pubsub_sender_out.send(NetworkEvent::PubsubMessage {
+                            self.network_sender_out.send(NetworkEvent::PubsubMessage {
                                 source,
                                 topics,
                                 message
@@ -159,7 +159,7 @@ impl Libp2pService {
                     }
                     None => {break;}
                 },
-                rpc_message = pubsub_stream.next() => match rpc_message {
+                rpc_message = network_stream.next() => match rpc_message {
                     Some(message) =>  match message {
                         NetworkMessage::PubsubMessage{topic, message} => {
                             swarm_stream.get_mut().publish(&topic, message);
@@ -175,13 +175,13 @@ impl Libp2pService {
     }
 
     /// Returns a `Sender` allowing you to send messages over GossipSub
-    pub fn pubsub_sender(&self) -> Sender<NetworkMessage> {
-        self.pubsub_sender_in.clone()
+    pub fn network_sender(&self) -> Sender<NetworkMessage> {
+        self.network_sender_in.clone()
     }
 
     /// Returns a `Receiver` to listen to GossipSub messages
-    pub fn pubsub_receiver(&self) -> Receiver<NetworkEvent> {
-        self.pubsub_receiver_out.clone()
+    pub fn network_receiver(&self) -> Receiver<NetworkEvent> {
+        self.network_receiver_out.clone()
     }
 }
 

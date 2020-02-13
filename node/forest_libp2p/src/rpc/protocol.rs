@@ -36,9 +36,9 @@ where
 
     fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
-            let mut bm_v = Vec::new();
-            socket.read_to_end(&mut bm_v).await?;
-            let mut bm = BytesMut::from(&bm_v[..]);
+            let mut buf = Vec::new();
+            socket.read_to_end(&mut buf).await?;
+            let mut bm = BytesMut::from(&buf[..]);
             let req = InboundCodec.decode(&mut bm)?.unwrap();
             Ok((req, Framed::new(socket, InboundCodec)))
         })
