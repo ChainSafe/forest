@@ -10,8 +10,6 @@ use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use std::pin::Pin;
 
-// const MAX_RPC_SIZE: u64 = 4_194_304;
-
 #[derive(Debug, Clone)]
 pub struct RPCInbound;
 
@@ -76,7 +74,6 @@ where
             let mut bm = BytesMut::with_capacity(1024);
             OutboundCodec.encode(self.req, &mut bm)?;
             socket.write_all(&bm).await?;
-            socket.flush().await?;
             socket.close().await?;
             Ok(Framed::new(socket, OutboundCodec))
         })

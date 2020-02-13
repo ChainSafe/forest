@@ -47,7 +47,6 @@ fn build_node(port: u64) -> (Multiaddr, TestSwarm) {
         .boxed();
 
     let peer_id = public_key.clone().into_peer_id();
-    println!("Port: {}, id: {}", port, peer_id.clone());
     let behaviour = RPC::new();
     let mut swarm = Swarm::new(transport, behaviour, peer_id);
 
@@ -78,21 +77,19 @@ fn test_empty_rpc() {
     });
 
     let rpc_poll = future::poll_fn(move |cx| -> Poll<Result<(), String>> {
-        // TODO this loop shouldn't be required, but pending poll was not being polled again
         loop {
             // Poll sender swarm
             match sender.poll_next_unpin(cx) {
                 Poll::Ready(Some(RPCMessage::PeerDialed(peer_id))) => {
-                    println!("SENDER dialed: {}", peer_id);
+                    // println!("SENDER dialed: {}", peer_id);
                     // Send a BlocksByRange request
                     sender.send_rpc(peer_id, RPCEvent::Request(1, rpc_request.clone()));
                 }
-                Poll::Ready(Some(RPCMessage::RPC(peer_id, event))) => match event {
+                Poll::Ready(Some(RPCMessage::RPC(_peer_id, event))) => match event {
                     RPCEvent::Response(req_id, res) => {
-                        println!("SENDER reponse from {}", peer_id);
+                        // println!("SENDER reponse from {}", peer_id);
                         assert_eq!(res, rpc_response.clone());
                         assert_eq!(req_id, 1);
-                        println!("Received response");
                         return Poll::Ready(Ok(()));
                     }
                     ev => panic!("Sender invalid RPC received, {:?}", ev),
@@ -107,8 +104,8 @@ fn test_empty_rpc() {
                             assert_eq!(rpc_request.clone(), req);
                             assert_eq!(req_id, 1);
                             // send the response
-                            println!("RECEIVER request from {}", peer_id);
-                            sender.send_rpc(peer_id, RPCEvent::Response(1, rpc_response.clone()));
+                            // println!("RECEIVER request from {}", peer_id);
+                            receiver.send_rpc(peer_id, RPCEvent::Response(1, rpc_response.clone()));
                         }
                         ev => panic!("Receiver invalid RPC received, {:?}", ev),
                     }
@@ -116,7 +113,6 @@ fn test_empty_rpc() {
                 _ => (),
             }
         }
-        // Poll::Pending
     });
 
     // Unwrap future result, should wait until true result

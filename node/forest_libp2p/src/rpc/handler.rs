@@ -16,6 +16,7 @@ use libp2p::swarm::{
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use smallvec::SmallVec;
 use std::{
+    pin::Pin,
     task::{Context, Poll},
     time::{Duration, Instant},
 };
@@ -45,7 +46,7 @@ where
     /// Map of current substreams awaiting a response to an RPC request.
     inbound_substreams: FnvHashMap<RequestId, WaitingResponse<TSubstream>>,
 
-    /// The single long-lived outbound substream.
+    /// The vector of outbound substream states to progress.
     outbound_substreams: Vec<SubstreamState<TSubstream>>,
 
     /// Sequential ID for new substreams.
@@ -107,7 +108,6 @@ where
 /// An outbound substream is waiting a response from the user.
 struct WaitingResponse<TSubstream> {
     /// The framed negotiated substream.
-    // TODO would be nice to not specify type explicitly here
     substream: Framed<Negotiated<TSubstream>, InboundCodec>,
     /// The time when the substream is closed.
     timeout: Instant,
@@ -120,7 +120,6 @@ where
 {
     /// Waiting to send a message to the remote.
     PendingSend {
-        // TODO verify codec
         substream: Framed<Negotiated<TSubstream>, InboundCodec>,
         response: RPCResponse,
     },
@@ -138,7 +137,7 @@ where
 {
     type InEvent = RPCEvent;
     type OutEvent = RPCEvent;
-    type Error = ProtocolsHandlerUpgrErr<RPCError>;
+    type Error = RPCError;
     type Substream = TSubstream;
     type InboundProtocol = RPCInbound;
     type OutboundProtocol = RPCOutbound;
@@ -267,26 +266,38 @@ where
                 SubstreamState::PendingSend {
                     mut substream,
                     response,
-                } => {
-                    match substream.poll_next_unpin(cx) {
-                        Poll::Ready(v) => {
-                            if let Some(Err(err)) = v {
-                                println!("Error 1");
-
-                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
-                                    RPCEvent::Error(0, RPCError::Custom(err.to_string())),
-                                ));
-                            }
-                            // Ignore else, sent and flushed
+                } => match Sink::poll_ready(Pin::new(&mut substream), cx) {
+                    Poll::Ready(Ok(())) => {
+                        // Poll until message is sent
+                        if let Err(e) = Sink::start_send(Pin::new(&mut substream), response) {
+                            return Poll::Ready(ProtocolsHandlerEvent::Close(e));
                         }
-                        Poll::Pending => {
-                            self.outbound_substreams.push(SubstreamState::PendingSend {
-                                substream,
-                                response,
-                            });
+                        // Poll until data sent to flush the substream
+                        loop {
+                            match Sink::poll_flush(Pin::new(&mut substream), cx) {
+                                Poll::Ready(Ok(())) => {
+                                    break;
+                                }
+                                Poll::Ready(Err(e)) => {
+                                    return Poll::Ready(ProtocolsHandlerEvent::Close(e));
+                                }
+                                _ => (),
+                            }
                         }
                     }
-                }
+                    Poll::Ready(Err(err)) => {
+                        return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Error(
+                            0,
+                            RPCError::Custom(err.to_string()),
+                        )));
+                    }
+                    Poll::Pending => {
+                        self.outbound_substreams.push(SubstreamState::PendingSend {
+                            substream,
+                            response,
+                        });
+                    }
+                },
                 SubstreamState::PendingResponse {
                     mut substream,
                     event,

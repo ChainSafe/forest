@@ -15,7 +15,6 @@ use std::marker::PhantomData;
 
 pub struct RPC<TSubstream> {
     /// Queue of events to processed.
-    /// TODO: This isn't correct
     events: Vec<NetworkBehaviourAction<RPCEvent, RPCMessage>>,
     /// Pins the generic substream.
     marker: PhantomData<TSubstream>,
