@@ -13,7 +13,7 @@ pub trait Cbor: Serialize + DeserializeOwned {
     }
 
     /// Unmarshals cbor encoded bytes to object
-    fn unmarshal_cbor_owned(bz: &[u8]) -> Result<Self, Error> {
+    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, Error> {
         Ok(from_slice(bz)?)
     }
 
