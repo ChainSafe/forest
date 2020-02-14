@@ -1,23 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(dead_code)]
-
 use super::BlockHeader;
 use cid::Cid;
 use encoding::{de::Deserializer, ser::Serializer};
 use message::{SignedMessage, UnsignedMessage};
-use multihash::Hash;
 use serde::{Deserialize, Serialize};
-
-// DefaultHashFunction represents the default hashing function to use
-// TODO SHOULD BE BLAKE2B256 (256 hashing not implemented)
-const DEFAULT_HASH_FUNCTION: Hash = Hash::Blake2b512;
-// TODO determine the purpose for these structures, currently spec includes them but with no definition
-struct ChallengeTicketsCommitment {}
-struct PoStCandidate {}
-struct PoStRandomness {}
-struct PoStProof {}
 
 /// A complete block
 #[derive(Clone, Debug, PartialEq)]
@@ -76,13 +64,4 @@ impl<'de> Deserialize<'de> for TxMeta {
             secp_message_root,
         })
     }
-}
-
-/// ElectionPoStVerifyInfo seems to be connected to VRF
-/// see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L1099
-struct ElectionPoStVerifyInfo {
-    candidates: PoStCandidate,
-    randomness: PoStRandomness,
-    proof: PoStProof,
-    messages: Vec<UnsignedMessage>,
 }
