@@ -9,17 +9,25 @@ mod version;
 pub use self::codec::Codec;
 pub use self::error::Error;
 pub use self::version::Version;
-use encoding::{de, ser, serde_bytes, tags::Tagged, Cbor};
 use integer_encoding::{VarIntReader, VarIntWriter};
 pub use multihash;
 use multihash::{Hash, Multihash};
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::fmt;
 use std::io::Cursor;
 
+#[cfg(feature = "serde_derive")]
+use serde::{de, ser};
+#[cfg(feature = "serde_derive")]
+use serde_cbor::tags::Tagged;
+#[cfg(feature = "serde_derive")]
+use std::convert::TryFrom;
+
+#[cfg(feature = "serde_derive")]
 const CBOR_TAG_CID: u64 = 42;
 /// multibase identity prefix
 /// https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#link-format
+#[cfg(feature = "serde_derive")]
 const MULTIBASE_IDENTITY: u8 = 0;
 
 /// Prefix represents all metadata of a CID, without the actual content.
@@ -49,8 +57,7 @@ impl Default for Cid {
     }
 }
 
-impl Cbor for Cid {}
-
+#[cfg(feature = "serde")]
 impl ser::Serialize for Cid {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -67,6 +74,7 @@ impl ser::Serialize for Cid {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de> de::Deserialize<'de> for Cid {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -107,14 +115,6 @@ impl Cid {
             mh_len: (hash.size()) as usize,
         };
         Ok(Self::new_from_prefix(&prefix, bz)?)
-    }
-
-    /// Constructs a cid with a CBOR encodable structure
-    pub fn from_cbor<B: Cbor>(bz: B, hash: Hash) -> Result<Self, Error> {
-        Ok(Self::from_bytes(
-            &bz.marshal_cbor().map_err(|_| Error::ParsingError)?,
-            hash,
-        )?)
     }
 
     /// Create a new CID from raw data (binary or multibase encoded string)

@@ -3,7 +3,7 @@
 
 use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
-use cid::{multihash::Hash::Blake2b256, Cid, Error as CidError};
+use cid::{multihash::Hash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{is_valid_signature, Signature};
 use derive_builder::Builder;
@@ -13,7 +13,6 @@ use encoding::{
     Cbor, Error as EncodingError,
 };
 use num_bigint::BigUint;
-use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -115,7 +114,11 @@ pub struct BlockHeader {
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
 // https://github.com/ChainSafe/forest/issues/143
 
-impl Cbor for BlockHeader {}
+impl Cbor for BlockHeader {
+    fn cid(&self) -> Result<Cid, EncodingError> {
+        Ok(self.cid().clone())
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 struct CborBlockHeader(
@@ -197,18 +200,6 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             .unwrap();
 
         Ok(header)
-    }
-}
-
-impl RawBlock for BlockHeader {
-    /// returns the block raw contents as a byte array
-    fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO should serialize block header using CBOR encoding
-        self.marshal_cbor()
-    }
-    /// returns the content identifier of the block
-    fn cid(&self) -> Result<Cid, CidError> {
-        Ok(self.cid().clone())
     }
 }
 
