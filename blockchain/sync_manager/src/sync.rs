@@ -24,6 +24,7 @@ use std::collections::HashMap;
 pub struct Syncer<'a, 'b, T: StateTree> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
     // TODO add block sync
+    /// manages retrieving and updates state objects
     state_manager: StateManager<'a, 'b, T>,
     /// manages sync buckets
     sync_manager: SyncManager<'a>,

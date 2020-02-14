@@ -7,12 +7,12 @@ mod code;
 pub use self::builtin::*;
 pub use self::code::*;
 use cid::Cid;
-use encoding::{de, ser, Cbor};
+use encoding::Cbor;
 use num_bigint::BigUint;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Identifier for Actors, includes builtin and initialized actors
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Serialize)]
 pub struct ActorID(u64);
 
 // TODO verify format or implement custom serialize/deserialize function (if necessary):
@@ -48,34 +48,4 @@ pub trait Actor {
     fn cid(&self) -> &Cid;
     /// Actor public key, if it exists
     fn public_key(&self) -> Vec<u8>;
-}
-
-impl ser::Serialize for ActorState {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: ser::Serializer,
-    {
-        (
-            self.code_id.clone(),
-            self.state.clone(),
-            self.sequence,
-            self.balance.clone(),
-        )
-            .serialize(s)
-    }
-}
-
-impl<'de> de::Deserialize<'de> for ActorState {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        let (code_id, state, sequence, balance) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            code_id,
-            state,
-            sequence,
-            balance,
-        })
-    }
 }

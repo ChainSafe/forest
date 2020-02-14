@@ -44,12 +44,12 @@ where
     /// Returns the epoch at which the miner was slashed at
     pub fn miner_slashed(&self, addr: &Address) -> Result<u64, Error> {
         let act: StorageMinerActorState = self.load_actor_state(addr)?;
-        Ok(*act.slashed_at())
+        Ok(act.slashed_at)
     }
     /// Returns the amount of space in each sector committed to the network by this miner
     pub fn miner_sector_size(&self, addr: &Address) -> Result<u64, Error> {
         let act: StorageMinerActorState = self.load_actor_state(addr)?;
-        let info: MinerInfo = self.cs.blockstore().get(act.info())?.ok_or_else(|| {
+        let info: MinerInfo = self.cs.blockstore().get(&act.info)?.ok_or_else(|| {
             Error::State("Could not retrieve miner info from IPLD store".to_owned())
         })?;
         Ok(*info.sector_size())
