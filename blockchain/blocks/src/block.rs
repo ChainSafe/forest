@@ -47,10 +47,9 @@ impl Block {
 }
 
 /// Tracks the merkleroots of both secp and bls messages separately
-#[derive(Clone, Debug, PartialEq, Default)]
 pub struct TxMeta {
-    pub bls_messages: Cid,
-    pub secp_messages: Cid,
+    pub bls_message_root: Cid,
+    pub secp_message_root: Cid,
 }
 
 impl Serialize for TxMeta {
@@ -58,7 +57,10 @@ impl Serialize for TxMeta {
     where
         S: Serializer,
     {
-        let value = (self.bls_messages.clone(), self.secp_messages.clone());
+        let value = (
+            self.bls_message_root.clone(),
+            self.secp_message_root.clone(),
+        );
         Serialize::serialize(&value, serializer)
     }
 }
@@ -68,10 +70,10 @@ impl<'de> Deserialize<'de> for TxMeta {
     where
         D: Deserializer<'de>,
     {
-        let (bls_messages, secp_messages) = Deserialize::deserialize(deserializer)?;
+        let (bls_message_root, secp_message_root) = Deserialize::deserialize(deserializer)?;
         Ok(TxMeta {
-            bls_messages,
-            secp_messages,
+            bls_message_root,
+            secp_message_root,
         })
     }
 }

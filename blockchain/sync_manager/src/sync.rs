@@ -7,12 +7,12 @@ use super::errors::Error;
 use super::manager::SyncManager;
 use address::Address;
 use amt::{BlockStore, AMT};
-use blocks::{Block, FullTipset, TipSetKeys, Tipset};
+use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Error as CidError};
 use crypto::is_valid_signature;
 use libp2p::core::PeerId;
-use message::{Message, MsgMeta};
+use message::Message;
 use num_bigint::BigUint;
 use raw_block::RawBlock;
 use state::{HamtStateTree, StateTree};
@@ -92,7 +92,7 @@ impl<'a> Syncer<'a> {
         let bls_root = AMT::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
         let secp_root = AMT::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
 
-        let meta = MsgMeta {
+        let meta = TxMeta {
             bls_message_root: bls_root,
             secp_message_root: secp_root,
         };

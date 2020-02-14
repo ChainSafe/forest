@@ -22,9 +22,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///
 /// Usage:
 /// ```
-/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket, TxMeta};
+/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket};
 /// use address::Address;
-/// use cid::{Cid, Codec, Prefix, Version};
+/// use cid::Cid;
 /// use clock::ChainEpoch;
 /// use num_bigint::BigUint;
 /// use crypto::Signature;
@@ -68,8 +68,6 @@ pub struct BlockHeader {
 
     // STATE
     /// messages contains the Cid to the merkle links for bls_messages and secp_messages
-    /// The spec shows that messages is a TxMeta, but Lotus has it as a Cid to a TxMeta.
-    /// TODO: Need to figure out how to convert TxMeta to a Cid
     #[builder(default)]
     messages: Cid,
 
@@ -183,7 +181,6 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
 impl RawBlock for BlockHeader {
     /// returns the block raw contents as a byte array
     fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO should serialize block header using CBOR encoding
         self.marshal_cbor()
     }
     /// returns the content identifier of the block
