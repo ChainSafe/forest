@@ -38,20 +38,14 @@ impl fmt::Display for Error {
         match self {
             Error::NoBlocks => write!(f, "No blocks for tipset"),
             Error::InvalidRoots => write!(f, "Invalid root detected"),
-            Error::Blockchain(msg) => write!(
-                f,
-                "Error originating from construction of blockchain structures: {}",
-                msg
-            ),
-            Error::KeyValueStore(msg) => {
-                write!(f, "Error originating from Key-Value store: {}", msg)
-            }
-            Error::Encoding(msg) => write!(f, "Error originating from Encoding type: {}", msg),
-            Error::InvalidCid(msg) => write!(f, "Error originating from CID construction: {}", msg),
-            Error::Store(msg) => write!(f, "Error originating from ChainStore: {}", msg),
-            Error::AMT(msg) => write!(f, "Error originating from the AMT: {}", msg),
-            Error::State(msg) => write!(f, "Error originating from the State: {}", msg),
-            Error::Validation(msg) => write!(f, "Error validating data: {}", msg),
+            Error::Blockchain(msg) => write!(f, "{}", msg),
+            Error::KeyValueStore(msg) => write!(f, "{}", msg),
+            Error::Encoding(msg) => write!(f, "{}", msg),
+            Error::InvalidCid(msg) => write!(f, "{}", msg),
+            Error::Store(msg) => write!(f, "{}", msg),
+            Error::AMT(msg) => write!(f, "{}", msg),
+            Error::State(msg) => write!(f, "{}", msg),
+            Error::Validation(msg) => write!(f, "{}", msg),
         }
     }
 }

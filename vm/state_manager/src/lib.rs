@@ -11,29 +11,32 @@ use address::Address;
 use amt::BlockStore;
 use chain::ChainStore;
 use encoding::de::DeserializeOwned;
-use state_tree::{HamtStateTree, StateTree};
+use state_tree::StateTree;
 
 /// Intermediary for retrieving state objects and updating actor states
-pub struct StateManager<'a> {
-    cs: &'a ChainStore<'a>,
-    tree: HamtStateTree,
+pub struct StateManager<'a, 'b, T: StateTree> {
+    cs: &'b ChainStore<'a>,
+    tree: T,
 }
 
-impl<'a> StateManager<'a> {
+impl<'a, 'b, T> StateManager<'a, 'b, T>
+where
+    T: StateTree,
+{
     /// constructor
-    pub fn new(cs: &'a ChainStore, tree: HamtStateTree) -> Self {
+    pub fn new(cs: &'b ChainStore<'a>, tree: T) -> Self {
         Self { cs, tree }
     }
     /// Loads actor state from IPLD Store
-    fn load_actor_state<T>(&self, addr: &Address) -> Result<T, Error>
+    fn load_actor_state<D>(&self, addr: &Address) -> Result<D, Error>
     where
-        T: DeserializeOwned,
+        D: DeserializeOwned,
     {
         let actor = self
             .tree
             .get_actor(addr)
             .ok_or_else(|| Error::State("Could not retrieve actor from state tree".to_owned()))?;
-        let act: T = self.cs.blockstore().get(&actor.state)?.ok_or_else(|| {
+        let act: D = self.cs.blockstore().get(&actor.state)?.ok_or_else(|| {
             Error::State("Could not retrieve actor state from IPLD store".to_owned())
         })?;
         Ok(act)

@@ -14,8 +14,8 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::State(msg) => write!(f, "Error state data: {}", msg),
-            Error::Encoding(msg) => write!(f, "Error originating from Encoding type: {}", msg),
+            Error::State(msg) => write!(f, "{}", msg),
+            Error::Encoding(msg) => write!(f, "{}", msg),
         }
     }
 }

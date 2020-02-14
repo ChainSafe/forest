@@ -21,17 +21,17 @@ use std::collections::HashMap;
 
 /// Syncer updates the key-value store based on series of validation checks adhering to consensus rules, can query
 /// the network for blocks and assists in informing the network of incoming blocks
-pub struct Syncer<'a> {
+pub struct Syncer<'a, 'b, T: StateTree> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
     // TODO add block sync
-    state_manager: StateManager<'a>,
-    // manages sync buckets
+    state_manager: StateManager<'a, 'b, T>,
+    /// manages sync buckets
     sync_manager: SyncManager<'a>,
-    // access and store tipsets / blocks / messages
+    /// access and store tipsets / blocks / messages
     chain_store: ChainStore<'a>,
-    // the known genesis tipset
+    /// the known genesis tipset
     _genesis: Tipset,
-    // self peerId
+    /// self peerId
     _own: PeerId,
 }
 
@@ -41,7 +41,10 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'a> Syncer<'a> {
+impl<'a, 'b, T> Syncer<'a, 'b, T>
+where
+    T: StateTree,
+{
     /// TODO add constructor
 
     /// informs the syncer about a new potential tipset
@@ -142,13 +145,13 @@ impl<'a> Syncer<'a> {
         // TODO verify_bls_aggregate
 
         // check msgs for validity
-        fn check_msg<T: Message>(
-            msg: &T,
+        fn check_msg<M: Message>(
+            msg: &M,
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
             tree: &HamtStateTree,
         ) -> Result<(), Error>
         where
-            T: Message,
+            M: Message,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
