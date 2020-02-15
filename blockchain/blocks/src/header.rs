@@ -12,7 +12,7 @@ use encoding::{
     ser::{self, Serializer},
     Cbor, Error as EncodingError,
 };
-use num_bigint::BigUint;
+use num_bigint::{biguint_ser, BigUint};
 use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -118,20 +118,20 @@ pub struct BlockHeader {
 impl Cbor for BlockHeader {}
 
 #[derive(Serialize, Deserialize)]
-struct CborBlockHeader(
-    Address,    // miner_address
-    Ticket,     // ticket
-    EPostProof, // epost_verify
-    TipSetKeys, // parents []cid
-    BigUint,    // weight
-    ChainEpoch, // epoch
-    Cid,        // state_root
-    Cid,        // message_receipts
-    Cid,        // messages
-    Signature,  // bls_aggregate
-    u64,        // timestamp
-    Signature,  // signature
-    u64,        // fork_signal
+struct TupleBlockHeader(
+    Address,                                // miner_address
+    Ticket,                                 // ticket
+    EPostProof,                             // epost_verify
+    TipSetKeys,                             // parents []cid
+    #[serde(with = "biguint_ser")] BigUint, // weight
+    ChainEpoch,                             // epoch
+    Cid,                                    // state_root
+    Cid,                                    // message_receipts
+    Cid,                                    // messages
+    Signature,                              // bls_aggregate
+    u64,                                    // timestamp
+    Signature,                              // signature
+    u64,                                    // fork_signal
 );
 
 impl ser::Serialize for BlockHeader {
@@ -139,7 +139,7 @@ impl ser::Serialize for BlockHeader {
     where
         S: Serializer,
     {
-        CborBlockHeader(
+        TupleBlockHeader(
             self.miner_address.clone(),
             self.ticket.clone(),
             self.epost_verify.clone(),
@@ -163,7 +163,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
     where
         D: Deserializer<'de>,
     {
-        let (
+        let TupleBlockHeader(
             miner_address,
             ticket,
             epost_verify,
