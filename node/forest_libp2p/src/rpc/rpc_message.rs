@@ -3,6 +3,7 @@
 
 use super::{Message, Response};
 
+/// RPCRequest payloads for request/response calls
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCRequest {
     Blocksync(Message),
@@ -16,6 +17,7 @@ impl RPCRequest {
     }
 }
 
+/// RPCResponse payloads for request/response calls
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCResponse {
     Blocksync(Response),

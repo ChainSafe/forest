@@ -10,6 +10,7 @@ use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use std::pin::Pin;
 
+/// Protocol upgrade for inbound RPC requests. Currently supports Blocksync.
 #[derive(Debug, Clone)]
 pub struct RPCInbound;
 
@@ -45,6 +46,7 @@ where
     }
 }
 
+/// Protocol upgrade for outbound RPC requests. Currently supports Blocksync.
 pub struct RPCOutbound {
     pub req: RPCRequest,
 }

@@ -199,14 +199,17 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviou
         }
     }
 
+    /// Publish data over the gossip network.
     pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) {
         self.gossipsub.publish(topic, data);
     }
 
+    /// Subscribe to a gossip topic.
     pub fn subscribe(&mut self, topic: Topic) -> bool {
         self.gossipsub.subscribe(topic)
     }
 
+    /// Send an RPC request or response to some peer.
     pub fn send_rpc(&mut self, peer_id: PeerId, req: RPCEvent) {
         self.rpc.send_rpc(peer_id, req);
     }

@@ -13,6 +13,7 @@ use libp2p::swarm::{
 use libp2p::{Multiaddr, PeerId};
 use std::marker::PhantomData;
 
+/// The RPC behaviour that gets consumed by the Swarm.
 pub struct RPC<TSubstream> {
     /// Queue of events to processed.
     events: Vec<NetworkBehaviourAction<RPCEvent, RPCMessage>>,
@@ -25,6 +26,7 @@ impl<TSubstream> RPC<TSubstream> {
         RPC::default()
     }
 
+    /// Send an RPCEvent to a peer specified by peer_id.
     pub fn send_rpc(&mut self, peer_id: PeerId, event: RPCEvent) {
         self.events
             .push(NetworkBehaviourAction::SendEvent { peer_id, event });

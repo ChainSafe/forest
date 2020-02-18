@@ -7,7 +7,9 @@ use forest_encoding::{error::Error as EncodingError, from_slice, to_vec};
 use futures_codec::{Decoder, Encoder};
 use std::fmt;
 
+/// Codec used for inbound connections. Decodes the inbound message into a RPCRequest, and encodes the RPCResponse to send.
 pub struct InboundCodec;
+/// Codec used for outbound connections. Encodes the outbound message into a RPCRequest to send, and decodes the RPCResponse when received.
 pub struct OutboundCodec;
 
 #[derive(Debug, Clone, PartialEq)]
