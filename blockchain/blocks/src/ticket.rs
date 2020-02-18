@@ -18,9 +18,6 @@ pub struct Ticket {
     pub vrfproof: VRFResult,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
 impl Ticket {
     /// Ticket constructor
     pub fn new(vrfproof: VRFResult) -> Self {

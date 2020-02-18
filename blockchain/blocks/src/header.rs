@@ -14,7 +14,7 @@ use encoding::{
 };
 use num_bigint::BigUint;
 use raw_block::RawBlock;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -22,9 +22,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///
 /// Usage:
 /// ```
-/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket, TxMeta};
+/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket};
 /// use address::Address;
-/// use cid::{Cid, Codec, Prefix, Version};
+/// use cid::Cid;
 /// use clock::ChainEpoch;
 /// use num_bigint::BigUint;
 /// use crypto::Signature;
@@ -68,8 +68,6 @@ pub struct BlockHeader {
 
     // STATE
     /// messages contains the Cid to the merkle links for bls_messages and secp_messages
-    /// The spec shows that messages is a TxMeta, but Lotus has it as a Cid to a TxMeta.
-    /// TODO: Need to figure out how to convert TxMeta to a Cid
     #[builder(default)]
     messages: Cid,
 
@@ -112,34 +110,14 @@ pub struct BlockHeader {
     cached_bytes: Vec<u8>,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
 impl Cbor for BlockHeader {}
-
-#[derive(Serialize, Deserialize)]
-struct CborBlockHeader(
-    Address,    // miner_address
-    Ticket,     // ticket
-    EPostProof, // epost_verify
-    TipSetKeys, // parents []cid
-    BigUint,    // weight
-    ChainEpoch, // epoch
-    Cid,        // state_root
-    Cid,        // message_receipts
-    Cid,        // messages
-    Signature,  // bls_aggregate
-    u64,        // timestamp
-    Signature,  // signature
-    u64,        // fork_signal
-);
 
 impl ser::Serialize for BlockHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        CborBlockHeader(
+        (
             self.miner_address.clone(),
             self.ticket.clone(),
             self.epost_verify.clone(),
@@ -154,7 +132,7 @@ impl ser::Serialize for BlockHeader {
             self.signature.clone(),
             self.fork_signal,
         )
-        .serialize(serializer)
+            .serialize(serializer)
     }
 }
 
@@ -203,7 +181,6 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
 impl RawBlock for BlockHeader {
     /// returns the block raw contents as a byte array
     fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO should serialize block header using CBOR encoding
         self.marshal_cbor()
     }
     /// returns the content identifier of the block
