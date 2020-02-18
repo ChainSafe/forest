@@ -21,9 +21,6 @@ pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
 impl TipSetKeys {
     /// constructor
     pub fn new(cids: Vec<Cid>) -> Self {
@@ -150,7 +147,7 @@ impl Tipset {
         })
     }
     /// Returns all blocks in tipset
-    pub fn blocks(&self) -> &Vec<BlockHeader> {
+    pub fn blocks(&self) -> &[BlockHeader] {
         &self.blocks
     }
     /// Returns the smallest ticket of all blocks in the tipset
@@ -210,7 +207,7 @@ impl FullTipset {
         Self { blocks: blks }
     }
     /// Returns all blocks in a full tipset
-    pub fn blocks(&self) -> &Vec<Block> {
+    pub fn blocks(&self) -> &[Block] {
         &self.blocks
     }
     /// Returns a Tipset
@@ -218,7 +215,7 @@ impl FullTipset {
         let mut headers = Vec::new();
 
         for block in self.blocks() {
-            headers.push(block.to_header().clone())
+            headers.push(block.header().clone())
         }
         let tip: Tipset = Tipset::new(headers)?;
         Ok(tip)
