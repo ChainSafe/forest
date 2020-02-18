@@ -16,7 +16,7 @@ where
     match sign {
         Sign::Minus => bz.insert(0, 1),
         Sign::Plus => bz.insert(0, 0),
-        Sign::NoSign => bz = vec![],
+        Sign::NoSign => bz = Vec::new(),
     }
 
     // Serialize as bytes

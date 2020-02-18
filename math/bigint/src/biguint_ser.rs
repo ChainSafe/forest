@@ -11,8 +11,8 @@ where
     let mut bz = int.to_bytes_be();
 
     // Insert positive sign byte at start of encoded bytes if non-zero
-    if bz == vec![0] {
-        bz = vec![]
+    if bz == [0] {
+        bz = Vec::new()
     } else {
         bz.insert(0, 0);
     }
