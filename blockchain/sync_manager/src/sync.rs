@@ -7,12 +7,12 @@ use super::errors::Error;
 use super::manager::SyncManager;
 use address::Address;
 use amt::{BlockStore, AMT};
-use blocks::{Block, FullTipset, TipSetKeys, Tipset};
+use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Error as CidError};
 use crypto::is_valid_signature;
 use libp2p::core::PeerId;
-use message::{Message, MsgMeta};
+use message::Message;
 use num_bigint::BigUint;
 use raw_block::RawBlock;
 use state::{HamtStateTree, StateTree};
@@ -59,7 +59,7 @@ impl<'a> Syncer<'a> {
 
         // compare target_weight to heaviest weight stored; ignore otherwise
         let best_weight = self.chain_store.heaviest_tipset().blocks()[0].weight();
-        let target_weight = fts.blocks()[0].to_header().weight();
+        let target_weight = fts.blocks()[0].header().weight();
 
         if !target_weight.lt(&best_weight) {
             // Store incoming block header
@@ -74,7 +74,7 @@ impl<'a> Syncer<'a> {
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
         let sm_root = self.compute_msg_data(block)?;
-        if block.to_header().messages() != &sm_root {
+        if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
 
@@ -92,7 +92,7 @@ impl<'a> Syncer<'a> {
         let bls_root = AMT::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
         let secp_root = AMT::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
 
-        let meta = MsgMeta {
+        let meta = TxMeta {
             bls_message_root: bls_root,
             secp_message_root: secp_root,
         };
@@ -204,7 +204,7 @@ impl<'a> Syncer<'a> {
         }
         // validate message root from header matches message root
         let sm_root = self.compute_msg_data(&block)?;
-        if block.to_header().messages() != &sm_root {
+        if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
 
@@ -214,7 +214,7 @@ impl<'a> Syncer<'a> {
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     pub fn validate(&self, block: Block) -> Result<(), Error> {
         // get header from full block
-        let header = block.to_header();
+        let header = block.header();
 
         // check if block has been signed
         if header.signature().bytes().is_empty() {

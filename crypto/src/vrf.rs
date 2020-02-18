@@ -19,9 +19,6 @@ impl VRFPublicKey {
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct VRFResult(#[serde(with = "serde_bytes")] Vec<u8>);
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
 impl VRFResult {
     /// Creates a VRFResult from a raw vector
     pub fn new(output: Vec<u8>) -> Self {
@@ -47,9 +44,6 @@ impl VRFResult {
         }
     }
 }
-
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
 
 #[cfg(test)]
 mod tests {
