@@ -5,7 +5,6 @@
 
 use async_std::task;
 use forest_libp2p::rpc::{Message, RPCEvent, RPCMessage, RPCRequest, RPCResponse, Response, RPC};
-// use forest_libp2p::{ForestBehaviourEvent, Libp2pConfig, Libp2pService};
 use futures::{future, prelude::*};
 use libp2p::core::{
     identity,

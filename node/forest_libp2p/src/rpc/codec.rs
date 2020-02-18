@@ -68,7 +68,6 @@ impl Decoder for InboundCodec {
         }
 
         Ok(Some(RPCRequest::Blocksync(
-            // Reaplce map
             from_slice(bz).map_err(|_| RPCError::Codec)?,
         )))
     }
