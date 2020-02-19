@@ -7,4 +7,8 @@ edition = "2018"
 [dependencies]
 encoding = { package = "forest_encoding", path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
-cid = { package = "forest_cid", path = "../ipld/cid" }
+
+[dependencies.cid]
+package = "forest_cid"
+path = "../ipld/cid"
+features = ["serde_derive"]

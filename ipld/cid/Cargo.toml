@@ -4,9 +4,16 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
+[package.metadata.docs.rs]
+features = ["serde_derive"]
+
 [dependencies]
 multihash = "0.9.4"
 multibase = "0.7.0"
 integer-encoding = "1.0.3"
-encoding = { package = "forest_encoding", path = "../../encoding" }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_cbor = { version = "0.11.0", features = ["tags"], optional = true }
+serde_bytes = { version = "0.11.3", optional = true }
+
+[features]
+serde_derive = ["serde", "serde_bytes", "serde_cbor"]

@@ -13,7 +13,6 @@ clock = { path = "../../node/clock" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
-raw_block = { package = "raw_block", path = "../raw_block" }
 message = { package = "forest_message", path = "../../vm/message" }
 
 [dev-dependencies]

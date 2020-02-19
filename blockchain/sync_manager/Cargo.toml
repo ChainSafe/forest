@@ -10,16 +10,16 @@ amt = { package = "ipld_amt", path = "../../ipld/amt" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-libp2p =  { git = "https://github.com/SigP/rust-libp2p", rev = "776d13ef046358964c7d64cda3295a3a3cb24743" }
+libp2p = "0.15.0"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-chain = { path ="../chain" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore" }
+chain = { path = "../chain" }
 message = { package = "forest_message", path = "../../vm/message" }
-raw_block = { package = "raw_block", path = "../raw_block" }
 multihash = "0.9.4"
 state = { package = "state_tree", path = "../../vm/state_tree/" }
-num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
-crypto = { path= "../../crypto" }
+num-bigint = { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
+crypto = { path = "../../crypto" }
 
 [dev-dependencies]
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
+num-bigint = { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }

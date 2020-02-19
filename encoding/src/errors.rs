@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Error as CidError;
 use serde_cbor::error::Error as CborError;
 use std::fmt;
 
@@ -59,6 +60,15 @@ impl fmt::Display for Error {
 
 impl From<CborError> for Error {
     fn from(err: CborError) -> Error {
+        Error::Marshalling {
+            description: err.to_string(),
+            protocol: CodecProtocol::Cbor,
+        }
+    }
+}
+
+impl From<CidError> for Error {
+    fn from(err: CidError) -> Error {
         Error::Marshalling {
             description: err.to_string(),
             protocol: CodecProtocol::Cbor,
