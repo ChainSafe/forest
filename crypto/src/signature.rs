@@ -4,8 +4,10 @@
 use super::errors::Error;
 use address::{Address, Protocol};
 use bls_signatures::{
-    hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
+    hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,  paired::bls12_381::G2 as G2
 };
+
+
 use encoding::{blake2b_256, de, ser, serde_bytes};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -109,6 +111,9 @@ pub fn is_valid_signature(data: &[u8], addr: &Address, sig: &Signature) -> bool 
     }
 }
 
+
+
+
 /// Returns true if a bls signature is valid
 pub(crate) fn verify_bls_sig(data: &[u8], pub_k: &[u8], sig: &Signature) -> bool {
     if pub_k.len() != BLS_PUB_LEN || sig.bytes().len() != BLS_SIG_LEN {
@@ -133,6 +138,42 @@ pub(crate) fn verify_bls_sig(data: &[u8], pub_k: &[u8], sig: &Signature) -> bool
     // BLS verify hash against key
     verify(&sig, &[hashed], &[pk])
 }
+
+pub(crate) fn verify_agg_bls_sig(data: &[&[u8]], pub_keys : &[&[u8]], aggregate_sig: &Signature) -> bool{
+
+    // If the number of public keys and data does not match, then return false
+    if data.len()  != pub_keys.len() {
+        return false;
+    }
+
+    //SHouild be able to generate struct properly from givnebytees
+    let sig = match BlsSignature::from_bytes(aggregate_sig.bytes()) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+
+
+    let num_sigs = data.len();
+
+    let mut pks : Vec<BlsPubKey> = vec!();
+    let mut hashed_data : Vec<G2>  = vec!();
+
+    // For loop produces the hashed data and gets the public keys from bytes.
+    for x in 0 .. num_sigs{
+        let pk = match BlsPubKey::from_bytes(pub_keys[x]) {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
+        pks.push(pk);
+        let h_data =   bls_hash(data[x]);
+        hashed_data.push(h_data);
+    }
+
+    // DOes the aggregate verification
+    verify(&sig, &hashed_data[..], &pks[..])
+}
+
+
 
 /// Returns true if a secp256k1 signature is valid
 fn verify_secp256k1_sig(data: &[u8], addr: &Address, sig: &Signature) -> bool {
