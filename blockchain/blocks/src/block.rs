@@ -45,11 +45,7 @@ impl Serialize for TxMeta {
     where
         S: Serializer,
     {
-        let value = (
-            self.bls_message_root.clone(),
-            self.secp_message_root.clone(),
-        );
-        Serialize::serialize(&value, serializer)
+        (&self.bls_message_root, &self.secp_message_root).serialize(serializer)
     }
 }
 
