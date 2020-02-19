@@ -6,7 +6,6 @@ use address::Address;
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
 use num_bigint::{biguint_ser, BigUint};
-use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -154,7 +153,5 @@ impl Message for UnsignedMessage {
         total + self.value().0.clone()
     }
 }
-
-impl RawBlock for UnsignedMessage {}
 
 impl Cbor for UnsignedMessage {}
