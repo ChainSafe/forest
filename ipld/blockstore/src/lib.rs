@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::Error;
 use cid::{multihash::Hash, Cid};
-use db::{MemoryDB, Read, RocksDb, Write};
+use db::{Error, MemoryDB, Read, RocksDb, Write};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 
 /// Wrapper for database to handle inserting and retrieving data from AMT with Cids
@@ -19,7 +18,9 @@ pub trait BlockStore: Read + Write {
         T: DeserializeOwned,
     {
         match self.get_bytes(cid)? {
-            Some(bz) => Ok(Some(from_slice(&bz)?)),
+            Some(bz) => Ok(Some(
+                from_slice(&bz).map_err(|e| Error::new(e.to_string()))?,
+            )),
             None => Ok(None),
         }
     }
@@ -29,8 +30,8 @@ pub trait BlockStore: Read + Write {
     where
         S: Serialize,
     {
-        let bz = to_vec(obj)?;
-        let cid = Cid::from_bytes(&bz, Hash::Blake2b256)?;
+        let bz = to_vec(obj).map_err(|e| Error::new(e.to_string()))?;
+        let cid = Cid::from_bytes(&bz, Hash::Blake2b256).map_err(|e| Error::new(e.to_string()))?;
         self.write(cid.to_bytes(), bz)?;
         Ok(cid)
     }

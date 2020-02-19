@@ -5,10 +5,9 @@ use super::{Error, TipIndex, TipSetMetadata};
 use blocks::{BlockHeader, Tipset};
 use cid::Cid;
 use db::{Error as DbError, Read, RocksDb as Blockstore, Write};
-use encoding::{de::DeserializeOwned, from_slice};
+use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
-use raw_block::RawBlock;
 use std::path::Path;
 
 /// Generic implementation of the datastore trait and structures
@@ -71,17 +70,17 @@ impl<'a> ChainStore<'a> {
         // loop through block to push blockheader raw data and cid into vector to be stored
         for block in tip.blocks() {
             if !self.db.exists(block.cid().key())? {
-                raw_header_data.push(block.raw_data()?);
+                raw_header_data.push(block.marshal_cbor()?);
                 keys.push(block.cid().key());
             }
         }
         Ok(self.db.bulk_write(&keys, &raw_header_data)?)
     }
     /// Writes encoded message data to blockstore
-    pub fn put_messages<T: RawBlock>(&self, msgs: &[T]) -> Result<(), Error> {
+    pub fn put_messages<T: Cbor>(&self, msgs: &[T]) -> Result<(), Error> {
         for m in msgs {
             let key = m.cid()?.key();
-            let value = &m.raw_data()?;
+            let value = &m.marshal_cbor()?;
             if self.db.exists(&key)? {
                 return Err(Error::KeyValueStore("Keys exist".to_string()));
             }

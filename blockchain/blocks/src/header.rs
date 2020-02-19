@@ -3,7 +3,7 @@
 
 use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
-use cid::{Cid, Error as CidError};
+use cid::{multihash::Hash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{is_valid_signature, Signature};
 use derive_builder::Builder;
@@ -13,7 +13,6 @@ use encoding::{
     Cbor, Error as EncodingError,
 };
 use num_bigint::BigUint;
-use raw_block::RawBlock;
 use serde::Deserialize;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -110,7 +109,11 @@ pub struct BlockHeader {
     cached_bytes: Vec<u8>,
 }
 
-impl Cbor for BlockHeader {}
+impl Cbor for BlockHeader {
+    fn cid(&self) -> Result<Cid, EncodingError> {
+        Ok(self.cid().clone())
+    }
+}
 
 impl ser::Serialize for BlockHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -175,17 +178,6 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             .unwrap();
 
         Ok(header)
-    }
-}
-
-impl RawBlock for BlockHeader {
-    /// returns the block raw contents as a byte array
-    fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
-        self.marshal_cbor()
-    }
-    /// returns the content identifier of the block
-    fn cid(&self) -> Result<Cid, CidError> {
-        Ok(self.cid().clone())
     }
 }
 
@@ -254,7 +246,8 @@ impl BlockHeader {
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
-        self.cached_cid = Cid::from_bytes_default(&self.cached_bytes).map_err(|e| e.to_string())?;
+        self.cached_cid =
+            Cid::from_bytes(&self.cached_bytes, Blake2b256).map_err(|e| e.to_string())?;
         Ok(())
     }
     /// Check to ensure block signature is valid

@@ -73,14 +73,14 @@ impl<'a> SyncBucketSet<'a> {
 mod tests {
     use super::*;
     use blocks::BlockHeader;
-    use cid::Cid;
+    use cid::{multihash::Hash::Blake2b256, Cid};
     use num_bigint::BigUint;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         let header = BlockHeader::builder()
             .weight(BigUint::from(weight))
             .cached_bytes(cached_bytes.to_vec())
-            .cached_cid(Cid::from_bytes_default(parent_bz).unwrap())
+            .cached_cid(Cid::from_bytes(parent_bz, Blake2b256).unwrap())
             .build()
             .unwrap();
         header

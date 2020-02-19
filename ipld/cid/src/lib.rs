@@ -9,17 +9,25 @@ mod version;
 pub use self::codec::Codec;
 pub use self::error::Error;
 pub use self::version::Version;
-use encoding::{de, ser, serde_bytes, tags::Tagged, Cbor};
 use integer_encoding::{VarIntReader, VarIntWriter};
 pub use multihash;
 use multihash::{Hash, Multihash};
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::fmt;
 use std::io::Cursor;
 
+#[cfg(feature = "serde_derive")]
+use serde::{de, ser};
+#[cfg(feature = "serde_derive")]
+use serde_cbor::tags::Tagged;
+#[cfg(feature = "serde_derive")]
+use std::convert::TryFrom;
+
+#[cfg(feature = "serde_derive")]
 const CBOR_TAG_CID: u64 = 42;
 /// multibase identity prefix
 /// https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#link-format
+#[cfg(feature = "serde_derive")]
 const MULTIBASE_IDENTITY: u8 = 0;
 
 /// Prefix represents all metadata of a CID, without the actual content.
@@ -44,13 +52,12 @@ impl Default for Cid {
         Self::new(
             Codec::Raw,
             Version::V1,
-            multihash::encode(Hash::Blake2b512, &[]).unwrap(),
+            multihash::encode(Hash::Blake2b256, &[]).unwrap(),
         )
     }
 }
 
-impl Cbor for Cid {}
-
+#[cfg(feature = "serde")]
 impl ser::Serialize for Cid {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -67,6 +74,7 @@ impl ser::Serialize for Cid {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de> de::Deserialize<'de> for Cid {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -99,17 +107,6 @@ impl Cid {
     }
 
     /// Constructs a cid with bytes using default version and codec
-    pub fn from_bytes_default(bz: &[u8]) -> Result<Self, Error> {
-        let prefix = Prefix {
-            version: Version::V1,
-            codec: Codec::DagCBOR,
-            mh_type: Hash::Blake2b512,
-            mh_len: 64 - 1, // TODO verify cid hash length and type
-        };
-        Ok(Self::new_from_prefix(&prefix, bz)?)
-    }
-
-    /// Constructs a cid with bytes using default version and codec
     pub fn from_bytes(bz: &[u8], hash: Hash) -> Result<Self, Error> {
         let prefix = Prefix {
             version: Version::V1,
@@ -118,13 +115,6 @@ impl Cid {
             mh_len: (hash.size()) as usize,
         };
         Ok(Self::new_from_prefix(&prefix, bz)?)
-    }
-
-    /// Constructs a cid with a CBOR encodable structure
-    pub fn from_cbor_default<B: Cbor>(bz: B) -> Result<Self, Error> {
-        Ok(Self::from_bytes_default(
-            &bz.marshal_cbor().map_err(|_| Error::ParsingError)?,
-        )?)
     }
 
     /// Create a new CID from raw data (binary or multibase encoded string)
