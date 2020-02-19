@@ -33,7 +33,7 @@ fn generate_validate_checksum() {
 }
 
 struct AddressTestVec<'a> {
-    input: &'a[u8],
+    input: &'a [u8],
     expected: &'static str,
 }
 
