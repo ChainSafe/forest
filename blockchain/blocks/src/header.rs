@@ -12,8 +12,8 @@ use encoding::{
     ser::{self, Serializer},
     Cbor, Error as EncodingError,
 };
-use num_bigint::BigUint;
-use serde::Deserialize;
+use num_bigint::{biguint_ser, BigUint};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -115,12 +115,29 @@ impl Cbor for BlockHeader {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct TupleBlockHeader(
+    Address,                                // miner_address
+    Ticket,                                 // ticket
+    EPostProof,                             // epost_verify
+    TipSetKeys,                             // parents []cid
+    #[serde(with = "biguint_ser")] BigUint, // weight
+    ChainEpoch,                             // epoch
+    Cid,                                    // state_root
+    Cid,                                    // message_receipts
+    Cid,                                    // messages
+    Signature,                              // bls_aggregate
+    u64,                                    // timestamp
+    Signature,                              // signature
+    u64,                                    // fork_signal
+);
+
 impl ser::Serialize for BlockHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        (
+        TupleBlockHeader(
             self.miner_address.clone(),
             self.ticket.clone(),
             self.epost_verify.clone(),
@@ -135,7 +152,7 @@ impl ser::Serialize for BlockHeader {
             self.signature.clone(),
             self.fork_signal,
         )
-            .serialize(serializer)
+        .serialize(serializer)
     }
 }
 
@@ -144,7 +161,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
     where
         D: Deserializer<'de>,
     {
-        let (
+        let TupleBlockHeader(
             miner_address,
             ticket,
             epost_verify,

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de, ser};
-use num_bigint::BigUint;
+use num_bigint::{biguint_ser, BigUint};
 
 /// Wrapper around a big int variable to handle token specific functionality
 // TODO verify on finished spec whether or not big int or uint
@@ -20,7 +20,7 @@ impl ser::Serialize for TokenAmount {
     where
         S: ser::Serializer,
     {
-        self.0.serialize(s)
+        biguint_ser::serialize(&self.0, s)
     }
 }
 
@@ -29,6 +29,6 @@ impl<'de> de::Deserialize<'de> for TokenAmount {
     where
         D: de::Deserializer<'de>,
     {
-        Ok(Self(BigUint::deserialize(deserializer)?))
+        Ok(Self(biguint_ser::deserialize(deserializer)?))
     }
 }

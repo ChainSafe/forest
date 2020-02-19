@@ -17,9 +17,8 @@ chain = { path = "../chain" }
 message = { package = "forest_message", path = "../../vm/message" }
 multihash = "0.9.4"
 state = { package = "state_tree", path = "../../vm/state_tree/" }
-num-bigint = { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
-crypto = { path = "../../crypto" }
+num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+crypto = { path= "../../crypto" }
 
 [dev-dependencies]
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-num-bigint = { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }

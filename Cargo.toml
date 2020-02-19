@@ -20,4 +20,5 @@ members = [
     "ipld/cid",
     "ipld/amt",
     "ipld",
+    "math/bigint",
 ]
