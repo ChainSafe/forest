@@ -87,13 +87,13 @@ impl Address {
     }
 
     /// Generates new address using Secp256k1 pubkey
-    pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(&pubkey))
+    pub fn new_secp256k1(pubkey: &[u8]) -> Result<Self, Error> {
+        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(pubkey))
     }
 
     /// Generates new address using the Actor protocol
-    pub fn new_actor(data: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(&data))
+    pub fn new_actor(data: &[u8]) -> Result<Self, Error> {
+        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(data))
     }
 
     /// Generates new address using BLS pubkey

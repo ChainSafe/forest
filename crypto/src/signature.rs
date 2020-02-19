@@ -170,7 +170,7 @@ fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
 
     let key = recover(&message, &sig, &rec_id)?;
     let ret = key.serialize();
-    let addr = Address::new_secp256k1(ret.to_vec())?;
+    let addr = Address::new_secp256k1(&ret)?;
     Ok(addr)
 }
 

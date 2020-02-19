@@ -9,17 +9,17 @@ use std::str::FromStr;
 
 #[test]
 fn bytes() {
-    let data = vec![0, 3, 2, 2, 4, 3, 2, 1, 3, 2, 1, 1, 3, 5, 7, 2, 4, 2, 1, 4];
-    let new_addr = Address::new_secp256k1(data.clone()).unwrap();
+    let data = &[0, 3, 2, 2, 4, 3, 2, 1, 3, 2, 1, 1, 3, 5, 7, 2, 4, 2, 1, 4];
+    let new_addr = Address::new_secp256k1(data).unwrap();
     let encoded_bz = new_addr.to_bytes();
 
     // Assert decoded address equals the original address and a new one with the same data
     let decoded_addr = Address::from_bytes(encoded_bz).unwrap();
     assert!(decoded_addr == new_addr);
-    assert!(decoded_addr == Address::new_secp256k1(data.clone()).unwrap());
+    assert!(decoded_addr == Address::new_secp256k1(data).unwrap());
 
     // Assert different types don't match
-    assert!(decoded_addr != Address::new_actor(data.clone()).unwrap());
+    assert!(decoded_addr != Address::new_actor(data).unwrap());
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn secp256k1_address() {
     ];
 
     for t in test_vectors.iter() {
-        let addr = Address::new_secp256k1(t.input.to_vec()).unwrap();
+        let addr = Address::new_secp256k1(t.input).unwrap();
         test_address(addr, Protocol::Secp256k1, t.expected);
     }
 }
@@ -159,7 +159,7 @@ fn actor_address() {
     ];
 
     for t in test_vectors.iter() {
-        let addr = Address::new_actor(t.input.to_vec()).unwrap();
+        let addr = Address::new_actor(t.input).unwrap();
         test_address(addr, Protocol::Actor, t.expected);
     }
 }
