@@ -3,7 +3,7 @@
 
 use encoding::{from_slice, Cbor};
 use forest_address::{
-    checksum, validate_checksum, Address, Error, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
+    checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
 };
 use std::str::FromStr;
 
@@ -520,4 +520,19 @@ fn address_hashmap() {
 
     // validate original value was not overriden
     assert_eq!(hm.get(&h1).unwrap(), &1);
+}
+
+#[test]
+fn with_network() {
+    // Assert network can be chained when printing string
+    let mut addr: Address = from_slice(&[66, 0, 1]).unwrap();
+    assert_eq!(addr.network(), Network::Testnet);
+    assert_eq!(addr.with_network(Network::Mainnet).to_string(), "f01");
+
+    // Assert network can be set before printing
+    let mut addr: Address = from_slice(&[66, 0, 1]).unwrap();
+    assert_eq!(addr.network(), Network::Testnet);
+    addr.with_network(Network::Mainnet);
+    assert_eq!(addr.network(), Network::Mainnet);
+    assert_eq!(addr.to_string(), "f01");
 }
