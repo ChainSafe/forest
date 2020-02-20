@@ -15,7 +15,7 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
-use slog::{debug, error, info, trace, Logger};
+use log::{debug, error, info, trace};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 use utils::{get_home_dir, read_file_to_vec};
@@ -47,31 +47,29 @@ pub struct Libp2pService {
 
     pubsub_receiver_out: Receiver<NetworkEvent>,
     pubsub_sender_out: Sender<NetworkEvent>,
-
-    log: Logger,
 }
 
 impl Libp2pService {
     /// Constructs a Libp2pService
-    pub fn new(log: Logger, config: &Libp2pConfig, net_keypair: Keypair) -> Self {
+    pub fn new(config: &Libp2pConfig, net_keypair: Keypair) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        info!(log, "Local peer id: {:?}", peer_id);
+        info!("Local peer id: {:?}", peer_id);
 
         let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
-            let be = ForestBehaviour::new(log.clone(), &net_keypair);
+            let be = ForestBehaviour::new(&net_keypair);
             Swarm::new(transport, be, peer_id)
         };
 
         for node in config.bootstrap_peers.clone() {
             match node.parse() {
                 Ok(to_dial) => match Swarm::dial_addr(&mut swarm, to_dial) {
-                    Ok(_) => debug!(log, "Dialed {:?}", node),
-                    Err(e) => debug!(log, "Dial {:?} failed: {:?}", node, e),
+                    Ok(_) => debug!("Dialed {:?}", node),
+                    Err(e) => debug!("Dial {:?} failed: {:?}", node, e),
                 },
-                Err(err) => error!(log, "Failed to parse address to dial: {:?}", err),
+                Err(err) => error!("Failed to parse address to dial: {:?}", err),
             }
         }
 
@@ -96,7 +94,6 @@ impl Libp2pService {
             pubsub_sender_in,
             pubsub_receiver_out,
             pubsub_sender_out,
-            log,
         }
     }
 
@@ -117,7 +114,7 @@ impl Libp2pService {
                             topics,
                             message,
                         } => {
-                            info!(self.log, "Got a Gossip Message from {:?}", source);
+                            info!( "Got a Gossip Message from {:?}", source);
                             self.pubsub_sender_out.send(NetworkEvent::PubsubMessage {
                                 source,
                                 topics,
@@ -168,22 +165,22 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 }
 
 /// Fetch keypair from disk, returning none if it cannot be decoded
-pub fn get_keypair(log: &Logger, path: &str) -> Option<Keypair> {
+pub fn get_keypair(path: &str) -> Option<Keypair> {
     let path_to_keystore = get_home_dir() + path;
     match read_file_to_vec(&path_to_keystore) {
         Err(e) => {
-            info!(log, "Networking keystore not found!");
-            trace!(log, "Error {:?}", e);
+            info!("Networking keystore not found!");
+            trace!("Error {:?}", e);
             None
         }
         Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
             Ok(kp) => {
-                info!(log, "Recovered keystore from {:?}", &path_to_keystore);
+                info!("Recovered keystore from {:?}", &path_to_keystore);
                 Some(Keypair::Ed25519(kp))
             }
             Err(e) => {
-                info!(log, "Could not decode networking keystore!");
-                trace!(log, "Error {:?}", e);
+                info!("Could not decode networking keystore!");
+                trace!("Error {:?}", e);
                 None
             }
         },
