@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::rpc::{RPCEvent, RPCRequest, RPCResponse, Response};
+use super::rpc::{RPCEvent, RPCRequest, RPCResponse, BlockSyncResponse};
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
@@ -144,7 +144,7 @@ impl Libp2pService {
                                 }
                                 RPCEvent::Request(req_id, req) => {
                                     // send the response
-                                    swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::Blocksync(Response {
+                                    swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::Blocksync(BlockSyncResponse {
                                         chain: vec![],
                                         status: 203,
                                         message: "handling requests not implemented".to_owned(),

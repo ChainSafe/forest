@@ -1,12 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Message, Response};
+use super::{BlockSyncRequest, BlockSyncResponse};
 
 /// RPCRequest payloads for request/response calls
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCRequest {
-    Blocksync(Message),
+    Blocksync(BlockSyncRequest),
 }
 
 impl RPCRequest {
@@ -20,5 +20,5 @@ impl RPCRequest {
 /// RPCResponse payloads for request/response calls
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCResponse {
-    Blocksync(Response),
+    Blocksync(BlockSyncResponse),
 }

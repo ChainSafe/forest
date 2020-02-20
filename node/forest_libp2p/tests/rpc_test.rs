@@ -4,7 +4,7 @@
 #![cfg(test)]
 
 use async_std::task;
-use forest_libp2p::rpc::{Message, RPCEvent, RPCMessage, RPCRequest, RPCResponse, Response, RPC};
+use forest_libp2p::rpc::{BlockSyncRequest, RPCEvent, RPCMessage, RPCRequest, RPCResponse, BlockSyncResponse, RPC};
 use futures::{future, prelude::*};
 use libp2p::core::{
     identity,
@@ -63,13 +63,13 @@ fn build_node(port: u64) -> (Multiaddr, TestSwarm) {
 fn test_empty_rpc() {
     let (mut sender, mut receiver) = build_node_pair();
 
-    let rpc_request = RPCRequest::Blocksync(Message {
+    let rpc_request = RPCRequest::Blocksync(BlockSyncRequest {
         start: vec![],
         request_len: 0,
         options: 0,
     });
 
-    let rpc_response = RPCResponse::Blocksync(Response {
+    let rpc_response = RPCResponse::Blocksync(BlockSyncResponse {
         chain: vec![],
         status: 1,
         message: "message".to_owned(),

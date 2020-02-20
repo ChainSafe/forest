@@ -10,13 +10,13 @@ use forest_encoding::{
 use forest_message::{SignedMessage, UnsignedMessage};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Message {
+pub struct BlockSyncRequest {
     pub start: Vec<Cid>,
     pub request_len: u64,
     pub options: u64,
 }
 
-impl Serialize for Message {
+impl Serialize for BlockSyncRequest {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -25,13 +25,13 @@ impl Serialize for Message {
         ser::Serialize::serialize(&value, serializer)
     }
 }
-impl<'de> Deserialize<'de> for Message {
+impl<'de> Deserialize<'de> for BlockSyncRequest {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let (start, request_len, options) = Deserialize::deserialize(deserializer)?;
-        Ok(Message {
+        Ok(BlockSyncRequest {
             start,
             request_len,
             options,
@@ -40,13 +40,13 @@ impl<'de> Deserialize<'de> for Message {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Response {
+pub struct BlockSyncResponse{
     pub chain: Vec<TipSetBundle>,
     pub status: u64,
     pub message: String,
 }
 
-impl Serialize for Response {
+impl Serialize for BlockSyncResponse {
     fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
     where
         S: Serializer,
@@ -55,13 +55,13 @@ impl Serialize for Response {
         Serialize::serialize(&value, serializer)
     }
 }
-impl<'de> Deserialize<'de> for Response {
+impl<'de> Deserialize<'de> for BlockSyncResponse {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
         D: Deserializer<'de>,
     {
         let (chain, status, message) = Deserialize::deserialize(deserializer)?;
-        Ok(Response {
+        Ok(BlockSyncResponse {
             chain,
             status,
             message,
