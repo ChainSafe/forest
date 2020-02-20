@@ -57,7 +57,7 @@ impl Default for Cid {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde_derive")]
 impl ser::Serialize for Cid {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -74,7 +74,7 @@ impl ser::Serialize for Cid {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde_derive")]
 impl<'de> de::Deserialize<'de> for Cid {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
