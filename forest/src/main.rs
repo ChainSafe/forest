@@ -9,10 +9,10 @@ use async_std::task;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use slog::{info, trace};
-use utils::write_to_file;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use utils::write_to_file;
 
 #[async_std::main]
 async fn main() {
@@ -48,7 +48,8 @@ async fn main() {
         } else {
             process::exit(0);
         }
-    }).expect("Error setting Ctrl-C handler");
+    })
+    .expect("Error setting Ctrl-C handler");
 
     // Start libp2p service
     let lp2p_service = Libp2pService::new(logger, &config.network, net_keypair);
