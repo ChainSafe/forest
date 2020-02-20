@@ -4,7 +4,9 @@
 #![cfg(test)]
 
 use async_std::task;
-use forest_libp2p::rpc::{BlockSyncRequest, RPCEvent, RPCMessage, RPCRequest, RPCResponse, BlockSyncResponse, RPC};
+use forest_libp2p::rpc::{
+    BlockSyncRequest, BlockSyncResponse, RPCEvent, RPCMessage, RPCRequest, RPCResponse, RPC,
+};
 use futures::{future, prelude::*};
 use libp2p::core::{
     identity,

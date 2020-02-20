@@ -1,8 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::rpc::{RPCEvent, RPC};
-use crate::rpc::RPCMessage;
+use super::rpc::{RPCEvent, RPCMessage, RPC};
 use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;

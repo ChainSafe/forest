@@ -21,8 +21,7 @@ impl Serialize for BlockSyncRequest {
     where
         S: Serializer,
     {
-        let value = (self.start.clone(), self.request_len, self.options);
-        ser::Serialize::serialize(&value, serializer)
+        (&self.start, &self.request_len, &self.options).serialize(serializer)
     }
 }
 impl<'de> Deserialize<'de> for BlockSyncRequest {
@@ -40,7 +39,7 @@ impl<'de> Deserialize<'de> for BlockSyncRequest {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct BlockSyncResponse{
+pub struct BlockSyncResponse {
     pub chain: Vec<TipSetBundle>,
     pub status: u64,
     pub message: String,
@@ -51,8 +50,7 @@ impl Serialize for BlockSyncResponse {
     where
         S: Serializer,
     {
-        let value = (self.chain.clone(), self.status, self.message.clone());
-        Serialize::serialize(&value, serializer)
+        (&self.chain, &self.status, &self.message).serialize(serializer)
     }
 }
 impl<'de> Deserialize<'de> for BlockSyncResponse {
@@ -84,14 +82,14 @@ impl ser::Serialize for TipSetBundle {
     where
         S: Serializer,
     {
-        let value = (
-            self.blocks.clone(),
-            self.secp_msgs.clone(),
-            self.secp_msg_includes.clone(),
-            self.bls_msgs.clone(),
-            self.bls_msg_includes.clone(),
-        );
-        Serialize::serialize(&value, serializer)
+        (
+            &self.blocks,
+            &self.secp_msgs,
+            &self.secp_msg_includes,
+            &self.bls_msgs,
+            &self.bls_msg_includes,
+        )
+            .serialize(serializer)
     }
 }
 
