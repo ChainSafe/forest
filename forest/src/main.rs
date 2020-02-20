@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod cli;
-mod log;
-
+mod logger;
 use self::cli::cli;
 use async_std::task;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
-use slog::{info, trace};
+use log::{info, trace};
 use std::cell::RefCell;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -40,15 +39,13 @@ fn block_until_sigint() {
 
 #[async_std::main]
 async fn main() {
-    let log = log::setup_logging();
-    info!(log, "Starting Forest");
+    logger::setup_logger();
+    info!("Starting Forest");
 
     // Capture CLI inputs
-    let config = cli(&log).expect("CLI error");
+    let config = cli().expect("CLI error");
 
-    let logger = log.clone();
-
-    let net_keypair = match get_keypair(&log, &"/.forest/libp2p/keypair") {
+    let net_keypair = match get_keypair(&"/.forest/libp2p/keypair") {
         Some(kp) => kp,
         None => {
             // Keypair not found, generate and save generated keypair
@@ -56,15 +53,15 @@ async fn main() {
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
             if let Err(e) = write_to_file(&gen_keypair.encode(), &"/.forest/libp2p/", "keypair") {
-                info!(log, "Could not write keystore to disk!");
-                trace!(log, "Error {:?}", e);
+                info!("Could not write keystore to disk!");
+                trace!("Error {:?}", e);
             };
             Keypair::Ed25519(gen_keypair)
         }
     };
 
     // Start libp2p service
-    let p2p_service = Libp2pService::new(logger, &config.network, net_keypair);
+    let p2p_service = Libp2pService::new(&config.network, net_keypair);
     let p2p_thread = task::spawn(async {
         p2p_service.run().await;
     });
@@ -75,5 +72,5 @@ async fn main() {
     // Drop threads
     drop(p2p_thread);
 
-    info!(log, "Forest finish shutdown");
+    info!("Forest finish shutdown");
 }
