@@ -53,7 +53,7 @@ async fn main() {
 
     // Start libp2p service
     let p2p_service = Libp2pService::new(logger, &config.network, net_keypair);
-    let lp2p_thread = task::spawn(async {
+    let p2p_thread = task::spawn(async {
         p2p_service.run().await;
     });
 
@@ -61,7 +61,7 @@ async fn main() {
         if running.load(Ordering::SeqCst) > 0 {
             // TODO change dropping threads to gracefully shutting down services
             // or implement drop on components with sensitive shutdown
-            drop(lp2p_thread);
+            drop(p2p_thread);
             break;
         }
     }
