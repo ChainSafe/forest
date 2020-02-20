@@ -9,7 +9,7 @@ address = { package = "forest_address", path = "../../vm/address" }
 crypto = { path = "../../crypto" }
 message = { package = "forest_message", path = "../../vm/message" }
 clock = { path = "../../node/clock" }
-cid = { package = "forest_cid", path = "../../ipld/cid" }
+cid = { package = "forest_cid", path = "../../ipld/cid", features = ["serde_derive"] }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 encoding = { package = "forest_encoding", path = "../../encoding" }
