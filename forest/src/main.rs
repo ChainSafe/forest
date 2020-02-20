@@ -9,12 +9,34 @@ use async_std::task;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use slog::{info, trace};
+use std::cell::RefCell;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
 use utils::write_to_file;
+
+// Blocks current thread until ctrl-c is received
+fn block_until_sigint() {
+    let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
+    let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
+
+    let running = Arc::new(AtomicUsize::new(0));
+    ctrlc::set_handler(move || {
+        let prev = running.fetch_add(1, Ordering::SeqCst);
+        if prev == 0 {
+            println!("Got interrupt, shutting down...");
+            // Send sig int in channel to blocking task
+            if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
+                ctrlc_send.send(()).expect("Error sending ctrl-c message");
+            }
+        } else {
+            process::exit(0);
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    task::block_on(ctrlc_oneshot).unwrap();
+}
 
 #[async_std::main]
 async fn main() {
@@ -41,33 +63,17 @@ async fn main() {
         }
     };
 
-    let running = Arc::new(AtomicUsize::new(0));
-    let r = running.clone();
-    ctrlc::set_handler(move || {
-        let prev = r.fetch_add(1, Ordering::SeqCst);
-        if prev == 0 {
-            println!("Got interrupt, shutting down...");
-        } else {
-            process::exit(0);
-        }
-    })
-    .expect("Error setting Ctrl-C handler");
-
     // Start libp2p service
     let p2p_service = Libp2pService::new(logger, &config.network, net_keypair);
     let p2p_thread = task::spawn(async {
         p2p_service.run().await;
     });
 
-    loop {
-        thread::sleep(Duration::from_secs(2));
-        if running.load(Ordering::SeqCst) > 0 {
-            // TODO change dropping threads to gracefully shutting down services
-            // or implement drop on components with sensitive shutdown
-            drop(p2p_thread);
-            break;
-        }
-    }
+    // Block until ctrl-c is hit
+    block_until_sigint();
+
+    // Drop threads
+    drop(p2p_thread);
 
     info!(log, "Forest finish shutdown");
 }
