@@ -11,4 +11,4 @@ vm = { path = "../../vm" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 
 [dev-dependencies]
-num-bigint = { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31" }
+num-bigint = { path = "../../math/bigint", package = "forest_bigint" }

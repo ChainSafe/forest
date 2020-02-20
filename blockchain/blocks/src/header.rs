@@ -3,7 +3,7 @@
 
 use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
-use cid::{Cid, Error as CidError};
+use cid::{multihash::Hash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{is_valid_signature, Signature};
 use derive_builder::Builder;
@@ -12,8 +12,7 @@ use encoding::{
     ser::{self, Serializer},
     Cbor, Error as EncodingError,
 };
-use num_bigint::BigUint;
-use raw_block::RawBlock;
+use num_bigint::{biguint_ser, BigUint};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -22,9 +21,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///
 /// Usage:
 /// ```
-/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket, TxMeta};
+/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket};
 /// use address::Address;
-/// use cid::{Cid, Codec, Prefix, Version};
+/// use cid::Cid;
 /// use clock::ChainEpoch;
 /// use num_bigint::BigUint;
 /// use crypto::Signature;
@@ -68,8 +67,6 @@ pub struct BlockHeader {
 
     // STATE
     /// messages contains the Cid to the merkle links for bls_messages and secp_messages
-    /// The spec shows that messages is a TxMeta, but Lotus has it as a Cid to a TxMeta.
-    /// TODO: Need to figure out how to convert TxMeta to a Cid
     #[builder(default)]
     messages: Cid,
 
@@ -112,26 +109,27 @@ pub struct BlockHeader {
     cached_bytes: Vec<u8>,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
-impl Cbor for BlockHeader {}
+impl Cbor for BlockHeader {
+    fn cid(&self) -> Result<Cid, EncodingError> {
+        Ok(self.cid().clone())
+    }
+}
 
 #[derive(Serialize, Deserialize)]
-struct CborBlockHeader(
-    Address,    // miner_address
-    Ticket,     // ticket
-    EPostProof, // epost_verify
-    TipSetKeys, // parents []cid
-    BigUint,    // weight
-    ChainEpoch, // epoch
-    Cid,        // state_root
-    Cid,        // message_receipts
-    Cid,        // messages
-    Signature,  // bls_aggregate
-    u64,        // timestamp
-    Signature,  // signature
-    u64,        // fork_signal
+struct TupleBlockHeader(
+    Address,                                // miner_address
+    Ticket,                                 // ticket
+    EPostProof,                             // epost_verify
+    TipSetKeys,                             // parents []cid
+    #[serde(with = "biguint_ser")] BigUint, // weight
+    ChainEpoch,                             // epoch
+    Cid,                                    // state_root
+    Cid,                                    // message_receipts
+    Cid,                                    // messages
+    Signature,                              // bls_aggregate
+    u64,                                    // timestamp
+    Signature,                              // signature
+    u64,                                    // fork_signal
 );
 
 impl ser::Serialize for BlockHeader {
@@ -139,7 +137,7 @@ impl ser::Serialize for BlockHeader {
     where
         S: Serializer,
     {
-        CborBlockHeader(
+        TupleBlockHeader(
             self.miner_address.clone(),
             self.ticket.clone(),
             self.epost_verify.clone(),
@@ -163,7 +161,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
     where
         D: Deserializer<'de>,
     {
-        let (
+        let TupleBlockHeader(
             miner_address,
             ticket,
             epost_verify,
@@ -197,18 +195,6 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             .unwrap();
 
         Ok(header)
-    }
-}
-
-impl RawBlock for BlockHeader {
-    /// returns the block raw contents as a byte array
-    fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO should serialize block header using CBOR encoding
-        self.marshal_cbor()
-    }
-    /// returns the content identifier of the block
-    fn cid(&self) -> Result<Cid, CidError> {
-        Ok(self.cid().clone())
     }
 }
 
@@ -277,7 +263,8 @@ impl BlockHeader {
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
-        self.cached_cid = Cid::from_bytes_default(&self.cached_bytes).map_err(|e| e.to_string())?;
+        self.cached_cid =
+            Cid::from_bytes(&self.cached_bytes, Blake2b256).map_err(|e| e.to_string())?;
         Ok(())
     }
     /// Check to ensure block signature is valid
