@@ -52,9 +52,9 @@ async fn main() {
     .expect("Error setting Ctrl-C handler");
 
     // Start libp2p service
-    let lp2p_service = Libp2pService::new(logger, &config.network, net_keypair);
+    let p2p_service = Libp2pService::new(logger, &config.network, net_keypair);
     let lp2p_thread = task::spawn(async {
-        lp2p_service.run().await;
+        p2p_service.run().await;
     });
 
     loop {
