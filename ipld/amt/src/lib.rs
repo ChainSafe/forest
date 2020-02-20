@@ -8,14 +8,12 @@
 
 mod amt;
 mod bitmap;
-mod block_store;
 mod error;
 mod node;
 mod root;
 
 pub use self::amt::AMT;
 pub use self::bitmap::BitMap;
-pub use self::block_store::BlockStore;
 pub use self::error::Error;
 pub(crate) use self::node::Node;
 pub(crate) use self::root::Root;

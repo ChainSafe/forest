@@ -88,6 +88,12 @@ jobs:
           command: clippy
           args: -- -D warnings
 
+      - name: Check forest binary
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: -p forest
+
   publish_docs:
     if: github.event_name == 'push' && github.event.ref == 'refs/heads/master'
     name: Publish Documentation

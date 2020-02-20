@@ -6,15 +6,16 @@
 use super::errors::Error;
 use super::manager::SyncManager;
 use address::Address;
-use amt::{BlockStore, AMT};
+use amt::AMT;
 use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
+use blockstore::BlockStore;
 use chain::ChainStore;
-use cid::{Cid, Error as CidError};
+use cid::Cid;
 use crypto::is_valid_signature;
+use encoding::{Cbor, Error as EncodingError};
 use libp2p::core::PeerId;
 use message::Message;
 use num_bigint::BigUint;
-use raw_block::RawBlock;
 use state::{HamtStateTree, StateTree};
 use std::collections::HashMap;
 
@@ -242,6 +243,6 @@ impl<'a> Syncer<'a> {
     }
 }
 
-pub fn cids_from_messages<T: RawBlock>(messages: &[T]) -> Result<Vec<Cid>, CidError> {
-    messages.iter().map(RawBlock::cid).collect()
+pub fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
+    messages.iter().map(Cbor::cid).collect()
 }
