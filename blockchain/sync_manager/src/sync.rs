@@ -25,7 +25,7 @@ pub struct Syncer<'a> {
     // TODO add block sync
 
     // manages sync buckets
-    sync_manager: SyncManager<'a>,
+    sync_manager: SyncManager,
     // access and store tipsets / blocks / messages
     chain_store: ChainStore<'a>,
     // the known genesis tipset
