@@ -5,8 +5,8 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
-use num_bigint::BigUint;
-use serde::Deserialize;
+use num_bigint::{biguint_ser, BigUint};
+use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
@@ -64,12 +64,24 @@ impl UnsignedMessage {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct TupleUnsignedMessage(
+    Address,
+    Address,
+    u64,
+    TokenAmount,
+    #[serde(with = "biguint_ser")] BigUint,
+    #[serde(with = "biguint_ser")] BigUint,
+    MethodNum,
+    Serialized,
+);
+
 impl ser::Serialize for UnsignedMessage {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
-        (
+        TupleUnsignedMessage(
             self.to.clone(),
             self.from.clone(),
             self.sequence,
@@ -79,7 +91,7 @@ impl ser::Serialize for UnsignedMessage {
             self.method_num,
             self.params.clone(),
         )
-            .serialize(s)
+        .serialize(s)
     }
 }
 
@@ -88,8 +100,16 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
     where
         D: de::Deserializer<'de>,
     {
-        let (to, from, sequence, value, gas_price, gas_limit, method_num, params) =
-            Deserialize::deserialize(deserializer)?;
+        let TupleUnsignedMessage(
+            to,
+            from,
+            sequence,
+            value,
+            gas_price,
+            gas_limit,
+            method_num,
+            params,
+        ) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             to,
             from,

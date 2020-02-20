@@ -8,7 +8,7 @@ edition = "2018"
 vm = { path = "../../vm" }
 address = { package = "forest_address", path = "../address" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-num-bigint =  { git = "https://github.com/austinabell/num-bigint", rev = "f7084a9ed5a2b08d9bfb67790cb4ce9212193f31", features = ["serde_derive"] }
+num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 crypto = { path = "../../crypto" }
 derive_builder = "0.9"

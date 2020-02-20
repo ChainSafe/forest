@@ -16,8 +16,8 @@ use encoding::{Cbor, Error as EncodingError};
 use libp2p::core::PeerId;
 use message::Message;
 use num_bigint::BigUint;
-use state::{HamtStateTree, StateTree};
 use state_manager::StateManager;
+use state_tree::{HamtStateTree, StateTree};
 use std::collections::HashMap;
 
 /// Syncer updates the key-value store based on series of validation checks adhering to consensus rules, can query

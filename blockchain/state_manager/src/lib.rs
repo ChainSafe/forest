@@ -8,7 +8,7 @@ mod errors;
 pub use self::errors::*;
 use actor::{MinerInfo, StorageMinerActorState};
 use address::Address;
-use amt::BlockStore;
+use blockstore::BlockStore;
 use chain::ChainStore;
 use encoding::de::DeserializeOwned;
 use state_tree::StateTree;

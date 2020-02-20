@@ -3,7 +3,6 @@
 
 mod account;
 mod cron;
-mod errors;
 mod init;
 mod miner_actor;
 mod reward;
@@ -11,7 +10,6 @@ mod storage_power;
 
 pub use self::account::*;
 pub use self::cron::*;
-pub use self::errors::*;
 pub use self::init::*;
 pub use self::miner_actor::*;
 pub use self::reward::*;

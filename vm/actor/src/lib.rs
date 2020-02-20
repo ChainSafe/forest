@@ -9,10 +9,10 @@ pub use self::code::*;
 use cid::Cid;
 use encoding::Cbor;
 use num_bigint::BigUint;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Identifier for Actors, includes builtin and initialized actors
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Serialize)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ActorID(u64);
 
 impl Cbor for ActorID {}
