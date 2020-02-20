@@ -10,6 +10,9 @@ use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use slog::{info, trace};
 use utils::write_to_file;
+use std::process;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 #[async_std::main]
 async fn main() {
@@ -36,11 +39,31 @@ async fn main() {
         }
     };
 
-    let lp2p_service = Libp2pService::new(logger, &config.network, net_keypair);
+    let running = Arc::new(AtomicUsize::new(0));
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        let prev = r.fetch_add(1, Ordering::SeqCst);
+        if prev == 0 {
+            println!("Got interrupt, shutting down...");
+        } else {
+            process::exit(0);
+        }
+    }).expect("Error setting Ctrl-C handler");
 
-    task::block_on(async move {
+    // Start libp2p service
+    let lp2p_service = Libp2pService::new(logger, &config.network, net_keypair);
+    let lp2p_thread = task::spawn(async {
         lp2p_service.run().await;
     });
+
+    loop {
+        if running.load(Ordering::SeqCst) > 0 {
+            // TODO change dropping threads to gracefully shutting down services
+            // or implement drop on components with sensitive shutdown
+            drop(lp2p_thread);
+            break;
+        }
+    }
 
     info!(log, "Forest finish shutdown");
 }
