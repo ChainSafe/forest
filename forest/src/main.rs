@@ -12,6 +12,8 @@ use slog::{info, trace};
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 use utils::write_to_file;
 
 #[async_std::main]
@@ -58,6 +60,7 @@ async fn main() {
     });
 
     loop {
+        thread::sleep(Duration::from_secs(2));
         if running.load(Ordering::SeqCst) > 0 {
             // TODO change dropping threads to gracefully shutting down services
             // or implement drop on components with sensitive shutdown
