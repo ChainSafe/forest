@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blockstore::BlockStore;
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_amt::{Error, AMT, MAX_INDEX};
+use ipld_blockstore::BlockStore;
 use std::fmt::Debug;
 
 fn assert_get<DB, V>(a: &mut AMT<DB, V>, i: u64, v: &V)

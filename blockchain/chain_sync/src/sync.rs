@@ -8,11 +8,11 @@ use super::manager::SyncManager;
 use address::Address;
 use amt::AMT;
 use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
-use blockstore::BlockStore;
 use chain::ChainStore;
 use cid::Cid;
 use crypto::is_valid_signature;
 use encoding::{Cbor, Error as EncodingError};
+use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use message::Message;
 use num_bigint::BigUint;
@@ -20,18 +20,16 @@ use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::collections::HashMap;
 
-/// Syncer updates the key-value store based on series of validation checks adhering to consensus rules, can query
-/// the network for blocks and assists in informing the network of incoming blocks
-pub struct Syncer<'a, 'b, T: StateTree> {
+pub struct ChainSyncer<'db, DB, ST> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
     // TODO add block sync
     /// manages retrieving and updates state objects
-    state_manager: StateManager<'a, 'b, T>,
-    /// manages sync buckets
-    sync_manager: SyncManager,
-    /// access and store tipsets / blocks / messages
-    chain_store: ChainStore<'a>,
-    /// the known genesis tipset
+    state_manager: StateManager<'db, ST, DB>,
+    // manages sync buckets
+    chain_sync: SyncManager,
+    // access and store tipsets / blocks / messages
+    chain_store: ChainStore<'db, DB>,
+    // the known genesis tipset
     _genesis: Tipset,
     /// self peerId
     _own: PeerId,
@@ -43,9 +41,10 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'a, 'b, T> Syncer<'a, 'b, T>
+impl<'a, DB, ST> ChainSyncer<'a, DB, ST>
 where
-    T: StateTree,
+    DB: BlockStore,
+    ST: StateTree,
 {
     /// TODO add constructor
 
@@ -65,14 +64,15 @@ where
         // TODO Add peer to blocksync
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let best_weight = self.chain_store.heaviest_tipset().blocks()[0].weight();
+        let heaviest_tipset = self.chain_store.heaviest_tipset();
+        let best_weight = heaviest_tipset.blocks()[0].weight();
         let target_weight = fts.blocks()[0].header().weight();
 
         if !target_weight.lt(&best_weight) {
             // Store incoming block header
             self.chain_store.persist_headers(&fts.tipset()?)?;
             // Set peer head
-            self.sync_manager.set_peer_head(from, fts.tipset()?);
+            self.chain_sync.set_peer_head(from, fts.tipset()?);
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
