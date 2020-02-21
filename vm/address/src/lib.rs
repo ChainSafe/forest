@@ -117,7 +117,7 @@ impl Address {
     }
 
     /// Sets the network for the address and returns a mutable reference to it
-    pub fn with_network(&mut self, network: Network) -> &mut Self {
+    pub fn set_network(&mut self, network: Network) -> &mut Self {
         self.network = network;
         self
     }

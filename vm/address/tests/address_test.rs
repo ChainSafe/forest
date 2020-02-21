@@ -523,16 +523,16 @@ fn address_hashmap() {
 }
 
 #[test]
-fn with_network() {
+fn set_network() {
     // Assert network can be chained when printing string
     let mut addr: Address = from_slice(&[66, 0, 1]).unwrap();
     assert_eq!(addr.network(), Network::Testnet);
-    assert_eq!(addr.with_network(Network::Mainnet).to_string(), "f01");
+    assert_eq!(addr.set_network(Network::Mainnet).to_string(), "f01");
 
     // Assert network can be set before printing
     let mut addr: Address = from_slice(&[66, 0, 1]).unwrap();
     assert_eq!(addr.network(), Network::Testnet);
-    addr.with_network(Network::Mainnet);
+    addr.set_network(Network::Mainnet);
     assert_eq!(addr.network(), Network::Mainnet);
     assert_eq!(addr.to_string(), "f01");
 }
