@@ -79,15 +79,16 @@ impl<'de> Deserialize<'de> for BlockSyncResponse {
 pub struct TipSetBundle {
     /// The blocks in the tipset
     pub blocks: Vec<BlockHeader>,
-    /// Unsigned secp messages
-    pub secp_msgs: Vec<UnsignedMessage>,
-    /// Describes which block each message belongs to
-    pub secp_msg_includes: Vec<Vec<u64>>,
 
     /// Signed bls messages
-    pub bls_msgs: Vec<SignedMessage>,
+    pub bls_msgs: Vec<UnsignedMessage>,
     /// Describes which block each message belongs to
     pub bls_msg_includes: Vec<Vec<u64>>,
+
+    /// Unsigned secp messages
+    pub secp_msgs: Vec<SignedMessage>,
+    /// Describes which block each message belongs to
+    pub secp_msg_includes: Vec<Vec<u64>>,
 }
 
 impl ser::Serialize for TipSetBundle {
@@ -97,10 +98,10 @@ impl ser::Serialize for TipSetBundle {
     {
         (
             &self.blocks,
-            &self.secp_msgs,
-            &self.secp_msg_includes,
             &self.bls_msgs,
             &self.bls_msg_includes,
+            &self.secp_msgs,
+            &self.secp_msg_includes,
         )
             .serialize(serializer)
     }
@@ -111,14 +112,14 @@ impl<'de> de::Deserialize<'de> for TipSetBundle {
     where
         D: Deserializer<'de>,
     {
-        let (blocks, secp_msgs, secp_msg_includes, bls_msgs, bls_msg_includes) =
+        let (blocks,bls_msgs, bls_msg_includes,  secp_msgs, secp_msg_includes) =
             Deserialize::deserialize(deserializer)?;
         Ok(TipSetBundle {
             blocks,
-            secp_msgs,
-            secp_msg_includes,
             bls_msgs,
             bls_msg_includes,
+            secp_msgs,
+            secp_msg_includes,
         })
     }
 }
