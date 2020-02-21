@@ -9,10 +9,14 @@ use forest_encoding::{
 };
 use forest_message::{SignedMessage, UnsignedMessage};
 
+/// The payload that gets sent to another node to request for blocks and messages. It get DagCBOR serialized before sending over the wire.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockSyncRequest {
+    /// The tipset to start sync from
     pub start: Vec<Cid>,
+    /// The amount of epochs to sync by
     pub request_len: u64,
+    /// 1 = Block only, 2 = Messages only, 3 = Blocks and Messages
     pub options: u64,
 }
 
@@ -38,9 +42,12 @@ impl<'de> Deserialize<'de> for BlockSyncRequest {
     }
 }
 
+/// The response to a BlockSync request.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockSyncResponse {
+    /// The tipsets requested
     pub chain: Vec<TipSetBundle>,
+    /// Error code
     pub status: u64,
     pub message: String,
 }
@@ -67,13 +74,19 @@ impl<'de> Deserialize<'de> for BlockSyncResponse {
     }
 }
 
+/// Contains the blocks and messages in a particular tipset
 #[derive(Clone, Debug, PartialEq)]
 pub struct TipSetBundle {
+    /// The blocks in the tipset
     pub blocks: Vec<BlockHeader>,
+    /// Unsigned secp messages
     pub secp_msgs: Vec<UnsignedMessage>,
+    /// Describes which block each message belongs to
     pub secp_msg_includes: Vec<Vec<u64>>,
 
+    /// Signed bls messages
     pub bls_msgs: Vec<SignedMessage>,
+    /// Describes which block each message belongs to
     pub bls_msg_includes: Vec<Vec<u64>>,
 }
 

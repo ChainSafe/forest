@@ -32,6 +32,7 @@ pub enum RPCEvent {
 }
 
 impl RPCEvent {
+    /// Returns the id which is used to track the substream
     pub fn id(&self) -> usize {
         match *self {
             RPCEvent::Request(id, _) => id,

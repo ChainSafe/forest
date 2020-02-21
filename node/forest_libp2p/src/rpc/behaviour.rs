@@ -22,6 +22,7 @@ pub struct RPC<TSubstream> {
 }
 
 impl<TSubstream> RPC<TSubstream> {
+    /// Creates a new RPC behaviour
     pub fn new() -> Self {
         RPC::default()
     }
