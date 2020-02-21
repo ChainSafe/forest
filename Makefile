@@ -9,7 +9,7 @@ clean:
 	@cargo clean -p forest_libp2p
 	@cargo clean -p blockchain
 	@cargo clean -p forest_blocks
-	@cargo clean -p sync_manager
+	@cargo clean -p chain_sync
 	@cargo clean -p vm
 	@cargo clean -p forest_address
 	@cargo clean -p actor

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::{BlockHeader, Tipset};
+use chain_sync::SyncManager;
 use cid::{multihash::Hash::Blake2b256, Cid};
 use num_bigint::BigUint;
 use std::rc::Rc;
-use sync_manager::SyncManager;
 
 fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
     let header = BlockHeader::builder()
