@@ -4,7 +4,6 @@ members = [
     "blockchain",
     "blockchain/blocks",
     "blockchain/chain",
-    "blockchain/chain_sync",
     "blockchain/sync_manager",
     "blockchain/state_manager",
     "vm",
