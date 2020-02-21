@@ -17,6 +17,7 @@ clean:
 	@cargo clean -p forest_message
 	@cargo clean -p runtime
 	@cargo clean -p state_tree
+	@cargo clean -p state_manager
 	@cargo clean -p interpreter
 	@cargo clean -p crypto
 	@cargo clean -p forest_encoding
