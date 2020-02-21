@@ -115,42 +115,41 @@ impl Cbor for BlockHeader {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct TupleBlockHeader(
-    Address,                                // miner_address
-    Ticket,                                 // ticket
-    EPostProof,                             // epost_verify
-    TipSetKeys,                             // parents []cid
-    #[serde(with = "biguint_ser")] BigUint, // weight
-    ChainEpoch,                             // epoch
-    Cid,                                    // state_root
-    Cid,                                    // message_receipts
-    Cid,                                    // messages
-    Signature,                              // bls_aggregate
-    u64,                                    // timestamp
-    Signature,                              // signature
-    u64,                                    // fork_signal
-);
-
 impl ser::Serialize for BlockHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
+        #[derive(Serialize)]
+        struct TupleBlockHeader<'a>(
+            &'a Address,                                // miner_address
+            &'a Ticket,                                 // ticket
+            &'a EPostProof,                             // epost_verify
+            &'a TipSetKeys,                             // parents []cid
+            #[serde(with = "biguint_ser")] &'a BigUint, // weight
+            &'a ChainEpoch,                             // epoch
+            &'a Cid,                                    // state_root
+            &'a Cid,                                    // message_receipts
+            &'a Cid,                                    // messages
+            &'a Signature,                              // bls_aggregate
+            &'a u64,                                    // timestamp
+            &'a Signature,                              // signature
+            &'a u64,                                    // fork_signal
+        );
         TupleBlockHeader(
-            self.miner_address.clone(),
-            self.ticket.clone(),
-            self.epost_verify.clone(),
-            self.parents.clone(),
-            self.weight.clone(),
-            self.epoch,
-            self.state_root.clone(),
-            self.message_receipts.clone(),
-            self.messages.clone(),
-            self.bls_aggregate.clone(),
-            self.timestamp,
-            self.signature.clone(),
-            self.fork_signal,
+            &self.miner_address,
+            &self.ticket,
+            &self.epost_verify,
+            &self.parents,
+            &self.weight,
+            &self.epoch,
+            &self.state_root,
+            &self.message_receipts,
+            &self.messages,
+            &self.bls_aggregate,
+            &self.timestamp,
+            &self.signature,
+            &self.fork_signal,
         )
         .serialize(serializer)
     }
@@ -161,6 +160,22 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
     where
         D: Deserializer<'de>,
     {
+        #[derive(Deserialize)]
+        struct TupleBlockHeader(
+            Address,
+            Ticket,
+            EPostProof,
+            TipSetKeys,
+            #[serde(with = "biguint_ser")] BigUint,
+            ChainEpoch,
+            Cid,
+            Cid,
+            Cid,
+            Signature,
+            u64,
+            Signature,
+            u64,
+        );
         let TupleBlockHeader(
             miner_address,
             ticket,

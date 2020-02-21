@@ -22,8 +22,7 @@ impl Serialize for SignedMessage {
     where
         S: Serializer,
     {
-        let value = (self.message.clone(), self.signature.clone());
-        Serialize::serialize(&value, serializer)
+        (&self.message, &self.signature).serialize(serializer)
     }
 }
 

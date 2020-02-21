@@ -30,8 +30,7 @@ impl ser::Serialize for Ticket {
     where
         S: Serializer,
     {
-        let value = [self.vrfproof.clone()];
-        value.serialize(serializer)
+        [&self.vrfproof].serialize(serializer)
     }
 }
 
@@ -61,26 +60,14 @@ pub struct EPostProof {
     pub candidates: Vec<EPostTicket>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct CborEPostTicket(
-    #[serde(with = "serde_bytes")] Vec<u8>, // partial
-    u64,                                    // sector_id
-    u64,                                    // challenge_index
-);
-
-#[derive(Serialize, Deserialize)]
-struct CborEPostProof(
-    #[serde(with = "serde_bytes")] Vec<u8>, // proof
-    #[serde(with = "serde_bytes")] Vec<u8>, // post_rand
-    Vec<EPostTicket>,                       // candidates
-);
-
 impl ser::Serialize for EPostTicket {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        CborEPostTicket(self.partial.clone(), self.sector_id, self.challenge_index)
+        #[derive(Serialize)]
+        struct TupleEPostTicket<'a>(#[serde(with = "serde_bytes")] &'a [u8], &'a u64, &'a u64);
+        TupleEPostTicket(&self.partial, &self.sector_id, &self.challenge_index)
             .serialize(serializer)
     }
 }
@@ -90,7 +77,9 @@ impl<'de> de::Deserialize<'de> for EPostTicket {
     where
         D: Deserializer<'de>,
     {
-        let CborEPostTicket(partial, sector_id, challenge_index) =
+        #[derive(Deserialize)]
+        struct TupleEPostTicket(#[serde(with = "serde_bytes")] Vec<u8>, u64, u64);
+        let TupleEPostTicket(partial, sector_id, challenge_index) =
             Deserialize::deserialize(deserializer)?;
         Ok(Self {
             partial,
@@ -105,22 +94,31 @@ impl ser::Serialize for EPostProof {
     where
         S: Serializer,
     {
-        CborEPostProof(
-            self.proof.clone(),
-            self.post_rand.clone(),
-            self.candidates.clone(),
-        )
-        .serialize(serializer)
+        #[derive(Serialize)]
+        struct TupleEPostProof<'a>(
+            #[serde(with = "serde_bytes")] &'a [u8],
+            #[serde(with = "serde_bytes")] &'a [u8],
+            &'a [EPostTicket],
+        );
+        TupleEPostProof(&self.proof, &self.post_rand, &self.candidates).serialize(serializer)
     }
 }
 
-impl<'de> de::Deserialize<'de> for EPostProof {
+// Type defined outside of deserialize block because of bug with clippy
+// with more than one annotated field
+#[derive(Deserialize)]
+struct TupleEPostProof(
+    #[serde(with = "serde_bytes")] Vec<u8>,
+    #[serde(with = "serde_bytes")] Vec<u8>,
+    Vec<EPostTicket>,
+);
+
+impl<'de> Deserialize<'de> for EPostProof {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let CborEPostProof(proof, post_rand, candidates) =
-            CborEPostProof::deserialize(deserializer)?;
+        let TupleEPostProof(proof, post_rand, candidates) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             proof,
             post_rand,
