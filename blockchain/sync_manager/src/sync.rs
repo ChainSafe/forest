@@ -28,7 +28,7 @@ pub struct Syncer<'a, 'b, T: StateTree> {
     /// manages retrieving and updates state objects
     state_manager: StateManager<'a, 'b, T>,
     /// manages sync buckets
-    sync_manager: SyncManager<'a>,
+    sync_manager: SyncManager,
     /// access and store tipsets / blocks / messages
     chain_store: ChainStore<'a>,
     /// the known genesis tipset
