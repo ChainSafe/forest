@@ -16,7 +16,8 @@ blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore" }
 chain = { path = "../chain" }
 message = { package = "forest_message", path = "../../vm/message" }
 multihash = "0.9.4"
-state = { package = "state_tree", path = "../../vm/state_tree/" }
+state_tree = { path = "../../vm/state_tree/" }
+state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 crypto = { path= "../../crypto" }
 
