@@ -9,6 +9,7 @@ use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use ipld_blockstore::BlockStore;
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
+use std::rc::Rc;
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<'db, DB> {
@@ -23,7 +24,8 @@ pub struct ChainStore<'db, DB> {
     genesis: Cid,
 
     // Tipset at the head of the best-known chain.
-    heaviest: Tipset,
+    // TODO revisit if this should be pointer to tipset on heap
+    heaviest: Rc<Tipset>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     tip_index: TipIndex,
@@ -34,7 +36,7 @@ where
     DB: BlockStore,
 {
     /// constructor
-    pub fn new(db: &'db DB, gen: Cid, heaviest: Tipset) -> Result<Self, Error> {
+    pub fn new(db: &'db DB, gen: Cid, heaviest: Rc<Tipset>) -> Result<Self, Error> {
         Ok(Self {
             db,
             tip_index: TipIndex::new(),
@@ -104,8 +106,8 @@ where
     }
 
     /// Returns heaviest tipset from blockstore
-    pub fn heaviest_tipset(&self) -> &Tipset {
-        &self.heaviest
+    pub fn heaviest_tipset(&self) -> Rc<Tipset> {
+        self.heaviest.clone()
     }
 
     /// Returns key-value store instance

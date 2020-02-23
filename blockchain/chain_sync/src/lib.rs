@@ -6,5 +6,6 @@ mod errors;
 mod manager;
 mod sync;
 
-pub use self::errors::*;
+pub use self::errors::Error;
 pub use self::manager::SyncManager;
+pub use sync::*;

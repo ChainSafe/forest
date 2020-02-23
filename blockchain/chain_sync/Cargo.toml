@@ -20,6 +20,7 @@ state_tree = { path = "../../vm/state_tree/" }
 state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 crypto = { path= "../../crypto" }
+log = "0.4.8"
 
 [dev-dependencies]
 cid = { package = "forest_cid", path = "../../ipld/cid" }

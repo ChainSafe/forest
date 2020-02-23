@@ -11,18 +11,18 @@ use encoding::de::DeserializeOwned;
 use state_tree::StateTree;
 
 /// Intermediary for retrieving state objects and updating actor states
-pub struct StateManager<'db, ST, DB> {
+pub struct StateManager<'db, DB, ST> {
     bs: &'db DB,
     tree: ST,
 }
 
-impl<'db, T, DB> StateManager<'db, T, DB>
+impl<'db, DB, ST> StateManager<'db, DB, ST>
 where
-    T: StateTree,
+    ST: StateTree,
     DB: BlockStore,
 {
     /// constructor
-    pub fn new(bs: &'db DB, tree: T) -> Self {
+    pub fn new(bs: &'db DB, tree: ST) -> Self {
         Self { bs, tree }
     }
     /// Loads actor state from IPLD Store

@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(dead_code)]
-
 use super::errors::Error;
 use super::manager::SyncManager;
 use address::Address;
@@ -11,28 +9,31 @@ use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::Cid;
 use crypto::is_valid_signature;
+use db::Error as DBError;
 use encoding::{Cbor, Error as EncodingError};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
+use log::info;
 use message::Message;
 use num_bigint::BigUint;
 use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 pub struct ChainSyncer<'db, DB, ST> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
     // TODO add block sync
     /// manages retrieving and updates state objects
-    state_manager: StateManager<'db, ST, DB>,
+    state_manager: StateManager<'db, DB, ST>,
     // manages sync buckets
-    chain_sync: SyncManager,
+    sync_manager: SyncManager,
+
     // access and store tipsets / blocks / messages
     chain_store: ChainStore<'db, DB>,
+
     // the known genesis tipset
     _genesis: Tipset,
-    /// self peerId
-    _own: PeerId,
 }
 
 /// Message data used to ensure valid state transition
@@ -41,17 +42,43 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'a, DB, ST> ChainSyncer<'a, DB, ST>
+impl<'db, DB> ChainSyncer<'db, DB, HamtStateTree>
 where
     DB: BlockStore,
-    ST: StateTree,
 {
-    /// TODO add constructor
+    pub fn new(chain_store: ChainStore<'db, DB>) -> Self {
+        // TODO import genesis from storage
+        let _genesis = Tipset::default();
 
+        // TODO change from being default when impl
+        let sync_manager = SyncManager::default();
+
+        Self {
+            chain_store,
+            _genesis,
+            sync_manager,
+        }
+    }
+
+    /// Starts syncing process
+    pub fn sync(&mut self, head: Rc<Tipset>) -> Result<(), Error> {
+        info!("Starting syncing process");
+
+        // Get heaviest tipset from storage to sync toward
+        let heaviest = self.chain_store.heaviest_tipset();
+
+        // Sync headers from network from head to heaviest from storage
+        let headers = self.sync_headers_reverse(head, heaviest)?;
+
+        // Persist header chain pulled from network
+        self.persist_headers(&headers)?;
+
+        Ok(())
+    }
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    fn inform_new_head(&self, from: PeerId, fts: FullTipset) -> Result<(), Error> {
+    pub fn inform_new_head(&self, from: PeerId, fts: FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
         if fts.blocks().is_empty() {
             return Err(Error::NoBlocks);
@@ -72,7 +99,7 @@ where
             // Store incoming block header
             self.chain_store.persist_headers(&fts.tipset()?)?;
             // Set peer head
-            self.chain_sync.set_peer_head(from, fts.tipset()?);
+            self.sync_manager.set_peer_head(from, fts.tipset()?);
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
@@ -110,7 +137,7 @@ where
     }
     /// Returns FullTipset from store if TipSetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
-    fn fetch_tipsets(&self, _peer_id: PeerId, tsk: TipSetKeys) -> Result<FullTipset, Error> {
+    pub fn fetch_tipset(&self, _peer_id: PeerId, tsk: TipSetKeys) -> Result<FullTipset, Error> {
         let fts = match self.load_fts(tsk) {
             Ok(fts) => fts,
             // TODO call into block sync to request FullTipset -> self.blocksync.get_full_tipset(_peer_id, tsk)
@@ -253,8 +280,43 @@ where
 
         Ok(())
     }
+
+    /// Syncs chain data and persists it to blockstore
+    fn sync_headers_reverse(
+        &mut self,
+        head: Rc<Tipset>,
+        _to: Rc<Tipset>,
+    ) -> Result<Vec<Tipset>, Error> {
+        info!("Syncing headers from: {:?}", head.key());
+
+        // Loop until most recent tipset height is less than to tipset height
+        {
+            // Check parent cids
+
+            // Try to load tipset from local storage
+
+            // Load blocks from network using blocksync
+
+            // Loop through each tipset received from network
+            {
+                // Check Cids of blocks against bad block cache
+                {}
+
+                // Add tipset to vector of tipsets to return
+            }
+        }
+
+        todo!()
+    }
+
+    // Persists headers from tipset slice to chain store
+    fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), DBError> {
+        tipsets
+            .iter()
+            .try_for_each(|ts| self.chain_store.persist_headers(ts))
+    }
 }
 
-pub fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
+fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
     messages.iter().map(Cbor::cid).collect()
 }
