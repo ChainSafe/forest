@@ -137,7 +137,7 @@ where
     }
     /// Returns FullTipset from store if TipSetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
-    pub fn fetch_tipset(&self, _peer_id: PeerId, tsk: TipSetKeys) -> Result<FullTipset, Error> {
+    pub fn fetch_tipset(&self, _peer_id: PeerId, tsk: &TipSetKeys) -> Result<FullTipset, Error> {
         let fts = match self.load_fts(tsk) {
             Ok(fts) => fts,
             // TODO call into block sync to request FullTipset -> self.blocksync.get_full_tipset(_peer_id, tsk)
@@ -146,10 +146,10 @@ where
         Ok(fts)
     }
     /// Returns a reconstructed FullTipset from store if keys exist
-    fn load_fts(&self, keys: TipSetKeys) -> Result<FullTipset, Error> {
+    fn load_fts(&self, keys: &TipSetKeys) -> Result<FullTipset, Error> {
         let mut blocks = Vec::new();
         // retrieve tipset from store based on passed in TipSetKeys
-        let ts = self.chain_store.tipset(keys.tipset_keys())?;
+        let ts = self.chain_store.tipset_from_keys(keys)?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) = self.chain_store.messages(&header)?;
@@ -255,7 +255,7 @@ where
             return Err(Error::Validation("Signature is nil in header".to_string()));
         }
 
-        let base_tipset = self.load_fts(TipSetKeys::new(header.parents().cids.clone()))?;
+        let base_tipset = self.load_fts(&TipSetKeys::new(header.parents().cids.clone()))?;
         // time stamp checks
         header.validate_timestamps(&base_tipset)?;
 
@@ -285,17 +285,35 @@ where
     fn sync_headers_reverse(
         &mut self,
         head: Rc<Tipset>,
-        _to: Rc<Tipset>,
-    ) -> Result<Vec<Tipset>, Error> {
+        to: Rc<Tipset>,
+    ) -> Result<Vec<Rc<Tipset>>, Error> {
         info!("Syncing headers from: {:?}", head.key());
 
-        // Loop until most recent tipset height is less than to tipset height
-        {
-            // Check parent cids
+        let mut return_set = vec![Rc::clone(&head)];
 
-            // Try to load tipset from local storage
+        let to_epoch = to.blocks()[0].epoch();
+
+        let mut accepted_blocks: Vec<Cid> = Vec::new();
+
+        // Loop until most recent tipset height is less than to tipset height
+        while let Some(ts) = return_set.last() {
+            if ts.epoch() < to_epoch {
+                // Current tipset is less than epoch of tipset syncing toward
+                break;
+            }
+
+            // Check parent cids
+            // TODO check if cids exist in rejected blocks cache when implemented
+
+            // Try to load parent tipset from local storage
+            if let Ok(ts) = self.chain_store.tipset_from_keys(ts.parents()) {
+                // Add blocks in tipset to accepted chain and push the tipset to return set
+                accepted_blocks.extend_from_slice(ts.key().tipset_keys());
+                return_set.push(Rc::new(ts));
+            }
 
             // Load blocks from network using blocksync
+            // TODO once blocksync interface added
 
             // Loop through each tipset received from network
             {
@@ -306,11 +324,11 @@ where
             }
         }
 
-        todo!()
+        Ok(return_set)
     }
 
     // Persists headers from tipset slice to chain store
-    fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), DBError> {
+    fn persist_headers(&self, tipsets: &[Rc<Tipset>]) -> Result<(), DBError> {
         tipsets
             .iter()
             .try_for_each(|ts| self.chain_store.persist_headers(ts))
