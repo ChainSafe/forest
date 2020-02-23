@@ -261,8 +261,6 @@ mod tests {
         let public_keys : Vec<_> = (0 .. num_sigs) . map(|x|  private_keys[x].public_key().as_bytes()).collect();
         let signatures : Vec<BlsSignature> = (0 .. num_sigs) .map(|x| private_keys[x].sign(data[x])) .collect();
 
-        //let v : Vec<[u8]> = (0 .. num_sigs).map(|x| public_keys[x].as_bytes()).collect();
-
         let mut public_keys_slice : Vec<&[u8]> = vec!();
         for i in 0 .. num_sigs {
             public_keys_slice.push(&public_keys[i]);
