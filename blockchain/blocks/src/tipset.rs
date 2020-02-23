@@ -253,7 +253,7 @@ mod tests {
             .parents(TipSetKeys {
                 cids: vec![cids[3].clone()],
             })
-            .miner_address(Address::new_secp256k1(ticket_p.clone()).unwrap())
+            .miner_address(Address::new_secp256k1(&ticket_p).unwrap())
             .timestamp(timestamp)
             .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),
@@ -273,9 +273,9 @@ mod tests {
         let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
         let cids = key_setup();
         return vec![
-            template_header(data0.clone(), cids[0].clone(), 1),
-            template_header(data1.clone(), cids[1].clone(), 2),
-            template_header(data2.clone(), cids[2].clone(), 3),
+            template_header(data0, cids[0].clone(), 1),
+            template_header(data1, cids[1].clone(), 2),
+            template_header(data2, cids[2].clone(), 3),
         ];
     }
 
