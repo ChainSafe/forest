@@ -4,7 +4,7 @@
 use super::errors::Error;
 use address::{Address, Protocol};
 use bls_signatures::{
-    hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,  paired::bls12_381::G2 as G2
+    hash as bls_hash, verify, aggregate, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,  paired::bls12_381::G2 as G2
 };
 
 
@@ -250,6 +250,38 @@ mod tests {
                 &pk.as_bytes(),
                 &Signature::new_bls(signature_bytes.clone())
             ),
+            true
+        );
+    }
+
+    #[test]
+    fn bls_agg_verify(){
+
+        let num_sigs = 1;
+        let message_length = num_sigs * 64;
+
+        let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+
+        let msg = (0..message_length).map(|_| rng.gen()).collect::<Vec<u8>>();
+        let data : Vec<&[u8]> = (0 .. num_sigs) .map(|x| &msg[x*64 .. (x+1)*64]) .collect();
+
+        let private_keys : Vec<PrivateKey> = (0 .. num_sigs) . map(|_| PrivateKey::generate(rng)).collect();
+        let public_keys : Vec<BlsPubKey> = (0 .. num_sigs) . map(|x|  private_keys[x].public_key()).collect();
+        let signatures : Vec<BlsSignature> = (0 .. num_sigs) .map(|x| private_keys[x].sign(data[x])) .collect();
+
+        let public_keys_slice : Vec<&[u8]> = vec!();
+
+        for i in 0 .. num_sigs {
+            public_keys_slice.push(&public_keys[i].as_bytes());
+
+        }
+
+        let calculated_bls_agg  : Signature = aggregate(&signatures);
+
+
+
+        assert_eq!(
+            verify_agg_bls_sig(&data,  &public_keys_slice, &calculated_bls_agg),
             true
         );
     }
