@@ -86,7 +86,7 @@ fn decode_str(cid_str: &str) -> Result<Vec<u8>, Error> {
     let (_, decoded) = if Version::is_v0_str(hash) {
         // TODO: could avoid the roundtrip here and just use underlying
         // base-x base58btc decoder here.
-        let hash = multibase::Base::Base58btc.code().to_string() + hash;
+        let hash = multibase::Base::Base58Btc.code().to_string() + hash;
 
         multibase::decode(hash)
     } else {
