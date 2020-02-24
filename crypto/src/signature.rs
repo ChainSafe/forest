@@ -165,7 +165,7 @@ pub(crate) fn verify_bls_aggregate(
         Err(_) => return false,
     };
 
-    let hashed_data: Vec<G2> = (0..data.len()).map(|x| bls_hash(data[x])).collect();
+    let hashed_data: Vec<G2> = (0..num_sigs).map(|x| bls_hash(data[x])).collect();
 
     // DOes the aggregate verification
     verify(&sig, &hashed_data[..], &pks[..])
