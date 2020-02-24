@@ -14,7 +14,7 @@ pub struct OutboundCodec;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCError {
-    Codec,
+    Codec(String),
     Custom(String),
 }
 impl From<std::io::Error> for RPCError {
@@ -24,15 +24,15 @@ impl From<std::io::Error> for RPCError {
 }
 
 impl From<EncodingError> for RPCError {
-    fn from(_: EncodingError) -> Self {
-        Self::Codec
+    fn from(err: EncodingError) -> Self {
+        Self::Codec(err.to_string())
     }
 }
 
 impl fmt::Display for RPCError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RPCError::Codec => write!(f, "Codec Error"),
+            RPCError::Codec(err) => write!(f, "Codec Error: {}", err),
             RPCError::Custom(err) => write!(f, "{}", err),
         }
     }
@@ -70,7 +70,7 @@ impl Decoder for InboundCodec {
         }
 
         Ok(Some(RPCRequest::Blocksync(
-            from_slice(bz).map_err(|_| RPCError::Codec)?,
+            from_slice(bz).map_err(|err| RPCError::Codec(err.to_string()))?,
         )))
     }
 }
@@ -101,7 +101,7 @@ impl Decoder for OutboundCodec {
 
         Ok(Some(RPCResponse::Blocksync(
             // Replace map
-            from_slice(bz).map_err(|_| RPCError::Codec)?,
+            from_slice(bz).map_err(|err| RPCError::Codec(err.to_string()))?,
         )))
     }
 }

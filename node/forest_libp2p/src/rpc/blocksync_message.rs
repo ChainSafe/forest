@@ -112,7 +112,7 @@ impl<'de> de::Deserialize<'de> for TipSetBundle {
     where
         D: Deserializer<'de>,
     {
-        let (blocks,bls_msgs, bls_msg_includes,  secp_msgs, secp_msg_includes) =
+        let (blocks, bls_msgs, bls_msg_includes, secp_msgs, secp_msg_includes) =
             Deserialize::deserialize(deserializer)?;
         Ok(TipSetBundle {
             blocks,
