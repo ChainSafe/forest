@@ -7,7 +7,6 @@ use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::Cbor;
 use encoding::{de::Deserializer, ser::Serializer};
 use num_bigint::BigUint;
-use raw_block::RawBlock;
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -23,8 +22,7 @@ impl Serialize for SignedMessage {
     where
         S: Serializer,
     {
-        let value = (self.message.clone(), self.signature.clone());
-        Serialize::serialize(&value, serializer)
+        (&self.message, &self.signature).serialize(serializer)
     }
 }
 
@@ -86,7 +84,5 @@ impl Message for SignedMessage {
         self.message.required_funds()
     }
 }
-
-impl RawBlock for SignedMessage {}
 
 impl Cbor for SignedMessage {}

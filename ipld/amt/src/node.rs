@@ -1,7 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{nodes_for_height, BitMap, BlockStore, Error, WIDTH};
+use crate::{nodes_for_height, BitMap, Error, WIDTH};
+use blockstore::BlockStore;
 use cid::Cid;
 use encoding::{
     de::{self, Deserialize, DeserializeOwned},

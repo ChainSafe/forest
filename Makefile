@@ -17,12 +17,14 @@ clean:
 	@cargo clean -p forest_message
 	@cargo clean -p runtime
 	@cargo clean -p state_tree
+	@cargo clean -p state_manager
 	@cargo clean -p interpreter
 	@cargo clean -p crypto
 	@cargo clean -p forest_encoding
 	@cargo clean -p forest_cid
 	@cargo clean -p forest_ipld
 	@cargo clean -p ipld_amt
+	@cargo clean -p forest_bigint
 	@echo "Done cleaning."
 
 lint: clean license

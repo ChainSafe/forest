@@ -13,7 +13,7 @@ use libp2p::ping::{
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
 use libp2p::NetworkBehaviour;
-use slog::{debug, Logger};
+use log::debug;
 use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
@@ -25,8 +25,6 @@ pub struct ForestBehaviour<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + '
     pub identify: Identify<TSubstream>,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
-    #[behaviour(ignore)]
-    log: Logger,
 }
 
 #[derive(Debug)]
@@ -82,29 +80,19 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
         match event.result {
             Result::Ok(PingSuccess::Ping { rtt }) => {
                 debug!(
-                    self.log,
                     "PingSuccess::Ping rtt to {} is {} ms",
                     event.peer.to_base58(),
                     rtt.as_millis()
                 );
             }
             Result::Ok(PingSuccess::Pong) => {
-                debug!(
-                    self.log,
-                    "PingSuccess::Pong from {}",
-                    event.peer.to_base58()
-                );
+                debug!("PingSuccess::Pong from {}", event.peer.to_base58());
             }
             Result::Err(PingFailure::Timeout) => {
-                debug!(self.log, "PingFailure::Timeout {}", event.peer.to_base58());
+                debug!("PingFailure::Timeout {}", event.peer.to_base58());
             }
             Result::Err(PingFailure::Other { error }) => {
-                debug!(
-                    self.log,
-                    "PingFailure::Other {}: {}",
-                    event.peer.to_base58(),
-                    error
-                );
+                debug!("PingFailure::Other {}: {}", event.peer.to_base58(), error);
             }
         }
     }
@@ -120,12 +108,12 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
                 info,
                 observed_addr,
             } => {
-                debug!(self.log, "Identified Peer {:?}", peer_id);
-                debug!(self.log, "protocol_version {:}?", info.protocol_version);
-                debug!(self.log, "agent_version {:?}", info.agent_version);
-                debug!(self.log, "listening_ addresses {:?}", info.listen_addrs);
-                debug!(self.log, "observed_address {:?}", observed_addr);
-                debug!(self.log, "protocols {:?}", info.protocols);
+                debug!("Identified Peer {:?}", peer_id);
+                debug!("protocol_version {:}?", info.protocol_version);
+                debug!("agent_version {:?}", info.agent_version);
+                debug!("listening_ addresses {:?}", info.listen_addrs);
+                debug!("observed_address {:?}", observed_addr);
+                debug!("protocols {:?}", info.protocols);
             }
             IdentifyEvent::Sent { .. } => (),
             IdentifyEvent::Error { .. } => (),
@@ -147,7 +135,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Send + Unpin + 'static> ForestBehaviou
 }
 
 impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviour<TSubstream> {
-    pub fn new(log: Logger, local_key: &Keypair) -> Self {
+    pub fn new(local_key: &Keypair) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
         ForestBehaviour {
@@ -155,7 +143,6 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviou
             mdns: Mdns::new().expect("Could not start mDNS"),
             ping: Ping::default(),
             identify: Identify::new("forest/libp2p".into(), "0.0.1".into(), local_key.public()),
-            log,
             events: vec![],
         }
     }
