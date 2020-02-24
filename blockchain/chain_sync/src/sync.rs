@@ -6,7 +6,7 @@ use super::manager::SyncManager;
 use address::Address;
 use amt::AMT;
 use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
-use chain::ChainStore;
+use chain::{BlockSyncProvider, ChainStore};
 use cid::Cid;
 use crypto::is_valid_signature;
 use db::Error as DBError;
@@ -18,6 +18,7 @@ use message::Message;
 use num_bigint::BigUint;
 use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
+use std::cmp::min;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -32,6 +33,9 @@ pub struct ChainSyncer<'db, DB, ST> {
     // access and store tipsets / blocks / messages
     chain_store: ChainStore<'db, DB>,
 
+    /// Provider for BlockSync service
+    block_sync: BS,
+
     // the known genesis tipset
     _genesis: Tipset,
 }
@@ -42,11 +46,12 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'db, DB> ChainSyncer<'db, DB, HamtStateTree>
+impl<'db, DB, BS> ChainSyncer<'db, DB, BS>
 where
     DB: BlockStore,
+    BS: BlockSyncProvider,
 {
-    pub fn new(chain_store: ChainStore<'db, DB>) -> Self {
+    pub fn new(chain_store: ChainStore<'db, DB>, block_sync: BS) -> Self {
         // TODO import genesis from storage
         let _genesis = Tipset::default();
 
@@ -55,20 +60,21 @@ where
 
         Self {
             chain_store,
+            block_sync,
             _genesis,
             sync_manager,
         }
     }
 
     /// Starts syncing process
-    pub fn sync(&mut self, head: Rc<Tipset>) -> Result<(), Error> {
+    pub async fn sync(&mut self, head: Rc<Tipset>) -> Result<(), Error> {
         info!("Starting syncing process");
 
         // Get heaviest tipset from storage to sync toward
         let heaviest = self.chain_store.heaviest_tipset();
 
         // Sync headers from network from head to heaviest from storage
-        let headers = self.sync_headers_reverse(head, heaviest)?;
+        let headers = self.sync_headers_reverse(head, heaviest).await?;
 
         // Persist header chain pulled from network
         self.persist_headers(&headers)?;
@@ -282,7 +288,7 @@ where
     }
 
     /// Syncs chain data and persists it to blockstore
-    fn sync_headers_reverse(
+    async fn sync_headers_reverse(
         &mut self,
         head: Rc<Tipset>,
         to: Rc<Tipset>,
@@ -293,10 +299,11 @@ where
 
         let to_epoch = to.blocks()[0].epoch();
 
+        // TODO use accepted_blocks as cache to mark bad blocks on failed sync
         let mut accepted_blocks: Vec<Cid> = Vec::new();
 
         // Loop until most recent tipset height is less than to tipset height
-        while let Some(ts) = return_set.last() {
+        'sync: while let Some(ts) = return_set.last() {
             if ts.epoch() < to_epoch {
                 // Current tipset is less than epoch of tipset syncing toward
                 break;
@@ -308,23 +315,64 @@ where
             // Try to load parent tipset from local storage
             if let Ok(ts) = self.chain_store.tipset_from_keys(ts.parents()) {
                 // Add blocks in tipset to accepted chain and push the tipset to return set
-                accepted_blocks.extend_from_slice(ts.key().tipset_keys());
+                accepted_blocks.extend_from_slice(ts.key().cids());
                 return_set.push(Rc::new(ts));
+                continue;
             }
 
+            const REQUEST_WINDOW: u64 = 500;
+            let epoch_diff = u64::from(ts.epoch() - to_epoch);
+            let window = min(epoch_diff, REQUEST_WINDOW);
+
             // Load blocks from network using blocksync
-            // TODO once blocksync interface added
+            let tipsets: Vec<Tipset> = self
+                .block_sync
+                .get_headers(ts.parents(), window)
+                .await
+                .map_err(|e| Error::Other(e))?;
 
             // Loop through each tipset received from network
-            {
+            for ts in tipsets {
+                if ts.epoch() < to_epoch {
+                    // Break out of sync loop if epoch lower than to tipset
+                    // This should not be hit if response from server is correct
+                    break 'sync;
+                }
                 // Check Cids of blocks against bad block cache
-                {}
+                for _ in ts.key().cids() {
+                    // TODO
+                }
 
+                accepted_blocks.extend_from_slice(ts.key().cids());
                 // Add tipset to vector of tipsets to return
+                return_set.push(Rc::new(ts));
             }
         }
 
+        let last_ts = return_set.last().ok_or(Error::Other(
+            "Return set should contain a tipset".to_owned(),
+        ))?;
+
+        // Check if local chain was fork
+        if last_ts.key().cids() != to.key().cids() {
+            if last_ts.parents() == to.parents() {
+                // block received part of same tipset as best block
+                // This removes need to sync fork
+                return Ok(return_set);
+            }
+            self.sync_fork(last_ts.clone(), to).await?;
+        }
+
         Ok(return_set)
+    }
+
+    async fn sync_fork(
+        &mut self,
+        _head: Rc<Tipset>,
+        _to: Rc<Tipset>,
+    ) -> Result<Vec<Rc<Tipset>>, Error> {
+        // TODO sync fork until tipsets are equal or reaches genesis
+        todo!()
     }
 
     // Persists headers from tipset slice to chain store

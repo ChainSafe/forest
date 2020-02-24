@@ -22,10 +22,10 @@ pub struct TipSetKeys {
 }
 
 impl TipSetKeys {
-    /// constructor
     pub fn new(cids: Vec<Cid>) -> Self {
         Self { cids }
     }
+
     /// checks whether the set contains exactly the same CIDs as another.
     fn equals(&self, key: &TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
@@ -38,8 +38,9 @@ impl TipSetKeys {
         }
         true
     }
-    /// Returns tipset keys
-    pub fn tipset_keys(&self) -> &[Cid] {
+
+    /// Returns tipset header cids
+    pub fn cids(&self) -> &[Cid] {
         &self.cids
     }
 }

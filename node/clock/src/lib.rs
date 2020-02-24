@@ -77,9 +77,21 @@ impl Sub for ChainEpoch {
     type Output = ChainEpoch;
 
     fn sub(self, other: ChainEpoch) -> ChainEpoch {
-        ChainEpoch {
-            0: self.0 - other.0,
-        }
+        ChainEpoch(self.0 - other.0)
+    }
+}
+
+impl Sub for &ChainEpoch {
+    type Output = ChainEpoch;
+
+    fn sub(self, other: &ChainEpoch) -> ChainEpoch {
+        ChainEpoch(self.0 - other.0)
+    }
+}
+
+impl From<ChainEpoch> for u64 {
+    fn from(ce: ChainEpoch) -> u64 {
+        ce.0
     }
 }
 

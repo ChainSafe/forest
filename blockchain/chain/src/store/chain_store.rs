@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Error, TipIndex, TipSetMetadata};
-use blocks::{BlockHeader, Tipset, TipSetKeys};
+use blocks::{BlockHeader, TipSetKeys, Tipset};
 use cid::Cid;
 use db::Error as DbError;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
@@ -116,9 +116,9 @@ where
     }
 
     /// Returns Tipset from key-value store from provided cids
-    pub fn tipset_from_keys(&self, cids: &TipSetKeys) -> Result<Tipset, Error> {
+    pub fn tipset_from_keys(&self, tsk: &TipSetKeys) -> Result<Tipset, Error> {
         let mut block_headers = Vec::new();
-        for c in cids.tipset_keys() {
+        for c in tsk.cids() {
             let raw_header = self.db.read(c.key())?;
             if let Some(x) = raw_header {
                 // decode raw header into BlockHeader
