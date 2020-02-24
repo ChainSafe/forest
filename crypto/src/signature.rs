@@ -136,18 +136,13 @@ pub(crate) fn verify_bls_sig(data: &[u8], pub_k: &[u8], sig: &Signature) -> bool
     verify(&sig, &[hashed], &[pk])
 }
 
-pub(crate) fn verify_bls_aggregate(
-    data: &[&[u8]],
-    pub_keys: &[&[u8]],
-    aggregate_sig: &Signature,
-) -> bool {
+pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &Signature) -> bool {
     // If the number of public keys and data does not match, then return false
     if data.len() != pub_keys.len() {
         return false;
     }
 
     let num_sigs = data.len();
-    //let mut pks: Vec<BlsPubKey> = vec![];
 
     let sig = match BlsSignature::from_bytes(aggregate_sig.bytes()) {
         Ok(v) => v,
