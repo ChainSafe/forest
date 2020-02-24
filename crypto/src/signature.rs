@@ -154,7 +154,11 @@ pub(crate) fn verify_bls_aggregate(
         Err(_) => return false,
     };
 
-    let pk_map_results : Result<Vec<_>,_>= pub_keys.iter().take(num_sigs).map(|x| BlsPubKey::from_bytes(x)).collect();
+    let pk_map_results: Result<Vec<_>, _> = pub_keys
+        .iter()
+        .take(num_sigs)
+        .map(|x| BlsPubKey::from_bytes(x))
+        .collect();
 
     let pks = match pk_map_results {
         Ok(v) => v,
