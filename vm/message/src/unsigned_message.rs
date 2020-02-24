@@ -64,7 +64,8 @@ impl UnsignedMessage {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+// Type declared outside of deserialize block because of clippy bug
+#[derive(Deserialize)]
 pub struct TupleUnsignedMessage(
     Address,
     Address,
@@ -81,15 +82,26 @@ impl ser::Serialize for UnsignedMessage {
     where
         S: ser::Serializer,
     {
+        #[derive(Serialize)]
+        pub struct TupleUnsignedMessage<'a>(
+            &'a Address,
+            &'a Address,
+            &'a u64,
+            &'a TokenAmount,
+            #[serde(with = "biguint_ser")] &'a BigUint,
+            #[serde(with = "biguint_ser")] &'a BigUint,
+            &'a MethodNum,
+            &'a Serialized,
+        );
         TupleUnsignedMessage(
-            self.to.clone(),
-            self.from.clone(),
-            self.sequence,
-            self.value.clone(),
-            self.gas_price.clone(),
-            self.gas_limit.clone(),
-            self.method_num,
-            self.params.clone(),
+            &self.to,
+            &self.from,
+            &self.sequence,
+            &self.value,
+            &self.gas_price,
+            &self.gas_limit,
+            &self.method_num,
+            &self.params,
         )
         .serialize(s)
     }

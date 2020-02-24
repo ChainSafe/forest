@@ -49,8 +49,7 @@ impl ser::Serialize for TipSetKeys {
     where
         S: Serializer,
     {
-        let value = self.cids.clone();
-        value.serialize(serializer)
+        self.cids.serialize(serializer)
     }
 }
 
