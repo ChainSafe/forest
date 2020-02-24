@@ -6,30 +6,34 @@
 use super::errors::Error;
 use super::manager::SyncManager;
 use address::Address;
-use amt::{BlockStore, AMT};
+use amt::AMT;
 use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
+use blockstore::BlockStore;
 use chain::ChainStore;
-use cid::{Cid, Error as CidError};
+use cid::Cid;
 use crypto::is_valid_signature;
+use encoding::{Cbor, Error as EncodingError};
 use libp2p::core::PeerId;
 use message::Message;
 use num_bigint::BigUint;
-use raw_block::RawBlock;
-use state::{HamtStateTree, StateTree};
+use state_manager::StateManager;
+use state_tree::{HamtStateTree, StateTree};
 use std::collections::HashMap;
 
-pub struct Syncer<'a> {
+/// Syncer updates the key-value store based on series of validation checks adhering to consensus rules, can query
+/// the network for blocks and assists in informing the network of incoming blocks
+pub struct Syncer<'a, 'b, T: StateTree> {
     // TODO add ability to send msg to all subscribers indicating incoming blocks
-    // TODO add state manager
     // TODO add block sync
-
-    // manages sync buckets
-    sync_manager: SyncManager<'a>,
-    // access and store tipsets / blocks / messages
+    /// manages retrieving and updates state objects
+    state_manager: StateManager<'a, 'b, T>,
+    /// manages sync buckets
+    sync_manager: SyncManager,
+    /// access and store tipsets / blocks / messages
     chain_store: ChainStore<'a>,
-    // the known genesis tipset
+    /// the known genesis tipset
     _genesis: Tipset,
-    // self peerId
+    /// self peerId
     _own: PeerId,
 }
 
@@ -39,7 +43,10 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'a> Syncer<'a> {
+impl<'a, 'b, T> Syncer<'a, 'b, T>
+where
+    T: StateTree,
+{
     /// TODO add constructor
 
     /// informs the syncer about a new potential tipset
@@ -140,13 +147,13 @@ impl<'a> Syncer<'a> {
         // TODO verify_bls_aggregate
 
         // check msgs for validity
-        fn check_msg<T: Message>(
-            msg: &T,
+        fn check_msg<M: Message>(
+            msg: &M,
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
             tree: &HamtStateTree,
         ) -> Result<(), Error>
         where
-            T: Message,
+            M: Message,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
@@ -233,6 +240,12 @@ impl<'a> Syncer<'a> {
         // see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L611
         header.check_block_signature(header.miner_address())?;
 
+        // TODO: incomplete, still need to retrieve power in order to ensure ticket is the winner
+        let _slash = self.state_manager.miner_slashed(header.miner_address())?;
+        let _sector_size = self
+            .state_manager
+            .miner_sector_size(header.miner_address())?;
+
         // TODO winner_check
         // TODO miner_check
         // TODO verify_ticket_vrf
@@ -242,6 +255,6 @@ impl<'a> Syncer<'a> {
     }
 }
 
-pub fn cids_from_messages<T: RawBlock>(messages: &[T]) -> Result<Vec<Cid>, CidError> {
-    messages.iter().map(RawBlock::cid).collect()
+pub fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
+    messages.iter().map(Cbor::cid).collect()
 }

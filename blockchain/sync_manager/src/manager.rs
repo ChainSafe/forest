@@ -4,18 +4,19 @@
 use super::bucket::SyncBucketSet;
 use blocks::Tipset;
 use libp2p::core::PeerId;
+use std::rc::Rc;
 
 #[derive(Default)]
-pub struct SyncManager<'a> {
-    sync_queue: SyncBucketSet<'a>,
+pub struct SyncManager {
+    sync_queue: SyncBucketSet,
 }
 
-impl<'a> SyncManager<'a> {
-    pub fn schedule_tipset(&mut self, tipset: &'a Tipset) {
+impl SyncManager {
+    pub fn schedule_tipset(&mut self, tipset: Rc<Tipset>) {
         // TODO implement interactions for syncing state when SyncManager built out
         self.sync_queue.insert(tipset);
     }
-    pub fn select_sync_target(&self) -> Option<&'a Tipset> {
+    pub fn select_sync_target(&self) -> Option<Rc<Tipset>> {
         self.sync_queue.heaviest()
     }
     pub fn set_peer_head(&self, _peer: PeerId, _ts: Tipset) {

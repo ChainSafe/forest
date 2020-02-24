@@ -1,0 +1,14 @@
+[package]
+name = "state_manager"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+address = { package = "forest_address", path = "../../vm/address/" }
+actor = { path = "../../vm/actor/" }
+chain = { path = "../chain/" }
+db = { path = "../../node/db/" }
+encoding = { package = "forest_encoding", path = "../../encoding/" }
+state_tree = { path = "../../vm/state_tree/" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
