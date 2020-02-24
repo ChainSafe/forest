@@ -147,24 +147,22 @@ pub(crate) fn verify_bls_aggregate(
     }
 
     let num_sigs = data.len();
-    let mut pks: Vec<BlsPubKey> = vec![];
-    let mut hashed_data: Vec<G2> = vec![];
+    //let mut pks: Vec<BlsPubKey> = vec![];
 
     let sig = match BlsSignature::from_bytes(aggregate_sig.bytes()) {
         Ok(v) => v,
         Err(_) => return false,
     };
 
-    // For loop produces the hashed data and gets the public keys from bytes.
-    for x in 0..num_sigs {
-        let pk = match BlsPubKey::from_bytes(pub_keys[x]) {
-            Ok(v) => v,
-            Err(_) => return false,
-        };
-        pks.push(pk);
-        let h_data = bls_hash(data[x]);
-        hashed_data.push(h_data);
-    }
+    let pk_map_results : Result<Vec<_>,_>= pub_keys.iter().take(num_sigs).map(|x| BlsPubKey::from_bytes(x)).collect();
+
+    let pks = match pk_map_results {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+
+    let hashed_data: Vec<G2> = (0..data.len()).map(|x| bls_hash(data[x])).collect();
+
     // DOes the aggregate verification
     verify(&sig, &hashed_data[..], &pks[..])
 }
@@ -250,7 +248,7 @@ mod tests {
     #[test]
     fn bls_agg_verify() {
         // The number of signatures in aggregate
-        let num_sigs = 1;
+        let num_sigs = 10;
         let message_length = num_sigs * 64;
 
         let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
@@ -263,6 +261,7 @@ mod tests {
         let public_keys: Vec<_> = (0..num_sigs)
             .map(|x| private_keys[x].public_key().as_bytes())
             .collect();
+
         let signatures: Vec<BlsSignature> = (0..num_sigs)
             .map(|x| private_keys[x].sign(data[x]))
             .collect();
