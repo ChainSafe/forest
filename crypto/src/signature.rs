@@ -7,7 +7,6 @@ use bls_signatures::{
     hash as bls_hash, paired::bls12_381::G2, verify, PublicKey as BlsPubKey, Serialize,
     Signature as BlsSignature,
 };
-
 use encoding::{blake2b_256, de, ser, serde_bytes};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -142,8 +141,6 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
         return false;
     }
 
-    let num_sigs = data.len();
-
     let sig = match BlsSignature::from_bytes(aggregate_sig.bytes()) {
         Ok(v) => v,
         Err(_) => return false,
@@ -151,7 +148,6 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
 
     let pk_map_results: Result<Vec<_>, _> = pub_keys
         .iter()
-        .take(num_sigs)
         .map(|x| BlsPubKey::from_bytes(x))
         .collect();
 
@@ -160,7 +156,7 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
         Err(_) => return false,
     };
 
-    let hashed_data: Vec<G2> = (0..num_sigs).map(|x| bls_hash(data[x])).collect();
+    let hashed_data: Vec<G2> = data.iter().map(|x| bls_hash(x)).collect();
 
     // DOes the aggregate verification
     verify(&sig, &hashed_data[..], &pks[..])
@@ -257,8 +253,9 @@ mod tests {
 
         let private_keys: Vec<PrivateKey> =
             (0..num_sigs).map(|_| PrivateKey::generate(rng)).collect();
-        let public_keys: Vec<_> = (0..num_sigs)
-            .map(|x| private_keys[x].public_key().as_bytes())
+        let public_keys: Vec<_> = private_keys
+            .iter()
+            .map(|x| x.public_key().as_bytes())
             .collect();
 
         let signatures: Vec<BlsSignature> = (0..num_sigs)
