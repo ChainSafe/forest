@@ -69,6 +69,7 @@ impl Address {
             payload,
         })
     }
+
     /// Creates address from encoded bytes
     pub fn from_bytes(bz: Vec<u8>) -> Result<Self, Error> {
         if bz.len() < 2 {
@@ -84,14 +85,17 @@ impl Address {
     pub fn new_id(id: u64) -> Result<Self, Error> {
         Address::new(NETWORK_DEFAULT, Protocol::ID, to_leb_bytes(id)?)
     }
+
     /// Generates new address using Secp256k1 pubkey
-    pub fn new_secp256k1(pubkey: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(&pubkey))
+    pub fn new_secp256k1(pubkey: &[u8]) -> Result<Self, Error> {
+        Address::new(NETWORK_DEFAULT, Protocol::Secp256k1, address_hash(pubkey))
     }
+
     /// Generates new address using the Actor protocol
-    pub fn new_actor(data: Vec<u8>) -> Result<Self, Error> {
-        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(&data))
+    pub fn new_actor(data: &[u8]) -> Result<Self, Error> {
+        Address::new(NETWORK_DEFAULT, Protocol::Actor, address_hash(data))
     }
+
     /// Generates new address using BLS pubkey
     pub fn new_bls(pubkey: Vec<u8>) -> Result<Self, Error> {
         Address::new(NETWORK_DEFAULT, Protocol::BLS, pubkey)
@@ -101,10 +105,23 @@ impl Address {
     pub fn protocol(&self) -> Protocol {
         self.protocol
     }
+
     /// Returns data payload of Address
     pub fn payload(&self) -> &[u8] {
         &self.payload
     }
+
+    /// Returns network configuration of Address
+    pub fn network(&self) -> Network {
+        self.network
+    }
+
+    /// Sets the network for the address and returns a mutable reference to it
+    pub fn set_network(&mut self, network: Network) -> &mut Self {
+        self.network = network;
+        self
+    }
+
     /// Returns encoded bytes of Address
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bz: Vec<u8> = self.payload().to_vec();
