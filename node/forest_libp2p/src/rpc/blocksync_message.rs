@@ -49,6 +49,8 @@ pub struct BlockSyncResponse {
     pub chain: Vec<TipSetBundle>,
     /// Error code
     pub status: u64,
+    /// Status message indicating failure reason
+    // TODO not included in blocksync spec, revisit if it will be removed in future
     pub message: String,
 }
 
