@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::behaviour::{ForestBehaviour, ForestBehaviourEvent};
-use super::config::Libp2pConfig;
+use super::rpc::{BlockSyncResponse, RPCEvent, RPCRequest, RPCResponse};
+use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
@@ -31,22 +31,30 @@ pub enum NetworkEvent {
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
+    RPCRequest {
+        req_id: usize,
+        request: RPCRequest,
+    },
+    RPCResponse {
+        req_id: usize,
+        response: RPCResponse,
+    },
 }
 
 /// Events into this Service
 #[derive(Clone, Debug)]
 pub enum NetworkMessage {
     PubsubMessage { topic: Topic, message: Vec<u8> },
+    RPC { peer_id: PeerId, request: RPCEvent },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
-    swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
+    pub swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
 
-    pubsub_receiver_in: Receiver<NetworkMessage>,
-    pubsub_sender_in: Sender<NetworkMessage>,
-
-    pubsub_receiver_out: Receiver<NetworkEvent>,
-    pubsub_sender_out: Sender<NetworkEvent>,
+    network_receiver_in: Receiver<NetworkMessage>,
+    network_sender_in: Sender<NetworkMessage>,
+    network_receiver_out: Receiver<NetworkEvent>,
+    network_sender_out: Sender<NetworkEvent>,
 }
 
 impl Libp2pService {
@@ -86,26 +94,33 @@ impl Libp2pService {
             swarm.subscribe(topic);
         }
 
-        let (pubsub_sender_in, pubsub_receiver_in) = channel(20);
-        let (pubsub_sender_out, pubsub_receiver_out) = channel(20);
+        let (network_sender_in, network_receiver_in) = channel(20);
+        let (network_sender_out, network_receiver_out) = channel(20);
         Libp2pService {
             swarm,
-            pubsub_receiver_in,
-            pubsub_sender_in,
-            pubsub_receiver_out,
-            pubsub_sender_out,
+            network_receiver_in,
+            network_sender_in,
+            network_receiver_out,
+            network_sender_out,
         }
     }
 
     /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
     pub async fn run(self) {
         let mut swarm_stream = self.swarm.fuse();
-        let mut pubsub_stream = self.pubsub_receiver_in.fuse();
+        let mut network_stream = self.network_receiver_in.fuse();
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(event) => match event {
+                        ForestBehaviourEvent::PeerDialed(peer_id) => {
+                            info!("Peer dialed, {:?}", peer_id);
+                        }
+                        ForestBehaviourEvent::PeerDisconnected(peer_id) => {
+                            info!("Peer disconnected, {:?}", peer_id);
+                        }
                         ForestBehaviourEvent::DiscoveredPeer(peer) => {
+                            info!("Discovered: {:?}", peer);
                             libp2p::Swarm::dial(&mut swarm_stream.get_mut(), peer);
                         }
                         ForestBehaviourEvent::ExpiredPeer(_) => {}
@@ -114,20 +129,40 @@ impl Libp2pService {
                             topics,
                             message,
                         } => {
-                            info!( "Got a Gossip Message from {:?}", source);
-                            self.pubsub_sender_out.send(NetworkEvent::PubsubMessage {
+                            info!("Got a Gossip Message from {:?}", source);
+                            self.network_sender_out.send(NetworkEvent::PubsubMessage {
                                 source,
                                 topics,
                                 message
                             }).await;
                         }
+                        ForestBehaviourEvent::RPC(peer_id, event) => {
+                            info!("RPC event {:?}", event);
+                            match event {
+                                RPCEvent::Response(req_id, res) => {
+                                    info!("response: {:?}", res);
+                                }
+                                RPCEvent::Request(req_id, req) => {
+                                    // send the response
+                                    swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::Blocksync(BlockSyncResponse {
+                                        chain: vec![],
+                                        status: 203,
+                                        message: "handling requests not implemented".to_owned(),
+                                    })));
+                                }
+                                RPCEvent::Error(req_id, err) => info!("Error with request {}: {:?}", req_id, err),
+                            }
+                        }
                     }
                     None => {break;}
                 },
-                rpc_message = pubsub_stream.next() => match rpc_message {
+                rpc_message = network_stream.next() => match rpc_message {
                     Some(message) =>  match message {
                         NetworkMessage::PubsubMessage{topic, message} => {
                             swarm_stream.get_mut().publish(&topic, message);
+                        }
+                        NetworkMessage::RPC{peer_id, request} => {
+                            swarm_stream.get_mut().send_rpc(peer_id, request);
                         }
                     }
                     None => {break;}
@@ -137,13 +172,13 @@ impl Libp2pService {
     }
 
     /// Returns a `Sender` allowing you to send messages over GossipSub
-    pub fn pubsub_sender(&self) -> Sender<NetworkMessage> {
-        self.pubsub_sender_in.clone()
+    pub fn network_sender(&self) -> Sender<NetworkMessage> {
+        self.network_sender_in.clone()
     }
 
     /// Returns a `Receiver` to listen to GossipSub messages
-    pub fn pubsub_receiver(&self) -> Receiver<NetworkEvent> {
-        self.pubsub_receiver_out.clone()
+    pub fn network_receiver(&self) -> Receiver<NetworkEvent> {
+        self.network_receiver_out.clone()
     }
 }
 

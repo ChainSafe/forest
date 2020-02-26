@@ -5,6 +5,7 @@
 
 mod behaviour;
 mod config;
+pub mod rpc;
 mod service;
 
 pub use self::behaviour::*;

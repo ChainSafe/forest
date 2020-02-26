@@ -7,8 +7,20 @@ edition = "2018"
 [dependencies]
 utils = { path = "../utils" }
 libp2p = "0.15.0"
-futures = "0.3.1"
+futures = "0.3.2"
 futures-util = "0.3.1"
+futures_codec = "0.4.0"
 log = "0.4.8"
 async-std = { version  = "1.4.0", features = ["unstable"] }
 serde = { version = "1.0", features = ["derive"] }
+forest_blocks = { path = "../../blockchain/blocks" }
+forest_message = { path = "../../vm/message" }
+forest_encoding = { path = "../../encoding" }
+forest_cid = { path = "../../ipld/cid" }
+bytes = "0.5.2"
+fnv = "1.0.6"
+smallvec = "1.1.0"
+
+[dev-dependencies]
+slog-async = "2.3.0"
+slog-term = "2.4.2"
