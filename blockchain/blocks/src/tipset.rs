@@ -66,7 +66,7 @@ impl<'de> de::Deserialize<'de> for TipSetKeys {
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,

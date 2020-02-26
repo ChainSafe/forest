@@ -42,7 +42,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///     .build_and_validate()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Builder)]
+#[derive(Clone, Debug, PartialEq, Builder, Default)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING

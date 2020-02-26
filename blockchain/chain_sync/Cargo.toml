@@ -19,8 +19,13 @@ multihash = "0.9.4"
 state_tree = { path = "../../vm/state_tree/" }
 state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
-crypto = { path= "../../crypto" }
+crypto = { path = "../../crypto" }
 log = "0.4.8"
+async-std = { version = "1.4.0", features = ["unstable"] }
+forest_libp2p = { path = "../../node/forest_libp2p" }
+pin-project = "0.4.8"
+fnv = "1.0.6"
+futures = "0.3.2"
 
 [dev-dependencies]
 cid = { package = "forest_cid", path = "../../ipld/cid" }

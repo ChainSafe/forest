@@ -15,7 +15,7 @@ pub use handler::*;
 pub use protocol::*;
 pub use rpc_message::*;
 
-type RequestId = usize;
+pub type RequestId = usize;
 
 /// The return type used in the behaviour and the resultant event from the protocols handler.
 #[derive(Debug, Clone, PartialEq)]

@@ -9,7 +9,7 @@ use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use ipld_blockstore::BlockStore;
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<'db, DB> {
@@ -20,12 +20,9 @@ pub struct ChainStore<'db, DB> {
     // key-value datastore
     db: &'db DB,
 
-    // CID of the genesis block.
-    genesis: Cid,
-
     // Tipset at the head of the best-known chain.
     // TODO revisit if this should be pointer to tipset on heap
-    heaviest: Rc<Tipset>,
+    heaviest: Arc<Tipset>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     tip_index: TipIndex,
@@ -36,13 +33,14 @@ where
     DB: BlockStore,
 {
     /// constructor
-    pub fn new(db: &'db DB, gen: Cid, heaviest: Rc<Tipset>) -> Result<Self, Error> {
-        Ok(Self {
+    pub fn new(db: &'db DB) -> Self {
+        // TODO pull heaviest tipset from data storage
+        let heaviest = Arc::new(Tipset::new(vec![BlockHeader::default()]).unwrap());
+        Self {
             db,
             tip_index: TipIndex::new(),
-            genesis: gen,
             heaviest,
-        })
+        }
     }
 
     /// Sets tip_index tracker
@@ -96,7 +94,8 @@ where
 
     /// Returns genesis blockheader from blockstore
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        let bz = self.db.read(self.genesis.key())?;
+        // TODO change data store for pulling genesis
+        let bz = self.db.read("gen_block")?;
         match bz {
             None => Err(Error::UndefinedKey(
                 "Genesis key does not exist".to_string(),
@@ -106,7 +105,7 @@ where
     }
 
     /// Returns heaviest tipset from blockstore
-    pub fn heaviest_tipset(&self) -> Rc<Tipset> {
+    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
         self.heaviest.clone()
     }
 

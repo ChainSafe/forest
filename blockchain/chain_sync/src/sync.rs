@@ -1,43 +1,92 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use super::manager::SyncManager;
+use super::{Error, SyncManager, SyncNetworkContext};
 use address::Address;
 use amt::AMT;
-use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
-use chain::{BlockSyncProvider, ChainStore};
+use async_std::prelude::*;
+use async_std::stream::Stream;
+use async_std::sync::{Receiver, Sender};
+use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
+use chain::ChainStore;
 use cid::Cid;
 use crypto::is_valid_signature;
 use db::Error as DBError;
 use encoding::{Cbor, Error as EncodingError};
+use forest_libp2p::{NetworkEvent, NetworkMessage};
+use futures::{select, FutureExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::info;
 use message::Message;
 use num_bigint::BigUint;
+use pin_project::pin_project;
 use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::future::Future;
+use std::sync::Arc;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 
+#[derive(PartialEq, Debug, Clone)]
+/// Current state of the ChainSyncer
+enum SyncState {
+    /// No useful peers, bootstrapping network to be able to make BlockSync requests
+    Stalled,
+
+    /// Syncing to checkpoint (using BlockSync for now)
+    _SyncCheckpoint,
+
+    /// Receive new blocks from the network and sync toward heaviest tipset
+    _ChainCatchup,
+
+    /// Once all blocks are validated to the heaviest chain, follow network
+    /// by receiving blocks over the network and validating them
+    _Follow,
+}
+
+#[pin_project]
 pub struct ChainSyncer<'db, DB, ST> {
-    // TODO add ability to send msg to all subscribers indicating incoming blocks
-    // TODO add block sync
+    /// Syncing state of chain sync
+    _state: SyncState,
+
     /// manages retrieving and updates state objects
     state_manager: StateManager<'db, DB, ST>,
-    // manages sync buckets
+
+    /// manages sync buckets
     sync_manager: SyncManager,
 
-    // access and store tipsets / blocks / messages
+    /// access and store tipsets / blocks / messages
     chain_store: ChainStore<'db, DB>,
 
-    /// Provider for BlockSync service
-    block_sync: BS,
+    // /// Provider for BlockSync service
+    // block_sync: BS,
+    /// Context to be able to send requests to p2p network
+    network: SyncNetworkContext,
 
-    // the known genesis tipset
+    /// the known genesis tipset
     _genesis: Tipset,
+
+    /// Channel for incoming network events to be handled by syncer
+    #[pin]
+    network_rx: Receiver<NetworkEvent>,
+}
+
+// TODO probably remove this in the future, polling as such probably unnecessary
+impl<'db, DB, ST> Future for ChainSyncer<'db, DB, ST> {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.project().network_rx.poll_next(cx) {
+            Poll::Ready(Some(event)) => info!("chain syncer received event: {:?}", event),
+            Poll::Pending | Poll::Ready(None) => (),
+        };
+        Poll::Pending
+    }
 }
 
 /// Message data used to ensure valid state transition
@@ -46,29 +95,58 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'db, DB, BS> ChainSyncer<'db, DB, BS>
+impl<'db, DB> ChainSyncer<'db, DB, HamtStateTree>
 where
     DB: BlockStore,
-    BS: BlockSyncProvider,
+    // BS: BlockSyncProvider,
 {
-    pub fn new(chain_store: ChainStore<'db, DB>, block_sync: BS) -> Self {
+    pub fn new(
+        db: &'db DB,
+        network_send: Sender<NetworkMessage>,
+        network_rx: Receiver<NetworkEvent>,
+    ) -> Result<Self, Error> {
         // TODO import genesis from storage
-        let _genesis = Tipset::default();
+        let _genesis = Tipset::new(vec![BlockHeader::default()])?;
 
         // TODO change from being default when impl
         let sync_manager = SyncManager::default();
 
-        Self {
+        let chain_store = ChainStore::new(db);
+
+        let state_manager = StateManager::new(db, HamtStateTree::default());
+
+        let network = SyncNetworkContext::new(network_send);
+
+        Ok(Self {
+            _state: SyncState::Stalled,
+            state_manager,
             chain_store,
-            block_sync,
+            network,
             _genesis,
             sync_manager,
+            network_rx,
+        })
+    }
+
+    pub async fn poll_tmp(&mut self) {
+        let mut nw = self.network_rx.clone().fuse();
+        loop {
+            select! {
+                network_msg = nw.next().fuse() => match network_msg {
+                    // TODO remove this comment (testing use)
+                    // Some(NetworkEvent::PubsubMessage{source, ..}) => {
+                    //     let req_id = self.network.blocksync_headers("QmUbiXETSptmbSYNtvCWEBYqXDKGwiBCCFWgJn1ebGiFiV".parse().unwrap(), self._genesis.key(), 10).await;
+                    // },
+                    Some(event) => println!("received some other event: {:?}", event),
+                    None => break,
+                }
+            }
         }
     }
 
     /// Starts syncing process
-    pub async fn sync(&mut self, head: Rc<Tipset>) -> Result<(), Error> {
-        info!("Starting syncing process");
+    pub async fn sync(mut self, head: Tipset) -> Result<(), Error> {
+        info!("Starting chain sync");
 
         // Get heaviest tipset from storage to sync toward
         let heaviest = self.chain_store.heaviest_tipset();
@@ -81,6 +159,7 @@ where
 
         Ok(())
     }
+
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
@@ -224,7 +303,7 @@ where
             msg_meta_data.insert(msg.from().clone(), updated_state);
             Ok(())
         }
-        let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::new();
+        let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         // TODO retrieve tipset state and load state tree
         // temporary
         let tree = HamtStateTree::default();
@@ -288,16 +367,21 @@ where
     }
 
     /// Syncs chain data and persists it to blockstore
+    // TODO function signature surely won't stay this way
     async fn sync_headers_reverse(
         &mut self,
-        head: Rc<Tipset>,
-        to: Rc<Tipset>,
-    ) -> Result<Vec<Rc<Tipset>>, Error> {
+        head: Tipset,
+        to: Arc<Tipset>,
+    ) -> Result<Vec<Tipset>, Error> {
         info!("Syncing headers from: {:?}", head.key());
 
-        let mut return_set = vec![Rc::clone(&head)];
+        let mut return_set = vec![head];
 
-        let to_epoch = to.blocks()[0].epoch();
+        let to_epoch = to
+            .blocks()
+            .get(0)
+            .ok_or_else(|| Error::Blockchain("Tipset must not be empty".to_owned()))?
+            .epoch();
 
         // TODO use accepted_blocks as cache to mark bad blocks on failed sync
         let mut accepted_blocks: Vec<Cid> = Vec::new();
@@ -316,20 +400,22 @@ where
             if let Ok(ts) = self.chain_store.tipset_from_keys(ts.parents()) {
                 // Add blocks in tipset to accepted chain and push the tipset to return set
                 accepted_blocks.extend_from_slice(ts.key().cids());
-                return_set.push(Rc::new(ts));
+                return_set.push(ts);
                 continue;
             }
 
             const REQUEST_WINDOW: u64 = 500;
             let epoch_diff = u64::from(ts.epoch() - to_epoch);
-            let window = min(epoch_diff, REQUEST_WINDOW);
+            let _window = min(epoch_diff, REQUEST_WINDOW);
 
-            // Load blocks from network using blocksync
-            let tipsets: Vec<Tipset> = self
-                .block_sync
-                .get_headers(ts.parents(), window)
-                .await
-                .map_err(|e| Error::Other(e))?;
+            // // Load blocks from network using blocksync
+            // TODO add sending blocksync req back
+            // let tipsets: Vec<Tipset> = self
+            //     .network
+            //     .get_headers(ts.parents(), window)
+            //     .await
+            //     .map_err(|e| Error::Other(e))?;
+            let tipsets: Vec<Tipset> = vec![];
 
             // Loop through each tipset received from network
             for ts in tipsets {
@@ -345,13 +431,13 @@ where
 
                 accepted_blocks.extend_from_slice(ts.key().cids());
                 // Add tipset to vector of tipsets to return
-                return_set.push(Rc::new(ts));
+                return_set.push(ts);
             }
         }
 
-        let last_ts = return_set.last().ok_or(Error::Other(
-            "Return set should contain a tipset".to_owned(),
-        ))?;
+        let last_ts = return_set
+            .last()
+            .ok_or_else(|| Error::Other("Return set should contain a tipset".to_owned()))?;
 
         // Check if local chain was fork
         if last_ts.key().cids() != to.key().cids() {
@@ -360,23 +446,20 @@ where
                 // This removes need to sync fork
                 return Ok(return_set);
             }
-            self.sync_fork(last_ts.clone(), to).await?;
+            // TODO add fork to return set
+            let _fork = self.sync_fork(&last_ts, &to).await?;
         }
 
         Ok(return_set)
     }
 
-    async fn sync_fork(
-        &mut self,
-        _head: Rc<Tipset>,
-        _to: Rc<Tipset>,
-    ) -> Result<Vec<Rc<Tipset>>, Error> {
+    async fn sync_fork(&mut self, _head: &Tipset, _to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
         // TODO sync fork until tipsets are equal or reaches genesis
         todo!()
     }
 
     // Persists headers from tipset slice to chain store
-    fn persist_headers(&self, tipsets: &[Rc<Tipset>]) -> Result<(), DBError> {
+    fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), DBError> {
         tipsets
             .iter()
             .try_for_each(|ts| self.chain_store.persist_headers(ts))
