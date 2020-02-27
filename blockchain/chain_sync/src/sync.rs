@@ -17,7 +17,7 @@ use forest_libp2p::{NetworkEvent, NetworkMessage};
 use futures::{select, FutureExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::info;
+use log::{info, warn};
 use lru::LruCache;
 use message::Message;
 use num_bigint::BigUint;
@@ -107,13 +107,17 @@ where
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
     ) -> Result<Self, Error> {
-        // TODO import genesis from storage
-        let _genesis = Tipset::new(vec![BlockHeader::default()])?;
-
         // TODO change from being default when impl
         let sync_manager = SyncManager::default();
 
         let chain_store = ChainStore::new(db);
+        let _genesis = match chain_store.genesis()? {
+            Some(gen) => Tipset::new(vec![gen])?,
+            None => {
+                warn!("no genesis found in data storage, using a default");
+                Tipset::new(vec![BlockHeader::default()])?
+            }
+        };
 
         let state_manager = StateManager::new(db, HamtStateTree::default());
 
