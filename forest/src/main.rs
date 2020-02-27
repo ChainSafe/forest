@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use self::cli::cli;
 mod cli;
 mod logger;
-use self::cli::cli;
 use async_std::task;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
@@ -77,10 +77,7 @@ async fn main() {
         db.open().unwrap();
 
         let mut chain_syncer = ChainSyncer::new(&db, network_send, network_rx).unwrap();
-        chain_syncer.poll_tmp().await;
-        // chain_syncer
-        //     .sync(Tipset::new(vec![BlockHeader::default()]).unwrap())
-        //     .await
+        chain_syncer.sync().await.unwrap();
     });
 
     // Block until ctrl-c is hit

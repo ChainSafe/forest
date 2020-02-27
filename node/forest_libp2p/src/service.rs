@@ -45,7 +45,7 @@ pub enum NetworkEvent {
 #[derive(Clone, Debug)]
 pub enum NetworkMessage {
     PubsubMessage { topic: Topic, message: Vec<u8> },
-    RPC { peer_id: PeerId, request: RPCEvent },
+    RPC { peer_id: PeerId, event: RPCEvent },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
@@ -165,8 +165,8 @@ impl Libp2pService {
                         NetworkMessage::PubsubMessage{topic, message} => {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
-                        NetworkMessage::RPC{peer_id, request} => {
-                            swarm_stream.get_mut().send_rpc(peer_id, request);
+                        NetworkMessage::RPC{peer_id, event} => {
+                            swarm_stream.get_mut().send_rpc(peer_id, event);
                         }
                     }
                     None => {break;}

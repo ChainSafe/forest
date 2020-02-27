@@ -128,7 +128,8 @@ where
         })
     }
 
-    pub async fn poll_tmp(&mut self) {
+    /// Starts syncing process
+    pub async fn sync(&mut self) -> Result<(), Error> {
         let mut nw = self.network_rx.clone().fuse();
         loop {
             select! {
@@ -142,14 +143,14 @@ where
                 }
             }
         }
-    }
 
-    /// Starts syncing process
-    pub async fn sync(mut self, head: Tipset) -> Result<(), Error> {
         info!("Starting chain sync");
 
         // Get heaviest tipset from storage to sync toward
         let heaviest = self.chain_store.heaviest_tipset();
+
+        // TODO remove this and
+        let head = Tipset::new(vec![BlockHeader::default()]).unwrap();
 
         // Sync headers from network from head to heaviest from storage
         let headers = self.sync_headers_reverse(head, heaviest).await?;

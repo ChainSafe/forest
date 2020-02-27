@@ -19,14 +19,6 @@ pub struct SyncNetworkContext {
     request_id: RequestId,
 }
 
-// #[async_trait]
-// impl BlockSyncProvider for SyncNetworkContext {
-//     async fn get_headers(&mut self, _tsk: &TipSetKeys, _count: u64) -> Result<Vec<Tipset>, String> {
-//         self.blocksync_request(peer_id: PeerId, request: Message)
-//         Ok(vec![])
-//     }
-// }
-
 impl SyncNetworkContext {
     pub fn new(network_send: Sender<NetworkMessage>) -> Self {
         Self {
@@ -35,6 +27,7 @@ impl SyncNetworkContext {
         }
     }
 
+    /// Send a blocksync request for only block headers (ignore messages)
     pub async fn blocksync_headers(
         &mut self,
         peer_id: PeerId,
@@ -79,11 +72,7 @@ impl SyncNetworkContext {
     /// Handles sending the base event to the network service
     async fn send_rpc_event(&mut self, peer_id: PeerId, event: RPCEvent) {
         self.network_send
-            .send(NetworkMessage::RPC {
-                peer_id,
-                // TODO probably change event name to event from request
-                request: event,
-            })
+            .send(NetworkMessage::RPC { peer_id, event })
             .await
     }
 }

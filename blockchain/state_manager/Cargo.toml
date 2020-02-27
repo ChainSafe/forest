@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address/" }
 actor = { path = "../../vm/actor/" }
-chain = { path = "../chain/" }
 db = { path = "../../node/db/" }
 encoding = { package = "forest_encoding", path = "../../encoding/" }
 state_tree = { path = "../../vm/state_tree/" }
