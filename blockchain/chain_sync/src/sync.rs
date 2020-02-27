@@ -172,8 +172,6 @@ where
         for block in fts.blocks() {
             self.validate_msg_data(block)?;
         }
-        // TODO send pubsub message indicating incoming blocks
-        // TODO Add peer to blocksync
 
         // compare target_weight to heaviest weight stored; ignore otherwise
         let heaviest_tipset = self.chain_store.heaviest_tipset();
