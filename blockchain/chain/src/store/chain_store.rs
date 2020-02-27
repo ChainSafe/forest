@@ -11,7 +11,7 @@ use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::sync::Arc;
 
-const GENESIS_KEY: &'static str = "gen_block";
+const GENESIS_KEY: &str = "gen_block";
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<'db, DB> {
@@ -96,14 +96,11 @@ where
     }
 
     /// Returns genesis blockheader from blockstore
-    pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        let bz = self.db.read(GENESIS_KEY)?;
-        match bz {
-            None => Err(Error::UndefinedKey(
-                "Genesis key does not exist".to_string(),
-            )),
-            Some(x) => BlockHeader::unmarshal_cbor(&x).map_err(Error::from),
-        }
+    pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
+        Ok(match self.db.read(GENESIS_KEY)? {
+            Some(bz) => Some(BlockHeader::unmarshal_cbor(&bz)?),
+            None => None,
+        })
     }
 
     /// Returns heaviest tipset from blockstore
@@ -181,7 +178,8 @@ mod tests {
             .build_and_validate()
             .unwrap();
 
+        assert_eq!(cs.genesis().unwrap(), None);
         cs.set_genesis(gen_block.clone()).unwrap();
-        assert_eq!(cs.genesis().unwrap(), gen_block);
+        assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 }
