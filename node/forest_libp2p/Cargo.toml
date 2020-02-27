@@ -22,5 +22,8 @@ fnv = "1.0.6"
 smallvec = "1.1.0"
 
 [dev-dependencies]
+forest_address = { path = "../../vm/address" }
 slog-async = "2.3.0"
 slog-term = "2.4.2"
+num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+crypto = { path = "../../crypto" }
