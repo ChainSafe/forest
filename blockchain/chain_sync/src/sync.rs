@@ -402,7 +402,7 @@ where
             // Try to load parent tipset from local storage
             if let Ok(ts) = self.chain_store.tipset_from_keys(cur_ts.parents()) {
                 // Add blocks in tipset to accepted chain and push the tipset to return set
-                accepted_blocks.extend_from_slice(ts.key().cids());
+                accepted_blocks.extend_from_slice(ts.cids());
                 return_set.push(ts);
                 continue;
             }
@@ -430,7 +430,7 @@ where
                 // Check Cids of blocks against bad block cache
                 self.validate_tipset_against_cache(&ts.key(), &accepted_blocks)?;
 
-                accepted_blocks.extend_from_slice(ts.key().cids());
+                accepted_blocks.extend_from_slice(ts.cids());
                 // Add tipset to vector of tipsets to return
                 return_set.push(ts);
             }
@@ -441,7 +441,7 @@ where
             .ok_or_else(|| Error::Other("Return set should contain a tipset".to_owned()))?;
 
         // Check if local chain was fork
-        if last_ts.key().cids() != to.key().cids() {
+        if last_ts.key() != to.key() {
             if last_ts.parents() == to.parents() {
                 // block received part of same tipset as best block
                 // This removes need to sync fork

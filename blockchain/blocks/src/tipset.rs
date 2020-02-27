@@ -186,6 +186,10 @@ impl Tipset {
     pub fn key(&self) -> &TipSetKeys {
         &self.key
     }
+    /// Returns slice of Cids for the current tipset
+    pub fn cids(&self) -> &[Cid] {
+        &self.key.cids()
+    }
     /// Returns the CIDs of the parents of the blocks in the tipset
     pub fn parents(&self) -> &TipSetKeys {
         &self.blocks[0].parents()
