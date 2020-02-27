@@ -121,26 +121,25 @@ impl TryFrom<TipSetBundle> for FullTipset {
             return Err("Invalid formed TipSet bundle, lengths of includes does not match blocks");
         }
 
-        for (i, header) in tsb.blocks.into_iter().enumerate() {
-            let mut bls_messages = Vec::with_capacity(tsb.bls_msg_includes[i].len());
-            for (_, idx) in tsb.bls_msg_includes[i].iter().enumerate() {
-                bls_messages.push(
-                    tsb.bls_msgs
+        fn values_from_indexes<T: Clone>(
+            indexes: &[u64],
+            values: &[T],
+        ) -> Result<Vec<T>, &'static str> {
+            let mut msgs = Vec::with_capacity(indexes.len());
+            for idx in indexes.iter() {
+                msgs.push(
+                    values
                         .get(*idx as usize)
                         .cloned()
-                        .ok_or_else(|| "Invalid bls message index")?,
+                        .ok_or_else(|| "Invalid message index")?,
                 );
             }
+            Ok(msgs)
+        }
 
-            let mut secp_messages = Vec::with_capacity(tsb.secp_msg_includes[i].len());
-            for (_, idx) in tsb.secp_msg_includes[i].iter().enumerate() {
-                secp_messages.push(
-                    tsb.secp_msgs
-                        .get(*idx as usize)
-                        .cloned()
-                        .ok_or_else(|| "Invalid bls message index")?,
-                );
-            }
+        for (i, header) in tsb.blocks.into_iter().enumerate() {
+            let bls_messages = values_from_indexes(&tsb.bls_msg_includes[i], &tsb.bls_msgs)?;
+            let secp_messages = values_from_indexes(&tsb.secp_msg_includes[i], &tsb.secp_msgs)?;
 
             blocks.push(Block {
                 header,
