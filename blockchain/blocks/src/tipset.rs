@@ -201,6 +201,7 @@ impl Tipset {
 }
 
 /// FullTipSet is an expanded version of the TipSet that contains all the blocks and messages
+#[derive(Debug, PartialEq, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
 }

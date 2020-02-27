@@ -410,7 +410,7 @@ where
             let _window = min(epoch_diff, REQUEST_WINDOW);
 
             // // Load blocks from network using blocksync
-            // TODO add sending blocksync req back
+            // TODO add sending blocksync req back (requires some channel for data back)
             // let tipsets: Vec<Tipset> = self
             //     .network
             //     .get_headers(ts.parents(), window)
