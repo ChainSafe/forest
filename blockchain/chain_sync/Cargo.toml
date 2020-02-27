@@ -24,3 +24,4 @@ async-std = { version = "1.4.0", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 pin-project = "0.4.8"
 futures = "0.3.2"
+lru = "0.4.3"

@@ -18,6 +18,7 @@ use futures::{select, FutureExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::info;
+use lru::LruCache;
 use message::Message;
 use num_bigint::BigUint;
 use pin_project::pin_project;
@@ -63,13 +64,15 @@ pub struct ChainSyncer<'db, DB, ST> {
     /// access and store tipsets / blocks / messages
     chain_store: ChainStore<'db, DB>,
 
-    // /// Provider for BlockSync service
-    // block_sync: BS,
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
 
     /// the known genesis tipset
     _genesis: Tipset,
+
+    /// Bad blocks cache, updates based on invalid state transitions.
+    /// Will mark any invalid blocks and all childen as bad in this bounded cache
+    bad_blocks: LruCache<Cid, String>,
 
     /// Channel for incoming network events to be handled by syncer
     #[pin]
@@ -125,6 +128,7 @@ where
             _genesis,
             sync_manager,
             network_rx,
+            bad_blocks: LruCache::new(1 << 15),
         })
     }
 
@@ -149,11 +153,11 @@ where
         // Get heaviest tipset from storage to sync toward
         let heaviest = self.chain_store.heaviest_tipset();
 
-        // TODO remove this and
+        // TODO remove this and retrieve head from storage
         let head = Tipset::new(vec![BlockHeader::default()]).unwrap();
 
         // Sync headers from network from head to heaviest from storage
-        let headers = self.sync_headers_reverse(head, heaviest).await?;
+        let headers = self.sync_headers_reverse(head, &heaviest).await?;
 
         // Persist header chain pulled from network
         self.persist_headers(&headers)?;
@@ -368,13 +372,14 @@ where
     }
 
     /// Syncs chain data and persists it to blockstore
-    // TODO function signature surely won't stay this way
     async fn sync_headers_reverse(
         &mut self,
         head: Tipset,
-        to: Arc<Tipset>,
+        to: &Tipset,
     ) -> Result<Vec<Tipset>, Error> {
         info!("Syncing headers from: {:?}", head.key());
+
+        let mut accepted_blocks: Vec<Cid> = Vec::new();
 
         let mut return_set = vec![head];
 
@@ -384,29 +389,26 @@ where
             .ok_or_else(|| Error::Blockchain("Tipset must not be empty".to_owned()))?
             .epoch();
 
-        // TODO use accepted_blocks as cache to mark bad blocks on failed sync
-        let mut accepted_blocks: Vec<Cid> = Vec::new();
-
         // Loop until most recent tipset height is less than to tipset height
-        'sync: while let Some(ts) = return_set.last() {
-            if ts.epoch() < to_epoch {
+        'sync: while let Some(cur_ts) = return_set.last() {
+            // Check if parent cids exist in bad block cache
+            self.validate_tipset_against_cache(cur_ts.parents(), &accepted_blocks)?;
+
+            if cur_ts.epoch() < to_epoch {
                 // Current tipset is less than epoch of tipset syncing toward
                 break;
             }
 
-            // Check parent cids
-            // TODO check if cids exist in rejected blocks cache when implemented
-
             // Try to load parent tipset from local storage
-            if let Ok(ts) = self.chain_store.tipset_from_keys(ts.parents()) {
+            if let Ok(ts) = self.chain_store.tipset_from_keys(cur_ts.parents()) {
                 // Add blocks in tipset to accepted chain and push the tipset to return set
                 accepted_blocks.extend_from_slice(ts.key().cids());
                 return_set.push(ts);
                 continue;
             }
 
-            const REQUEST_WINDOW: u64 = 500;
-            let epoch_diff = u64::from(ts.epoch() - to_epoch);
+            const REQUEST_WINDOW: u64 = 100;
+            let epoch_diff = u64::from(cur_ts.epoch() - to_epoch);
             let _window = min(epoch_diff, REQUEST_WINDOW);
 
             // // Load blocks from network using blocksync
@@ -426,9 +428,7 @@ where
                     break 'sync;
                 }
                 // Check Cids of blocks against bad block cache
-                for _ in ts.key().cids() {
-                    // TODO
-                }
+                self.validate_tipset_against_cache(&ts.key(), &accepted_blocks)?;
 
                 accepted_blocks.extend_from_slice(ts.key().cids());
                 // Add tipset to vector of tipsets to return
@@ -452,6 +452,27 @@ where
         }
 
         Ok(return_set)
+    }
+
+    fn validate_tipset_against_cache(
+        &mut self,
+        ts: &TipSetKeys,
+        accepted_blocks: &[Cid],
+    ) -> Result<(), Error> {
+        for cid in ts.cids() {
+            if let Some(reason) = self.bad_blocks.get(cid).cloned() {
+                for bh in accepted_blocks {
+                    self.bad_blocks
+                        .put(bh.clone(), format!("chain contained {}", cid));
+                }
+
+                return Err(Error::Other(format!(
+                    "Chain contained block marked as bad: {}, {}",
+                    cid, reason
+                )));
+            }
+        }
+        Ok(())
     }
 
     async fn sync_fork(&mut self, _head: &Tipset, _to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
