@@ -19,7 +19,7 @@ impl SyncManager {
     pub fn select_sync_target(&self) -> Option<Arc<Tipset>> {
         self.sync_queue.heaviest()
     }
-    pub fn set_peer_head(&self, _peer: PeerId, _ts: Tipset) {
+    pub fn set_peer_head(&self, _peer: &PeerId, _ts: Tipset) {
         // TODO
         todo!()
     }

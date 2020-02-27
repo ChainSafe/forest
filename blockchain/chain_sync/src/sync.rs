@@ -101,7 +101,6 @@ struct MsgMetaData {
 impl<'db, DB> ChainSyncer<'db, DB, HamtStateTree>
 where
     DB: BlockStore,
-    // BS: BlockSyncProvider,
 {
     pub fn new(
         db: &'db DB,
@@ -138,10 +137,6 @@ where
         loop {
             select! {
                 network_msg = nw.next().fuse() => match network_msg {
-                    // TODO remove this comment (testing use)
-                    // Some(NetworkEvent::PubsubMessage{source, ..}) => {
-                    //     let req_id = self.network.blocksync_headers("QmUbiXETSptmbSYNtvCWEBYqXDKGwiBCCFWgJn1ebGiFiV".parse().unwrap(), self._genesis.key(), 10).await;
-                    // },
                     Some(event) => println!("received some other event: {:?}", event),
                     None => break,
                 }
@@ -168,7 +163,7 @@ where
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    pub fn inform_new_head(&self, from: PeerId, fts: FullTipset) -> Result<(), Error> {
+    pub fn inform_new_head(&self, from: &PeerId, fts: &FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
         if fts.blocks().is_empty() {
             return Err(Error::NoBlocks);
