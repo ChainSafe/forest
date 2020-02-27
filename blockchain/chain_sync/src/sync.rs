@@ -107,13 +107,13 @@ where
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
     ) -> Result<Self, Error> {
-        // TODO change from being default when impl
         let sync_manager = SyncManager::default();
 
         let chain_store = ChainStore::new(db);
         let _genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
+                // TODO change default logic for genesis or setup better initialization
                 warn!("no genesis found in data storage, using a default");
                 Tipset::new(vec![BlockHeader::default()])?
             }
@@ -134,7 +134,13 @@ where
             bad_blocks: LruCache::new(1 << 15),
         })
     }
+}
 
+impl<'db, DB, ST> ChainSyncer<'db, DB, ST>
+where
+    DB: BlockStore,
+    ST: StateTree,
+{
     /// Starts syncing process
     pub async fn sync(&mut self) -> Result<(), Error> {
         let mut nw = self.network_rx.clone().fuse();
@@ -261,13 +267,14 @@ where
         // TODO verify_bls_aggregate
 
         // check msgs for validity
-        fn check_msg<M: Message>(
+        fn check_msg<M, ST>(
             msg: &M,
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
-            tree: &HamtStateTree,
+            tree: &ST,
         ) -> Result<(), Error>
         where
             M: Message,
+            ST: StateTree,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
