@@ -16,6 +16,12 @@ const EPOCH_DURATION: i32 = 15;
 /// An epoch represents a single valid state in the blockchain
 pub struct ChainEpoch(u64);
 
+impl From<u64> for ChainEpoch {
+    fn from(num: u64) -> ChainEpoch {
+        ChainEpoch(num)
+    }
+}
+
 impl ser::Serialize for ChainEpoch {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

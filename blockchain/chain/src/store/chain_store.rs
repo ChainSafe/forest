@@ -11,6 +11,8 @@ use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::sync::Arc;
 
+const GENESIS_KEY: &'static str = "gen_block";
+
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<'db, DB> {
     // TODO add IPLD Store
@@ -61,6 +63,7 @@ where
 
     /// Writes genesis to blockstore
     pub fn set_genesis(&self, header: BlockHeader) -> Result<(), DbError> {
+        self.db.write(GENESIS_KEY, header.marshal_cbor()?)?;
         let ts: Tipset = Tipset::new(vec![header])?;
         Ok(self.persist_headers(&ts)?)
     }
@@ -94,13 +97,12 @@ where
 
     /// Returns genesis blockheader from blockstore
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        // TODO change data store for pulling genesis
-        let bz = self.db.read("gen_block")?;
+        let bz = self.db.read(GENESIS_KEY)?;
         match bz {
             None => Err(Error::UndefinedKey(
                 "Genesis key does not exist".to_string(),
             )),
-            Some(ref x) => from_slice(&x)?,
+            Some(x) => BlockHeader::unmarshal_cbor(&x).map_err(Error::from),
         }
     }
 
@@ -121,7 +123,7 @@ where
             let raw_header = self.db.read(c.key())?;
             if let Some(x) = raw_header {
                 // decode raw header into BlockHeader
-                let bh = from_slice(&x)?;
+                let bh = BlockHeader::unmarshal_cbor(&x)?;
                 block_headers.push(bh);
             } else {
                 return Err(Error::KeyValueStore(
@@ -161,5 +163,25 @@ where
                 from_slice(&bytes)?
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn genesis_test() {
+        let db = db::MemoryDB::default();
+
+        let cs = ChainStore::new(&db);
+        let gen_block = BlockHeader::builder()
+            .epoch(1.into())
+            .weight((2 as u32).into())
+            .build_and_validate()
+            .unwrap();
+
+        cs.set_genesis(gen_block.clone()).unwrap();
+        assert_eq!(cs.genesis().unwrap(), gen_block);
     }
 }
