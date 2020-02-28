@@ -398,13 +398,14 @@ where
             let tipsets: Vec<Tipset> = match self
                 .network
                 .blocksync_headers(peer_id.clone(), cur_ts.parents(), window)
-                .await {
-                    Ok(ts) => ts,
-                    Err(e) => {
-                        warn!("Failed blocksync request to peer {:?}: {}", peer_id, e);
-                        continue;
-                    }
-                };
+                .await
+            {
+                Ok(ts) => ts,
+                Err(e) => {
+                    warn!("Failed blocksync request to peer {:?}: {}", peer_id, e);
+                    continue;
+                }
+            };
 
             // Loop through each tipset received from network
             for ts in tipsets {
