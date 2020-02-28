@@ -93,7 +93,7 @@ impl SyncNetworkContext {
     ) -> Result<RPCResponse, &'static str> {
         let request_id = self.request_id;
         self.request_id += 1;
-        self.send_rpc_event(peer_id, RPCEvent::Request(request_id, rpc_request))
+        self.send_network_event(peer_id, RPCEvent::Request(request_id, rpc_request))
             .await;
         loop {
             match future::timeout(Duration::from_secs(RPC_TIMEOUT), self.rpc_receiver.next()).await
@@ -111,7 +111,7 @@ impl SyncNetworkContext {
     }
 
     /// Handles sending the base event to the network service
-    async fn send_rpc_event(&mut self, peer_id: PeerId, event: RPCEvent) {
+    async fn send_network_event(&mut self, peer_id: PeerId, event: RPCEvent) {
         self.network_send
             .send(NetworkMessage::RPC { peer_id, event })
             .await

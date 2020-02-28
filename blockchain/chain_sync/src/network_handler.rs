@@ -6,7 +6,7 @@ use async_std::sync::{Receiver, Sender};
 use async_std::task;
 use forest_libp2p::rpc::{RPCResponse, RequestId};
 use forest_libp2p::NetworkEvent;
-use log::info;
+use log::trace;
 
 pub(crate) type RPCReceiver = Receiver<(RequestId, RPCResponse)>;
 pub(crate) type RPCSender = Sender<(RequestId, RPCResponse)>;
@@ -53,6 +53,6 @@ impl NetworkHandler {
                 }
             }
         });
-        info!("Spawned network handler");
+        trace!("Spawned network handler");
     }
 }
