@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{BlockSyncRequest, BlockSyncResponse};
+use super::{HelloMessage, LatencyMessage};
 
 /// RPCRequest payloads for request/response calls
 #[derive(Debug, Clone, PartialEq)]

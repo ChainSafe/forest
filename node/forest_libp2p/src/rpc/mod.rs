@@ -5,6 +5,7 @@ mod behaviour;
 mod blocksync_message;
 mod codec;
 mod handler;
+mod hello_message;
 mod protocol;
 mod rpc_message;
 
@@ -12,6 +13,7 @@ pub use behaviour::*;
 pub use blocksync_message::*;
 pub use codec::*;
 pub use handler::*;
+pub use hello_message::*;
 pub use protocol::*;
 pub use rpc_message::*;
 
