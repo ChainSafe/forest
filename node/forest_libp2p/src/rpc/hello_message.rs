@@ -5,7 +5,7 @@ use forest_encoding::{
 };
 
 /// Hello message https://filecoin-project.github.io/specs/#hello-spec
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct HelloMessage {
     heaviest_tip_set: Vec<Cid>,
     heaviest_tipset_weight: u64,

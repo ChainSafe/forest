@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::rpc::{BlockSyncResponse, RPCEvent, RPCRequest, RPCResponse};
+use super::rpc::{BlockSyncResponse, HelloMessage, RPCEvent, RPCRequest, RPCResponse};
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
@@ -115,6 +115,7 @@ impl Libp2pService {
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
                             info!("Peer dialed, {:?}", peer_id);
+                            swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Request(1, RPCRequest::Hello(HelloMessage::default())));
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
                             info!("Peer disconnected, {:?}", peer_id);
