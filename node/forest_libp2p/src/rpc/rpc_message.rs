@@ -8,12 +8,14 @@ use super::{HelloMessage, LatencyMessage};
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCRequest {
     Blocksync(BlockSyncRequest),
+    Hello(HelloMessage),
 }
 
 impl RPCRequest {
     pub fn expect_response(&self) -> bool {
         match self {
             RPCRequest::Blocksync(_) => true,
+            RPCRequest::Hello(_) => true,
         }
     }
 }
@@ -22,4 +24,5 @@ impl RPCRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCResponse {
     Blocksync(BlockSyncResponse),
+    Hello(LatencyMessage),
 }

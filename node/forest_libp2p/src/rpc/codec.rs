@@ -56,6 +56,12 @@ impl Encoder for InboundCodec {
                 dst.extend_from_slice(&resp);
                 Ok(())
             }
+            RPCResponse::Hello(latency) => {
+                let resp = to_vec(&latency)?;
+                dst.clear();
+                dst.extend_from_slice(&resp);
+                Ok(())
+            }
         }
     }
 }
@@ -83,6 +89,12 @@ impl Encoder for OutboundCodec {
         match item {
             RPCRequest::Blocksync(request) => {
                 let resp = to_vec(&request)?;
+                dst.clear();
+                dst.extend_from_slice(&resp);
+                Ok(())
+            }
+            RPCRequest::Hello(hello) => {
+                let resp = to_vec(&hello)?;
                 dst.clear();
                 dst.extend_from_slice(&resp);
                 Ok(())
