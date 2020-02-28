@@ -4,7 +4,8 @@
 use super::errors::Error;
 use address::{Address, Protocol};
 use bls_signatures::{
-    hash as bls_hash, verify, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
+    hash as bls_hash, paired::bls12_381::G2, verify, PublicKey as BlsPubKey, Serialize,
+    Signature as BlsSignature,
 };
 use encoding::{blake2b_256, de, ser, serde_bytes};
 use num_derive::FromPrimitive;
@@ -134,6 +135,31 @@ pub(crate) fn verify_bls_sig(data: &[u8], pub_k: &[u8], sig: &Signature) -> bool
     verify(&sig, &[hashed], &[pk])
 }
 
+pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &Signature) -> bool {
+    // If the number of public keys and data does not match, then return false
+    if data.len() != pub_keys.len() {
+        return false;
+    }
+
+    let sig = match BlsSignature::from_bytes(aggregate_sig.bytes()) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+
+    let pk_map_results: Result<Vec<_>, _> =
+        pub_keys.iter().map(|x| BlsPubKey::from_bytes(x)).collect();
+
+    let pks = match pk_map_results {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+
+    let hashed_data: Vec<G2> = data.iter().map(|x| bls_hash(x)).collect();
+
+    // DOes the aggregate verification
+    verify(&sig, &hashed_data[..], &pks[..])
+}
+
 /// Returns true if a secp256k1 signature is valid
 fn verify_secp256k1_sig(data: &[u8], addr: &Address, sig: &Signature) -> bool {
     // blake2b 256 hash
@@ -209,6 +235,40 @@ mod tests {
                 &pk.as_bytes(),
                 &Signature::new_bls(signature_bytes.clone())
             ),
+            true
+        );
+    }
+    #[test]
+    fn bls_agg_verify() {
+        // The number of signatures in aggregate
+        let num_sigs = 10;
+        let message_length = num_sigs * 64;
+
+        let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+
+        let msg = (0..message_length).map(|_| rng.gen()).collect::<Vec<u8>>();
+        let data: Vec<&[u8]> = (0..num_sigs).map(|x| &msg[x * 64..(x + 1) * 64]).collect();
+
+        let private_keys: Vec<PrivateKey> =
+            (0..num_sigs).map(|_| PrivateKey::generate(rng)).collect();
+        let public_keys: Vec<_> = private_keys
+            .iter()
+            .map(|x| x.public_key().as_bytes())
+            .collect();
+
+        let signatures: Vec<BlsSignature> = (0..num_sigs)
+            .map(|x| private_keys[x].sign(data[x]))
+            .collect();
+
+        let mut public_keys_slice: Vec<&[u8]> = vec![];
+        for i in 0..num_sigs {
+            public_keys_slice.push(&public_keys[i]);
+        }
+
+        let calculated_bls_agg =
+            Signature::new_bls(bls_signatures::aggregate(&signatures).as_bytes());
+        assert_eq!(
+            verify_bls_aggregate(&data, &public_keys_slice, &calculated_bls_agg),
             true
         );
     }
