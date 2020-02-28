@@ -45,7 +45,7 @@ pub enum NetworkEvent {
 #[derive(Clone, Debug)]
 pub enum NetworkMessage {
     PubsubMessage { topic: Topic, message: Vec<u8> },
-    RPC { peer_id: PeerId, request: RPCEvent },
+    RPC { peer_id: PeerId, event: RPCEvent },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
@@ -140,9 +140,13 @@ impl Libp2pService {
                             info!("RPC event {:?}", event);
                             match event {
                                 RPCEvent::Response(req_id, res) => {
-                                    info!("response: {:?}", res);
+                                    self.network_sender_out.send(NetworkEvent::RPCResponse {
+                                        req_id,
+                                        response: res,
+                                    }).await;
                                 }
                                 RPCEvent::Request(req_id, req) => {
+                                    // TODO implement handling incoming requests
                                     // send the response
                                     swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::Blocksync(BlockSyncResponse {
                                         chain: vec![],
@@ -161,8 +165,8 @@ impl Libp2pService {
                         NetworkMessage::PubsubMessage{topic, message} => {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
-                        NetworkMessage::RPC{peer_id, request} => {
-                            swarm_stream.get_mut().send_rpc(peer_id, request);
+                        NetworkMessage::RPC{peer_id, event} => {
+                            swarm_stream.get_mut().send_rpc(peer_id, event);
                         }
                     }
                     None => {break;}
@@ -176,7 +180,7 @@ impl Libp2pService {
         self.network_sender_in.clone()
     }
 
-    /// Returns a `Receiver` to listen to GossipSub messages
+    /// Returns a `Receiver` to listen to network events
     pub fn network_receiver(&self) -> Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
     }

@@ -5,7 +5,6 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-forest_libp2p = { path = "../../node/forest_libp2p" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
@@ -14,6 +13,7 @@ encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 message = { package = "forest_message", path = "../../vm/message" }
+ipld_blockstore = { path = "../../ipld/blockstore" }
 
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }

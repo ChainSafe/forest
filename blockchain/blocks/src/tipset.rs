@@ -22,10 +22,10 @@ pub struct TipSetKeys {
 }
 
 impl TipSetKeys {
-    /// constructor
     pub fn new(cids: Vec<Cid>) -> Self {
         Self { cids }
     }
+
     /// checks whether the set contains exactly the same CIDs as another.
     fn equals(&self, key: &TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
@@ -38,8 +38,9 @@ impl TipSetKeys {
         }
         true
     }
-    /// Returns tipset keys
-    pub fn tipset_keys(&self) -> &[Cid] {
+
+    /// Returns tipset header cids
+    pub fn cids(&self) -> &[Cid] {
         &self.cids
     }
 }
@@ -65,7 +66,7 @@ impl<'de> de::Deserialize<'de> for TipSetKeys {
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,
@@ -145,6 +146,10 @@ impl Tipset {
             },
         })
     }
+    /// Returns epoch of the tipset
+    pub fn epoch(&self) -> &ChainEpoch {
+        &self.blocks[0].epoch()
+    }
     /// Returns all blocks in tipset
     pub fn blocks(&self) -> &[BlockHeader] {
         &self.blocks
@@ -181,6 +186,10 @@ impl Tipset {
     pub fn key(&self) -> &TipSetKeys {
         &self.key
     }
+    /// Returns slice of Cids for the current tipset
+    pub fn cids(&self) -> &[Cid] {
+        &self.key.cids()
+    }
     /// Returns the CIDs of the parents of the blocks in the tipset
     pub fn parents(&self) -> &TipSetKeys {
         &self.blocks[0].parents()
@@ -196,6 +205,7 @@ impl Tipset {
 }
 
 /// FullTipSet is an expanded version of the TipSet that contains all the blocks and messages
+#[derive(Debug, PartialEq, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
 }

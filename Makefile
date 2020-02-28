@@ -10,7 +10,6 @@ clean:
 	@cargo clean -p blockchain
 	@cargo clean -p forest_blocks
 	@cargo clean -p chain_sync
-	@cargo clean -p sync_manager
 	@cargo clean -p vm
 	@cargo clean -p forest_address
 	@cargo clean -p actor

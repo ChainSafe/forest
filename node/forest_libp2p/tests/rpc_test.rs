@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(test)]
-
 use async_std::task;
 use forest_libp2p::rpc::{
     BlockSyncRequest, BlockSyncResponse, RPCEvent, RPCMessage, RPCRequest, RPCResponse, RPC,

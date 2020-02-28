@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{nodes_for_height, BitMap, Error, WIDTH};
-use blockstore::BlockStore;
 use cid::Cid;
 use encoding::{
     de::{self, Deserialize, DeserializeOwned},
     ser::{self, Serialize},
 };
+use ipld_blockstore::BlockStore;
 
 /// This represents a link to another Node
 #[derive(PartialEq, Eq, Clone, Debug)]
