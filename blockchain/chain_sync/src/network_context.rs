@@ -10,7 +10,7 @@ use forest_libp2p::{
 use libp2p::core::PeerId;
 use log::trace;
 
-/// Context used in chain sync to handle sequential
+/// Context used in chain sync to handle network requests
 pub struct SyncNetworkContext {
     /// Channel to send network messages through p2p service
     network_send: Sender<NetworkMessage>,
