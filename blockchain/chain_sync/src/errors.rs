@@ -31,6 +31,8 @@ pub enum Error {
     State(String),
     /// Error in validating arbitrary data
     Validation(String),
+    /// Any other error that does not need to be specifically handled
+    Other(String),
 }
 
 impl fmt::Display for Error {
@@ -46,6 +48,7 @@ impl fmt::Display for Error {
             Error::AMT(msg) => write!(f, "{}", msg),
             Error::State(msg) => write!(f, "{}", msg),
             Error::Validation(msg) => write!(f, "{}", msg),
+            Error::Other(msg) => write!(f, "chain_sync error: {}", msg),
         }
     }
 }

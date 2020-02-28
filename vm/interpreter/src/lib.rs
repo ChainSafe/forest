@@ -5,6 +5,7 @@ use address::Address;
 use blocks::Tipset;
 use chain::ChainStore;
 use clock::ChainEpoch;
+use ipld_blockstore::BlockStore;
 use message::{MessageReceipt, SignedMessage, UnsignedMessage};
 use state_tree::StateTree;
 use vm::TokenAmount;
@@ -26,12 +27,16 @@ impl VMInterpreter {
 
     /// Applies the state transition for a single message
     /// Returns result StateTree, receipts from the transaction, and the miner penalty token amount
-    pub fn apply_message<ST: StateTree>(
+    pub fn apply_message<'db, DB, ST>(
         _in_tree: &ST,
-        _chain: &ChainStore,
+        _chain: &ChainStore<'db, DB>,
         _msg: &UnsignedMessage,
         _miner_addr: &Address,
-    ) -> (ST, MessageReceipt, TokenAmount) {
+    ) -> (ST, MessageReceipt, TokenAmount)
+    where
+        DB: BlockStore,
+        ST: StateTree,
+    {
         // TODO
         todo!()
     }

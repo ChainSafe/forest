@@ -12,9 +12,15 @@ use std::ops::Sub;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, PartialOrd)]
 /// An epoch represents a single valid state in the blockchain
 pub struct ChainEpoch(u64);
+
+impl From<u64> for ChainEpoch {
+    fn from(num: u64) -> ChainEpoch {
+        ChainEpoch(num)
+    }
+}
 
 impl ser::Serialize for ChainEpoch {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -77,9 +83,21 @@ impl Sub for ChainEpoch {
     type Output = ChainEpoch;
 
     fn sub(self, other: ChainEpoch) -> ChainEpoch {
-        ChainEpoch {
-            0: self.0 - other.0,
-        }
+        ChainEpoch(self.0 - other.0)
+    }
+}
+
+impl Sub for &ChainEpoch {
+    type Output = ChainEpoch;
+
+    fn sub(self, other: &ChainEpoch) -> ChainEpoch {
+        ChainEpoch(self.0 - other.0)
+    }
+}
+
+impl From<ChainEpoch> for u64 {
+    fn from(ce: ChainEpoch) -> u64 {
+        ce.0
     }
 }
 

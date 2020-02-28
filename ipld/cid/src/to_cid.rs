@@ -86,7 +86,7 @@ fn decode_str(cid_str: &str) -> Result<Vec<u8>, Error> {
     let (_, decoded) = if Version::is_v0_str(hash) {
         // TODO: could avoid the roundtrip here and just use underlying
         // base-x base58btc decoder here.
-        let hash = multibase::Base::Base58btc.code().to_string() + hash;
+        let hash = multibase::Base::Base58Btc.code().to_string() + hash;
 
         multibase::decode(hash)
     } else {
@@ -113,8 +113,6 @@ mod tests {
         assert_eq!(hash.algorithm(), Hash::Blake2b256);
     }
     #[test]
-    #[should_panic]
-    // TODO remove should_panic once lowercase base32 implemented in multibase
     fn verify_base32_lower() {
         let t_str = "bafy2bzaced2esi3bximo7jezgdjxkwpiu4vom3rvg44cienfsdgllheuiphee";
         let decoded = &decode_str(&t_str).unwrap();

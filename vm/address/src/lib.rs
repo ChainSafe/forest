@@ -218,10 +218,14 @@ impl<'de> de::Deserialize<'de> for Address {
         D: de::Deserializer<'de>,
     {
         let mut bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        if bz.is_empty() {
+            return Err(de::Error::custom("Cannot deserialize empty bytes"));
+        }
         // Remove protocol byte
-        let protocol = Protocol::from_byte(bz.remove(0))
+        let protocol_byte = bz.remove(0);
+        let protocol = Protocol::from_byte(protocol_byte)
             .ok_or(EncodingError::Unmarshalling {
-                description: format!("Invalid protocol byte: {}", bz[0]),
+                description: format!("Invalid protocol byte: {}", protocol_byte),
                 protocol: CodecProtocol::Cbor,
             })
             .map_err(de::Error::custom)?;

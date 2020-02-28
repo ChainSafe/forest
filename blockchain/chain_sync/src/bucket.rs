@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::Tipset;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// SyncBucket defines a bucket of tipsets to sync
 #[derive(Clone, Default)]
 struct SyncBucket {
-    tips: Vec<Rc<Tipset>>,
+    tips: Vec<Arc<Tipset>>,
 }
 
 impl SyncBucket {
     /// Constructor for tipset bucket
-    fn new(tips: Vec<Rc<Tipset>>) -> SyncBucket {
+    fn new(tips: Vec<Arc<Tipset>>) -> SyncBucket {
         Self { tips }
     }
     /// heaviest_tipset returns the tipset with the max weight
-    fn heaviest_tipset(&self) -> Option<Rc<Tipset>> {
+    fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         if self.tips.is_empty() {
             return None;
         }
@@ -34,7 +34,7 @@ impl SyncBucket {
 
         false
     }
-    fn add(&mut self, ts: Rc<Tipset>) {
+    fn add(&mut self, ts: Arc<Tipset>) {
         if !self.tips.iter().any(|t| *t == ts) {
             self.tips.push(ts);
         }
@@ -48,7 +48,7 @@ pub(crate) struct SyncBucketSet {
 }
 
 impl SyncBucketSet {
-    pub(crate) fn insert(&mut self, tipset: Rc<Tipset>) {
+    pub(crate) fn insert(&mut self, tipset: Arc<Tipset>) {
         for b in self.buckets.iter_mut() {
             if b.same_chain_as(&tipset) {
                 b.add(tipset);
@@ -57,9 +57,9 @@ impl SyncBucketSet {
         }
         self.buckets.push(SyncBucket::new(vec![tipset]))
     }
-    pub(crate) fn heaviest(&self) -> Option<Rc<Tipset>> {
+    pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
         // Transform max values from each bucket into a Vec
-        let vals: Vec<Rc<Tipset>> = self
+        let vals: Vec<Arc<Tipset>> = self
             .buckets
             .iter()
             .filter_map(|b| b.heaviest_tipset())
@@ -94,8 +94,8 @@ mod tests {
 
     #[test]
     fn heaviest_tipset() {
-        let l_tip = Rc::new(Tipset::new(vec![create_header(1, b"", b"")]).unwrap());
-        let h_tip = Rc::new(Tipset::new(vec![create_header(3, b"", b"")]).unwrap());
+        let l_tip = Arc::new(Tipset::new(vec![create_header(1, b"", b"")]).unwrap());
+        let h_tip = Arc::new(Tipset::new(vec![create_header(3, b"", b"")]).unwrap());
 
         // Test the comparison of tipsets
         let bucket = SyncBucket::new(vec![l_tip.clone(), h_tip]);
@@ -116,13 +116,13 @@ mod tests {
     #[test]
     fn sync_bucket_inserts() {
         let mut set = SyncBucketSet::default();
-        let tipset1 = Rc::new(Tipset::new(vec![create_header(1, b"1", b"1")]).unwrap());
+        let tipset1 = Arc::new(Tipset::new(vec![create_header(1, b"1", b"1")]).unwrap());
         set.insert(tipset1.clone());
         assert_eq!(set.buckets.len(), 1);
         assert_eq!(set.buckets[0].tips.len(), 1);
 
         // Assert a tipset on non relating chain is put in another bucket
-        let tipset2 = Rc::new(Tipset::new(vec![create_header(2, b"2", b"2")]).unwrap());
+        let tipset2 = Arc::new(Tipset::new(vec![create_header(2, b"2", b"2")]).unwrap());
         set.insert(tipset2);
         assert_eq!(
             set.buckets.len(),
@@ -132,7 +132,7 @@ mod tests {
         assert_eq!(set.buckets[1].tips.len(), 1);
 
         // Assert a tipset connected to the first
-        let tipset3 = Rc::new(Tipset::new(vec![create_header(3, b"1", b"1")]).unwrap());
+        let tipset3 = Arc::new(Tipset::new(vec![create_header(3, b"1", b"1")]).unwrap());
         assert_eq!(tipset1.key(), tipset3.key());
         set.insert(tipset3);
         assert_eq!(

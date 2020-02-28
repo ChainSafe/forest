@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_INDEX, WIDTH};
-use blockstore::BlockStore;
 use cid::Cid;
 use encoding::{de::DeserializeOwned, ser::Serialize};
+use ipld_blockstore::BlockStore;
 
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID
 ///
