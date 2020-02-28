@@ -39,8 +39,7 @@ fn block_until_sigint() {
     task::block_on(ctrlc_oneshot).unwrap();
 }
 
-#[async_std::main]
-async fn main() {
+fn main() {
     logger::setup_logger();
     info!("Starting Forest");
 
