@@ -24,7 +24,6 @@ use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -461,13 +460,49 @@ where
         }
         Ok(())
     }
+    /// Syncs forked chains
+    async fn sync_fork(&mut self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
+        // TODO change from using random peerID to managed
+        let peer_id = PeerId::random();
 
-    async fn sync_fork(&mut self, _head: &Tipset, _to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
-        // TODO sync fork until tipsets are equal or reaches genesis
-        todo!()
+        // Load blocks from network using blocksync
+        let tips: Vec<Tipset> = match self
+            .network
+            .blocksync_headers(peer_id.clone(), head.parents(), 500)
+            .await
+        {
+            Ok(ts) => ts,
+            Err(_e) => {
+                return Err(Error::Other("Failed to retrieve tipset".to_string()));
+            }
+        };
+
+        let mut nts = self.chain_store.tipset_from_keys(to.parents())?;
+
+        for i in 0..tips.len() {
+            if *nts.tip_epoch().chain_epoch() == 0 {
+                if self.chain_store.genesis()?.unwrap() != nts.blocks()[0] {
+                    return Err(Error::Other(
+                        "Chain is linked back to a different genesis (bad genesis)".to_string(),
+                    ));
+                }
+                return Err(Error::Other(
+                    "Synced chain forked at genesis, refusing to sync".to_string(),
+                ));
+            }
+            if nts.equals(tips[i].clone()) {
+                return Ok(tips[0..=i + 1].to_vec());
+            }
+            if nts.epoch() > tips[i].epoch() {
+                nts = self.chain_store.tipset_from_keys(nts.parents())?;
+            }
+        }
+        Err(Error::Other(
+            "Fork longer than threshold finality of 500".to_string(),
+        ))
     }
 
-    // Persists headers from tipset slice to chain store
+    /// Persists headers from tipset slice to chain store
     fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), DBError> {
         tipsets
             .iter()
