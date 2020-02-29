@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{InboundCodec, OutboundCodec, RPCError, RPCRequest};
+use super::{InboundCodec, OutboundCodec, RPCError};
+use crate::blocksync::{BlockSyncRequest, BLOCKSYNC_PROTOCOL_ID};
+use crate::hello::HELLO_PROTOCOL_ID;
 use bytes::BytesMut;
 use futures::prelude::*;
 use futures::{AsyncRead, AsyncReadExt, AsyncWrite};
@@ -19,7 +21,7 @@ impl UpgradeInfo for RPCInbound {
     type InfoIter = Vec<Self::Info>;
 
     fn protocol_info(&self) -> Self::InfoIter {
-        vec![b"/fil/sync/blk/0.0.1"]
+        vec![BLOCKSYNC_PROTOCOL_ID, HELLO_PROTOCOL_ID]
     }
 }
 
@@ -46,23 +48,38 @@ where
     }
 }
 
-/// Protocol upgrade for outbound RPC requests. Currently supports Blocksync.
-pub struct RPCOutbound {
-    pub req: RPCRequest,
+/// RPCRequest payloads for request/response calls
+#[derive(Debug, Clone, PartialEq)]
+pub enum RPCRequest {
+    Blocksync(BlockSyncRequest),
 }
 
-impl UpgradeInfo for RPCOutbound {
+impl UpgradeInfo for RPCRequest {
     type Info = &'static [u8];
     type InfoIter = Vec<Self::Info>;
 
     fn protocol_info(&self) -> Self::InfoIter {
-        vec![b"/fil/sync/blk/0.0.1"]
+        self.supported_protocols()
+    }
+}
+
+impl RPCRequest {
+    pub fn supported_protocols(&self) -> Vec<&'static [u8]> {
+        match self {
+            // add more protocols when versions/encodings are supported
+            RPCRequest::Blocksync(_) => vec![BLOCKSYNC_PROTOCOL_ID],
+        }
+    }
+    pub fn expect_response(&self) -> bool {
+        match self {
+            RPCRequest::Blocksync(_) => true,
+        }
     }
 }
 
 pub type OutboundFramed<TSocket> = Framed<Negotiated<TSocket>, OutboundCodec>;
 
-impl<TSocket> OutboundUpgrade<TSocket> for RPCOutbound
+impl<TSocket> OutboundUpgrade<TSocket> for RPCRequest
 where
     TSocket: AsyncWrite + AsyncRead + Unpin + Send + 'static,
 {
@@ -74,7 +91,7 @@ where
     fn upgrade_outbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
         Box::pin(async move {
             let mut bm = BytesMut::with_capacity(1024);
-            OutboundCodec.encode(self.req, &mut bm)?;
+            OutboundCodec.encode(self, &mut bm)?;
             socket.write_all(&bm).await?;
             socket.close().await?;
             Ok(Framed::new(socket, OutboundCodec))

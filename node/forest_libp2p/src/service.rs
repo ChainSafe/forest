@@ -1,7 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::rpc::{BlockSyncResponse, RPCEvent, RPCRequest, RPCResponse};
+use super::blocksync::BlockSyncResponse;
+use super::rpc::{RPCEvent, RPCRequest, RPCResponse};
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;

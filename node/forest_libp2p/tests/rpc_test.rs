@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::task;
-use forest_libp2p::rpc::{
-    BlockSyncRequest, BlockSyncResponse, RPCEvent, RPCMessage, RPCRequest, RPCResponse, RPC,
-};
+use forest_libp2p::blocksync::{BlockSyncRequest, BlockSyncResponse};
+use forest_libp2p::rpc::{RPCEvent, RPCMessage, RPCRequest, RPCResponse, RPC};
+
 use futures::{future, prelude::*};
 use libp2p::core::{
     identity,

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    InboundCodec, OutboundFramed, RPCError, RPCEvent, RPCInbound, RPCOutbound, RPCResponse,
+    InboundCodec, OutboundFramed, RPCError, RPCEvent, RPCInbound, RPCRequest, RPCResponse,
     RequestId,
 };
 use fnv::FnvHashMap;
@@ -140,7 +140,7 @@ where
     type Error = RPCError;
     type Substream = TSubstream;
     type InboundProtocol = RPCInbound;
-    type OutboundProtocol = RPCOutbound;
+    type OutboundProtocol = RPCRequest;
     type OutboundOpenInfo = RPCEvent;
 
     fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol> {
@@ -347,9 +347,10 @@ where
             if self.dial_negotiated < self.max_dial_negotiated {
                 self.dial_negotiated += 1;
                 let event = self.dial_queue.remove(0);
+                self.dial_queue.shrink_to_fit();
                 if let RPCEvent::Request(id, req) = event {
                     return Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest {
-                        protocol: SubstreamProtocol::new(RPCOutbound { req: req.clone() }),
+                        protocol: SubstreamProtocol::new(req.clone()),
                         info: RPCEvent::Request(id, req),
                     });
                 }
