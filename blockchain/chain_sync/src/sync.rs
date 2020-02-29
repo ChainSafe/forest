@@ -433,8 +433,9 @@ where
                 // This removes need to sync fork
                 return Ok(return_set);
             }
-            // TODO add fork to return set
-            let _fork = self.sync_fork(&last_ts, &to).await?;
+            // add fork into return set
+            let fork = self.sync_fork(&last_ts, &to).await?;
+            return_set.extend(fork);
         }
 
         Ok(return_set)
@@ -477,11 +478,11 @@ where
             }
         };
 
-        let mut nts = self.chain_store.tipset_from_keys(to.parents())?;
+        let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
 
         for i in 0..tips.len() {
-            if *nts.tip_epoch().chain_epoch() == 0 {
-                if self.chain_store.genesis()?.unwrap() != nts.blocks()[0] {
+            if *ts.tip_epoch().chain_epoch() == 0 {
+                if self.chain_store.genesis()?.unwrap() != ts.blocks()[0] {
                     return Err(Error::Other(
                         "Chain is linked back to a different genesis (bad genesis)".to_string(),
                     ));
@@ -490,11 +491,11 @@ where
                     "Synced chain forked at genesis, refusing to sync".to_string(),
                 ));
             }
-            if nts.equals(tips[i].clone()) {
+            if ts.equals(tips[i].clone()) {
                 return Ok(tips[0..=i + 1].to_vec());
             }
-            if nts.epoch() > tips[i].epoch() {
-                nts = self.chain_store.tipset_from_keys(nts.parents())?;
+            if ts.epoch() > tips[i].epoch() {
+                ts = self.chain_store.tipset_from_keys(ts.parents())?;
             }
         }
         Err(Error::Other(
