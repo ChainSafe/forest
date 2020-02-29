@@ -85,7 +85,7 @@ impl<'db, DB, ST> Future for ChainSyncer<'db, DB, ST> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.project().network_rx.poll_next(cx) {
-            Poll::Ready(Some(event)) => info!("chain syncer received event: {:?}", event),
+            Poll::Ready(Some(_event)) => (),
             Poll::Pending | Poll::Ready(None) => (),
         };
         Poll::Pending
@@ -147,7 +147,7 @@ where
         loop {
             select! {
                 network_msg = nw.next().fuse() => match network_msg {
-                    Some(event) => info!("received some other event: {:?}", event),
+                    Some(event) =>(),
                     None => break,
                 }
             }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::blocksync::BlockSyncResponse;
+use super::hello::HelloMessage;
 use super::rpc::{RPCEvent, RPCRequest, RPCResponse};
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use async_std::sync::{channel, Receiver, Sender};
@@ -39,6 +40,10 @@ pub enum NetworkEvent {
     RPCResponse {
         req_id: usize,
         response: RPCResponse,
+    },
+    Hello {
+        source: PeerId,
+        message: HelloMessage,
     },
 }
 
@@ -116,6 +121,7 @@ impl Libp2pService {
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
                             info!("Peer dialed, {:?}", peer_id);
+                            // TODO add sending hello after genesis setup
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
                             info!("Peer disconnected, {:?}", peer_id);
@@ -146,14 +152,18 @@ impl Libp2pService {
                                         response: res,
                                     }).await;
                                 }
-                                RPCEvent::Request(req_id, req) => {
-                                    // TODO implement handling incoming requests
-                                    // send the response
+                                RPCEvent::Request(req_id, RPCRequest::Blocksync(r)) => {
+                                    // TODO implement handling incoming blocksync requests
                                     swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::Blocksync(BlockSyncResponse {
                                         chain: vec![],
                                         status: 203,
                                         message: "handling requests not implemented".to_owned(),
                                     })));
+                                }
+                                RPCEvent::Request(req_id, RPCRequest::Hello(message)) => {
+
+                                    self.network_sender_out.send(NetworkEvent::Hello{
+                                        message, source: peer_id}).await;
                                 }
                                 RPCEvent::Error(req_id, err) => info!("Error with request {}: {:?}", req_id, err),
                             }
