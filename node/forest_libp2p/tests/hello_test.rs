@@ -4,10 +4,12 @@
 mod rpc_test_utils;
 
 use self::rpc_test_utils::*;
+use clock::ChainEpoch;
 use forest_cid::Cid;
 use forest_libp2p::hello::{HelloMessage, HelloResponse};
 use forest_libp2p::rpc::{RPCEvent, RPCMessage, RPCRequest, RPCResponse};
 use futures::future;
+use num_bigint::BigInt;
 
 #[test]
 fn test_empty_rpc() {
@@ -15,8 +17,8 @@ fn test_empty_rpc() {
 
     let rpc_request = RPCRequest::Hello(HelloMessage {
         heaviest_tip_set: vec![Cid::default()],
-        heaviest_tipset_weight: 1,
-        heaviest_tipset_height: 2,
+        heaviest_tipset_weight: BigInt::from(1),
+        heaviest_tipset_height: ChainEpoch::from(2),
         genesis_hash: Cid::default(),
     });
 
