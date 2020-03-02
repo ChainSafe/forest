@@ -1,10 +1,11 @@
 [workspace]
 members = [
+    "forest",
     "blockchain",
     "blockchain/blocks",
     "blockchain/chain",
+    "blockchain/state_manager",
     "blockchain/chain_sync",
-    "blockchain/sync_manager",
     "vm",
     "vm/actor",
     "vm/address",
@@ -20,4 +21,5 @@ members = [
     "ipld/amt",
     "ipld",
     "ipld/hamt",
+    "math/bigint",
 ]

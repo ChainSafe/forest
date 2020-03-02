@@ -1,11 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{
-    node::Link, nodes_for_height, BitMap, BlockStore, Error, Node, Root, MAX_INDEX, WIDTH,
-};
+use crate::{node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_INDEX, WIDTH};
 use cid::Cid;
 use encoding::{de::DeserializeOwned, ser::Serialize};
+use ipld_blockstore::BlockStore;
 
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID
 ///
@@ -187,6 +186,6 @@ where
     /// flush root and return Cid used as key in block store
     pub fn flush(&mut self) -> Result<Cid, Error> {
         self.root.node.flush(self.block_store)?;
-        self.block_store.put(&self.root)
+        Ok(self.block_store.put(&self.root)?)
     }
 }

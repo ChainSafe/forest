@@ -1,29 +1,29 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EPostProof, Ticket, TipSetKeys};
+use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
-use cid::{Cid, Error as CidError};
+use cid::{multihash::Hash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::Signature;
+use crypto::{is_valid_signature, Signature};
 use derive_builder::Builder;
 use encoding::{
     de::{self, Deserializer},
     ser::{self, Serializer},
     Cbor, Error as EncodingError,
 };
-use num_bigint::BigUint;
-use raw_block::RawBlock;
+use num_bigint::{biguint_ser, BigUint};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Header of a block
 ///
 /// Usage:
 /// ```
-/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket, TxMeta};
+/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket};
 /// use address::Address;
-/// use cid::{Cid, Codec, Prefix, Version};
+/// use cid::Cid;
 /// use clock::ChainEpoch;
 /// use num_bigint::BigUint;
 /// use crypto::Signature;
@@ -42,7 +42,7 @@ use std::fmt;
 ///     .build_and_validate()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Builder)]
+#[derive(Clone, Debug, PartialEq, Builder, Default)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -67,8 +67,6 @@ pub struct BlockHeader {
 
     // STATE
     /// messages contains the Cid to the merkle links for bls_messages and secp_messages
-    /// The spec shows that messages is a TxMeta, but Lotus has it as a Cid to a TxMeta.
-    /// TODO: Need to figure out how to convert TxMeta to a Cid
     #[builder(default)]
     messages: Cid,
 
@@ -111,47 +109,47 @@ pub struct BlockHeader {
     cached_bytes: Vec<u8>,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
-impl Cbor for BlockHeader {}
-
-#[derive(Serialize, Deserialize)]
-struct CborBlockHeader(
-    Address,    // miner_address
-    Ticket,     // ticket
-    EPostProof, // epost_verify
-    TipSetKeys, // parents []cid
-    BigUint,    // weight
-    ChainEpoch, // epoch
-    Cid,        // state_root
-    Cid,        // message_receipts
-    Cid,        // messages
-    Signature,  // bls_aggregate
-    u64,        // timestamp
-    Signature,  // signature
-    u64,        // fork_signal
-);
+impl Cbor for BlockHeader {
+    fn cid(&self) -> Result<Cid, EncodingError> {
+        Ok(self.cid().clone())
+    }
+}
 
 impl ser::Serialize for BlockHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        CborBlockHeader(
-            self.miner_address.clone(),
-            self.ticket.clone(),
-            self.epost_verify.clone(),
-            self.parents.clone(),
-            self.weight.clone(),
-            self.epoch,
-            self.state_root.clone(),
-            self.message_receipts.clone(),
-            self.messages.clone(),
-            self.bls_aggregate.clone(),
-            self.timestamp,
-            self.signature.clone(),
-            self.fork_signal,
+        #[derive(Serialize)]
+        struct TupleBlockHeader<'a>(
+            &'a Address,                                // miner_address
+            &'a Ticket,                                 // ticket
+            &'a EPostProof,                             // epost_verify
+            &'a TipSetKeys,                             // parents []cid
+            #[serde(with = "biguint_ser")] &'a BigUint, // weight
+            &'a ChainEpoch,                             // epoch
+            &'a Cid,                                    // state_root
+            &'a Cid,                                    // message_receipts
+            &'a Cid,                                    // messages
+            &'a Signature,                              // bls_aggregate
+            &'a u64,                                    // timestamp
+            &'a Signature,                              // signature
+            &'a u64,                                    // fork_signal
+        );
+        TupleBlockHeader(
+            &self.miner_address,
+            &self.ticket,
+            &self.epost_verify,
+            &self.parents,
+            &self.weight,
+            &self.epoch,
+            &self.state_root,
+            &self.message_receipts,
+            &self.messages,
+            &self.bls_aggregate,
+            &self.timestamp,
+            &self.signature,
+            &self.fork_signal,
         )
         .serialize(serializer)
     }
@@ -162,7 +160,23 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
     where
         D: Deserializer<'de>,
     {
-        let (
+        #[derive(Deserialize)]
+        struct TupleBlockHeader(
+            Address,
+            Ticket,
+            EPostProof,
+            TipSetKeys,
+            #[serde(with = "biguint_ser")] BigUint,
+            ChainEpoch,
+            Cid,
+            Cid,
+            Cid,
+            Signature,
+            u64,
+            Signature,
+            u64,
+        );
+        let TupleBlockHeader(
             miner_address,
             ticket,
             epost_verify,
@@ -196,18 +210,6 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             .unwrap();
 
         Ok(header)
-    }
-}
-
-impl RawBlock for BlockHeader {
-    /// returns the block raw contents as a byte array
-    fn raw_data(&self) -> Result<Vec<u8>, EncodingError> {
-        // TODO should serialize block header using CBOR encoding
-        self.marshal_cbor()
-    }
-    /// returns the content identifier of the block
-    fn cid(&self) -> Result<Cid, CidError> {
-        Ok(self.cid().clone())
     }
 }
 
@@ -276,7 +278,50 @@ impl BlockHeader {
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
-        self.cached_cid = Cid::from_bytes_default(&self.cached_bytes).map_err(|e| e.to_string())?;
+        self.cached_cid =
+            Cid::from_bytes(&self.cached_bytes, Blake2b256).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    /// Check to ensure block signature is valid
+    pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
+        if self.signature().bytes().is_empty() {
+            return Err(Error::InvalidSignature(
+                "Signature is nil in header".to_string(),
+            ));
+        }
+
+        if !is_valid_signature(&self.cid().to_bytes(), addr, self.signature()) {
+            return Err(Error::InvalidSignature(
+                "Block signature is invalid".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+    /// Validates timestamps to ensure BlockHeader was generated at the correct time
+    pub fn validate_timestamps(&self, base_tipset: &FullTipset) -> Result<(), Error> {
+        // first check that it is not in the future; see https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
+        // allowing for some small grace period to deal with small asynchrony
+        // using ALLOWABLE_CLOCK_DRIFT from Lotus; see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L34:7
+        const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
+        let time_now = SystemTime::now().duration_since(UNIX_EPOCH)?;
+        if self.timestamp() > time_now.as_secs() + ALLOWABLE_CLOCK_DRIFT
+            || self.timestamp() > time_now.as_secs()
+        {
+            return Err(Error::Validation("Header was from the future".to_string()));
+        }
+        const FIXED_BLOCK_DELAY: u64 = 45;
+        // check that it is appropriately delayed from its parents including null blocks
+        if self.timestamp()
+            < base_tipset.tipset()?.min_timestamp()?
+                + FIXED_BLOCK_DELAY
+                    * (*self.epoch() - *base_tipset.tipset()?.tip_epoch()).chain_epoch()
+        {
+            return Err(Error::Validation(
+                "Header was generated too soon".to_string(),
+            ));
+        }
+
         Ok(())
     }
 }

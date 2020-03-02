@@ -5,9 +5,8 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
-use num_bigint::BigUint;
-use raw_block::RawBlock;
-use serde::Deserialize;
+use num_bigint::{biguint_ser, BigUint};
+use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
@@ -65,22 +64,46 @@ impl UnsignedMessage {
     }
 }
 
+// Type declared outside of deserialize block because of clippy bug
+#[derive(Deserialize)]
+pub struct TupleUnsignedMessage(
+    Address,
+    Address,
+    u64,
+    TokenAmount,
+    #[serde(with = "biguint_ser")] BigUint,
+    #[serde(with = "biguint_ser")] BigUint,
+    MethodNum,
+    Serialized,
+);
+
 impl ser::Serialize for UnsignedMessage {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
-        (
-            self.to.clone(),
-            self.from.clone(),
-            self.sequence,
-            self.value.clone(),
-            self.gas_price.clone(),
-            self.gas_limit.clone(),
-            self.method_num,
-            self.params.clone(),
+        #[derive(Serialize)]
+        pub struct TupleUnsignedMessage<'a>(
+            &'a Address,
+            &'a Address,
+            &'a u64,
+            &'a TokenAmount,
+            #[serde(with = "biguint_ser")] &'a BigUint,
+            #[serde(with = "biguint_ser")] &'a BigUint,
+            &'a MethodNum,
+            &'a Serialized,
+        );
+        TupleUnsignedMessage(
+            &self.to,
+            &self.from,
+            &self.sequence,
+            &self.value,
+            &self.gas_price,
+            &self.gas_limit,
+            &self.method_num,
+            &self.params,
         )
-            .serialize(s)
+        .serialize(s)
     }
 }
 
@@ -89,8 +112,16 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
     where
         D: de::Deserializer<'de>,
     {
-        let (to, from, sequence, value, gas_price, gas_limit, method_num, params) =
-            Deserialize::deserialize(deserializer)?;
+        let TupleUnsignedMessage(
+            to,
+            from,
+            sequence,
+            value,
+            gas_price,
+            gas_limit,
+            method_num,
+            params,
+        ) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             to,
             from,
@@ -129,8 +160,10 @@ impl Message for UnsignedMessage {
     fn gas_limit(&self) -> &BigUint {
         &self.gas_limit
     }
+    fn required_funds(&self) -> BigUint {
+        let total = self.gas_price() * self.gas_limit();
+        total + self.value().0.clone()
+    }
 }
-
-impl RawBlock for UnsignedMessage {}
 
 impl Cbor for UnsignedMessage {}

@@ -1,11 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::Error as EncodingError;
 use multibase;
 use multihash;
 use std::{error, fmt, io};
-
 /// Error types
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Error {
@@ -75,11 +73,5 @@ impl From<multihash::DecodeError> for Error {
 impl From<Error> for fmt::Error {
     fn from(_: Error) -> fmt::Error {
         fmt::Error {}
-    }
-}
-
-impl From<EncodingError> for Error {
-    fn from(err: EncodingError) -> Error {
-        Error::Other(err.to_string())
     }
 }

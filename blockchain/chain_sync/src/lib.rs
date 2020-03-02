@@ -1,7 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod block_msg;
-mod block_proposer;
+mod bucket;
+mod errors;
+mod manager;
+mod network_context;
+mod sync;
 
-pub use block_msg::*;
+pub use self::errors::Error;
+pub use self::manager::SyncManager;
+pub use network_context::*;
+pub use sync::*;

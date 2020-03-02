@@ -30,4 +30,6 @@ pub trait Message {
     fn gas_price(&self) -> &BigUint;
     /// Returns the gas limit for the message
     fn gas_limit(&self) -> &BigUint;
+    /// Returns the required funds for the message
+    fn required_funds(&self) -> BigUint;
 }

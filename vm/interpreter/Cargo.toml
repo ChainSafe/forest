@@ -12,3 +12,4 @@ blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 chain = { path = "../../blockchain/chain" }
 clock = { path = "../../node/clock" }
 vm = { path = "../" }
+ipld_blockstore = { path = "../../ipld/blockstore" }

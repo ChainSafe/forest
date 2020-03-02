@@ -27,9 +27,9 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::OutOfRange(v) => write!(f, "index {} out of range for the amt", v),
-            Error::Cbor(msg) => write!(f, "Could not (de)serialize object: {}", msg),
-            Error::Cid(msg) => write!(f, "Error generating Cid: {}", msg),
-            Error::Db(msg) => write!(f, "Database Error: {}", msg),
+            Error::Cbor(msg) => write!(f, "{}", msg),
+            Error::Cid(msg) => write!(f, "{}", msg),
+            Error::Db(msg) => write!(f, "{}", msg),
             Error::Cached => write!(
                 f,
                 "Tried to serialize without saving cache, run flush() on AMT before serializing"

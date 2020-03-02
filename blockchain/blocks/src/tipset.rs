@@ -3,7 +3,6 @@
 
 #![allow(unused_variables)]
 #![allow(dead_code)]
-
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
@@ -22,10 +21,11 @@ pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
 
-// TODO verify format or implement custom serialize/deserialize function (if necessary):
-// https://github.com/ChainSafe/forest/issues/143
-
 impl TipSetKeys {
+    pub fn new(cids: Vec<Cid>) -> Self {
+        Self { cids }
+    }
+
     /// checks whether the set contains exactly the same CIDs as another.
     fn equals(&self, key: &TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
@@ -38,6 +38,11 @@ impl TipSetKeys {
         }
         true
     }
+
+    /// Returns tipset header cids
+    pub fn cids(&self) -> &[Cid] {
+        &self.cids
+    }
 }
 
 impl ser::Serialize for TipSetKeys {
@@ -45,8 +50,7 @@ impl ser::Serialize for TipSetKeys {
     where
         S: Serializer,
     {
-        let value = self.cids.clone();
-        value.serialize(serializer)
+        self.cids.serialize(serializer)
     }
 }
 
@@ -62,7 +66,7 @@ impl<'de> de::Deserialize<'de> for TipSetKeys {
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,
@@ -142,8 +146,12 @@ impl Tipset {
             },
         })
     }
+    /// Returns epoch of the tipset
+    pub fn epoch(&self) -> &ChainEpoch {
+        &self.blocks[0].epoch()
+    }
     /// Returns all blocks in tipset
-    pub fn blocks(&self) -> &Vec<BlockHeader> {
+    pub fn blocks(&self) -> &[BlockHeader] {
         &self.blocks
     }
     /// Returns the smallest ticket of all blocks in the tipset
@@ -154,7 +162,7 @@ impl Tipset {
         Ok(self.blocks[0].ticket().clone())
     }
     /// Returns the smallest timestamp of all blocks in the tipset
-    fn min_timestamp(&self) -> Result<u64, Error> {
+    pub fn min_timestamp(&self) -> Result<u64, Error> {
         if self.blocks.is_empty() {
             return Err(Error::NoBlocks);
         }
@@ -178,6 +186,10 @@ impl Tipset {
     pub fn key(&self) -> &TipSetKeys {
         &self.key
     }
+    /// Returns slice of Cids for the current tipset
+    pub fn cids(&self) -> &[Cid] {
+        &self.key.cids()
+    }
     /// Returns the CIDs of the parents of the blocks in the tipset
     pub fn parents(&self) -> &TipSetKeys {
         &self.blocks[0].parents()
@@ -193,6 +205,7 @@ impl Tipset {
 }
 
 /// FullTipSet is an expanded version of the TipSet that contains all the blocks and messages
+#[derive(Debug, PartialEq, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
 }
@@ -203,7 +216,7 @@ impl FullTipset {
         Self { blocks: blks }
     }
     /// Returns all blocks in a full tipset
-    pub fn blocks(&self) -> &Vec<Block> {
+    pub fn blocks(&self) -> &[Block] {
         &self.blocks
     }
     /// Returns a Tipset
@@ -211,9 +224,10 @@ impl FullTipset {
         let mut headers = Vec::new();
 
         for block in self.blocks() {
-            headers.push(block.to_header().clone())
+            headers.push(block.header().clone())
         }
-        Ok(Tipset::new(headers))?
+        let tip: Tipset = Tipset::new(headers)?;
+        Ok(tip)
     }
 }
 
@@ -221,7 +235,7 @@ impl FullTipset {
 mod tests {
     use super::*;
     use address::Address;
-    use cid::Cid;
+    use cid::{multihash::Hash::Blake2b256, Cid};
     use crypto::VRFResult;
     use num_bigint::BigUint;
 
@@ -229,7 +243,7 @@ mod tests {
     const CACHED_BYTES: [u8; 1] = [0];
 
     fn template_key(data: &[u8]) -> Cid {
-        Cid::from_bytes_default(data).unwrap()
+        Cid::from_bytes(data, Blake2b256).unwrap()
     }
 
     // key_setup returns a vec of 4 distinct CIDs
@@ -249,7 +263,7 @@ mod tests {
             .parents(TipSetKeys {
                 cids: vec![cids[3].clone()],
             })
-            .miner_address(Address::new_secp256k1(ticket_p.clone()).unwrap())
+            .miner_address(Address::new_secp256k1(&ticket_p).unwrap())
             .timestamp(timestamp)
             .ticket(Ticket {
                 vrfproof: VRFResult::new(ticket_p),
@@ -269,9 +283,9 @@ mod tests {
         let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
         let cids = key_setup();
         return vec![
-            template_header(data0.clone(), cids[0].clone(), 1),
-            template_header(data1.clone(), cids[1].clone(), 2),
-            template_header(data2.clone(), cids[2].clone(), 3),
+            template_header(data0, cids[0].clone(), 1),
+            template_header(data1, cids[1].clone(), 2),
+            template_header(data2, cids[2].clone(), 3),
         ];
     }
 
