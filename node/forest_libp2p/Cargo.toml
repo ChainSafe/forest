@@ -20,6 +20,8 @@ forest_cid = { path = "../../ipld/cid" }
 bytes = "0.5.2"
 fnv = "1.0.6"
 smallvec = "1.1.0"
+clock = { path = "../clock" }
+num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 
 [dev-dependencies]
 forest_address = { path = "../../vm/address" }

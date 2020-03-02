@@ -7,7 +7,8 @@ use async_std::prelude::*;
 use async_std::sync::{Receiver, Sender};
 use blocks::{TipSetKeys, Tipset};
 use forest_libp2p::{
-    rpc::{BlockSyncRequest, BlockSyncResponse, RPCEvent, RPCRequest, RPCResponse, RequestId},
+    blocksync::{BlockSyncRequest, BlockSyncResponse},
+    rpc::{RPCEvent, RPCRequest, RPCResponse, RequestId},
     NetworkEvent, NetworkMessage,
 };
 use libp2p::core::PeerId;
@@ -76,13 +77,16 @@ impl SyncNetworkContext {
         peer_id: PeerId,
         request: BlockSyncRequest,
     ) -> Result<BlockSyncResponse, &'static str> {
-        trace!("Sending Blocksync Request {:?}", request);
+        trace!("Sending BlockSync Request {:?}", request);
         let rpc_res = self
-            .send_rpc_request(peer_id, RPCRequest::Blocksync(request))
+            .send_rpc_request(peer_id, RPCRequest::BlockSync(request))
             .await?;
 
-        let RPCResponse::Blocksync(bs_res) = rpc_res;
-        Ok(bs_res)
+        if let RPCResponse::BlockSync(bs_res) = rpc_res {
+            Ok(bs_res)
+        } else {
+            Err("Invalid response type")
+        }
     }
 
     /// Send any RPC request to the network and await the response
