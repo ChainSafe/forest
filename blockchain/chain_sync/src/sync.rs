@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::network_handler::NetworkHandler;
+use super::peer_manager::PeerManager;
 use super::{Error, SyncManager, SyncNetworkContext};
 use address::Address;
 use amt::AMT;
-use async_std::sync::channel;
-use async_std::sync::{Receiver, Sender};
+use async_std::sync::{channel, Receiver, Sender};
+use async_std::task;
 use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::Cid;
+use core::time::Duration;
 use crypto::is_valid_signature;
 use db::Error as DBError;
 use encoding::{Cbor, Error as EncodingError};
@@ -68,6 +70,9 @@ pub struct ChainSyncer<'db, DB, ST> {
 
     ///  incoming network events to be handled by syncer
     net_handler: NetworkHandler,
+
+    /// Peer manager to handle full peers to send ChainSync requests to
+    peer_manager: Arc<PeerManager>,
 }
 
 /// Message data used to ensure valid state transition
@@ -116,6 +121,7 @@ where
             sync_manager,
             bad_blocks: LruCache::new(1 << 15),
             net_handler,
+            peer_manager: Arc::new(PeerManager::default()),
         })
     }
 }
@@ -392,7 +398,13 @@ where
             let window = min(epoch_diff, REQUEST_WINDOW);
 
             // TODO change from using random peerID to managed
-            let peer_id = PeerId::random();
+            while self.peer_manager.is_empty() {
+                task::sleep(Duration::from_secs(3)).await;
+            }
+            let peer_id = self
+                .peer_manager
+                .get_peer()
+                .expect("Peer set is not empty here");
 
             // Load blocks from network using blocksync
             let tipsets: Vec<Tipset> = match self
