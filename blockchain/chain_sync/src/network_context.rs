@@ -4,7 +4,8 @@
 use async_std::sync::Sender;
 use blocks::TipSetKeys;
 use forest_libp2p::{
-    rpc::{BlockSyncRequest, RPCEvent, RPCRequest, RequestId},
+    blocksync::BlockSyncRequest,
+    rpc::{RPCEvent, RPCRequest, RequestId},
     NetworkMessage,
 };
 use libp2p::core::PeerId;
@@ -51,8 +52,8 @@ impl SyncNetworkContext {
         peer_id: PeerId,
         request: BlockSyncRequest,
     ) -> RequestId {
-        trace!("Sending Blocksync Request {:?}", request);
-        self.send_rpc_request(peer_id, RPCRequest::Blocksync(request))
+        trace!("Sending BlockSync Request {:?}", request);
+        self.send_rpc_request(peer_id, RPCRequest::BlockSync(request))
             .await
     }
 

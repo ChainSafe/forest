@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{InboundCodec, OutboundCodec, RPCError, RPCRequest};
+use super::{InboundCodec, OutboundCodec, RPCError};
+use crate::blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKSYNC_PROTOCOL_ID};
+use crate::hello::{HelloMessage, HelloResponse, HELLO_PROTOCOL_ID};
 use bytes::BytesMut;
 use futures::prelude::*;
 use futures::{AsyncRead, AsyncReadExt, AsyncWrite};
@@ -10,7 +12,14 @@ use libp2p::core::{Negotiated, UpgradeInfo};
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use std::pin::Pin;
 
-/// Protocol upgrade for inbound RPC requests. Currently supports Blocksync.
+/// RPCResponse payloads for request/response calls
+#[derive(Debug, Clone, PartialEq)]
+pub enum RPCResponse {
+    BlockSync(BlockSyncResponse),
+    Hello(HelloResponse),
+}
+
+/// Protocol upgrade for inbound RPC requests.
 #[derive(Debug, Clone)]
 pub struct RPCInbound;
 
@@ -19,12 +28,12 @@ impl UpgradeInfo for RPCInbound {
     type InfoIter = Vec<Self::Info>;
 
     fn protocol_info(&self) -> Self::InfoIter {
-        vec![b"/fil/sync/blk/0.0.1"]
+        vec![BLOCKSYNC_PROTOCOL_ID, HELLO_PROTOCOL_ID]
     }
 }
 
-pub type InboundFramed<TSocket> = Framed<TSocket, InboundCodec>;
-pub type InboundOutput<TSocket> = (RPCRequest, InboundFramed<TSocket>);
+pub(crate) type InboundFramed<TSocket> = Framed<TSocket, InboundCodec>;
+pub(crate) type InboundOutput<TSocket> = (RPCRequest, InboundFramed<TSocket>);
 
 impl<TSocket> InboundUpgrade<TSocket> for RPCInbound
 where
@@ -35,34 +44,52 @@ where
     #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
-    fn upgrade_inbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
+    fn upgrade_inbound(self, mut socket: TSocket, protocol: Self::Info) -> Self::Future {
         Box::pin(async move {
-            let mut buf = Vec::new();
+            let mut buf = Vec::default();
             socket.read_to_end(&mut buf).await?;
             let mut bm = BytesMut::from(&buf[..]);
-            let req = InboundCodec.decode(&mut bm)?.unwrap();
-            Ok((req, Framed::new(socket, InboundCodec)))
+            let mut codec = InboundCodec::new(protocol);
+            let req = codec.decode(&mut bm)?.unwrap();
+            Ok((req, Framed::new(socket, codec)))
         })
     }
 }
 
-/// Protocol upgrade for outbound RPC requests. Currently supports Blocksync.
-pub struct RPCOutbound {
-    pub req: RPCRequest,
+/// RPCRequest payloads for request/response calls
+#[derive(Debug, Clone, PartialEq)]
+pub enum RPCRequest {
+    BlockSync(BlockSyncRequest),
+    Hello(HelloMessage),
 }
 
-impl UpgradeInfo for RPCOutbound {
+impl UpgradeInfo for RPCRequest {
     type Info = &'static [u8];
     type InfoIter = Vec<Self::Info>;
 
     fn protocol_info(&self) -> Self::InfoIter {
-        vec![b"/fil/sync/blk/0.0.1"]
+        self.supported_protocols()
     }
 }
 
-pub type OutboundFramed<TSocket> = Framed<Negotiated<TSocket>, OutboundCodec>;
+impl RPCRequest {
+    pub fn supported_protocols(&self) -> Vec<&'static [u8]> {
+        match self {
+            RPCRequest::BlockSync(_) => vec![BLOCKSYNC_PROTOCOL_ID],
+            RPCRequest::Hello(_) => vec![HELLO_PROTOCOL_ID],
+        }
+    }
+    pub fn expect_response(&self) -> bool {
+        match self {
+            RPCRequest::BlockSync(_) => true,
+            RPCRequest::Hello(_) => true,
+        }
+    }
+}
 
-impl<TSocket> OutboundUpgrade<TSocket> for RPCOutbound
+pub(crate) type OutboundFramed<TSocket> = Framed<Negotiated<TSocket>, OutboundCodec>;
+
+impl<TSocket> OutboundUpgrade<TSocket> for RPCRequest
 where
     TSocket: AsyncWrite + AsyncRead + Unpin + Send + 'static,
 {
@@ -71,13 +98,14 @@ where
     #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
-    fn upgrade_outbound(self, mut socket: TSocket, _: Self::Info) -> Self::Future {
+    fn upgrade_outbound(self, mut socket: TSocket, protocol: Self::Info) -> Self::Future {
         Box::pin(async move {
             let mut bm = BytesMut::with_capacity(1024);
-            OutboundCodec.encode(self.req, &mut bm)?;
+            let mut codec = OutboundCodec::new(protocol);
+            codec.encode(self, &mut bm)?;
             socket.write_all(&bm).await?;
             socket.close().await?;
-            Ok(Framed::new(socket, OutboundCodec))
+            Ok(Framed::new(socket, codec))
         })
     }
 }

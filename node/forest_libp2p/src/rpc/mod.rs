@@ -2,18 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod behaviour;
-mod blocksync_message;
 mod codec;
+mod error;
 mod handler;
 mod protocol;
-mod rpc_message;
 
-pub use behaviour::*;
-pub use blocksync_message::*;
-pub use codec::*;
-pub use handler::*;
-pub use protocol::*;
-pub use rpc_message::*;
+pub use self::behaviour::{RPCMessage, RPC};
+pub use self::codec::{InboundCodec, OutboundCodec};
+pub use self::error::RPCError;
+pub use self::handler::{RPCHandler, RESPONSE_TIMEOUT};
+pub use self::protocol::{RPCRequest, RPCResponse};
 
 pub type RequestId = usize;
 
