@@ -3,7 +3,7 @@
 
 use cid::Error as CidError;
 use db::Error as DBError;
-use encoding::error::Error as EncodingError;
+use forest_encoding::error::Error as EncodingError;
 use std::fmt;
 
 /// HAMT Error

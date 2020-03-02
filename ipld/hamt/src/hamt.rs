@@ -1,25 +1,23 @@
-use std::borrow::Borrow;
-use std::ops::Index;
-
+use crate::bitfield::Bitfield;
+use crate::hash::Hash;
+use crate::Error;
+use cid::Cid;
+use forest_encoding::{de::Deserializer, ser::Serializer};
+use ipld_blockstore::BlockStore;
 use lazycell::AtomicLazyCell;
 use murmur3::murmur3_x64_128::MurmurHasher;
 use replace_with::replace_with;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-
-use crate::bitfield::Bitfield;
-use crate::hash::Hash;
-use crate::{BlockStore, Error};
-use cid::Cid;
+use std::borrow::Borrow;
+use std::ops::Index;
 
 const MAX_ARRAY_WIDTH: usize = 3;
 
 /// Implementation of the HAMT data structure for IPLD.
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct Hamt<'a, K, V, S: BlockStore> {
-    #[serde(flatten)]
     root: Node<K, V>,
-    #[serde(skip)]
     store: &'a S,
 }
 
@@ -29,13 +27,37 @@ impl<'a, K: PartialEq, V: PartialEq, S: BlockStore> PartialEq for Hamt<'a, K, V,
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(bound(deserialize = "Pointer<K, V>: DeserializeOwned"))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Node<K, V> {
-    #[serde(rename = "bf")]
     bitfield: Bitfield,
-    #[serde(default = "Vec::new", rename = "p")]
     pointers: Vec<Pointer<K, V>>,
+}
+
+impl<K, V> Serialize for Node<K, V>
+where
+    K: Serialize,
+    V: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
+        (&self.bitfield, &self.pointers).serialize(serializer)
+    }
+}
+
+impl<'de, K, V> Deserialize<'de> for Node<K, V>
+where
+    K: DeserializeOwned,
+    V: DeserializeOwned,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (bitfield, pointers) = Deserialize::deserialize(deserializer)?;
+        Ok(Node { bitfield, pointers })
+    }
 }
 
 type HashedKey = [u8; 16];
@@ -124,9 +146,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use refil::hamt::Hamt;
+    /// use ipld_hamt::Hamt;
     ///
-    /// let store = refil::store::MemoryStore::default();
+    /// let store = db::MemoryDB::default();
+    ///
     /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
     /// assert_eq!(map.insert(37, "a".into()), None);
     /// assert_eq!(map.is_empty(), false);
@@ -148,9 +171,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use refil::hamt::Hamt;
+    /// use ipld_hamt::Hamt;
     ///
-    /// let store = refil::store::MemoryStore::default();
+    /// let store = db::MemoryDB::default();
+    ///
     /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
     /// map.insert(1, "a".to_string());
     /// assert_eq!(map.get(&1), Some(&"a".to_string()));
@@ -175,9 +199,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use refil::hamt::Hamt;
-
-    /// let store = refil::store::MemoryStore::default();
+    /// use ipld_hamt::Hamt;
+    ///
+    /// let store = db::MemoryDB::default();
+    ///
     /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
     /// map.insert(1, "a".into());
     /// assert_eq!(map.remove_entry(&1), Some((1, "a".into())));
@@ -201,9 +226,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use refil::hamt::Hamt;
+    /// use ipld_hamt::Hamt;
     ///
-    /// let store = refil::store::MemoryStore::default();
+    /// let store = db::MemoryDB::default();
+    ///
     /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
     /// map.insert(1, "a".to_string());
     /// assert_eq!(map.remove(&1), Some("a".to_string()));
@@ -651,7 +677,7 @@ mod tests {
             Some("world".to_string())
         );
         assert_eq!(hamt.get(&1), Some(&"world2".to_string()));
-        let c = store.put(&hamt).unwrap();
+        let c = store.put(&hamt.root).unwrap();
 
         let new_hamt = Hamt::from_link(&c, &store).unwrap();
         assert_eq!(hamt, new_hamt);
@@ -664,7 +690,7 @@ mod tests {
         assert_ne!(hamt, new_hamt);
 
         // loading new hash
-        let c2 = store.put(&hamt).unwrap();
+        let c2 = store.put(&hamt.root).unwrap();
         let new_hamt = Hamt::from_link(&c2, &store).unwrap();
         assert_eq!(hamt, new_hamt);
 

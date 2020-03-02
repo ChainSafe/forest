@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ByteOrder};
-use encoding::{
+use forest_encoding::{
     de::{Deserialize, Deserializer},
     ser::{Serialize, Serializer},
     serde_bytes,
@@ -138,7 +138,6 @@ mod tests {
         b.set_bit(18);
         b.set_bit(92);
         b.set_bit(255);
-        println!("{:?}", &b);
         assert!(b.test_bit(8));
         assert!(b.test_bit(18));
         assert!(!b.test_bit(19));
