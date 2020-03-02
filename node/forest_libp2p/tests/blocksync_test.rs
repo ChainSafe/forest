@@ -12,14 +12,14 @@ use futures::future;
 fn test_empty_blocksync() {
     let (mut sender, mut receiver) = build_node_pair();
 
-    let rpc_request = RPCRequest::Blocksync(BlockSyncRequest {
+    let rpc_request = RPCRequest::BlockSync(BlockSyncRequest {
         start: vec![],
         request_len: 0,
         options: 0,
     });
 
     let c_request = rpc_request.clone();
-    let rpc_response = RPCResponse::Blocksync(BlockSyncResponse {
+    let rpc_response = RPCResponse::BlockSync(BlockSyncResponse {
         chain: vec![],
         status: 1,
         message: "message".to_owned(),

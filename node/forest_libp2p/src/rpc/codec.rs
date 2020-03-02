@@ -25,7 +25,7 @@ impl Encoder for InboundCodec {
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
-            RPCResponse::Blocksync(response) => {
+            RPCResponse::BlockSync(response) => {
                 let resp = to_vec(&response)?;
                 dst.clear();
                 dst.extend_from_slice(&resp);
@@ -54,7 +54,7 @@ impl Decoder for InboundCodec {
             HELLO_PROTOCOL_ID => Ok(Some(RPCRequest::Hello(
                 from_slice(bz).map_err(|err| RPCError::Codec(err.to_string()))?,
             ))),
-            BLOCKSYNC_PROTOCOL_ID => Ok(Some(RPCRequest::Blocksync(
+            BLOCKSYNC_PROTOCOL_ID => Ok(Some(RPCRequest::BlockSync(
                 from_slice(bz).map_err(|err| RPCError::Codec(err.to_string()))?,
             ))),
             _ => Err(RPCError::Codec("Unsupported codec".to_string())),
@@ -78,7 +78,7 @@ impl Encoder for OutboundCodec {
     type Item = RPCRequest;
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
-            RPCRequest::Blocksync(request) => {
+            RPCRequest::BlockSync(request) => {
                 let resp = to_vec(&request)?;
                 dst.clear();
                 dst.extend_from_slice(&resp);
@@ -105,7 +105,7 @@ impl Decoder for OutboundCodec {
             HELLO_PROTOCOL_ID => Ok(Some(RPCResponse::Hello(
                 from_slice(bz).map_err(|err| RPCError::Codec(err.to_string()))?,
             ))),
-            BLOCKSYNC_PROTOCOL_ID => Ok(Some(RPCResponse::Blocksync(
+            BLOCKSYNC_PROTOCOL_ID => Ok(Some(RPCResponse::BlockSync(
                 from_slice(bz).map_err(|err| RPCError::Codec(err.to_string()))?,
             ))),
             _ => Err(RPCError::Codec("Unsupported codec".to_string())),

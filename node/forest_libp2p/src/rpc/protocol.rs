@@ -15,11 +15,11 @@ use std::pin::Pin;
 /// RPCResponse payloads for request/response calls
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCResponse {
-    Blocksync(BlockSyncResponse),
+    BlockSync(BlockSyncResponse),
     Hello(HelloResponse),
 }
 
-/// Protocol upgrade for inbound RPC requests. Currently supports Blocksync.
+/// Protocol upgrade for inbound RPC requests.
 #[derive(Debug, Clone)]
 pub struct RPCInbound;
 
@@ -32,8 +32,8 @@ impl UpgradeInfo for RPCInbound {
     }
 }
 
-pub type InboundFramed<TSocket> = Framed<TSocket, InboundCodec>;
-pub type InboundOutput<TSocket> = (RPCRequest, InboundFramed<TSocket>);
+pub(crate) type InboundFramed<TSocket> = Framed<TSocket, InboundCodec>;
+pub(crate) type InboundOutput<TSocket> = (RPCRequest, InboundFramed<TSocket>);
 
 impl<TSocket> InboundUpgrade<TSocket> for RPCInbound
 where
@@ -59,7 +59,7 @@ where
 /// RPCRequest payloads for request/response calls
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCRequest {
-    Blocksync(BlockSyncRequest),
+    BlockSync(BlockSyncRequest),
     Hello(HelloMessage),
 }
 
@@ -75,20 +75,19 @@ impl UpgradeInfo for RPCRequest {
 impl RPCRequest {
     pub fn supported_protocols(&self) -> Vec<&'static [u8]> {
         match self {
-            // add more protocols when versions/encodings are supported
-            RPCRequest::Blocksync(_) => vec![BLOCKSYNC_PROTOCOL_ID],
+            RPCRequest::BlockSync(_) => vec![BLOCKSYNC_PROTOCOL_ID],
             RPCRequest::Hello(_) => vec![HELLO_PROTOCOL_ID],
         }
     }
     pub fn expect_response(&self) -> bool {
         match self {
-            RPCRequest::Blocksync(_) => true,
+            RPCRequest::BlockSync(_) => true,
             RPCRequest::Hello(_) => true,
         }
     }
 }
 
-pub type OutboundFramed<TSocket> = Framed<Negotiated<TSocket>, OutboundCodec>;
+pub(crate) type OutboundFramed<TSocket> = Framed<Negotiated<TSocket>, OutboundCodec>;
 
 impl<TSocket> OutboundUpgrade<TSocket> for RPCRequest
 where

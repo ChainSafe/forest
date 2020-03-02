@@ -1,10 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{
-    InboundCodec, OutboundFramed, RPCError, RPCEvent, RPCInbound, RPCRequest, RPCResponse,
-    RequestId,
-};
+use super::protocol::{OutboundFramed, RPCInbound};
+use super::{InboundCodec, RPCError, RPCEvent, RPCRequest, RPCResponse, RequestId};
 use fnv::FnvHashMap;
 use futures::prelude::*;
 use futures::{AsyncRead, AsyncWrite};

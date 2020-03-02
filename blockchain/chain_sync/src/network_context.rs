@@ -52,8 +52,8 @@ impl SyncNetworkContext {
         peer_id: PeerId,
         request: BlockSyncRequest,
     ) -> RequestId {
-        trace!("Sending Blocksync Request {:?}", request);
-        self.send_rpc_request(peer_id, RPCRequest::Blocksync(request))
+        trace!("Sending BlockSync Request {:?}", request);
+        self.send_rpc_request(peer_id, RPCRequest::BlockSync(request))
             .await
     }
 

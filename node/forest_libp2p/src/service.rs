@@ -152,16 +152,15 @@ impl Libp2pService {
                                         response: res,
                                     }).await;
                                 }
-                                RPCEvent::Request(req_id, RPCRequest::Blocksync(r)) => {
+                                RPCEvent::Request(req_id, RPCRequest::BlockSync(r)) => {
                                     // TODO implement handling incoming blocksync requests
-                                    swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::Blocksync(BlockSyncResponse {
+                                    swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::BlockSync(BlockSyncResponse {
                                         chain: vec![],
                                         status: 203,
                                         message: "handling requests not implemented".to_owned(),
                                     })));
                                 }
                                 RPCEvent::Request(req_id, RPCRequest::Hello(message)) => {
-
                                     self.network_sender_out.send(NetworkEvent::Hello{
                                         message, source: peer_id}).await;
                                 }
