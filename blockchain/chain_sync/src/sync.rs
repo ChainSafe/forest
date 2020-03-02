@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::network_handler::NetworkHandler;
 use super::{Error, SyncManager, SyncNetworkContext};
 use address::Address;
 use amt::AMT;
-use async_std::prelude::*;
-use async_std::stream::Stream;
+use async_std::sync::channel;
 use async_std::sync::{Receiver, Sender};
 use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
@@ -14,24 +14,17 @@ use crypto::is_valid_signature;
 use db::Error as DBError;
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{NetworkEvent, NetworkMessage};
-use futures::{select, FutureExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{info, warn};
 use lru::LruCache;
 use message::Message;
 use num_bigint::BigUint;
-use pin_project::pin_project;
 use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
-use std::future::Future;
 use std::sync::Arc;
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -50,7 +43,6 @@ enum SyncState {
     _Follow,
 }
 
-#[pin_project]
 pub struct ChainSyncer<'db, DB, ST> {
     /// Syncing state of chain sync
     _state: SyncState,
@@ -74,22 +66,8 @@ pub struct ChainSyncer<'db, DB, ST> {
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
     bad_blocks: LruCache<Cid, String>,
 
-    /// Channel for incoming network events to be handled by syncer
-    #[pin]
-    network_rx: Receiver<NetworkEvent>,
-}
-
-// TODO probably remove this in the future, polling as such probably unnecessary
-impl<'db, DB, ST> Future for ChainSyncer<'db, DB, ST> {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.project().network_rx.poll_next(cx) {
-            Poll::Ready(Some(_event)) => (),
-            Poll::Pending | Poll::Ready(None) => (),
-        };
-        Poll::Pending
-    }
+    ///  incoming network events to be handled by syncer
+    net_handler: NetworkHandler,
 }
 
 /// Message data used to ensure valid state transition
@@ -121,7 +99,13 @@ where
 
         let state_manager = StateManager::new(db, HamtStateTree::default());
 
-        let network = SyncNetworkContext::new(network_send);
+        // Split incoming channel to handle blocksync requests
+        let (rpc_send, rpc_rx) = channel(20);
+        let (event_send, event_rx) = channel(30);
+
+        let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx);
+
+        let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
             _state: SyncState::Stalled,
@@ -130,8 +114,8 @@ where
             network,
             _genesis,
             sync_manager,
-            network_rx,
             bad_blocks: LruCache::new(1 << 15),
+            net_handler,
         })
     }
 }
@@ -142,16 +126,8 @@ where
     ST: StateTree,
 {
     /// Starts syncing process
-    pub async fn sync(&mut self) -> Result<(), Error> {
-        let mut nw = self.network_rx.clone().fuse();
-        loop {
-            select! {
-                network_msg = nw.next().fuse() => match network_msg {
-                    Some(event) =>(),
-                    None => break,
-                }
-            }
-        }
+    pub async fn sync(mut self) -> Result<(), Error> {
+        self.net_handler.spawn();
 
         info!("Starting chain sync");
 
@@ -413,16 +389,23 @@ where
 
             const REQUEST_WINDOW: u64 = 100;
             let epoch_diff = u64::from(cur_ts.epoch() - to_epoch);
-            let _window = min(epoch_diff, REQUEST_WINDOW);
+            let window = min(epoch_diff, REQUEST_WINDOW);
 
-            // // Load blocks from network using blocksync
-            // TODO add sending blocksync req back (requires some channel for data back)
-            // let tipsets: Vec<Tipset> = self
-            //     .network
-            //     .get_headers(ts.parents(), window)
-            //     .await
-            //     .map_err(|e| Error::Other(e))?;
-            let tipsets: Vec<Tipset> = vec![];
+            // TODO change from using random peerID to managed
+            let peer_id = PeerId::random();
+
+            // Load blocks from network using blocksync
+            let tipsets: Vec<Tipset> = match self
+                .network
+                .blocksync_headers(peer_id.clone(), cur_ts.parents(), window)
+                .await
+            {
+                Ok(ts) => ts,
+                Err(e) => {
+                    warn!("Failed blocksync request to peer {:?}: {}", peer_id, e);
+                    continue;
+                }
+            };
 
             // Loop through each tipset received from network
             for ts in tipsets {

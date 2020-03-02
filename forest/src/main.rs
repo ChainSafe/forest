@@ -75,7 +75,7 @@ fn main() {
         let mut db = RocksDb::new("chain_db");
         db.open().unwrap();
 
-        let mut chain_syncer = ChainSyncer::new(&db, network_send, network_rx).unwrap();
+        let chain_syncer = ChainSyncer::new(&db, network_send, network_rx).unwrap();
         chain_syncer.sync().await.unwrap();
     });
 
