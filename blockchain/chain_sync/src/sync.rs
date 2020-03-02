@@ -24,7 +24,6 @@ use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -60,7 +59,7 @@ pub struct ChainSyncer<'db, DB, ST> {
     network: SyncNetworkContext,
 
     /// the known genesis tipset
-    _genesis: Tipset,
+    genesis: Tipset,
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
@@ -88,7 +87,7 @@ where
         let sync_manager = SyncManager::default();
 
         let chain_store = ChainStore::new(db);
-        let _genesis = match chain_store.genesis()? {
+        let genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
                 // TODO change default logic for genesis or setup better initialization
@@ -112,7 +111,7 @@ where
             state_manager,
             chain_store,
             network,
-            _genesis,
+            genesis,
             sync_manager,
             bad_blocks: LruCache::new(1 << 15),
             net_handler,
@@ -434,8 +433,9 @@ where
                 // This removes need to sync fork
                 return Ok(return_set);
             }
-            // TODO add fork to return set
-            let _fork = self.sync_fork(&last_ts, &to).await?;
+            // add fork into return set
+            let fork = self.sync_fork(&last_ts, &to).await?;
+            return_set.extend(fork);
         }
 
         Ok(return_set)
@@ -461,13 +461,46 @@ where
         }
         Ok(())
     }
+    /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
+    async fn sync_fork(&mut self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
+        // TODO change from using random peerID to managed
+        let peer_id = PeerId::random();
+        // pulled from Lotus: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L996
+        const FORK_LENGTH_THRESHOLD: u64 = 500;
 
-    async fn sync_fork(&mut self, _head: &Tipset, _to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
-        // TODO sync fork until tipsets are equal or reaches genesis
-        todo!()
+        // Load blocks from network using blocksync
+        let tips: Vec<Tipset> = self
+            .network
+            .blocksync_headers(peer_id.clone(), head.parents(), FORK_LENGTH_THRESHOLD)
+            .await
+            .map_err(|_| Error::Other("Could not retrieve tipset".to_string()))?;
+
+        let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
+
+        for i in 0..tips.len() {
+            if *ts.tip_epoch().chain_epoch() == 0 {
+                if self.genesis.blocks()[0] != ts.blocks()[0] {
+                    return Err(Error::Other(
+                        "Chain is linked back to a different genesis (bad genesis)".to_string(),
+                    ));
+                }
+                return Err(Error::Other(
+                    "Synced chain forked at genesis, refusing to sync".to_string(),
+                ));
+            }
+            if ts == tips[i] {
+                return Ok(tips[0..=i].to_vec());
+            }
+            if ts.epoch() > tips[i].epoch() {
+                ts = self.chain_store.tipset_from_keys(ts.parents())?;
+            }
+        }
+        Err(Error::Other(
+            "Fork longer than threshold finality of 500".to_string(),
+        ))
     }
 
-    // Persists headers from tipset slice to chain store
+    /// Persists headers from tipset slice to chain store
     fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), DBError> {
         tipsets
             .iter()
