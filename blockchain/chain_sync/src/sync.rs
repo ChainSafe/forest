@@ -465,11 +465,13 @@ where
     async fn sync_fork(&mut self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
         // TODO change from using random peerID to managed
         let peer_id = PeerId::random();
+        // pulled from Lotus: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L996
+        const FORK_LENGTH_THRESHOLD: u64 = 500;
 
         // Load blocks from network using blocksync
         let tips: Vec<Tipset> = match self
             .network
-            .blocksync_headers(peer_id.clone(), head.parents(), 500)
+            .blocksync_headers(peer_id.clone(), head.parents(), FORK_LENGTH_THRESHOLD)
             .await
         {
             Ok(ts) => ts,
@@ -482,17 +484,19 @@ where
 
         for i in 0..tips.len() {
             if *ts.tip_epoch().chain_epoch() == 0 {
-                if self.chain_store.genesis()?.unwrap() != ts.blocks()[0] {
-                    return Err(Error::Other(
-                        "Chain is linked back to a different genesis (bad genesis)".to_string(),
-                    ));
+                if let Some(gen) = self.chain_store.genesis()? {
+                    if gen != ts.blocks()[0] {
+                        return Err(Error::Other(
+                            "Chain is linked back to a different genesis (bad genesis)".to_string(),
+                        ));
+                    }
                 }
                 return Err(Error::Other(
                     "Synced chain forked at genesis, refusing to sync".to_string(),
                 ));
             }
             if ts.equals(tips[i].clone()) {
-                return Ok(tips[0..=i + 1].to_vec());
+                return Ok(tips[0..=i].to_vec());
             }
             if ts.epoch() > tips[i].epoch() {
                 ts = self.chain_store.tipset_from_keys(ts.parents())?;
