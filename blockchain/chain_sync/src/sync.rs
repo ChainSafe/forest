@@ -59,7 +59,7 @@ pub struct ChainSyncer<'db, DB, ST> {
     network: SyncNetworkContext,
 
     /// the known genesis tipset
-    _genesis: Tipset,
+    genesis: Tipset,
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
@@ -87,7 +87,7 @@ where
         let sync_manager = SyncManager::default();
 
         let chain_store = ChainStore::new(db);
-        let _genesis = match chain_store.genesis()? {
+        let genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
                 // TODO change default logic for genesis or setup better initialization
@@ -111,7 +111,7 @@ where
             state_manager,
             chain_store,
             network,
-            _genesis,
+            genesis,
             sync_manager,
             bad_blocks: LruCache::new(1 << 15),
             net_handler,
@@ -469,33 +469,26 @@ where
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
         // Load blocks from network using blocksync
-        let tips: Vec<Tipset> = match self
+        let tips: Vec<Tipset> = self
             .network
             .blocksync_headers(peer_id.clone(), head.parents(), FORK_LENGTH_THRESHOLD)
             .await
-        {
-            Ok(ts) => ts,
-            Err(_e) => {
-                return Err(Error::Other("Failed to retrieve tipset".to_string()));
-            }
-        };
+            .map_err(|_| Error::Other("Could not retrieve tipset".to_string()))?;
 
         let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
 
         for i in 0..tips.len() {
             if *ts.tip_epoch().chain_epoch() == 0 {
-                if let Some(gen) = self.chain_store.genesis()? {
-                    if gen != ts.blocks()[0] {
-                        return Err(Error::Other(
-                            "Chain is linked back to a different genesis (bad genesis)".to_string(),
-                        ));
-                    }
+                if self.genesis.blocks()[0] != ts.blocks()[0] {
+                    return Err(Error::Other(
+                        "Chain is linked back to a different genesis (bad genesis)".to_string(),
+                    ));
                 }
                 return Err(Error::Other(
                     "Synced chain forked at genesis, refusing to sync".to_string(),
                 ));
             }
-            if ts.equals(tips[i].clone()) {
+            if ts == tips[i] {
                 return Ok(tips[0..=i].to_vec());
             }
             if ts.epoch() > tips[i].epoch() {

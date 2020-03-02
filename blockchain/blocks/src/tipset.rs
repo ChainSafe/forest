@@ -202,24 +202,6 @@ impl Tipset {
     pub fn tip_epoch(&self) -> &ChainEpoch {
         self.blocks[0].epoch()
     }
-    /// Returns true if tipsets are equal
-    pub fn equals(&self, ots: Tipset) -> bool {
-        if self.blocks().is_empty() && ots.blocks().is_empty() {
-            return true;
-        }
-        if self.blocks.is_empty() || ots.blocks().is_empty() {
-            return false;
-        }
-        if self.blocks().len() != ots.blocks().len() {
-            return false;
-        }
-        for (i, b) in (self.blocks()).iter().enumerate() {
-            if b.cid() != ots.blocks()[i].cid() {
-                return false;
-            }
-        }
-        true
-    }
 }
 
 /// FullTipSet is an expanded version of the TipSet that contains all the blocks and messages
