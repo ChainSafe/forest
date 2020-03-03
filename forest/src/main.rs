@@ -79,7 +79,7 @@ fn main() {
         let mut db = RocksDb::new(config.data_dir + "/db");
         db.open().unwrap();
 
-        let chain_syncer = ChainSyncer::new(&db, network_send, network_rx).unwrap();
+        let chain_syncer = ChainSyncer::new(Arc::new(db), network_send, network_rx).unwrap();
         chain_syncer.sync().await.unwrap();
     });
 

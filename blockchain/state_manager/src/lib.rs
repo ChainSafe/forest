@@ -9,20 +9,21 @@ use address::Address;
 use blockstore::BlockStore;
 use encoding::de::DeserializeOwned;
 use state_tree::StateTree;
+use std::sync::Arc;
 
 /// Intermediary for retrieving state objects and updating actor states
-pub struct StateManager<'db, DB, ST> {
-    bs: &'db DB,
+pub struct StateManager<DB, ST> {
+    bs: Arc<DB>,
     tree: ST,
 }
 
-impl<'db, DB, ST> StateManager<'db, DB, ST>
+impl<DB, ST> StateManager<DB, ST>
 where
     ST: StateTree,
     DB: BlockStore,
 {
     /// constructor
-    pub fn new(bs: &'db DB, tree: ST) -> Self {
+    pub fn new(bs: Arc<DB>, tree: ST) -> Self {
         Self { bs, tree }
     }
     /// Loads actor state from IPLD Store

@@ -5,5 +5,4 @@
 config*.toml
 .DS_STORE
 .vscode
-/chain_db*
-
+/test_dir*

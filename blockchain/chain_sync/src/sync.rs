@@ -1,6 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
+mod peer_test;
+
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
 use super::{Error, SyncManager, SyncNetworkContext};
@@ -45,18 +48,18 @@ enum SyncState {
     _Follow,
 }
 
-pub struct ChainSyncer<'db, DB, ST> {
+pub struct ChainSyncer<DB, ST> {
     /// Syncing state of chain sync
     _state: SyncState,
 
     /// manages retrieving and updates state objects
-    state_manager: StateManager<'db, DB, ST>,
+    state_manager: StateManager<DB, ST>,
 
     /// manages sync buckets
     sync_manager: SyncManager,
 
     /// access and store tipsets / blocks / messages
-    chain_store: ChainStore<'db, DB>,
+    chain_store: ChainStore<DB>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -81,18 +84,18 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'db, DB> ChainSyncer<'db, DB, HamtStateTree>
+impl<DB> ChainSyncer<DB, HamtStateTree>
 where
     DB: BlockStore,
 {
     pub fn new(
-        db: &'db DB,
+        db: Arc<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
     ) -> Result<Self, Error> {
         let sync_manager = SyncManager::default();
 
-        let chain_store = ChainStore::new(db);
+        let chain_store = ChainStore::new(db.clone());
         let _genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
@@ -128,7 +131,7 @@ where
     }
 }
 
-impl<'db, DB, ST> ChainSyncer<'db, DB, ST>
+impl<DB, ST> ChainSyncer<DB, ST>
 where
     DB: BlockStore,
     ST: StateTree,
