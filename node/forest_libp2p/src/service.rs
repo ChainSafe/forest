@@ -119,18 +119,18 @@ impl Libp2pService {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
-                            info!("Peer dialed, {:?}", peer_id);
+                            debug!("Peer dialed, {:?}", peer_id);
                             // TODO add sending hello after genesis setup
-                            // swarm_stream.get_mut().send_rpc(
-                            //     peer_id,
-                            //     RPCEvent::Request(0, RPCRequest::Hello(HelloMessage::default())),
-                            // );
+                            swarm_stream.get_mut().send_rpc(
+                                peer_id,
+                                RPCEvent::Request(0, RPCRequest::Hello(HelloMessage::default())),
+                            );
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
                             debug!("Peer disconnected, {:?}", peer_id);
                         }
                         ForestBehaviourEvent::DiscoveredPeer(peer) => {
-                            info!("Discovered: {:?}", peer);
+                            debug!("Discovered: {:?}", peer);
                             libp2p::Swarm::dial(&mut swarm_stream.get_mut(), peer);
                         }
                         ForestBehaviourEvent::ExpiredPeer(_) => {}
@@ -139,7 +139,7 @@ impl Libp2pService {
                             topics,
                             message,
                         } => {
-                            info!("Got a Gossip Message from {:?}", source);
+                            debug!("Got a Gossip Message from {:?}", source);
                             self.network_sender_out.send(NetworkEvent::PubsubMessage {
                                 source,
                                 topics,

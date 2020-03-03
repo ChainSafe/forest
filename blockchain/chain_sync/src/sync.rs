@@ -419,7 +419,8 @@ where
 
             // TODO change from using random peerID to managed
             while self.peer_manager.is_empty() {
-                task::sleep(Duration::from_secs(3)).await;
+                warn!("No valid peers to sync, waiting for other nodes");
+                task::sleep(Duration::from_secs(5)).await;
             }
             let peer_id = self
                 .peer_manager
@@ -435,6 +436,7 @@ where
                 Ok(ts) => ts,
                 Err(e) => {
                     warn!("Failed blocksync request to peer {:?}: {}", peer_id, e);
+                    self.peer_manager.remove_peer(&peer_id);
                     continue;
                 }
             };

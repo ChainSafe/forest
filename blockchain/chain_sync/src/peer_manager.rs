@@ -31,6 +31,12 @@ impl PeerManager {
         self.full_peers.read().iter().next().cloned()
     }
 
+    /// Removes a peer from the set and returns true if the value was present previously
+    pub fn remove_peer(&self, peer_id: &PeerId) -> bool {
+        // TODO replace this with a shuffled or more random sample
+        self.full_peers.write().remove(&peer_id)
+    }
+
     /// Gets count of full peers managed
     pub fn len(&self) -> usize {
         self.full_peers.read().len()
