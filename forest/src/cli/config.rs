@@ -5,14 +5,18 @@ use forest_libp2p::Libp2pConfig;
 use serde::Deserialize;
 use utils::get_home_dir;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub network: Libp2pConfig,
-    #[serde(default = "default_data_dir")]
     pub data_dir: String,
 }
 
-fn default_data_dir() -> String {
-    get_home_dir() + "/.forest"
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            network: Libp2pConfig::default(),
+            data_dir: get_home_dir() + "/.forest",
+        }
+    }
 }
