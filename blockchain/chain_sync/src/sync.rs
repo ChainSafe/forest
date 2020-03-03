@@ -18,7 +18,7 @@ use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{NetworkEvent, NetworkMessage};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::{info, warn};
+use log::{debug, info, warn};
 use lru::LruCache;
 use message::Message;
 use num_bigint::BigUint;
@@ -110,6 +110,8 @@ where
 
         let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx);
 
+        let peer_manager = Arc::new(PeerManager::default());
+
         let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
@@ -121,7 +123,7 @@ where
             sync_manager,
             bad_blocks: LruCache::new(1 << 15),
             net_handler,
-            peer_manager: Arc::new(PeerManager::default()),
+            peer_manager,
         })
     }
 }
@@ -133,7 +135,22 @@ where
 {
     /// Starts syncing process
     pub async fn sync(mut self) -> Result<(), Error> {
-        self.net_handler.spawn();
+        self.net_handler.spawn(Arc::clone(&self.peer_manager));
+
+        info!("Bootstrapping peers to sync");
+
+        // Bootstrap peers before syncing
+        // TODO increase bootstrap peer count before syncing
+        const MIN_PEERS: usize = 1;
+        loop {
+            let peer_count = self.peer_manager.len();
+            if peer_count < MIN_PEERS {
+                debug!("bootstrapping peers, have {}", peer_count);
+                task::sleep(Duration::from_secs(2)).await;
+            } else {
+                break;
+            }
+        }
 
         info!("Starting chain sync");
 

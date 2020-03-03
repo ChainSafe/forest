@@ -92,3 +92,16 @@ impl<'de> Deserialize<'de> for HelloResponse {
         Ok(HelloResponse { arrival, sent })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use forest_encoding::*;
+
+    #[test]
+    fn hello_default_ser() {
+        let bz = to_vec(&HelloMessage::default()).unwrap();
+        let msg: HelloMessage = from_slice(&bz).unwrap();
+        assert_eq!(msg, HelloMessage::default());
+    }
+}

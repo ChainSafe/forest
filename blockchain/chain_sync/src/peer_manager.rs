@@ -15,7 +15,7 @@ pub struct PeerManager {
 
 impl PeerManager {
     /// Adds a PeerId to the set of managed peers
-    pub fn _add_peer(&self, peer_id: PeerId) {
+    pub fn add_peer(&self, peer_id: PeerId) {
         debug!("Added PeerId to full peers list: {}", &peer_id);
         self.full_peers.write().insert(peer_id);
     }
@@ -29,5 +29,10 @@ impl PeerManager {
     pub fn get_peer(&self) -> Option<PeerId> {
         // TODO replace this with a shuffled or more random sample
         self.full_peers.read().iter().next().cloned()
+    }
+
+    /// Gets count of full peers managed
+    pub fn len(&self) -> usize {
+        self.full_peers.read().len()
     }
 }

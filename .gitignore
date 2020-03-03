@@ -2,7 +2,8 @@
 **/*.rs.bk
 /Cargo.lock
 .idea/
-config.toml
+config*.toml
 .DS_STORE
 .vscode
-/chain_db
+/chain_db*
+
