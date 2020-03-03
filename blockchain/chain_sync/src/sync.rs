@@ -146,7 +146,7 @@ where
         // TODO increase bootstrap peer count before syncing
         const MIN_PEERS: usize = 1;
         loop {
-            let peer_count = self.peer_manager.len();
+            let peer_count = self.peer_manager.len().await;
             if peer_count < MIN_PEERS {
                 debug!("bootstrapping peers, have {}", peer_count);
                 task::sleep(Duration::from_secs(2)).await;
@@ -418,13 +418,14 @@ where
             let window = min(epoch_diff, REQUEST_WINDOW);
 
             // TODO change from using random peerID to managed
-            while self.peer_manager.is_empty() {
+            while self.peer_manager.is_empty().await {
                 warn!("No valid peers to sync, waiting for other nodes");
                 task::sleep(Duration::from_secs(5)).await;
             }
             let peer_id = self
                 .peer_manager
                 .get_peer()
+                .await
                 .expect("Peer set is not empty here");
 
             // Load blocks from network using blocksync
@@ -436,7 +437,7 @@ where
                 Ok(ts) => ts,
                 Err(e) => {
                     warn!("Failed blocksync request to peer {:?}: {}", peer_id, e);
-                    self.peer_manager.remove_peer(&peer_id);
+                    self.peer_manager.remove_peer(&peer_id).await;
                     continue;
                 }
             };

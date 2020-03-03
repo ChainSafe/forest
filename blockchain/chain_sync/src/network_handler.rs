@@ -49,7 +49,7 @@ impl NetworkHandler {
                     Some(event) => {
                         // Update peer on this thread before sending hello
                         if let NetworkEvent::Hello { source, .. } = &event {
-                            peer_manager.add_peer(source.clone());
+                            peer_manager.add_peer(source.clone()).await;
                         }
 
                         // TODO revisit, doing this to avoid blocking this thread but can handle better

@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::*;
 use async_std::sync::channel;
 use async_std::task;
@@ -33,8 +36,8 @@ fn peer_manager_update() {
         // Would be ideal to not have to sleep here and have it deterministic
         task::sleep(Duration::from_millis(50)).await;
 
-        assert_eq!(peer_manager.len(), 1);
-        assert_eq!(peer_manager.get_peer(), Some(source_clone));
+        assert_eq!(peer_manager.len().await, 1);
+        assert_eq!(peer_manager.get_peer().await, Some(source_clone));
     });
 
     drop(cs_thread);

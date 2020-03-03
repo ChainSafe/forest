@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use async_std::sync::RwLock;
 use libp2p::core::PeerId;
 use log::debug;
-use parking_lot::RwLock;
 use std::collections::HashSet;
 
 /// Thread safe peer manager
@@ -15,30 +15,30 @@ pub struct PeerManager {
 
 impl PeerManager {
     /// Adds a PeerId to the set of managed peers
-    pub fn add_peer(&self, peer_id: PeerId) {
+    pub async fn add_peer(&self, peer_id: PeerId) {
         debug!("Added PeerId to full peers list: {}", &peer_id);
-        self.full_peers.write().insert(peer_id);
+        self.full_peers.write().await.insert(peer_id);
     }
 
     /// Returns true if peer set is empty
-    pub fn is_empty(&self) -> bool {
-        self.full_peers.read().is_empty()
+    pub async fn is_empty(&self) -> bool {
+        self.full_peers.read().await.is_empty()
     }
 
     /// Retrieves a cloned PeerId to be used to send network request
-    pub fn get_peer(&self) -> Option<PeerId> {
+    pub async fn get_peer(&self) -> Option<PeerId> {
         // TODO replace this with a shuffled or more random sample
-        self.full_peers.read().iter().next().cloned()
+        self.full_peers.read().await.iter().next().cloned()
     }
 
     /// Removes a peer from the set and returns true if the value was present previously
-    pub fn remove_peer(&self, peer_id: &PeerId) -> bool {
+    pub async fn remove_peer(&self, peer_id: &PeerId) -> bool {
         // TODO replace this with a shuffled or more random sample
-        self.full_peers.write().remove(&peer_id)
+        self.full_peers.write().await.remove(&peer_id)
     }
 
     /// Gets count of full peers managed
-    pub fn len(&self) -> usize {
-        self.full_peers.read().len()
+    pub async fn len(&self) -> usize {
+        self.full_peers.read().await.len()
     }
 }
