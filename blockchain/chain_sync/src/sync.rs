@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(unused_variables)]
+
 use super::network_handler::NetworkHandler;
 use super::{Error, SyncManager, SyncNetworkContext};
 use address::Address;
@@ -478,8 +480,8 @@ where
         let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
 
         for i in 0..tips.len() {
-            if *ts.tip_epoch().chain_epoch() == 0 {
-                if self.genesis.blocks()[0] != ts.blocks()[0] {
+            if *ts.epoch().to_u64() == 0 {
+                if self.genesis.blocks() != ts.blocks() {
                     return Err(Error::Other(
                         "Chain is linked back to a different genesis (bad genesis)".to_string(),
                     ));
@@ -491,10 +493,18 @@ where
             if ts == tips[i] {
                 return Ok(tips[0..=i].to_vec());
             }
-            if ts.epoch() > tips[i].epoch() {
+        }
+
+        let mut n = 1;
+
+        while n < tips.len() {
+            if ts.epoch() > tips[n].epoch() {
                 ts = self.chain_store.tipset_from_keys(ts.parents())?;
+            } else {
+                n += 1;
             }
         }
+
         Err(Error::Other(
             "Fork longer than threshold finality of 500".to_string(),
         ))

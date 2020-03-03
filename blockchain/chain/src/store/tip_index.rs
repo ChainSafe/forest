@@ -60,7 +60,7 @@ impl TipIndex {
         // retrieve parent cids to be used as hash map key
         let parent_key = meta.tipset.parents();
         // retrieve epoch to be used as hash map key
-        let epoch_key = meta.tipset.tip_epoch();
+        let epoch_key = meta.tipset.epoch();
         // insert value by parent_key into hash map
         self.metadata.insert(parent_key.hash_key(), meta.clone());
         // insert value by epoch_key into hash map
@@ -190,7 +190,7 @@ mod tests {
         let meta = meta_setup();
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
-        let result = tip.get_tipset(&meta.tipset.tip_epoch().clone()).unwrap();
+        let result = tip.get_tipset(&meta.tipset.epoch().clone()).unwrap();
         assert_eq!(result, meta.tipset);
     }
 
@@ -200,7 +200,7 @@ mod tests {
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
         let result = tip
-            .get_tipset_state_root(&meta.tipset.tip_epoch().clone())
+            .get_tipset_state_root(&meta.tipset.epoch().clone())
             .unwrap();
         assert_eq!(result, meta.tipset_state_root);
     }
@@ -211,7 +211,7 @@ mod tests {
         let mut tip = TipIndex::new();
         tip.put(&meta).unwrap();
         let result = tip
-            .get_tipset_receipts_root(&meta.tipset.tip_epoch().clone())
+            .get_tipset_receipts_root(&meta.tipset.epoch().clone())
             .unwrap();
         assert_eq!(result, meta.tipset_receipts_root);
     }
