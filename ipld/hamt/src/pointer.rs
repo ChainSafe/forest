@@ -111,7 +111,7 @@ where
         Ok(self.cache.borrow_mut().unwrap())
     }
 
-    /// Internal method to cleanup children, to ensure consisten tree representation
+    /// Internal method to cleanup children, to ensure consistent tree representation
     /// after deletes.
     pub fn clean(&mut self) -> Result<(), Error> {
         assert!(self.cache.filled());

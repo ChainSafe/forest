@@ -4,17 +4,30 @@
 use crate::node::Node;
 use crate::{Error, Hash};
 use cid::Cid;
+use forest_encoding::{de::DeserializeOwned, ser::Serializer};
 use ipld_blockstore::BlockStore;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::borrow::Borrow;
 use std::ops::Index;
 
 /// Implementation of the HAMT data structure for IPLD.
 #[derive(Debug)]
-pub struct Hamt<'a, K, V, S: BlockStore> {
+pub struct Hamt<'a, K, V, S> {
     root: Node<K, V>,
     store: &'a S,
+}
+
+impl<K, V, BS> Serialize for Hamt<'_, K, V, BS>
+where
+    K: Serialize,
+    V: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.root.serialize(serializer)
+    }
 }
 
 impl<'a, K: PartialEq, V: PartialEq, S: BlockStore> PartialEq for Hamt<'a, K, V, S> {
