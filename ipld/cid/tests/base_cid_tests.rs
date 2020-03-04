@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_cid::{Cid, Codec, Error, Prefix, Version};
-use multihash::{self, Sha2_256};
+use multihash::{self, Code, Sha2_256};
 use std::collections::HashMap;
 
 #[test]
@@ -54,6 +54,24 @@ fn v0_error() {
 }
 
 #[test]
+fn prefix_roundtrip() {
+    let data = b"awesome test content";
+    let h = Sha2_256::digest(data);
+
+    let cid = Cid::new(Codec::DagProtobuf, Version::V1, h);
+    let prefix = cid.prefix();
+
+    let cid2 = Cid::new_from_prefix(&prefix, data).unwrap();
+
+    assert_eq!(cid, cid2);
+
+    let prefix_bytes = prefix.as_bytes();
+    let prefix2 = Prefix::new_from_bytes(&prefix_bytes).unwrap();
+
+    assert_eq!(prefix, prefix2);
+}
+
+#[test]
 fn from() {
     let the_hash = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n";
 
@@ -76,7 +94,7 @@ fn test_hash() {
     let prefix = Prefix {
         version: Version::V0,
         codec: Codec::DagProtobuf,
-        mh_type: Sha2_256,
+        mh_type: Code::Sha2_256,
     };
     let mut map = HashMap::new();
     let cid = Cid::new_from_prefix(&prefix, &data).unwrap();
