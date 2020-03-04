@@ -120,7 +120,7 @@ impl Libp2pService {
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
                             debug!("Peer dialed, {:?}", peer_id);
-                            // TODO add sending hello after genesis setup
+                            // TODO send non-default Hello Message
                             swarm_stream.get_mut().send_rpc(
                                 peer_id,
                                 RPCEvent::Request(0, RPCRequest::Hello(HelloMessage::default())),
@@ -218,8 +218,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 
 /// Fetch keypair from disk, returning none if it cannot be decoded
 pub fn get_keypair(path: &str) -> Option<Keypair> {
-    let path_to_keystore = path;
-    match read_file_to_vec(&path_to_keystore) {
+    match read_file_to_vec(&path) {
         Err(e) => {
             info!("Networking keystore not found!");
             trace!("Error {:?}", e);
@@ -227,7 +226,7 @@ pub fn get_keypair(path: &str) -> Option<Keypair> {
         }
         Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
             Ok(kp) => {
-                info!("Recovered keystore from {:?}", &path_to_keystore);
+                info!("Recovered keystore from {:?}", &path);
                 Some(Keypair::Ed25519(kp))
             }
             Err(e) => {
