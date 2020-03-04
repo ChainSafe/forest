@@ -18,7 +18,7 @@ fn peer_manager_update() {
     let cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
     let peer_manager = Arc::clone(&cs.peer_manager);
 
-    let cs_thread = task::spawn(async {
+    task::spawn(async {
         cs.sync().await.unwrap();
     });
 
@@ -39,6 +39,4 @@ fn peer_manager_update() {
         assert_eq!(peer_manager.len().await, 1);
         assert_eq!(peer_manager.get_peer().await, Some(source_clone));
     });
-
-    drop(cs_thread);
 }
