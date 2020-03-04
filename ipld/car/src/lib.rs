@@ -6,24 +6,23 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use unsigned_varint;
 
+mod error;
 mod util;
 use crate::util::read_node;
+use error::*;
 use util::ld_read;
 
-fn ls() -> std::io::Result<()> {
-    // read file into stream
-    // new car reader
-    // for carreader.next() until EOF
-    let mut file = File::open("devnet.car")?;
+fn ls() -> Result<(), Error> {
+    let mut file = File::open("devnet.car").unwrap();
+
     let mut buf_reader = BufReader::new(file);
-    let mut car_reader = CarReader::new(buf_reader);
+    let mut car_reader = CarReader::new(buf_reader)?;
 
     // for carreader next
     while !car_reader.buf_reader.buffer().is_empty() {
-        let x = car_reader.next();
-        println!("{:?}", x.cid.to_string());
+        let x = car_reader.next()?;
+        println!("CID{:?}, Data Len: {}", x.cid.to_string(), x.data.len());
     }
-
     Ok(())
 }
 
@@ -48,18 +47,18 @@ impl<R> CarReader<R>
 where
     R: std::io::Read,
 {
-    pub fn new(mut buf_reader: BufReader<R>) -> Self {
-        let (l, buf) = ld_read(&mut buf_reader);
-        let header: CarHeader = from_slice(&buf).unwrap();
+    pub fn new(mut buf_reader: BufReader<R>) -> Result<Self, Error> {
+        let (len, buf) = ld_read(&mut buf_reader)?;
+        let header: CarHeader = from_slice(&buf).map_err(|e| Error::ParsingError(e.to_string()))?;
         // TODO: Do some checks here
-        CarReader { buf_reader, header }
+        Ok(CarReader { buf_reader, header })
     }
-    pub fn next(&mut self) -> Block {
+    pub fn next(&mut self) -> Result<Block, Error> {
         // Read node -> cid, bytes
-        let (cid, data) = read_node(&mut self.buf_reader);
+        let (cid, data) = read_node(&mut self.buf_reader)?;
         let _ = cid.prefix();
 
-        Block { cid, data }
+        Ok(Block { cid, data })
     }
 }
 struct Block {
@@ -75,16 +74,4 @@ mod tests {
     fn t1() {
         ls().unwrap();
     }
-
-    //    #[test]
-    //    fn t2() {
-    //        let mut file = File::open("devnet.car").unwrap();
-    //        let mut buf_reader = BufReader::new(file);
-    //        let mut car_reader = CarReader::new(buf_reader);
-    //
-    //        let (c, b) = util::read_node(&mut car_reader.buf_reader);
-    //
-    //        println!("CID: {:?}, len: {}", c, b.len());
-    //
-    //    }
 }
