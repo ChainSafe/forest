@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused_variables)]
-
 use super::network_handler::NetworkHandler;
 use super::{Error, SyncManager, SyncNetworkContext};
 use address::Address;
@@ -61,7 +59,7 @@ pub struct ChainSyncer<'db, DB, ST> {
     network: SyncNetworkContext,
 
     /// the known genesis tipset
-    genesis: Tipset,
+    _genesis: Tipset,
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
@@ -89,7 +87,7 @@ where
         let sync_manager = SyncManager::default();
 
         let chain_store = ChainStore::new(db);
-        let genesis = match chain_store.genesis()? {
+        let _genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
                 // TODO change default logic for genesis or setup better initialization
@@ -113,7 +111,7 @@ where
             state_manager,
             chain_store,
             network,
-            genesis,
+            _genesis,
             sync_manager,
             bad_blocks: LruCache::new(1 << 15),
             net_handler,
@@ -480,28 +478,16 @@ where
         let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
 
         for i in 0..tips.len() {
-            if *ts.epoch().to_u64() == 0 {
-                if self.genesis.blocks() != ts.blocks() {
+            while ts.epoch() > tips[i].epoch() {
+                if *ts.epoch().as_u64() == 0 {
                     return Err(Error::Other(
-                        "Chain is linked back to a different genesis (bad genesis)".to_string(),
+                        "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));
                 }
-                return Err(Error::Other(
-                    "Synced chain forked at genesis, refusing to sync".to_string(),
-                ));
+                ts = self.chain_store.tipset_from_keys(ts.parents())?;
             }
             if ts == tips[i] {
                 return Ok(tips[0..=i].to_vec());
-            }
-        }
-
-        let mut n = 1;
-
-        while n < tips.len() {
-            if ts.epoch() > tips[n].epoch() {
-                ts = self.chain_store.tipset_from_keys(ts.parents())?;
-            } else {
-                n += 1;
             }
         }
 
