@@ -29,6 +29,7 @@ use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
