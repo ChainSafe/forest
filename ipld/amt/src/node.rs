@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{nodes_for_height, BitMap, Error, WIDTH};
-use cid::Cid;
+use cid::{multihash::Blake2b256, Cid};
 use encoding::{
     de::{self, Deserialize, DeserializeOwned},
     ser::{self, Serialize},
@@ -150,7 +150,7 @@ where
                     n.flush(bs)?;
 
                     // Puts node in blockstore and and retrieves it's CID
-                    let cid = bs.put(n)?;
+                    let cid = bs.put(n, Blake2b256)?;
 
                     // Turn cached node into a Cid link
                     *link = Some(Link::Cid(cid));
