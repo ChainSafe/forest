@@ -15,7 +15,7 @@ fn ls() -> std::io::Result<()> {
     // for carreader.next() until EOF
     let mut file = File::open("devnet.car")?;
     let mut buf_reader = BufReader::new(file);
-    let _ = CarReader::new(buf_reader);
+    let car_reader = CarReader::new(buf_reader);
 
     Ok(())
 }
@@ -47,9 +47,13 @@ where R: std::io::Read{
             header,
         }
     }
+    pub fn next (&self) -> Block {
+//        self.buf_reader
+        Block{}
+    }
 
 }
-
+struct Block{}
 
 #[cfg(test)]
 mod tests {
@@ -64,8 +68,11 @@ mod tests {
     fn t2() {
         let mut file = File::open("devnet.car").unwrap();
         let mut buf_reader = BufReader::new(file);
+        let mut car_reader = CarReader::new(buf_reader);
 
-        let (l, buf) = ld_read(&mut buf_reader);
-        println!("Size {}", l);
+        let (c, b) = util::read_node(&mut car_reader.buf_reader);
+
+        println!("CID: {:?}, len: {}", c, b.len());
+
     }
 }
