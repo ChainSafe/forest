@@ -106,8 +106,8 @@ impl ChainEpoch {
     pub fn new(timestamp: i64) -> Result<ChainEpoch, TryFromIntError> {
         Ok(ChainEpoch(timestamp.try_into()?))
     }
-    // Returns chain epoch
-    pub fn chain_epoch(&self) -> &u64 {
+    // Returns chain epoch as u64
+    pub fn as_u64(&self) -> &u64 {
         &self.0
     }
 }
