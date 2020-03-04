@@ -1,22 +1,27 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
+mod peer_test;
+
 use super::network_handler::NetworkHandler;
+use super::peer_manager::PeerManager;
 use super::{Error, SyncManager, SyncNetworkContext};
 use address::Address;
 use amt::AMT;
-use async_std::sync::channel;
-use async_std::sync::{Receiver, Sender};
+use async_std::sync::{channel, Receiver, Sender};
+use async_std::task;
 use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::Cid;
+use core::time::Duration;
 use crypto::is_valid_signature;
 use db::Error as DBError;
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{NetworkEvent, NetworkMessage};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::{info, warn};
+use log::{debug, info, warn};
 use lru::LruCache;
 use message::Message;
 use num_bigint::BigUint;
@@ -24,6 +29,7 @@ use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -42,18 +48,18 @@ enum SyncState {
     _Follow,
 }
 
-pub struct ChainSyncer<'db, DB, ST> {
+pub struct ChainSyncer<DB, ST> {
     /// Syncing state of chain sync
     _state: SyncState,
 
     /// manages retrieving and updates state objects
-    state_manager: StateManager<'db, DB, ST>,
+    state_manager: StateManager<DB, ST>,
 
     /// manages sync buckets
     sync_manager: SyncManager,
 
     /// access and store tipsets / blocks / messages
-    chain_store: ChainStore<'db, DB>,
+    chain_store: ChainStore<DB>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -67,6 +73,9 @@ pub struct ChainSyncer<'db, DB, ST> {
 
     ///  incoming network events to be handled by syncer
     net_handler: NetworkHandler,
+
+    /// Peer manager to handle full peers to send ChainSync requests to
+    peer_manager: Arc<PeerManager>,
 }
 
 /// Message data used to ensure valid state transition
@@ -75,18 +84,18 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'db, DB> ChainSyncer<'db, DB, HamtStateTree>
+impl<DB> ChainSyncer<DB, HamtStateTree>
 where
     DB: BlockStore,
 {
     pub fn new(
-        db: &'db DB,
+        db: Arc<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
     ) -> Result<Self, Error> {
         let sync_manager = SyncManager::default();
 
-        let chain_store = ChainStore::new(db);
+        let chain_store = ChainStore::new(db.clone());
         let _genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
@@ -104,6 +113,8 @@ where
 
         let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx);
 
+        let peer_manager = Arc::new(PeerManager::default());
+
         let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
@@ -115,18 +126,34 @@ where
             sync_manager,
             bad_blocks: LruCache::new(1 << 15),
             net_handler,
+            peer_manager,
         })
     }
 }
 
-impl<'db, DB, ST> ChainSyncer<'db, DB, ST>
+impl<DB, ST> ChainSyncer<DB, ST>
 where
     DB: BlockStore,
     ST: StateTree,
 {
     /// Starts syncing process
     pub async fn sync(mut self) -> Result<(), Error> {
-        self.net_handler.spawn();
+        self.net_handler.spawn(Arc::clone(&self.peer_manager));
+
+        info!("Bootstrapping peers to sync");
+
+        // Bootstrap peers before syncing
+        // TODO increase bootstrap peer count before syncing
+        const MIN_PEERS: usize = 1;
+        loop {
+            let peer_count = self.peer_manager.len().await;
+            if peer_count < MIN_PEERS {
+                debug!("bootstrapping peers, have {}", peer_count);
+                task::sleep(Duration::from_secs(2)).await;
+            } else {
+                break;
+            }
+        }
 
         info!("Starting chain sync");
 
@@ -391,7 +418,15 @@ where
             let window = min(epoch_diff, REQUEST_WINDOW);
 
             // TODO change from using random peerID to managed
-            let peer_id = PeerId::random();
+            while self.peer_manager.is_empty().await {
+                warn!("No valid peers to sync, waiting for other nodes");
+                task::sleep(Duration::from_secs(5)).await;
+            }
+            let peer_id = self
+                .peer_manager
+                .get_peer()
+                .await
+                .expect("Peer set is not empty here");
 
             // Load blocks from network using blocksync
             let tipsets: Vec<Tipset> = match self
@@ -402,6 +437,7 @@ where
                 Ok(ts) => ts,
                 Err(e) => {
                     warn!("Failed blocksync request to peer {:?}: {}", peer_id, e);
+                    self.peer_manager.remove_peer(&peer_id).await;
                     continue;
                 }
             };

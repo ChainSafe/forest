@@ -46,14 +46,18 @@ fn main() {
     // Capture CLI inputs
     let config = cli().expect("CLI error");
 
-    let net_keypair = match get_keypair(&"/.forest/libp2p/keypair") {
+    let net_keypair = match get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair")) {
         Some(kp) => kp,
         None => {
             // Keypair not found, generate and save generated keypair
             let gen_keypair = ed25519::Keypair::generate();
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
-            if let Err(e) = write_to_file(&gen_keypair.encode(), &"/.forest/libp2p/", "keypair") {
+            if let Err(e) = write_to_file(
+                &gen_keypair.encode(),
+                &format!("{}{}", &config.data_dir, "/libp2p/"),
+                "keypair",
+            ) {
                 info!("Could not write keystore to disk!");
                 trace!("Error {:?}", e);
             };
@@ -72,10 +76,10 @@ fn main() {
     });
     let sync_thread = task::spawn(async {
         // Initialize database
-        let mut db = RocksDb::new("chain_db");
+        let mut db = RocksDb::new(config.data_dir + "/db");
         db.open().unwrap();
 
-        let chain_syncer = ChainSyncer::new(&db, network_send, network_rx).unwrap();
+        let chain_syncer = ChainSyncer::new(Arc::new(db), network_send, network_rx).unwrap();
         chain_syncer.sync().await.unwrap();
     });
 

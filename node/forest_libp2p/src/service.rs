@@ -17,10 +17,10 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
-use log::{debug, error, info, trace};
+use log::{debug, info, trace, warn};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
-use utils::{get_home_dir, read_file_to_vec};
+use utils::read_file_to_vec;
 
 type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
 type Libp2pBehaviour = ForestBehaviour<Substream<StreamMuxerBox>>;
@@ -68,8 +68,6 @@ impl Libp2pService {
     pub fn new(config: &Libp2pConfig, net_keypair: Keypair) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        info!("Local peer id: {:?}", peer_id);
-
         let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
@@ -77,13 +75,13 @@ impl Libp2pService {
             Swarm::new(transport, be, peer_id)
         };
 
-        for node in config.bootstrap_peers.clone() {
+        for node in &config.bootstrap_peers {
             match node.parse() {
                 Ok(to_dial) => match Swarm::dial_addr(&mut swarm, to_dial) {
                     Ok(_) => debug!("Dialed {:?}", node),
-                    Err(e) => debug!("Dial {:?} failed: {:?}", node, e),
+                    Err(e) => warn!("Dial {:?} failed: {:?}", node, e),
                 },
-                Err(err) => error!("Failed to parse address to dial: {:?}", err),
+                Err(err) => warn!("Failed to parse address to dial: {:?}", err),
             }
         }
 
@@ -115,19 +113,24 @@ impl Libp2pService {
     pub async fn run(self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
+
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
-                            info!("Peer dialed, {:?}", peer_id);
-                            // TODO add sending hello after genesis setup
+                            debug!("Peer dialed, {:?}", peer_id);
+                            // TODO send non-default Hello Message
+                            swarm_stream.get_mut().send_rpc(
+                                peer_id,
+                                RPCEvent::Request(0, RPCRequest::Hello(HelloMessage::default())),
+                            );
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
-                            info!("Peer disconnected, {:?}", peer_id);
+                            debug!("Peer disconnected, {:?}", peer_id);
                         }
                         ForestBehaviourEvent::DiscoveredPeer(peer) => {
-                            info!("Discovered: {:?}", peer);
+                            debug!("Discovered: {:?}", peer);
                             libp2p::Swarm::dial(&mut swarm_stream.get_mut(), peer);
                         }
                         ForestBehaviourEvent::ExpiredPeer(_) => {}
@@ -136,7 +139,7 @@ impl Libp2pService {
                             topics,
                             message,
                         } => {
-                            info!("Got a Gossip Message from {:?}", source);
+                            debug!("Got a Gossip Message from {:?}", source);
                             self.network_sender_out.send(NetworkEvent::PubsubMessage {
                                 source,
                                 topics,
@@ -144,7 +147,7 @@ impl Libp2pService {
                             }).await;
                         }
                         ForestBehaviourEvent::RPC(peer_id, event) => {
-                            info!("RPC event {:?}", event);
+                            debug!("RPC event {:?}", event);
                             match event {
                                 RPCEvent::Response(req_id, res) => {
                                     self.network_sender_out.send(NetworkEvent::RPCResponse {
@@ -215,8 +218,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 
 /// Fetch keypair from disk, returning none if it cannot be decoded
 pub fn get_keypair(path: &str) -> Option<Keypair> {
-    let path_to_keystore = get_home_dir() + path;
-    match read_file_to_vec(&path_to_keystore) {
+    match read_file_to_vec(&path) {
         Err(e) => {
             info!("Networking keystore not found!");
             trace!("Error {:?}", e);
@@ -224,7 +226,7 @@ pub fn get_keypair(path: &str) -> Option<Keypair> {
         }
         Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
             Ok(kp) => {
-                info!("Recovered keystore from {:?}", &path_to_keystore);
+                info!("Recovered keystore from {:?}", &path);
                 Some(Keypair::Ed25519(kp))
             }
             Err(e) => {

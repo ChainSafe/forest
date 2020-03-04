@@ -6,6 +6,7 @@ mod errors;
 mod manager;
 mod network_context;
 mod network_handler;
+mod peer_manager;
 mod sync;
 
 pub use self::errors::Error;
