@@ -1,11 +1,11 @@
-use std::io::Read;
 use cid::Cid;
 use forest_encoding::from_slice;
+use std::io::Read;
 
 pub(crate) fn ld_read<R: std::io::Read>(mut buf_reader: &mut R) -> (u64, Vec<u8>) {
     let l = unsigned_varint::io::read_u64(&mut buf_reader).unwrap();
     let mut buf = Vec::with_capacity(l as usize);
-    buf_reader.take( l).read_to_end(&mut buf);
+    buf_reader.take(l).read_to_end(&mut buf);
     (l, buf)
 }
 
@@ -17,18 +17,33 @@ pub(crate) fn read_node<R: std::io::Read>(mut buf_reader: &mut R) -> (Cid, Vec<u
 
 pub(crate) fn read_cid(buf: &[u8]) -> (Cid, u64) {
     // TODO: Add checks 0x12 0x20
-//   let cid: Cid = from_slice(buf[2..=34].as_ref()).unwrap() ;
+    //   let cid: Cid = from_slice(buf[2..=34].as_ref()).unwrap() ;
 
-//    let (version, buf) = unsigned_varint::decode::u64(buf).unwrap();
-//    if version != 1 {
-//        panic!("Version is not 1")
-//    }
-//    let (codec, buf) = unsigned_varint::decode::u64(buf).unwrap();
-    let cid: Cid = Cid::from_raw_cid(&buf[0..=37]).unwrap();
+    //    let (version, buf) = unsigned_varint::decode::u64(buf).unwrap();
+    //    if version != 1 {
+    //        panic!("Version is not 1")
+    //    }
 
-    (cid, 38)
+    let (version, buf) = unsigned_varint::decode::u64(buf).unwrap();
+    let (codec, buf) = unsigned_varint::decode::u64(buf).unwrap();
+    let (hashcode, buf) = unsigned_varint::decode::u64(buf).unwrap();
+    let (len, buf) = unsigned_varint::decode::u64(buf).unwrap();
+    let hash = &buf[0..len as usize];
+
+    //    let cid: Cid = Cid::from_raw_cid(&buf[0..=37]).unwrap();
+    let cid: Cid = Cid::new(
+        cid::Codec::from(codec).unwrap(),
+        cid::Version::from(version).unwrap(),
+        cid::multihash::encode(
+            cid::multihash::Hash::from_code(hashcode as u16).unwrap(),
+            &hash,
+        )
+        .unwrap(),
+    );
+
+    let len =cid.to_bytes().len() as u64 ;
+    (cid, len)
 }
-
 
 //func ReadCid(buf []byte) (cid.Cid, int, error) {
 //if bytes.Equal(buf[:2], cidv0Pref) {

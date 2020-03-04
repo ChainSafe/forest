@@ -1,12 +1,13 @@
 use cid::Cid;
+use forest_encoding::{de::Deserializer, from_slice, ser::Serializer};
 use leb128;
-use unsigned_varint;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, Read};
-use forest_encoding::{ser::Serializer, de::Deserializer, from_slice};
-use serde::{Serialize, Deserialize};
+use unsigned_varint;
 
 mod util;
+use crate::util::read_node;
 use util::ld_read;
 
 fn ls() -> std::io::Result<()> {
@@ -15,7 +16,13 @@ fn ls() -> std::io::Result<()> {
     // for carreader.next() until EOF
     let mut file = File::open("devnet.car")?;
     let mut buf_reader = BufReader::new(file);
-    let car_reader = CarReader::new(buf_reader);
+    let mut car_reader = CarReader::new(buf_reader);
+
+    // for carreader next
+    while !car_reader.buf_reader.buffer().is_empty() {
+        let x = car_reader.next();
+        println!("{:?}", x.cid.to_string());
+    }
 
     Ok(())
 }
@@ -38,22 +45,27 @@ struct CarReader<R> {
 }
 
 impl<R> CarReader<R>
-where R: std::io::Read{
+where
+    R: std::io::Read,
+{
     pub fn new(mut buf_reader: BufReader<R>) -> Self {
-       let (l, buf) = ld_read(&mut buf_reader);
+        let (l, buf) = ld_read(&mut buf_reader);
         let header: CarHeader = from_slice(&buf).unwrap();
-        CarReader {
-            buf_reader,
-            header,
-        }
+        // TODO: Do some checks here
+        CarReader { buf_reader, header }
     }
-    pub fn next (&self) -> Block {
-//        self.buf_reader
-        Block{}
-    }
+    pub fn next(&mut self) -> Block {
+        // Read node -> cid, bytes
+        let (cid, data) = read_node(&mut self.buf_reader);
+        let _ = cid.prefix();
 
+        Block { cid, data }
+    }
 }
-struct Block{}
+struct Block {
+    cid: Cid,
+    data: Vec<u8>,
+}
 
 #[cfg(test)]
 mod tests {
@@ -64,15 +76,15 @@ mod tests {
         ls().unwrap();
     }
 
-    #[test]
-    fn t2() {
-        let mut file = File::open("devnet.car").unwrap();
-        let mut buf_reader = BufReader::new(file);
-        let mut car_reader = CarReader::new(buf_reader);
-
-        let (c, b) = util::read_node(&mut car_reader.buf_reader);
-
-        println!("CID: {:?}, len: {}", c, b.len());
-
-    }
+    //    #[test]
+    //    fn t2() {
+    //        let mut file = File::open("devnet.car").unwrap();
+    //        let mut buf_reader = BufReader::new(file);
+    //        let mut car_reader = CarReader::new(buf_reader);
+    //
+    //        let (c, b) = util::read_node(&mut car_reader.buf_reader);
+    //
+    //        println!("CID: {:?}, len: {}", c, b.len());
+    //
+    //    }
 }
