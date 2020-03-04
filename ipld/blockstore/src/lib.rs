@@ -32,7 +32,7 @@ pub trait BlockStore: Read + Write {
         S: Serialize,
     {
         let bz = to_vec(obj).map_err(|e| Error::new(e.to_string()))?;
-        let cid = Cid::from_bytes(&bz, Blake2b256).map_err(|e| Error::new(e.to_string()))?;
+        let cid = Cid::new_from_cbor(&bz, Blake2b256).map_err(|e| Error::new(e.to_string()))?;
         self.write(cid.to_bytes(), bz)?;
         Ok(cid)
     }

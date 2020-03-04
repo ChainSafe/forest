@@ -279,7 +279,7 @@ impl BlockHeader {
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
         self.cached_cid =
-            Cid::from_bytes(&self.cached_bytes, Blake2b256).map_err(|e| e.to_string())?;
+            Cid::new_from_cbor(&self.cached_bytes, Blake2b256).map_err(|e| e.to_string())?;
         Ok(())
     }
     /// Check to ensure block signature is valid

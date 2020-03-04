@@ -97,7 +97,7 @@ mod tests {
     use crypto::VRFResult;
 
     fn template_key(data: &[u8]) -> Cid {
-        Cid::from_bytes(data, Blake2b256).unwrap()
+        Cid::new_from_cbor(data, Blake2b256).unwrap()
     }
 
     // key_setup returns a vec of distinct CIDs

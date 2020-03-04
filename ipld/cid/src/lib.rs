@@ -102,7 +102,7 @@ impl Cid {
     }
 
     /// Constructs a cid with bytes using default version and codec
-    pub fn from_bytes<T: MultihashDigest>(bz: &[u8], hash: T) -> Result<Self, Error> {
+    pub fn new_from_cbor<T: MultihashDigest>(bz: &[u8], hash: T) -> Result<Self, Error> {
         let hash = hash.digest(bz);
         Ok(Cid {
             version: Version::V1,
@@ -121,7 +121,7 @@ impl Cid {
         let hash = prefix
             .mh_type
             .hasher()
-            .ok_or(Error::Other("Prefix must use builtin hasher".to_owned()))?
+            .ok_or_else(|| Error::Other("Prefix must use builtin hasher".to_owned()))?
             .digest(data);
         Ok(Cid {
             version: prefix.version,
