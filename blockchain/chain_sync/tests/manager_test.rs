@@ -3,7 +3,7 @@
 
 use blocks::{BlockHeader, Tipset};
 use chain_sync::SyncManager;
-use cid::{multihash::Hash::Blake2b256, Cid};
+use cid::{multihash::Blake2b256, Cid};
 use num_bigint::BigUint;
 use std::sync::Arc;
 

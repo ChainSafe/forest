@@ -5,7 +5,7 @@
 
 use forest_cid::Cid;
 use multihash;
-use multihash::Hash::Blake2b256;
+use multihash::Blake2b256;
 use serde_cbor::{from_slice, to_vec};
 
 #[test]

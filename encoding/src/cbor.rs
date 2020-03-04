@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use crate::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
-use cid::{multihash::Hash::Blake2b256, Cid};
+use cid::{multihash::Blake2b256, Cid};
 
 /// Cbor utility functions for serializable objects
 pub trait Cbor: Serialize + DeserializeOwned {

@@ -3,7 +3,7 @@
 
 use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
-use cid::{multihash::Hash::Blake2b256, Cid};
+use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{is_valid_signature, Signature};
 use derive_builder::Builder;

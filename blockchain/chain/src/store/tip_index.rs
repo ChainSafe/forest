@@ -93,7 +93,7 @@ impl TipIndex {
 mod tests {
     use super::*;
     use blocks::{BlockHeader, Ticket, Tipset};
-    use cid::{multihash::Hash::Blake2b256, Cid};
+    use cid::{multihash::Blake2b256, Cid};
     use crypto::VRFResult;
 
     fn template_key(data: &[u8]) -> Cid {

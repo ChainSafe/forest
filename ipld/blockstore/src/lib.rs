@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{multihash::Hash, Cid};
+use cid::{multihash::Blake2b256, Cid};
 use db::{Error, MemoryDB, Read, RocksDb, Write};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 
@@ -25,13 +25,14 @@ pub trait BlockStore: Read + Write {
         }
     }
 
+    // TODO allow put function to set hash type of Cid with multihash::MultihashDigest trait
     /// Put an object in the block store and return the Cid identifier
     fn put<S>(&self, obj: &S) -> Result<Cid, Error>
     where
         S: Serialize,
     {
         let bz = to_vec(obj).map_err(|e| Error::new(e.to_string()))?;
-        let cid = Cid::from_bytes(&bz, Hash::Blake2b256).map_err(|e| Error::new(e.to_string()))?;
+        let cid = Cid::from_bytes(&bz, Blake2b256).map_err(|e| Error::new(e.to_string()))?;
         self.write(cid.to_bytes(), bz)?;
         Ok(cid)
     }

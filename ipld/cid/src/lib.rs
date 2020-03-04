@@ -9,12 +9,11 @@ mod version;
 pub use self::codec::Codec;
 pub use self::error::Error;
 pub use self::version::Version;
-use integer_encoding::{VarIntReader, VarIntWriter};
+use integer_encoding::VarIntWriter;
 pub use multihash;
-use multihash::{Hash, Multihash};
+use multihash::{Blake2b256, Multihash, MultihashDigest};
 use std::convert::TryInto;
 use std::fmt;
-use std::io::Cursor;
 
 #[cfg(feature = "serde_derive")]
 use serde::{de, ser};
@@ -32,11 +31,10 @@ const MULTIBASE_IDENTITY: u8 = 0;
 
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Prefix {
+pub struct Prefix<T: MultihashDigest> {
     pub version: Version,
     pub codec: Codec,
-    pub mh_type: Hash,
-    pub mh_len: usize,
+    pub mh_type: T,
 }
 
 /// Representation of a IPLD CID.
@@ -49,11 +47,7 @@ pub struct Cid {
 
 impl Default for Cid {
     fn default() -> Self {
-        Self::new(
-            Codec::Raw,
-            Version::V1,
-            multihash::encode(Hash::Blake2b256, &[]).unwrap(),
-        )
+        Self::new(Codec::Raw, Version::V1, Blake2b256.digest(&[]))
     }
 }
 
@@ -107,12 +101,11 @@ impl Cid {
     }
 
     /// Constructs a cid with bytes using default version and codec
-    pub fn from_bytes(bz: &[u8], hash: Hash) -> Result<Self, Error> {
+    pub fn from_bytes<T: MultihashDigest>(bz: &[u8], hash: T) -> Result<Self, Error> {
         let prefix = Prefix {
             version: Version::V1,
             codec: Codec::DagCBOR,
             mh_type: hash,
-            mh_len: (hash.size()) as usize,
         };
         Ok(Self::new_from_prefix(&prefix, bz)?)
     }
@@ -123,8 +116,11 @@ impl Cid {
     }
 
     /// Create a new CID from a prefix and some data.
-    pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
-        let hash = multihash::encode(prefix.mh_type.to_owned(), data)?;
+    pub fn new_from_prefix<T: MultihashDigest>(
+        prefix: &Prefix<T>,
+        data: &[u8],
+    ) -> Result<Cid, Error> {
+        let hash = prefix.mh_type.digest(data);
         Ok(Cid {
             version: prefix.version,
             codec: prefix.codec.to_owned(),
@@ -171,15 +167,6 @@ impl Cid {
         }
     }
 
-    /// Returns prefix for Cid format
-    pub fn prefix(&self) -> Prefix {
-        Prefix {
-            version: self.version,
-            codec: self.codec.to_owned(),
-            mh_type: self.hash.algorithm(),
-            mh_len: self.hash.as_bytes().len(),
-        }
-    }
     /// Returns cid in bytes to be stored in datastore
     pub fn key(&self) -> Vec<u8> {
         self.to_bytes()
@@ -211,43 +198,5 @@ impl fmt::Display for Cid {
 impl fmt::Debug for Cid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Cid(\"{}\")", self)
-    }
-}
-
-impl Prefix {
-    /// Generate new prefix from encoded bytes
-    pub fn new_from_bytes(data: &[u8]) -> Result<Prefix, Error> {
-        let mut cur = Cursor::new(data);
-
-        let raw_version = cur.read_varint()?;
-        let raw_codec = cur.read_varint()?;
-        let raw_mh_type: u64 = cur.read_varint()?;
-
-        let version = Version::from(raw_version)?;
-        let codec = Codec::from(raw_codec)?;
-
-        let mh_type = Hash::from_code(raw_mh_type as u16).ok_or(Error::ParsingError)?;
-
-        let mh_len = cur.read_varint()?;
-
-        Ok(Prefix {
-            version,
-            codec,
-            mh_type,
-            mh_len,
-        })
-    }
-
-    /// Encodes prefix to bytes
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = Vec::with_capacity(4);
-
-        // io can't fail on Vec
-        res.write_varint(u64::from(self.version)).unwrap();
-        res.write_varint(u64::from(self.codec)).unwrap();
-        res.write_varint(self.mh_type.code() as u64).unwrap();
-        res.write_varint(self.mh_len as u64).unwrap();
-
-        res
     }
 }

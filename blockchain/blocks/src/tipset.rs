@@ -231,7 +231,7 @@ impl FullTipset {
 mod tests {
     use super::*;
     use address::Address;
-    use cid::{multihash::Hash::Blake2b256, Cid};
+    use cid::{multihash::Blake2b256, Cid};
     use crypto::VRFResult;
     use num_bigint::BigUint;
 

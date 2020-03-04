@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{multihash::Hash::Blake2b256, Cid};
+use cid::{multihash::Blake2b256, Cid};
 use encoding::{from_slice, to_vec};
 use forest_ipld::Ipld;
 use serde::{Deserialize, Serialize};

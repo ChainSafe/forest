@@ -74,7 +74,7 @@ impl SyncBucketSet {
 mod tests {
     use super::*;
     use blocks::BlockHeader;
-    use cid::{multihash::Hash::Blake2b256, Cid};
+    use cid::{multihash::Blake2b256, Cid};
     use num_bigint::BigUint;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {

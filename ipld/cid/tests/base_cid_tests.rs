@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_cid::{Cid, Codec, Error, Prefix, Version};
-use multihash;
-use multihash::Hash::Blake2b256;
+use multihash::{self, Sha2_256};
 use std::collections::HashMap;
 
 #[test]
 fn basic_marshalling() {
-    let h = multihash::encode(multihash::Hash::SHA2256, b"beep boop").unwrap();
+    let h = Sha2_256::digest(b"beep boop");
 
     let cid = Cid::new(Codec::DagProtobuf, Version::V1, h);
 
@@ -55,24 +54,6 @@ fn v0_error() {
 }
 
 #[test]
-fn prefix_roundtrip() {
-    let data = b"awesome test content";
-    let h = multihash::encode(multihash::Hash::SHA2256, data).unwrap();
-
-    let cid = Cid::new(Codec::DagProtobuf, Version::V1, h);
-    let prefix = cid.prefix();
-
-    let cid2 = Cid::new_from_prefix(&prefix, data).unwrap();
-
-    assert_eq!(cid, cid2);
-
-    let prefix_bytes = prefix.as_bytes();
-    let prefix2 = Prefix::new_from_bytes(&prefix_bytes).unwrap();
-
-    assert_eq!(prefix, prefix2);
-}
-
-#[test]
 fn from() {
     let the_hash = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n";
 
@@ -95,28 +76,10 @@ fn test_hash() {
     let prefix = Prefix {
         version: Version::V0,
         codec: Codec::DagProtobuf,
-        mh_type: multihash::Hash::SHA2256,
-        mh_len: 32,
+        mh_type: Sha2_256,
     };
     let mut map = HashMap::new();
     let cid = Cid::new_from_prefix(&prefix, &data).unwrap();
     map.insert(cid.clone(), data.clone());
     assert_eq!(&data, map.get(&cid).unwrap());
-}
-
-#[test]
-fn test_default() {
-    let data: Vec<u8> = vec![1, 2, 3];
-
-    let cid = Cid::from_bytes(&data, Blake2b256).unwrap();
-
-    let prefix = cid.prefix();
-    assert_eq!(prefix.version, Version::V1);
-    assert_eq!(prefix.codec, Codec::DagCBOR);
-    assert_eq!(prefix.mh_type, Blake2b256);
-    assert_eq!(
-        prefix.mh_len,
-        // 4 is Blake2b256 code length (3) + 1, change if default changes
-        (Blake2b256.size() + 4) as usize
-    );
 }
