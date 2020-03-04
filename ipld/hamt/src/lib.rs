@@ -14,12 +14,12 @@ pub use self::hash::*;
 
 use serde::{Deserialize, Serialize};
 
-pub(crate) const MAX_ARRAY_WIDTH: usize = 3;
+const MAX_ARRAY_WIDTH: usize = 3;
 
 type HashedKey = [u8; 16];
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct KeyValuePair<K, V>(K, V);
+struct KeyValuePair<K, V>(K, V);
 
 impl<K, V> KeyValuePair<K, V> {
     pub fn key(&self) -> &K {
