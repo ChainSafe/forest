@@ -3,6 +3,7 @@
 
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
+use serde_bytes::ByteBuf;
 
 #[test]
 fn test_basics() {
@@ -61,27 +62,31 @@ fn test_from_link() {
 fn delete() {
     let store = db::MemoryDB::default();
 
-    let mut hamt: Hamt<String, Vec<u8>, _> = Hamt::new(&store);
-    hamt.insert("foo".to_owned(), b"cat dog bear".to_vec());
-    hamt.insert("bar".to_owned(), b"cat dog".to_vec());
-    hamt.insert("baz".to_owned(), b"cat".to_vec());
+    // ! Note that bytes must be specifically indicated serde_bytes type
+    let mut hamt: Hamt<String, ByteBuf, _> = Hamt::new(&store);
+    let (v1, v2, v3): (&[u8], &[u8], &[u8]) = (
+        b"cat dog bear".as_ref(),
+        b"cat dog".as_ref(),
+        b"cat".as_ref(),
+    );
+    hamt.insert("foo".to_owned(), ByteBuf::from(v1));
+    hamt.insert("bar".to_owned(), ByteBuf::from(v2));
+    hamt.insert("baz".to_owned(), ByteBuf::from(v3));
 
     let c = store.put(&hamt).unwrap();
-    // TODO switch back to eq when matching
-    assert_ne!(
+    assert_eq!(
         hex::encode(c.to_bytes()),
         "0171a0e402209531e0f913dff0c17f8dddb35e2cbf5bbc940c6abef5604c06fc4de3e8101c53"
     );
 
-    let mut h2 = Hamt::<String, Vec<u8>, _>::from_link(&c, &store).unwrap();
-    assert_eq!(h2.remove(&"foo".to_owned()), Some(b"cat dog bear".to_vec()));
+    let mut h2 = Hamt::<String, ByteBuf, _>::from_link(&c, &store).unwrap();
+    assert_eq!(h2.remove(&"foo".to_owned()), Some(ByteBuf::from(v1)));
     assert_eq!(h2.get(&"foo".to_owned()), None);
 
     // Assert previous hamt still has access
-    assert_eq!(hamt.get(&"foo".to_owned()), Some(&b"cat dog bear".to_vec()));
+    assert_eq!(hamt.get(&"foo".to_owned()), Some(&ByteBuf::from(v1)));
 
     let c2 = store.put(&hamt).unwrap();
-    // TODO switch to eq
     assert_ne!(
         hex::encode(c2.to_bytes()),
         "0171a0e4022017a2dc44939d3b74b086cd78dd927edbf20c81d39c576bdc4fc48931b2f2b117"

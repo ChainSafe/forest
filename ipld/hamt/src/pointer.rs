@@ -14,9 +14,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(deserialize = "KeyValuePair<K, V>: DeserializeOwned"))]
 pub(crate) struct Pointer<K, V> {
-    #[serde(rename = "v", skip_serializing_if = "Vec::is_empty")]
+    #[serde(rename = "1", skip_serializing_if = "Vec::is_empty")]
     pub(crate) kvs: Vec<KeyValuePair<K, V>>,
-    #[serde(rename = "l", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "0", skip_serializing_if = "Option::is_none")]
     link: Option<Cid>,
     #[serde(skip)]
     cache: AtomicLazyCell<Node<K, V>>,
