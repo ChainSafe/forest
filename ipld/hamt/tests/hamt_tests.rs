@@ -94,8 +94,7 @@ fn reload_empty() {
 
     let hamt: Hamt<String, Vec<u8>, _> = Hamt::new(&store);
     let c = store.put(&hamt).unwrap();
-    // TODO switch to eq when bitmap serialization updated
-    assert_ne!(
+    assert_eq!(
         hex::encode(c.to_bytes()),
         "0171a0e4022018fe6acc61a3a36b0c373c4a3a8ea64b812bf2ca9b528050909c78d408558a0c"
     );

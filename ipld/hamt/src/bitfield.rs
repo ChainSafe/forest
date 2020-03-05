@@ -24,7 +24,14 @@ impl Serialize for Bitfield {
         BigEndian::write_u64(&mut v[16..24], self.0[1]);
         BigEndian::write_u64(&mut v[24..], self.0[0]);
 
-        let byte_buf = serde_bytes::Bytes::new(&v);
+        for i in 0..v.len() {
+            if v[i] != 0 {
+                let byte_buf = serde_bytes::Bytes::new(&v[i..]);
+                return byte_buf.serialize(serializer);
+            }
+        }
+
+        let byte_buf = serde_bytes::Bytes::new(&[]);
         byte_buf.serialize(serializer)
     }
 }
@@ -36,10 +43,16 @@ impl<'de> Deserialize<'de> for Bitfield {
     {
         let mut res = Bitfield::zero();
         let bytes = serde_bytes::ByteBuf::deserialize(deserializer)?.into_vec();
-        res.0[3] = BigEndian::read_u64(&bytes[..8]);
-        res.0[2] = BigEndian::read_u64(&bytes[8..16]);
-        res.0[1] = BigEndian::read_u64(&bytes[16..24]);
-        res.0[0] = BigEndian::read_u64(&bytes[24..]);
+
+        let mut arr = [0u8; 4 * 8];
+        let len = bytes.len();
+        for (old, new) in bytes.iter().zip(arr[(32 - len)..].iter_mut()) {
+            *new = *old;
+        }
+        res.0[3] = BigEndian::read_u64(&arr[..8]);
+        res.0[2] = BigEndian::read_u64(&arr[8..16]);
+        res.0[1] = BigEndian::read_u64(&arr[16..24]);
+        res.0[0] = BigEndian::read_u64(&arr[24..]);
 
         Ok(res)
     }
@@ -133,6 +146,7 @@ impl std::fmt::Binary for Bitfield {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use forest_encoding::{from_slice, to_vec};
 
     #[test]
     fn test_bitfield() {
@@ -150,5 +164,23 @@ mod tests {
 
         b.clear_bit(18);
         assert!(!b.test_bit(18));
+    }
+
+    #[test]
+    fn test_cbor_serialization() {
+        let mut b0 = Bitfield::zero();
+        let bz = to_vec(&b0).unwrap();
+        assert_eq!(&bz, &[64]);
+        assert_eq!(&from_slice::<Bitfield>(&bz).unwrap(), &b0);
+
+        b0.set_bit(0);
+        let bz = to_vec(&b0).unwrap();
+        assert_eq!(&bz, &[65, 1]);
+        assert_eq!(&from_slice::<Bitfield>(&bz).unwrap(), &b0);
+
+        b0.set_bit(64);
+        let bz = to_vec(&b0).unwrap();
+        assert_eq!(&bz, &[73, 1, 0, 0, 0, 0, 0, 0, 0, 1]);
+        assert_eq!(&from_slice::<Bitfield>(&bz).unwrap(), &b0);
     }
 }

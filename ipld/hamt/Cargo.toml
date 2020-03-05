@@ -12,6 +12,7 @@ replace_with = "0.1.5"
 cid = { package = "forest_cid", path = "../cid" }
 db = { path = "../../node/db" }
 ipld_blockstore = { path = "../blockstore" }
+num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 
 [dependencies.murmur3]
 git = "https://github.com/dignifiedquire/murmur3"
