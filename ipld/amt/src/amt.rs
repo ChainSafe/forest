@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_INDEX, WIDTH};
-use cid::Cid;
+use cid::{multihash::Blake2b256, Cid};
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
 
@@ -103,7 +103,7 @@ where
                 self.root.node.flush(self.block_store)?;
 
                 // Get cid from storing root node
-                let cid = self.block_store.put(&self.root.node)?;
+                let cid = self.block_store.put(&self.root.node, Blake2b256)?;
 
                 // Set links node with first index as cid
                 let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
@@ -186,6 +186,6 @@ where
     /// flush root and return Cid used as key in block store
     pub fn flush(&mut self) -> Result<Cid, Error> {
         self.root.node.flush(self.block_store)?;
-        Ok(self.block_store.put(&self.root)?)
+        Ok(self.block_store.put(&self.root, Blake2b256)?)
     }
 }

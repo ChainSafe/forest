@@ -231,7 +231,7 @@ impl FullTipset {
 mod tests {
     use super::*;
     use address::Address;
-    use cid::{multihash::Hash::Blake2b256, Cid};
+    use cid::{multihash::Blake2b256, Cid};
     use crypto::VRFResult;
     use num_bigint::BigUint;
 
@@ -239,7 +239,7 @@ mod tests {
     const CACHED_BYTES: [u8; 1] = [0];
 
     fn template_key(data: &[u8]) -> Cid {
-        Cid::from_bytes(data, Blake2b256).unwrap()
+        Cid::new_from_cbor(data, Blake2b256).unwrap()
     }
 
     // key_setup returns a vec of 4 distinct CIDs
