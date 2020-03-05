@@ -1,10 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error, Hamt};
-use std::fmt::Debug;
+use ipld_hamt::Hamt;
 
 #[test]
 fn test_basics() {
@@ -58,3 +56,26 @@ fn test_from_link() {
     let c3 = store.put(&hamt).unwrap();
     assert_eq!(c3, c2);
 }
+
+// #[test]
+// fn delete() {
+//     let store = db::MemoryDB::default();
+
+//     let mut hamt: Hamt<String, Vec<u8>, _> = Hamt::new(&store);
+//     hamt.insert("foo".to_owned(), b"cat dog bear".to_vec());
+// }
+
+// #[test]
+// fn get_set() {
+//     // TODO
+// }
+
+// #[test]
+// fn reload_empty() {
+//     // TODO
+// }
+
+// #[test]
+// fn copy() {
+//     // TODO
+// }
