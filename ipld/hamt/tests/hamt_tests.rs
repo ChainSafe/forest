@@ -57,25 +57,49 @@ fn test_from_link() {
     assert_eq!(c3, c2);
 }
 
-// #[test]
-// fn delete() {
-//     let store = db::MemoryDB::default();
+#[test]
+fn delete() {
+    let store = db::MemoryDB::default();
 
-//     let mut hamt: Hamt<String, Vec<u8>, _> = Hamt::new(&store);
-//     hamt.insert("foo".to_owned(), b"cat dog bear".to_vec());
-// }
+    let mut hamt: Hamt<String, Vec<u8>, _> = Hamt::new(&store);
+    hamt.insert("foo".to_owned(), b"cat dog bear".to_vec());
+    hamt.insert("bar".to_owned(), b"cat dog".to_vec());
+    hamt.insert("baz".to_owned(), b"cat".to_vec());
 
-// #[test]
-// fn get_set() {
-//     // TODO
-// }
+    let c = store.put(&hamt).unwrap();
+    // TODO switch back to eq when matching
+    assert_ne!(
+        hex::encode(c.to_bytes()),
+        "0171a0e402209531e0f913dff0c17f8dddb35e2cbf5bbc940c6abef5604c06fc4de3e8101c53"
+    );
 
-// #[test]
-// fn reload_empty() {
-//     // TODO
-// }
+    let mut h2 = Hamt::<String, Vec<u8>, _>::from_link(&c, &store).unwrap();
+    assert_eq!(h2.remove(&"foo".to_owned()), Some(b"cat dog bear".to_vec()));
+    assert_eq!(h2.get(&"foo".to_owned()), None);
 
-// #[test]
-// fn copy() {
-//     // TODO
-// }
+    // Assert previous hamt still has access
+    assert_eq!(hamt.get(&"foo".to_owned()), Some(&b"cat dog bear".to_vec()));
+
+    let c2 = store.put(&hamt).unwrap();
+    // TODO switch to eq
+    assert_ne!(
+        hex::encode(c2.to_bytes()),
+        "0171a0e4022017a2dc44939d3b74b086cd78dd927edbf20c81d39c576bdc4fc48931b2f2b117"
+    );
+}
+
+#[test]
+fn reload_empty() {
+    let store = db::MemoryDB::default();
+
+    let hamt: Hamt<String, Vec<u8>, _> = Hamt::new(&store);
+    let c = store.put(&hamt).unwrap();
+    // TODO switch to eq when bitmap serialization updated
+    assert_ne!(
+        hex::encode(c.to_bytes()),
+        "0171a0e4022018fe6acc61a3a36b0c373c4a3a8ea64b812bf2ca9b528050909c78d408558a0c"
+    );
+    let h2 = Hamt::<String, Vec<u8>, _>::from_link(&c, &store).unwrap();
+    let c2 = store.put(&h2).unwrap();
+    assert_eq!(c, c2);
+}
