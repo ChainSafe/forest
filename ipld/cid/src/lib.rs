@@ -40,7 +40,7 @@ pub struct Prefix {
 }
 
 /// Representation of a IPLD CID.
-#[derive(Eq, Clone, Debug)]
+#[derive(Eq, Clone)]
 pub struct Cid {
     pub version: Version,
     pub codec: Codec,
@@ -205,6 +205,12 @@ impl fmt::Display for Cid {
             Version::V1 => self.to_string_v1(),
         };
         write!(f, "{}", encoded)
+    }
+}
+
+impl fmt::Debug for Cid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Cid(\"{}\")", self)
     }
 }
 

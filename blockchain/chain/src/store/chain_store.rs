@@ -14,13 +14,13 @@ use std::sync::Arc;
 const GENESIS_KEY: &str = "gen_block";
 
 /// Generic implementation of the datastore trait and structures
-pub struct ChainStore<'db, DB> {
+pub struct ChainStore<DB> {
     // TODO add IPLD Store
     // TODO add StateTreeLoader
     // TODO add a pubsub channel that publishes an event every time the head changes.
 
     // key-value datastore
-    db: &'db DB,
+    db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
     // TODO revisit if this should be pointer to tipset on heap
@@ -30,12 +30,12 @@ pub struct ChainStore<'db, DB> {
     tip_index: TipIndex,
 }
 
-impl<'db, DB> ChainStore<'db, DB>
+impl<DB> ChainStore<DB>
 where
     DB: BlockStore,
 {
     /// constructor
-    pub fn new(db: &'db DB) -> Self {
+    pub fn new(db: Arc<DB>) -> Self {
         // TODO pull heaviest tipset from data storage
         let heaviest = Arc::new(Tipset::new(vec![BlockHeader::default()]).unwrap());
         Self {
@@ -171,7 +171,7 @@ mod tests {
     fn genesis_test() {
         let db = db::MemoryDB::default();
 
-        let cs = ChainStore::new(&db);
+        let cs = ChainStore::new(Arc::new(db));
         let gen_block = BlockHeader::builder()
             .epoch(1.into())
             .weight((2 as u32).into())

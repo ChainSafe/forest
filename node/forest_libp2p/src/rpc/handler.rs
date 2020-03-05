@@ -1,10 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{
-    InboundCodec, OutboundFramed, RPCError, RPCEvent, RPCInbound, RPCOutbound, RPCResponse,
-    RequestId,
-};
+use super::protocol::{OutboundFramed, RPCInbound};
+use super::{InboundCodec, RPCError, RPCEvent, RPCRequest, RPCResponse, RequestId};
 use fnv::FnvHashMap;
 use futures::prelude::*;
 use futures::{AsyncRead, AsyncWrite};
@@ -14,6 +12,7 @@ use libp2p::swarm::{
     KeepAlive, ProtocolsHandler, ProtocolsHandlerEvent, ProtocolsHandlerUpgrErr, SubstreamProtocol,
 };
 use libp2p::{InboundUpgrade, OutboundUpgrade};
+use log::error;
 use smallvec::SmallVec;
 use std::{
     pin::Pin,
@@ -140,7 +139,7 @@ where
     type Error = RPCError;
     type Substream = TSubstream;
     type InboundProtocol = RPCInbound;
-    type OutboundProtocol = RPCOutbound;
+    type OutboundProtocol = RPCRequest;
     type OutboundOpenInfo = RPCEvent;
 
     fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol> {
@@ -244,8 +243,7 @@ where
     > {
         if let Some(err) = self.pending_error.take() {
             // Log error, shouldn't necessarily return error and drop peer here
-            // TODO add logger to RPCHandler and use here
-            dbg!(&err);
+            error!("{}", err);
         }
 
         // return any events that need to be reported
@@ -343,20 +341,18 @@ where
         }
 
         // establish outbound substreams
-        if !self.dial_queue.is_empty() {
-            if self.dial_negotiated < self.max_dial_negotiated {
-                self.dial_negotiated += 1;
-                let event = self.dial_queue.remove(0);
-                if let RPCEvent::Request(id, req) = event {
-                    return Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest {
-                        protocol: SubstreamProtocol::new(RPCOutbound { req: req.clone() }),
-                        info: RPCEvent::Request(id, req),
-                    });
-                }
-            }
-        } else {
+        if !self.dial_queue.is_empty() && self.dial_negotiated < self.max_dial_negotiated {
+            self.dial_negotiated += 1;
+            let event = self.dial_queue.remove(0);
             self.dial_queue.shrink_to_fit();
+            if let RPCEvent::Request(id, req) = event {
+                return Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest {
+                    protocol: SubstreamProtocol::new(req.clone()),
+                    info: RPCEvent::Request(id, req),
+                });
+            }
         }
+
         Poll::Pending
     }
 }

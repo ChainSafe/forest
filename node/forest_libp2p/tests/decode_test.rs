@@ -4,7 +4,7 @@
 use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::rpc::{BlockSyncResponse, TipSetBundle};
+use forest_libp2p::blocksync::{BlockSyncResponse, TipSetBundle};
 use forest_message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::convert::TryFrom;

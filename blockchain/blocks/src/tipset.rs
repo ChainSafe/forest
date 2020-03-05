@@ -198,10 +198,6 @@ impl Tipset {
     pub fn weight(&self) -> &BigUint {
         &self.blocks[0].weight()
     }
-    /// Returns the tipset's epoch
-    pub fn tip_epoch(&self) -> &ChainEpoch {
-        self.blocks[0].epoch()
-    }
 }
 
 /// FullTipSet is an expanded version of the TipSet that contains all the blocks and messages
