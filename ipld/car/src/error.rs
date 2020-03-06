@@ -1,14 +1,15 @@
 //// Copyright 2020 ChainSafe Systems
 //// SPDX-License-Identifier: Apache-2.0, MIT
-use std::fmt;
-use std::error;
+use cid::multihash::DecodeOwnedError;
 use serde::export::Formatter;
+use std::error;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum Error {
     ParsingError(String),
     InvalidFile(String),
-    Other(String)
+    Other(String),
 }
 
 impl fmt::Display for Error {
@@ -33,10 +34,14 @@ impl error::Error for Error {
     }
 }
 
-//
-//impl From<io::Error> for Error {
-//    fn from(_: io::Error) -> Error {
-//        Error::ParsingError
-//    }
-//}
-//
+impl From<cid::Error> for Error {
+    fn from(err: cid::Error) -> Error {
+        Error::Other(err.to_string())
+    }
+}
+
+impl From<DecodeOwnedError> for Error {
+    fn from(err: DecodeOwnedError) -> Error {
+        Error::ParsingError(err.to_string())
+    }
+}
