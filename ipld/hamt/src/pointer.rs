@@ -7,36 +7,107 @@ use cid::Cid;
 use ipld_blockstore::BlockStore;
 use lazycell::AtomicLazyCell;
 use replace_with::replace_with;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::de::{self, DeserializeOwned};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-// TODO: make Pointer an enum once things are working
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "KeyValuePair<K, V>: DeserializeOwned"))]
-pub(crate) struct Pointer<K, V> {
-    #[serde(rename = "1", skip_serializing_if = "Vec::is_empty")]
-    pub(crate) kvs: Vec<KeyValuePair<K, V>>,
-    #[serde(rename = "0", skip_serializing_if = "Option::is_none")]
-    link: Option<Cid>,
-    #[serde(skip)]
-    cache: AtomicLazyCell<Node<K, V>>,
+#[derive(Debug, Clone)]
+pub(crate) enum Pointer<K, V> {
+    Values(Vec<KeyValuePair<K, V>>),
+    Link {
+        cid: Cid,
+        cache: AtomicLazyCell<Node<K, V>>,
+    },
 }
 
 impl<K: PartialEq, V: PartialEq> PartialEq for Pointer<K, V> {
     fn eq(&self, other: &Self) -> bool {
-        self.kvs == other.kvs && self.link == other.link
+        match self {
+            Pointer::Values(v) => {
+                if let Pointer::Values(o) = other {
+                    v == o
+                } else {
+                    false
+                }
+            }
+            Pointer::Link { cid, .. } => {
+                if let Pointer::Link { cid: cid2, .. } = other {
+                    cid == cid2
+                } else {
+                    false
+                }
+            }
+        }
     }
 }
 
 impl<K: Eq, V: Eq> Eq for Pointer<K, V> {}
 
+impl<K, V> Serialize for Pointer<K, V>
+where
+    K: Serialize,
+    V: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Pointer::Values(vals) => {
+                #[derive(Serialize)]
+                struct ValsSer<'a, A, B> {
+                    #[serde(rename = "1")]
+                    vals: &'a [KeyValuePair<A, B>],
+                };
+                ValsSer { vals }.serialize(serializer)
+            }
+            Pointer::Link { cid, .. } => {
+                #[derive(Serialize)]
+                struct LinkSer<'a> {
+                    #[serde(rename = "0")]
+                    cid: &'a Cid,
+                };
+                LinkSer { cid }.serialize(serializer)
+            }
+        }
+    }
+}
+
+impl<'de, K, V> Deserialize<'de> for Pointer<K, V>
+where
+    K: DeserializeOwned,
+    V: DeserializeOwned,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct PointerDeser<A, B> {
+            #[serde(rename = "1")]
+            vals: Option<Vec<KeyValuePair<A, B>>>,
+
+            #[serde(rename = "0")]
+            cid: Option<Cid>,
+        }
+        let pointer_map = PointerDeser::deserialize(deserializer)?;
+        match pointer_map {
+            PointerDeser { vals: Some(v), .. } => {
+                return Ok(Pointer::Values(v));
+            }
+            PointerDeser { cid: Some(cid), .. } => {
+                return Ok(Pointer::Link {
+                    cid,
+                    cache: AtomicLazyCell::new(),
+                });
+            }
+            _ => return Err(de::Error::custom("Unexpected pointer serialization")),
+        }
+    }
+}
+
 impl<K, V> Default for Pointer<K, V> {
     fn default() -> Self {
-        Pointer {
-            kvs: Vec::new(),
-            link: None,
-            cache: AtomicLazyCell::new(),
-        }
+        Pointer::Values(Vec::new())
     }
 }
 
@@ -49,73 +120,87 @@ where
         let cache = AtomicLazyCell::new();
         cache.fill(node).map_err(|_| ()).unwrap();
 
-        Pointer {
-            kvs: Vec::new(),
-            link: Some(link),
-            cache,
-        }
+        Pointer::Link { cid: link, cache }
     }
 
     pub fn from_key_value(key: K, value: V) -> Self {
-        Pointer {
-            kvs: vec![KeyValuePair::new(key, value)],
-            link: None,
-            cache: AtomicLazyCell::new(),
-        }
+        Pointer::Values(vec![KeyValuePair::new(key, value)])
     }
 
     pub fn from_kvpairs(kvs: Vec<KeyValuePair<K, V>>) -> Self {
-        Pointer {
-            kvs,
-            link: None,
-            cache: AtomicLazyCell::new(),
-        }
+        Pointer::Values(kvs)
     }
 
     pub fn is_shard(&self) -> bool {
-        self.link.is_some()
+        if let Pointer::Link { .. } = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    // TODO revisit these, must be a cleaner way of doing this
+    fn cache(&self) -> &AtomicLazyCell<Node<K, V>> {
+        if let Pointer::Link { cache, .. } = self {
+            cache
+        } else {
+            panic!("Cannot retrieve cache of value node");
+        }
+    }
+    fn cache_move(self) -> AtomicLazyCell<Node<K, V>> {
+        if let Pointer::Link { cache, .. } = self {
+            cache
+        } else {
+            panic!("Cannot retrieve cache of value node");
+        }
     }
 
     pub(crate) fn load_child<S: BlockStore>(&self, store: &S) -> Result<&Node<K, V>, Error> {
-        if !self.cache.filled() {
-            if let Some(ref link) = self.link {
-                match store.get(link)? {
-                    Some(node) => {
-                        self.cache.fill(node).map_err(|_| ()).unwrap();
+        match self {
+            Pointer::Values(_) => Err(Error::Custom("Cannot load child from non link node")),
+            Pointer::Link { cid, cache } => {
+                if !cache.filled() {
+                    match store.get(cid)? {
+                        Some(node) => {
+                            cache.fill(node).map_err(|_| ()).unwrap();
+                        }
+                        None => return Err(Error::Custom("node not found")),
                     }
-                    None => return Err(Error::Custom("node not found")),
                 }
-            } else {
-                return Err(Error::Custom("Cannot load child from non link node"));
+                Ok(cache.borrow().unwrap())
             }
         }
-        Ok(self.cache.borrow().unwrap())
     }
 
     pub(crate) fn load_child_mut<S: BlockStore>(
         &mut self,
         store: &S,
     ) -> Result<&mut Node<K, V>, Error> {
-        if !self.cache.filled() {
-            if let Some(ref link) = self.link {
-                match store.get(link)? {
-                    Some(node) => {
-                        self.cache.fill(node).map_err(|_| ()).unwrap();
+        match self {
+            Pointer::Values(_) => Err(Error::Custom("Cannot load child from non link node")),
+            Pointer::Link { cid, cache } => {
+                if !cache.filled() {
+                    match store.get(cid)? {
+                        Some(node) => {
+                            cache.fill(node).map_err(|_| ()).unwrap();
+                        }
+                        None => return Err(Error::Custom("node not found")),
                     }
-                    None => return Err(Error::Custom("node not found")),
                 }
-            } else {
-                return Err(Error::Custom("Cannot load child from non link node"));
+                Ok(cache.borrow_mut().unwrap())
             }
         }
-        Ok(self.cache.borrow_mut().unwrap())
     }
 
     /// Internal method to cleanup children, to ensure consistent tree representation
     /// after deletes.
     pub fn clean(&mut self) -> Result<(), Error> {
-        assert!(self.cache.filled());
-        let len = self.cache.borrow().unwrap().pointers.len();
+        let len = if let Pointer::Link { cache, .. } = self {
+            assert!(cache.filled());
+            cache.borrow().unwrap().pointers.len()
+        } else {
+            panic!("Should be shard node here");
+        };
         if len == 0 {
             return Err(Error::Custom("Invalid HAMT"));
         }
@@ -127,12 +212,12 @@ where
                 match len {
                     1 => {
                         // TODO: investigate todo in go-hamt-ipld
-                        if self_.cache.borrow().unwrap().pointers[0].is_shard() {
+                        if self_.cache().borrow().unwrap().pointers[0].is_shard() {
                             return self_;
                         }
 
                         self_
-                            .cache
+                            .cache_move()
                             .into_inner()
                             .unwrap()
                             .pointers
@@ -142,12 +227,15 @@ where
                     }
                     2..=MAX_ARRAY_WIDTH => {
                         let (total_lens, has_shards): (Vec<_>, Vec<_>) = self_
-                            .cache
+                            .cache()
                             .borrow()
                             .unwrap()
                             .pointers
                             .iter()
-                            .map(|p| (p.kvs.len(), p.is_shard()))
+                            .map(|p| match p {
+                                Pointer::Link { .. } => (0, true),
+                                Pointer::Values(v) => (v.len(), false),
+                            })
                             .unzip();
 
                         let total_len: usize = total_lens.iter().sum();
@@ -158,12 +246,15 @@ where
                         }
 
                         let chvals = self_
-                            .cache
+                            .cache_move()
                             .into_inner()
                             .unwrap()
                             .pointers
                             .into_iter()
-                            .map(|p| p.kvs)
+                            .map(|p| match p {
+                                Pointer::Link { .. } => vec![],
+                                Pointer::Values(v) => v,
+                            })
                             .flatten()
                             .collect();
 

@@ -121,13 +121,12 @@ where
 
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child(cindex);
-        if child.is_shard() {
-            match child.load_child(store) {
+        match child {
+            Pointer::Link { .. } => match child.load_child(store) {
                 Ok(chnd) => chnd.get_value(hashed_key, depth + 1, key, store),
                 Err(_) => None,
-            }
-        } else {
-            child.kvs.iter().find(|kv| key.eq(kv.key().borrow()))
+            },
+            Pointer::Values(vals) => vals.iter().find(|kv| key.eq(kv.key().borrow())),
         }
     }
 
@@ -164,45 +163,46 @@ where
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child_mut(cindex);
 
-        if child.is_shard() {
-            let chnd = child.load_child_mut(store)?;
-            let v = chnd.modify_value(hashed_key, depth + 1, key, value, store)?;
-
-            return Ok(v);
-        }
-
-        // Update, if the key already exists.
-        if let Some(i) = child.kvs.iter().position(|p| p.key() == &key) {
-            let old_value = std::mem::replace(&mut child.kvs[i].1, value);
-            return Ok(Some(old_value));
-        }
-
-        // If the array is full, create a subshard and insert everything
-        if child.kvs.len() > MAX_ARRAY_WIDTH {
-            let mut sub = Node::default();
-            sub.modify_value(hashed_key, depth + 1, key, value, store)?;
-            let kvs = std::mem::replace(&mut child.kvs, Vec::new());
-            for p in kvs.into_iter() {
-                sub.modify_value(Self::hash(p.key()), depth + 1, p.0, p.1, store)?;
+        match child {
+            Pointer::Link { .. } => {
+                let chnd = child.load_child_mut(store)?;
+                let v = chnd.modify_value(hashed_key, depth + 1, key, value, store)?;
+                return Ok(v);
             }
+            Pointer::Values(vals) => {
+                // Update, if the key already exists.
+                if let Some(i) = vals.iter().position(|p| p.key() == &key) {
+                    let old_value = std::mem::replace(&mut vals[i].1, value);
+                    return Ok(Some(old_value));
+                }
 
-            let link = store.put(&sub)?;
-            self.set_child(cindex, Pointer::from_link(link, sub));
-            return Ok(None);
+                // If the array is full, create a subshard and insert everything
+                if vals.len() > MAX_ARRAY_WIDTH {
+                    let mut sub = Node::default();
+                    sub.modify_value(hashed_key, depth + 1, key, value, store)?;
+                    let kvs = std::mem::replace(vals, Vec::new());
+                    for p in kvs.into_iter() {
+                        sub.modify_value(Self::hash(p.key()), depth + 1, p.0, p.1, store)?;
+                    }
+
+                    let link = store.put(&sub)?;
+                    self.set_child(cindex, Pointer::from_link(link, sub));
+                    return Ok(None);
+                }
+
+                // Otherwise insert the element into the array in order.
+                let max = vals.len();
+                let idx = vals
+                    .iter()
+                    .position(|c| c.key() > &key)
+                    .unwrap_or_else(|| max);
+
+                let np = KeyValuePair::new(key, value);
+                vals.insert(idx, np);
+
+                Ok(None)
+            }
         }
-
-        // Otherwise insert the element into the array in order.
-        let max = child.kvs.len();
-        let idx = child
-            .kvs
-            .iter()
-            .position(|c| c.key() > &key)
-            .unwrap_or_else(|| max);
-
-        let np = KeyValuePair::new(key, value);
-        child.kvs.insert(idx, np);
-
-        Ok(None)
     }
 
     /// Internal method to delete entries.
@@ -230,27 +230,33 @@ where
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child_mut(cindex);
 
-        if child.is_shard() {
-            let chnd = child.load_child_mut(store)?;
-            let v = chnd.rm_value(hashed_key, depth + 1, key, store)?;
+        match child {
+            Pointer::Link { .. } => {
+                let chnd = child.load_child_mut(store)?;
+                let v = chnd.rm_value(hashed_key, depth + 1, key, store)?;
+                // CHAMP optimization, ensure trees look correct after deletion
+                return child.clean().map(|_| v);
+            }
+            Pointer::Values(vals) => {
+                // Delete value
+                for (i, p) in vals.iter().enumerate() {
+                    if key.eq(p.key().borrow()) {
+                        let old = if vals.len() == 1 {
+                            if let Pointer::Values(new_v) = self.rm_child(cindex, idx) {
+                                new_v.into_iter().nth(0).unwrap()
+                            } else {
+                                return Err(Error::Custom("Should not reach this"));
+                            }
+                        } else {
+                            vals.remove(i)
+                        };
+                        return Ok(Some((old.0, old.1)));
+                    }
+                }
 
-            // CHAMP optimization, ensure trees look correct after deletion
-            return child.clean().map(|_| v);
-        }
-
-        // Delete value
-        for (i, p) in child.kvs.iter().enumerate() {
-            if key.eq(p.key().borrow()) {
-                let old = if child.kvs.len() == 1 {
-                    self.rm_child(cindex, idx).kvs.into_iter().nth(0).unwrap()
-                } else {
-                    child.kvs.remove(i)
-                };
-                return Ok(Some((old.0, old.1)));
+                Ok(None)
             }
         }
-
-        Ok(None)
     }
 
     fn rm_child(&mut self, i: usize, idx: u8) -> Pointer<K, V> {
