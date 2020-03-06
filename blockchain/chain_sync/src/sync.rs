@@ -13,7 +13,7 @@ use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
 use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
-use cid::Cid;
+use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use crypto::is_valid_signature;
 use db::Error as DBError;
@@ -226,7 +226,7 @@ where
             secp_message_root: secp_root,
         };
         // store message roots and receive meta_root
-        let meta_root = self.chain_store.blockstore().put(&meta)?;
+        let meta_root = self.chain_store.blockstore().put(&meta, Blake2b256)?;
 
         Ok(meta_root)
     }

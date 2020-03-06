@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use crate::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
-use cid::{multihash::Hash::Blake2b256, Cid};
+use cid::{multihash::Blake2b256, Cid};
 
 /// Cbor utility functions for serializable objects
 pub trait Cbor: Serialize + DeserializeOwned {
@@ -20,6 +20,6 @@ pub trait Cbor: Serialize + DeserializeOwned {
     /// Returns the content identifier of the raw block of data
     /// Default is Blake2b256 hash
     fn cid(&self) -> Result<Cid, Error> {
-        Ok(Cid::from_bytes(&self.marshal_cbor()?, Blake2b256)?)
+        Ok(Cid::new_from_cbor(&self.marshal_cbor()?, Blake2b256)?)
     }
 }

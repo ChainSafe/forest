@@ -18,4 +18,4 @@ ipld_blockstore = { path = "../../ipld/blockstore" }
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
 crypto = { path = "../../crypto" }
-multihash = "0.9.4"
+multihash = "0.10.0"
