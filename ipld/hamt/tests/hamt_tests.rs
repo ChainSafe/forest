@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::multihash::Blake2b256;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use serde_bytes::ByteBuf;
@@ -32,7 +33,7 @@ fn test_from_link() {
         Some("world".to_string())
     );
     assert_eq!(hamt.get(&1), Some(&"world2".to_string()));
-    let c = store.put(&hamt).unwrap();
+    let c = store.put(&hamt, Blake2b256).unwrap();
 
     let new_hamt = Hamt::from_link(&c, &store).unwrap();
     assert_eq!(hamt, new_hamt);
@@ -45,7 +46,7 @@ fn test_from_link() {
     assert_ne!(hamt, new_hamt);
 
     // loading new hash
-    let c2 = store.put(&hamt).unwrap();
+    let c2 = store.put(&hamt, Blake2b256).unwrap();
     let new_hamt = Hamt::from_link(&c2, &store).unwrap();
     assert_eq!(hamt, new_hamt);
 
@@ -54,7 +55,7 @@ fn test_from_link() {
     assert!(Hamt::<usize, String, _>::from_link(&c2, &empty_store).is_err());
 
     // storing the hamt should produce the same cid as storing the root
-    let c3 = store.put(&hamt).unwrap();
+    let c3 = store.put(&hamt, Blake2b256).unwrap();
     assert_eq!(c3, c2);
 }
 
@@ -73,7 +74,7 @@ fn delete() {
     hamt.insert("bar".to_owned(), ByteBuf::from(v2));
     hamt.insert("baz".to_owned(), ByteBuf::from(v3));
 
-    let c = store.put(&hamt).unwrap();
+    let c = store.put(&hamt, Blake2b256).unwrap();
     assert_eq!(
         hex::encode(c.to_bytes()),
         "0171a0e402209531e0f913dff0c17f8dddb35e2cbf5bbc940c6abef5604c06fc4de3e8101c53"
@@ -86,7 +87,7 @@ fn delete() {
     // Assert previous hamt still has access
     assert_eq!(hamt.get(&"foo".to_owned()), Some(&ByteBuf::from(v1)));
 
-    let c2 = store.put(&hamt).unwrap();
+    let c2 = store.put(&hamt, Blake2b256).unwrap();
     assert_ne!(
         hex::encode(c2.to_bytes()),
         "0171a0e4022017a2dc44939d3b74b086cd78dd927edbf20c81d39c576bdc4fc48931b2f2b117"
@@ -98,12 +99,12 @@ fn reload_empty() {
     let store = db::MemoryDB::default();
 
     let hamt: Hamt<String, Vec<u8>, _> = Hamt::new(&store);
-    let c = store.put(&hamt).unwrap();
+    let c = store.put(&hamt, Blake2b256).unwrap();
     assert_eq!(
         hex::encode(c.to_bytes()),
         "0171a0e4022018fe6acc61a3a36b0c373c4a3a8ea64b812bf2ca9b528050909c78d408558a0c"
     );
     let h2 = Hamt::<String, Vec<u8>, _>::from_link(&c, &store).unwrap();
-    let c2 = store.put(&h2).unwrap();
+    let c2 = store.put(&h2, Blake2b256).unwrap();
     assert_eq!(c, c2);
 }

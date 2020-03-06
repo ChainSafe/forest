@@ -4,6 +4,7 @@
 use super::bitfield::Bitfield;
 use super::pointer::Pointer;
 use super::{Error, Hash, HashedKey, KeyValuePair, MAX_ARRAY_WIDTH};
+use cid::multihash::Blake2b256;
 use forest_encoding::{de::Deserializer, ser::Serializer};
 use ipld_blockstore::BlockStore;
 use murmur3::murmur3_x64_128::MurmurHasher;
@@ -185,7 +186,7 @@ where
                         sub.modify_value(Self::hash(p.key()), depth + 1, p.0, p.1, store)?;
                     }
 
-                    let link = store.put(&sub)?;
+                    let link = store.put(&sub, Blake2b256)?;
                     self.set_child(cindex, Pointer::from_link(link, sub));
                     return Ok(None);
                 }
