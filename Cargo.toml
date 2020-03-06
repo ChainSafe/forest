@@ -18,6 +18,7 @@ members = [
     "crypto",
     "encoding",
     "ipld/cid",
+    "ipld/car",
     "ipld/amt",
     "ipld",
     "math/bigint",
