@@ -4,6 +4,7 @@
 use async_std::sync::channel;
 use chain_sync::ChainSyncer;
 use db::MemoryDB;
+use std::sync::Arc;
 
 #[test]
 fn chainsync_constructor() {
@@ -13,5 +14,5 @@ fn chainsync_constructor() {
 
     // Test just makes sure that the chain syncer can be created without using a live database or
     // p2p network (local channels to simulate network messages and responses)
-    let _chain_syncer = ChainSyncer::new(&db, local_sender, event_receiver).unwrap();
+    let _chain_syncer = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
 }

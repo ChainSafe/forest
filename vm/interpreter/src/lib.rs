@@ -27,9 +27,9 @@ impl VMInterpreter {
 
     /// Applies the state transition for a single message
     /// Returns result StateTree, receipts from the transaction, and the miner penalty token amount
-    pub fn apply_message<'db, DB, ST>(
+    pub fn apply_message<DB, ST>(
         _in_tree: &ST,
-        _chain: &ChainStore<'db, DB>,
+        _chain: &ChainStore<DB>,
         _msg: &UnsignedMessage,
         _miner_addr: &Address,
     ) -> (ST, MessageReceipt, TokenAmount)

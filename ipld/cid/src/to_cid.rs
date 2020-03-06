@@ -99,7 +99,7 @@ fn decode_str(cid_str: &str) -> Result<Vec<u8>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use multihash::Hash;
+    use multihash::Code::Blake2b256;
 
     #[test]
     fn verify_base32_upper() {
@@ -110,7 +110,7 @@ mod tests {
         assert_eq!(version, Version::V1, "failed version check");
         assert_eq!(codec, Codec::DagCBOR, "failed codec check");
         let hash = Multihash::from_bytes(hash.to_vec()).unwrap();
-        assert_eq!(hash.algorithm(), Hash::Blake2b256);
+        assert_eq!(hash.algorithm(), Blake2b256);
     }
     #[test]
     fn verify_base32_lower() {
@@ -121,6 +121,6 @@ mod tests {
         assert_eq!(version, Version::V1, "failed version check");
         assert_eq!(codec, Codec::DagCBOR, "failed codec check");
         let hash = Multihash::from_bytes(hash.to_vec()).unwrap();
-        assert_eq!(hash.algorithm(), Hash::Blake2b256);
+        assert_eq!(hash.algorithm(), Blake2b256);
     }
 }

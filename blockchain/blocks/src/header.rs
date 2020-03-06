@@ -3,7 +3,7 @@
 
 use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
-use cid::{multihash::Hash::Blake2b256, Cid};
+use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{is_valid_signature, Signature};
 use derive_builder::Builder;
@@ -279,7 +279,7 @@ impl BlockHeader {
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
         self.cached_cid =
-            Cid::from_bytes(&self.cached_bytes, Blake2b256).map_err(|e| e.to_string())?;
+            Cid::new_from_cbor(&self.cached_bytes, Blake2b256).map_err(|e| e.to_string())?;
         Ok(())
     }
     /// Check to ensure block signature is valid
@@ -314,8 +314,7 @@ impl BlockHeader {
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
             < base_tipset.tipset()?.min_timestamp()?
-                + FIXED_BLOCK_DELAY
-                    * (*self.epoch() - *base_tipset.tipset()?.tip_epoch()).chain_epoch()
+                + FIXED_BLOCK_DELAY * (*self.epoch() - *base_tipset.tipset()?.epoch()).as_u64()
         {
             return Err(Error::Validation(
                 "Header was generated too soon".to_string(),

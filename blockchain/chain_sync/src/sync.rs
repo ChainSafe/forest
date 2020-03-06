@@ -1,37 +1,35 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
+mod peer_test;
+
+use super::network_handler::NetworkHandler;
+use super::peer_manager::PeerManager;
 use super::{Error, SyncManager, SyncNetworkContext};
 use address::Address;
 use amt::AMT;
-use async_std::prelude::*;
-use async_std::stream::Stream;
-use async_std::sync::{Receiver, Sender};
+use async_std::sync::{channel, Receiver, Sender};
+use async_std::task;
 use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
-use cid::Cid;
+use cid::{multihash::Blake2b256, Cid};
+use core::time::Duration;
 use crypto::is_valid_signature;
 use db::Error as DBError;
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{NetworkEvent, NetworkMessage};
-use futures::{select, FutureExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::{info, warn};
+use log::{debug, info, warn};
 use lru::LruCache;
 use message::Message;
 use num_bigint::BigUint;
-use pin_project::pin_project;
 use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
-use std::future::Future;
 use std::sync::Arc;
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -50,19 +48,18 @@ enum SyncState {
     _Follow,
 }
 
-#[pin_project]
-pub struct ChainSyncer<'db, DB, ST> {
+pub struct ChainSyncer<DB, ST> {
     /// Syncing state of chain sync
     _state: SyncState,
 
     /// manages retrieving and updates state objects
-    state_manager: StateManager<'db, DB, ST>,
+    state_manager: StateManager<DB, ST>,
 
     /// manages sync buckets
     sync_manager: SyncManager,
 
     /// access and store tipsets / blocks / messages
-    chain_store: ChainStore<'db, DB>,
+    chain_store: ChainStore<DB>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -74,22 +71,11 @@ pub struct ChainSyncer<'db, DB, ST> {
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
     bad_blocks: LruCache<Cid, String>,
 
-    /// Channel for incoming network events to be handled by syncer
-    #[pin]
-    network_rx: Receiver<NetworkEvent>,
-}
+    ///  incoming network events to be handled by syncer
+    net_handler: NetworkHandler,
 
-// TODO probably remove this in the future, polling as such probably unnecessary
-impl<'db, DB, ST> Future for ChainSyncer<'db, DB, ST> {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.project().network_rx.poll_next(cx) {
-            Poll::Ready(Some(_event)) => (),
-            Poll::Pending | Poll::Ready(None) => (),
-        };
-        Poll::Pending
-    }
+    /// Peer manager to handle full peers to send ChainSync requests to
+    peer_manager: Arc<PeerManager>,
 }
 
 /// Message data used to ensure valid state transition
@@ -98,18 +84,18 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<'db, DB> ChainSyncer<'db, DB, HamtStateTree>
+impl<DB> ChainSyncer<DB, HamtStateTree>
 where
     DB: BlockStore,
 {
     pub fn new(
-        db: &'db DB,
+        db: Arc<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
     ) -> Result<Self, Error> {
         let sync_manager = SyncManager::default();
 
-        let chain_store = ChainStore::new(db);
+        let chain_store = ChainStore::new(db.clone());
         let _genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
@@ -121,7 +107,15 @@ where
 
         let state_manager = StateManager::new(db, HamtStateTree::default());
 
-        let network = SyncNetworkContext::new(network_send);
+        // Split incoming channel to handle blocksync requests
+        let (rpc_send, rpc_rx) = channel(20);
+        let (event_send, event_rx) = channel(30);
+
+        let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx);
+
+        let peer_manager = Arc::new(PeerManager::default());
+
+        let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
             _state: SyncState::Stalled,
@@ -130,26 +124,34 @@ where
             network,
             _genesis,
             sync_manager,
-            network_rx,
             bad_blocks: LruCache::new(1 << 15),
+            net_handler,
+            peer_manager,
         })
     }
 }
 
-impl<'db, DB, ST> ChainSyncer<'db, DB, ST>
+impl<DB, ST> ChainSyncer<DB, ST>
 where
     DB: BlockStore,
     ST: StateTree,
 {
     /// Starts syncing process
-    pub async fn sync(&mut self) -> Result<(), Error> {
-        let mut nw = self.network_rx.clone().fuse();
+    pub async fn sync(mut self) -> Result<(), Error> {
+        self.net_handler.spawn(Arc::clone(&self.peer_manager));
+
+        info!("Bootstrapping peers to sync");
+
+        // Bootstrap peers before syncing
+        // TODO increase bootstrap peer count before syncing
+        const MIN_PEERS: usize = 1;
         loop {
-            select! {
-                network_msg = nw.next().fuse() => match network_msg {
-                    Some(event) =>(),
-                    None => break,
-                }
+            let peer_count = self.peer_manager.len().await;
+            if peer_count < MIN_PEERS {
+                debug!("bootstrapping peers, have {}", peer_count);
+                task::sleep(Duration::from_secs(2)).await;
+            } else {
+                break;
             }
         }
 
@@ -224,7 +226,7 @@ where
             secp_message_root: secp_root,
         };
         // store message roots and receive meta_root
-        let meta_root = self.chain_store.blockstore().put(&meta)?;
+        let meta_root = self.chain_store.blockstore().put(&meta, Blake2b256)?;
 
         Ok(meta_root)
     }
@@ -413,16 +415,32 @@ where
 
             const REQUEST_WINDOW: u64 = 100;
             let epoch_diff = u64::from(cur_ts.epoch() - to_epoch);
-            let _window = min(epoch_diff, REQUEST_WINDOW);
+            let window = min(epoch_diff, REQUEST_WINDOW);
 
-            // // Load blocks from network using blocksync
-            // TODO add sending blocksync req back (requires some channel for data back)
-            // let tipsets: Vec<Tipset> = self
-            //     .network
-            //     .get_headers(ts.parents(), window)
-            //     .await
-            //     .map_err(|e| Error::Other(e))?;
-            let tipsets: Vec<Tipset> = vec![];
+            // TODO change from using random peerID to managed
+            while self.peer_manager.is_empty().await {
+                warn!("No valid peers to sync, waiting for other nodes");
+                task::sleep(Duration::from_secs(5)).await;
+            }
+            let peer_id = self
+                .peer_manager
+                .get_peer()
+                .await
+                .expect("Peer set is not empty here");
+
+            // Load blocks from network using blocksync
+            let tipsets: Vec<Tipset> = match self
+                .network
+                .blocksync_headers(peer_id.clone(), cur_ts.parents(), window)
+                .await
+            {
+                Ok(ts) => ts,
+                Err(e) => {
+                    warn!("Failed blocksync request to peer {:?}: {}", peer_id, e);
+                    self.peer_manager.remove_peer(&peer_id).await;
+                    continue;
+                }
+            };
 
             // Loop through each tipset received from network
             for ts in tipsets {
@@ -451,8 +469,9 @@ where
                 // This removes need to sync fork
                 return Ok(return_set);
             }
-            // TODO add fork to return set
-            let _fork = self.sync_fork(&last_ts, &to).await?;
+            // add fork into return set
+            let fork = self.sync_fork(&last_ts, &to).await?;
+            return_set.extend(fork);
         }
 
         Ok(return_set)
@@ -478,13 +497,42 @@ where
         }
         Ok(())
     }
+    /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
+    async fn sync_fork(&mut self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
+        // TODO change from using random peerID to managed
+        let peer_id = PeerId::random();
+        // pulled from Lotus: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L996
+        const FORK_LENGTH_THRESHOLD: u64 = 500;
 
-    async fn sync_fork(&mut self, _head: &Tipset, _to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
-        // TODO sync fork until tipsets are equal or reaches genesis
-        todo!()
+        // Load blocks from network using blocksync
+        let tips: Vec<Tipset> = self
+            .network
+            .blocksync_headers(peer_id.clone(), head.parents(), FORK_LENGTH_THRESHOLD)
+            .await
+            .map_err(|_| Error::Other("Could not retrieve tipset".to_string()))?;
+
+        let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
+
+        for i in 0..tips.len() {
+            while ts.epoch() > tips[i].epoch() {
+                if *ts.epoch().as_u64() == 0 {
+                    return Err(Error::Other(
+                        "Synced chain forked at genesis, refusing to sync".to_string(),
+                    ));
+                }
+                ts = self.chain_store.tipset_from_keys(ts.parents())?;
+            }
+            if ts == tips[i] {
+                return Ok(tips[0..=i].to_vec());
+            }
+        }
+
+        Err(Error::Other(
+            "Fork longer than threshold finality of 500".to_string(),
+        ))
     }
 
-    // Persists headers from tipset slice to chain store
+    /// Persists headers from tipset slice to chain store
     fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), DBError> {
         tipsets
             .iter()
