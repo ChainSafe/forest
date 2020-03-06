@@ -1,7 +1,6 @@
 //// Copyright 2020 ChainSafe Systems
 //// SPDX-License-Identifier: Apache-2.0, MIT
 use cid::multihash::DecodeOwnedError;
-use serde::export::Formatter;
 use std::error;
 use std::fmt;
 

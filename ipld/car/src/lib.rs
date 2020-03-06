@@ -1,11 +1,9 @@
 use blockstore::BlockStore;
 use cid::Cid;
-use forest_encoding::{de::Deserializer, from_slice, ser::Serializer};
-use leb128;
+use forest_encoding::from_slice;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, Read};
-use unsigned_varint;
 
 mod error;
 mod util;
@@ -13,10 +11,10 @@ use crate::util::read_node;
 use error::*;
 use util::ld_read;
 
-fn ls() -> Result<(), Error> {
-    let mut file = File::open("devnet.car").unwrap();
+pub fn ls() -> Result<(), Error> {
+    let file = File::open("devnet.car").unwrap();
 
-    let mut buf_reader = BufReader::new(file);
+    let buf_reader = BufReader::new(file);
     let mut car_reader = CarReader::new(buf_reader)?;
 
     // for carreader next
@@ -30,7 +28,7 @@ fn ls() -> Result<(), Error> {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-struct CarHeader {
+pub struct CarHeader {
     pub roots: Vec<Cid>,
     pub version: u64,
 }
@@ -51,7 +49,7 @@ where
     R: std::io::Read,
 {
     pub fn new(mut buf_reader: BufReader<R>) -> Result<Self, Error> {
-        let (len, buf) = ld_read(&mut buf_reader)?;
+        let (_len, buf) = ld_read(&mut buf_reader)?;
         let header: CarHeader = from_slice(&buf).map_err(|e| Error::ParsingError(e.to_string()))?;
         if header.roots.len() == 0 {
             return Err(Error::ParsingError("empty CAR file".to_owned()));
@@ -73,19 +71,15 @@ struct Block {
     data: Vec<u8>,
 }
 
-fn load_car<R: Read, B: BlockStore>(
-    mut s: &mut B,
-    mut buf_reader: BufReader<R>,
-) -> Result<(), Error> {
+pub fn load_car<R: Read, B: BlockStore>(s: &mut B, buf_reader: BufReader<R>) -> Result<(), Error> {
     let mut car_reader = CarReader::new(buf_reader)?;
 
     while !car_reader.buf_reader.buffer().is_empty() {
         let block = car_reader.next()?;
-        let cid = s
-            .put(&block.data, cid::multihash::Blake2b256)
+        let check_cid = Cid::new_from_prefix(&block.cid.prefix(), &block.data).unwrap();
+        assert_eq!(&check_cid, &block.cid);
+        s.write(block.cid.to_bytes(), block.data)
             .map_err(|e| Error::Other(e.to_string()))?;
-        println!("Expected:\t{}", block.cid.to_string());
-        println!("Actual:\t{}", cid.to_string());
     }
     Ok(())
 }
@@ -93,19 +87,18 @@ fn load_car<R: Read, B: BlockStore>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use blockstore::BlockStore;
     use db::MemoryDB;
-    use unsigned_varint;
 
     #[test]
     fn t1() {
         ls().unwrap();
     }
-    #[test]
-    fn load_into_blockstore () {
-        let mut file = File::open("devnet.car").unwrap();
 
-        let mut buf_reader = BufReader::new(file);
+    #[test]
+    fn load_into_blockstore() {
+        let file = File::open("devnet.car").unwrap();
+
+        let buf_reader = BufReader::new(file);
         let mut bs = MemoryDB::default();
 
         load_car(&mut bs, buf_reader).unwrap();
