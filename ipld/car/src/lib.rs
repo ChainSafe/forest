@@ -70,7 +70,8 @@ pub fn load_car<R: Read, B: BlockStore>(s: &mut B, buf_reader: BufReader<R>) -> 
 
     while !car_reader.buf_reader.buffer().is_empty() {
         let block = car_reader.next_block()?;
-        let check_cid = Cid::new_from_prefix(&block.cid.prefix(), &block.data).unwrap();
+        let check_cid = Cid::new_from_prefix(&block.cid.prefix(), &block.data)
+            .map_err(|e| Error::Other(e.to_string()))?;
         assert_eq!(&check_cid, &block.cid);
         s.write(block.cid.to_bytes(), block.data)
             .map_err(|e| Error::Other(e.to_string()))?;
