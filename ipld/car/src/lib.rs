@@ -41,18 +41,17 @@ where
     pub fn new(mut buf_reader: BufReader<R>) -> Result<Self, Error> {
         let (_len, buf) = ld_read(&mut buf_reader)?;
         let header: CarHeader = from_slice(&buf).map_err(|e| Error::ParsingError(e.to_string()))?;
-        if header.roots.len() == 0 {
+        if header.roots.is_empty() {
             return Err(Error::ParsingError("empty CAR file".to_owned()));
         }
         if header.version != 1 {
             return Err(Error::InvalidFile("CAR file version must be 1".to_owned()));
         }
-        // TODO: Do some checks here
         Ok(CarReader { buf_reader, header })
     }
 
     /// Returns the next IPLD Block in the buffer
-    pub fn next(&mut self) -> Result<Block, Error> {
+    pub fn next_block(&mut self) -> Result<Block, Error> {
         // Read node -> cid, bytes
         let (cid, data) = read_node(&mut self.buf_reader)?;
         Ok(Block { cid, data })
@@ -68,7 +67,7 @@ pub fn load_car<R: Read, B: BlockStore>(s: &mut B, buf_reader: BufReader<R>) -> 
     let mut car_reader = CarReader::new(buf_reader)?;
 
     while !car_reader.buf_reader.buffer().is_empty() {
-        let block = car_reader.next()?;
+        let block = car_reader.next_block()?;
         let check_cid = Cid::new_from_prefix(&block.cid.prefix(), &block.data).unwrap();
         assert_eq!(&check_cid, &block.cid);
         s.write(block.cid.to_bytes(), block.data)
