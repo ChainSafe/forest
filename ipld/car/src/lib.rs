@@ -2,7 +2,6 @@ use blockstore::BlockStore;
 use cid::Cid;
 use forest_encoding::from_slice;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
 use std::io::{BufReader, Read};
 
 mod error;
@@ -11,22 +10,7 @@ use crate::util::read_node;
 use error::*;
 use util::ld_read;
 
-pub fn ls() -> Result<(), Error> {
-    let file = File::open("devnet.car").unwrap();
-
-    let buf_reader = BufReader::new(file);
-    let mut car_reader = CarReader::new(buf_reader)?;
-
-    // for carreader next
-    while !car_reader.buf_reader.buffer().is_empty() {
-        let x = car_reader.next()?;
-        println!("CID{:?}, Data Len: {}", x.cid.to_string(), x.data.len());
-    }
-    println!("Root CID: {:?}", car_reader.header.roots[0].to_string());
-
-    Ok(())
-}
-
+/// CAR file header
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct CarHeader {
     pub roots: Vec<Cid>,
@@ -34,20 +18,23 @@ pub struct CarHeader {
 }
 
 impl CarHeader {
+    /// Creates a new CAR file header
     pub fn new(roots: Vec<Cid>, version: u64) -> Self {
         Self { roots, version }
     }
 }
 
-struct CarReader<R> {
-    buf_reader: BufReader<R>,
-    header: CarHeader,
+/// Reads CAR files that are in a BufReader
+pub struct CarReader<R> {
+    pub buf_reader: BufReader<R>,
+    pub header: CarHeader,
 }
 
 impl<R> CarReader<R>
 where
     R: std::io::Read,
 {
+    /// Creates a new CarReader and parses the CarHeader
     pub fn new(mut buf_reader: BufReader<R>) -> Result<Self, Error> {
         let (_len, buf) = ld_read(&mut buf_reader)?;
         let header: CarHeader = from_slice(&buf).map_err(|e| Error::ParsingError(e.to_string()))?;
@@ -60,17 +47,20 @@ where
         // TODO: Do some checks here
         Ok(CarReader { buf_reader, header })
     }
+
+    /// Returns the next IPLD Block in the buffer
     pub fn next(&mut self) -> Result<Block, Error> {
         // Read node -> cid, bytes
         let (cid, data) = read_node(&mut self.buf_reader)?;
         Ok(Block { cid, data })
     }
 }
-struct Block {
+pub struct Block {
     cid: Cid,
     data: Vec<u8>,
 }
 
+/// Loads a CAR buffer into a BlockStore
 pub fn load_car<R: Read, B: BlockStore>(s: &mut B, buf_reader: BufReader<R>) -> Result<(), Error> {
     let mut car_reader = CarReader::new(buf_reader)?;
 
@@ -82,25 +72,4 @@ pub fn load_car<R: Read, B: BlockStore>(s: &mut B, buf_reader: BufReader<R>) -> 
             .map_err(|e| Error::Other(e.to_string()))?;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use db::MemoryDB;
-
-    #[test]
-    fn t1() {
-        ls().unwrap();
-    }
-
-    #[test]
-    fn load_into_blockstore() {
-        let file = File::open("devnet.car").unwrap();
-
-        let buf_reader = BufReader::new(file);
-        let mut bs = MemoryDB::default();
-
-        load_car(&mut bs, buf_reader).unwrap();
-    }
 }

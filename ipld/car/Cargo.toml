@@ -1,5 +1,5 @@
 [package]
-name = "car"
+name = "forest_car"
 version = "0.1.0"
 authors = ["Eric Tu <tu.eric@hotmail.com>"]
 edition = "2018"
