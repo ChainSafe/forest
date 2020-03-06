@@ -57,6 +57,8 @@ where
         Ok(Block { cid, data })
     }
 }
+
+/// IPLD Block
 pub struct Block {
     cid: Cid,
     data: Vec<u8>,
