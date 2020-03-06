@@ -19,12 +19,12 @@ pub(crate) fn read_node<R: Read>(mut buf_reader: &mut R) -> Result<(Cid, Vec<u8>
 
 pub(crate) fn read_cid(buf: &[u8]) -> Result<(Cid, u64), Error> {
     // TODO: Add some checks for cid v0
-    let (version, buf) = unsigned_varint::decode::u64(buf).unwrap();
-    let (codec, multihash_with_data) = unsigned_varint::decode::u64(buf).unwrap();
+    let (version, buf) = unsigned_varint::decode::u64(buf).map_err(|e| Error::ParsingError(e.to_string()))?;
+    let (codec, multihash_with_data) = unsigned_varint::decode::u64(buf).map_err(|e| Error::ParsingError(e.to_string()))?;
     // multihash part
-    let (hashcode, buf) = unsigned_varint::decode::u64(multihash_with_data).unwrap();
+    let (hashcode, buf) = unsigned_varint::decode::u64(multihash_with_data).map_err(|e| Error::ParsingError(e.to_string()))?;
     let hashcode_len_diff = multihash_with_data.len() - buf.len();
-    let (len, _) = unsigned_varint::decode::u64(buf).unwrap();
+    let (len, _) = unsigned_varint::decode::u64(buf).map_err(|e| Error::ParsingError(e.to_string()))?;
     let hash = &buf[0..len as usize];
 
     let cid: Cid = Cid::new(

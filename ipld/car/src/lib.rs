@@ -65,8 +65,6 @@ where
     pub fn next(&mut self) -> Result<Block, Error> {
         // Read node -> cid, bytes
         let (cid, data) = read_node(&mut self.buf_reader)?;
-        let _ = cid.prefix();
-
         Ok(Block { cid, data })
     }
 }
@@ -81,14 +79,14 @@ fn load_car<R: Read, B: BlockStore>(
 ) -> Result<(), Error> {
     let mut car_reader = CarReader::new(buf_reader)?;
 
-    //    while !car_reader.buf_reader.buffer().is_empty() {
-    //        let block = car_reader.next()?;
-    //        let cid = s
-    //            .put(&block.data)
-    //            .map_err(|e| Error::Other(e.to_string()))?;
-    //        println!("Expected:\t{}", block.cid.to_string());
-    //        println!("Actual:\t{}", cid.to_string());
-    //    }
+    while !car_reader.buf_reader.buffer().is_empty() {
+        let block = car_reader.next()?;
+        let cid = s
+            .put(&block.data, cid::multihash::Blake2b256)
+            .map_err(|e| Error::Other(e.to_string()))?;
+        println!("Expected:\t{}", block.cid.to_string());
+        println!("Actual:\t{}", cid.to_string());
+    }
     Ok(())
 }
 
@@ -103,14 +101,13 @@ mod tests {
     fn t1() {
         ls().unwrap();
     }
-    //    #[test]
-    //    fn load_into_blockstore () {
-    //        let mut file = File::open("devnet.car").unwrap();
-    //
-    //        let mut buf_reader = BufReader::new(file);
-    //        let mut bs = MemoryDB::default();
-    //
-    //        load_car(&mut bs, buf_reader).unwrap();
-    //
-    //    }
+    #[test]
+    fn load_into_blockstore () {
+        let mut file = File::open("devnet.car").unwrap();
+
+        let mut buf_reader = BufReader::new(file);
+        let mut bs = MemoryDB::default();
+
+        load_car(&mut bs, buf_reader).unwrap();
+    }
 }
