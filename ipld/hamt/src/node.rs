@@ -59,12 +59,7 @@ where
     K: Hash + Eq + std::cmp::PartialOrd + Serialize + DeserializeOwned + Clone,
     V: Serialize + DeserializeOwned + Clone,
 {
-    pub fn insert<S: BlockStore>(
-        &mut self,
-        key: K,
-        value: V,
-        store: &S,
-    ) -> Result<Option<V>, Error> {
+    pub fn set<S: BlockStore>(&mut self, key: K, value: V, store: &S) -> Result<Option<V>, Error> {
         self.modify_value(Self::hash(&key), 0, key, value, store)
     }
 
@@ -116,7 +111,9 @@ where
         K: Borrow<Q>,
         Q: Eq + Hash,
     {
-        assert!(depth < hashed_key.len(), "max depth reached");
+        if depth >= hashed_key.len() {
+            return Err(Error::Custom("max depth reached"));
+        }
 
         let idx = hashed_key[depth];
         if !self.bitfield.test_bit(idx) {

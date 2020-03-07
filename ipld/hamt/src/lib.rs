@@ -15,6 +15,7 @@ pub use self::hash::*;
 use serde::{Deserialize, Serialize};
 
 const MAX_ARRAY_WIDTH: usize = 3;
+const DEFAULT_BIT_WIDTH: u8 = 8;
 
 type HashedKey = [u8; 16];
 
