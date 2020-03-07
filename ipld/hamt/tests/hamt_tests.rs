@@ -10,14 +10,14 @@ use serde_bytes::ByteBuf;
 fn test_basics() {
     let store = db::MemoryDB::default();
     let mut hamt = Hamt::new(&store);
-    assert!(hamt.insert(1, "world".to_string()).is_none());
+    assert!(hamt.insert(1, "world".to_string()).unwrap().is_none());
 
-    assert_eq!(hamt.get(&1), Some(&"world".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
     assert_eq!(
-        hamt.insert(1, "world2".to_string()),
+        hamt.insert(1, "world2".to_string()).unwrap(),
         Some("world".to_string())
     );
-    assert_eq!(hamt.get(&1), Some(&"world2".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some("world2".to_string()));
 }
 
 #[test]
@@ -25,21 +25,21 @@ fn test_from_link() {
     let store = db::MemoryDB::default();
 
     let mut hamt: Hamt<usize, String, _> = Hamt::new(&store);
-    assert!(hamt.insert(1, "world".to_string()).is_none());
+    assert!(hamt.insert(1, "world".to_string()).unwrap().is_none());
 
-    assert_eq!(hamt.get(&1), Some(&"world".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
     assert_eq!(
-        hamt.insert(1, "world2".to_string()),
+        hamt.insert(1, "world2".to_string()).unwrap(),
         Some("world".to_string())
     );
-    assert_eq!(hamt.get(&1), Some(&"world2".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some("world2".to_string()));
     let c = store.put(&hamt, Blake2b256).unwrap();
 
     let new_hamt = Hamt::from_link(&c, &store).unwrap();
     assert_eq!(hamt, new_hamt);
 
     // insert value in the first one
-    hamt.insert(2, "stuff".to_string());
+    hamt.insert(2, "stuff".to_string()).unwrap();
 
     // loading original hash should returnnot be equal now
     let new_hamt = Hamt::from_link(&c, &store).unwrap();
@@ -70,9 +70,9 @@ fn delete() {
         b"cat dog".as_ref(),
         b"cat".as_ref(),
     );
-    hamt.insert("foo".to_owned(), ByteBuf::from(v1));
-    hamt.insert("bar".to_owned(), ByteBuf::from(v2));
-    hamt.insert("baz".to_owned(), ByteBuf::from(v3));
+    hamt.insert("foo".to_owned(), ByteBuf::from(v1)).unwrap();
+    hamt.insert("bar".to_owned(), ByteBuf::from(v2)).unwrap();
+    hamt.insert("baz".to_owned(), ByteBuf::from(v3)).unwrap();
 
     let c = store.put(&hamt, Blake2b256).unwrap();
     assert_eq!(
@@ -81,11 +81,17 @@ fn delete() {
     );
 
     let mut h2 = Hamt::<String, ByteBuf, _>::from_link(&c, &store).unwrap();
-    assert_eq!(h2.remove(&"foo".to_owned()), Some(ByteBuf::from(v1)));
-    assert_eq!(h2.get(&"foo".to_owned()), None);
+    assert_eq!(
+        h2.remove(&"foo".to_owned()).unwrap(),
+        Some(ByteBuf::from(v1))
+    );
+    assert_eq!(h2.get(&"foo".to_owned()).unwrap(), None);
 
     // Assert previous hamt still has access
-    assert_eq!(hamt.get(&"foo".to_owned()), Some(&ByteBuf::from(v1)));
+    assert_eq!(
+        hamt.get(&"foo".to_owned()).unwrap(),
+        Some(ByteBuf::from(v1))
+    );
 
     let c2 = store.put(&hamt, Blake2b256).unwrap();
     assert_ne!(

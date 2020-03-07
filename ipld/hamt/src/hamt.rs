@@ -8,7 +8,6 @@ use forest_encoding::{de::DeserializeOwned, ser::Serializer};
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use std::borrow::Borrow;
-use std::ops::Index;
 
 /// Implementation of the HAMT data structure for IPLD.
 #[derive(Debug)]
@@ -38,8 +37,8 @@ impl<'a, K: PartialEq, V: PartialEq, S: BlockStore> PartialEq for Hamt<'a, K, V,
 
 impl<'a, K, V, S> Hamt<'a, K, V, S>
 where
-    K: Hash + Eq + std::cmp::PartialOrd + Serialize + DeserializeOwned,
-    V: Serialize + DeserializeOwned,
+    K: Hash + Eq + std::cmp::PartialOrd + Serialize + DeserializeOwned + Clone,
+    V: Serialize + DeserializeOwned + Clone,
     S: BlockStore,
 {
     pub fn new(store: &'a S) -> Self {
@@ -73,14 +72,13 @@ where
     /// let store = db::MemoryDB::default();
     ///
     /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
-    /// assert_eq!(map.insert(37, "a".into()), None);
+    /// assert_eq!(map.insert(37, "a".into()).unwrap(), None);
     /// assert_eq!(map.is_empty(), false);
     ///
-    /// map.insert(37, "b".into());
-    /// assert_eq!(map.insert(37, "c".into()), Some("b".into()));
-    /// assert_eq!(map[&37], "c".to_string());
+    /// map.insert(37, "b".into()).unwrap();
+    /// assert_eq!(map.insert(37, "c".into()).unwrap(), Some("b".into()));
     /// ```
-    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
+    pub fn insert(&mut self, key: K, value: V) -> Result<Option<V>, Error> {
         self.root.insert(key, value, self.store)
     }
 
@@ -98,12 +96,12 @@ where
     /// let store = db::MemoryDB::default();
     ///
     /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
-    /// map.insert(1, "a".to_string());
-    /// assert_eq!(map.get(&1), Some(&"a".to_string()));
-    /// assert_eq!(map.get(&2), None);
+    /// map.insert(1, "a".to_string()).unwrap();
+    /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
+    /// assert_eq!(map.get(&2).unwrap(), None);
     /// ```
     #[inline]
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<V>, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
@@ -126,40 +124,20 @@ where
     /// let store = db::MemoryDB::default();
     ///
     /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
-    /// map.insert(1, "a".to_string());
-    /// assert_eq!(map.remove(&1), Some("a".to_string()));
-    /// assert_eq!(map.remove(&1), None);
+    /// map.insert(1, "a".to_string()).unwrap();
+    /// assert_eq!(map.remove(&1).unwrap(), Some("a".to_string()));
+    /// assert_eq!(map.remove(&1).unwrap(), None);
     /// ```
-    pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
+    pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<V>, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.root.remove_entry(k, self.store).map(|kv| kv.1)
+        Ok(self.root.remove_entry(k, self.store)?.map(|kv| kv.1))
     }
 
     /// Returns true if the HAMT has no entries
     pub fn is_empty(&self) -> bool {
         self.root.is_empty()
-    }
-}
-
-impl<'a, K, Q: ?Sized, V, S> Index<&Q> for Hamt<'a, K, V, S>
-where
-    K: Eq + Hash + Borrow<Q> + PartialOrd + Serialize + DeserializeOwned,
-    Q: Eq + Hash,
-    V: Serialize + DeserializeOwned,
-    S: BlockStore,
-{
-    type Output = V;
-
-    /// Returns a reference to the value corresponding to the supplied key.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the key is not present in the `Hamt`.
-    #[inline]
-    fn index(&self, key: &Q) -> &V {
-        self.get(key).expect("no entry found for key")
     }
 }

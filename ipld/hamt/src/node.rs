@@ -56,36 +56,35 @@ impl<K, V> Default for Node<K, V> {
 
 impl<K, V> Node<K, V>
 where
-    K: Hash + Eq + std::cmp::PartialOrd + Serialize + DeserializeOwned,
-    V: Serialize + DeserializeOwned,
+    K: Hash + Eq + std::cmp::PartialOrd + Serialize + DeserializeOwned + Clone,
+    V: Serialize + DeserializeOwned + Clone,
 {
-    pub fn insert<S: BlockStore>(&mut self, key: K, value: V, store: &S) -> Option<V> {
-        match self.modify_value(Self::hash(&key), 0, key, value, store) {
-            Ok(res) => res,
-            Err(_) => None,
-        }
+    pub fn insert<S: BlockStore>(
+        &mut self,
+        key: K,
+        value: V,
+        store: &S,
+    ) -> Result<Option<V>, Error> {
+        self.modify_value(Self::hash(&key), 0, key, value, store)
     }
 
     #[inline]
-    pub fn get<Q: ?Sized, S: BlockStore>(&self, k: &Q, store: &S) -> Option<&V>
+    pub fn get<Q: ?Sized, S: BlockStore>(&self, k: &Q, store: &S) -> Result<Option<V>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
     {
-        self.search(k, store).map(|kv| kv.value())
+        Ok(self.search(k, store)?.map(|kv| kv.value().clone()))
     }
 
     #[inline]
-    pub fn remove_entry<Q: ?Sized, S>(&mut self, k: &Q, store: &S) -> Option<(K, V)>
+    pub fn remove_entry<Q: ?Sized, S>(&mut self, k: &Q, store: &S) -> Result<Option<(K, V)>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
         S: BlockStore,
     {
-        match self.rm_value(Self::hash(k), 0, k, store) {
-            Ok(res) => res,
-            Err(_) => None,
-        }
+        self.rm_value(Self::hash(k), 0, k, store)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -94,7 +93,11 @@ where
 
     /// Search for a key.
     #[inline]
-    fn search<Q: ?Sized, S: BlockStore>(&self, q: &Q, store: &S) -> Option<&KeyValuePair<K, V>>
+    fn search<Q: ?Sized, S: BlockStore>(
+        &self,
+        q: &Q,
+        store: &S,
+    ) -> Result<Option<KeyValuePair<K, V>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -108,7 +111,7 @@ where
         depth: usize,
         key: &Q,
         store: &S,
-    ) -> Option<&KeyValuePair<K, V>>
+    ) -> Result<Option<KeyValuePair<K, V>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -117,17 +120,18 @@ where
 
         let idx = hashed_key[depth];
         if !self.bitfield.test_bit(idx) {
-            return None;
+            return Ok(None);
         }
 
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child(cindex);
         match child {
-            Pointer::Link { .. } => match child.load_child(store) {
-                Ok(chnd) => chnd.get_value(hashed_key, depth + 1, key, store),
-                Err(_) => None,
+            Pointer::Link(cid) => match store.get(cid)? {
+                Some(node) => Ok(node),
+                None => return Err(Error::Custom("node not found")),
             },
-            Pointer::Values(vals) => vals.iter().find(|kv| key.eq(kv.key().borrow())),
+            Pointer::Cache(n) => n.get_value(hashed_key, depth + 1, key, store),
+            Pointer::Values(vals) => Ok(vals.iter().find(|kv| key.eq(kv.key().borrow())).cloned()),
         }
     }
 
@@ -165,11 +169,8 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link { .. } => {
-                let chnd = child.load_child_mut(store)?;
-                let v = chnd.modify_value(hashed_key, depth + 1, key, value, store)?;
-                return Ok(v);
-            }
+            Pointer::Link(_c) => todo!(),
+            Pointer::Cache(n) => Ok(n.modify_value(hashed_key, depth + 1, key, value, store)?),
             Pointer::Values(vals) => {
                 // Update, if the key already exists.
                 if let Some(i) = vals.iter().position(|p| p.key() == &key) {
@@ -232,12 +233,8 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link { .. } => {
-                let chnd = child.load_child_mut(store)?;
-                let v = chnd.rm_value(hashed_key, depth + 1, key, store)?;
-                // CHAMP optimization, ensure trees look correct after deletion
-                return child.clean().map(|_| v);
-            }
+            Pointer::Link(_cid) => todo!(),
+            Pointer::Cache(n) => Ok(n.rm_value(hashed_key, depth + 1, key, store)?),
             Pointer::Values(vals) => {
                 // Delete value
                 for (i, p) in vals.iter().enumerate() {
