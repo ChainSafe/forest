@@ -19,9 +19,5 @@ serde_bytes = "0.11.3"
 git = "https://github.com/dignifiedquire/murmur3"
 branch = "nicer-hashing"
 
-[dependencies.lazycell]
-git = "https://github.com/dignifiedquire/lazycell"
-branch = "atomic-borrow-mut"
-
 [dev-dependencies]
 hex = "0.3.2"

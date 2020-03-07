@@ -187,8 +187,7 @@ where
                         sub.modify_value(Self::hash(p.key()), depth + 1, p.0, p.1, store)?;
                     }
 
-                    let link = store.put(&sub, Blake2b256)?;
-                    self.set_child(cindex, Pointer::from_link(link, sub));
+                    self.set_child(cindex, Pointer::Cache(Box::new(sub)));
                     return Ok(None);
                 }
 
@@ -255,6 +254,23 @@ where
                 Ok(None)
             }
         }
+    }
+
+    pub fn flush<S: BlockStore>(&mut self, store: &S) -> Result<(), Error> {
+        for pointer in &mut self.pointers {
+            if let Pointer::Cache(node) = pointer {
+                // Flush cached sub node to clear it's cache
+                node.flush(store)?;
+
+                // Put node in blockstore and retrieve Cid
+                let cid = store.put(node, Blake2b256)?;
+
+                // Replace cached node with Cid link
+                *pointer = Pointer::Link(cid);
+            }
+        }
+
+        Ok(())
     }
 
     fn rm_child(&mut self, i: usize, idx: u8) -> Pointer<K, V> {

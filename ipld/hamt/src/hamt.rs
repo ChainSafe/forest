@@ -3,10 +3,9 @@
 
 use crate::node::Node;
 use crate::{Error, Hash};
-use cid::Cid;
-use forest_encoding::{de::DeserializeOwned, ser::Serializer};
+use cid::{multihash::Blake2b256, Cid};
 use ipld_blockstore::BlockStore;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
 
 /// Implementation of the HAMT data structure for IPLD.
@@ -134,6 +133,12 @@ where
         Q: Hash + Eq,
     {
         Ok(self.root.remove_entry(k, self.store)?.map(|kv| kv.1))
+    }
+
+    /// Flush root and return Cid for hamt
+    pub fn flush(&mut self) -> Result<Cid, Error> {
+        self.root.flush(self.store)?;
+        Ok(self.store.put(&self.root, Blake2b256)?)
     }
 
     /// Returns true if the HAMT has no entries

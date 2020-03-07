@@ -4,7 +4,6 @@
 use super::node::Node;
 use super::{Error, KeyValuePair};
 use cid::Cid;
-use lazycell::AtomicLazyCell;
 use serde::de::{self, DeserializeOwned};
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -88,13 +87,6 @@ where
     K: Serialize + DeserializeOwned,
     V: Serialize + DeserializeOwned,
 {
-    pub fn from_link(link: Cid, node: Node<K, V>) -> Self {
-        let cache = AtomicLazyCell::new();
-        cache.fill(node).map_err(|_| ()).unwrap();
-
-        Pointer::Link(link)
-    }
-
     pub fn from_key_value(key: K, value: V) -> Self {
         Pointer::Values(vec![KeyValuePair::new(key, value)])
     }
