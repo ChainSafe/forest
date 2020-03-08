@@ -88,13 +88,19 @@ where
     }
 
     #[inline]
-    pub fn remove_entry<Q: ?Sized, S>(&mut self, k: &Q, store: &S) -> Result<Option<(K, V)>, Error>
+    pub fn remove_entry<Q: ?Sized, S>(
+        &mut self,
+        k: &Q,
+        store: &S,
+        bit_width: u8,
+    ) -> Result<Option<(K, V)>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
         S: BlockStore,
     {
-        self.rm_value(Self::hash(k), 0, k, store)
+        let hash = Self::hash(k);
+        self.rm_value(&mut HashBits::new(&hash), bit_width, 0, k, store)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -228,7 +234,8 @@ where
     /// Internal method to delete entries.
     pub fn rm_value<Q: ?Sized, S: BlockStore>(
         &mut self,
-        hashed_key: HashedKey,
+        hashed_key: &mut HashBits,
+        bit_width: u8,
         depth: usize,
         key: &Q,
         store: &S,
@@ -237,10 +244,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        if depth >= hashed_key.len() {
-            return Err(Error::Custom("Maximum depth reached"));
-        }
-        let idx = hashed_key[depth];
+        let idx = hashed_key.next(bit_width)?;
 
         // No existing values at this point.
         if !self.bitfield.test_bit(idx) {
@@ -252,7 +256,7 @@ where
 
         match child {
             Pointer::Link(_cid) => todo!(),
-            Pointer::Cache(n) => Ok(n.rm_value(hashed_key, depth + 1, key, store)?),
+            Pointer::Cache(n) => Ok(n.rm_value(hashed_key, bit_width, depth + 1, key, store)?),
             Pointer::Values(vals) => {
                 // Delete value
                 for (i, p) in vals.iter().enumerate() {

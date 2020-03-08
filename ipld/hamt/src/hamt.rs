@@ -149,7 +149,10 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        Ok(self.root.remove_entry(k, self.store)?.map(|kv| kv.1))
+        Ok(self
+            .root
+            .remove_entry(k, self.store, self.bit_width)?
+            .map(|kv| kv.1))
     }
 
     /// Flush root and return Cid for hamt
