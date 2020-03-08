@@ -4,6 +4,7 @@
 use crate::{Error, HashedKey};
 use std::cmp::Ordering;
 
+/// Helper struct which indexes and allows returning bits from a hashed key
 #[derive(Debug, Clone)]
 pub struct HashBits<'a> {
     b: &'a HashedKey,
@@ -38,11 +39,13 @@ impl<'a> HashBits<'a> {
         let curb = self.b[curbi as usize];
         match i.cmp(&leftb) {
             Ordering::Equal => {
+                // bits to consume is equal to the bits remaining in the currently indexed byte
                 let out = mkmask(i) & curb;
                 self.consumed += i;
                 out
             }
             Ordering::Less => {
+                // Consuming less than the remaining bits in the current byte
                 let a = curb & mkmask(leftb);
                 let b = a & !mkmask(leftb - i);
                 let c = b >> (leftb - i);
@@ -50,6 +53,7 @@ impl<'a> HashBits<'a> {
                 c
             }
             Ordering::Greater => {
+                // Consumes remaining bits and remaining bits from a recursive call
                 let mut out = (mkmask(leftb) & curb) as u64;
                 out <<= i - leftb;
                 self.consumed += leftb;
