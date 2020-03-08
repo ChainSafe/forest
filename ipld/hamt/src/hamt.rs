@@ -95,7 +95,7 @@ where
     /// assert_eq!(map.set(37, "c".into()).unwrap(), Some("b".into()));
     /// ```
     pub fn set(&mut self, key: K, value: V) -> Result<Option<V>, Error> {
-        self.root.set(key, value, self.store)
+        self.root.set(key, value, self.store, self.bit_width)
     }
 
     /// Returns a reference to the value corresponding to the key.
@@ -122,7 +122,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.root.get(k, self.store)
+        self.root.get(k, self.store, self.bit_width)
     }
 
     /// Removes a key from the HAMT, returning the value at the key if the key

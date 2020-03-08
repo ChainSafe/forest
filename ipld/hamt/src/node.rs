@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::bitfield::Bitfield;
+use super::hash_bits::HashBits;
 use super::pointer::Pointer;
 use super::{Error, Hash, HashedKey, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::multihash::Blake2b256;
@@ -59,17 +60,31 @@ where
     K: Hash + Eq + std::cmp::PartialOrd + Serialize + DeserializeOwned + Clone,
     V: Serialize + DeserializeOwned + Clone,
 {
-    pub fn set<S: BlockStore>(&mut self, key: K, value: V, store: &S) -> Result<Option<V>, Error> {
-        self.modify_value(Self::hash(&key), 0, key, value, store)
+    pub fn set<S: BlockStore>(
+        &mut self,
+        key: K,
+        value: V,
+        store: &S,
+        bit_width: u8,
+    ) -> Result<Option<V>, Error> {
+        let hash = Self::hash(&key);
+        self.modify_value(&mut HashBits::new(&hash), bit_width, 0, key, value, store)
     }
 
     #[inline]
-    pub fn get<Q: ?Sized, S: BlockStore>(&self, k: &Q, store: &S) -> Result<Option<V>, Error>
+    pub fn get<Q: ?Sized, S: BlockStore>(
+        &self,
+        k: &Q,
+        store: &S,
+        bit_width: u8,
+    ) -> Result<Option<V>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
     {
-        Ok(self.search(k, store)?.map(|kv| kv.value().clone()))
+        Ok(self
+            .search(k, store, bit_width)?
+            .map(|kv| kv.value().clone()))
     }
 
     #[inline]
@@ -87,22 +102,24 @@ where
     }
 
     /// Search for a key.
-    #[inline]
     fn search<Q: ?Sized, S: BlockStore>(
         &self,
         q: &Q,
         store: &S,
+        bit_width: u8,
     ) -> Result<Option<KeyValuePair<K, V>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
     {
-        self.get_value(Self::hash(q), 0, q, store)
+        let hash = Self::hash(q);
+        self.get_value(&mut HashBits::new(&hash), bit_width, 0, q, store)
     }
 
     fn get_value<Q: ?Sized, S: BlockStore>(
         &self,
-        hashed_key: HashedKey,
+        hashed_key: &mut HashBits,
+        bit_width: u8,
         depth: usize,
         key: &Q,
         store: &S,
@@ -111,11 +128,8 @@ where
         K: Borrow<Q>,
         Q: Eq + Hash,
     {
-        if depth >= hashed_key.len() {
-            return Err(Error::Custom("max depth reached"));
-        }
+        let idx = hashed_key.next(bit_width)?;
 
-        let idx = hashed_key[depth];
         if !self.bitfield.test_bit(idx) {
             return Ok(None);
         }
@@ -125,9 +139,9 @@ where
         match child {
             Pointer::Link(cid) => match store.get(cid)? {
                 Some(node) => Ok(node),
-                None => return Err(Error::Custom("node not found")),
+                None => Err(Error::Custom("node not found")),
             },
-            Pointer::Cache(n) => n.get_value(hashed_key, depth + 1, key, store),
+            Pointer::Cache(n) => n.get_value(hashed_key, bit_width, depth + 1, key, store),
             Pointer::Values(vals) => Ok(vals.iter().find(|kv| key.eq(kv.key().borrow())).cloned()),
         }
     }
@@ -145,16 +159,14 @@ where
     /// Internal method to modify values.
     fn modify_value<S: BlockStore>(
         &mut self,
-        hashed_key: HashedKey,
+        hashed_key: &mut HashBits,
+        bit_width: u8,
         depth: usize,
         key: K,
         value: V,
         store: &S,
     ) -> Result<Option<V>, Error> {
-        if depth >= hashed_key.len() {
-            return Err(Error::Custom("Maximum depth reached"));
-        }
-        let idx = hashed_key[depth];
+        let idx = hashed_key.next(bit_width)?;
 
         // No existing values at this point.
         if !self.bitfield.test_bit(idx) {
@@ -167,7 +179,9 @@ where
 
         match child {
             Pointer::Link(_c) => todo!(),
-            Pointer::Cache(n) => Ok(n.modify_value(hashed_key, depth + 1, key, value, store)?),
+            Pointer::Cache(n) => {
+                Ok(n.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?)
+            }
             Pointer::Values(vals) => {
                 // Update, if the key already exists.
                 if let Some(i) = vals.iter().position(|p| p.key() == &key) {
@@ -178,10 +192,18 @@ where
                 // If the array is full, create a subshard and insert everything
                 if vals.len() > MAX_ARRAY_WIDTH {
                     let mut sub = Node::default();
-                    sub.modify_value(hashed_key, depth + 1, key, value, store)?;
+                    sub.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
                     let kvs = std::mem::replace(vals, Vec::new());
                     for p in kvs.into_iter() {
-                        sub.modify_value(Self::hash(p.key()), depth + 1, p.0, p.1, store)?;
+                        let hash = Self::hash(p.key());
+                        sub.modify_value(
+                            &mut HashBits::new(&hash),
+                            bit_width,
+                            depth + 1,
+                            p.0,
+                            p.1,
+                            store,
+                        )?;
                     }
 
                     self.set_child(cindex, Pointer::Cache(Box::new(sub)));
@@ -296,7 +318,7 @@ where
         &mut self.pointers[i]
     }
 
-    fn get_child<'a>(&'a self, i: usize) -> &'a Pointer<K, V> {
+    fn get_child(&self, i: usize) -> &Pointer<K, V> {
         &self.pointers[i]
     }
 }

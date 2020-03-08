@@ -5,6 +5,7 @@ mod bitfield;
 mod error;
 mod hamt;
 mod hash;
+mod hash_bits;
 mod node;
 mod pointer;
 

@@ -65,13 +65,9 @@ where
         }
         let pointer_map = PointerDeser::deserialize(deserializer)?;
         match pointer_map {
-            PointerDeser { vals: Some(v), .. } => {
-                return Ok(Pointer::Values(v));
-            }
-            PointerDeser { cid: Some(cid), .. } => {
-                return Ok(Pointer::Link(cid));
-            }
-            _ => return Err(de::Error::custom("Unexpected pointer serialization")),
+            PointerDeser { vals: Some(v), .. } => Ok(Pointer::Values(v)),
+            PointerDeser { cid: Some(cid), .. } => Ok(Pointer::Link(cid)),
+            _ => Err(de::Error::custom("Unexpected pointer serialization")),
         }
     }
 }
