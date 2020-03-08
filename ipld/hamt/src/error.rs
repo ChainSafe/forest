@@ -10,6 +10,8 @@ use std::fmt;
 /// HAMT Error
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    /// Maximum depth error
+    MaxDepth,
     /// Error interacting with underlying database
     Db(String),
     /// Custom HAMT error
@@ -19,6 +21,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Error::MaxDepth => write!(f, "Maximum depth reached"),
             Error::Db(msg) => write!(f, "Database Error: {}", msg),
             Error::Custom(msg) => write!(f, "Custom HAMT error: {}", msg),
         }
