@@ -39,7 +39,7 @@ where
 {
     /// Creates a new CarReader and parses the CarHeader
     pub fn new(mut buf_reader: BufReader<R>) -> Result<Self, Error> {
-        let (_len, buf) = ld_read(&mut buf_reader)?;
+        let buf = ld_read(&mut buf_reader)?;
         let header: CarHeader = from_slice(&buf).map_err(|e| Error::ParsingError(e.to_string()))?;
         if header.roots.is_empty() {
             return Err(Error::ParsingError("empty CAR file".to_owned()));
@@ -59,20 +59,18 @@ where
 }
 
 /// IPLD Block
+#[derive(Clone, Debug)]
 pub struct Block {
     cid: Cid,
     data: Vec<u8>,
 }
 
 /// Loads a CAR buffer into a BlockStore
-pub fn load_car<R: Read, B: BlockStore>(s: &mut B, buf_reader: BufReader<R>) -> Result<(), Error> {
+pub fn load_car<R: Read, B: BlockStore>(s: &B, buf_reader: BufReader<R>) -> Result<(), Error> {
     let mut car_reader = CarReader::new(buf_reader)?;
 
     while !car_reader.buf_reader.buffer().is_empty() {
         let block = car_reader.next_block()?;
-        let check_cid = Cid::new_from_prefix(&block.cid.prefix(), &block.data)
-            .map_err(|e| Error::Other(e.to_string()))?;
-        assert_eq!(&check_cid, &block.cid);
         s.write(block.cid.to_bytes(), block.data)
             .map_err(|e| Error::Other(e.to_string()))?;
     }

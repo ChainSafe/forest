@@ -5,7 +5,7 @@ use super::error::Error;
 use cid::Cid;
 use std::io::Read;
 
-pub(crate) fn ld_read<R: Read>(mut buf_reader: &mut R) -> Result<(u64, Vec<u8>), Error> {
+pub(crate) fn ld_read<R: Read>(mut buf_reader: &mut R) -> Result<Vec<u8>, Error> {
     let l =
         unsigned_varint::io::read_u64(&mut buf_reader).map_err(|e| Error::Other(e.to_string()))?;
     let mut buf = Vec::with_capacity(l as usize);
@@ -13,11 +13,11 @@ pub(crate) fn ld_read<R: Read>(mut buf_reader: &mut R) -> Result<(u64, Vec<u8>),
         .take(l)
         .read_to_end(&mut buf)
         .map_err(|e| Error::Other(e.to_string()))?;
-    Ok((l, buf))
+    Ok(buf)
 }
 
 pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<(Cid, Vec<u8>), Error> {
-    let (_len, buf) = ld_read(buf_reader)?;
+    let buf = ld_read(buf_reader)?;
     let (c, n) = read_cid(&buf)?;
     Ok((c, buf[(n as usize)..].to_owned()))
 }
