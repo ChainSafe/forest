@@ -143,8 +143,8 @@ where
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child(cindex);
         match child {
-            Pointer::Link(cid) => match store.get(cid)? {
-                Some(node) => Ok(node),
+            Pointer::Link(cid) => match store.get::<Node<K, V>>(cid)? {
+                Some(node) => Ok(node.get_value(hashed_key, bit_width, depth + 1, key, store)?),
                 None => Err(Error::Custom("node not found")),
             },
             Pointer::Cache(n) => n.get_value(hashed_key, bit_width, depth + 1, key, store),
@@ -184,7 +184,16 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link(_c) => todo!(),
+            Pointer::Link(cid) => match store.get::<Node<K, V>>(cid)? {
+                Some(mut node) => {
+                    // Pull value from store and update to cached node
+                    let v =
+                        node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
+                    *child = Pointer::Cache(Box::new(node));
+                    Ok(v)
+                }
+                None => Err(Error::Custom("node not found")),
+            },
             Pointer::Cache(n) => {
                 Ok(n.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?)
             }
@@ -255,7 +264,15 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link(_cid) => todo!(),
+            Pointer::Link(cid) => match store.get::<Node<K, V>>(cid)? {
+                Some(mut node) => {
+                    // Pull value from store and update to cached node
+                    let del = node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
+                    *child = Pointer::Cache(Box::new(node));
+                    Ok(del)
+                }
+                None => Err(Error::Custom("node not found")),
+            },
             Pointer::Cache(n) => Ok(n.rm_value(hashed_key, bit_width, depth + 1, key, store)?),
             Pointer::Values(vals) => {
                 // Delete value
