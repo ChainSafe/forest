@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::multihash::DecodeOwnedError;
-use std::error;
 use std::fmt;
 
 #[derive(Debug)]
@@ -18,18 +17,6 @@ impl fmt::Display for Error {
             Error::ParsingError(err) => write!(f, "Failed to parse CAR file: {}", err.clone()),
             Error::InvalidFile(err) => write!(f, "Invalid CAR file: {}", err.clone()),
             Error::Other(err) => write!(f, "Other cid Error: {}", err.clone()),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        use self::Error::*;
-
-        match self {
-            ParsingError(_) => "Failed to parse CAR file",
-            Error::InvalidFile(_) => "Invalid CAR file",
-            Other(_) => "Other Cid Error",
         }
     }
 }
