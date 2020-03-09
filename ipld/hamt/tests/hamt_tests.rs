@@ -93,8 +93,8 @@ fn delete() {
         Some(ByteBuf::from(v1))
     );
 
-    let c2 = hamt.flush().unwrap();
-    assert_ne!(
+    let c2 = h2.flush().unwrap();
+    assert_eq!(
         hex::encode(c2.to_bytes()),
         "0171a0e4022017a2dc44939d3b74b086cd78dd927edbf20c81d39c576bdc4fc48931b2f2b117"
     );

@@ -60,7 +60,7 @@ where
         Self::load_with_bit_width(cid, store, DEFAULT_BIT_WIDTH)
     }
 
-    /// Lazily instantiate a hamt from this root link.
+    /// Lazily instantiate a hamt from this root Cid with a specified bit width.
     pub fn load_with_bit_width(cid: &Cid, store: &'a S, bit_width: u8) -> Result<Self, Error> {
         match store.get(cid)? {
             Some(root) => Ok(Self {
