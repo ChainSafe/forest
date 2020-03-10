@@ -1,10 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::Blake2b256;
-use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
+
+#[cfg(not(feature = "identity-hash"))]
+use cid::multihash::Blake2b256;
+#[cfg(not(feature = "identity-hash"))]
+use ipld_blockstore::BlockStore;
+#[cfg(not(feature = "identity-hash"))]
 use serde_bytes::ByteBuf;
+
+#[cfg(feature = "identity-hash")]
+use ipld_hamt::DEFAULT_BIT_WIDTH;
 
 #[test]
 fn test_basics() {
@@ -60,6 +67,7 @@ fn test_load() {
 }
 
 #[test]
+#[cfg(not(feature = "identity-hash"))]
 fn delete() {
     let store = db::MemoryDB::default();
 
@@ -101,6 +109,7 @@ fn delete() {
 }
 
 #[test]
+#[cfg(not(feature = "identity-hash"))]
 fn reload_empty() {
     let store = db::MemoryDB::default();
 
@@ -116,6 +125,7 @@ fn reload_empty() {
 }
 
 #[test]
+#[cfg(not(feature = "identity-hash"))]
 fn set_delete_many() {
     let store = db::MemoryDB::default();
 
@@ -155,4 +165,63 @@ fn set_delete_many() {
         hex::encode(cid_d.to_bytes()),
         "0171a0e402206379d4c48c8a0457683d45c0cd2bd601e3758c202c5a02b2cab043c9a777b105"
     );
+}
+
+#[cfg(feature = "identity-hash")]
+fn add_and_remove_keys(bit_width: u8, keys: &[&str], extra_keys: &[&str]) {
+    let all: Vec<(String, u8)> = keys
+        .iter()
+        .enumerate()
+        // Value doesn't matter for this test, only checking cids against previous
+        .map(|(i, k)| (k.to_string(), i as u8))
+        .collect();
+
+    let store = db::MemoryDB::default();
+
+    let mut hamt: Hamt<String, u8, _> = Hamt::new_with_bit_width(&store, bit_width);
+
+    for (k, v) in all.iter() {
+        hamt.set(k.to_string(), *v).unwrap();
+    }
+    let cid = hamt.flush().unwrap();
+
+    let mut h1: Hamt<String, u8, _> = Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
+
+    for (k, v) in all {
+        assert_eq!(Some(v), h1.get(&k).unwrap());
+    }
+
+    // For the extra keys,
+    for k in extra_keys.iter() {
+        hamt.set(k.to_string(), 0).unwrap();
+    }
+    for k in extra_keys.iter() {
+        hamt.delete(&k.to_string()).unwrap();
+    }
+    let cid2 = hamt.flush().unwrap();
+    let mut h2: Hamt<String, u8, _> = Hamt::load(&cid2, &store).unwrap();
+
+    let cid1 = h1.flush().unwrap();
+    let cid2 = h2.flush().unwrap();
+    assert_eq!(cid1, cid2);
+}
+
+#[test]
+#[cfg(feature = "identity-hash")]
+fn canonical_structure() {
+    add_and_remove_keys(DEFAULT_BIT_WIDTH, &["K"], &["B"]);
+    add_and_remove_keys(
+        DEFAULT_BIT_WIDTH,
+        &["K0", "K1", "KAA1", "KAA2", "KAA3"],
+        &["KAA4"],
+    );
+}
+
+#[test]
+#[cfg(feature = "identity-hash")]
+fn canonical_structure_alt_bit_width() {
+    for i in 5..DEFAULT_BIT_WIDTH {
+        add_and_remove_keys(i, &["K"], &["B"]);
+        add_and_remove_keys(i, &["K0", "K1", "KAA1", "KAA2", "KAA3"], &["KAA4"]);
+    }
 }

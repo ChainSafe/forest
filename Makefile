@@ -41,7 +41,7 @@ release:
 	cargo build --release
 
 test:
-	cargo test
+	cargo test --all-features
 
 license:
 	./scripts/add_license.sh

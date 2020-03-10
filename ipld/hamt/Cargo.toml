@@ -19,5 +19,9 @@ serde_bytes = "0.11.3"
 git = "https://github.com/dignifiedquire/murmur3"
 branch = "nicer-hashing"
 
+[features]
+identity-hash = []
+
 [dev-dependencies]
 hex = "0.3.2"
+rand = "0.7.3"

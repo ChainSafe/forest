@@ -16,7 +16,9 @@ pub use self::hash::*;
 use serde::{Deserialize, Serialize};
 
 const MAX_ARRAY_WIDTH: usize = 3;
-const DEFAULT_BIT_WIDTH: u8 = 8;
+
+/// Default bit width for indexing a hash at each depth level
+pub const DEFAULT_BIT_WIDTH: u8 = 8;
 
 type HashedKey = [u8; 16];
 

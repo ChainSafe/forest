@@ -8,11 +8,35 @@ use super::{Error, Hash, HashedKey, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::multihash::Blake2b256;
 use forest_encoding::{de::Deserializer, ser::Serializer};
 use ipld_blockstore::BlockStore;
-use murmur3::murmur3_x64_128::MurmurHasher;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::fmt::Debug;
+
+#[cfg(not(feature = "identity-hash"))]
+use murmur3::murmur3_x64_128::MurmurHasher;
+
+#[cfg(feature = "identity-hash")]
+use std::hash::Hasher;
+
+#[cfg(feature = "identity-hash")]
+#[derive(Default)]
+struct IdentityHasher {
+    pub bz: HashedKey,
+}
+#[cfg(feature = "identity-hash")]
+impl Hasher for IdentityHasher {
+    fn finish(&self) -> u64 {
+        // u64 hash not used in hamt
+        0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        for (i, byte) in bytes.iter().take(16).enumerate() {
+            self.bz[i] = *byte;
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Node<K, V> {
@@ -152,6 +176,7 @@ where
     }
 
     /// The hash function used to hash keys.
+    #[cfg(not(feature = "identity-hash"))]
     fn hash<X: ?Sized>(key: &X) -> HashedKey
     where
         X: Hash,
@@ -159,6 +184,17 @@ where
         let mut hasher = MurmurHasher::default();
         key.hash(&mut hasher);
         hasher.finalize().into()
+    }
+
+    /// Replace hash with an identity hash for testing canonical structure.
+    #[cfg(feature = "identity-hash")]
+    fn hash<X: ?Sized>(key: &X) -> HashedKey
+    where
+        X: Hash,
+    {
+        let mut ident_hasher = IdentityHasher::default();
+        key.hash(&mut ident_hasher);
+        ident_hasher.bz
     }
 
     /// Internal method to modify values.
@@ -269,11 +305,21 @@ where
                     // Pull value from store and update to cached node
                     let del = node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
                     *child = Pointer::Cache(Box::new(node));
+
+                    // Clean to retrieve canonical form
+                    child.clean()?;
                     Ok(del)
                 }
                 None => Err(Error::Custom("node not found")),
             },
-            Pointer::Cache(n) => Ok(n.rm_value(hashed_key, bit_width, depth + 1, key, store)?),
+            Pointer::Cache(n) => {
+                // Delete value and return deleted value
+                let deleted = n.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
+
+                // Clean to ensure canonical form
+                child.clean()?;
+                Ok(deleted)
+            }
             Pointer::Values(vals) => {
                 // Delete value
                 for (i, p) in vals.iter().enumerate() {

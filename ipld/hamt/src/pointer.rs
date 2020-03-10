@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::node::Node;
-use super::{Error, KeyValuePair};
+use super::{Error, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
 use serde::de::{self, DeserializeOwned};
 use serde::ser;
@@ -10,7 +10,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum Pointer<K, V> {
-    // TODO switch to using SmallVec to eliminate need for heap allocation
     Values(Vec<KeyValuePair<K, V>>),
     Link(Cid),
     Cache(Box<Node<K, V>>),
@@ -81,85 +80,56 @@ impl<K, V> Default for Pointer<K, V> {
 
 impl<K, V> Pointer<K, V>
 where
-    K: Serialize + DeserializeOwned,
-    V: Serialize + DeserializeOwned,
+    K: Serialize + DeserializeOwned + Clone,
+    V: Serialize + DeserializeOwned + Clone,
 {
-    pub fn from_key_value(key: K, value: V) -> Self {
+    pub(crate) fn from_key_value(key: K, value: V) -> Self {
         Pointer::Values(vec![KeyValuePair::new(key, value)])
     }
 
     /// Internal method to cleanup children, to ensure consistent tree representation
     /// after deletes.
-    pub fn _clean(&mut self) -> Result<(), Error> {
-        //     let len = if let Pointer::Link { cache, .. } = self {
-        //         assert!(cache.filled());
-        //         cache.borrow().unwrap().pointers.len()
-        //     } else {
-        //         panic!("Should be shard node here");
-        //     };
-        //     if len == 0 {
-        //         return Err(Error::Custom("Invalid HAMT"));
-        //     }
-
-        //     replace_with(
-        //         self,
-        //         || panic!(),
-        //         |self_| {
-        //             match len {
-        //                 1 => {
-        //                     // TODO: investigate todo in go-hamt-ipld
-        //                     if self_.cache().borrow().unwrap().pointers[0].is_shard() {
-        //                         return self_;
-        //                     }
-
-        //                     self_
-        //                         .cache_move()
-        //                         .into_inner()
-        //                         .unwrap()
-        //                         .pointers
-        //                         .into_iter()
-        //                         .nth(0)
-        //                         .unwrap()
-        //                 }
-        //                 2..=MAX_ARRAY_WIDTH => {
-        //                     let (total_lens, has_shards): (Vec<_>, Vec<_>) = self_
-        //                         .cache()
-        //                         .borrow()
-        //                         .unwrap()
-        //                         .pointers
-        //                         .iter()
-        //                         .map(|p| match p {
-        //                             Pointer::Link { .. } => (0, true),
-        //                             Pointer::Values(v) => (v.len(), false),
-        //                         })
-        //                         .unzip();
-
-        //                     let total_len: usize = total_lens.iter().sum();
-        //                     let has_shards = has_shards.into_iter().any(|a| a);
-
-        //                     if total_len >= MAX_ARRAY_WIDTH || has_shards {
-        //                         return self_;
-        //                     }
-
-        //                     let chvals = self_
-        //                         .cache_move()
-        //                         .into_inner()
-        //                         .unwrap()
-        //                         .pointers
-        //                         .into_iter()
-        //                         .map(|p| match p {
-        //                             Pointer::Link { .. } => vec![],
-        //                             Pointer::Values(v) => v,
-        //                         })
-        //                         .flatten()
-        //                         .collect();
-
-        //                     Pointer::from_kvpairs(chvals)
-        //                 }
-        //                 _ => self_,
-        //             }
-        //         },
-        //     );
-        Ok(())
+    pub(crate) fn clean(&mut self) -> Result<(), Error> {
+        match self {
+            Pointer::Cache(n) => match n.pointers.len() {
+                0 => Err(Error::Custom(
+                    "Invalid HAMT format, node cannot have 0 pointers",
+                )),
+                1 => {
+                    // Node has only one pointer, swap with parent node
+                    if let p @ Pointer::Values(_) = &mut n.pointers[0] {
+                        // Only creating temp value to get around borrowing self mutably twice
+                        let mut move_pointer = Pointer::Values(Default::default());
+                        std::mem::swap(&mut move_pointer, p);
+                        *self = move_pointer
+                    }
+                    Ok(())
+                }
+                2..=MAX_ARRAY_WIDTH => {
+                    // Iterate over all pointers in cached node to see if it can fit all within
+                    // one values node
+                    let mut child_vals: Vec<KeyValuePair<K, V>> =
+                        Vec::with_capacity(MAX_ARRAY_WIDTH);
+                    for pointer in n.pointers.iter() {
+                        if let Pointer::Values(kvs) = pointer {
+                            for kv in kvs.iter() {
+                                if child_vals.len() == MAX_ARRAY_WIDTH {
+                                    // Child values cannot be fit into parent node, keep as is
+                                    return Ok(());
+                                }
+                                child_vals.push(kv.clone());
+                            }
+                        } else {
+                            return Ok(());
+                        }
+                    }
+                    // Replace link node with child values
+                    *self = Pointer::Values(child_vals);
+                    Ok(())
+                }
+                _ => Err(Error::Custom("Array cannot be larger than max width")),
+            },
+            _ => unreachable!("clean is only called on cached pointer"),
+        }
     }
 }
