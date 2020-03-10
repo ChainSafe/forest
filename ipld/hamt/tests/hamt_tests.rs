@@ -191,7 +191,7 @@ fn add_and_remove_keys(bit_width: u8, keys: &[&str], extra_keys: &[&str]) {
         assert_eq!(Some(v), h1.get(&k).unwrap());
     }
 
-    // For the extra keys,
+    // Set and delete extra keys
     for k in extra_keys.iter() {
         hamt.set(k.to_string(), 0).unwrap();
     }
@@ -209,6 +209,7 @@ fn add_and_remove_keys(bit_width: u8, keys: &[&str], extra_keys: &[&str]) {
 #[test]
 #[cfg(feature = "identity-hash")]
 fn canonical_structure() {
+    // Champ mutation semantics test
     add_and_remove_keys(DEFAULT_BIT_WIDTH, &["K"], &["B"]);
     add_and_remove_keys(
         DEFAULT_BIT_WIDTH,

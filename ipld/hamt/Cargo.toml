@@ -15,6 +15,7 @@ ipld_blockstore = { path = "../blockstore" }
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 serde_bytes = "0.11.3"
 
+# TODO replace fork with updated fork or make PR into https://github.com/stusmall/murmur3
 [dependencies.murmur3]
 git = "https://github.com/dignifiedquire/murmur3"
 branch = "nicer-hashing"

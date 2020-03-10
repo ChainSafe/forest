@@ -38,6 +38,7 @@ impl Hasher for IdentityHasher {
     }
 }
 
+/// Node in Hamt tree which contains bitfield of set indexes and pointers to nodes
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Node<K, V> {
     pub(crate) bitfield: Bitfield,
