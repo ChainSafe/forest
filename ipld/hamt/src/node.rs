@@ -12,6 +12,7 @@ use murmur3::murmur3_x64_128::MurmurHasher;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
+use std::fmt::Debug;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Node<K, V> {
@@ -82,9 +83,7 @@ where
         K: Borrow<Q>,
         Q: Eq + Hash,
     {
-        Ok(self
-            .search(k, store, bit_width)?
-            .map(|kv| kv.value().clone()))
+        Ok(self.search(k, store, bit_width)?.map(|kv| kv.1))
     }
 
     #[inline]
@@ -205,14 +204,15 @@ where
                 }
 
                 // If the array is full, create a subshard and insert everything
-                if vals.len() > MAX_ARRAY_WIDTH {
+                if vals.len() >= MAX_ARRAY_WIDTH {
                     let mut sub = Node::default();
+                    let consumed = hashed_key.consumed;
                     sub.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
                     let kvs = std::mem::replace(vals, Vec::new());
                     for p in kvs.into_iter() {
                         let hash = Self::hash(p.key());
                         sub.modify_value(
-                            &mut HashBits::new(&hash),
+                            &mut HashBits::new_at_index(&hash, consumed),
                             bit_width,
                             depth + 1,
                             p.0,
@@ -221,7 +221,7 @@ where
                         )?;
                     }
 
-                    self.set_child(cindex, Pointer::Cache(Box::new(sub)));
+                    *child = Pointer::Cache(Box::new(sub));
                     return Ok(None);
                 }
 
@@ -323,10 +323,6 @@ where
         self.bitfield.set_bit(idx);
         self.pointers
             .insert(i as usize, Pointer::from_key_value(key, value))
-    }
-
-    fn set_child(&mut self, i: usize, pointer: Pointer<K, V>) {
-        self.pointers[i] = pointer;
     }
 
     fn index_for_bit_pos(&self, bp: u8) -> usize {

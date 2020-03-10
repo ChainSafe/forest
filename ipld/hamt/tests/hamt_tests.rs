@@ -115,11 +115,44 @@ fn reload_empty() {
     assert_eq!(c, c2);
 }
 
-// #[test]
-// fn set_delete_many() {
-// let store = db::MemoryDB::default();
+#[test]
+fn set_delete_many() {
+    let store = db::MemoryDB::default();
 
-// let mut hamt: Hamt<String, u64, _> = Hamt::new(&store);
+    // Test vectors setup specifically for bit width of 5
+    let mut hamt: Hamt<String, u64, _> = Hamt::new_with_bit_width(&store, 5);
 
-// let c = hamt.flush().unwrap();
-// }
+    for i in 0..200 {
+        assert!(hamt.set(format!("{}", i), i).unwrap().is_none());
+    }
+
+    let c1 = hamt.flush().unwrap();
+    assert_eq!(
+        hex::encode(c1.to_bytes()),
+        "0171a0e402206379d4c48c8a0457683d45c0cd2bd601e3758c202c5a02b2cab043c9a777b105"
+    );
+
+    for i in 200..400 {
+        assert!(hamt.set(format!("{}", i), i).unwrap().is_none());
+    }
+
+    let cid_all = hamt.flush().unwrap();
+    assert_eq!(
+        hex::encode(cid_all.to_bytes()),
+        "0171a0e402201dc496895750c0b731021269bae57f36acc0becfdf98ef219a9f567786804cc8"
+    );
+
+    for i in 200..400 {
+        assert_eq!(hamt.delete(&format!("{}", i)).unwrap(), Some(i));
+    }
+    // Ensure first 200 keys still exist
+    for i in 0..200 {
+        assert_eq!(hamt.get(&format!("{}", i)).unwrap(), Some(i));
+    }
+
+    let cid_d = hamt.flush().unwrap();
+    assert_eq!(
+        hex::encode(cid_d.to_bytes()),
+        "0171a0e402206379d4c48c8a0457683d45c0cd2bd601e3758c202c5a02b2cab043c9a777b105"
+    );
+}

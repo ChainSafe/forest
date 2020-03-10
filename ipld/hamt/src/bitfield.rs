@@ -130,9 +130,9 @@ impl Bitfield {
     }
 }
 
-// TODO: write tests for this, assumed it works as intended
+#[inline]
 fn set_bits_leq(v: u64, bit: u32) -> u64 {
-    v | ((1 << (1 + bit as u32)) - 1)
+    (v as u128 | ((1u128 << (1 + bit)) - 1)) as u64
 }
 
 impl std::fmt::Binary for Bitfield {

@@ -8,7 +8,7 @@ use std::cmp::Ordering;
 #[derive(Debug, Clone)]
 pub struct HashBits<'a> {
     b: &'a HashedKey,
-    consumed: u8,
+    pub consumed: u8,
 }
 
 #[inline]
@@ -18,11 +18,17 @@ fn mkmask(n: u8) -> u8 {
 
 impl<'a> HashBits<'a> {
     pub fn new(hash_buffer: &'a HashedKey) -> HashBits<'a> {
+        Self::new_at_index(hash_buffer, 0)
+    }
+
+    /// Constructs hash bits with custom consumed index
+    pub fn new_at_index(hash_buffer: &'a HashedKey, consumed: u8) -> HashBits<'a> {
         Self {
             b: hash_buffer,
-            consumed: 0,
+            consumed,
         }
     }
+
     /// Returns next `i` bits of the hash and returns the value as an integer and returns
     /// Error when maximum depth is reached
     pub fn next(&mut self, i: u8) -> Result<u8, Error> {

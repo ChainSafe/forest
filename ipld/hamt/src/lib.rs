@@ -27,10 +27,6 @@ impl<K, V> KeyValuePair<K, V> {
     pub fn key(&self) -> &K {
         &self.0
     }
-
-    pub fn value(&self) -> &V {
-        &self.1
-    }
 }
 
 impl<K, V> KeyValuePair<K, V> {

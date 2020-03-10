@@ -10,6 +10,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum Pointer<K, V> {
+    // TODO switch to using SmallVec to eliminate need for heap allocation
     Values(Vec<KeyValuePair<K, V>>),
     Link(Cid),
     Cache(Box<Node<K, V>>),
