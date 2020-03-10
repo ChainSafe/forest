@@ -83,7 +83,7 @@ impl<K, V> Default for Node<K, V> {
 
 impl<K, V> Node<K, V>
 where
-    K: Hash + Eq + std::cmp::PartialOrd + Serialize + DeserializeOwned + Clone,
+    K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
     V: Serialize + DeserializeOwned + Clone,
 {
     pub fn set<S: BlockStore>(

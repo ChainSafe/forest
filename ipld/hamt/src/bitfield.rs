@@ -13,7 +13,7 @@ use std::u64;
 pub struct Bitfield([u64; 4]);
 
 impl Serialize for Bitfield {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -37,7 +37,7 @@ impl Serialize for Bitfield {
 }
 
 impl<'de> Deserialize<'de> for Bitfield {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {

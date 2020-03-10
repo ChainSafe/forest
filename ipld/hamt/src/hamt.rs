@@ -53,7 +53,7 @@ impl<'a, K: PartialEq, V: PartialEq, S: BlockStore> PartialEq for Hamt<'a, K, V,
 
 impl<'a, K, V, S> Hamt<'a, K, V, S>
 where
-    K: Hash + Eq + std::cmp::PartialOrd + Serialize + DeserializeOwned + Clone,
+    K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
     V: Serialize + DeserializeOwned + Clone,
     S: BlockStore,
 {
