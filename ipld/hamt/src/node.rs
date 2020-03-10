@@ -22,7 +22,7 @@ use std::hash::Hasher;
 #[cfg(feature = "identity-hash")]
 #[derive(Default)]
 struct IdentityHasher {
-    pub bz: HashedKey,
+    bz: HashedKey,
 }
 #[cfg(feature = "identity-hash")]
 impl Hasher for IdentityHasher {

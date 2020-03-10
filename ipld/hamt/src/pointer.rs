@@ -8,6 +8,7 @@ use serde::de::{self, DeserializeOwned};
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+/// Pointer to index values or a link to another child node.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum Pointer<K, V> {
     Values(Vec<KeyValuePair<K, V>>),
@@ -127,7 +128,7 @@ where
                     *self = Pointer::Values(child_vals);
                     Ok(())
                 }
-                _ => Err(Error::Custom("Array cannot be larger than max width")),
+                _ => Ok(()),
             },
             _ => unreachable!("clean is only called on cached pointer"),
         }

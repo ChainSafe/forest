@@ -9,6 +9,21 @@ use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
 
 /// Implementation of the HAMT data structure for IPLD.
+///
+/// # Examples
+///
+/// ```
+/// use ipld_hamt::Hamt;
+///
+/// let store = db::MemoryDB::default();
+///
+/// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
+/// map.set(1, "a".to_string()).unwrap();
+/// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
+/// assert_eq!(map.delete(&1).unwrap(), Some("a".to_string()));
+/// assert_eq!(map.get(&1).unwrap(), None);
+/// let cid = map.flush().unwrap();
+/// ```
 #[derive(Debug)]
 pub struct Hamt<'a, K, V, S> {
     root: Node<K, V>,
@@ -78,7 +93,6 @@ where
     ///
     /// If the HAMT did have this key present, the value is updated, and the old
     /// value is returned. The key is not updated, though;
-    ///
     ///
     /// # Examples
     ///

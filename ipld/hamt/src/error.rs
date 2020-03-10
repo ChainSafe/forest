@@ -1,9 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0
-
 use db::Error as DBError;
 use std::fmt;
 
@@ -23,7 +20,7 @@ impl fmt::Display for Error {
         match self {
             Error::MaxDepth => write!(f, "Maximum depth reached"),
             Error::Db(msg) => write!(f, "Database Error: {}", msg),
-            Error::Custom(msg) => write!(f, "Custom HAMT error: {}", msg),
+            Error::Custom(msg) => write!(f, "HAMT error: {}", msg),
         }
     }
 }
