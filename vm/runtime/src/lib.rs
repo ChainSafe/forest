@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// #![allow(dead_code)]
 mod actor_code;
 
 pub use self::actor_code::*;
@@ -111,7 +110,7 @@ pub trait MessageInfo {
 pub trait StateHandle {
     /// Initializes the state object.
     /// This is only valid in a constructor function and when the state has not yet been initialized.
-    fn create<C: Cbor>(&self, obj: C);
+    fn create<C: Cbor>(&self, obj: &C);
 
     /// Loads a readonly copy of the state into the argument.
     ///
@@ -128,7 +127,7 @@ pub trait StateHandle {
     /// If the state is modified after this function returns, execution will abort.
     ///
     /// The gas cost of this method is that of a Store.Put of the mutated state object.
-    fn transaction<C: Cbor, R, F>(&self, obj: C, f: F) -> R
+    fn transaction<C: Cbor, R, F>(&self, obj: &C, f: F) -> R
     where
         F: Fn() -> R;
 }
@@ -201,6 +200,7 @@ pub struct ConsensusFault {
     pub fault_type: ConsensusFaultType,
 }
 
+/// Consensus fault types in VM.
 pub enum ConsensusFaultType {
     DoubleForkMining = 1,
     ParentGrinding = 2,
