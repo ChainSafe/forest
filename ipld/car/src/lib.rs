@@ -1,17 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+mod error;
+mod util;
 
 use blockstore::BlockStore;
 use cid::Cid;
+use error::*;
 use forest_encoding::from_slice;
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, Read};
-
-mod error;
-mod util;
-use crate::util::read_node;
-use error::*;
-use util::ld_read;
+use util::{ld_read, read_node};
 
 /// CAR file header
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -35,7 +33,7 @@ pub struct CarReader<R> {
 
 impl<R> CarReader<R>
 where
-    R: std::io::Read,
+    R: Read,
 {
     /// Creates a new CarReader and parses the CarHeader
     pub fn new(mut buf_reader: BufReader<R>) -> Result<Self, Error> {
