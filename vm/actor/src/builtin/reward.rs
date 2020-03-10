@@ -8,8 +8,7 @@ use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
 use vm::{
-    ExitCode, InvocOutput, MethodNum, Serialized, SysCode, TokenAmount, METHOD_CONSTRUCTOR,
-    METHOD_PLACEHOLDER,
+    ExitCode, MethodNum, Serialized, SysCode, TokenAmount, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
 };
 
 pub struct Reward {
@@ -49,29 +48,24 @@ impl RewardMethod {
 pub struct RewardActorCode;
 impl RewardActorCode {
     /// Constructor for Reward actor
-    fn constructor<RT: Runtime>(_rt: &RT) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) {
         // TODO
         unimplemented!();
     }
     /// Mints a reward and puts into state reward map
-    fn mint_reward<RT: Runtime>(_rt: &RT) -> InvocOutput {
+    fn mint_reward<RT: Runtime>(_rt: &RT) {
         // TODO
         unimplemented!();
     }
     /// Withdraw available funds from reward map
-    fn withdraw_reward<RT: Runtime>(_rt: &RT) -> InvocOutput {
+    fn withdraw_reward<RT: Runtime>(_rt: &RT) {
         // TODO
         unimplemented!();
     }
 }
 
 impl ActorCode for RewardActorCode {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        _params: &Serialized,
-    ) -> InvocOutput {
+    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match RewardMethod::from_method_num(method) {
             // TODO determine parameters for each method on finished spec
             Some(RewardMethod::Constructor) => Self::constructor(rt),
@@ -80,7 +74,7 @@ impl ActorCode for RewardActorCode {
             _ => {
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method",
+                    "Invalid method".to_owned(),
                 );
                 unreachable!();
             }
