@@ -16,7 +16,7 @@ impl fmt::Display for Error {
         match self {
             Error::ParsingError(err) => write!(f, "Failed to parse CAR file: {}", err.clone()),
             Error::InvalidFile(err) => write!(f, "Invalid CAR file: {}", err.clone()),
-            Error::Other(err) => write!(f, "Other cid Error: {}", err.clone()),
+            Error::Other(err) => write!(f, "CAR Error: {}", err.clone()),
         }
     }
 }
