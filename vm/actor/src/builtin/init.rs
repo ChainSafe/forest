@@ -1,10 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use vm::{
-    ActorID, CodeID, ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR,
-    METHOD_PLACEHOLDER,
-};
+use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER, ActorID, CodeID};
 
 use address::Address;
 use num_derive::FromPrimitive;
@@ -81,10 +78,7 @@ impl ActorCode for InitActorCode {
             }
             _ => {
                 // Method number does not match available, abort in runtime
-                rt.abort(
-                    ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method".to_owned(),
-                );
+                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
                 unreachable!();
             }
         }

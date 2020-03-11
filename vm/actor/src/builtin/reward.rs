@@ -7,9 +7,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
-use vm::{
-    ExitCode, MethodNum, Serialized, SysCode, TokenAmount, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
-};
+use vm::{ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
 
 pub struct Reward {
     pub start_epoch: ChainEpoch,
@@ -72,10 +70,7 @@ impl ActorCode for RewardActorCode {
             Some(RewardMethod::MintReward) => Self::mint_reward(rt),
             Some(RewardMethod::WithdrawReward) => Self::withdraw_reward(rt),
             _ => {
-                rt.abort(
-                    ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method".to_owned(),
-                );
+                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
                 unreachable!();
             }
         }
