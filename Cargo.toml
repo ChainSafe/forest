@@ -22,5 +22,6 @@ members = [
     "ipld/car",
     "ipld/amt",
     "ipld",
+    "ipld/hamt",
     "math/bigint",
 ]

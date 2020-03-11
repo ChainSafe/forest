@@ -8,6 +8,7 @@ use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
 
 /// A thread-safe `HashMap` wrapper.
+#[derive(Debug)]
 pub struct MemoryDB {
     db: RwLock<HashMap<u64, Vec<u8>>>,
 }

@@ -1,0 +1,28 @@
+[package]
+name = "ipld_hamt"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+forest_encoding = { path = "../../encoding" }
+serde = { version = "1.0", features = ["derive"] }
+byteorder = "1.3.2"
+replace_with = "0.1.5"
+cid = { package = "forest_cid", path = "../cid" }
+db = { path = "../../node/db" }
+ipld_blockstore = { path = "../blockstore" }
+num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+serde_bytes = "0.11.3"
+
+# TODO replace fork with updated fork or make PR into https://github.com/stusmall/murmur3
+[dependencies.murmur3]
+git = "https://github.com/dignifiedquire/murmur3"
+branch = "nicer-hashing"
+
+[features]
+identity-hash = []
+
+[dev-dependencies]
+hex = "0.3.2"
+rand = "0.7.3"
