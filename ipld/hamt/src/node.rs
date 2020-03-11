@@ -169,7 +169,7 @@ where
         match child {
             Pointer::Link(cid) => match store.get::<Node<K, V>>(cid)? {
                 Some(node) => Ok(node.get_value(hashed_key, bit_width, depth + 1, key, store)?),
-                None => Err(Error::Custom("node not found")),
+                None => Err(Error::Custom("Node not found")),
             },
             Pointer::Cache(n) => n.get_value(hashed_key, bit_width, depth + 1, key, store),
             Pointer::Values(vals) => Ok(vals.iter().find(|kv| key.eq(kv.key().borrow())).cloned()),
@@ -228,7 +228,7 @@ where
                     *child = Pointer::Cache(Box::new(node));
                     Ok(v)
                 }
-                None => Err(Error::Custom("node not found")),
+                None => Err(Error::Custom("Node not found")),
             },
             Pointer::Cache(n) => {
                 Ok(n.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?)
@@ -278,7 +278,7 @@ where
     }
 
     /// Internal method to delete entries.
-    pub fn rm_value<Q: ?Sized, S: BlockStore>(
+    fn rm_value<Q: ?Sized, S: BlockStore>(
         &mut self,
         hashed_key: &mut HashBits,
         bit_width: u8,
@@ -311,7 +311,7 @@ where
                     child.clean()?;
                     Ok(del)
                 }
-                None => Err(Error::Custom("node not found")),
+                None => Err(Error::Custom("Node not found")),
             },
             Pointer::Cache(n) => {
                 // Delete value and return deleted value
@@ -327,7 +327,7 @@ where
                     if key.eq(p.key().borrow()) {
                         let old = if vals.len() == 1 {
                             if let Pointer::Values(new_v) = self.rm_child(cindex, idx) {
-                                new_v.into_iter().nth(0).unwrap()
+                                new_v.into_iter().next().unwrap()
                             } else {
                                 return Err(Error::Custom("Should not reach this"));
                             }
