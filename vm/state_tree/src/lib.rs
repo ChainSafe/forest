@@ -66,7 +66,7 @@ impl StateTree for HamtStateTree {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actor::{ActorState, CodeID};
+    use vm::{ActorState, CodeID};
     use cid::Cid;
     use num_bigint::BigUint;
 
