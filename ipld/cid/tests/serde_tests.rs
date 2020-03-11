@@ -4,7 +4,6 @@
 #![cfg(feature = "serde_derive")]
 
 use forest_cid::Cid;
-use multihash;
 use multihash::Blake2b256;
 use serde_cbor::{from_slice, to_vec};
 
