@@ -3,7 +3,6 @@
 
 use blocks::Error as BlkErr;
 use encoding::Error as EncErr;
-use rocksdb;
 use std::fmt;
 
 #[derive(Debug, PartialEq)]

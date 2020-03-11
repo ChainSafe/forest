@@ -3,7 +3,6 @@
 
 use crate::{Cid, Codec, Error, Version};
 use integer_encoding::VarIntReader;
-use multibase;
 use multihash::Multihash;
 use std::convert::TryFrom;
 use std::io::Cursor;
