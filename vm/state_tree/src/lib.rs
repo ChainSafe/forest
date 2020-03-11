@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::ActorState;
 use address::Address;
 use std::collections::HashMap;
+use vm::ActorState;
 
 pub trait StateTree {
     fn get_actor(&self, addr: &Address) -> Option<ActorState>;
