@@ -8,6 +8,9 @@ edition = "2018"
 vm = { path = "../../vm" }
 crypto = { path = "../../crypto" }
 address = { package = "forest_address", path = "../address" }
+abi = { package = "forest_abi", path = "../abi" }
 message = { package = "forest_message", path = "../message" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
+ipld_blockstore = { path = "../../ipld/blockstore" }
 clock = { path = "../../node/clock" }
+forest_encoding = { path = "../../encoding"}

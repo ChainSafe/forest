@@ -5,7 +5,7 @@ use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, InvocOutput, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
+use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
 
 /// State of storage power actor
 pub struct StoragePowerActorState {
@@ -34,25 +34,19 @@ impl StoragePowerMethod {
 pub struct StoragePowerActorCode;
 impl StoragePowerActorCode {
     /// Constructor for StoragePower actor
-    fn constructor<RT: Runtime>(_rt: &RT) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) {
         // TODO
-        unimplemented!();
+        todo!();
     }
     /// Withdraw available funds from StoragePower map
-    fn get_total_storage<RT: Runtime>(rt: &RT) -> InvocOutput {
-        // TODO get actor state from storage and use as output
-        let result = BigUint::from(0 as u32).to_bytes_be();
-        rt.value_return(result)
+    fn get_total_storage<RT: Runtime>(_rt: &RT) {
+        // TODO
+        todo!()
     }
 }
 
 impl ActorCode for StoragePowerActorCode {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        _params: &Serialized,
-    ) -> InvocOutput {
+    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match StoragePowerMethod::from_method_num(method) {
             // TODO determine parameters for each method on finished spec
             Some(StoragePowerMethod::Constructor) => Self::constructor(rt),
@@ -60,7 +54,7 @@ impl ActorCode for StoragePowerActorCode {
             _ => {
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method",
+                    "Invalid method".to_owned(),
                 );
                 unreachable!();
             }

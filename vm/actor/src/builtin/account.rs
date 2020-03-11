@@ -5,7 +5,7 @@ use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, InvocOutput, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
+use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
 
 /// AccountActorState includes the address for the actor
 pub struct AccountActorState {
@@ -29,19 +29,13 @@ pub struct AccountActorCode;
 
 impl AccountActorCode {
     /// Constructor for Account actor
-    fn constructor<RT: Runtime>(rt: &RT) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) {
         // Intentionally left blank
-        rt.success_return()
     }
 }
 
 impl ActorCode for AccountActorCode {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        _params: &Serialized,
-    ) -> InvocOutput {
+    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match AccountMethod::from_method_num(method) {
             Some(AccountMethod::Constructor) => {
                 // TODO unfinished spec
@@ -50,7 +44,7 @@ impl ActorCode for AccountActorCode {
             _ => {
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method",
+                    "Invalid method".to_owned(),
                 );
                 unreachable!();
             }

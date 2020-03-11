@@ -1,10 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use vm::{
-    ExitCode, InvocInput, InvocOutput, MethodNum, Serialized, SysCode, TokenAmount,
-    METHOD_CONSTRUCTOR, METHOD_CRON,
-};
+use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR, METHOD_CRON};
 
 use address::Address;
 use num_derive::FromPrimitive;
@@ -45,39 +42,33 @@ pub struct CronActorCode {
 
 impl CronActorCode {
     /// Constructor for Cron actor
-    fn constructor<RT: Runtime>(rt: &RT) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) {
         // Intentionally left blank
-        rt.success_return()
     }
     /// epoch_tick executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    fn epoch_tick<RT: Runtime>(&self, rt: &RT) -> InvocOutput {
+    fn epoch_tick<RT: Runtime>(&self, _rt: &RT) {
         // self.entries is basically a static registry for now, loaded
         // in the interpreter static registry.
-        for entry in &self.entries {
-            let res = rt.send_catching_errors(InvocInput {
-                to: entry.to_addr.clone(),
-                method: entry.method_num,
-                params: Serialized::default(),
-                value: TokenAmount::new(0),
-            });
-            if let Err(e) = res {
-                return e.into();
-            }
-        }
-
-        rt.success_return()
+        // TODO update to new spec
+        todo!()
+        // for entry in &self.entries {
+        //     let res = rt.send_catching_errors(InvocInput {
+        //         to: entry.to_addr.clone(),
+        //         method: entry.method_num,
+        //         params: Serialized::default(),
+        //         value: TokenAmount::new(0),
+        //     });
+        //     if let Err(e) = res {
+        //         return e.into();
+        //     }
+        // }
     }
 }
 
 impl ActorCode for CronActorCode {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        _params: &Serialized,
-    ) -> InvocOutput {
+    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {
                 // TODO unfinished spec
@@ -90,7 +81,7 @@ impl ActorCode for CronActorCode {
             _ => {
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method",
+                    "Invalid method".to_owned(),
                 );
                 unreachable!();
             }

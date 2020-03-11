@@ -2,12 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{ActorID, CodeID};
-use vm::{
-    ExitCode, InvocOutput, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
-};
+use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
 
 use address::Address;
-use encoding::Cbor;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -46,30 +43,21 @@ impl InitMethod {
 
 pub struct InitActorCode;
 impl InitActorCode {
-    fn constructor<RT: Runtime>(rt: &RT) -> InvocOutput {
+    fn constructor<RT: Runtime>(_rt: &RT) {
         // Acquire state
         // Update actor substate
-
-        rt.success_return()
     }
-    fn exec<RT: Runtime>(rt: &RT, _code: CodeID, _params: &Serialized) -> InvocOutput {
-        // TODO
-        let addr = Address::new_id(0).unwrap();
-        rt.value_return(addr.marshal_cbor().unwrap())
+    fn exec<RT: Runtime>(_rt: &RT, _code: CodeID, _params: &Serialized) {
+        todo!()
     }
-    fn get_actor_id_for_address<RT: Runtime>(rt: &RT, _address: Address) -> InvocOutput {
+    fn get_actor_id_for_address<RT: Runtime>(_rt: &RT, _address: Address) {
         // TODO
-        rt.value_return(ActorID(0).marshal_cbor().unwrap())
+        todo!()
     }
 }
 
 impl ActorCode for InitActorCode {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        params: &Serialized,
-    ) -> InvocOutput {
+    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, params: &Serialized) {
         // Create mutable copy of params for usage in functions
         let params: &mut Serialized = &mut params.clone();
         match InitMethod::from_method_num(method) {
@@ -93,7 +81,7 @@ impl ActorCode for InitActorCode {
                 // Method number does not match available, abort in runtime
                 rt.abort(
                     ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method",
+                    "Invalid method".to_owned(),
                 );
                 unreachable!();
             }
