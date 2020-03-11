@@ -5,7 +5,7 @@ use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
+use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// AccountActorState includes the address for the actor
 pub struct AccountActorState {
@@ -42,10 +42,7 @@ impl ActorCode for AccountActorCode {
                 Self::constructor(rt)
             }
             _ => {
-                rt.abort(
-                    ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method".to_owned(),
-                );
+                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
                 unreachable!();
             }
         }

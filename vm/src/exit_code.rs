@@ -2,93 +2,91 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 /// ExitCode defines the exit code from the VM execution
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[repr(u64)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ExitCode {
-    /// Code for successful VM execution
-    Success,
-    /// VM execution failed with system error
-    SystemErrorCode(SysCode),
-    /// VM execution failed with a user code
-    UserDefinedError(UserCode),
-}
+    Ok = 0,
 
-/// Defines the system error codes defined by the protocol
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub enum SysCode {
-    /// ActorNotFound represents a failure to find an actor.
-    ActorNotFound,
+    /// Indicates failure to find an actor in the state tree.
+    SysErrActorNotFound = 1,
 
-    /// ActorCodeNotFound represents a failure to find the code for a
-    /// particular actor in the VM registry.
-    ActorCodeNotFound,
+    /// Indicates failure to find the code for an actor.
+    SysErrActorCodeNotFound = 2,
 
-    /// InvalidMethod represents a failure to find a method in
-    /// an actor
-    InvalidMethod,
+    /// Indicates failure to find a method in an actor.
+    SysErrInvalidMethod = 3,
 
-    /// InvalidArguments indicates that a method was called with the incorrect
-    /// number of arguments, or that its arguments did not satisfy its
-    /// preconditions
-    InvalidArguments,
+    /// Indicates syntactically invalid parameters for a method.
+    SysErrInvalidParameters = 4,
 
-    /// InsufficientFunds represents a failure to apply a message, as
-    /// it did not carry sufficient funds for its application.
-    InsufficientFunds,
+    /// Indicates a message sender has insufficient funds for a message's execution.
+    SysErrInsufficientFunds = 5,
 
-    /// InvalidCallSeqNum represents a message invocation out of sequence.
-    /// This happens when message.CallSeqNum is not exactly actor.CallSeqNum + 1
-    InvalidCallSeqNum,
+    /// Indicates a message invocation out of sequence.
+    SysErrInvalidCallSeqNum = 6,
 
-    /// OutOfGas is returned when the execution of an actor method
-    /// (including its subcalls) uses more gas than initially allocated.
-    OutOfGas,
+    /// Indicates message execution (including subcalls) used more gas than the specified limit.
+    SysErrOutOfGas = 7,
 
-    /// RuntimeAPIError is returned when an actor method invocation makes a call
-    /// to the runtime that does not satisfy its preconditions.
-    RuntimeAPIError,
+    /// Indicates a message execution is forbidden for the caller.
+    SysErrForbidden = 8,
 
-    /// RuntimeAssertFailure is returned when an actor method invocation calls
-    /// rt.Assert with a false condition.
-    RuntimeAssertFailure,
+    /// Indicates actor code performed a disallowed operation. Disallowed operations include:
+    /// - mutating state outside of a state acquisition block
+    /// - failing to invoke caller validation
+    /// - aborting with a reserved exit code (including success or a system error).
+    SysErrorIllegalActor = 9,
 
-    /// MethodSubcallError is returned when an actor method's Send call has
-    /// returned with a failure error code (and the Send call did not specify
-    /// to ignore errors).
-    MethodSubcallError,
-}
+    /// Indicates an invalid argument passed to a runtime method.
+    SysErrorIllegalArgument = 10,
 
-/// defines user specific error codes from VM execution
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub enum UserCode {
-    InsufficientFunds,
-    InvalidArguments,
-    InconsistentState,
+    /// Indicates  an object failed to de/serialize for storage.
+    SysErrSerialization = 11,
 
-    InvalidSectorPacking,
-    SealVerificationFailed,
-    DeadlineExceeded,
-    InsufficientPledgeCollateral,
+    /// Reserved exit codes, do not use.
+    SysErrorReserved1 = 12,
+    SysErrorReserved2 = 13,
+    SysErrorReserved3 = 14,
+
+    /// Indicates something broken within the VM.
+    SysErrInternal = 15,
+
+    // -------Actor Error Codes-------
+    /// Indicates a method parameter is invalid.
+    ErrIllegalArgument = 16,
+    /// Indicates a requested resource does not exist.
+    ErrNotFound = 17,
+    /// Indicates an action is disallowed.
+    ErrForbidden = 18,
+    /// Indicates a balance of funds is insufficient.
+    ErrInsufficientFunds = 19,
+    /// Indicates an actor's internal state is invalid.
+    ErrIllegalState = 20,
+    /// Indicates de/serialization failure within actor code.
+    ErrSerialization = 21,
+
+    ErrPlaceholder = 1000,
 }
 
 impl ExitCode {
     /// returns true if the exit code was a success
-    pub fn is_success(&self) -> bool {
+    pub fn is_success(self) -> bool {
         match self {
-            ExitCode::Success => true,
+            ExitCode::Ok => true,
             _ => false,
         }
     }
     /// returns true if exited with an error code
-    pub fn is_error(&self) -> bool {
+    pub fn is_error(self) -> bool {
         match self {
-            ExitCode::Success => false,
+            ExitCode::Ok => false,
             _ => true,
         }
     }
     /// returns true if the execution was successful
-    pub fn allows_state_update(&self) -> bool {
+    pub fn allows_state_update(self) -> bool {
         match self {
-            ExitCode::Success => true,
+            ExitCode::Ok => true,
             _ => false,
         }
     }
