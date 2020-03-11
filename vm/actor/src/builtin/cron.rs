@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR, METHOD_CRON};
+use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_CRON};
 
 use address::Address;
 use num_derive::FromPrimitive;
@@ -79,10 +79,7 @@ impl ActorCode for CronActorCode {
                 self.epoch_tick(rt)
             }
             _ => {
-                rt.abort(
-                    ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method".to_owned(),
-                );
+                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
                 unreachable!();
             }
         }
