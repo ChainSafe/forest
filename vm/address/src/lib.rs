@@ -13,7 +13,6 @@ use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{
     blake2b_variable, de, ser, serde_bytes, Cbor, CodecProtocol, Error as EncodingError,
 };
-use leb128;
 use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;

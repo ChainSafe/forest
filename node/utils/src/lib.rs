@@ -5,7 +5,6 @@ use dirs::home_dir;
 use std::fs::{create_dir_all, File};
 use std::io::{prelude::*, Result};
 use std::path::Path;
-use toml;
 
 /// Writes a string to a specified file. Creates the desired path if it does not exist.
 /// Note: `path` and `filename` are appended to produce the resulting file path.
