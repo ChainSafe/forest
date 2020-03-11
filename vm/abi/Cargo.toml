@@ -1,0 +1,10 @@
+[package]
+name = "forest_abi"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+num-traits = "0.2"
+num-derive = "0.2"

@@ -1,108 +1,208 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(dead_code)]
 mod actor_code;
 
 pub use self::actor_code::*;
 
+use abi::{PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use crypto::Signature;
-use message::UnsignedMessage;
-use std::any::Any;
-use vm::{ExitCode, InvocInput, InvocOutput, TokenAmount};
+use crypto::{DomainSeparationTag, Signature};
+use forest_encoding::Cbor;
+use ipld_blockstore::BlockStore;
+use vm::{ExitCode, MethodNum, TokenAmount};
 
 pub struct Randomness; // TODO
-pub struct CallerPattern; // TODO
-pub struct ActorStateHandle; // TODO
-pub struct IPLDObject; // TODO
-pub struct ComputeFunctionID; // TODO
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
 pub trait Runtime {
-    /// Retrieves current epoch
-    fn curr_epoch(&self) -> ChainEpoch; // TODO define epoch
+    /// Information related to the current message being executed.
+    fn message<I: MessageInfo>(&self) -> I;
 
-    /// Randomness returns a (pseudo)random stream (indexed by offset) for the current epoch.
-    // TODO define randomness/epoch variable
-    fn randomness(&self, epoch: ChainEpoch, offset: u64) -> Randomness;
+    /// The current chain epoch number. The genesis block has epoch zero.
+    fn curr_epoch(&self) -> ChainEpoch;
 
-    /// Not necessarily the actor in the From field of the initial on-chain Message.
-    fn immediate_caller(&self) -> &Address;
-    fn validate_immediate_caller_is(&self, caller: &Address);
+    /// Validates the caller against some predicate.
+    /// Exported actor methods must invoke at least one caller validation before returning.
     fn validate_immediate_caller_accept_any(&self);
-    fn validate_immediate_caller_matches(&self, caller_pattern: CallerPattern); // TODO add caller pattern
+    fn validate_immediate_caller_is(&self, addresses: &[Address]);
+    fn validate_immediate_caller_type(&self, types: &[Cid]);
 
-    /// The address of the actor receiving the message.
-    fn curr_receiver(&self) -> &Address;
-
-    /// The actor who mined the block in which the initial on-chain message appears.
-    fn top_level_block_winner(&self) -> &Address;
-
-    fn acquire_state(&self) -> ActorStateHandle; // TODO add actor state handle
-
-    /// Return successfully from invocation.
-    fn success_return(&self) -> InvocOutput;
-    /// Return from invocation with a value.
-    fn value_return(&self, bytes: Vec<u8>) -> InvocOutput;
-
-    /// Throw an error indicating a failure condition has occurred, from which the given actor
-    /// code is unable to recover.
-    fn abort(&self, err_exit_code: ExitCode, msg: &str);
-
-    /// Calls Abort with InvalidArguments error.
-    fn abort_arg_msg(&self, msg: String);
-    fn abort_arg(&self);
-
-    /// Calls Abort with InconsistentState error.
-    fn abort_state_msg(&self, msg: String);
-    fn abort_state(&self);
-
-    /// Calls Abort with InsufficientFunds error.
-    fn abort_funds_msg(&self, msg: String);
-    fn abort_funds(&self);
-
-    /// Calls Abort with RuntimeAPIError.
-    /// For internal use only (not in actor code).
-    fn abort_api(&self, msg: String);
-
-    /// Check that the given condition is true (and call Abort if not).
-    fn assert(&self, cond: bool);
-
-    /// Retrieves current balance in VM.
+    /// The balance of the receiver.
     fn current_balance(&self) -> TokenAmount;
-    /// Retrieves value received in VM.
-    fn value_received(&self) -> TokenAmount;
 
-    fn verify_signature(&self, signer_actor: Address, sig: Signature, m: UnsignedMessage) -> bool;
+    /// Resolves an address of any protocol to an ID address (via the Init actor's table).
+    /// This allows resolution of externally-provided SECP, BLS, or actor addresses to the canonical form.
+    /// If the argument is an ID address it is returned directly.
+    // TODO replace return with Option probably?
+    fn resolve_address(address: &Address) -> (Address, bool);
 
-    /// Run a (pure function) computation, consuming the gas cost associated with that function.
-    /// This mechanism is intended to capture the notion of an ABI between the VM and native
-    /// functions, and should be used for any function whose computation is expensive.
-    fn compute(&self, id: ComputeFunctionID, args: dyn Any) -> dyn Any; // TODO define parameters
+    /// Look up the code ID at an actor address.
+    // TODO replace return with Option probably?
+    fn get_actor_code_cid(addr: Address) -> (Cid, bool);
 
-    /// Send allows the current execution context to invoke methods on other actors in the system.
-    // TODO determine if both are needed in our impl
-    fn send_propagating_errors(&self, input: InvocInput) -> InvocOutput;
-    fn send_catching_errors(&self, input: InvocInput) -> Result<InvocOutput, ExitCode>;
+    /// Randomness returns a (pseudo)random byte array drawing from a
+    /// random beacon at a given epoch and incorporating reequisite entropy
+    fn get_randomness(
+        personalization: DomainSeparationTag,
+        rand_epoch: ChainEpoch,
+        entropy: &[u8],
+    ) -> Randomness;
 
-    /// Computes an address for a new actor. The returned address is intended to uniquely refer
-    /// to the actor even in the event of a chain re-org (whereas an ID-address might refer to a
+    /// Provides a handle for the actor's state object.
+    fn state<SH: StateHandle>(&self) -> &SH;
+
+    fn store<S: BlockStore>(&self) -> &S;
+
+    /// Sends a message to another actor, returning the exit code and return value envelope.
+    /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
+    /// will be rolled back.
+    fn send<P: Cbor, SR: StateHandle>(
+        &self,
+        to: Address,
+        method: MethodNum,
+        params: &P,
+        value: TokenAmount,
+    ) -> (SR, ExitCode);
+
+    /// Halts execution upon an error from which the receiver cannot recover. The caller will receive the exitcode and
+    /// an empty return value. State changes made within this call will be rolled back.
+    /// This method does not return.
+    /// The message and args are for diagnostic purposes and do not persist on chain.
+    fn abort(&self, exit_code: ExitCode, msg: String);
+
+    /// Computes an address for a new actor. The returned address is intended to uniquely refer to
+    /// the actor even in the event of a chain re-org (whereas an ID-address might refer to a
     /// different actor after messages are re-ordered).
+    /// Always an ActorExec address.
     fn new_actor_address(&self) -> Address;
 
-    /// Create an actor in the state tree. May only be called by InitActor.
-    fn create_actor(
-        &self,
-        state_cid: &Cid,
-        a: &Address,
-        init_balance: TokenAmount,
-        constructor_params: dyn Any, // TODO define params
-    );
+    /// Creates an actor with code `codeID` and address `address`, with empty state. May only be called by Init actor.
+    fn create_actor(&self, code_id: Cid, address: Address);
 
-    fn ipld_get(&self, c: &Cid) -> Result<Vec<u8>, String>; // TODO add error type
-    fn ipld_put(&self, object: IPLDObject) -> Cid; // TODO define IPLD object
+    /// Deletes the executing actor from the state tree. May only be called by the actor itself.
+    fn delete_actor(&self);
+
+    /// Provides the system call interface.
+    fn syscalls(&self) -> Syscalls {
+        // If syscalls need to be handled dynamically, switch to returning Box<dyn Syscalls>
+        // If that is changed to a trait
+        Syscalls
+    }
+}
+
+/// Message information available to the actor about executing message.
+pub trait MessageInfo {
+    // The address of the immediate calling actor. Always an ID-address.
+    fn caller(&self) -> Address;
+
+    // The address of the actor receiving the message. Always an ID-address.
+    fn receiver(&self) -> Address;
+
+    // The value attached to the message being processed, implicitly added to current_balance() before method invocation.
+    fn value_received(&self) -> TokenAmount;
+}
+
+/// StateHandle provides mutable, exclusive access to actor state.
+pub trait StateHandle {
+    /// Initializes the state object.
+    /// This is only valid in a constructor function and when the state has not yet been initialized.
+    fn create<C: Cbor>(&self, obj: &C);
+
+    /// Loads a readonly copy of the state into the argument.
+    ///
+    /// Any modification to the state is illegal and will result in an abort.
+    // TODO is this necessary? if we are sure that we can return a reference to data that will for sure be in memory this should return &C
+    fn readonly<C: Cbor>(&self) -> C;
+
+    /// Loads a mutable version of the state into the `obj` argument and protects
+    /// the execution from side effects (including message send).
+    ///
+    /// The second argument is a function which allows the caller to mutate the state.
+    /// The return value from that function will be returned from the call to Transaction().
+    ///
+    /// If the state is modified after this function returns, execution will abort.
+    ///
+    /// The gas cost of this method is that of a Store.Put of the mutated state object.
+    fn transaction<C: Cbor, R, F>(&self, obj: &C, f: F) -> R
+    where
+        F: Fn() -> R;
+}
+
+/// Pure functions implemented as primitives by the runtime.
+// TODO this may have to be a trait impl to handle dynamically
+pub struct Syscalls;
+
+impl Syscalls {
+    /// Verifies that a signature is valid for an address and plaintext.
+    pub fn verify_signature(
+        _signature: Signature,
+        _signer: Address,
+        _plaintext: &[u8],
+    ) -> Result<(), &'static str> {
+        // TODO
+        todo!()
+    }
+    /// Hashes input data using blake2b with 256 bit output.
+    pub fn hash_blake_2b(_data: &[u8]) -> [u8; 32] {
+        // TODO
+        todo!()
+    }
+    /// Computes an unsealed sector CID (CommD) from its constituent piece CIDs (CommPs) and sizes.
+    pub fn compute_unsealed_sector_cid(
+        _reg: RegisteredProof,
+        _pieces: &[PieceInfo],
+    ) -> Result<Cid, &'static str> {
+        // TODO
+        todo!()
+    }
+    /// Verifies a sector seal proof.
+    pub fn verify_seal(_vi: SealVerifyInfo) -> Result<(), &'static str> {
+        // TODO
+        todo!()
+    }
+    /// Verifies a proof of spacetime.
+    pub fn verify_post(_vi: PoStVerifyInfo) -> Result<(), &'static str> {
+        // TODO
+        todo!()
+    }
+    /// Verifies that two block headers provide proof of a consensus fault:
+    /// - both headers mined by the same actor
+    /// - headers are different
+    /// - first header is of the same or lower epoch as the second
+    /// - at least one of the headers appears in the current chain at or after epoch `earliest`
+    /// - the headers provide evidence of a fault (see the spec for the different fault types).
+    /// The parameters are all serialized block headers. The third "extra" parameter is consulted only for
+    /// the "parent grinding fault", in which case it must be the sibling of h1 (same parent tipset) and one of the
+    /// blocks in the parent of h2 (i.e. h2's grandparent).
+    /// Returns nil and an error if the headers don't prove a fault.
+    pub fn verify_consensus_fault(
+        _h1: &[u8],
+        _h2: &[u8],
+        _extra: &[u8],
+        _earliest: ChainEpoch,
+    ) -> Result<ConsensusFault, &'static str> {
+        // TODO
+        todo!()
+    }
+}
+
+/// Result of checking two headers for a consensus fault.
+pub struct ConsensusFault {
+    /// Address of the miner at fault (always an ID address).
+    pub target: Address,
+    /// Epoch of the fault, which is the higher epoch of the two blocks causing it.
+    pub epoch: ChainEpoch,
+    /// Type of fault.
+    pub fault_type: ConsensusFaultType,
+}
+
+/// Consensus fault types in VM.
+pub enum ConsensusFaultType {
+    DoubleForkMining = 1,
+    ParentGrinding = 2,
+    TimeOffsetMining = 3,
 }
