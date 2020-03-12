@@ -1,11 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[macro_use]
+extern crate lazy_static;
+
 mod builtin;
 mod code;
+mod singletons;
 
 pub use self::builtin::*;
 pub use self::code::*;
+pub use self::singletons::*;
 use cid::Cid;
 use encoding::Cbor;
 use num_bigint::{biguint_ser, BigUint};

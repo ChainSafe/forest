@@ -9,7 +9,7 @@ use address::Address;
 use blockstore::BlockStore;
 use encoding::de::DeserializeOwned;
 use forest_blocks::Tipset;
-use state_tree::HamtStateTree;
+use state_tree::{HamtStateTree, StateTree};
 use std::sync::Arc;
 
 /// Intermediary for retrieving state objects and updating actor states
@@ -30,7 +30,10 @@ where
     where
         D: DeserializeOwned,
     {
-        let actor = self.get_actor(addr, ts)?;
+        let actor = self.get_actor(addr, ts)?.ok_or(Error::State(format!(
+            "Actor for address: {} does not exist",
+            addr
+        )))?;
         let act: D = self.bs.get(&actor.state)?.ok_or_else(|| {
             Error::State("Could not retrieve actor state from IPLD store".to_owned())
         })?;
@@ -49,8 +52,9 @@ where
         })?;
         Ok(*info.sector_size())
     }
-    pub fn get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
-        let state = HamtStateTree::new_from_root(self.bs.as_ref(), ts.parent_state());
-        todo!()
+    pub fn get_actor(&self, addr: &Address, ts: &Tipset) -> Result<Option<ActorState>, Error> {
+        let state = HamtStateTree::new_from_root(self.bs.as_ref(), ts.parent_state())
+            .map_err(|e| Error::State(e))?;
+        state.get_actor(addr).map_err(|e| Error::State(e))
     }
 }

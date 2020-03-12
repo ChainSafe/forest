@@ -1,13 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::ActorState;
+use actor::{ActorState, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
 use cid::Cid;
+use fnv::FnvHashMap;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use parking_lot::RwLock;
-use std::collections::HashMap;
 
 const TREE_BIT_WIDTH: u8 = 5;
 
@@ -15,15 +15,19 @@ pub trait StateTree {
     fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, String>;
     fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String>;
     fn lookup_id(&self, addr: &Address) -> Result<Address, String>;
-    fn delete_actor(&self, addr: &Address) -> Result<(), String>;
-    fn refister_new_address(&self, addr: &Address, actor: ActorState) -> Result<Address, String>;
-    fn flush(&self) -> Result<Cid, String>;
-    fn snapshot(&self) -> Result<(), String>;
-    fn clear_snapshot(&self);
-    fn revert(&self) -> Result<(), String>;
-    fn mutate_actor<F>(&self, addr: &Address, mutate: F) -> Result<(), String>
+    fn delete_actor(&mut self, addr: &Address) -> Result<(), String>;
+    fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), String>
     where
-        F: FnOnce(Address) -> Result<Address, String>;
+        F: FnOnce(ActorState) -> Result<ActorState, String>;
+    fn register_new_address(
+        &mut self,
+        addr: &Address,
+        actor: ActorState,
+    ) -> Result<Address, String>;
+    fn flush(&mut self) -> Result<Cid, String>;
+    fn snapshot(&mut self) -> Result<u64, String>;
+    fn revert_to_snapshot(&mut self, id: u64) -> Result<(), String>;
+    fn clear_snapshots(&mut self);
 }
 
 /// State tree implementation using hamt
@@ -31,7 +35,10 @@ pub struct HamtStateTree<'db, S> {
     hamt: Hamt<'db, String, ActorState, S>,
 
     // TODO switch cache lock from using sync mutex when usage switches to async
-    actor_cache: RwLock<HashMap<Address, ActorState>>,
+    actor_cache: RwLock<FnvHashMap<Address, ActorState>>,
+
+    next_snapshot_id: u64,
+    snapshots: FnvHashMap<u64, Cid>,
 }
 
 impl<'db, S> HamtStateTree<'db, S>
@@ -42,7 +49,9 @@ where
         let hamt = Hamt::new_with_bit_width(store, TREE_BIT_WIDTH);
         Self {
             hamt,
-            actor_cache: RwLock::new(HashMap::new()),
+            actor_cache: RwLock::new(FnvHashMap::default()),
+            next_snapshot_id: 0,
+            snapshots: FnvHashMap::default(),
         }
     }
 
@@ -52,7 +61,9 @@ where
             Hamt::load_with_bit_width(root, store, TREE_BIT_WIDTH).map_err(|e| e.to_string())?;
         Ok(Self {
             hamt,
-            actor_cache: RwLock::new(HashMap::new()),
+            actor_cache: RwLock::new(FnvHashMap::default()),
+            next_snapshot_id: 0,
+            snapshots: FnvHashMap::default(),
         })
     }
 
@@ -84,6 +95,7 @@ where
         if let Some(act_s) = &act {
             self.actor_cache.write().insert(addr, act_s.clone());
         }
+
         Ok(act)
     }
 
@@ -102,6 +114,7 @@ where
         self.hamt
             .set(Self::hash_index(&addr), actor)
             .map_err(|e| e.to_string())?;
+
         Ok(())
     }
 
@@ -110,38 +123,90 @@ where
             return Ok(addr.clone());
         }
 
+        // TODO address resolution
         todo!()
     }
 
-    fn delete_actor(&self, addr: &Address) -> Result<(), String> {
-        todo!()
+    fn delete_actor(&mut self, addr: &Address) -> Result<(), String> {
+        let addr = self.lookup_id(addr)?;
+
+        // Remove value from cache
+        self.actor_cache.write().remove(&addr);
+
+        self.hamt
+            .delete(&Self::hash_index(&addr))
+            .map_err(|e| e.to_string())?;
+
+        Ok(())
     }
 
-    fn refister_new_address(&self, addr: &Address, actor: ActorState) -> Result<Address, String> {
-        todo!()
-    }
-
-    fn flush(&self) -> Result<Cid, String> {
-        todo!()
-    }
-
-    fn snapshot(&self) -> Result<(), String> {
-        todo!()
-    }
-
-    fn clear_snapshot(&self) {
-        todo!()
-    }
-
-    fn revert(&self) -> Result<(), String> {
-        todo!()
-    }
-
-    fn mutate_actor<F>(&self, addr: &Address, mutate: F) -> Result<(), String>
+    fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), String>
     where
-        F: FnOnce(Address) -> Result<Address, String>,
+        F: FnOnce(ActorState) -> Result<ActorState, String>,
     {
-        todo!()
+        // Retrieve actor state from address
+        let act: ActorState = self
+            .get_actor(addr)?
+            .ok_or(format!("Actor for address: {} does not exist", addr))?;
+
+        // Apply function of actor state and set the actor
+        self.set_actor(addr, mutate(act)?)
+    }
+
+    fn register_new_address(
+        &mut self,
+        addr: &Address,
+        actor: ActorState,
+    ) -> Result<Address, String> {
+        let mut out_addr: Option<Address> = None;
+        self.mutate_actor(&INIT_ACTOR_ADDR, |actor| {
+            // TODO after updating hamt
+            todo!()
+        })?;
+
+        Ok(out_addr.unwrap())
+    }
+
+    fn flush(&mut self) -> Result<Cid, String> {
+        // TODO add metrics to this
+        for (addr, act) in self.actor_cache.read().iter() {
+            // Set each value from cache into hamt
+            // TODO this shouldn't be necessary, revisit
+            self.hamt
+                .set(Self::hash_index(&addr), act.clone())
+                .map_err(|e| e.to_string())?;
+        }
+
+        self.hamt.flush().map_err(|e| e.to_string())
+    }
+
+    fn snapshot(&mut self) -> Result<u64, String> {
+        let cid = self.flush()?;
+
+        let id = self.next_snapshot_id;
+        self.next_snapshot_id += 1;
+
+        self.snapshots.insert(id, cid);
+
+        Ok(id)
+    }
+
+    fn clear_snapshots(&mut self) {
+        self.next_snapshot_id = 0;
+        self.snapshots = Default::default();
+    }
+
+    fn revert_to_snapshot(&mut self, id: u64) -> Result<(), String> {
+        let cid = self
+            .snapshots
+            .remove(&id)
+            .ok_or(format!("Invalid snapshot id: {}", id))?;
+
+        // Update Hamt root to snapshot Cid
+        self.hamt.set_root(&cid).map_err(|e| e.to_string())?;
+
+        self.actor_cache = Default::default();
+        Ok(())
     }
 }
 

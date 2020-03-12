@@ -87,6 +87,16 @@ where
         }
     }
 
+    /// Sets the root based on the Cid of the root node using the Hamt store
+    pub fn set_root(&mut self, cid: &Cid) -> Result<(), Error> {
+        match self.store.get(cid)? {
+            Some(root) => self.root = root,
+            None => return Err(Error::Custom("No node found")),
+        }
+
+        Ok(())
+    }
+
     /// Inserts a key-value pair into the HAMT.
     ///
     /// If the HAMT did not have this key present, `None` is returned.
