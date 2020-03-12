@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::ActorID;
 use address::Address;
 
 lazy_static! {
@@ -13,3 +14,5 @@ lazy_static! {
     // Distinguished AccountActor that is the destination of all burnt funds.
     pub static ref BURNT_FUNDS_ACTOR_ADDR: Address    = Address::new_id(99).unwrap();
 }
+
+pub const FIRST_NON_SINGLETON_ADDR: ActorID = ActorID(100);

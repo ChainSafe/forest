@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{ActorID, CodeID};
+use crate::{ActorID, CodeID, FIRST_NON_SINGLETON_ADDR};
 use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
 
 use address::Address;
@@ -22,6 +22,12 @@ pub struct InitActorState {
 }
 
 impl InitActorState {
+    pub fn new(address_map: Cid) -> Self {
+        Self {
+            address_map,
+            next_id: FIRST_NON_SINGLETON_ADDR,
+        }
+    }
     /// Assigns next available ID and incremenets the next_id value from state
     pub fn map_address_to_new_id<BS: BlockStore>(
         &mut self,

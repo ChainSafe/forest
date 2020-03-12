@@ -11,23 +11,30 @@ use parking_lot::RwLock;
 
 const TREE_BIT_WIDTH: u8 = 5;
 
+/// Interface to allow for the retreival and modification of Actors and their state
 pub trait StateTree {
+    /// Get actor state from an address. Will be resolved to ID address.
     fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, String>;
+    /// Set actor state for an address. Will set state at ID address.
     fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String>;
+    /// Get an ID address from any Address
     fn lookup_id(&self, addr: &Address) -> Result<Address, String>;
+    /// Delete actor for an address. Will resolve to ID address to delete.
     fn delete_actor(&mut self, addr: &Address) -> Result<(), String>;
+    /// Mutate and set actor state for an Address.
     fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), String>
     where
         F: FnOnce(ActorState) -> Result<ActorState, String>;
+    /// Register a new address through the init actor.
     fn register_new_address(
         &mut self,
         addr: &Address,
         actor: ActorState,
     ) -> Result<Address, String>;
-    fn flush(&mut self) -> Result<Cid, String>;
-    fn snapshot(&mut self) -> Result<u64, String>;
-    fn revert_to_snapshot(&mut self, id: u64) -> Result<(), String>;
-    fn clear_snapshots(&mut self);
+    /// Persist changes to store and return Cid to revert state to.
+    fn snapshot(&mut self) -> Result<Cid, String>;
+    /// Revert to Cid returned from `snapshot`
+    fn revert_to_snapshot(&mut self, cid: &Cid) -> Result<(), String>;
 }
 
 /// State tree implementation using hamt
@@ -36,9 +43,6 @@ pub struct HamtStateTree<'db, S> {
 
     // TODO switch cache lock from using sync mutex when usage switches to async
     actor_cache: RwLock<FnvHashMap<Address, ActorState>>,
-
-    next_snapshot_id: u64,
-    snapshots: FnvHashMap<u64, Cid>,
 }
 
 impl<'db, S> HamtStateTree<'db, S>
@@ -50,8 +54,6 @@ where
         Self {
             hamt,
             actor_cache: RwLock::new(FnvHashMap::default()),
-            next_snapshot_id: 0,
-            snapshots: FnvHashMap::default(),
         }
     }
 
@@ -62,8 +64,6 @@ where
         Ok(Self {
             hamt,
             actor_cache: RwLock::new(FnvHashMap::default()),
-            next_snapshot_id: 0,
-            snapshots: FnvHashMap::default(),
         })
     }
 
@@ -201,7 +201,7 @@ where
         Ok(new_addr)
     }
 
-    fn flush(&mut self) -> Result<Cid, String> {
+    fn snapshot(&mut self) -> Result<Cid, String> {
         // TODO add metrics to this
         for (addr, act) in self.actor_cache.read().iter() {
             // Set each value from cache into hamt
@@ -214,30 +214,9 @@ where
         self.hamt.flush().map_err(|e| e.to_string())
     }
 
-    fn snapshot(&mut self) -> Result<u64, String> {
-        let cid = self.flush()?;
-
-        let id = self.next_snapshot_id;
-        self.next_snapshot_id += 1;
-
-        self.snapshots.insert(id, cid);
-
-        Ok(id)
-    }
-
-    fn clear_snapshots(&mut self) {
-        self.next_snapshot_id = 0;
-        self.snapshots = Default::default();
-    }
-
-    fn revert_to_snapshot(&mut self, id: u64) -> Result<(), String> {
-        let cid = self
-            .snapshots
-            .remove(&id)
-            .ok_or(format!("Invalid snapshot id: {}", id))?;
-
+    fn revert_to_snapshot(&mut self, cid: &Cid) -> Result<(), String> {
         // Update Hamt root to snapshot Cid
-        self.hamt.set_root(&cid).map_err(|e| e.to_string())?;
+        self.hamt.set_root(cid).map_err(|e| e.to_string())?;
 
         self.actor_cache = Default::default();
         Ok(())
@@ -269,5 +248,78 @@ mod tests {
         assert_eq!(tree.set_actor(&addr, act_a.clone()), Ok(()));
         // test getting set item
         assert_eq!(tree.get_actor(&addr).unwrap().unwrap(), act_a);
+    }
+
+    #[test]
+    fn delete_actor() {
+        let store = db::MemoryDB::default();
+        let mut tree = HamtStateTree::new(&store);
+
+        let addr = Address::new_id(3).unwrap();
+        let act_s = ActorState::new(Cid::default(), Cid::default(), BigUint::default(), 1);
+        tree.set_actor(&addr, act_s.clone()).unwrap();
+        assert_eq!(tree.get_actor(&addr).unwrap(), Some(act_s));
+        tree.delete_actor(&addr).unwrap();
+        assert_eq!(tree.get_actor(&addr).unwrap(), None);
+    }
+
+    #[test]
+    fn get_set_non_id() {
+        let store = db::MemoryDB::default();
+        let mut tree = HamtStateTree::new(&store);
+
+        // Empty hamt Cid used for testing
+        let e_cid = Hamt::<String, _>::new_with_bit_width(&store, 5)
+            .flush()
+            .unwrap();
+
+        let init_state = InitActorState::new(e_cid.clone());
+        let state_cid = tree
+            .store()
+            .put(&init_state, Blake2b256)
+            .map_err(|e| e.to_string())
+            .unwrap();
+
+        let act_s = ActorState::new(Cid::default(), state_cid.clone(), BigUint::default(), 1);
+
+        // Test snapshot
+        let snapshot = tree.snapshot().unwrap();
+        tree.set_actor(&INIT_ACTOR_ADDR, act_s.clone()).unwrap();
+        assert_ne!(&tree.snapshot().unwrap(), &snapshot);
+
+        // Test mutate function
+        tree.mutate_actor(&INIT_ACTOR_ADDR, |mut actor| {
+            actor.sequence = 2;
+            Ok(actor)
+        })
+        .unwrap();
+        let new_init_s = tree.get_actor(&INIT_ACTOR_ADDR).unwrap();
+        assert_eq!(
+            new_init_s,
+            Some(ActorState {
+                code: Cid::default(),
+                state: state_cid,
+                balance: BigUint::default(),
+                sequence: 2
+            })
+        );
+
+        // Register new address
+        let addr = Address::new_secp256k1(&[0, 2]).unwrap();
+        let secp_state = ActorState::new(e_cid.clone(), e_cid.clone(), Default::default(), 0);
+        let assigned_addr = tree
+            .register_new_address(&addr, secp_state.clone())
+            .unwrap();
+
+        assert_eq!(assigned_addr, Address::new_id(100).unwrap());
+
+        // Test resolution of Secp address
+        // TODO enable this test when the init actor address resolution completed
+        // assert_eq!(tree.get_actor(&addr).unwrap(), Some(secp_state));
+
+        // Test reverting snapshot to before init actor set
+        tree.revert_to_snapshot(&snapshot).unwrap();
+        assert_eq!(tree.snapshot().unwrap(), snapshot);
+        assert_eq!(tree.get_actor(&INIT_ACTOR_ADDR).unwrap(), None);
     }
 }
