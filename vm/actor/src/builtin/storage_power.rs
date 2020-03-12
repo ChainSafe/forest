@@ -5,7 +5,7 @@ use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR};
+use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// State of storage power actor
 pub struct StoragePowerActorState {
@@ -52,10 +52,7 @@ impl ActorCode for StoragePowerActorCode {
             Some(StoragePowerMethod::Constructor) => Self::constructor(rt),
             Some(StoragePowerMethod::GetTotalStorage) => Self::get_total_storage(rt),
             _ => {
-                rt.abort(
-                    ExitCode::SystemErrorCode(SysCode::InvalidMethod),
-                    "Invalid method".to_owned(),
-                );
+                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
                 unreachable!();
             }
         }
