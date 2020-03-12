@@ -105,7 +105,7 @@ where
             }
         };
 
-        let state_manager = StateManager::new(db.clone());
+        let state_manager = StateManager::new(db);
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
@@ -301,7 +301,7 @@ where
                 None => {
                     let actor = tree
                         .get_actor(msg.from())
-                        .map_err(|e| Error::Blockchain(e.to_string()))?
+                        .map_err(Error::Blockchain)?
                         .ok_or_else(|| {
                             Error::State("Could not retrieve actor from state tree".to_owned())
                         })?;
