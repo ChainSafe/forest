@@ -11,3 +11,4 @@ db = { path = "../../node/db/" }
 encoding = { package = "forest_encoding", path = "../../encoding/" }
 state_tree = { path = "../../vm/state_tree/" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
+forest_blocks = { path = "../../blockchain/blocks" }

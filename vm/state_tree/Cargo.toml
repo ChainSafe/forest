@@ -9,6 +9,9 @@ actor = { path = "../actor" }
 address = { package = "forest_address", path = "../address" }
 vm = { path = "../../vm" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
+ipld_hamt = { path = "../../ipld/hamt" }
+ipld_blockstore = { path = "../../ipld/blockstore" }
+db = { path = "../../node/db" }
 
 [dev-dependencies]
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
