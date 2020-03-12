@@ -5,25 +5,47 @@ use crate::{ActorID, CodeID};
 use vm::{ExitCode, MethodNum, Serialized, SysCode, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
 
 use address::Address;
+use cid::Cid;
+use ipld_blockstore::BlockStore;
+use ipld_hamt::{Error as HamtError, Hamt};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 /// InitActorState is reponsible for creating
-#[derive(Default)]
+// TODO implement actual serialize and deserialize to match
+#[derive(Default, Serialize, Deserialize)]
 pub struct InitActorState {
-    // TODO possibly switch this to a hamt to be able to dump the data and save as Cid
-    _address_map: HashMap<Address, ActorID>,
+    address_map: Cid,
     next_id: ActorID,
 }
 
 impl InitActorState {
     /// Assigns next available ID and incremenets the next_id value from state
-    pub fn assign_next_id(&mut self) -> ActorID {
-        let next = self.next_id;
-        self.next_id.0 += 1;
-        next
+    pub fn map_address_to_new_id<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        addr: &Address,
+    ) -> Result<Address, HamtError> {
+        let id = self.next_id;
+        self.next_id += 1;
+
+        let mut map: Hamt<String, _> = Hamt::load_with_bit_width(&self.address_map, store, 5)?;
+        map.set(String::from_utf8_lossy(&addr.to_bytes()).to_string(), id)?;
+        self.address_map = map.flush()?;
+
+        Ok(Address::new_id(id.0).expect("Id Address should be created without Error"))
+    }
+
+    /// Resolve address
+    pub fn resolve_address<BS: BlockStore>(
+        &self,
+        _store: &BS,
+        _addr: &Address,
+    ) -> Result<Address, String> {
+        // TODO implement address resolution
+        todo!()
     }
 }
 
@@ -91,13 +113,9 @@ impl ActorCode for InitActorCode {
 
 #[cfg(test)]
 mod test {
-    use super::*;
 
     #[test]
     fn assign_id() {
-        let mut actor_s = InitActorState::default();
-        assert_eq!(actor_s.assign_next_id().0, 0);
-        assert_eq!(actor_s.assign_next_id().0, 1);
-        assert_eq!(actor_s.assign_next_id().0, 2);
+        // TODO replace with new functionality test on full impl
     }
 }

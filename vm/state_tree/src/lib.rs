@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{ActorState, INIT_ACTOR_ADDR};
+use actor::{ActorState, InitActorState, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
-use cid::Cid;
+use cid::{multihash::Blake2b256, Cid};
 use fnv::FnvHashMap;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
@@ -71,6 +71,11 @@ where
     pub fn hash_index(addr: &Address) -> String {
         String::from_utf8_lossy(&addr.to_bytes()).to_string()
     }
+
+    /// Retrieve store reference to modify db.
+    fn store(&self) -> &S {
+        self.hamt.store()
+    }
 }
 
 impl<S> StateTree for HamtStateTree<'_, S>
@@ -123,8 +128,18 @@ where
             return Ok(addr.clone());
         }
 
-        // TODO address resolution
-        todo!()
+        let init_act = self
+            .get_actor(&INIT_ACTOR_ADDR)?
+            .ok_or("Init actor address could not be resolved".to_owned())?;
+
+        let state: InitActorState = self
+            .hamt
+            .store()
+            .get(&init_act.state)
+            .map_err(|e| e.to_string())?
+            .ok_or("Could not resolve init actor state")?;
+
+        Ok(state.resolve_address(self.store(), addr)?)
     }
 
     fn delete_actor(&mut self, addr: &Address) -> Result<(), String> {
@@ -158,13 +173,32 @@ where
         addr: &Address,
         actor: ActorState,
     ) -> Result<Address, String> {
-        let mut out_addr: Option<Address> = None;
-        self.mutate_actor(&INIT_ACTOR_ADDR, |actor| {
-            // TODO after updating hamt
-            todo!()
-        })?;
+        let mut init_act: ActorState = self
+            .get_actor(&INIT_ACTOR_ADDR)?
+            .ok_or("Could not retrieve init actor".to_owned())?;
 
-        Ok(out_addr.unwrap())
+        // Get init actor state from store
+        let mut ias: InitActorState = self
+            .hamt
+            .store()
+            .get(&init_act.state)
+            .map_err(|e| e.to_string())?
+            .ok_or("Failed to retrieve init actor state")?;
+
+        // Create new address with init actor state
+        let new_addr = ias
+            .map_address_to_new_id(self.store(), addr)
+            .map_err(|e| e.to_string())?;
+
+        // Set state for init actor in store and update root Cid
+        init_act.state = self
+            .store()
+            .put(&ias, Blake2b256)
+            .map_err(|e| e.to_string())?;
+
+        self.set_actor(&new_addr, actor)?;
+
+        Ok(new_addr)
     }
 
     fn flush(&mut self) -> Result<Cid, String> {

@@ -15,10 +15,17 @@ use cid::Cid;
 use encoding::Cbor;
 use num_bigint::{biguint_ser, BigUint};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::ops::AddAssign;
 
 /// Identifier for Actors, includes builtin and initialized actors
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ActorID(u64);
+
+impl AddAssign<u64> for ActorID {
+    fn add_assign(&mut self, other: u64) {
+        self.0 += other
+    }
+}
 
 impl Cbor for ActorID {}
 

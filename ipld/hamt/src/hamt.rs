@@ -96,6 +96,11 @@ where
         Ok(())
     }
 
+    /// Returns a reference to the underlying store of the Hamt.
+    pub fn store(&self) -> &BS {
+        self.store
+    }
+
     /// Inserts a key-value pair into the HAMT.
     ///
     /// If the HAMT did not have this key present, `None` is returned.
