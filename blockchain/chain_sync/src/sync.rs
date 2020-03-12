@@ -299,9 +299,12 @@ where
                 }
                 // MsgMetaData not found with provided address key, insert sequence and balance with address as key
                 None => {
-                    let actor = tree.get_actor(msg.from()).ok_or_else(|| {
-                        Error::State("Could not retrieve actor from state tree".to_owned())
-                    })?;
+                    let actor = tree
+                        .get_actor(msg.from())
+                        .map_err(|e| Error::Blockchain(e.to_string()))?
+                        .ok_or_else(|| {
+                            Error::State("Could not retrieve actor from state tree".to_owned())
+                        })?;
 
                     MsgMetaData {
                         sequence: actor.sequence,

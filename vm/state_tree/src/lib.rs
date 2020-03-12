@@ -6,13 +6,13 @@ use address::{Address, Protocol};
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
+use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 const TREE_BIT_WIDTH: u8 = 5;
 
 pub trait StateTree {
-    fn get_actor(&self, addr: &Address) -> Option<ActorState>;
+    fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, String>;
     fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String>;
     fn lookup_id(&self, addr: &Address) -> Result<Address, String>;
     fn delete_actor(&self, addr: &Address) -> Result<(), String>;
@@ -30,7 +30,8 @@ pub trait StateTree {
 pub struct HamtStateTree<'db, S> {
     hamt: Hamt<'db, String, ActorState, S>,
 
-    actor_cache: HashMap<Address, ActorState>,
+    // TODO switch cache lock from using sync mutex when usage switches to async
+    actor_cache: RwLock<HashMap<Address, ActorState>>,
 }
 
 impl<'db, S> HamtStateTree<'db, S>
@@ -41,7 +42,7 @@ where
         let hamt = Hamt::new_with_bit_width(store, TREE_BIT_WIDTH);
         Self {
             hamt,
-            actor_cache: HashMap::new(),
+            actor_cache: RwLock::new(HashMap::new()),
         }
     }
 
@@ -51,8 +52,13 @@ where
             Hamt::load_with_bit_width(root, store, TREE_BIT_WIDTH).map_err(|e| e.to_string())?;
         Ok(Self {
             hamt,
-            actor_cache: HashMap::new(),
+            actor_cache: RwLock::new(HashMap::new()),
         })
+    }
+
+    /// Index key for hamt
+    pub fn hash_index(addr: &Address) -> String {
+        String::from_utf8_lossy(&addr.to_bytes()).to_string()
     }
 }
 
@@ -60,24 +66,32 @@ impl<S> StateTree for HamtStateTree<'_, S>
 where
     S: BlockStore,
 {
-    fn get_actor(&self, address: &Address) -> Option<ActorState> {
-        // TODO resolve ID address
+    fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, String> {
+        let addr = self.lookup_id(addr)?;
 
         // Check cache for actor state
-        if let Some(addr) = self.actor_cache.get(address) {
-            return Some(addr.clone());
+        if let Some(actor_state) = self.actor_cache.read().get(&addr) {
+            return Ok(Some(actor_state.clone()));
         }
 
         // if state doesn't exist, find using hamt
-        // TODO
-        None
+        let act = self
+            .hamt
+            .get(&Self::hash_index(&addr))
+            .map_err(|e| e.to_string())?;
+
+        // Update cache if state was found
+        if let Some(act_s) = &act {
+            self.actor_cache.write().insert(addr, act_s.clone());
+        }
+        Ok(act)
     }
 
     fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String> {
         let addr = self.lookup_id(addr)?;
 
         // Set actor state in cache
-        if let Some(act) = self.actor_cache.insert(addr.clone(), actor.clone()) {
+        if let Some(act) = self.actor_cache.write().insert(addr.clone(), actor.clone()) {
             if act == actor {
                 // New value is same as cached, no need to set in hamt
                 return Ok(());
@@ -86,7 +100,7 @@ where
 
         // Set actor state in hamt
         self.hamt
-            .set(String::from_utf8_lossy(&addr.to_bytes()).to_string(), actor)
+            .set(Self::hash_index(&addr), actor)
             .map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -147,7 +161,7 @@ mod tests {
         let mut tree = HamtStateTree::new(&store);
 
         // test address not in cache
-        assert_eq!(tree.get_actor(&addr), None);
+        assert_eq!(tree.get_actor(&addr).unwrap(), None);
         // test successful insert
         assert_eq!(tree.set_actor(&addr, act_s.clone()), Ok(()));
         // test inserting with different data
@@ -155,6 +169,6 @@ mod tests {
         // Assert insert with same data returns ok
         assert_eq!(tree.set_actor(&addr, act_a.clone()), Ok(()));
         // test getting set item
-        assert_eq!(tree.get_actor(&addr).unwrap(), act_a);
+        assert_eq!(tree.get_actor(&addr).unwrap().unwrap(), act_a);
     }
 }
