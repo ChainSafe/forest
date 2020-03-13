@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::ActorID;
 use address::Address;
+use vm::ActorID;
 
 lazy_static! {
     pub static ref SYSTEM_ACTOR_ADDR: Address         = Address::new_id(0).unwrap();
@@ -15,4 +15,5 @@ lazy_static! {
     pub static ref BURNT_FUNDS_ACTOR_ADDR: Address    = Address::new_id(99).unwrap();
 }
 
+/// Defines first available ID address after builtin actors
 pub const FIRST_NON_SINGLETON_ADDR: ActorID = ActorID(100);

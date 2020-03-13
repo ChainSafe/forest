@@ -1,8 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{ActorID, CodeID, FIRST_NON_SINGLETON_ADDR};
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
+use crate::FIRST_NON_SINGLETON_ADDR;
+use vm::{
+    ActorID, CodeID, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER,
+};
 
 use address::Address;
 use cid::Cid;
@@ -15,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 /// InitActorState is reponsible for creating
 // TODO implement actual serialize and deserialize to match
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct InitActorState {
     address_map: Cid,
     next_id: ActorID,
