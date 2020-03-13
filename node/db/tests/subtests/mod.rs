@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use db::{DatabaseService, Read, Write};
+use db::{DatabaseService, Store};
 
 pub fn open<DB>(db: &mut DB)
 where
@@ -12,7 +12,7 @@ where
 
 pub fn write<DB>(db: &DB)
 where
-    DB: Write,
+    DB: Store,
 {
     let key = [1];
     let value = [1];
@@ -21,7 +21,7 @@ where
 
 pub fn read<DB>(db: &DB)
 where
-    DB: Read + Write,
+    DB: Store,
 {
     let key = [0];
     let value = [1];
@@ -32,7 +32,7 @@ where
 
 pub fn exists<DB>(db: &DB)
 where
-    DB: Read + Write,
+    DB: Store,
 {
     let key = [0];
     let value = [1];
@@ -43,7 +43,7 @@ where
 
 pub fn does_not_exist<DB>(db: &DB)
 where
-    DB: Read + Write,
+    DB: Store,
 {
     let key = [0];
     let res = db.exists(key).unwrap();
@@ -52,7 +52,7 @@ where
 
 pub fn delete<DB>(db: &DB)
 where
-    DB: Read + Write,
+    DB: Store,
 {
     let key = [0];
     let value = [1];
@@ -66,7 +66,7 @@ where
 
 pub fn bulk_write<DB>(db: &DB)
 where
-    DB: Read + Write,
+    DB: Store,
 {
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
@@ -79,7 +79,7 @@ where
 
 pub fn bulk_read<DB>(db: &DB)
 where
-    DB: Read + Write,
+    DB: Store,
 {
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
@@ -95,7 +95,7 @@ where
 
 pub fn bulk_delete<DB>(db: &DB)
 where
-    DB: Read + Write,
+    DB: Store,
 {
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];

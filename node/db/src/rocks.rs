@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
-use super::{DatabaseService, Read, Write};
+use super::{DatabaseService, Store};
 use rocksdb::{Options, WriteBatch, DB};
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
@@ -43,6 +43,7 @@ impl RocksDb {
         }
     }
 
+    /// Initializes the database if uninitialized, does nothing if db is already opened
     pub fn open(&mut self) -> Result<(), Error> {
         match &self.status {
             DbStatus::Unopened(path) => {
@@ -55,6 +56,7 @@ impl RocksDb {
         }
     }
 
+    /// Returns reference to db as long as it is initialized
     pub fn db(&self) -> Result<&DB, Error> {
         match &self.status {
             DbStatus::Unopened(_) => Err(Error::new("Unopened database used".to_string())),
@@ -69,7 +71,7 @@ impl DatabaseService for RocksDb {
     }
 }
 
-impl Write for RocksDb {
+impl Store for RocksDb {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -106,9 +108,7 @@ impl Write for RocksDb {
         }
         Ok(())
     }
-}
 
-impl Read for RocksDb {
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
