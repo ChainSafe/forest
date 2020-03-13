@@ -44,7 +44,6 @@ pub trait Store {
         K: AsRef<[u8]>;
 
     /// Write slice of KV pairs.
-    // TODO maybe change API to slice of tuple KV
     fn bulk_write<K, V>(&self, keys: &[K], values: &[V]) -> Result<(), Error>
     where
         K: AsRef<[u8]>,

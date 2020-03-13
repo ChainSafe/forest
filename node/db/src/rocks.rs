@@ -59,7 +59,7 @@ impl RocksDb {
     /// Returns reference to db as long as it is initialized
     pub fn db(&self) -> Result<&DB, Error> {
         match &self.status {
-            DbStatus::Unopened(_) => Err(Error::new("Unopened database used".to_string())),
+            DbStatus::Unopened(_) => Err(Error::Database("Unopened database used".to_string())),
             DbStatus::Open(db) => Ok(db),
         }
     }
@@ -92,6 +92,11 @@ impl Store for RocksDb {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
+        // Safety check to make sure kv lengths are the same
+        if keys.len() != values.len() {
+            return Err(Error::InvalidBulkLen);
+        }
+
         let mut batch = WriteBatch::default();
         for (k, v) in keys.iter().zip(values.iter()) {
             batch.put(k, v)?;

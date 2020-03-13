@@ -66,6 +66,11 @@ impl Store for MemoryDB {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
+        // Safety check to make sure kv lengths are the same
+        if keys.len() != values.len() {
+            return Err(Error::InvalidBulkLen);
+        }
+
         for (k, v) in keys.iter().zip(values.iter()) {
             self.db
                 .write()

@@ -18,9 +18,7 @@ pub trait BlockStore: Store {
         T: DeserializeOwned,
     {
         match self.get_bytes(cid)? {
-            Some(bz) => Ok(Some(
-                from_slice(&bz).map_err(|e| Error::new(e.to_string()))?,
-            )),
+            Some(bz) => Ok(Some(from_slice(&bz)?)),
             None => Ok(None),
         }
     }
@@ -31,8 +29,8 @@ pub trait BlockStore: Store {
         S: Serialize,
         T: MultihashDigest,
     {
-        let bz = to_vec(obj).map_err(|e| Error::new(e.to_string()))?;
-        let cid = Cid::new_from_cbor(&bz, hash).map_err(|e| Error::new(e.to_string()))?;
+        let bz = to_vec(obj)?;
+        let cid = Cid::new_from_cbor(&bz, hash).map_err(|e| Error::Encoding(e.to_string()))?;
         self.write(cid.to_bytes(), bz)?;
         Ok(cid)
     }
