@@ -14,3 +14,4 @@ cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 clock = { path = "../../node/clock" }
 forest_encoding = { path = "../../encoding"}
+state_tree = { path = "../state_tree" }
