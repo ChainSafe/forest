@@ -4,6 +4,7 @@
 use crate::node::Node;
 use crate::{Error, Hash, DEFAULT_BIT_WIDTH};
 use cid::{multihash::Blake2b256, Cid};
+use forest_ipld::{from_ipld, to_ipld, Ipld};
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
@@ -17,25 +18,24 @@ use std::borrow::Borrow;
 ///
 /// let store = db::MemoryDB::default();
 ///
-/// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
+/// let mut map: Hamt<usize, _> = Hamt::new(&store);
 /// map.set(1, "a".to_string()).unwrap();
 /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
-/// assert_eq!(map.delete(&1).unwrap(), Some("a".to_string()));
-/// assert_eq!(map.get(&1).unwrap(), None);
+/// assert_eq!(map.delete(&1).unwrap(), true);
+/// assert_eq!(map.get::<_, String>(&1).unwrap(), None);
 /// let cid = map.flush().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct Hamt<'a, K, V, S> {
-    root: Node<K, V>,
-    store: &'a S,
+pub struct Hamt<'a, K, BS> {
+    root: Node<K>,
+    store: &'a BS,
 
     bit_width: u8,
 }
 
-impl<K, V, BS> Serialize for Hamt<'_, K, V, BS>
+impl<K, BS> Serialize for Hamt<'_, K, BS>
 where
     K: Serialize,
-    V: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -45,24 +45,23 @@ where
     }
 }
 
-impl<'a, K: PartialEq, V: PartialEq, S: BlockStore> PartialEq for Hamt<'a, K, V, S> {
+impl<'a, K: PartialEq, S: BlockStore> PartialEq for Hamt<'a, K, S> {
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root
     }
 }
 
-impl<'a, K, V, S> Hamt<'a, K, V, S>
+impl<'a, K, BS> Hamt<'a, K, BS>
 where
     K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
-    V: Serialize + DeserializeOwned + Clone,
-    S: BlockStore,
+    BS: BlockStore,
 {
-    pub fn new(store: &'a S) -> Self {
+    pub fn new(store: &'a BS) -> Self {
         Self::new_with_bit_width(store, DEFAULT_BIT_WIDTH)
     }
 
     /// Construct hamt with a bit width
-    pub fn new_with_bit_width(store: &'a S, bit_width: u8) -> Self {
+    pub fn new_with_bit_width(store: &'a BS, bit_width: u8) -> Self {
         Self {
             root: Node::default(),
             store,
@@ -71,12 +70,12 @@ where
     }
 
     /// Lazily instantiate a hamt from this root Cid.
-    pub fn load(cid: &Cid, store: &'a S) -> Result<Self, Error> {
+    pub fn load(cid: &Cid, store: &'a BS) -> Result<Self, Error> {
         Self::load_with_bit_width(cid, store, DEFAULT_BIT_WIDTH)
     }
 
     /// Lazily instantiate a hamt from this root Cid with a specified bit width.
-    pub fn load_with_bit_width(cid: &Cid, store: &'a S, bit_width: u8) -> Result<Self, Error> {
+    pub fn load_with_bit_width(cid: &Cid, store: &'a BS, bit_width: u8) -> Result<Self, Error> {
         match store.get(cid)? {
             Some(root) => Ok(Self {
                 root,
@@ -85,6 +84,21 @@ where
             }),
             None => Err(Error::Custom("No node found")),
         }
+    }
+
+    /// Sets the root based on the Cid of the root node using the Hamt store
+    pub fn set_root(&mut self, cid: &Cid) -> Result<(), Error> {
+        match self.store.get(cid)? {
+            Some(root) => self.root = root,
+            None => return Err(Error::Custom("No node found")),
+        }
+
+        Ok(())
+    }
+
+    /// Returns a reference to the underlying store of the Hamt.
+    pub fn store(&self) -> &BS {
+        self.store
     }
 
     /// Inserts a key-value pair into the HAMT.
@@ -101,15 +115,19 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
-    /// assert_eq!(map.set(37, "a".into()).unwrap(), None);
+    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// map.set(37, "a".to_string()).unwrap();
     /// assert_eq!(map.is_empty(), false);
     ///
-    /// map.set(37, "b".into()).unwrap();
-    /// assert_eq!(map.set(37, "c".into()).unwrap(), Some("b".into()));
+    /// map.set(37, "b".to_string()).unwrap();
+    /// map.set(37, "c".to_string()).unwrap();
     /// ```
-    pub fn set(&mut self, key: K, value: V) -> Result<Option<V>, Error> {
-        self.root.set(key, value, self.store, self.bit_width)
+    pub fn set<S>(&mut self, key: K, value: S) -> Result<(), Error>
+    where
+        S: Serialize,
+    {
+        let val: Ipld = to_ipld(value)?;
+        self.root.set(key, val, self.store, self.bit_width)
     }
 
     /// Returns a reference to the value corresponding to the key.
@@ -125,18 +143,22 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
+    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
-    /// assert_eq!(map.get(&2).unwrap(), None);
+    /// assert_eq!(map.get::<usize, String>(&2).unwrap(), None);
     /// ```
     #[inline]
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<V>, Error>
+    pub fn get<Q: ?Sized, V>(&self, k: &Q) -> Result<Option<V>, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
+        V: DeserializeOwned,
     {
-        self.root.get(k, self.store, self.bit_width)
+        match self.root.get(k, self.store, self.bit_width)? {
+            Some(v) => Ok(Some(from_ipld(v).map_err(Error::Encoding)?)),
+            None => Ok(None),
+        }
     }
 
     /// Removes a key from the HAMT, returning the value at the key if the key
@@ -153,20 +175,20 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, String, _> = Hamt::new(&store);
+    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
-    /// assert_eq!(map.delete(&1).unwrap(), Some("a".to_string()));
-    /// assert_eq!(map.delete(&1).unwrap(), None);
+    /// assert_eq!(map.delete(&1).unwrap(), true);
+    /// assert_eq!(map.delete(&1).unwrap(), false);
     /// ```
-    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<V>, Error>
+    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<bool, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        Ok(self
-            .root
-            .remove_entry(k, self.store, self.bit_width)?
-            .map(|kv| kv.1))
+        match self.root.remove_entry(k, self.store, self.bit_width)? {
+            Some(_) => Ok(true),
+            None => Ok(false),
+        }
     }
 
     /// Flush root and return Cid for hamt

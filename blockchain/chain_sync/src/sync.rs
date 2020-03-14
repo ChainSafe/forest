@@ -48,12 +48,12 @@ enum SyncState {
     _Follow,
 }
 
-pub struct ChainSyncer<DB, ST> {
+pub struct ChainSyncer<DB> {
     /// Syncing state of chain sync
     _state: SyncState,
 
     /// manages retrieving and updates state objects
-    state_manager: StateManager<DB, ST>,
+    state_manager: StateManager<DB>,
 
     /// manages sync buckets
     sync_manager: SyncManager,
@@ -84,7 +84,7 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<DB> ChainSyncer<DB, HamtStateTree>
+impl<DB> ChainSyncer<DB>
 where
     DB: BlockStore,
 {
@@ -105,7 +105,7 @@ where
             }
         };
 
-        let state_manager = StateManager::new(db, HamtStateTree::default());
+        let state_manager = StateManager::new(db);
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
@@ -131,10 +131,9 @@ where
     }
 }
 
-impl<DB, ST> ChainSyncer<DB, ST>
+impl<DB> ChainSyncer<DB>
 where
     DB: BlockStore,
-    ST: StateTree,
 {
     /// Starts syncing process
     pub async fn sync(mut self) -> Result<(), Error> {
@@ -262,7 +261,7 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    pub fn check_blk_msgs(&self, block: Block, _tip: Tipset) -> Result<(), Error> {
+    pub fn check_blk_msgs(&self, block: Block, _tip: &Tipset) -> Result<(), Error> {
         // TODO retrieve bls public keys for verify_bls_aggregate
         // for _m in block.bls_msgs() {
         // }
@@ -300,9 +299,12 @@ where
                 }
                 // MsgMetaData not found with provided address key, insert sequence and balance with address as key
                 None => {
-                    let actor = tree.get_actor(msg.from()).ok_or_else(|| {
-                        Error::State("Could not retrieve actor from state tree".to_owned())
-                    })?;
+                    let actor = tree
+                        .get_actor(msg.from())
+                        .map_err(Error::Blockchain)?
+                        .ok_or_else(|| {
+                            Error::State("Could not retrieve actor from state tree".to_owned())
+                        })?;
 
                     MsgMetaData {
                         sequence: actor.sequence,
@@ -317,7 +319,7 @@ where
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         // TODO retrieve tipset state and load state tree
         // temporary
-        let tree = HamtStateTree::default();
+        let tree = HamtStateTree::new(self.chain_store.db.as_ref());
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
@@ -352,11 +354,12 @@ where
         }
 
         let base_tipset = self.load_fts(&TipSetKeys::new(header.parents().cids.clone()))?;
+        let parent_tipset = base_tipset.tipset()?;
         // time stamp checks
         header.validate_timestamps(&base_tipset)?;
 
         // check messages to ensure valid state transitions
-        self.check_blk_msgs(block.clone(), base_tipset.tipset()?)?;
+        self.check_blk_msgs(block.clone(), &parent_tipset)?;
 
         // block signature check
         // TODO need to pass in raw miner address; temp using header miner address
@@ -364,10 +367,12 @@ where
         header.check_block_signature(header.miner_address())?;
 
         // TODO: incomplete, still need to retrieve power in order to ensure ticket is the winner
-        let _slash = self.state_manager.miner_slashed(header.miner_address())?;
+        let _slash = self
+            .state_manager
+            .miner_slashed(header.miner_address(), &parent_tipset)?;
         let _sector_size = self
             .state_manager
-            .miner_sector_size(header.miner_address())?;
+            .miner_sector_size(header.miner_address(), &parent_tipset)?;
 
         // TODO winner_check
         // TODO miner_check

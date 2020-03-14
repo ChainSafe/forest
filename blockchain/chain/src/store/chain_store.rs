@@ -20,7 +20,7 @@ pub struct ChainStore<DB> {
     // TODO add a pubsub channel that publishes an event every time the head changes.
 
     // key-value datastore
-    db: Arc<DB>,
+    pub db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
     // TODO revisit if this should be pointer to tipset on heap

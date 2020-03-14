@@ -74,8 +74,7 @@ pub struct BlockHeader {
     #[builder(default)]
     message_receipts: Cid,
 
-    /// state_root is a cid pointer to the state tree after application of
-    /// the transactions state transitions
+    /// state_root is a cid pointer to the parent state root after calculating parent tipset.
     #[builder(default)]
     state_root: Cid,
 

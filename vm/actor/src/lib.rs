@@ -1,9 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[macro_use]
+extern crate lazy_static;
+
 mod builtin;
+mod singletons;
 
 pub use self::builtin::*;
+pub use self::singletons::*;
+pub use vm::{ActorID, ActorState};
+
 use cid::Cid;
 
 // TODO implement Actor for builtin actors on finished spec

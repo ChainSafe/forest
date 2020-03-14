@@ -21,6 +21,7 @@ pub use self::error::Error;
 pub use self::hamt::Hamt;
 pub use self::hash::*;
 
+use forest_ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
 const MAX_ARRAY_WIDTH: usize = 3;
@@ -30,17 +31,17 @@ pub const DEFAULT_BIT_WIDTH: u8 = 8;
 
 type HashedKey = [u8; 16];
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
-struct KeyValuePair<K, V>(K, V);
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+struct KeyValuePair<K>(K, Ipld);
 
-impl<K, V> KeyValuePair<K, V> {
+impl<K> KeyValuePair<K> {
     pub fn key(&self) -> &K {
         &self.0
     }
 }
 
-impl<K, V> KeyValuePair<K, V> {
-    pub fn new(key: K, value: V) -> Self {
+impl<K> KeyValuePair<K> {
+    pub fn new(key: K, value: Ipld) -> Self {
         KeyValuePair(key, value)
     }
 }

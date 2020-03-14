@@ -194,6 +194,10 @@ impl Tipset {
     pub fn parents(&self) -> &TipSetKeys {
         &self.blocks[0].parents()
     }
+    /// Returns the state root for the tipset parent.
+    pub fn parent_state(&self) -> &Cid {
+        self.blocks[0].state_root()
+    }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
         &self.blocks[0].weight()
