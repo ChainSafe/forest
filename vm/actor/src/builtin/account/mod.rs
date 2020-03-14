@@ -30,7 +30,7 @@ pub struct Actor;
 impl Actor {
     /// Constructor for Account actor
     pub fn constructor<RT: Runtime>(rt: &RT, address: Address) {
-        rt.validate_immediate_caller_is(&[address.clone()]);
+        rt.validate_immediate_caller_is(std::iter::once(&address));
         match address.protocol() {
             Protocol::Secp256k1 | Protocol::BLS => (),
             protocol => rt.abort(
