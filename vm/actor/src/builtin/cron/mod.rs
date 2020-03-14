@@ -7,6 +7,7 @@ pub use self::state::{CronActorState, CronEntry};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_CRON};
 
 #[derive(FromPrimitive)]
@@ -22,13 +23,37 @@ impl CronMethod {
     }
 }
 
-// TODO spec has changed, this will need to be moved to Cron State in full impl
-#[derive(Clone)]
-pub struct CronActor;
+/// Constructor parameters for Cron actor, contains entries
+/// of actors and methods to call on each epoch
+#[derive(Default)]
+pub struct CronConstructorParams {
+    /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
+    pub entries: Vec<CronEntry>,
+}
 
+impl Serialize for CronConstructorParams {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.entries.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CronConstructorParams {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let entries: Vec<CronEntry> = Deserialize::deserialize(deserializer)?;
+        Ok(Self { entries })
+    }
+}
+
+pub struct CronActor;
 impl CronActor {
     /// Constructor for Cron actor
-    fn constructor<RT: Runtime>(_rt: &RT) {
+    fn constructor<RT: Runtime>(_rt: &RT, _params: CronConstructorParams) {
         // Intentionally left blank
     }
     /// epoch_tick executes built-in periodic actions, run at every Epoch.
@@ -58,7 +83,7 @@ impl ActorCode for CronActor {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {
                 // TODO unfinished spec
-                Self::constructor(rt)
+                Self::constructor(rt, CronConstructorParams::default())
             }
             Some(CronMethod::Cron) => {
                 // TODO unfinished spec

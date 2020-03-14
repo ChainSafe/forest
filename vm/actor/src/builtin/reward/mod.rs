@@ -23,7 +23,6 @@ impl RewardMethod {
     }
 }
 
-#[derive(Clone)]
 pub struct RewardActor;
 impl RewardActor {
     /// Constructor for Reward actor

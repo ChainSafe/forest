@@ -26,7 +26,6 @@ impl PowerMethod {
     }
 }
 
-#[derive(Clone)]
 pub struct PowerActor;
 impl PowerActor {
     /// Constructor for StoragePower actor

@@ -21,9 +21,7 @@ impl AccountMethod {
     }
 }
 
-#[derive(Clone)]
 pub struct AccountActor;
-
 impl AccountActor {
     /// Constructor for Account actor
     fn constructor<RT: Runtime>(_rt: &RT) {
