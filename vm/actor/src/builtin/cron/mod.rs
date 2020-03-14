@@ -8,13 +8,13 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_CRON};
+use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Cron actor methods available
 #[derive(FromPrimitive)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
-    Cron = METHOD_CRON,
+    EpochTick = 2,
 }
 
 impl Method {
@@ -56,7 +56,8 @@ pub struct Actor;
 impl Actor {
     /// Constructor for Cron actor
     fn constructor<RT: Runtime>(_rt: &RT, _params: ConstructorParams) {
-        // Intentionally left blank
+        // TODO now finished spec
+        todo!()
     }
     /// epoch_tick executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
@@ -87,7 +88,7 @@ impl ActorCode for Actor {
                 // TODO unfinished spec
                 Self::constructor(rt, ConstructorParams::default())
             }
-            Some(Method::Cron) => {
+            Some(Method::EpochTick) => {
                 // TODO unfinished spec
                 self.epoch_tick(rt)
             }

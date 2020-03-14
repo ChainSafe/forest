@@ -4,6 +4,7 @@
 mod state;
 
 pub use self::state::State;
+use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -13,6 +14,7 @@ use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 #[derive(FromPrimitive)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
+    PubkeyAddress = 2,
 }
 
 impl Method {
@@ -26,8 +28,15 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Account actor
-    fn constructor<RT: Runtime>(_rt: &RT) {
-        // Intentionally left blank
+    pub fn constructor<RT: Runtime>(_rt: &RT, _address: Address) {
+        // TODO now updated spec
+        todo!()
+    }
+
+    // Fetches the pubkey-type address from this actor.
+    pub fn pubkey_address<RT: Runtime>(_rt: &RT) -> Address {
+        // TODO
+        todo!()
     }
 }
 
@@ -35,8 +44,12 @@ impl ActorCode for Actor {
     fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                // TODO unfinished spec
-                Self::constructor(rt)
+                // TODO deserialize address from params
+                Self::constructor(rt, Address::default())
+            }
+            Some(Method::PubkeyAddress) => {
+                // TODO assert that no params and handle return
+                let _ = Self::pubkey_address(rt);
             }
             _ => {
                 rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());

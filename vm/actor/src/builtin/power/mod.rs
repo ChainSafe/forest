@@ -14,9 +14,20 @@ use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 pub enum Method {
     /// Constructor for Storage Power Actor
     Constructor = METHOD_CONSTRUCTOR,
-    // TODO add other methods on finished spec
-    /// Gets the total storage for the network
-    GetTotalStorage = 5,
+    AddBalance = 2,
+    WithdrawBalance = 3,
+    CreateMiner = 4,
+    DeleteMiner = 5,
+    OnSectorProveCommit = 6,
+    OnSectorTerminate = 7,
+    OnSectorTemporaryFaultEffectiveBegin = 8,
+    OnSectorTemporaryFaultEffectiveEnd = 9,
+    OnSectorModifyWeightDesc = 10,
+    OnMinerWindowedPoStSuccess = 11,
+    OnMinerWindowedPoStFailure = 12,
+    EnrollCronEvent = 13,
+    ReportConsensusFault = 14,
+    OnEpochTickEnd = 15,
 }
 
 impl Method {
@@ -34,19 +45,17 @@ impl Actor {
         // TODO
         todo!();
     }
-    /// Withdraw available funds from StoragePower map
-    fn get_total_storage<RT: Runtime>(_rt: &RT) {
-        // TODO
-        todo!()
-    }
+    // TODO implement other actor methods based on methods available
 }
 
 impl ActorCode for Actor {
     fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match Method::from_method_num(method) {
-            // TODO determine parameters for each method on finished spec
-            Some(Method::Constructor) => Self::constructor(rt),
-            Some(Method::GetTotalStorage) => Self::get_total_storage(rt),
+            Some(Method::Constructor) => {
+                // TODO make sure params is empty
+                Self::constructor(rt)
+            }
+            // TODO handle other methods available
             _ => {
                 rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
                 unreachable!();

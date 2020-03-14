@@ -26,12 +26,6 @@ impl From<MethodNum> for u64 {
 pub const METHOD_SEND: isize = 0;
 /// Base actor constructor method
 pub const METHOD_CONSTRUCTOR: isize = 1;
-/// Base actor cron method
-pub const METHOD_CRON: isize = 2;
-
-/// Placeholder for non base methods for actors
-// TODO revisit on complete spec
-pub const METHOD_PLACEHOLDER: isize = 3;
 
 /// Serialized bytes to be used as parameters into actor methods
 #[derive(Default, Clone, PartialEq, Debug)]

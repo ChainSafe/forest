@@ -4,18 +4,16 @@
 mod state;
 
 pub use self::state::State;
-use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{CodeID, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
+use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Init actor methods available
 #[derive(FromPrimitive)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
-    Exec = METHOD_PLACEHOLDER,
-    GetActorIDForAddress = METHOD_PLACEHOLDER + 1,
+    Exec = 2,
 }
 
 impl Method {
@@ -33,15 +31,17 @@ pub struct ConstructorParams {
 /// Init actor
 pub struct Actor;
 impl Actor {
-    fn constructor<RT: Runtime>(_rt: &RT, _params: ConstructorParams) {
+    /// Init actor constructor
+    pub fn constructor<RT: Runtime>(_rt: &RT, _params: ConstructorParams) {
+        // TODO
+        todo!()
         // Acquire state
         // Update actor substate
     }
-    fn exec<RT: Runtime>(_rt: &RT, _code: CodeID, _params: &Serialized) {
-        todo!()
-    }
-    fn get_actor_id_for_address<RT: Runtime>(_rt: &RT, _address: Address) {
-        // TODO
+
+    /// Exec init actor
+    pub fn exec<RT: Runtime>(_rt: &RT, _params: &Serialized) {
+        // TODO update and include exec params type and return
         todo!()
     }
 }
@@ -63,14 +63,7 @@ impl ActorCode for Actor {
             }
             Some(Method::Exec) => {
                 // TODO deserialize CodeID on finished spec
-                Self::exec(rt, CodeID::Init, params)
-            }
-            Some(Method::GetActorIDForAddress) => {
-                // Unmarshall address parameter
-                // TODO unfinished spec
-
-                // Errors checked, get actor by address
-                Self::get_actor_id_for_address(rt, Address::default())
+                Self::exec(rt, params)
             }
             _ => {
                 // Method number does not match available, abort in runtime
