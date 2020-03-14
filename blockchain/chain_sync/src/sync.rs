@@ -16,7 +16,6 @@ use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use crypto::is_valid_signature;
-use db::Error as DBError;
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{NetworkEvent, NetworkMessage};
 use ipld_blockstore::BlockStore;
@@ -538,10 +537,10 @@ where
     }
 
     /// Persists headers from tipset slice to chain store
-    fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), DBError> {
-        tipsets
+    fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), Error> {
+        Ok(tipsets
             .iter()
-            .try_for_each(|ts| self.chain_store.persist_headers(ts))
+            .try_for_each(|ts| self.chain_store.persist_headers(ts))?)
     }
 }
 

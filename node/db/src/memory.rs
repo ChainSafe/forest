@@ -1,8 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Error;
-use super::{DatabaseService, Read, Write};
+use super::{DatabaseService, Error, Store};
 use parking_lot::RwLock;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
@@ -42,7 +41,7 @@ impl Default for MemoryDB {
 
 impl DatabaseService for MemoryDB {}
 
-impl Write for MemoryDB {
+impl Store for MemoryDB {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -67,6 +66,11 @@ impl Write for MemoryDB {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
+        // Safety check to make sure kv lengths are the same
+        if keys.len() != values.len() {
+            return Err(Error::InvalidBulkLen);
+        }
+
         for (k, v) in keys.iter().zip(values.iter()) {
             self.db
                 .write()
@@ -84,9 +88,7 @@ impl Write for MemoryDB {
         }
         Ok(())
     }
-}
 
-impl Read for MemoryDB {
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,

@@ -4,7 +4,6 @@
 use super::{Error, TipIndex, TipSetMetadata};
 use blocks::{BlockHeader, TipSetKeys, Tipset};
 use cid::Cid;
-use db::Error as DbError;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use ipld_blockstore::BlockStore;
 use message::{SignedMessage, UnsignedMessage};
@@ -62,14 +61,14 @@ where
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&self, header: BlockHeader) -> Result<(), DbError> {
+    pub fn set_genesis(&self, header: BlockHeader) -> Result<(), Error> {
         self.db.write(GENESIS_KEY, header.marshal_cbor()?)?;
         let ts: Tipset = Tipset::new(vec![header])?;
         Ok(self.persist_headers(&ts)?)
     }
 
     /// Writes encoded blockheader data to blockstore
-    pub fn persist_headers(&self, tip: &Tipset) -> Result<(), DbError> {
+    pub fn persist_headers(&self, tip: &Tipset) -> Result<(), Error> {
         let mut raw_header_data = Vec::new();
         let mut keys = Vec::new();
         // loop through block to push blockheader raw data and cid into vector to be stored

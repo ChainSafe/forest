@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{multihash::MultihashDigest, Cid};
-use db::{Error, MemoryDB, Read, RocksDb, Write};
+use db::{Error, MemoryDB, RocksDb, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 
 /// Wrapper for database to handle inserting and retrieving data from AMT with Cids
-pub trait BlockStore: Read + Write {
+pub trait BlockStore: Store {
     /// Get bytes from block store by Cid
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Error> {
         Ok(self.read(cid.to_bytes())?)
@@ -18,9 +18,7 @@ pub trait BlockStore: Read + Write {
         T: DeserializeOwned,
     {
         match self.get_bytes(cid)? {
-            Some(bz) => Ok(Some(
-                from_slice(&bz).map_err(|e| Error::new(e.to_string()))?,
-            )),
+            Some(bz) => Ok(Some(from_slice(&bz)?)),
             None => Ok(None),
         }
     }
@@ -31,8 +29,8 @@ pub trait BlockStore: Read + Write {
         S: Serialize,
         T: MultihashDigest,
     {
-        let bz = to_vec(obj).map_err(|e| Error::new(e.to_string()))?;
-        let cid = Cid::new_from_cbor(&bz, hash).map_err(|e| Error::new(e.to_string()))?;
+        let bz = to_vec(obj)?;
+        let cid = Cid::new_from_cbor(&bz, hash).map_err(|e| Error::Encoding(e.to_string()))?;
         self.write(cid.to_bytes(), bz)?;
         Ok(cid)
     }

@@ -1,43 +1,34 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::Error as BlkErr;
-use encoding::Error as EncErr;
+use encoding::error::Error as CborError;
 use std::fmt;
 
 #[derive(Debug, PartialEq)]
-pub struct Error {
-    msg: String,
-}
-
-impl Error {
-    pub fn new(msg: String) -> Self {
-        Self { msg }
-    }
+pub enum Error {
+    InvalidBulkLen,
+    Database(String),
+    Encoding(String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Database error: {}", self.msg)
+        match self {
+            Error::InvalidBulkLen => write!(f, "Invalid bulk write kv lengths, must be equal"),
+            Error::Database(msg) => write!(f, "{}", msg),
+            Error::Encoding(msg) => write!(f, "{}", msg),
+        }
     }
 }
 
 impl From<rocksdb::Error> for Error {
     fn from(e: rocksdb::Error) -> Error {
-        Error {
-            msg: String::from(e),
-        }
+        Error::Database(String::from(e))
     }
 }
 
-impl From<BlkErr> for Error {
-    fn from(e: BlkErr) -> Error {
-        Error { msg: e.to_string() }
-    }
-}
-
-impl From<EncErr> for Error {
-    fn from(e: EncErr) -> Error {
-        Error { msg: e.to_string() }
+impl From<CborError> for Error {
+    fn from(e: CborError) -> Error {
+        Error::Encoding(e.to_string())
     }
 }
