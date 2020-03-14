@@ -4,13 +4,13 @@
 mod account;
 mod cron;
 mod init;
-mod miner_actor;
+mod miner;
+mod power;
 mod reward;
-mod storage_power;
 
 pub use self::account::*;
 pub use self::cron::*;
 pub use self::init::*;
-pub use self::miner_actor::*;
+pub use self::miner::*;
+pub use self::power::*;
 pub use self::reward::*;
-pub use self::storage_power::*;

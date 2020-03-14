@@ -1,16 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
+mod state;
+
+pub use self::state::AccountActorState;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
-
-/// AccountActorState includes the address for the actor
-pub struct AccountActorState {
-    pub address: Address,
-}
 
 #[derive(FromPrimitive)]
 pub enum AccountMethod {
@@ -25,16 +22,16 @@ impl AccountMethod {
 }
 
 #[derive(Clone)]
-pub struct AccountActorCode;
+pub struct AccountActor;
 
-impl AccountActorCode {
+impl AccountActor {
     /// Constructor for Account actor
     fn constructor<RT: Runtime>(_rt: &RT) {
         // Intentionally left blank
     }
 }
 
-impl ActorCode for AccountActorCode {
+impl ActorCode for AccountActor {
     fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match AccountMethod::from_method_num(method) {
             Some(AccountMethod::Constructor) => {

@@ -4,7 +4,7 @@
 mod errors;
 
 pub use self::errors::*;
-use actor::{ActorState, MinerInfo, StorageMinerActorState};
+use actor::{ActorState, MinerActorState, MinerInfo};
 use address::Address;
 use blockstore::BlockStore;
 use encoding::de::DeserializeOwned;
@@ -40,12 +40,12 @@ where
     }
     /// Returns the epoch at which the miner was slashed at
     pub fn miner_slashed(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
-        let act: StorageMinerActorState = self.load_actor_state(addr, ts)?;
+        let act: MinerActorState = self.load_actor_state(addr, ts)?;
         Ok(act.slashed_at)
     }
     /// Returns the amount of space in each sector committed to the network by this miner
     pub fn miner_sector_size(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
-        let act: StorageMinerActorState = self.load_actor_state(addr, ts)?;
+        let act: MinerActorState = self.load_actor_state(addr, ts)?;
         let info: MinerInfo = self.bs.get(&act.info)?.ok_or_else(|| {
             Error::State("Could not retrieve miner info from IPLD store".to_owned())
         })?;

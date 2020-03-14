@@ -1,22 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_CRON};
+mod state;
 
-use address::Address;
+pub use self::state::{CronActorState, CronEntry};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-
-/// CronActorState has no internal state
-#[derive(Default)]
-pub struct CronActorState;
-
-#[derive(Clone)]
-pub struct CronTableEntry {
-    to_addr: Address,
-    method_num: MethodNum,
-}
+use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_CRON};
 
 #[derive(FromPrimitive)]
 pub enum CronMethod {
@@ -31,16 +22,11 @@ impl CronMethod {
     }
 }
 
+// TODO spec has changed, this will need to be moved to Cron State in full impl
 #[derive(Clone)]
-pub struct CronActorCode {
-    /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
-    /// This can be done a bunch of ways. We do it this way here to make it easy to add
-    /// a handler to Cron elsewhere in the spec code. How to do this is implementation
-    /// specific.
-    entries: Vec<CronTableEntry>,
-}
+pub struct CronActor;
 
-impl CronActorCode {
+impl CronActor {
     /// Constructor for Cron actor
     fn constructor<RT: Runtime>(_rt: &RT) {
         // Intentionally left blank
@@ -67,7 +53,7 @@ impl CronActorCode {
     }
 }
 
-impl ActorCode for CronActorCode {
+impl ActorCode for CronActor {
     fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match CronMethod::from_method_num(method) {
             Some(CronMethod::Constructor) => {

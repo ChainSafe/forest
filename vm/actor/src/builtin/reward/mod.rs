@@ -1,32 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
-use clock::ChainEpoch;
+mod state;
+
+pub use self::state::{Reward, RewardActorState};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use std::collections::HashMap;
-use vm::{ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
-
-pub struct Reward {
-    pub start_epoch: ChainEpoch,
-    pub value: TokenAmount,
-    pub release_rate: TokenAmount,
-    pub amount_withdrawn: TokenAmount,
-}
-
-/// RewardActorState has no internal state
-pub struct RewardActorState {
-    pub reward_map: HashMap<Address, Vec<Reward>>,
-}
-
-impl RewardActorState {
-    pub fn withdraw_reward<RT: Runtime>(_rt: &RT, _owner: Address) -> TokenAmount {
-        // TODO
-        TokenAmount::new(0)
-    }
-}
+use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
 
 #[derive(FromPrimitive)]
 pub enum RewardMethod {
@@ -43,8 +24,8 @@ impl RewardMethod {
 }
 
 #[derive(Clone)]
-pub struct RewardActorCode;
-impl RewardActorCode {
+pub struct RewardActor;
+impl RewardActor {
     /// Constructor for Reward actor
     fn constructor<RT: Runtime>(_rt: &RT) {
         // TODO
@@ -62,7 +43,7 @@ impl RewardActorCode {
     }
 }
 
-impl ActorCode for RewardActorCode {
+impl ActorCode for RewardActor {
     fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
         match RewardMethod::from_method_num(method) {
             // TODO determine parameters for each method on finished spec
