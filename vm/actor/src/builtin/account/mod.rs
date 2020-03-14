@@ -38,7 +38,7 @@ impl Actor {
                 format!("address must use BLS or SECP protocol, got {}", protocol),
             ),
         }
-        todo!()
+        rt.create(&State { address })
     }
 
     // Fetches the pubkey-type address from this actor.
