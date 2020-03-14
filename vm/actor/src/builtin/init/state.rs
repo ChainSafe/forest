@@ -6,24 +6,25 @@ use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::ActorID;
 
-/// InitActorState is reponsible for creating
-// TODO implement actual serialize and deserialize to match
-#[derive(Serialize, Deserialize)]
-pub struct InitActorState {
+/// State is reponsible for creating
+pub struct State {
     address_map: Cid,
     next_id: ActorID,
+    network_name: String,
 }
 
-impl InitActorState {
-    pub fn new(address_map: Cid) -> Self {
+impl State {
+    pub fn new(address_map: Cid, network_name: String) -> Self {
         Self {
             address_map,
             next_id: FIRST_NON_SINGLETON_ADDR,
+            network_name,
         }
     }
+
     /// Assigns next available ID and incremenets the next_id value from state
     pub fn map_address_to_new_id<BS: BlockStore>(
         &mut self,
@@ -48,5 +49,28 @@ impl InitActorState {
     ) -> Result<Address, String> {
         // TODO implement address resolution
         todo!()
+    }
+}
+
+impl Serialize for State {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (&self.address_map, &self.next_id, &self.network_name).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for State {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (address_map, next_id, network_name) = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            address_map,
+            next_id,
+            network_name,
+        })
     }
 }

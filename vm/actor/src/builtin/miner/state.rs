@@ -7,9 +7,9 @@ use encoding::de;
 use libp2p::PeerId;
 use serde::Deserialize;
 
-/// Container representing storage miner actor state
-pub struct MinerActorState {
-    // TODO add proving_set, post_state
+/// Miner actor state
+pub struct State {
+    // TODO update fields to match current spec
     /// The height at which this miner was slashed at.
     pub slashed_at: u64,
     /// Sectors this miner has committed
@@ -18,7 +18,7 @@ pub struct MinerActorState {
     pub info: Cid,
 }
 
-impl<'de> de::Deserialize<'de> for MinerActorState {
+impl<'de> de::Deserialize<'de> for State {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,
@@ -43,6 +43,7 @@ pub struct MinerInfo {
     /// sign messages sent on behalf of this miner to commit sectors, submit PoSts, and
     /// other day to day miner activities
     _worker_address: Address,
+    // TODO missing worker key
     /// Libp2p identity that should be used when connecting to this miner
     _peer_id: PeerId,
     /// Amount of space in each sector committed to the network by this miner

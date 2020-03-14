@@ -3,8 +3,8 @@
 
 use num_bigint::BigUint;
 
-/// State of storage power actor
-pub struct PowerActorState {
+/// Storage power actor state
+pub struct State {
     // TODO add power tables on finished spec
     _total_storage: BigUint,
 }

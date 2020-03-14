@@ -4,12 +4,13 @@
 use address::Address;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// AccountActorState includes the address for the actor
-pub struct AccountActorState {
+/// State includes the address for the actor
+pub struct State {
     pub address: Address,
 }
 
-impl Serialize for AccountActorState {
+/// Account actor state
+impl Serialize for State {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -18,12 +19,12 @@ impl Serialize for AccountActorState {
     }
 }
 
-impl<'de> Deserialize<'de> for AccountActorState {
+impl<'de> Deserialize<'de> for State {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let [address]: [Address; 1] = Deserialize::deserialize(deserializer)?;
-        Ok(AccountActorState { address })
+        Ok(Self { address })
     }
 }

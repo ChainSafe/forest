@@ -3,30 +3,37 @@
 
 mod state;
 
-pub use self::state::InitActorState;
+pub use self::state::State;
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{CodeID, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_PLACEHOLDER};
 
+/// Init actor methods available
 #[derive(FromPrimitive)]
-pub enum InitMethod {
+pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     Exec = METHOD_PLACEHOLDER,
     GetActorIDForAddress = METHOD_PLACEHOLDER + 1,
 }
 
-impl InitMethod {
-    /// from_method_num converts a method number into an InitMethod enum
-    fn from_method_num(m: MethodNum) -> Option<InitMethod> {
+impl Method {
+    /// from_method_num converts a method number into an Method enum
+    fn from_method_num(m: MethodNum) -> Option<Method> {
         FromPrimitive::from_u64(u64::from(m))
     }
 }
 
-pub struct InitActor;
-impl InitActor {
-    fn constructor<RT: Runtime>(_rt: &RT) {
+/// Constructor parameters
+pub struct ConstructorParams {
+    pub network_name: String,
+}
+
+/// Init actor
+pub struct Actor;
+impl Actor {
+    fn constructor<RT: Runtime>(_rt: &RT, _params: ConstructorParams) {
         // Acquire state
         // Update actor substate
     }
@@ -39,21 +46,26 @@ impl InitActor {
     }
 }
 
-impl ActorCode for InitActor {
+impl ActorCode for Actor {
     fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, params: &Serialized) {
         // Create mutable copy of params for usage in functions
         let params: &mut Serialized = &mut params.clone();
-        match InitMethod::from_method_num(method) {
-            Some(InitMethod::Constructor) => {
+        match Method::from_method_num(method) {
+            Some(Method::Constructor) => {
                 // TODO unfinished spec
 
-                Self::constructor(rt)
+                Self::constructor(
+                    rt,
+                    ConstructorParams {
+                        network_name: "".into(),
+                    },
+                )
             }
-            Some(InitMethod::Exec) => {
+            Some(Method::Exec) => {
                 // TODO deserialize CodeID on finished spec
                 Self::exec(rt, CodeID::Init, params)
             }
-            Some(InitMethod::GetActorIDForAddress) => {
+            Some(Method::GetActorIDForAddress) => {
                 // Unmarshall address parameter
                 // TODO unfinished spec
 
@@ -66,14 +78,5 @@ impl ActorCode for InitActor {
                 unreachable!();
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    #[test]
-    fn assign_id() {
-        // TODO replace with new functionality test on full impl
     }
 }

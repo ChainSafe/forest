@@ -3,15 +3,15 @@
 
 mod state;
 
-pub use self::state::PowerActorState;
+pub use self::state::State;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
-/// Method definitions for Storage Power Actor
+/// Storage power actor methods available
 #[derive(FromPrimitive)]
-pub enum PowerMethod {
+pub enum Method {
     /// Constructor for Storage Power Actor
     Constructor = METHOD_CONSTRUCTOR,
     // TODO add other methods on finished spec
@@ -19,15 +19,16 @@ pub enum PowerMethod {
     GetTotalStorage = 5,
 }
 
-impl PowerMethod {
-    /// from_method_num converts a method number into an PowerMethod enum
-    fn from_method_num(m: MethodNum) -> Option<PowerMethod> {
+impl Method {
+    /// from_method_num converts a method number into an Method enum
+    fn from_method_num(m: MethodNum) -> Option<Method> {
         FromPrimitive::from_u64(u64::from(m))
     }
 }
 
-pub struct PowerActor;
-impl PowerActor {
+/// Storage Power Actor
+pub struct Actor;
+impl Actor {
     /// Constructor for StoragePower actor
     fn constructor<RT: Runtime>(_rt: &RT) {
         // TODO
@@ -40,12 +41,12 @@ impl PowerActor {
     }
 }
 
-impl ActorCode for PowerActor {
+impl ActorCode for Actor {
     fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
-        match PowerMethod::from_method_num(method) {
+        match Method::from_method_num(method) {
             // TODO determine parameters for each method on finished spec
-            Some(PowerMethod::Constructor) => Self::constructor(rt),
-            Some(PowerMethod::GetTotalStorage) => Self::get_total_storage(rt),
+            Some(Method::Constructor) => Self::constructor(rt),
+            Some(Method::GetTotalStorage) => Self::get_total_storage(rt),
             _ => {
                 rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
                 unreachable!();

@@ -7,17 +7,17 @@ use vm::MethodNum;
 
 /// Cron actor state which holds entries to call during epoch tick
 #[derive(Default)]
-pub struct CronActorState {
+pub struct State {
     /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
-    pub entries: Vec<CronEntry>,
+    pub entries: Vec<Entry>,
 }
 
-pub struct CronEntry {
+pub struct Entry {
     receiver: Address,
     method_num: MethodNum,
 }
 
-impl Serialize for CronActorState {
+impl Serialize for State {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -26,17 +26,17 @@ impl Serialize for CronActorState {
     }
 }
 
-impl<'de> Deserialize<'de> for CronActorState {
+impl<'de> Deserialize<'de> for State {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let entries: Vec<CronEntry> = Deserialize::deserialize(deserializer)?;
+        let entries: Vec<Entry> = Deserialize::deserialize(deserializer)?;
         Ok(Self { entries })
     }
 }
 
-impl Serialize for CronEntry {
+impl Serialize for Entry {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -45,7 +45,7 @@ impl Serialize for CronEntry {
     }
 }
 
-impl<'de> Deserialize<'de> for CronEntry {
+impl<'de> Deserialize<'de> for Entry {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

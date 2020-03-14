@@ -3,36 +3,38 @@
 
 mod state;
 
-pub use self::state::AccountActorState;
+pub use self::state::State;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
+/// Account actor methods available
 #[derive(FromPrimitive)]
-pub enum AccountMethod {
+pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
 }
 
-impl AccountMethod {
-    /// from_method_num converts a method number into an AccountMethod enum
-    fn from_method_num(m: MethodNum) -> Option<AccountMethod> {
+impl Method {
+    /// from_method_num converts a method number into a Method enum
+    fn from_method_num(m: MethodNum) -> Option<Method> {
         FromPrimitive::from_u64(u64::from(m))
     }
 }
 
-pub struct AccountActor;
-impl AccountActor {
+/// Account Actor
+pub struct Actor;
+impl Actor {
     /// Constructor for Account actor
     fn constructor<RT: Runtime>(_rt: &RT) {
         // Intentionally left blank
     }
 }
 
-impl ActorCode for AccountActor {
+impl ActorCode for Actor {
     fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
-        match AccountMethod::from_method_num(method) {
-            Some(AccountMethod::Constructor) => {
+        match Method::from_method_num(method) {
+            Some(Method::Constructor) => {
                 // TODO unfinished spec
                 Self::constructor(rt)
             }

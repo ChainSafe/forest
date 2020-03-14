@@ -3,6 +3,7 @@
 
 mod state;
 
-pub use self::state::{MinerActorState, MinerInfo};
+pub use self::state::{MinerInfo, State};
 
-pub struct MinerActor;
+/// Miner Actor
+pub struct Actor;
