@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{de, ser, serde_bytes, to_vec, Error as EncodingError};
+use encoding::{de, from_slice, ser, serde_bytes, to_vec, Error as EncodingError};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
@@ -74,7 +74,12 @@ impl Serialized {
     }
 
     /// Returns serialized bytes
-    pub fn bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Deserializes into a defined type
+    pub fn deserialize<O: de::DeserializeOwned>(&self) -> Result<O, EncodingError> {
+        Ok(from_slice(&self.bytes)?)
     }
 }

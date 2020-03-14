@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use encoding::Cbor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// State includes the address for the actor
@@ -28,3 +29,5 @@ impl<'de> Deserialize<'de> for State {
         Ok(Self { address })
     }
 }
+
+impl Cbor for State {}

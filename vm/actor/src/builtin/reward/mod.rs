@@ -4,6 +4,7 @@
 mod state;
 
 pub use self::state::{Reward, State};
+use crate::{assert_empty_params, empty_return};
 use address::Address;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -46,11 +47,26 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
+    fn invoke_method<RT: Runtime>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Serialized {
         match Method::from_method_num(method) {
-            Some(Method::Constructor) => Self::constructor(rt),
-            Some(Method::AwardBlockReward) => Self::award_block_reward(rt),
-            Some(Method::WithdrawReward) => Self::withdraw_reward(rt, &Address::default()),
+            Some(Method::Constructor) => {
+                assert_empty_params(params);
+                Self::constructor(rt);
+                empty_return()
+            }
+            Some(Method::AwardBlockReward) => {
+                Self::award_block_reward(rt);
+                empty_return()
+            }
+            Some(Method::WithdrawReward) => {
+                Self::withdraw_reward(rt, &params.deserialize().unwrap());
+                empty_return()
+            }
             _ => {
                 rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
                 unreachable!();

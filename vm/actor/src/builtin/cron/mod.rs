@@ -4,6 +4,7 @@
 mod state;
 
 pub use self::state::{Entry, State};
+use crate::{assert_empty_params, empty_return};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -62,7 +63,7 @@ impl Actor {
     /// epoch_tick executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    fn epoch_tick<RT: Runtime>(&self, _rt: &RT) {
+    fn epoch_tick<RT: Runtime>(_rt: &RT) {
         // self.entries is basically a static registry for now, loaded
         // in the interpreter static registry.
         // TODO update to new spec
@@ -82,15 +83,21 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
+    fn invoke_method<RT: Runtime>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Serialized {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                // TODO unfinished spec
-                Self::constructor(rt, ConstructorParams::default())
+                Self::constructor(rt, params.deserialize().unwrap());
+                empty_return()
             }
             Some(Method::EpochTick) => {
-                // TODO unfinished spec
-                self.epoch_tick(rt)
+                assert_empty_params(params);
+                Self::epoch_tick(rt);
+                empty_return()
             }
             _ => {
                 rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());

@@ -4,6 +4,7 @@
 mod state;
 
 pub use self::state::State;
+use crate::{assert_empty_params, empty_return};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -49,11 +50,17 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, _params: &Serialized) {
+    fn invoke_method<RT: Runtime>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Serialized {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                // TODO make sure params is empty
-                Self::constructor(rt)
+                assert_empty_params(params);
+                Self::constructor(rt);
+                empty_return()
             }
             // TODO handle other methods available
             _ => {

@@ -4,9 +4,11 @@
 mod state;
 
 pub use self::state::State;
+use crate::empty_return;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Init actor methods available
@@ -40,29 +42,28 @@ impl Actor {
     }
 
     /// Exec init actor
-    pub fn exec<RT: Runtime>(_rt: &RT, _params: &Serialized) {
+    pub fn exec<RT: Runtime>(_rt: &RT, _params: &Serialized) -> Serialized {
         // TODO update and include exec params type and return
         todo!()
     }
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(&self, rt: &RT, method: MethodNum, params: &Serialized) {
+    fn invoke_method<RT: Runtime>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Serialized {
         // Create mutable copy of params for usage in functions
         let params: &mut Serialized = &mut params.clone();
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                // TODO unfinished spec
-
-                Self::constructor(
-                    rt,
-                    ConstructorParams {
-                        network_name: "".into(),
-                    },
-                )
+                Self::constructor(rt, params.deserialize().unwrap());
+                empty_return()
             }
             Some(Method::Exec) => {
-                // TODO deserialize CodeID on finished spec
+                // TODO update to correct param type
                 Self::exec(rt, params)
             }
             _ => {
@@ -71,5 +72,24 @@ impl ActorCode for Actor {
                 unreachable!();
             }
         }
+    }
+}
+
+impl Serialize for ConstructorParams {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        [&self.network_name].serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ConstructorParams {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let [network_name]: [String; 1] = Deserialize::deserialize(deserializer)?;
+        Ok(Self { network_name })
     }
 }
