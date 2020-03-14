@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{de, from_slice, ser, serde_bytes, to_vec, Error as EncodingError};
+use encoding::{de, from_slice, ser, serde_bytes, to_vec, Cbor, Error as EncodingError};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
@@ -52,6 +52,8 @@ impl<'de> de::Deserialize<'de> for Serialized {
         Ok(Serialized::new(bz))
     }
 }
+
+impl Cbor for Serialized {}
 
 impl Deref for Serialized {
     type Target = Vec<u8>;
