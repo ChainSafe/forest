@@ -6,6 +6,7 @@ mod state;
 pub use self::state::{Reward, State};
 use crate::{assert_empty_params, empty_return};
 use address::Address;
+use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -30,29 +31,40 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Reward actor
-    fn constructor<RT: Runtime>(_rt: &RT) {
+    fn constructor<BS, RT>(_rt: &RT)
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         // TODO
         todo!();
     }
     /// Mints a reward and puts into state reward map
-    fn award_block_reward<RT: Runtime>(_rt: &RT) {
+    fn award_block_reward<BS, RT>(_rt: &RT)
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         // TODO add params type and implement
         todo!();
     }
     /// Withdraw available funds from reward map
-    fn withdraw_reward<RT: Runtime>(_rt: &RT, _miner_in: &Address) {
+    fn withdraw_reward<BS, RT>(_rt: &RT, _miner_in: &Address)
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         // TODO
         todo!();
     }
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        params: &Serialized,
-    ) -> Serialized {
+    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
                 assert_empty_params(params);

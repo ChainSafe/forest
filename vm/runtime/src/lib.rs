@@ -18,7 +18,7 @@ pub struct Randomness; // TODO
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
-pub trait Runtime {
+pub trait Runtime<BS: BlockStore> {
     /// Information related to the current message being executed.
     fn message<I: MessageInfo>(&self) -> I;
 
@@ -79,7 +79,7 @@ pub trait Runtime {
         F: Fn() -> R;
 
     /// Returns reference to blockstore
-    fn store<S: BlockStore>(&self) -> &S;
+    fn store(&self) -> &BS;
 
     /// Sends a message to another actor, returning the exit code and return value envelope.
     /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)

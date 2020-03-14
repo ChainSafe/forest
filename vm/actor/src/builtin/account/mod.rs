@@ -6,6 +6,7 @@ mod state;
 pub use self::state::State;
 use crate::{assert_empty_params, empty_return};
 use address::{Address, Protocol};
+use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -29,7 +30,11 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Account actor
-    pub fn constructor<RT: Runtime>(rt: &RT, address: Address) {
+    pub fn constructor<BS, RT>(rt: &RT, address: Address)
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         rt.validate_immediate_caller_is(std::iter::once(&address));
         match address.protocol() {
             Protocol::Secp256k1 | Protocol::BLS => (),
@@ -42,7 +47,11 @@ impl Actor {
     }
 
     // Fetches the pubkey-type address from this actor.
-    pub fn pubkey_address<RT: Runtime>(rt: &RT) -> Address {
+    pub fn pubkey_address<BS, RT>(rt: &RT) -> Address
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         rt.validate_immediate_caller_accept_any();
         let st: State = rt.state();
         st.address
@@ -50,12 +59,11 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        params: &Serialized,
-    ) -> Serialized {
+    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize().unwrap());

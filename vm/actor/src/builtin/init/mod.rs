@@ -5,6 +5,7 @@ mod state;
 
 pub use self::state::State;
 use crate::empty_return;
+use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -34,27 +35,32 @@ pub struct ConstructorParams {
 pub struct Actor;
 impl Actor {
     /// Init actor constructor
-    pub fn constructor<RT: Runtime>(_rt: &RT, _params: ConstructorParams) {
+    pub fn constructor<BS, RT>(_rt: &RT, _params: ConstructorParams)
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         // TODO
         todo!()
-        // Acquire state
-        // Update actor substate
     }
 
     /// Exec init actor
-    pub fn exec<RT: Runtime>(_rt: &RT, _params: &Serialized) -> Serialized {
+    pub fn exec<BS, RT>(_rt: &RT, _params: &Serialized) -> Serialized
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         // TODO update and include exec params type and return
         todo!()
     }
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        params: &Serialized,
-    ) -> Serialized {
+    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize().unwrap());

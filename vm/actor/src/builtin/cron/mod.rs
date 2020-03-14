@@ -5,6 +5,7 @@ mod state;
 
 pub use self::state::{Entry, State};
 use crate::{assert_empty_params, empty_return};
+use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -56,14 +57,22 @@ impl<'de> Deserialize<'de> for ConstructorParams {
 pub struct Actor;
 impl Actor {
     /// Constructor for Cron actor
-    fn constructor<RT: Runtime>(_rt: &RT, _params: ConstructorParams) {
+    fn constructor<BS, RT>(_rt: &RT, _params: ConstructorParams)
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         // TODO now finished spec
         todo!()
     }
     /// epoch_tick executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    fn epoch_tick<RT: Runtime>(_rt: &RT) {
+    fn epoch_tick<BS, RT>(_rt: &RT)
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         // self.entries is basically a static registry for now, loaded
         // in the interpreter static registry.
         // TODO update to new spec
@@ -83,12 +92,11 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        params: &Serialized,
-    ) -> Serialized {
+    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize().unwrap());

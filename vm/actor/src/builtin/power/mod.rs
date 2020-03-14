@@ -5,6 +5,7 @@ mod state;
 
 pub use self::state::State;
 use crate::{assert_empty_params, empty_return};
+use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -42,7 +43,11 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for StoragePower actor
-    fn constructor<RT: Runtime>(_rt: &RT) {
+    fn constructor<BS, RT>(_rt: &RT)
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         // TODO
         todo!();
     }
@@ -50,12 +55,11 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<RT: Runtime>(
-        &self,
-        rt: &RT,
-        method: MethodNum,
-        params: &Serialized,
-    ) -> Serialized {
+    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
                 assert_empty_params(params);
