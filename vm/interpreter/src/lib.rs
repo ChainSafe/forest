@@ -7,8 +7,7 @@ use chain::ChainStore;
 use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use message::{MessageReceipt, SignedMessage, UnsignedMessage};
-use state_tree::StateTree;
-use vm::TokenAmount;
+use vm::{StateTree, TokenAmount};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.

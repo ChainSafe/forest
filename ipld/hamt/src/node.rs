@@ -7,6 +7,7 @@ use super::pointer::Pointer;
 use super::{Error, Hash, HashedKey, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::multihash::Blake2b256;
 use forest_encoding::{de::Deserializer, ser::Serializer};
+use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -39,16 +40,15 @@ impl Hasher for IdentityHasher {
 }
 
 /// Node in Hamt tree which contains bitfield of set indexes and pointers to nodes
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Node<K, V> {
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Node<K> {
     pub(crate) bitfield: Bitfield,
-    pub(crate) pointers: Vec<Pointer<K, V>>,
+    pub(crate) pointers: Vec<Pointer<K>>,
 }
 
-impl<K, V> Serialize for Node<K, V>
+impl<K> Serialize for Node<K>
 where
     K: Serialize,
-    V: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -58,10 +58,9 @@ where
     }
 }
 
-impl<'de, K, V> Deserialize<'de> for Node<K, V>
+impl<'de, K> Deserialize<'de> for Node<K>
 where
     K: DeserializeOwned,
-    V: DeserializeOwned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -72,7 +71,7 @@ where
     }
 }
 
-impl<K, V> Default for Node<K, V> {
+impl<K> Default for Node<K> {
     fn default() -> Self {
         Node {
             bitfield: Bitfield::zero(),
@@ -81,18 +80,17 @@ impl<K, V> Default for Node<K, V> {
     }
 }
 
-impl<K, V> Node<K, V>
+impl<K> Node<K>
 where
     K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
-    V: Serialize + DeserializeOwned + Clone,
 {
     pub fn set<S: BlockStore>(
         &mut self,
         key: K,
-        value: V,
+        value: Ipld,
         store: &S,
         bit_width: u8,
-    ) -> Result<Option<V>, Error> {
+    ) -> Result<(), Error> {
         let hash = Self::hash(&key);
         self.modify_value(&mut HashBits::new(&hash), bit_width, 0, key, value, store)
     }
@@ -103,7 +101,7 @@ where
         k: &Q,
         store: &S,
         bit_width: u8,
-    ) -> Result<Option<V>, Error>
+    ) -> Result<Option<Ipld>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -117,7 +115,7 @@ where
         k: &Q,
         store: &S,
         bit_width: u8,
-    ) -> Result<Option<(K, V)>, Error>
+    ) -> Result<Option<(K, Ipld)>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -137,7 +135,7 @@ where
         q: &Q,
         store: &S,
         bit_width: u8,
-    ) -> Result<Option<KeyValuePair<K, V>>, Error>
+    ) -> Result<Option<KeyValuePair<K>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -153,7 +151,7 @@ where
         depth: usize,
         key: &Q,
         store: &S,
-    ) -> Result<Option<KeyValuePair<K, V>>, Error>
+    ) -> Result<Option<KeyValuePair<K>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -167,7 +165,7 @@ where
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child(cindex);
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, V>>(cid)? {
+            Pointer::Link(cid) => match store.get::<Node<K>>(cid)? {
                 Some(node) => Ok(node.get_value(hashed_key, bit_width, depth + 1, key, store)?),
                 None => Err(Error::Custom("Node not found")),
             },
@@ -205,28 +203,27 @@ where
         bit_width: u8,
         depth: usize,
         key: K,
-        value: V,
+        value: Ipld,
         store: &S,
-    ) -> Result<Option<V>, Error> {
+    ) -> Result<(), Error> {
         let idx = hashed_key.next(bit_width)?;
 
         // No existing values at this point.
         if !self.bitfield.test_bit(idx) {
             self.insert_child(idx, key, value);
-            return Ok(None);
+            return Ok(());
         }
 
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, V>>(cid)? {
+            Pointer::Link(cid) => match store.get::<Node<K>>(cid)? {
                 Some(mut node) => {
                     // Pull value from store and update to cached node
-                    let v =
-                        node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
+                    node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
                     *child = Pointer::Cache(Box::new(node));
-                    Ok(v)
+                    Ok(())
                 }
                 None => Err(Error::Custom("Node not found")),
             },
@@ -236,8 +233,8 @@ where
             Pointer::Values(vals) => {
                 // Update, if the key already exists.
                 if let Some(i) = vals.iter().position(|p| p.key() == &key) {
-                    let old_value = std::mem::replace(&mut vals[i].1, value);
-                    return Ok(Some(old_value));
+                    std::mem::replace(&mut vals[i].1, value);
+                    return Ok(());
                 }
 
                 // If the array is full, create a subshard and insert everything
@@ -259,7 +256,7 @@ where
                     }
 
                     *child = Pointer::Cache(Box::new(sub));
-                    return Ok(None);
+                    return Ok(());
                 }
 
                 // Otherwise insert the element into the array in order.
@@ -272,7 +269,7 @@ where
                 let np = KeyValuePair::new(key, value);
                 vals.insert(idx, np);
 
-                Ok(None)
+                Ok(())
             }
         }
     }
@@ -285,7 +282,7 @@ where
         depth: usize,
         key: &Q,
         store: &S,
-    ) -> Result<Option<(K, V)>, Error>
+    ) -> Result<Option<(K, Ipld)>, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
@@ -301,7 +298,7 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, V>>(cid)? {
+            Pointer::Link(cid) => match store.get::<Node<K>>(cid)? {
                 Some(mut node) => {
                     // Pull value from store and update to cached node
                     let del = node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
@@ -360,12 +357,12 @@ where
         Ok(())
     }
 
-    fn rm_child(&mut self, i: usize, idx: u8) -> Pointer<K, V> {
+    fn rm_child(&mut self, i: usize, idx: u8) -> Pointer<K> {
         self.bitfield.clear_bit(idx);
         self.pointers.remove(i)
     }
 
-    fn insert_child(&mut self, idx: u8, key: K, value: V) {
+    fn insert_child(&mut self, idx: u8, key: K, value: Ipld) {
         let i = self.index_for_bit_pos(idx);
         self.bitfield.set_bit(idx);
         self.pointers
@@ -378,11 +375,11 @@ where
         mask.and(&self.bitfield).count_ones()
     }
 
-    fn get_child_mut(&mut self, i: usize) -> &mut Pointer<K, V> {
+    fn get_child_mut(&mut self, i: usize) -> &mut Pointer<K> {
         &mut self.pointers[i]
     }
 
-    fn get_child(&self, i: usize) -> &Pointer<K, V> {
+    fn get_child(&self, i: usize) -> &Pointer<K> {
         &self.pointers[i]
     }
 }

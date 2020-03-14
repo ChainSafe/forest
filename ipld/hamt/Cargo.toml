@@ -12,6 +12,7 @@ replace_with = "0.1.5"
 cid = { package = "forest_cid", path = "../cid" }
 db = { path = "../../node/db" }
 ipld_blockstore = { path = "../blockstore" }
+forest_ipld = { path = "../" }
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 serde_bytes = "0.11.3"
 

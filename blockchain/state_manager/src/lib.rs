@@ -4,53 +4,56 @@
 mod errors;
 
 pub use self::errors::*;
-use actor::{MinerInfo, StorageMinerActorState};
+use actor::{ActorState, MinerInfo, StorageMinerActorState};
 use address::Address;
 use blockstore::BlockStore;
 use encoding::de::DeserializeOwned;
-use state_tree::StateTree;
+use forest_blocks::Tipset;
+use state_tree::{HamtStateTree, StateTree};
 use std::sync::Arc;
 
 /// Intermediary for retrieving state objects and updating actor states
-pub struct StateManager<DB, ST> {
+pub struct StateManager<DB> {
     bs: Arc<DB>,
-    tree: ST,
 }
 
-impl<DB, ST> StateManager<DB, ST>
+impl<DB> StateManager<DB>
 where
-    ST: StateTree,
     DB: BlockStore,
 {
     /// constructor
-    pub fn new(bs: Arc<DB>, tree: ST) -> Self {
-        Self { bs, tree }
+    pub fn new(bs: Arc<DB>) -> Self {
+        Self { bs }
     }
     /// Loads actor state from IPLD Store
-    fn load_actor_state<D>(&self, addr: &Address) -> Result<D, Error>
+    fn load_actor_state<D>(&self, addr: &Address, ts: &Tipset) -> Result<D, Error>
     where
         D: DeserializeOwned,
     {
         let actor = self
-            .tree
-            .get_actor(addr)
-            .ok_or_else(|| Error::State("Could not retrieve actor from state tree".to_owned()))?;
+            .get_actor(addr, ts)?
+            .ok_or_else(|| Error::State(format!("Actor for address: {} does not exist", addr)))?;
         let act: D = self.bs.get(&actor.state)?.ok_or_else(|| {
             Error::State("Could not retrieve actor state from IPLD store".to_owned())
         })?;
         Ok(act)
     }
     /// Returns the epoch at which the miner was slashed at
-    pub fn miner_slashed(&self, addr: &Address) -> Result<u64, Error> {
-        let act: StorageMinerActorState = self.load_actor_state(addr)?;
+    pub fn miner_slashed(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
+        let act: StorageMinerActorState = self.load_actor_state(addr, ts)?;
         Ok(act.slashed_at)
     }
     /// Returns the amount of space in each sector committed to the network by this miner
-    pub fn miner_sector_size(&self, addr: &Address) -> Result<u64, Error> {
-        let act: StorageMinerActorState = self.load_actor_state(addr)?;
+    pub fn miner_sector_size(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
+        let act: StorageMinerActorState = self.load_actor_state(addr, ts)?;
         let info: MinerInfo = self.bs.get(&act.info)?.ok_or_else(|| {
             Error::State("Could not retrieve miner info from IPLD store".to_owned())
         })?;
         Ok(*info.sector_size())
+    }
+    pub fn get_actor(&self, addr: &Address, ts: &Tipset) -> Result<Option<ActorState>, Error> {
+        let state = HamtStateTree::new_from_root(self.bs.as_ref(), ts.parent_state())
+            .map_err(Error::State)?;
+        state.get_actor(addr).map_err(Error::State)
     }
 }

@@ -16,3 +16,6 @@ clock = { path = "../../node/clock" }
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["serde_derive"] }
 serde = { version = "1.0", features = ["derive"] }
 libp2p = "0.15.0"
+lazy_static = "1.4.0"
+ipld_blockstore = { path = "../../ipld/blockstore" }
+ipld_hamt = { path = "../../ipld/hamt" }

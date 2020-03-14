@@ -27,7 +27,7 @@ clean:
 	@cargo clean -p forest_bigint
 	@echo "Done cleaning."
 
-lint: clean license
+lint: license clean
 	cargo fmt
 	cargo clippy -- -D warnings
 
