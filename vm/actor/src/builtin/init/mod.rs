@@ -55,8 +55,6 @@ impl ActorCode for Actor {
         method: MethodNum,
         params: &Serialized,
     ) -> Serialized {
-        // Create mutable copy of params for usage in functions
-        let params: &mut Serialized = &mut params.clone();
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize().unwrap());
