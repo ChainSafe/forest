@@ -5,5 +5,6 @@ pub mod account;
 pub mod cron;
 pub mod init;
 pub mod miner;
+pub mod multisig;
 pub mod power;
 pub mod reward;
