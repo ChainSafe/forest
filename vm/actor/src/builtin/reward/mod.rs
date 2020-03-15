@@ -72,6 +72,7 @@ impl ActorCode for Actor {
                 empty_return()
             }
             Some(Method::AwardBlockReward) => {
+                assert_empty_params(params);
                 Self::award_block_reward(rt);
                 empty_return()
             }
