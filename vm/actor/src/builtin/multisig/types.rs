@@ -6,8 +6,35 @@ use clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
 
-// TODO switch this type to varint encoding
-pub type TxnID = i64;
+/// Transaction ID type
+// TODO change to uvarint encoding
+#[derive(Clone, Copy)]
+pub struct TxnID(pub i64);
+
+impl TxnID {
+    pub fn key(self) -> String {
+        // TODO
+        todo!();
+    }
+}
+
+impl Serialize for TxnID {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for TxnID {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(TxnID(Deserialize::deserialize(deserializer)?))
+    }
+}
 
 /// Transaction type used in multisig actor
 pub struct Transaction {

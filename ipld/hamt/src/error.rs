@@ -30,6 +30,12 @@ impl fmt::Display for Error {
     }
 }
 
+impl From<Error> for String {
+    fn from(e: Error) -> String {
+        e.to_string()
+    }
+}
+
 impl From<DBError> for Error {
     fn from(e: DBError) -> Error {
         Error::Db(e.to_string())
