@@ -6,7 +6,7 @@ mod types;
 
 pub use self::state::State;
 pub use self::types::*;
-use crate::empty_return;
+use crate::{empty_return, INIT_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
@@ -40,11 +40,23 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Multisig actor
-    pub fn constructor<BS, RT>(_rt: &RT, _params: ConstructorParams)
+    pub fn constructor<BS, RT>(rt: &RT, params: ConstructorParams)
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        let sys_ref: &Address = &INIT_ACTOR_ADDR;
+        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+
+        if params.signers.len() < 1 {
+            rt.abort(
+                ExitCode::ErrIllegalArgument,
+                "must have at least one signer".to_owned(),
+            );
+        }
+
+        // TODO make map and construct state
+
         todo!()
     }
 
