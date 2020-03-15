@@ -12,7 +12,8 @@ use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
-use vm::{ExitCode, MethodNum, TokenAmount};
+use message::UnsignedMessage;
+use vm::{ExitCode, MethodNum, Serialized, TokenAmount};
 
 pub struct Randomness; // TODO
 
@@ -20,7 +21,7 @@ pub struct Randomness; // TODO
 /// this is everything that is accessible to actors, beyond parameters.
 pub trait Runtime<BS: BlockStore> {
     /// Information related to the current message being executed.
-    fn message<I: MessageInfo>(&self) -> I;
+    fn message(&self) -> UnsignedMessage;
 
     /// The current chain epoch number. The genesis block has epoch zero.
     fn curr_epoch(&self) -> ChainEpoch;
@@ -41,12 +42,10 @@ pub trait Runtime<BS: BlockStore> {
     /// Resolves an address of any protocol to an ID address (via the Init actor's table).
     /// This allows resolution of externally-provided SECP, BLS, or actor addresses to the canonical form.
     /// If the argument is an ID address it is returned directly.
-    // TODO replace return with Option probably?
-    fn resolve_address(address: &Address) -> (Address, bool);
+    fn resolve_address(&self, address: &Address) -> Option<Address>;
 
     /// Look up the code ID at an actor address.
-    // TODO replace return with Option probably?
-    fn get_actor_code_cid(addr: Address) -> (Cid, bool);
+    fn get_actor_code_cid(&self, addr: &Address) -> Option<Cid>;
 
     /// Randomness returns a (pseudo)random byte array drawing from a
     /// random beacon at a given epoch and incorporating reequisite entropy
@@ -74,9 +73,9 @@ pub trait Runtime<BS: BlockStore> {
     /// If the state is modified after this function returns, execution will abort.
     ///
     /// The gas cost of this method is that of a Store.Put of the mutated state object.
-    fn transaction<C: Cbor, R, F>(&self, obj: &C, f: F) -> R
+    fn transaction<C: Cbor, R, F>(&self, f: F) -> R
     where
-        F: Fn() -> R;
+        F: Fn(&mut C) -> R;
 
     /// Returns reference to blockstore
     fn store(&self) -> &BS;
@@ -84,12 +83,12 @@ pub trait Runtime<BS: BlockStore> {
     /// Sends a message to another actor, returning the exit code and return value envelope.
     /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
     /// will be rolled back.
-    fn send<P: Cbor, SR: Cbor>(
+    fn send<SR: Cbor>(
         &self,
-        to: Address,
+        to: &Address,
         method: MethodNum,
-        params: &P,
-        value: TokenAmount,
+        params: &Serialized,
+        value: &TokenAmount,
     ) -> (SR, ExitCode);
 
     /// Halts execution upon an error from which the receiver cannot recover. The caller will receive the exitcode and
@@ -105,7 +104,7 @@ pub trait Runtime<BS: BlockStore> {
     fn new_actor_address(&self) -> Address;
 
     /// Creates an actor with code `codeID` and address `address`, with empty state. May only be called by Init actor.
-    fn create_actor(&self, code_id: Cid, address: Address);
+    fn create_actor(&self, code_id: &Cid, address: &Address);
 
     /// Deletes the executing actor from the state tree. May only be called by the actor itself.
     fn delete_actor(&self);

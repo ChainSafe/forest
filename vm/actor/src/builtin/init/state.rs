@@ -4,6 +4,7 @@
 use crate::FIRST_NON_SINGLETON_ADDR;
 use address::Address;
 use cid::Cid;
+use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -74,3 +75,5 @@ impl<'de> Deserialize<'de> for State {
         })
     }
 }
+
+impl Cbor for State {}

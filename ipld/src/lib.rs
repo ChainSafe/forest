@@ -8,7 +8,7 @@ mod ser;
 pub use self::error::Error;
 
 use cid::Cid;
-use encoding::{from_slice, to_vec};
+use encoding::{from_slice, to_vec, Cbor};
 use ser::Serializer;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -27,6 +27,8 @@ pub enum Ipld {
     Map(BTreeMap<String, Ipld>),
     Link(Cid),
 }
+
+impl Cbor for Ipld {}
 
 /// Convert any object into an IPLD object
 pub fn to_ipld<T>(ipld: T) -> Result<Ipld, Error>
