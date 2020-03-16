@@ -108,9 +108,7 @@ where
             .map_err(|e| e.to_string())?
             .ok_or("Could not resolve init actor state")?;
 
-        Ok(state
-            .resolve_address(self.store(), addr)
-            .map_err(|e| e.to_string())?)
+        Ok(state.resolve_address(self.store(), addr)?)
     }
 
     fn delete_actor(&mut self, addr: &Address) -> Result<(), String> {

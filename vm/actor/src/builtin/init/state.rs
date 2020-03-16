@@ -62,10 +62,9 @@ impl State {
         let map: Hamt<String, _> =
             Hamt::load_with_bit_width(&self.address_map, store, HAMT_BIT_WIDTH)?;
 
-        let actor_id: ActorID = match map.get(&addr.hash_key())? {
-            Some(id) => id,
-            None => return Err("Address not found".to_owned()),
-        };
+        let actor_id: ActorID = map
+            .get(&addr.hash_key())?
+            .ok_or_else(|| "Address not found".to_owned())?;
 
         Ok(Address::new_id(actor_id.0).map_err(|e| e.to_string())?)
     }
