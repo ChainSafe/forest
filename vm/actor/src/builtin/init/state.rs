@@ -54,7 +54,7 @@ impl State {
         &self,
         store: &BS,
         addr: &Address,
-    ) -> Result<Address, HamtError> {
+    ) -> Result<Address, String> {
         if addr.protocol() == Protocol::ID {
             return Ok(addr.clone());
         }
@@ -64,10 +64,10 @@ impl State {
 
         let actor_id: ActorID = match map.get(&addr.hash_key())? {
             Some(id) => id,
-            None => return Err(HamtError::Custom("address not found")),
+            None => return Err("Address not found".to_owned()),
         };
 
-        Ok(Address::new_id(actor_id.0).unwrap())
+        Ok(Address::new_id(actor_id.0).map_err(|e| e.to_string())?)
     }
 }
 
