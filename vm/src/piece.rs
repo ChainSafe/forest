@@ -10,12 +10,12 @@ pub struct UnpaddedPieceSize(pub u64);
 
 impl UnpaddedPieceSize {
     /// Converts unpadded piece size into padded piece size
-    pub fn padded(&self) -> PaddedPieceSize {
+    pub fn padded(self) -> PaddedPieceSize {
         PaddedPieceSize(self.0 + (self.0 / 127))
     }
 
     /// Validates piece size
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(self) -> Result<(), &'static str> {
         if self.0 < 127 {
             return Err("minimum piece size is 127 bytes");
         }
@@ -35,12 +35,12 @@ pub struct PaddedPieceSize(pub u64);
 
 impl PaddedPieceSize {
     /// Converts padded piece size into an unpadded piece size
-    pub fn unpadded(&self) -> UnpaddedPieceSize {
+    pub fn unpadded(self) -> UnpaddedPieceSize {
         UnpaddedPieceSize(self.0 - (self.0 / 128))
     }
 
     /// Validates piece size
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(self) -> Result<(), &'static str> {
         if self.0 < 128 {
             return Err("minimum piece size is 128 bytes");
         }
