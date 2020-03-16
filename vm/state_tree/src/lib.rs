@@ -44,11 +44,6 @@ where
         })
     }
 
-    /// Index key for hamt
-    pub fn hash_index(addr: &Address) -> String {
-        String::from_utf8_lossy(&addr.to_bytes()).to_string()
-    }
-
     /// Retrieve store reference to modify db.
     pub fn store(&self) -> &S {
         self.hamt.store()
@@ -68,10 +63,7 @@ where
         }
 
         // if state doesn't exist, find using hamt
-        let act: Option<ActorState> = self
-            .hamt
-            .get(&Self::hash_index(&addr))
-            .map_err(|e| e.to_string())?;
+        let act: Option<ActorState> = self.hamt.get(&addr.hash_key()).map_err(|e| e.to_string())?;
 
         // Update cache if state was found
         if let Some(act_s) = &act {
@@ -94,7 +86,7 @@ where
 
         // Set actor state in hamt
         self.hamt
-            .set(Self::hash_index(&addr), actor)
+            .set(addr.hash_key(), actor)
             .map_err(|e| e.to_string())?;
 
         Ok(())
@@ -126,7 +118,7 @@ where
         self.actor_cache.write().remove(&addr);
 
         self.hamt
-            .delete(&Self::hash_index(&addr))
+            .delete(&addr.hash_key())
             .map_err(|e| e.to_string())?;
 
         Ok(())
@@ -173,6 +165,9 @@ where
             .put(&ias, Blake2b256)
             .map_err(|e| e.to_string())?;
 
+        self.set_actor(&INIT_ACTOR_ADDR, init_act)?;
+
+        // After mutating the init actor, set the state at the ID address created
         self.set_actor(&new_addr, actor)?;
 
         Ok(new_addr)
@@ -184,7 +179,7 @@ where
             // Set each value from cache into hamt
             // TODO this shouldn't be necessary, revisit
             self.hamt
-                .set(Self::hash_index(&addr), act.clone())
+                .set(addr.hash_key(), act.clone())
                 .map_err(|e| e.to_string())?;
         }
 
