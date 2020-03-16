@@ -7,17 +7,29 @@ use encoding::de;
 use libp2p::PeerId;
 use serde::Deserialize;
 
-pub struct StorageMinerActor {}
-
-/// Container representing storage miner actor state
-pub struct StorageMinerActorState {
-    // TODO add proving_set, post_state
+/// Miner actor state
+pub struct State {
+    // TODO update fields to match current spec
     /// The height at which this miner was slashed at.
     pub slashed_at: u64,
     /// Sectors this miner has committed
     pub sectors: Cid,
     /// Contains static info about this miner
     pub info: Cid,
+}
+
+impl<'de> de::Deserialize<'de> for State {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let (slashed_at, sectors, info) = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            slashed_at,
+            sectors,
+            info,
+        })
+    }
 }
 
 /// Static information about miner
@@ -31,6 +43,7 @@ pub struct MinerInfo {
     /// sign messages sent on behalf of this miner to commit sectors, submit PoSts, and
     /// other day to day miner activities
     _worker_address: Address,
+    // TODO missing worker key
     /// Libp2p identity that should be used when connecting to this miner
     _peer_id: PeerId,
     /// Amount of space in each sector committed to the network by this miner
@@ -41,20 +54,6 @@ impl MinerInfo {
     /// Returns a reference of the amount of space in each sector committed to the network by this miner
     pub fn sector_size(&self) -> &u64 {
         &self.sector_size
-    }
-}
-
-impl<'de> de::Deserialize<'de> for StorageMinerActorState {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        let (slashed_at, sectors, info) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            slashed_at,
-            sectors,
-            info,
-        })
     }
 }
 

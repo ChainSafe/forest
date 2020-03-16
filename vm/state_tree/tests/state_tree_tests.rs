@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{ActorState, InitActorState, INIT_ACTOR_ADDR};
+use actor::{init, ActorState, INIT_ACTOR_ADDR};
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use ipld_blockstore::BlockStore;
@@ -52,7 +52,7 @@ fn get_set_non_id() {
         .flush()
         .unwrap();
 
-    let init_state = InitActorState::new(e_cid.clone());
+    let init_state = init::State::new(e_cid.clone(), "test".to_owned());
     let state_cid = tree
         .store()
         .put(&init_state, Blake2b256)

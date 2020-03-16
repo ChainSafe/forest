@@ -3,7 +3,7 @@
 
 pub use vm::StateTree;
 
-use actor::{InitActorState, INIT_ACTOR_ADDR};
+use actor::{init, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
 use cid::{multihash::Blake2b256, Cid};
 use fnv::FnvHashMap;
@@ -109,7 +109,7 @@ where
             .get_actor(&INIT_ACTOR_ADDR)?
             .ok_or("Init actor address could not be resolved")?;
 
-        let state: InitActorState = self
+        let state: init::State = self
             .hamt
             .store()
             .get(&init_act.state)
@@ -155,7 +155,7 @@ where
             .ok_or("Could not retrieve init actor")?;
 
         // Get init actor state from store
-        let mut ias: InitActorState = self
+        let mut ias: init::State = self
             .hamt
             .store()
             .get(&init_act.state)

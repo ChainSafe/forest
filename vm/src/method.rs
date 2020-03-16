@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{de, ser, serde_bytes, to_vec, Error as EncodingError};
+use encoding::{de, from_slice, ser, serde_bytes, to_vec, Cbor, Error as EncodingError};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
@@ -26,12 +26,6 @@ impl From<MethodNum> for u64 {
 pub const METHOD_SEND: isize = 0;
 /// Base actor constructor method
 pub const METHOD_CONSTRUCTOR: isize = 1;
-/// Base actor cron method
-pub const METHOD_CRON: isize = 2;
-
-/// Placeholder for non base methods for actors
-// TODO revisit on complete spec
-pub const METHOD_PLACEHOLDER: isize = 3;
 
 /// Serialized bytes to be used as parameters into actor methods
 #[derive(Default, Clone, PartialEq, Debug)]
@@ -59,6 +53,8 @@ impl<'de> de::Deserialize<'de> for Serialized {
     }
 }
 
+impl Cbor for Serialized {}
+
 impl Deref for Serialized {
     type Target = Vec<u8>;
     fn deref(&self) -> &Self::Target {
@@ -80,7 +76,12 @@ impl Serialized {
     }
 
     /// Returns serialized bytes
-    pub fn bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Deserializes into a defined type
+    pub fn deserialize<O: de::DeserializeOwned>(&self) -> Result<O, EncodingError> {
+        Ok(from_slice(&self.bytes)?)
     }
 }

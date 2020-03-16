@@ -18,7 +18,7 @@ pub struct Randomness; // TODO
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
-pub trait Runtime {
+pub trait Runtime<BS: BlockStore> {
     /// Information related to the current message being executed.
     fn message<I: MessageInfo>(&self) -> I;
 
@@ -28,8 +28,12 @@ pub trait Runtime {
     /// Validates the caller against some predicate.
     /// Exported actor methods must invoke at least one caller validation before returning.
     fn validate_immediate_caller_accept_any(&self);
-    fn validate_immediate_caller_is(&self, addresses: &[Address]);
-    fn validate_immediate_caller_type(&self, types: &[Cid]);
+    fn validate_immediate_caller_is<'a, I>(&self, addresses: I)
+    where
+        I: Iterator<Item = &'a Address>;
+    fn validate_immediate_caller_type<'a, I>(&self, types: I)
+    where
+        I: Iterator<Item = &'a Cid>;
 
     /// The balance of the receiver.
     fn current_balance(&self) -> TokenAmount;
@@ -52,15 +56,35 @@ pub trait Runtime {
         entropy: &[u8],
     ) -> Randomness;
 
-    /// Provides a handle for the actor's state object.
-    fn state<SH: StateHandle>(&self) -> &SH;
+    /// Initializes the state object.
+    /// This is only valid in a constructor function and when the state has not yet been initialized.
+    fn create<C: Cbor>(&self, obj: &C);
 
-    fn store<S: BlockStore>(&self) -> &S;
+    /// Loads a readonly copy of the state of the receiver into the argument.
+    ///
+    /// Any modification to the state is illegal and will result in an abort.
+    fn state<C: Cbor>(&self) -> C;
+
+    /// Loads a mutable version of the state into the `obj` argument and protects
+    /// the execution from side effects (including message send).
+    ///
+    /// The second argument is a function which allows the caller to mutate the state.
+    /// The return value from that function will be returned from the call to Transaction().
+    ///
+    /// If the state is modified after this function returns, execution will abort.
+    ///
+    /// The gas cost of this method is that of a Store.Put of the mutated state object.
+    fn transaction<C: Cbor, R, F>(&self, obj: &C, f: F) -> R
+    where
+        F: Fn() -> R;
+
+    /// Returns reference to blockstore
+    fn store(&self) -> &BS;
 
     /// Sends a message to another actor, returning the exit code and return value envelope.
     /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
     /// will be rolled back.
-    fn send<P: Cbor, SR: StateHandle>(
+    fn send<P: Cbor, SR: Cbor>(
         &self,
         to: Address,
         method: MethodNum,
@@ -104,32 +128,6 @@ pub trait MessageInfo {
 
     // The value attached to the message being processed, implicitly added to current_balance() before method invocation.
     fn value_received(&self) -> TokenAmount;
-}
-
-/// StateHandle provides mutable, exclusive access to actor state.
-pub trait StateHandle {
-    /// Initializes the state object.
-    /// This is only valid in a constructor function and when the state has not yet been initialized.
-    fn create<C: Cbor>(&self, obj: &C);
-
-    /// Loads a readonly copy of the state into the argument.
-    ///
-    /// Any modification to the state is illegal and will result in an abort.
-    // TODO is this necessary? if we are sure that we can return a reference to data that will for sure be in memory this should return &C
-    fn readonly<C: Cbor>(&self) -> C;
-
-    /// Loads a mutable version of the state into the `obj` argument and protects
-    /// the execution from side effects (including message send).
-    ///
-    /// The second argument is a function which allows the caller to mutate the state.
-    /// The return value from that function will be returned from the call to Transaction().
-    ///
-    /// If the state is modified after this function returns, execution will abort.
-    ///
-    /// The gas cost of this method is that of a Store.Put of the mutated state object.
-    fn transaction<C: Cbor, R, F>(&self, obj: &C, f: F) -> R
-    where
-        F: Fn() -> R;
 }
 
 /// Pure functions implemented as primitives by the runtime.
