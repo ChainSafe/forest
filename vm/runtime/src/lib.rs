@@ -5,14 +5,15 @@ mod actor_code;
 
 pub use self::actor_code::*;
 
-use abi::{PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
-use vm::{ExitCode, MethodNum, TokenAmount};
+use vm::{
+    ExitCode, MethodNum, PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo, TokenAmount,
+};
 
 pub struct Randomness; // TODO
 
