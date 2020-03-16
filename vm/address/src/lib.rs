@@ -127,6 +127,12 @@ impl Address {
         bz.insert(0, self.protocol() as u8);
         bz
     }
+
+    /// String key for Address used in indexing in IPLD
+    /// Note: Different than the formatted string
+    pub fn hash_key(&self) -> String {
+        String::from_utf8_lossy(&self.to_bytes()).to_string()
+    }
 }
 
 impl fmt::Display for Address {

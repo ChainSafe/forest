@@ -93,8 +93,7 @@ fn get_set_non_id() {
     assert_eq!(assigned_addr, Address::new_id(100).unwrap());
 
     // Test resolution of Secp address
-    // TODO enable this test when the init actor address resolution completed
-    // assert_eq!(tree.get_actor(&addr).unwrap(), Some(secp_state));
+    assert_eq!(tree.get_actor(&addr).unwrap(), Some(secp_state));
 
     // Test reverting snapshot to before init actor set
     tree.revert_to_snapshot(&snapshot).unwrap();

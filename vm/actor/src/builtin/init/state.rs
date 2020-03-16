@@ -1,9 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::FIRST_NON_SINGLETON_ADDR;
-use address::Address;
+use crate::{FIRST_NON_SINGLETON_ADDR, HAMT_BIT_WIDTH};
+use address::{Address, Protocol};
 use cid::Cid;
+use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -25,7 +26,8 @@ impl State {
         }
     }
 
-    /// Assigns next available ID and incremenets the next_id value from state
+    /// Allocates a new ID address and stores a mapping of the argument address to it.
+    /// Returns the newly-allocated address.
     pub fn map_address_to_new_id<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -34,21 +36,37 @@ impl State {
         let id = self.next_id;
         self.next_id += 1;
 
-        let mut map: Hamt<String, _> = Hamt::load_with_bit_width(&self.address_map, store, 5)?;
-        map.set(String::from_utf8_lossy(&addr.to_bytes()).to_string(), id)?;
+        let mut map: Hamt<String, _> =
+            Hamt::load_with_bit_width(&self.address_map, store, HAMT_BIT_WIDTH)?;
+        map.set(addr.hash_key(), id)?;
         self.address_map = map.flush()?;
 
         Ok(Address::new_id(id.0).expect("Id Address should be created without Error"))
     }
 
-    /// Resolve address
+    /// ResolveAddress resolves an address to an ID-address, if possible.
+    /// If the provided address is an ID address, it is returned as-is.
+    /// This means that ID-addresses (which should only appear as values, not keys)
+    /// and singleton actor addresses pass through unchanged.
+    ///
+    /// Post-condition: all addresses succesfully returned by this method satisfy `addr.protocol() == Protocol::ID`.
     pub fn resolve_address<BS: BlockStore>(
         &self,
-        _store: &BS,
-        _addr: &Address,
+        store: &BS,
+        addr: &Address,
     ) -> Result<Address, String> {
-        // TODO implement address resolution
-        todo!()
+        if addr.protocol() == Protocol::ID {
+            return Ok(addr.clone());
+        }
+
+        let map: Hamt<String, _> =
+            Hamt::load_with_bit_width(&self.address_map, store, HAMT_BIT_WIDTH)?;
+
+        let actor_id: ActorID = map
+            .get(&addr.hash_key())?
+            .ok_or_else(|| "Address not found".to_owned())?;
+
+        Ok(Address::new_id(actor_id.0).map_err(|e| e.to_string())?)
     }
 }
 
@@ -74,3 +92,5 @@ impl<'de> Deserialize<'de> for State {
         })
     }
 }
+
+impl Cbor for State {}
