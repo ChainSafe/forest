@@ -9,10 +9,11 @@ pub use self::types::*;
 use crate::{empty_return, INIT_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
+use ipld_hamt::Hamt;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -55,9 +56,31 @@ impl Actor {
             );
         }
 
-        // TODO make map and construct state
+        // TODO switch to make_map
+        let empty_root = match Hamt::<String, _>::new_with_bit_width(rt.store(), 5).flush() {
+            Ok(c) => c,
+            Err(e) => {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to create empty map: {}", e),
+                );
+                unreachable!()
+            }
+        };
 
-        todo!()
+        let mut st: State = State {
+            signers: params.signers,
+            num_approvals_threshold: params.num_approvals_threshold,
+            pending_txs: empty_root,
+            initial_balance: TokenAmount::new(0),
+            next_tx_id: Default::default(),
+            start_epoch: Default::default(),
+            unlock_duration: Default::default(),
+        };
+
+        if params.unlock_duration != 0 {
+            st.initial_balance = rt.message().
+        }
     }
 
     /// Multisig actor propose function

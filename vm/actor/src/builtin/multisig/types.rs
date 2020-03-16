@@ -8,7 +8,7 @@ use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Transaction ID type
 // TODO change to uvarint encoding
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct TxnID(pub i64);
 
 impl TxnID {
