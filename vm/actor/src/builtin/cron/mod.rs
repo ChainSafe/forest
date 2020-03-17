@@ -82,11 +82,11 @@ impl Actor {
 
         let st: State = rt.state();
         for entry in st.entries {
-            rt.send::<_, Serialized>(
-                entry.receiver,
+            rt.send::<Serialized>(
+                &entry.receiver,
                 entry.method_num,
                 &Serialized::default(),
-                TokenAmount::new(0),
+                &TokenAmount::new(0),
             );
         }
     }
