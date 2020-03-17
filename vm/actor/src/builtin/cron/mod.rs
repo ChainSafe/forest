@@ -4,13 +4,14 @@
 mod state;
 
 pub use self::state::{Entry, State};
-use crate::{assert_empty_params, empty_return};
+use crate::{assert_empty_params, empty_return, SYSTEM_ACTOR_ADDR};
+use address::Address;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 /// Cron actor methods available
 #[derive(FromPrimitive)]
@@ -57,37 +58,37 @@ impl<'de> Deserialize<'de> for ConstructorParams {
 pub struct Actor;
 impl Actor {
     /// Constructor for Cron actor
-    fn constructor<BS, RT>(_rt: &RT, _params: ConstructorParams)
+    fn constructor<BS, RT>(rt: &RT, params: ConstructorParams)
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO now finished spec
-        todo!()
+        let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
+        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+        rt.create(&State {
+            entries: params.entries,
+        })
     }
-    /// epoch_tick executes built-in periodic actions, run at every Epoch.
+    /// Executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    fn epoch_tick<BS, RT>(_rt: &RT)
+    fn epoch_tick<BS, RT>(rt: &RT)
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // self.entries is basically a static registry for now, loaded
-        // in the interpreter static registry.
-        // TODO update to new spec
-        todo!()
-        // for entry in &self.entries {
-        //     let res = rt.send_catching_errors(InvocInput {
-        //         to: entry.to_addr.clone(),
-        //         method: entry.method_num,
-        //         params: Serialized::default(),
-        //         value: TokenAmount::new(0),
-        //     });
-        //     if let Err(e) = res {
-        //         return e.into();
-        //     }
-        // }
+        let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
+        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+
+        let st: State = rt.state();
+        for entry in st.entries {
+            rt.send::<Serialized>(
+                &entry.receiver,
+                entry.method_num,
+                &Serialized::default(),
+                &TokenAmount::new(0),
+            );
+        }
     }
 }
 

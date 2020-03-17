@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use encoding::Cbor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::MethodNum;
 
@@ -13,8 +14,8 @@ pub struct State {
 }
 
 pub struct Entry {
-    receiver: Address,
-    method_num: MethodNum,
+    pub receiver: Address,
+    pub method_num: MethodNum,
 }
 
 impl Serialize for State {
@@ -25,6 +26,8 @@ impl Serialize for State {
         self.entries.serialize(serializer)
     }
 }
+
+impl Cbor for State {}
 
 impl<'de> Deserialize<'de> for State {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
