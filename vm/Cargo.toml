@@ -9,5 +9,6 @@ num-bigint = { path = "../math/bigint", package = "forest_bigint" }
 address = { package = "forest_address", path = "./address" }
 encoding = { package = "forest_encoding", path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
-cid = { package = "forest_cid", path = "../ipld/cid" }
-
+cid = { package = "forest_cid", path = "../ipld/cid", features = ["serde_derive"] }
+num-traits = "0.2"
+num-derive = "0.2"

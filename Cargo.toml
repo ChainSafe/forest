@@ -13,7 +13,6 @@ members = [
     "vm/runtime",
     "vm/state_tree",
     "vm/interpreter",
-    "vm/abi",
     "node",
     "node/clock",
     "crypto",
