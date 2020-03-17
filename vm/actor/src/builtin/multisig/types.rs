@@ -37,6 +37,7 @@ impl<'de> Deserialize<'de> for TxnID {
 }
 
 /// Transaction type used in multisig actor
+#[derive(Clone, PartialEq, Debug)]
 pub struct Transaction {
     pub to: Address,
     pub value: TokenAmount,

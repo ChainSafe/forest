@@ -35,8 +35,7 @@ impl State {
         TokenAmount(unit_locked * (self.unlock_duration.0 - elapsed_epoch.0))
     }
 
-    #[allow(dead_code)]
-    fn is_signer(&self, addr: &Address) -> bool {
+    pub(crate) fn is_signer(&self, addr: &Address) -> bool {
         for s in &self.signers {
             if addr == s {
                 return true;
@@ -45,8 +44,7 @@ impl State {
         false
     }
 
-    #[allow(dead_code)]
-    fn check_available(
+    pub(crate) fn check_available(
         &self,
         balance: TokenAmount,
         amount_to_spend: TokenAmount,
@@ -71,8 +69,7 @@ impl State {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    fn get_pending_transaction<BS: BlockStore>(
+    pub(crate) fn get_pending_transaction<BS: BlockStore>(
         &self,
         s: &BS,
         txn_id: TxnID,
@@ -88,8 +85,7 @@ impl State {
         }
     }
 
-    #[allow(dead_code)]
-    fn put_pending_transaction<BS: BlockStore>(
+    pub(crate) fn put_pending_transaction<BS: BlockStore>(
         &mut self,
         s: &BS,
         txn_id: TxnID,
@@ -101,8 +97,7 @@ impl State {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    fn delete_pending_transaction<BS: BlockStore>(
+    pub(crate) fn delete_pending_transaction<BS: BlockStore>(
         &mut self,
         s: &BS,
         txn_id: TxnID,
