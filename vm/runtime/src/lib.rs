@@ -5,7 +5,6 @@ mod actor_code;
 
 pub use self::actor_code::*;
 
-use abi::{PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -13,7 +12,10 @@ use crypto::{DomainSeparationTag, Signature};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
-use vm::{ExitCode, MethodNum, Serialized, TokenAmount};
+use vm::{
+    ExitCode, MethodNum, PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo, Serialized,
+    TokenAmount,
+};
 
 pub struct Randomness; // TODO
 
