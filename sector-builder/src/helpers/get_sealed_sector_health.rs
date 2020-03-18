@@ -1,14 +1,16 @@
 use std::path::Path;
 
+use async_std::fs;
+
 use crate::error::Result;
 use crate::helpers;
 use crate::{SealedSectorHealth, SealedSectorMetadata};
 
-pub fn get_sealed_sector_health<T: AsRef<Path>>(
+pub async fn get_sealed_sector_health<T: AsRef<Path>>(
     sealed_sector_path: T,
     meta: &SealedSectorMetadata,
 ) -> Result<SealedSectorHealth> {
-    let result = std::fs::metadata(&sealed_sector_path);
+    let result = fs::metadata(sealed_sector_path.as_ref()).await;
 
     // ensure that the file still exists
     if result.is_err() {
@@ -21,7 +23,9 @@ pub fn get_sealed_sector_health<T: AsRef<Path>>(
     }
 
     // compare checksums
-    if helpers::checksum::calculate_checksum(&sealed_sector_path)?.as_bytes()
+    if helpers::checksum::calculate_checksum(&sealed_sector_path)
+        .await?
+        .as_bytes()
         != meta.blake2b_checksum.as_slice()
     {
         return Ok(SealedSectorHealth::ErrorInvalidChecksum);

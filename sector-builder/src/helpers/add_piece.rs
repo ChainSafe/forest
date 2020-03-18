@@ -1,22 +1,21 @@
 use std::iter::Iterator;
+use std::path::Path;
 
 use filecoin_proofs::types::UnpaddedBytesAmount;
+use storage_proofs::sector::SectorId;
 
 use crate::disk_backed_storage::SectorManager;
 use crate::error::*;
 use crate::metadata::{self, SealStatus, SecondsSinceEpoch, StagedSectorMetadata};
 use crate::state::SectorBuilderState;
 use crate::SectorStore;
-use std::fs::OpenOptions;
-use std::io::{Cursor, Read, Seek, SeekFrom};
-use storage_proofs::sector::SectorId;
 
-pub fn add_piece<U: Read>(
+pub async fn add_piece<U: AsRef<Path>>(
     sector_store: &SectorStore,
     mut sector_builder_state: &mut SectorBuilderState,
     piece_bytes_amount: u64,
     piece_key: String,
-    mut piece_file: U,
+    piece_path: U,
     _store_until: SecondsSinceEpoch,
 ) -> Result<SectorId> {
     let mgr = sector_store.manager();
@@ -47,39 +46,33 @@ pub fn add_piece<U: Read>(
         .get_mut(&dest_sector_id)
         .ok_or_else(|| format_err!("unable to retrieve sector from state-map"))?;
 
-    // TODO: Buffering the piece completely into memory is awful, but each of
-    // the two function calls (add_piece and generate_piece_commitment) accept a
-    // Read. Given that the piece byte-stream is represented by a Read, we can't
-    // read all of its bytes in one function call and then do the same with the
-    // other w/out putting the bytes into an intermediate buffer. A tee reader
-    // would be appropriate here.
-    let mut backing_buffer = vec![];
-    let mut cursor = Cursor::new(&mut backing_buffer);
-
-    std::io::copy(&mut piece_file, &mut cursor)
-        .map_err(|err| format_err!("unable to copy piece bytes to buffer: {:?}", err))?;
-
-    cursor
-        .seek(SeekFrom::Start(0))
-        .map_err(|err| format_err!("could not seek into buffer after copy: {:?}", err))?;
-
-    let mut staged_file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(mgr.staged_sector_path(&ssm.sector_access))?;
-
     let piece_lens_in_staged_sector_without_alignment = ssm
         .pieces
         .iter()
         .map(|p| p.num_bytes)
         .collect::<Vec<UnpaddedBytesAmount>>();
 
-    let (piece_info, _) = filecoin_proofs::add_piece(
-        &mut cursor,
-        &mut staged_file,
-        piece_bytes_len,
-        &piece_lens_in_staged_sector_without_alignment,
-    )?;
+    let piece_path = piece_path.as_ref().to_path_buf();
+    let staged_path = mgr.staged_sector_path(&ssm.sector_access);
+
+    let (piece_info, _) = async_std::task::spawn_blocking(move || {
+        let mut piece_file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(piece_path)?;
+        let mut staged_file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(staged_path)?;
+
+        filecoin_proofs::add_piece(
+            &mut piece_file,
+            &mut staged_file,
+            piece_bytes_len,
+            &piece_lens_in_staged_sector_without_alignment,
+        )
+    })
+    .await?;
 
     ssm.pieces.push(metadata::PieceMetadata {
         piece_key,

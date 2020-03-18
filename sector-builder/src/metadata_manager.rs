@@ -1,7 +1,8 @@
 use std::collections::btree_map::BTreeMap;
 use std::collections::HashSet;
-use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use async_std::fs;
 
 use filecoin_proofs::pieces::get_piece_start_byte;
 use filecoin_proofs::{
@@ -206,11 +207,11 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
     // Write the piece to storage, obtaining the sector id with which the
     // piece-bytes are now associated and a vector of SealTaskPrototypes.
-    pub fn add_piece<U: Read>(
+    pub async fn add_piece<U: AsRef<Path>>(
         &mut self,
         piece_key: String,
         piece_bytes_amount: u64,
-        piece_file: U,
+        piece_path: U,
         store_until: SecondsSinceEpoch,
     ) -> Result<SectorId> {
         let destination_sector_id = helpers::add_piece(
@@ -218,9 +219,10 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             &mut self.state,
             piece_bytes_amount,
             piece_key,
-            piece_file,
+            piece_path,
             store_until,
-        )?;
+        )
+        .await?;
 
         self.check_and_schedule(false);
         self.checkpoint().expect(FATAL_SNPSHT);
@@ -236,13 +238,11 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
     // Produces a vector containing metadata for all sealed sectors that this
     // SectorBuilder knows about. Includes sector health-information on request.
-    pub fn get_sealed_sectors_filtered<P: FnMut(&SealedSectorMetadata) -> bool>(
+    pub async fn get_sealed_sectors_filtered<P: FnMut(&SealedSectorMetadata) -> bool>(
         &self,
         check_health: bool,
         mut predicate: P,
     ) -> Result<Vec<GetSealedSectorResult>> {
-        use rayon::prelude::*;
-
         let sectors_iter = self
             .state
             .sealed
@@ -268,15 +268,15 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             })
             .collect();
 
-        // compute sector health in parallel using workers from rayon global
+        // TODO: Parllel compute sector health in parallel using workers from rayon global
         // thread pool
-        with_path
-            .into_par_iter()
-            .map(|(pbuf, meta)| {
-                let health = helpers::get_sealed_sector_health(&pbuf, &meta)?;
-                Ok(WithHealth(health, meta))
-            })
-            .collect()
+        let mut result = Vec::with_capacity(with_path.len());
+        for (pbuf, meta) in with_path.into_iter() {
+            let health = helpers::get_sealed_sector_health(&pbuf, &meta).await?;
+            result.push(WithHealth(health, meta));
+        }
+
+        Ok(result)
     }
 
     // Produces a task prototype for a staged sector with the provided id and
@@ -446,7 +446,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn import_sector(
+    pub async fn import_sector(
         &mut self,
         sector_id: SectorId,
         sector_cache_dir: PathBuf,
@@ -532,7 +532,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         }
 
         // ensure that the file has the appropriate quantity of bytes
-        let len = std::fs::metadata(&sealed_sector)?.len();
+        let len = fs::metadata(&sealed_sector).await?.len();
         let max = scfg.sector_bytes;
 
         if len != u64::from(max) {
@@ -545,7 +545,8 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         }
 
         // generate checksum
-        let blake2b_checksum = helpers::calculate_checksum(&sealed_sector)?
+        let blake2b_checksum = helpers::calculate_checksum(&sealed_sector)
+            .await?
             .as_ref()
             .to_vec();
 
@@ -562,17 +563,19 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         let new_sector_path = mngr.sealed_sector_path(&access);
         let new_cache_path = mngr.cache_path(&access);
 
-        let _ = std::fs::copy(&sealed_sector, &new_sector_path).map_err(|err| {
-            format_err!(
-                "import failed to copy sector (id = {:?}) from {:?} to {:?} (err = {:?})",
-                sector_id,
-                sealed_sector,
-                new_sector_path,
-                err
-            )
-        })?;
+        let _ = fs::copy(&sealed_sector, &new_sector_path)
+            .await
+            .map_err(|err| {
+                format_err!(
+                    "import failed to copy sector (id = {:?}) from {:?} to {:?} (err = {:?})",
+                    sector_id,
+                    sealed_sector,
+                    new_sector_path,
+                    err
+                )
+            })?;
 
-        std::fs::rename(&sector_cache_dir, &new_cache_path).map_err(|err| {
+        fs::rename(&sector_cache_dir, &new_cache_path).await.map_err(|err| {
             format_err!(
                 "import failed to move sector cache path (id = {:?}) from {:?} to {:?} (err = {:?})",
                 sector_id,
@@ -583,7 +586,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         })?;
 
         // safe to delete old sector file now
-        if let Err(err) = std::fs::remove_file(&sealed_sector) {
+        if let Err(err) = fs::remove_file(&sealed_sector).await {
             warn!(
                 "sector import failed to remove imported sector (id = {:?}) at path {:?} (err = {:?})",
                 sector_id, sealed_sector, err
@@ -670,101 +673,100 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     // Update metadata to reflect the seal commit result. Propagates the error
     // from the proofs API call if one was present, or the appropriate metata
     // object if one was not.
-    pub fn handle_seal_commit_result(
+    pub async fn handle_seal_commit_result(
         &mut self,
         result: SealCommitResult,
     ) -> Result<SealedSectorMetadata> {
         // scope exists to end the mutable borrow of self so that we can
         // checkpoint
-        let out = {
-            let SealCommitResult {
-                sector_id,
-                proofs_api_call_result,
-            } = result;
+        let SealCommitResult {
+            sector_id,
+            proofs_api_call_result,
+        } = result;
 
-            proofs_api_call_result
-                .and_then(|output| {
-                    let sector_access = self
-                        .sector_store
-                        .manager()
-                        .convert_sector_id_to_access_name(sector_id)?;
+        let out =
+            || async {
+                let output = proofs_api_call_result?;
+                let sector_access = self
+                    .sector_store
+                    .manager()
+                    .convert_sector_id_to_access_name(sector_id)?;
 
-                    let sector_path = self
-                        .sector_store
-                        .manager()
-                        .sealed_sector_path(&sector_access);
+                let sector_path = self
+                    .sector_store
+                    .manager()
+                    .sealed_sector_path(&sector_access);
 
-                    let staged_sector =
-                        self.state.staged.sectors.get(&sector_id).ok_or_else(|| {
-                            format_err!("missing staged sector with id {}", &sector_id)
-                        })?;
-
-                    let seed = staged_sector.seal_status.seed().ok_or_else(|| {
-                        format_err!("failed to get seed for sector with id {}", sector_id)
+                let staged_sector =
+                    self.state.staged.sectors.get(&sector_id).ok_or_else(|| {
+                        format_err!("missing staged sector with id {}", &sector_id)
                     })?;
 
-                    let ticket = staged_sector.seal_status.ticket().ok_or_else(|| {
-                        format_err!("failed to get ticket for sector with id {}", sector_id)
+                let seed = staged_sector.seal_status.seed().ok_or_else(|| {
+                    format_err!("failed to get seed for sector with id {}", sector_id)
+                })?;
+
+                let ticket = staged_sector.seal_status.ticket().ok_or_else(|| {
+                    format_err!("failed to get ticket for sector with id {}", sector_id)
+                })?;
+
+                let pre_commit = staged_sector
+                    .seal_status
+                    .persistable_pre_commit_output()
+                    .ok_or_else(|| {
+                        format_err!(
+                            "failed to get persistable pre-commit output for sector with id {}",
+                            sector_id
+                        )
                     })?;
 
-                    let pre_commit = staged_sector
-                        .seal_status
-                        .persistable_pre_commit_output()
-                        .ok_or_else(|| {
-                            format_err!(
-                                "failed to get persistable pre-commit output for sector with id {}",
-                                sector_id
-                            )
-                        })?;
+                let SealCommitOutput { proof } = output;
 
-                    let SealCommitOutput { proof } = output;
+                // generate checksum
+                let blake2b_checksum = helpers::calculate_checksum(&sector_path)
+                    .await?
+                    .as_ref()
+                    .to_vec();
 
-                    // generate checksum
-                    let blake2b_checksum =
-                        helpers::calculate_checksum(&sector_path)?.as_ref().to_vec();
+                // get number of bytes in sealed sector-file
+                let len = fs::metadata(&sector_path).await?.len();
 
-                    // get number of bytes in sealed sector-file
-                    let len = std::fs::metadata(&sector_path)?.len();
+                // combine the piece commitment, piece inclusion proof, and other piece
+                // metadata into a single struct (to be persisted to metadata store)
+                let pieces = staged_sector.pieces.to_vec();
 
-                    // combine the piece commitment, piece inclusion proof, and other piece
-                    // metadata into a single struct (to be persisted to metadata store)
-                    let pieces = staged_sector.pieces.to_vec();
+                let meta = SealedSectorMetadata {
+                    blake2b_checksum,
+                    comm_d: pre_commit.comm_d,
+                    comm_r: pre_commit.comm_r,
+                    len,
+                    pieces,
+                    proof,
+                    sector_access,
+                    sector_id: staged_sector.sector_id,
+                    seed: seed.clone(),
+                    ticket: ticket.clone(),
+                };
 
-                    let meta = SealedSectorMetadata {
-                        blake2b_checksum,
-                        comm_d: pre_commit.comm_d,
-                        comm_r: pre_commit.comm_r,
-                        len,
-                        pieces,
-                        proof,
-                        sector_access,
-                        sector_id: staged_sector.sector_id,
-                        seed: seed.clone(),
-                        ticket: ticket.clone(),
-                    };
+                self.state.staged.sectors.remove(&sector_id);
+                self.state.sealed.sectors.insert(sector_id, meta.clone());
 
-                    Ok(meta)
-                })
-                .map_err(|err| {
-                    let staged_state = &mut self.state.staged;
+                Ok(meta)
+            };
 
-                    if let Some(mut staged_sector) = staged_state.sectors.get_mut(&sector_id) {
-                        staged_sector.seal_status =
-                            SealStatus::Failed(format!("{}", err_unrecov(&err)));
-                    }
-
-                    err
-                })
-                .map(|meta| {
-                    self.state.staged.sectors.remove(&sector_id);
-                    self.state.sealed.sectors.insert(sector_id, meta.clone());
-                    meta
-                })
-        };
+        let res = out().await;
 
         self.checkpoint().expect(FATAL_SNPSHT);
 
-        out
+        res.map_err(|err| {
+            let staged_state = &mut self.state.staged;
+
+            if let Some(mut staged_sector) = staged_state.sectors.get_mut(&sector_id) {
+                staged_sector.seal_status = SealStatus::Failed(format!("{}", err_unrecov(&err)));
+            }
+
+            err
+        })
     }
 
     // If any sector is full enough to seal, mark it as such.

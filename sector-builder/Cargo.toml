@@ -27,9 +27,11 @@ rayon = "1.1.0"
 tempfile = "3"
 anyhow = "1.0.27"
 thiserror = "1.0.11"
+async-std = { version = "1.5.0", features = ["unstable"] }
 
 [dev-dependencies]
 criterion = "0.3.0"
+async-std = { version = "1.5.0", features = ["unstable", "attributes"] }
 
 [[bench]]
 name = "checksum"

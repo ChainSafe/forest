@@ -1,20 +1,20 @@
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
+use std::collections::btree_map::BTreeMap;
+use std::future::Future;
+use std::path::PathBuf;
+use std::pin::Pin;
+
+use async_std::sync::Receiver;
+
+use filecoin_proofs::{Candidate, PieceInfo, PoStConfig, PrivateReplicaInfo, SealPreCommitOutput};
+use storage_proofs::sector::SectorId;
 
 use crate::error::Result;
 use crate::scheduler::{SealCommitResult, SealPreCommitResult};
 use crate::{PoRepConfig, SealSeed, SealTicket, UnpaddedByteIndex, UnpaddedBytesAmount};
-use filecoin_proofs::{Candidate, PieceInfo, PoStConfig, PrivateReplicaInfo, SealPreCommitOutput};
-use std::collections::btree_map::BTreeMap;
-use std::path::PathBuf;
-use storage_proofs::sector::SectorId;
-
-const FATAL_NOLOCK: &str = "error acquiring task lock";
-const FATAL_RCVTSK: &str = "error receiving task";
 
 pub struct Worker {
     pub id: u8,
-    pub thread: Option<thread::JoinHandle<()>>,
+    pub thread: Option<async_std::task::JoinHandle<()>>,
 }
 
 pub struct UnsealTaskPrototype {
@@ -60,15 +60,18 @@ pub struct SealCommitTaskPrototype {
     pub(crate) ticket: SealTicket,
 }
 
-type UnsealCallback = Box<dyn FnOnce(Result<(UnpaddedBytesAmount, PathBuf)>) + Send>;
+type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + 'static + Send>>;
 
-type GenerateCandidatesCallback = Box<dyn FnOnce(Result<Vec<Candidate>>) + Send>;
+pub(crate) type UnsealCallback =
+    Box<dyn FnOnce(Result<(UnpaddedBytesAmount, PathBuf)>) -> BoxFuture<()> + Send>;
 
-type GeneratePoStCallback = Box<dyn FnOnce(Result<Vec<Vec<u8>>>) + Send>;
-
-type SealPreCommitCallback = Box<dyn FnOnce(SealPreCommitResult) + Send>;
-
-type SealCommitCallback = Box<dyn FnOnce(SealCommitResult) + Send>;
+pub(crate) type GenerateCandidatesCallback =
+    Box<dyn FnOnce(Result<Vec<Candidate>>) -> BoxFuture<()> + Send>;
+pub(crate) type GeneratePoStCallback =
+    Box<dyn FnOnce(Result<Vec<Vec<u8>>>) -> BoxFuture<()> + Send>;
+pub(crate) type SealPreCommitCallback =
+    Box<dyn FnOnce(SealPreCommitResult) -> BoxFuture<()> + Send>;
+pub(crate) type SealCommitCallback = Box<dyn FnOnce(SealCommitResult) -> BoxFuture<()> + Send>;
 
 #[allow(clippy::large_enum_variant)]
 pub enum WorkerTask {
@@ -123,159 +126,153 @@ pub enum WorkerTask {
 }
 
 impl Worker {
-    pub fn start(
-        id: u8,
-        seal_task_rx: Arc<Mutex<mpsc::Receiver<WorkerTask>>>,
-        prover_id: [u8; 32],
-    ) -> Worker {
-        let thread = thread::spawn(move || loop {
-            // Acquire a lock on the rx end of the channel, get a task,
-            // relinquish the lock and return the task. The receiver is mutexed
-            // for coordinating reads across multiple worker-threads.
-            let task = {
-                let rx = seal_task_rx.lock().expect(FATAL_NOLOCK);
-                rx.recv().expect(FATAL_RCVTSK)
-            };
-
-            // Dispatch to the appropriate task-handler.
-            match task {
-                WorkerTask::GenerateCandidates {
-                    randomness,
-                    challenge_count,
-                    private_replicas,
-                    post_config,
-                    callback,
-                } => {
-                    callback(filecoin_proofs::generate_candidates(
-                        post_config,
-                        &randomness,
+    pub fn start(id: u8, seal_task_rx: Receiver<WorkerTask>, prover_id: [u8; 32]) -> Worker {
+        let thread = async_std::task::spawn(async move {
+            while let Some(task) = seal_task_rx.recv().await {
+                // Dispatch to the appropriate task-handler.
+                match task {
+                    WorkerTask::GenerateCandidates {
+                        randomness,
                         challenge_count,
-                        &private_replicas,
-                        prover_id,
-                    ));
-                }
-                WorkerTask::GeneratePoSt {
-                    randomness,
-                    private_replicas,
-                    post_config,
-                    winners,
-                    callback,
-                } => {
-                    callback(filecoin_proofs::generate_post(
+                        private_replicas,
                         post_config,
-                        &randomness,
-                        &private_replicas,
+                        callback,
+                    } => {
+                        callback(filecoin_proofs::generate_candidates(
+                            post_config,
+                            &randomness,
+                            challenge_count,
+                            &private_replicas,
+                            prover_id,
+                        ))
+                        .await;
+                    }
+                    WorkerTask::GeneratePoSt {
+                        randomness,
+                        private_replicas,
+                        post_config,
                         winners,
-                        prover_id,
-                    ));
-                }
-                WorkerTask::SealPreCommit {
-                    cache_dir,
-                    callback,
-                    piece_info,
-                    porep_config,
-                    sealed_sector_path,
-                    sector_id,
-                    staged_sector_path,
-                    ticket,
-                } => {
-                    // TODO: make two different task.
-
-                    let result = filecoin_proofs::seal_pre_commit_phase1(
+                        callback,
+                    } => {
+                        callback(filecoin_proofs::generate_post(
+                            post_config,
+                            &randomness,
+                            &private_replicas,
+                            winners,
+                            prover_id,
+                        ))
+                        .await;
+                    }
+                    WorkerTask::SealPreCommit {
+                        cache_dir,
+                        callback,
+                        piece_info,
                         porep_config,
-                        &cache_dir,
-                        &staged_sector_path,
-                        &sealed_sector_path,
-                        prover_id,
+                        sealed_sector_path,
                         sector_id,
-                        ticket.ticket_bytes,
-                        &piece_info,
-                    )
-                    .and_then(|result1| {
-                        filecoin_proofs::seal_pre_commit_phase2(
+                        staged_sector_path,
+                        ticket,
+                    } => {
+                        // TODO: make two different task.
+
+                        let result = filecoin_proofs::seal_pre_commit_phase1(
                             porep_config,
-                            result1,
                             &cache_dir,
+                            &staged_sector_path,
                             &sealed_sector_path,
-                        )
-                    })
-                    .map_err(Into::into);
-
-                    callback(SealPreCommitResult {
-                        sector_id,
-                        proofs_api_call_result: result,
-                    });
-                }
-                WorkerTask::SealCommit {
-                    cache_dir,
-                    sealed_sector_path,
-                    callback,
-                    piece_info,
-                    porep_config,
-                    pre_commit,
-                    sector_id,
-                    seed,
-                    ticket,
-                } => {
-                    let result = filecoin_proofs::seal_commit_phase1(
-                        porep_config,
-                        &cache_dir,
-                        &sealed_sector_path,
-                        prover_id,
-                        sector_id,
-                        ticket.ticket_bytes,
-                        seed.ticket_bytes,
-                        pre_commit,
-                        &piece_info,
-                    )
-                    .and_then(|result1| {
-                        filecoin_proofs::clear_cache(&cache_dir)?;
-                        Ok(result1)
-                    })
-                    .and_then(|result1| {
-                        filecoin_proofs::seal_commit_phase2(
-                            porep_config,
-                            result1,
                             prover_id,
                             sector_id,
+                            ticket.ticket_bytes,
+                            &piece_info,
                         )
-                    })
-                    .map_err(Into::into);
+                        .and_then(|result1| {
+                            filecoin_proofs::seal_pre_commit_phase2(
+                                porep_config,
+                                result1,
+                                &cache_dir,
+                                &sealed_sector_path,
+                            )
+                        })
+                        .map_err(Into::into);
 
-                    callback(SealCommitResult {
-                        proofs_api_call_result: result,
-                        sector_id,
-                    });
-                }
-                WorkerTask::Unseal {
-                    comm_d,
-                    cache_dir,
-                    destination_path,
-                    piece_len,
-                    piece_start_byte,
-                    porep_config,
-                    seal_ticket,
-                    sector_id,
-                    source_path,
-                    callback,
-                } => {
-                    let result = filecoin_proofs::get_unsealed_range(
+                        callback(SealPreCommitResult {
+                            sector_id,
+                            proofs_api_call_result: result,
+                        })
+                        .await;
+                    }
+                    WorkerTask::SealCommit {
+                        cache_dir,
+                        sealed_sector_path,
+                        callback,
+                        piece_info,
                         porep_config,
-                        &cache_dir,
-                        &source_path,
-                        &destination_path,
-                        prover_id,
+                        pre_commit,
                         sector_id,
-                        comm_d,
-                        seal_ticket.ticket_bytes,
-                        piece_start_byte,
-                        piece_len,
-                    )
-                    .map(|num_bytes_unsealed| (num_bytes_unsealed, destination_path));
+                        seed,
+                        ticket,
+                    } => {
+                        let result = filecoin_proofs::seal_commit_phase1(
+                            porep_config,
+                            &cache_dir,
+                            &sealed_sector_path,
+                            prover_id,
+                            sector_id,
+                            ticket.ticket_bytes,
+                            seed.ticket_bytes,
+                            pre_commit,
+                            &piece_info,
+                        )
+                        .and_then(|result1| {
+                            filecoin_proofs::clear_cache(&cache_dir)?;
+                            Ok(result1)
+                        })
+                        .and_then(|result1| {
+                            filecoin_proofs::seal_commit_phase2(
+                                porep_config,
+                                result1,
+                                prover_id,
+                                sector_id,
+                            )
+                        })
+                        .map_err(Into::into);
 
-                    callback(result);
+                        callback(SealCommitResult {
+                            proofs_api_call_result: result,
+                            sector_id,
+                        })
+                        .await;
+                    }
+                    WorkerTask::Unseal {
+                        comm_d,
+                        cache_dir,
+                        destination_path,
+                        piece_len,
+                        piece_start_byte,
+                        porep_config,
+                        seal_ticket,
+                        sector_id,
+                        source_path,
+                        callback,
+                    } => {
+                        let result = filecoin_proofs::get_unsealed_range(
+                            porep_config,
+                            &cache_dir,
+                            &source_path,
+                            &destination_path,
+                            prover_id,
+                            sector_id,
+                            comm_d,
+                            seal_ticket.ticket_bytes,
+                            piece_start_byte,
+                            piece_len,
+                        )
+                        .map(|num_bytes_unsealed| (num_bytes_unsealed, destination_path));
+
+                        callback(result).await;
+                    }
+                    WorkerTask::Shutdown => break,
                 }
-                WorkerTask::Shutdown => break,
             }
         });
 
