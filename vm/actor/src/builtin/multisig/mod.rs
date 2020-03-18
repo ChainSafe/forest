@@ -31,7 +31,7 @@ pub enum Method {
 }
 
 impl Method {
-    /// from_method_num converts a method number into a Method enum
+    /// Converts a method number into a Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
         FromPrimitive::from_u64(u64::from(m))
     }
@@ -336,10 +336,10 @@ impl Actor {
 
             // Check if number approvals is met
             if txn.approved.len() >= st.num_approvals_threshold as usize {
+                // Ensure sufficient funds
                 if let Err(e) =
                     st.check_available(rt.current_balance(), txn.value.clone(), rt.curr_epoch())
                 {
-                    // Ensure sufficient funds
                     rt.abort(
                         ExitCode::ErrInsufficientFunds,
                         format!("Insufficient funds unlocked: {}", e),

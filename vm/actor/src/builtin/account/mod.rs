@@ -20,7 +20,7 @@ pub enum Method {
 }
 
 impl Method {
-    /// from_method_num converts a method number into a Method enum
+    /// Converts a method number into a Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
         FromPrimitive::from_u64(u64::from(m))
     }
