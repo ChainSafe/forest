@@ -23,7 +23,7 @@ pub struct Randomness; // TODO
 /// this is everything that is accessible to actors, beyond parameters.
 pub trait Runtime<BS: BlockStore> {
     /// Information related to the current message being executed.
-    fn message(&self) -> UnsignedMessage;
+    fn message(&self) -> &UnsignedMessage;
 
     /// The current chain epoch number. The genesis block has epoch zero.
     fn curr_epoch(&self) -> ChainEpoch;
@@ -77,7 +77,7 @@ pub trait Runtime<BS: BlockStore> {
     /// The gas cost of this method is that of a Store.Put of the mutated state object.
     fn transaction<C: Cbor, R, F>(&self, f: F) -> R
     where
-        F: Fn(&mut C) -> R;
+        F: FnOnce(&mut C) -> R;
 
     /// Returns reference to blockstore
     fn store(&self) -> &BS;

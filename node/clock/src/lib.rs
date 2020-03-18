@@ -14,7 +14,7 @@ const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, PartialOrd)]
 /// An epoch represents a single valid state in the blockchain
-pub struct ChainEpoch(u64);
+pub struct ChainEpoch(pub u64);
 
 impl From<u64> for ChainEpoch {
     fn from(num: u64) -> ChainEpoch {

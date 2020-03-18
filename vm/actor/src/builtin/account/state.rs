@@ -10,7 +10,6 @@ pub struct State {
     pub address: Address,
 }
 
-/// Account actor state
 impl Serialize for State {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
