@@ -128,7 +128,7 @@ where
         self.pointers.is_empty()
     }
 
-    pub fn for_each<V, S, F>(&self, store: &S, f: &mut F) -> Result<(), String>
+    pub(crate) fn for_each<V, S, F>(&self, store: &S, f: &mut F) -> Result<(), String>
     where
         V: DeserializeOwned,
         F: FnMut(&K, V) -> Result<(), String>,
