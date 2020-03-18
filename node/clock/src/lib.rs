@@ -79,6 +79,7 @@ impl ChainEpochClock {
     }
 }
 
+// TODO revisit usage of the Sub impls, these will panic (checked sub or floored sub would be safer)
 impl Sub for ChainEpoch {
     type Output = ChainEpoch;
 

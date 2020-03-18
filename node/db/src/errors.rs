@@ -21,6 +21,12 @@ impl fmt::Display for Error {
     }
 }
 
+impl From<Error> for String {
+    fn from(e: Error) -> Self {
+        e.to_string()
+    }
+}
+
 impl From<rocksdb::Error> for Error {
     fn from(e: rocksdb::Error) -> Error {
         Error::Database(String::from(e))
