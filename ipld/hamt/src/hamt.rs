@@ -215,8 +215,14 @@ where
     ///
     /// let mut map: Hamt<usize, _> = Hamt::new(&store);
     /// map.set(1, 1).unwrap();
-    /// assert_eq!(map.delete(&1).unwrap(), true);
-    /// assert_eq!(map.delete(&1).unwrap(), false);
+    /// map.set(4, 2).unwrap();
+    ///
+    /// let mut total = 0;
+    /// map.for_each(&mut |_, v: u64| {
+    ///    total += v;
+    ///    Ok(())
+    /// }).unwrap();
+    /// assert_eq!(total, 3);
     /// ```
     #[inline]
     pub fn for_each<F, V>(&self, f: &mut F) -> Result<(), String>

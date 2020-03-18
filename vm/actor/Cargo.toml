@@ -21,3 +21,6 @@ ipld_blockstore = { path = "../../ipld/blockstore" }
 ipld_hamt = { path = "../../ipld/hamt" }
 forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
+
+[dev-dependencies]
+db = { path = "../../node/db" }
