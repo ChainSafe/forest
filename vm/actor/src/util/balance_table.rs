@@ -98,7 +98,10 @@ where
     pub fn must_subtract(&mut self, key: &Address, req: &TokenAmount) -> Result<(), String> {
         let sub_amt = self.subtract_with_minimum(key, req, &TokenAmount::new(0))?;
         if &sub_amt != req {
-            return Err("Couldn't subtract the requested amount".to_owned());
+            return Err(format!(
+                "Couldn't subtract value from address {} (req: {}, available: {})",
+                key, req, sub_amt
+            ));
         }
 
         Ok(())

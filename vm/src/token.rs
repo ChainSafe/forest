@@ -4,6 +4,7 @@
 use encoding::{de, ser};
 use num_bigint::{biguint_ser, BigUint};
 use num_traits::CheckedSub;
+use std::fmt;
 use std::ops::{Add, AddAssign, Sub};
 
 /// Wrapper around a big int variable to handle token specific functionality
@@ -42,6 +43,12 @@ impl Sub for TokenAmount {
 impl CheckedSub for TokenAmount {
     fn checked_sub(&self, other: &Self) -> Option<Self> {
         self.0.checked_sub(&other.0).map(TokenAmount)
+    }
+}
+
+impl fmt::Display for TokenAmount {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TokenAmount({})", self.0)
     }
 }
 

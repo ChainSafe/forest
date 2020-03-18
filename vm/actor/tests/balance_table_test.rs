@@ -33,7 +33,7 @@ fn total() {
         addr: &'a Address,
         total: u64,
     }
-    let test_vectors = &[
+    let test_vectors = [
         TotalTestCase {
             amount: 10,
             addr: &addr1,
@@ -61,4 +61,46 @@ fn total() {
 
         assert_eq!(bt.total(), Ok(TokenAmount::new(t.total)));
     }
+}
+
+#[test]
+fn balance_subtracts() {
+    let addr = Address::new_id(100).unwrap();
+    let store = db::MemoryDB::default();
+    let mut bt = BalanceTable::new_empty(&store);
+
+    bt.set(&addr, TokenAmount::new(80)).unwrap();
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(80)));
+    // Test subtracting past minimum only subtracts correct amount
+    assert_eq!(
+        bt.subtract_with_minimum(&addr, &TokenAmount::new(20), &TokenAmount::new(70)),
+        Ok(TokenAmount::new(10))
+    );
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(70)));
+
+    // Test subtracting to limit
+    assert_eq!(
+        bt.subtract_with_minimum(&addr, &TokenAmount::new(10), &TokenAmount::new(60)),
+        Ok(TokenAmount::new(10))
+    );
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(60)));
+
+    // Test must subtract success
+    bt.must_subtract(&addr, &TokenAmount::new(10)).unwrap();
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(50)));
+
+    // Test subtracting more than available
+    assert!(bt.must_subtract(&addr, &TokenAmount::new(100)).is_err());
+}
+
+#[test]
+fn remove() {
+    let addr = Address::new_id(100).unwrap();
+    let store = db::MemoryDB::default();
+    let mut bt = BalanceTable::new_empty(&store);
+
+    bt.set(&addr, TokenAmount::new(1)).unwrap();
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(1)));
+    bt.remove(&addr).unwrap();
+    assert!(bt.get(&addr).is_err());
 }
