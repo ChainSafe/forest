@@ -57,7 +57,7 @@ test:
 
 # This will run all tests will all features enabled, which will exclude some tests with
 # specific features disabled
-test-all: pull-serialization_tests
+test-all: pull-serialization-tests
 	cargo test --all-features
 
 # Checks if all headers are present and adds if not
