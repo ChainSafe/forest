@@ -74,7 +74,7 @@ pub fn add_piece<U: Read>(
         .map(|p| p.num_bytes)
         .collect::<Vec<UnpaddedBytesAmount>>();
 
-    let (_, comm_p) = filecoin_proofs::add_piece(
+    let (piece_info, _) = filecoin_proofs::add_piece(
         &mut cursor,
         &mut staged_file,
         piece_bytes_len,
@@ -83,7 +83,7 @@ pub fn add_piece<U: Read>(
 
     ssm.pieces.push(metadata::PieceMetadata {
         piece_key,
-        comm_p,
+        comm_p: piece_info.commitment,
         num_bytes: piece_bytes_len,
     });
 
@@ -169,8 +169,8 @@ mod tests {
 
         sealed_sector_a.pieces.push(PieceMetadata {
             piece_key: String::from("x"),
-            num_bytes: UnpaddedBytesAmount(508),
             comm_p: [0u8; 32],
+            num_bytes: UnpaddedBytesAmount(508),
         });
 
         sealed_sector_a.pieces.push(PieceMetadata {

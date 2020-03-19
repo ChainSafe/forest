@@ -1,7 +1,7 @@
 #![deny(clippy::all, clippy::perf, clippy::correctness)]
 
 #[macro_use]
-extern crate failure;
+extern crate anyhow;
 #[macro_use]
 extern crate log;
 
@@ -10,6 +10,7 @@ pub use filecoin_proofs::types::*;
 pub use crate::builder::*;
 pub use crate::constants::*;
 pub use crate::error::*;
+
 // Exported for benchmarks
 pub use crate::disk_backed_storage::SectorStore;
 pub use crate::helpers::checksum::calculate_checksum;

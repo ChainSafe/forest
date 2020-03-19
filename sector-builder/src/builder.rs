@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 
-use filecoin_proofs::error::ExpectWithBacktrace;
+use filecoin_proofs::constants::*;
 use filecoin_proofs::types::{PoRepConfig, PoStConfig, SectorClass};
 use filecoin_proofs::Candidate;
 use storage_proofs::sector::SectorId;
@@ -50,7 +50,14 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         max_num_staged_sectors: u8,
         num_workers: u8,
     ) -> Result<SectorBuilder<R>> {
-        ensure_parameter_cache_hydrated(sector_class)?;
+        let porep_config = sector_class.into();
+        let post_config = PoStConfig {
+            sector_size: sector_class.sector_size,
+            challenge_count: POST_CHALLENGE_COUNT,
+            challenged_nodes: POST_CHALLENGED_NODES,
+            priority: true,
+        };
+        ensure_parameter_cache_hydrated(porep_config, post_config)?;
 
         // Configure the scheduler's rendezvous channel.
         let (scheduler_tx, scheduler_rx) = mpsc::sync_channel(0);
@@ -67,7 +74,7 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
             (tx, workers)
         };
 
-        let sector_size = sector_class.0.into();
+        let sector_size = sector_class.sector_size.into();
 
         // Initialize the key/value store in which we store metadata
         // snapshots.
@@ -268,9 +275,9 @@ impl<R: 'static + Send + std::io::Read> SectorBuilder<R> {
         self.scheduler_tx
             .clone()
             .send(with_sender(tx))
-            .expects(FATAL_NOSEND_TASK);
+            .expect(FATAL_NOSEND_TASK);
 
-        rx.recv().expects(FATAL_NORECV_TASK)
+        rx.recv().expect(FATAL_NORECV_TASK)
     }
 }
 
@@ -310,26 +317,25 @@ impl<T: Read + Send> Drop for SectorBuilder<T> {
 
 /// Checks the parameter cache for the given sector size.
 /// Returns an `Err` if it is not hydrated.
-fn ensure_parameter_cache_hydrated(sector_class: SectorClass) -> Result<()> {
+fn ensure_parameter_cache_hydrated(
+    porep_config: PoRepConfig,
+    post_config: PoStConfig,
+) -> Result<()> {
     // PoRep
-    let porep_config: PoRepConfig = sector_class.into();
-
-    let porep_cache_key = porep_config.get_cache_verifying_key_path();
+    let porep_cache_key = porep_config.get_cache_verifying_key_path()?;
     ensure_file(porep_cache_key)
         .map_err(|err| format_err!("missing verifying key for PoRep: {:?}", err))?;
 
-    let porep_cache_params = porep_config.get_cache_params_path();
+    let porep_cache_params = porep_config.get_cache_params_path()?;
     ensure_file(porep_cache_params)
         .map_err(|err| format_err!("missing Groth parameters for PoRep: {:?}", err))?;
 
     // PoSt
-    let post_config: PoStConfig = sector_class.into();
-
-    let post_cache_key = post_config.get_cache_verifying_key_path();
+    let post_cache_key = post_config.get_cache_verifying_key_path()?;
     ensure_file(post_cache_key)
         .map_err(|err| format_err!("missing verifying key for PoSt: {:?}", err))?;
 
-    let post_cache_params = post_config.get_cache_params_path();
+    let post_cache_params = post_config.get_cache_params_path()?;
     ensure_file(post_cache_params)
         .map_err(|err| format_err!("missing Groth parameters for PoSt: {:?}", err))?;
 
@@ -338,8 +344,8 @@ fn ensure_parameter_cache_hydrated(sector_class: SectorClass) -> Result<()> {
 
 fn log_unrecov<T>(result: Result<T>) -> Result<T> {
     if let Err(err) = &result {
-        if let Some(SectorBuilderErr::Unrecoverable(err, backtrace)) = err.downcast_ref() {
-            error!("unrecoverable: {:?} - {:?}", err, backtrace);
+        if let Some(SectorBuilderErr::Unrecoverable(err)) = err.downcast_ref() {
+            error!("unrecoverable: {:?} - {:?}", err, err.backtrace());
         }
     }
 
@@ -383,7 +389,10 @@ pub mod tests {
         let cache_root_dir = f();
 
         let sector_builder = SectorBuilder::init_from_metadata(
-            SectorClass(SectorSize(1024), PoRepProofPartitions(2)),
+            SectorClass {
+                sector_size: SectorSize(2048),
+                partitions: PoRepProofPartitions(2),
+            },
             SectorId::from(0),
             &meta_dir,
             [0u8; 32],
@@ -420,7 +429,10 @@ pub mod tests {
 
         // instantiate a second builder
         let init_result = SectorBuilder::<std::fs::File>::init_from_metadata(
-            SectorClass(SectorSize(1024), PoRepProofPartitions(2)),
+            SectorClass {
+                sector_size: SectorSize(1024),
+                partitions: PoRepProofPartitions(2),
+            },
             SectorId::from(0),
             &meta_dir,
             [0u8; 32],
@@ -446,7 +458,10 @@ pub mod tests {
             .unwrap()
             .to_string();
 
-        let nonsense_sector_class = SectorClass(SectorSize(32), PoRepProofPartitions(123));
+        let nonsense_sector_class = SectorClass {
+            sector_size: SectorSize(2048),
+            partitions: PoRepProofPartitions(123),
+        };
 
         let result = SectorBuilder::<std::fs::File>::init_from_metadata(
             nonsense_sector_class,

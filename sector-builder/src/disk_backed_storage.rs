@@ -2,6 +2,7 @@ use std::fs::{create_dir_all, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
+use filecoin_proofs::constants::*;
 use filecoin_proofs::fr32::target_unpadded_bytes;
 use filecoin_proofs::types::*;
 
@@ -359,11 +360,16 @@ pub fn new_sector_store<P: AsRef<Path>>(
     SectorStore {
         proofs_config: ProofsConfig {
             porep_config: PoRepConfig::from(sector_class),
-            post_config: PoStConfig::from(sector_class),
+            post_config: PoStConfig {
+                sector_size: sector_class.sector_size,
+                challenge_count: POST_CHALLENGE_COUNT,
+                challenged_nodes: POST_CHALLENGED_NODES,
+                priority: true,
+            },
         },
         sector_config: SectorConfig {
-            max_unsealed_bytes_per_sector: UnpaddedBytesAmount::from(sector_class.0),
-            sector_bytes: PaddedBytesAmount::from(sector_class.0),
+            max_unsealed_bytes_per_sector: UnpaddedBytesAmount::from(sector_class.sector_size),
+            sector_bytes: PaddedBytesAmount::from(sector_class.sector_size),
         },
         manager,
     }
@@ -375,10 +381,10 @@ pub mod tests {
 
     use std::fs::create_dir_all;
 
-    use filecoin_proofs::constants::{SECTOR_SIZE_256_MIB, SECTOR_SIZE_ONE_KIB};
+    use filecoin_proofs::constants::{SECTOR_SIZE_2_KIB, SECTOR_SIZE_512_MIB};
     use filecoin_proofs::types::{PoRepProofPartitions, SectorSize};
 
-    use tempfile::{self};
+    use tempfile;
 
     fn create_sector_store(sector_class: SectorClass) -> SectorStore {
         let staging_path = tempfile::tempdir().unwrap().path().to_owned();
@@ -400,12 +406,18 @@ pub mod tests {
     fn max_unsealed_bytes_per_sector_checks() {
         let xs = vec![
             (
-                SectorClass(SectorSize(SECTOR_SIZE_256_MIB), PoRepProofPartitions(2)),
-                266338304,
+                SectorClass {
+                    sector_size: SectorSize(SECTOR_SIZE_512_MIB),
+                    partitions: PoRepProofPartitions(2),
+                },
+                u64::from(UnpaddedBytesAmount::from(PaddedBytesAmount(536_870_912u64))),
             ),
             (
-                SectorClass(SectorSize(SECTOR_SIZE_ONE_KIB), PoRepProofPartitions(2)),
-                1016,
+                SectorClass {
+                    sector_size: SectorSize(SECTOR_SIZE_2_KIB),
+                    partitions: PoRepProofPartitions(2),
+                },
+                u64::from(UnpaddedBytesAmount::from(PaddedBytesAmount(2_048u64))),
             ),
         ];
 

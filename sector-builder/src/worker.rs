@@ -1,8 +1,6 @@
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
-use filecoin_proofs::error::ExpectWithBacktrace;
-
 use crate::error::Result;
 use crate::scheduler::{SealCommitResult, SealPreCommitResult};
 use crate::{PoRepConfig, SealSeed, SealTicket, UnpaddedByteIndex, UnpaddedBytesAmount};
@@ -53,6 +51,7 @@ pub struct SealPreCommitTaskPrototype {
 #[derive(Debug)]
 pub struct SealCommitTaskPrototype {
     pub(crate) cache_dir: PathBuf,
+    pub(crate) sealed_sector_path: PathBuf,
     pub(crate) piece_info: Vec<PieceInfo>,
     pub(crate) porep_config: PoRepConfig,
     pub(crate) pre_commit: SealPreCommitOutput,
@@ -99,6 +98,7 @@ pub enum WorkerTask {
     },
     SealCommit {
         cache_dir: PathBuf,
+        sealed_sector_path: PathBuf,
         callback: SealCommitCallback,
         piece_info: Vec<PieceInfo>,
         porep_config: PoRepConfig,
@@ -133,8 +133,8 @@ impl Worker {
             // relinquish the lock and return the task. The receiver is mutexed
             // for coordinating reads across multiple worker-threads.
             let task = {
-                let rx = seal_task_rx.lock().expects(FATAL_NOLOCK);
-                rx.recv().expects(FATAL_RCVTSK)
+                let rx = seal_task_rx.lock().expect(FATAL_NOLOCK);
+                rx.recv().expect(FATAL_RCVTSK)
             };
 
             // Dispatch to the appropriate task-handler.
@@ -179,7 +179,9 @@ impl Worker {
                     staged_sector_path,
                     ticket,
                 } => {
-                    let result = filecoin_proofs::seal_pre_commit(
+                    // TODO: make two different task.
+
+                    let result = filecoin_proofs::seal_pre_commit_phase1(
                         porep_config,
                         &cache_dir,
                         &staged_sector_path,
@@ -188,7 +190,16 @@ impl Worker {
                         sector_id,
                         ticket.ticket_bytes,
                         &piece_info,
-                    );
+                    )
+                    .and_then(|result1| {
+                        filecoin_proofs::seal_pre_commit_phase2(
+                            porep_config,
+                            result1,
+                            &cache_dir,
+                            &sealed_sector_path,
+                        )
+                    })
+                    .map_err(Into::into);
 
                     callback(SealPreCommitResult {
                         sector_id,
@@ -197,6 +208,7 @@ impl Worker {
                 }
                 WorkerTask::SealCommit {
                     cache_dir,
+                    sealed_sector_path,
                     callback,
                     piece_info,
                     porep_config,
@@ -205,16 +217,30 @@ impl Worker {
                     seed,
                     ticket,
                 } => {
-                    let result = filecoin_proofs::seal_commit(
+                    let result = filecoin_proofs::seal_commit_phase1(
                         porep_config,
-                        cache_dir,
+                        &cache_dir,
+                        &sealed_sector_path,
                         prover_id,
                         sector_id,
                         ticket.ticket_bytes,
                         seed.ticket_bytes,
                         pre_commit,
                         &piece_info,
-                    );
+                    )
+                    .and_then(|result1| {
+                        filecoin_proofs::clear_cache(&cache_dir)?;
+                        Ok(result1)
+                    })
+                    .and_then(|result1| {
+                        filecoin_proofs::seal_commit_phase2(
+                            porep_config,
+                            result1,
+                            prover_id,
+                            sector_id,
+                        )
+                    })
+                    .map_err(Into::into);
 
                     callback(SealCommitResult {
                         proofs_api_call_result: result,

@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use std::io::Read;
 use std::path::PathBuf;
 
-use filecoin_proofs::error::ExpectWithBacktrace;
 use filecoin_proofs::pieces::get_piece_start_byte;
 use filecoin_proofs::{
     compute_comm_d, verify_seal, PaddedBytesAmount, PieceInfo, PrivateReplicaInfo,
@@ -109,13 +108,10 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         for sector in self.state.sealed.sectors.values() {
             if comm_rs_set.contains(&sector.comm_r) {
-                let path_str = self
+                let path = self
                     .sector_store
                     .manager()
-                    .sealed_sector_path(&sector.sector_access)
-                    .to_str()
-                    .map(str::to_string)
-                    .unwrap();
+                    .sealed_sector_path(&sector.sector_access);
 
                 let cache_dir = self
                     .sector_store
@@ -126,13 +122,13 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                     if !fault_set.contains(&sector.sector_id) {
                         replicas.insert(
                             sector.sector_id,
-                            PrivateReplicaInfo::new(path_str, sector.comm_r, cache_dir).unwrap(),
+                            PrivateReplicaInfo::new(path, sector.comm_r, cache_dir).unwrap(),
                         );
                     }
                 } else {
                     replicas.insert(
                         sector.sector_id,
-                        PrivateReplicaInfo::new(path_str, sector.comm_r, cache_dir).unwrap(),
+                        PrivateReplicaInfo::new(path, sector.comm_r, cache_dir).unwrap(),
                     );
                 }
             }
@@ -178,8 +174,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         let staged_sector_access = self
             .sector_store
             .manager()
-            .new_staging_sector_access(sealed_sector.sector_id)
-            .map_err(failure::Error::from)?;
+            .new_staging_sector_access(sealed_sector.sector_id)?;
 
         Ok(UnsealTaskPrototype {
             cache_dir: self
@@ -228,7 +223,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         )?;
 
         self.check_and_schedule(false);
-        self.checkpoint().expects(FATAL_SNPSHT);
+        self.checkpoint().expect(FATAL_SNPSHT);
 
         Ok(destination_sector_id)
     }
@@ -236,7 +231,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     // For demo purposes. Schedules sealing of all staged sectors.
     pub fn mark_all_sectors_for_sealing(&mut self) {
         self.check_and_schedule(true);
-        self.checkpoint().expects(FATAL_SNPSHT);
+        self.checkpoint().expect(FATAL_SNPSHT);
     }
 
     // Produces a vector containing metadata for all sealed sectors that this
@@ -352,7 +347,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         });
 
         meta.seal_status = SealStatus::PreCommitting(ticket);
-        self.checkpoint().expects(FATAL_SNPSHT);
+        self.checkpoint().expect(FATAL_SNPSHT);
 
         out
     }
@@ -396,8 +391,10 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             )),
         }?;
 
+        let mgr = self.sector_store.manager();
         let out = Ok(SealCommitTaskPrototype {
-            cache_dir: self.sector_store.manager().cache_path(&meta.sector_access),
+            cache_dir: mgr.cache_path(&meta.sector_access),
+            sealed_sector_path: mgr.sealed_sector_path(&meta.sector_access),
             piece_info: meta.pieces.iter().map(|x| (x.clone()).into()).collect(),
             porep_config: self.sector_store.proofs_config().porep_config,
             pre_commit: SealPreCommitOutput {
@@ -410,7 +407,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         });
 
         meta.seal_status = SealStatus::Committing(ticket, pre_commit, seed);
-        self.checkpoint().expects(FATAL_SNPSHT);
+        self.checkpoint().expect(FATAL_SNPSHT);
 
         out
     }
@@ -517,7 +514,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         // compute a comm_d
         let computed_comm_d = compute_comm_d(
-            pcfg,
+            pcfg.sector_size,
             &pieces
                 .iter()
                 .cloned()
@@ -608,7 +605,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         let _ = self.state.sealed.sectors.insert(sector_id, meta);
 
-        self.checkpoint().expects(FATAL_SNPSHT);
+        self.checkpoint().expect(FATAL_SNPSHT);
 
         Ok(())
     }
@@ -665,7 +662,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             }
         };
 
-        self.checkpoint().expects(FATAL_SNPSHT);
+        self.checkpoint().expect(FATAL_SNPSHT);
 
         out
     }
@@ -765,7 +762,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                 })
         };
 
-        self.checkpoint().expects(FATAL_SNPSHT);
+        self.checkpoint().expect(FATAL_SNPSHT);
 
         out
     }

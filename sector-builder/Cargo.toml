@@ -2,24 +2,22 @@
 name = "sector-builder"
 description = "Provides a database of sectors."
 version = "0.5.2"
-authors = ["dignifiedquire <dignifiedquire@gmail.com>", "laser <l@s3r.com>", "porcuquine <porcuquine@users.noreply.github.com>"]
+authors = [
+    "dignifiedquire <dignifiedquire@gmail.com>",
+    "laser <l@s3r.com>",
+    "porcuquine <porcuquine@users.noreply.github.com>",
+]
 license = "MIT OR Apache-2.0"
 edition = "2018"
-repository = "https://github.com/filecoin-project/rust-fil-proofs"
+repository = "https://github.com/ChainSafe/forest"
 readme = "README.md"
-publish = false
-
-[badges]
-maintenance = { status = "deprecated" }
 
 [dependencies]
-bitvec = "0.11"
-failure = "0.1.5"
-itertools = "0.8"
-rand = "0.4"
-filecoin-proofs = { git = "https://github.com/filecoin-project/rust-fil-proofs.git", branch = "master" }
-storage-proofs = { git = "https://github.com/filecoin-project/rust-fil-proofs.git", branch = "master" }
-serde_cbor = "0.9.0"
+itertools = "0.9.0"
+rand = "0.7"
+filecoin-proofs = { git = "https://github.com/filecoin-project/rust-fil-proofs.git", rev = "78da3a0" }
+storage-proofs = { git = "https://github.com/filecoin-project/rust-fil-proofs.git", rev = "78da3a0" }
+serde_cbor = "0.11.1"
 serde = { version = "1.0.92", features = ["rc", "derive"] }
 serde_json = "1.0"
 blake2b_simd = "0.5.5"
@@ -27,6 +25,8 @@ byteorder = "1.3.1"
 log = "0.4.7"
 rayon = "1.1.0"
 tempfile = "3"
+anyhow = "1.0.27"
+thiserror = "1.0.11"
 
 [dev-dependencies]
 criterion = "0.3.0"

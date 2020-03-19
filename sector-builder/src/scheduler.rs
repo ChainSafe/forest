@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 
-use filecoin_proofs::{error::ExpectWithBacktrace, Candidate};
+use filecoin_proofs::Candidate;
 use storage_proofs::sector::SectorId;
 
 use crate::error::Result;
@@ -134,16 +134,16 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
             SchedulerTask::AddPiece(key, amt, file, store_until, tx) => {
                 match self.m.add_piece(key, amt, file, store_until) {
                     Ok(sector_id) => {
-                        tx.send(Ok(sector_id)).expects(FATAL_NOSEND);
+                        tx.send(Ok(sector_id)).expect(FATAL_NOSEND);
                     }
                     Err(err) => {
-                        tx.send(Err(err)).expects(FATAL_NOSEND);
+                        tx.send(Err(err)).expect(FATAL_NOSEND);
                     }
                 }
             }
             SchedulerTask::GetSealStatus(sector_id, tx) => {
                 tx.send(self.m.get_seal_status(sector_id))
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
             SchedulerTask::RetrievePiece(piece_key, tx) => {
                 match self.m.create_retrieve_piece_task_proto(piece_key) {
@@ -153,7 +153,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                         let callback = Box::new(move |output| {
                             scheduler_tx_c
                                 .send(SchedulerTask::OnRetrievePieceComplete(output, tx))
-                                .expects(FATAL_NOSEND)
+                                .expect(FATAL_NOSEND)
                         });
 
                         self.worker_tx
@@ -169,16 +169,16 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                                 source_path: proto.source_path,
                                 callback,
                             })
-                            .expects(FATAL_NOSEND);
+                            .expect(FATAL_NOSEND);
                     }
                     Err(err) => {
-                        tx.send(Err(err)).expects(FATAL_NOSEND);
+                        tx.send(Err(err)).expect(FATAL_NOSEND);
                     }
                 }
             }
             SchedulerTask::GetSealedSectors(check_health, tx) => {
                 tx.send(self.m.get_sealed_sectors_filtered(check_health.0, |_| true))
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
             SchedulerTask::GetStagedSectors(tx) => {
                 tx.send(Ok(self
@@ -204,17 +204,17 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
             SchedulerTask::OnSealPreCommitComplete(output, done_tx) => {
                 done_tx
                     .send(self.m.handle_seal_pre_commit_result(output))
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
             SchedulerTask::OnSealCommitComplete(output, done_tx) => {
                 done_tx
                     .send(self.m.handle_seal_commit_result(output))
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
 
             SchedulerTask::OnRetrievePieceComplete(result, tx) => {
                 tx.send(self.m.read_unsealed_bytes_from(result))
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
             SchedulerTask::GenerateCandidates(
                 comm_rs,
@@ -230,7 +230,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                     Some(faults),
                 );
 
-                let callback = Box::new(move |r| tx.send(r).expects(FATAL_NOSEND));
+                let callback = Box::new(move |r| tx.send(r).expect(FATAL_NOSEND));
 
                 self.worker_tx
                     .send(WorkerTask::GenerateCandidates {
@@ -240,7 +240,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                         post_config: proto.post_config,
                         callback,
                     })
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
             SchedulerTask::GeneratePoSt(comm_rs, challenge_seed, challenge_count, winners, tx) => {
                 let proto = self.m.create_generate_post_task_proto(
@@ -250,7 +250,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                     None,
                 );
 
-                let callback = Box::new(move |r| tx.send(r).expects(FATAL_NOSEND));
+                let callback = Box::new(move |r| tx.send(r).expect(FATAL_NOSEND));
 
                 self.worker_tx
                     .send(WorkerTask::GeneratePoSt {
@@ -260,7 +260,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                         winners,
                         callback,
                     })
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
             SchedulerTask::ImportSector {
                 sector_id,
@@ -285,10 +285,9 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                     pieces,
                     proof,
                 ))
-                .expects(FATAL_NOSEND),
+                .expect(FATAL_NOSEND),
             SchedulerTask::AcquireSectorId(tx) => {
-                tx.send(Ok(self.m.acquire_sector_id()))
-                    .expects(FATAL_NOSEND);
+                tx.send(Ok(self.m.acquire_sector_id())).expect(FATAL_NOSEND);
             }
             SchedulerTask::Shutdown => (),
         };
@@ -311,7 +310,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
         let callback = Box::new(move |output| {
             scheduler_tx_c
                 .send(OnSealCommitComplete(output, done_tx_c))
-                .expects(FATAL_NOSEND)
+                .expect(FATAL_NOSEND)
         });
 
         match self.m.create_seal_commit_task_proto(sector_id, mode) {
@@ -319,6 +318,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                 self.worker_tx
                     .send(WorkerTask::SealCommit {
                         cache_dir: proto.cache_dir,
+                        sealed_sector_path: proto.sealed_sector_path,
                         callback,
                         piece_info: proto.piece_info,
                         porep_config: proto.porep_config,
@@ -327,9 +327,9 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                         seed: proto.seed,
                         ticket: proto.ticket,
                     })
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
-            Err(err) => done_tx.send(Err(err)).expects(FATAL_NOSEND),
+            Err(err) => done_tx.send(Err(err)).expect(FATAL_NOSEND),
         }
     }
 
@@ -348,7 +348,7 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
         let callback = Box::new(move |output| {
             scheduler_tx_c
                 .send(OnSealPreCommitComplete(output, done_tx_c))
-                .expects(FATAL_NOSEND)
+                .expect(FATAL_NOSEND)
         });
 
         match self.m.create_seal_pre_commit_task_proto(sector_id, mode) {
@@ -364,9 +364,9 @@ impl<T: KeyValueStore, V: 'static + Send + std::io::Read> TaskHandler<T, V> {
                         staged_sector_path: proto.staged_sector_path,
                         ticket: proto.ticket,
                     })
-                    .expects(FATAL_NOSEND);
+                    .expect(FATAL_NOSEND);
             }
-            Err(err) => done_tx.send(Err(err)).expects(FATAL_NOSEND),
+            Err(err) => done_tx.send(Err(err)).expect(FATAL_NOSEND),
         }
     }
 }
@@ -387,7 +387,7 @@ impl Scheduler {
             };
 
             loop {
-                let task = scheduler_rx.recv().expects(FATAL_NORECV);
+                let task = scheduler_rx.recv().expect(FATAL_NORECV);
                 if !h.handle(task) {
                     break;
                 }

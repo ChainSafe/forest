@@ -1,11 +1,13 @@
+use std::path::Path;
+
+use crate::error::Result;
 use crate::helpers;
 use crate::{SealedSectorHealth, SealedSectorMetadata};
-use std::path::Path;
 
 pub fn get_sealed_sector_health<T: AsRef<Path>>(
     sealed_sector_path: T,
     meta: &SealedSectorMetadata,
-) -> Result<SealedSectorHealth, failure::Error> {
+) -> Result<SealedSectorHealth> {
     let result = std::fs::metadata(&sealed_sector_path);
 
     // ensure that the file still exists
