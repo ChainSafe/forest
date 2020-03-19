@@ -1,10 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod state;
-
-pub use self::state::State;
 use crate::{assert_empty_params, empty_return, SYSTEM_ACTOR_ADDR};
+
 use address::Address;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
@@ -19,7 +17,7 @@ pub enum Method {
 }
 
 impl Method {
-    /// Converts a method number into an Method enum
+    /// Converts a method number into a Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
         FromPrimitive::from_u64(u64::from(m))
     }
