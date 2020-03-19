@@ -1,3 +1,5 @@
+SER_TESTS = "tests/serialization_tests"
+
 clean-all:
 	cargo clean
 
@@ -28,11 +30,11 @@ clean:
 	@echo "Done cleaning."
 
 lint: license clean
-	cargo fmt
+	cargo fmt --all
 	cargo clippy -- -D warnings
 
 install:
-	cargo install --path forest
+	cargo install --path forest --force
 
 build:
 	cargo build
@@ -40,13 +42,29 @@ build:
 release:
 	cargo build --release
 
+# Git submodule test vectors
+pull-serialization-tests:
+	git submodule update --init
+
+run-vectors:
+	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "serde_tests"
+
+test-vectors: pull-serialization-tests run-vectors
+
+# Test all without the submodule test vectors with release configuration
 test:
+	cargo test --all --release --exclude serialization_tests
+
+# This will run all tests will all features enabled, which will exclude some tests with
+# specific features disabled
+test-all: pull-serialization-tests
 	cargo test --all-features
 
+# Checks if all headers are present and adds if not
 license:
 	./scripts/add_license.sh
 
 docs:
 	cargo doc --no-deps --all-features
 
-.PHONY: clean clean-all lint build release test license
+.PHONY: clean clean-all lint build release test license test-all test-vectors run-vectors pull-serialization-tests

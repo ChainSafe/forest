@@ -29,7 +29,7 @@ fn unsigned_message_builder() {
         .value(TokenAmount::new(0))
         .method_num(MethodNum::default())
         .params(Serialized::default())
-        .gas_limit(BigUint::default())
+        .gas_limit(0)
         .gas_price(BigUint::default())
         .build()
         .unwrap();
@@ -40,7 +40,7 @@ fn unsigned_message_builder() {
     assert_eq!(message.params(), &Serialized::default());
     assert_eq!(message.value(), &TokenAmount::new(0));
     assert_eq!(message.gas_price(), &BigUint::default());
-    assert_eq!(message.gas_limit(), &BigUint::default());
+    assert_eq!(message.gas_limit(), 0);
     let mut mb = UnsignedMessage::builder();
     mb.to(to_addr.clone());
     mb.from(from_addr.clone());

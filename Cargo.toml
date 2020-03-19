@@ -23,4 +23,5 @@ members = [
     "ipld",
     "ipld/hamt",
     "math/bigint",
+    "tests/serialization_tests",
 ]

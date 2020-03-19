@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de, ser};
-use num_bigint::{biguint_ser, BigUint};
+use num_bigint::{biguint_ser, BigUint, ParseBigIntError};
 use num_traits::CheckedSub;
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub};
@@ -67,5 +67,13 @@ impl<'de> de::Deserialize<'de> for TokenAmount {
         D: de::Deserializer<'de>,
     {
         Ok(Self(biguint_ser::deserialize(deserializer)?))
+    }
+}
+
+impl FromStr for TokenAmount {
+    type Err = ParseBigIntError;
+
+    fn from_str(src: &str) -> Result<Self, ParseBigIntError> {
+        Ok(TokenAmount(BigUint::from_str(src)?))
     }
 }
