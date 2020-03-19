@@ -12,6 +12,7 @@ use encoding::{
 };
 use num_bigint::BigUint;
 use serde::Deserialize;
+use std::cmp::Ordering;
 
 /// A set of CIDs forming a unique key for a TipSet.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
@@ -64,9 +65,21 @@ impl<'de> de::Deserialize<'de> for TipSetKeys {
     }
 }
 
+impl PartialOrd for TipSetKeys {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.cids.partial_cmp(&other.cids)
+    }
+}
+
+impl Ord for TipSetKeys {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cids.cmp(&other.cids)
+    }
+}
+
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, PartialOrd, Ord, Eq)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,

@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::sync::RwLock;
+use blocks::Tipset;
 use libp2p::core::PeerId;
 use log::debug;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 /// Thread safe peer manager
@@ -11,6 +13,8 @@ use std::collections::HashSet;
 pub struct PeerManager {
     /// Hash set of full peers available
     full_peers: RwLock<HashSet<PeerId>>,
+    /// Represents peers and proposed tipsets from the network
+    pub peer_heads: HashMap<PeerId, Tipset>,
 }
 
 impl PeerManager {

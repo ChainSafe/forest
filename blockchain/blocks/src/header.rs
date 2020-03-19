@@ -14,6 +14,7 @@ use encoding::{
 };
 use num_bigint::{biguint_ser, BigUint};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -42,7 +43,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///     .build_and_validate()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Builder, Default)]
+#[derive(Clone, Debug, PartialEq, Builder, Default, Eq)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -209,6 +210,18 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             .unwrap();
 
         Ok(header)
+    }
+}
+
+impl PartialOrd for BlockHeader {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.cached_bytes.partial_cmp(&other.cached_bytes)
+    }
+}
+
+impl Ord for BlockHeader {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cached_bytes.cmp(&other.cached_bytes)
     }
 }
 

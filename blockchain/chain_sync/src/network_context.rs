@@ -5,7 +5,7 @@ use super::network_handler::RPCReceiver;
 use async_std::future;
 use async_std::prelude::*;
 use async_std::sync::{Receiver, Sender};
-use blocks::{TipSetKeys, Tipset};
+use blocks::{FullTipset, TipSetKeys, Tipset};
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse},
     rpc::{RPCEvent, RPCRequest, RPCResponse, RequestId},
@@ -69,6 +69,27 @@ impl SyncNetworkContext {
         ts.iter()
             .map(|fts| fts.tipset().map_err(|e| e.to_string()))
             .collect::<Result<_, _>>()
+    }
+    /// Send a blocksync request for full tipsets (includes messages)
+    pub async fn blocksync_fts(
+        &mut self,
+        peer_id: PeerId,
+        tsk: &TipSetKeys,
+        count: u64,
+    ) -> Result<FullTipset, String> {
+        let bs_res = self
+            .blocksync_request(
+                peer_id,
+                BlockSyncRequest {
+                    start: tsk.cids().to_vec(),
+                    request_len: count,
+                    options: 1,
+                },
+            )
+            .await?;
+
+        let fts = bs_res.into_result()?;
+        Ok(fts[0].clone())
     }
 
     /// Send a blocksync request to the network and await response

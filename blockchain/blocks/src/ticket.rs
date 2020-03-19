@@ -45,7 +45,7 @@ impl<'de> de::Deserialize<'de> for Ticket {
 }
 
 /// PoSt election candidates
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Eq)]
 pub struct EPostTicket {
     pub partial: Vec<u8>,
     pub sector_id: u64,
@@ -53,7 +53,7 @@ pub struct EPostTicket {
 }
 
 /// Proof of Spacetime election proof
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Eq)]
 pub struct EPostProof {
     pub proof: Vec<u8>,
     pub post_rand: Vec<u8>,

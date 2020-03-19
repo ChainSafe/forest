@@ -100,3 +100,9 @@ impl From<StErr> for Error {
         Error::State(e.to_string())
     }
 }
+
+impl From<String> for Error {
+    fn from(e: String) -> Error {
+        Error::Other(e.to_string())
+    }
+}

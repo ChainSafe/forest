@@ -4,11 +4,13 @@
 #[cfg(test)]
 mod peer_test;
 
+use super::bucket::{SyncBucket, SyncBucketSet};
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
-use super::{Error, SyncManager, SyncNetworkContext};
+use super::{Error, SyncNetworkContext};
 use address::Address;
 use amt::AMT;
+use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
 use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
@@ -46,6 +48,18 @@ enum SyncState {
     /// by receiving blocks over the network and validating them
     _Follow,
 }
+/// SyncStatus represents the current state of the sync manager
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum SyncStatus {
+    /// Initial sync state
+    Init,
+    /// Indicates target tipsets have been added to the queue
+    Ready,
+    /// Indicates tipsets will be synced in the near future
+    Scheduled,
+    /// Indicates the completion of a successful sync
+    Completed,
+}
 
 pub struct ChainSyncer<DB> {
     /// Syncing state of chain sync
@@ -54,8 +68,10 @@ pub struct ChainSyncer<DB> {
     /// manages retrieving and updates state objects
     state_manager: StateManager<DB>,
 
-    /// manages sync buckets
-    sync_manager: SyncManager,
+    /// Bucket queue for incoming tipsets
+    sync_queue: SyncBucketSet,
+    /// Represents next tipset to be synced
+    next_sync_target: SyncBucket,
 
     /// access and store tipsets / blocks / messages
     chain_store: ChainStore<DB>,
@@ -75,6 +91,8 @@ pub struct ChainSyncer<DB> {
 
     /// Peer manager to handle full peers to send ChainSync requests to
     peer_manager: Arc<PeerManager>,
+    /// temp
+    status: SyncStatus,
 }
 
 /// Message data used to ensure valid state transition
@@ -92,8 +110,6 @@ where
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
     ) -> Result<Self, Error> {
-        let sync_manager = SyncManager::default();
-
         let chain_store = ChainStore::new(db.clone());
         let _genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
@@ -122,10 +138,12 @@ where
             chain_store,
             network,
             _genesis,
-            sync_manager,
             bad_blocks: LruCache::new(1 << 15),
             net_handler,
             peer_manager,
+            status: SyncStatus::Init,
+            sync_queue: SyncBucketSet::default(),
+            next_sync_target: SyncBucket::default(),
         })
     }
 }
@@ -134,10 +152,31 @@ impl<DB> ChainSyncer<DB>
 where
     DB: BlockStore,
 {
-    /// Starts syncing process
-    pub async fn sync(mut self) -> Result<(), Error> {
+    pub async fn start(mut self) -> Result<(), Error> {
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
+        loop {
+            match self.network.receiver.next().await {
+                Some(event) => {
+                    if let NetworkEvent::Hello { source, message } = &event {
+                        let fts = self
+                            .fetch_tipset(
+                                source.clone(),
+                                &TipSetKeys::new(message.heaviest_tip_set.clone()),
+                            )
+                            .await?;
+                        self.inform_new_head(&source.clone(), &fts);
+                    }
+                }
+                None => break,
+            }
+            // check if enough peers?
+        }
+        Ok(())
+    }
+
+    /// Starts syncing process
+    pub async fn sync(&mut self, head: Tipset) -> Result<(), Error> {
         info!("Bootstrapping peers to sync");
 
         // Bootstrap peers before syncing
@@ -158,9 +197,6 @@ where
         // Get heaviest tipset from storage to sync toward
         let heaviest = self.chain_store.heaviest_tipset();
 
-        // TODO remove this and retrieve head from storage
-        let head = Tipset::new(vec![BlockHeader::default()]).unwrap();
-
         // Sync headers from network from head to heaviest from storage
         let headers = self.sync_headers_reverse(head, &heaviest).await?;
 
@@ -173,7 +209,7 @@ where
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    pub fn inform_new_head(&self, from: &PeerId, fts: &FullTipset) -> Result<(), Error> {
+    pub fn inform_new_head(&mut self, from: &PeerId, fts: &FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
         if fts.blocks().is_empty() {
             return Err(Error::NoBlocks);
@@ -188,14 +224,74 @@ where
         let best_weight = heaviest_tipset.blocks()[0].weight();
         let target_weight = fts.blocks()[0].header().weight();
 
-        if !target_weight.lt(&best_weight) {
-            // Store incoming block header
-            self.chain_store.persist_headers(&fts.tipset()?)?;
+        if target_weight.gt(&best_weight) {
             // Set peer head
-            self.sync_manager.set_peer_head(from, fts.tipset()?);
+            self.set_peer_head(from, fts.tipset()?);
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
+    }
+    pub async fn set_peer_head(&mut self, peer: &PeerId, ts: Tipset) {
+        // update peer heads map
+        self.peer_manager
+            .peer_heads
+            .insert(peer.clone(), ts.clone());
+        // initial sync
+        if self.get_status() == &SyncStatus::Init {
+            if let Some(best_target) = self.select_sync_target() {
+                self.set_status(SyncStatus::Ready);
+                self.sync(best_target);
+            }
+            return;
+        }
+    }
+    /// Retrieves the heaviest tipset in the sync queue; considered best target head
+    pub fn select_sync_target(&mut self) -> Option<Tipset> {
+        let mut heads = Vec::new();
+        for (_, ts) in self.peer_manager.peer_heads.clone() {
+            heads.push(ts);
+        }
+        heads.sort_by_key(|header| (*header.epoch()));
+
+        for (_, ts) in self.peer_manager.peer_heads.clone() {
+            self.sync_queue.insert(ts);
+        }
+
+        if self.sync_queue.buckets().len() > 1 {
+            warn!("caution, multiple distinct chains seen during head selections");
+        }
+        self.sync_queue.heaviest()
+    }
+    /// Schedules a new tipset to be handled by the sync manager
+    async fn schedule_tipset(&mut self, tipset: Tipset) {
+        info!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
+
+        // check sync status if indicates tipsets are ready to be synced
+        if self.get_status() == &SyncStatus::Ready {
+            // set the sync status to scheduled
+            self.set_status(SyncStatus::Scheduled);
+            // send tipsets to be synced
+            self.sync(tipset.clone());
+        }
+
+        // if next_sync_target is from same chain as incoming tipset add it to be synced next
+        if !self.next_sync_target.is_empty() && self.next_sync_target.same_chain_as(&tipset.clone())
+        {
+            self.next_sync_target.add(tipset);
+        } else {
+            // add incoming tipset to queue to by synced later
+            self.sync_queue.insert(tipset.clone());
+            // update next sync target if empty
+            if self.next_sync_target.is_empty() {
+                if let Some(target_bucket) = self.sync_queue.pop() {
+                    self.next_sync_target = target_bucket;
+                    if let Some(best_target) = self.next_sync_target.heaviest_tipset() {
+                        // send heaviest tipset from sync target to be synced
+                        self.sync(best_target);
+                    }
+                }
+            }
+        }
     }
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
@@ -230,13 +326,12 @@ where
     }
     /// Returns FullTipset from store if TipSetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
-    pub fn fetch_tipset(&self, _peer_id: PeerId, tsk: &TipSetKeys) -> Result<FullTipset, Error> {
-        let fts = match self.load_fts(tsk) {
-            Ok(fts) => fts,
-            // TODO call into block sync to request FullTipset -> self.blocksync.get_full_tipset(_peer_id, tsk)
-            Err(e) => return Err(e), // blocksync
-        };
-        Ok(fts)
+    pub async fn fetch_tipset(
+        &self,
+        peer_id: PeerId,
+        tsk: &TipSetKeys,
+    ) -> Result<FullTipset, Error> {
+        Ok(self.network.blocksync_fts(peer_id, tsk, 1).await?)
     }
     /// Returns a reconstructed FullTipset from store if keys exist
     fn load_fts(&self, keys: &TipSetKeys) -> Result<FullTipset, Error> {
@@ -541,6 +636,18 @@ where
         Ok(tipsets
             .iter()
             .try_for_each(|ts| self.chain_store.persist_headers(ts))?)
+    }
+    /// Returns the managed sync status
+    pub fn get_status(&self) -> &SyncStatus {
+        &self.status
+    }
+    /// Sets the managed sync status
+    pub fn set_status(&mut self, new_status: SyncStatus) {
+        self.status = new_status
+    }
+    /// Returns the number of peers
+    fn peer_count(&self) -> usize {
+        self.peer_manager.peer_heads.clone().keys().len()
     }
 }
 

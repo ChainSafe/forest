@@ -12,7 +12,7 @@ use std::ops::Sub;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 /// An epoch represents a single valid state in the blockchain
 pub struct ChainEpoch(pub u64);
 
