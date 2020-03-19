@@ -78,3 +78,9 @@ impl FromStr for TokenAmount {
         Ok(TokenAmount(BigUint::from_str(src)?))
     }
 }
+
+impl From<BigUint> for TokenAmount {
+    fn from(other: BigUint) -> Self {
+        TokenAmount(other)
+    }
+}
