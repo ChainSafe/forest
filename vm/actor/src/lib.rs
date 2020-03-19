@@ -5,8 +5,10 @@
 extern crate lazy_static;
 
 mod builtin;
+mod util;
 
 pub use self::builtin::*;
+pub use self::util::*;
 pub use vm::{ActorID, ActorState, Serialized};
 
 use ipld_blockstore::BlockStore;

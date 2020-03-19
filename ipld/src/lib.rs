@@ -40,11 +40,11 @@ where
 
 /// Convert a `Ipld` structure into a type `T`
 /// Currently converts using a byte buffer with serde_cbor
-pub fn from_ipld<T>(value: Ipld) -> Result<T, String>
+pub fn from_ipld<T>(value: &Ipld) -> Result<T, String>
 where
     T: DeserializeOwned,
 {
     // TODO find a way to convert without going through byte buffer
-    let buf = to_vec(&value).map_err(|e| e.to_string())?;
+    let buf = to_vec(value).map_err(|e| e.to_string())?;
     from_slice(buf.as_slice()).map_err(|e| e.to_string())
 }
