@@ -27,7 +27,6 @@ clean:
 	@cargo clean -p ipld_hamt
 	@cargo clean -p ipld_amt
 	@cargo clean -p forest_bigint
-	@cargo clean -p 
 	@echo "Done cleaning."
 
 lint: license clean
