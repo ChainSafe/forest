@@ -156,7 +156,7 @@ where
         V: DeserializeOwned,
     {
         match self.root.get(k, self.store, self.bit_width)? {
-            Some(v) => Ok(Some(from_ipld(v).map_err(Error::Encoding)?)),
+            Some(v) => Ok(Some(from_ipld(&v).map_err(Error::Encoding)?)),
             None => Ok(None),
         }
     }
@@ -200,5 +200,36 @@ where
     /// Returns true if the HAMT has no entries
     pub fn is_empty(&self) -> bool {
         self.root.is_empty()
+    }
+
+    /// Iterates over each KV in the Hamt and runs a function on the values.
+    ///
+    /// This function will constrain all values to be of the same type
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ipld_hamt::Hamt;
+    ///
+    /// let store = db::MemoryDB::default();
+    ///
+    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// map.set(1, 1).unwrap();
+    /// map.set(4, 2).unwrap();
+    ///
+    /// let mut total = 0;
+    /// map.for_each(&mut |_, v: u64| {
+    ///    total += v;
+    ///    Ok(())
+    /// }).unwrap();
+    /// assert_eq!(total, 3);
+    /// ```
+    #[inline]
+    pub fn for_each<F, V>(&self, f: &mut F) -> Result<(), String>
+    where
+        V: DeserializeOwned,
+        F: FnMut(&K, V) -> Result<(), String>,
+    {
+        self.root.for_each(self.store, f)
     }
 }

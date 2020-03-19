@@ -6,11 +6,10 @@ use super::hash_bits::HashBits;
 use super::pointer::Pointer;
 use super::{Error, Hash, HashedKey, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::multihash::Blake2b256;
-use forest_encoding::{de::Deserializer, ser::Serializer};
-use forest_ipld::Ipld;
+use forest_ipld::{from_ipld, Ipld};
 use ipld_blockstore::BlockStore;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
 use std::fmt::Debug;
 
@@ -127,6 +126,29 @@ where
 
     pub fn is_empty(&self) -> bool {
         self.pointers.is_empty()
+    }
+
+    pub(crate) fn for_each<V, S, F>(&self, store: &S, f: &mut F) -> Result<(), String>
+    where
+        V: DeserializeOwned,
+        F: FnMut(&K, V) -> Result<(), String>,
+        S: BlockStore,
+    {
+        for p in &self.pointers {
+            match p {
+                Pointer::Link(cid) => match store.get::<Node<K>>(cid)? {
+                    Some(node) => node.for_each(store, f)?,
+                    None => return Err(format!("Node with cid {} not found", cid)),
+                },
+                Pointer::Cache(n) => n.for_each(store, f)?,
+                Pointer::Values(kvs) => {
+                    for kv in kvs {
+                        f(kv.0.borrow(), from_ipld(&kv.1).map_err(Error::Encoding)?)?;
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Search for a key.

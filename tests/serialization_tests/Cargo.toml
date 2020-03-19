@@ -1,0 +1,20 @@
+[package]
+name = "serialization_tests"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[features]
+serde_tests = []
+
+[dev-dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+hex = "0.4.0"
+base64 = "0.11.0"
+
+vm = { path = "../../vm" }
+address = { package = "forest_address", path = "../../vm/address" }
+forest_message = { path = "../../vm/message" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+encoding = { package = "forest_encoding", path = "../../encoding" }

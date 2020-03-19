@@ -1,0 +1,3 @@
+[submodule "tests/serialization-vectors"]
+	path = tests/serialization-vectors
+	url = https://github.com/filecoin-project/serialization-vectors
