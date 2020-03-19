@@ -26,7 +26,7 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///     .value(TokenAmount::new(0)) // optional
 ///     .method_num(MethodNum::default()) // optional
 ///     .params(Serialized::default()) // optional
-///     .gas_limit(BigUint::default()) // optional
+///     .gas_limit(0) // optional
 ///     .gas_price(BigUint::default()) // optional
 ///     .build()
 ///     .unwrap();
@@ -55,7 +55,7 @@ pub struct UnsignedMessage {
     #[builder(default)]
     gas_price: BigUint,
     #[builder(default)]
-    gas_limit: BigUint,
+    gas_limit: u64,
 }
 
 impl UnsignedMessage {
@@ -72,7 +72,7 @@ pub struct TupleUnsignedMessage(
     u64,
     TokenAmount,
     #[serde(with = "biguint_ser")] BigUint,
-    #[serde(with = "biguint_ser")] BigUint,
+    u64,
     MethodNum,
     Serialized,
 );
@@ -89,7 +89,7 @@ impl ser::Serialize for UnsignedMessage {
             &'a u64,
             &'a TokenAmount,
             #[serde(with = "biguint_ser")] &'a BigUint,
-            #[serde(with = "biguint_ser")] &'a BigUint,
+            &'a u64,
             &'a MethodNum,
             &'a Serialized,
         );
@@ -157,8 +157,8 @@ impl Message for UnsignedMessage {
     fn gas_price(&self) -> &BigUint {
         &self.gas_price
     }
-    fn gas_limit(&self) -> &BigUint {
-        &self.gas_limit
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
     fn required_funds(&self) -> BigUint {
         let total = self.gas_price() * self.gas_limit();

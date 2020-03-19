@@ -22,10 +22,8 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - name: Cargo test all
+        run: make test-all
 
   fmt:
     name: rustfmt
