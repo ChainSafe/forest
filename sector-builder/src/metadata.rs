@@ -1,20 +1,22 @@
-use filecoin_proofs::types::UnpaddedBytesAmount;
-use filecoin_proofs::{Commitment, PieceInfo};
+use filecoin_proofs_api::{
+    Commitment, PieceInfo, RegisteredSealProof, SectorId, UnpaddedBytesAmount,
+};
 use serde::{Deserialize, Serialize};
-use storage_proofs::sector::SectorId;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct StagedSectorMetadata {
     pub sector_id: SectorId,
     pub sector_access: String,
+    pub registered_seal_proof: RegisteredSealProof,
     pub pieces: Vec<PieceMetadata>,
     pub seal_status: SealStatus,
 }
 
-#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct SealedSectorMetadata {
     pub sector_id: SectorId,
     pub sector_access: String,
+    pub registered_seal_proof: RegisteredSealProof,
     pub pieces: Vec<PieceMetadata>,
     pub comm_r: [u8; 32],
     pub comm_d: [u8; 32],
@@ -25,6 +27,24 @@ pub struct SealedSectorMetadata {
     pub len: u64,
     pub ticket: SealTicket,
     pub seed: SealSeed,
+}
+
+impl SealedSectorMetadata {
+    pub fn from_id(sector_id: SectorId, registered_seal_proof: RegisteredSealProof) -> Self {
+        Self {
+            sector_id,
+            sector_access: Default::default(),
+            registered_seal_proof,
+            pieces: Default::default(),
+            comm_r: Default::default(),
+            comm_d: Default::default(),
+            proof: Default::default(),
+            blake2b_checksum: Default::default(),
+            len: Default::default(),
+            ticket: Default::default(),
+            seed: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -45,6 +65,7 @@ impl From<PieceMetadata> for PieceInfo {
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PersistablePreCommitOutput {
+    pub registered_proof: RegisteredSealProof,
     pub comm_d: Commitment,
     pub comm_r: Commitment,
 }
@@ -142,9 +163,10 @@ pub enum GetSealedSectorResult {
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct SecondsSinceEpoch(pub u64);
 
-impl Default for StagedSectorMetadata {
-    fn default() -> StagedSectorMetadata {
+impl StagedSectorMetadata {
+    pub fn from_proof(registered_seal_proof: RegisteredSealProof) -> StagedSectorMetadata {
         StagedSectorMetadata {
+            registered_seal_proof,
             sector_id: Default::default(),
             sector_access: Default::default(),
             pieces: Default::default(),

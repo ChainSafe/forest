@@ -2,8 +2,10 @@ use std::path::PathBuf;
 
 use async_std::sync::{Receiver, Sender};
 
-use filecoin_proofs::Candidate;
-use storage_proofs::sector::SectorId;
+use filecoin_proofs_api::{
+    seal::{SealCommitPhase2Output, SealPreCommitPhase2Output},
+    Candidate, RegisteredPoStProof, RegisteredSealProof, SectorId, UnpaddedBytesAmount,
+};
 
 use crate::error::Result;
 use crate::kv_store::KeyValueStore;
@@ -12,7 +14,7 @@ use crate::scheduler::SchedulerTask::{OnSealCommitComplete, OnSealPreCommitCompl
 use crate::worker::WorkerTask;
 use crate::{
     CommitMode, GetSealedSectorResult, PieceMetadata, PreCommitMode, SealSeed, SealTicket,
-    SealedSectorMetadata, SecondsSinceEpoch, SectorMetadataManager, UnpaddedBytesAmount,
+    SealedSectorMetadata, SecondsSinceEpoch, SectorMetadataManager,
 };
 
 pub struct Scheduler {
@@ -24,20 +26,23 @@ pub struct PerformHealthCheck(pub bool);
 
 #[derive(Debug)]
 pub struct SealPreCommitResult {
-    pub proofs_api_call_result: Result<filecoin_proofs::SealPreCommitOutput>,
+    pub proofs_api_call_result: Result<SealPreCommitPhase2Output>,
     pub sector_id: SectorId,
 }
 
 #[derive(Debug)]
 pub struct SealCommitResult {
-    pub proofs_api_call_result: Result<filecoin_proofs::SealCommitOutput>,
+    pub proofs_api_call_result: Result<SealCommitPhase2Output>,
     pub sector_id: SectorId,
 }
+
+type PoStList = Vec<(RegisteredPoStProof, Vec<u8>)>;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum SchedulerTask {
     AddPiece(
+        RegisteredSealProof,
         String,
         u64,
         PathBuf,
@@ -62,15 +67,34 @@ pub enum SchedulerTask {
         [u8; 32],       // seed
         u64,            // challenge count
         Vec<Candidate>, // winners
-        Sender<Result<Vec<Vec<u8>>>>,
+        Sender<Result<PoStList>>,
     ),
-    RetrievePiece(String, Sender<Result<Vec<u8>>>),
-    ResumeSealPreCommit(SectorId, Sender<Result<StagedSectorMetadata>>),
-    ResumeSealCommit(SectorId, Sender<Result<SealedSectorMetadata>>),
-    SealPreCommit(SectorId, SealTicket, Sender<Result<StagedSectorMetadata>>),
-    SealCommit(SectorId, SealSeed, Sender<Result<SealedSectorMetadata>>),
+    RetrievePiece(RegisteredSealProof, String, Sender<Result<Vec<u8>>>),
+    ResumeSealPreCommit(
+        RegisteredSealProof,
+        SectorId,
+        Sender<Result<StagedSectorMetadata>>,
+    ),
+    ResumeSealCommit(
+        RegisteredSealProof,
+        SectorId,
+        Sender<Result<SealedSectorMetadata>>,
+    ),
+    SealPreCommit(
+        RegisteredSealProof,
+        SectorId,
+        SealTicket,
+        Sender<Result<StagedSectorMetadata>>,
+    ),
+    SealCommit(
+        RegisteredSealProof,
+        SectorId,
+        SealSeed,
+        Sender<Result<SealedSectorMetadata>>,
+    ),
     AcquireSectorId(Sender<Result<SectorId>>),
     ImportSector {
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         sector_cache_dir: PathBuf,
         sealed_sector: PathBuf,
@@ -113,8 +137,12 @@ impl<T: KeyValueStore> TaskHandler<T> {
         let should_continue = task.should_continue();
 
         match task {
-            SchedulerTask::AddPiece(key, amt, file, store_until, tx) => {
-                match self.m.add_piece(key, amt, file, store_until).await {
+            SchedulerTask::AddPiece(registered_proof, key, amt, file, store_until, tx) => {
+                match self
+                    .m
+                    .add_piece(registered_proof, key, amt, file, store_until)
+                    .await
+                {
                     Ok(sector_id) => {
                         tx.send(Ok(sector_id)).await;
                     }
@@ -126,7 +154,7 @@ impl<T: KeyValueStore> TaskHandler<T> {
             SchedulerTask::GetSealStatus(sector_id, tx) => {
                 tx.send(self.m.get_seal_status(sector_id)).await;
             }
-            SchedulerTask::RetrievePiece(piece_key, tx) => {
+            SchedulerTask::RetrievePiece(registered_proof, piece_key, tx) => {
                 match self.m.create_retrieve_piece_task_proto(piece_key) {
                     Ok(proto) => {
                         let scheduler_tx_c = self.scheduler_tx.clone();
@@ -143,12 +171,12 @@ impl<T: KeyValueStore> TaskHandler<T> {
 
                         self.worker_tx
                             .send(WorkerTask::Unseal {
+                                registered_proof,
                                 comm_d: proto.comm_d,
                                 cache_dir: proto.cache_dir,
                                 destination_path: proto.destination_path,
                                 piece_len: proto.piece_len,
                                 piece_start_byte: proto.piece_start_byte,
-                                porep_config: proto.porep_config,
                                 seal_ticket: proto.seal_ticket,
                                 sector_id: proto.sector_id,
                                 source_path: proto.source_path,
@@ -178,20 +206,35 @@ impl<T: KeyValueStore> TaskHandler<T> {
                     .collect()))
                     .await;
             }
-            SchedulerTask::SealPreCommit(sector_id, t, tx) => {
-                self.send_pre_commit_to_worker(sector_id, PreCommitMode::StartFresh(t), tx)
-                    .await;
+            SchedulerTask::SealPreCommit(registered_proof, sector_id, t, tx) => {
+                self.send_pre_commit_to_worker(
+                    registered_proof,
+                    sector_id,
+                    PreCommitMode::StartFresh(t),
+                    tx,
+                )
+                .await;
             }
-            SchedulerTask::ResumeSealPreCommit(sector_id, tx) => {
-                self.send_pre_commit_to_worker(sector_id, PreCommitMode::Resume, tx)
-                    .await;
+            SchedulerTask::ResumeSealPreCommit(registered_proof, sector_id, tx) => {
+                self.send_pre_commit_to_worker(
+                    registered_proof,
+                    sector_id,
+                    PreCommitMode::Resume,
+                    tx,
+                )
+                .await;
             }
-            SchedulerTask::SealCommit(sector_id, seed, tx) => {
-                self.send_commit_to_worker(sector_id, CommitMode::StartFresh(seed), tx)
-                    .await;
+            SchedulerTask::SealCommit(registered_proof, sector_id, seed, tx) => {
+                self.send_commit_to_worker(
+                    registered_proof,
+                    sector_id,
+                    CommitMode::StartFresh(seed),
+                    tx,
+                )
+                .await;
             }
-            SchedulerTask::ResumeSealCommit(sector_id, tx) => {
-                self.send_commit_to_worker(sector_id, CommitMode::Resume, tx)
+            SchedulerTask::ResumeSealCommit(registered_proof, sector_id, tx) => {
+                self.send_commit_to_worker(registered_proof, sector_id, CommitMode::Resume, tx)
                     .await;
             }
             SchedulerTask::OnSealPreCommitComplete(output, done_tx) => {
@@ -234,7 +277,6 @@ impl<T: KeyValueStore> TaskHandler<T> {
                         randomness: proto.randomness,
                         challenge_count: proto.challenge_count,
                         private_replicas: proto.private_replicas,
-                        post_config: proto.post_config,
                         callback,
                     })
                     .await;
@@ -258,13 +300,13 @@ impl<T: KeyValueStore> TaskHandler<T> {
                     .send(WorkerTask::GeneratePoSt {
                         randomness: proto.randomness,
                         private_replicas: proto.private_replicas,
-                        post_config: proto.post_config,
                         winners,
                         callback,
                     })
                     .await;
             }
             SchedulerTask::ImportSector {
+                registered_proof,
                 sector_id,
                 sector_cache_dir,
                 sealed_sector,
@@ -280,6 +322,7 @@ impl<T: KeyValueStore> TaskHandler<T> {
                     .send(
                         self.m
                             .import_sector(
+                                registered_proof,
                                 sector_id,
                                 sector_cache_dir,
                                 sealed_sector,
@@ -307,6 +350,7 @@ impl<T: KeyValueStore> TaskHandler<T> {
     // id and mode combination are invalid, done_tx receives an error.
     async fn send_commit_to_worker(
         &mut self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         mode: CommitMode,
         done_tx: Sender<Result<SealedSectorMetadata>>,
@@ -324,7 +368,10 @@ impl<T: KeyValueStore> TaskHandler<T> {
             Box::pin(fut)
         });
 
-        match self.m.create_seal_commit_task_proto(sector_id, mode) {
+        match self
+            .m
+            .create_seal_commit_task_proto(registered_proof, sector_id, mode)
+        {
             Ok(proto) => {
                 self.worker_tx
                     .send(WorkerTask::SealCommit {
@@ -332,7 +379,6 @@ impl<T: KeyValueStore> TaskHandler<T> {
                         sealed_sector_path: proto.sealed_sector_path,
                         callback,
                         piece_info: proto.piece_info,
-                        porep_config: proto.porep_config,
                         pre_commit: proto.pre_commit,
                         sector_id: proto.sector_id,
                         seed: proto.seed,
@@ -348,6 +394,7 @@ impl<T: KeyValueStore> TaskHandler<T> {
     // id and mode combination are invalid, done_tx receives an error.
     async fn send_pre_commit_to_worker(
         &mut self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         mode: PreCommitMode,
         done_tx: Sender<Result<StagedSectorMetadata>>,
@@ -365,14 +412,17 @@ impl<T: KeyValueStore> TaskHandler<T> {
             Box::pin(fut)
         });
 
-        match self.m.create_seal_pre_commit_task_proto(sector_id, mode) {
+        match self
+            .m
+            .create_seal_pre_commit_task_proto(registered_proof, sector_id, mode)
+        {
             Ok(proto) => {
                 self.worker_tx
                     .send(WorkerTask::SealPreCommit {
+                        registered_proof,
                         cache_dir: proto.cache_dir,
                         callback,
                         piece_info: proto.piece_info,
-                        porep_config: proto.porep_config,
                         sealed_sector_path: proto.sealed_sector_path,
                         sector_id: proto.sector_id,
                         staged_sector_path: proto.staged_sector_path,

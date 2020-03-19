@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use filecoin_proofs_api::SectorId;
 use serde::{Deserialize, Serialize};
-use storage_proofs::sector::SectorId;
 
 use crate::metadata::{SealedSectorMetadata, StagedSectorMetadata};
 

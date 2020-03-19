@@ -15,8 +15,8 @@ readme = "README.md"
 [dependencies]
 itertools = "0.9.0"
 rand = "0.7"
-filecoin-proofs = { git = "https://github.com/filecoin-project/rust-fil-proofs.git", rev = "78da3a0" }
-storage-proofs = { git = "https://github.com/filecoin-project/rust-fil-proofs.git", rev = "78da3a0" }
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api.git", branch = "master" }
+filecoin-proofs = { git = "https://github.com/filecoin-project/rust-fil-proofs.git", rev = "78da3a00" }
 serde_cbor = "0.11.1"
 serde = { version = "1.0.92", features = ["rc", "derive"] }
 serde_json = "1.0"

@@ -1,7 +1,8 @@
+use filecoin_proofs_api::SectorId;
+
 use crate::metadata::SealStatus;
 use crate::state::{SealedState, StagedState};
 use crate::{err_unrecov, error};
-use storage_proofs::sector::SectorId;
 
 pub fn get_seal_status(
     staged_state: &StagedState,
@@ -25,6 +26,8 @@ pub fn get_seal_status(
 mod tests {
     use std::collections::HashMap;
 
+    use filecoin_proofs_api::RegisteredSealProof;
+
     use crate::metadata::{SealedSectorMetadata, StagedSectorMetadata};
     use crate::state::{SealedState, SectorBuilderState, StagedState};
 
@@ -38,30 +41,31 @@ mod tests {
         staged_sectors.insert(
             SectorId::from(2),
             StagedSectorMetadata {
+                registered_seal_proof: RegisteredSealProof::StackedDrg2KiBV1,
                 sector_id: SectorId::from(2),
                 seal_status: SealStatus::PreCommitting(SealTicket {
                     block_height: 1,
                     ticket_bytes: [0u8; 32],
                 }),
-                ..Default::default()
+                pieces: Default::default(),
+                sector_access: Default::default(),
             },
         );
 
         staged_sectors.insert(
             SectorId::from(3),
             StagedSectorMetadata {
+                registered_seal_proof: RegisteredSealProof::StackedDrg2KiBV1,
                 sector_id: SectorId::from(3),
                 seal_status: SealStatus::AcceptingPieces,
-                ..Default::default()
+                pieces: Default::default(),
+                sector_access: Default::default(),
             },
         );
 
         sealed_sectors.insert(
             SectorId::from(4),
-            SealedSectorMetadata {
-                sector_id: SectorId::from(4),
-                ..Default::default()
-            },
+            SealedSectorMetadata::from_id(SectorId::from(4), RegisteredSealProof::StackedDrg2KiBV1),
         );
 
         SectorBuilderState {

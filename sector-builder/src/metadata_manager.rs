@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use async_std::fs;
 
 use filecoin_proofs::pieces::get_piece_start_byte;
-use filecoin_proofs::{
-    compute_comm_d, verify_seal, PaddedBytesAmount, PieceInfo, PrivateReplicaInfo,
-    SealCommitOutput, SealPreCommitOutput, UnpaddedBytesAmount,
+use filecoin_proofs_api::{
+    seal::{compute_comm_d, verify_seal, SealCommitPhase2Output, SealPreCommitPhase2Output},
+    PieceInfo, PrivateReplicaInfo, RegisteredPoStProof, RegisteredSealProof, SectorId,
+    UnpaddedBytesAmount,
 };
-use storage_proofs::sector::SectorId;
 
 use helpers::SnapshotKey;
 
@@ -41,9 +41,7 @@ pub struct SectorMetadataManager<T: KeyValueStore> {
     sector_store: SectorStore,
     state: SectorBuilderState,
     max_num_staged_sectors: u8,
-    max_user_bytes_per_staged_sector: UnpaddedBytesAmount,
     prover_id: [u8; 32],
-    sector_size: PaddedBytesAmount,
 }
 
 impl<T: KeyValueStore> SectorMetadataManager<T> {
@@ -52,9 +50,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         sector_store: SectorStore,
         mut state: SectorBuilderState,
         max_num_staged_sectors: u8,
-        max_user_bytes_per_staged_sector: UnpaddedBytesAmount,
         prover_id: [u8; 32],
-        sector_size: PaddedBytesAmount,
     ) -> SectorMetadataManager<T> {
         // If a previous instance of the SectorBuilder was shut down mid-seal,
         // its metadata store will contain staged sectors who are still
@@ -76,9 +72,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
             sector_store,
             state,
             max_num_staged_sectors,
-            max_user_bytes_per_staged_sector,
             prover_id,
-            sector_size,
         }
     }
 }
@@ -107,6 +101,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         let mut replicas: BTreeMap<SectorId, PrivateReplicaInfo> = Default::default();
 
+        let mut registered_proof: Option<RegisteredPoStProof> = None;
         for sector in self.state.sealed.sectors.values() {
             if comm_rs_set.contains(&sector.comm_r) {
                 let path = self
@@ -120,25 +115,38 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                     .cache_path(&sector.sector_access);
 
                 if let Some(ref fault_set) = fault_set {
-                    if !fault_set.contains(&sector.sector_id) {
-                        replicas.insert(
-                            sector.sector_id,
-                            PrivateReplicaInfo::new(path, sector.comm_r, cache_dir).unwrap(),
+                    if fault_set.contains(&sector.sector_id) {
+                        continue;
+                    }
+                }
+                if let Some(p) = registered_proof {
+                    if p != sector.registered_seal_proof.into() {
+                        error!(
+                            "Inconsistent Sectors detected when attempting to generate PoSt: {:?} != {:?}",
+                            p,
+                            RegisteredPoStProof::from(sector.registered_seal_proof),
                         );
+                        continue;
                     }
                 } else {
-                    replicas.insert(
-                        sector.sector_id,
-                        PrivateReplicaInfo::new(path, sector.comm_r, cache_dir).unwrap(),
-                    );
+                    registered_proof = Some(sector.registered_seal_proof.into());
                 }
+                replicas.insert(
+                    sector.sector_id,
+                    PrivateReplicaInfo::new(
+                        registered_proof.unwrap(),
+                        sector.comm_r,
+                        cache_dir,
+                        path,
+                    ),
+                );
             }
         }
 
         GeneratePoStTaskPrototype {
+            registered_proof: registered_proof.expect("no non faulty sector found"),
             randomness: *randomness,
             challenge_count,
-            post_config: self.sector_store.proofs_config().post_config,
             private_replicas: replicas,
         }
     }
@@ -183,7 +191,6 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                 .manager()
                 .cache_path(&sealed_sector.sector_access),
             comm_d: sealed_sector.comm_d,
-            porep_config: self.sector_store.proofs_config().porep_config,
             source_path: self
                 .sector_store
                 .manager()
@@ -209,6 +216,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     // piece-bytes are now associated and a vector of SealTaskPrototypes.
     pub async fn add_piece<U: AsRef<Path>>(
         &mut self,
+        registered_proof: RegisteredSealProof,
         piece_key: String,
         piece_bytes_amount: u64,
         piece_path: U,
@@ -217,6 +225,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         let destination_sector_id = helpers::add_piece(
             &self.sector_store,
             &mut self.state,
+            registered_proof,
             piece_bytes_amount,
             piece_key,
             piece_path,
@@ -286,6 +295,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     // pre-committing, an error is returned.
     pub fn create_seal_pre_commit_task_proto(
         &mut self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         mode: PreCommitMode,
     ) -> Result<SealPreCommitTaskPrototype> {
@@ -311,7 +321,8 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                 let preceding_piece_bytes =
                     filecoin_proofs::pieces::sum_piece_bytes_with_alignment(amts);
 
-                let difference = self.max_user_bytes_per_staged_sector - preceding_piece_bytes;
+                let difference = UnpaddedBytesAmount::from(registered_proof.sector_size())
+                    - preceding_piece_bytes;
 
                 Err(format_err!(
                     "cannot pre-commit a sector (id = {:?}) which is not fully packed (remaining space = {:?})",
@@ -337,9 +348,9 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         let _ = mgr.new_sealed_sector_access(sector_id)?;
 
         let out = Ok(SealPreCommitTaskPrototype {
+            registered_proof,
             cache_dir: mgr.cache_path(&meta.sector_access),
             piece_info: meta.pieces.iter().map(|x| (x.clone()).into()).collect(),
-            porep_config: self.sector_store.proofs_config().porep_config,
             sealed_sector_path: mgr.sealed_sector_path(&meta.sector_access),
             sector_id,
             staged_sector_path: mgr.staged_sector_path(&meta.sector_access),
@@ -359,6 +370,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     // committed, an error is returned.
     pub fn create_seal_commit_task_proto(
         &mut self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         mode: CommitMode,
     ) -> Result<SealCommitTaskPrototype> {
@@ -393,11 +405,12 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         let mgr = self.sector_store.manager();
         let out = Ok(SealCommitTaskPrototype {
+            registered_proof,
             cache_dir: mgr.cache_path(&meta.sector_access),
             sealed_sector_path: mgr.sealed_sector_path(&meta.sector_access),
             piece_info: meta.pieces.iter().map(|x| (x.clone()).into()).collect(),
-            porep_config: self.sector_store.proofs_config().porep_config,
-            pre_commit: SealPreCommitOutput {
+            pre_commit: SealPreCommitPhase2Output {
+                registered_proof,
                 comm_r: pre_commit.comm_r,
                 comm_d: pre_commit.comm_d,
             },
@@ -448,6 +461,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     #[allow(clippy::too_many_arguments)]
     pub async fn import_sector(
         &mut self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         sector_cache_dir: PathBuf,
         sealed_sector: PathBuf,
@@ -460,8 +474,6 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     ) -> Result<()> {
         let stor = &self.sector_store;
         let mngr = stor.manager();
-        let pcfg = stor.proofs_config().porep_config;
-        let scfg = stor.sector_config();
 
         if sector_id > self.state.sector_id_nonce {
             return Err(format_err!(
@@ -487,7 +499,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         // verify the provided proof
         match verify_seal(
-            pcfg,
+            registered_proof,
             comm_r,
             comm_d,
             self.prover_id,
@@ -514,7 +526,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         // compute a comm_d
         let computed_comm_d = compute_comm_d(
-            pcfg.sector_size,
+            registered_proof,
             &pieces
                 .iter()
                 .cloned()
@@ -533,7 +545,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         // ensure that the file has the appropriate quantity of bytes
         let len = fs::metadata(&sealed_sector).await?.len();
-        let max = scfg.sector_bytes;
+        let max = registered_proof.sector_size();
 
         if len != u64::from(max) {
             return Err(format_err!(
@@ -594,6 +606,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
         }
 
         let meta = SealedSectorMetadata {
+            registered_seal_proof: registered_proof,
             sector_id,
             sector_access: access,
             pieces,
@@ -634,7 +647,11 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
             match proofs_api_call_result {
                 Ok(output) => {
-                    let SealPreCommitOutput { comm_r, comm_d } = output;
+                    let SealPreCommitPhase2Output {
+                        registered_proof,
+                        comm_r,
+                        comm_d,
+                    } = output;
 
                     let meta = staged_state.sectors.get_mut(&sector_id).ok_or_else(|| {
                         format_err!("missing staged sector with id {}", &sector_id)
@@ -646,7 +663,11 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
                     meta.seal_status = SealStatus::PreCommitted(
                         ticket.clone(),
-                        PersistablePreCommitOutput { comm_d, comm_r },
+                        PersistablePreCommitOutput {
+                            registered_proof,
+                            comm_d,
+                            comm_r,
+                        },
                     );
 
                     Ok(meta.clone())
@@ -720,7 +741,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                         )
                     })?;
 
-                let SealCommitOutput { proof } = output;
+                let SealCommitPhase2Output { proof } = output;
 
                 // generate checksum
                 let blake2b_checksum = helpers::calculate_checksum(&sector_path)
@@ -736,6 +757,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
                 let pieces = staged_sector.pieces.to_vec();
 
                 let meta = SealedSectorMetadata {
+                    registered_seal_proof: staged_sector.registered_seal_proof,
                     blake2b_checksum,
                     comm_d: pre_commit.comm_d,
                     comm_r: pre_commit.comm_r,
@@ -775,7 +797,6 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
 
         let to_be_sealed: HashSet<SectorId> = helpers::get_sectors_ready_for_sealing(
             staged_state,
-            self.max_user_bytes_per_staged_sector,
             self.max_num_staged_sectors,
             seal_all_staged_sectors,
         )
@@ -793,7 +814,7 @@ impl<T: KeyValueStore> SectorMetadataManager<T> {
     fn checkpoint(&self) -> Result<()> {
         helpers::persist_snapshot(
             &self.kv_store,
-            &SnapshotKey::new(self.prover_id, self.sector_size),
+            &SnapshotKey::new(self.prover_id),
             &self.state,
         )?;
 

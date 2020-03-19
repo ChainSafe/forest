@@ -5,8 +5,6 @@ extern crate anyhow;
 #[macro_use]
 extern crate log;
 
-pub use filecoin_proofs::types::*;
-
 pub use crate::builder::*;
 pub use crate::constants::*;
 pub use crate::error::*;

@@ -2,12 +2,10 @@ use std::fs::{create_dir_all, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use filecoin_proofs::constants::*;
 use filecoin_proofs::fr32::target_unpadded_bytes;
-use filecoin_proofs::types::*;
+use filecoin_proofs_api::*;
 
 use crate::error::SectorManagerErr;
-use storage_proofs::sector::SectorId;
 
 // This is a segmented sectorid expression protocol, to support meaningful sector name on disk
 // See: https://github.com/filecoin-project/rust-fil-proofs/issues/620 for the details
@@ -308,40 +306,17 @@ impl SectorAccessProto {
     }
 }
 
-pub struct SectorConfig {
-    /// the number of user-provided bytes that will fit into a sector
-    pub max_unsealed_bytes_per_sector: UnpaddedBytesAmount,
-    /// the number of bytes in a sealed sector
-    pub sector_bytes: PaddedBytesAmount,
-}
-
-pub struct ProofsConfig {
-    pub porep_config: PoRepConfig,
-    pub post_config: PoStConfig,
-}
-
 pub struct SectorStore {
-    proofs_config: ProofsConfig,
-    sector_config: SectorConfig,
     manager: SectorManager,
 }
 
 impl SectorStore {
-    pub fn proofs_config(&self) -> &ProofsConfig {
-        &self.proofs_config
-    }
-
     pub fn manager(&self) -> &SectorManager {
         &self.manager
-    }
-
-    pub fn sector_config(&self) -> &SectorConfig {
-        &self.sector_config
     }
 }
 
 pub fn new_sector_store<P: AsRef<Path>>(
-    sector_class: SectorClass,
     sealed_sector_dir: P,
     staged_sector_dir: P,
     cache_root: P,
@@ -357,76 +332,12 @@ pub fn new_sector_store<P: AsRef<Path>>(
         sector_segment_id: 0u32,
     };
 
-    SectorStore {
-        proofs_config: ProofsConfig {
-            porep_config: PoRepConfig::from(sector_class),
-            post_config: PoStConfig {
-                sector_size: sector_class.sector_size,
-                challenge_count: POST_CHALLENGE_COUNT,
-                challenged_nodes: POST_CHALLENGED_NODES,
-                priority: true,
-            },
-        },
-        sector_config: SectorConfig {
-            max_unsealed_bytes_per_sector: UnpaddedBytesAmount::from(sector_class.sector_size),
-            sector_bytes: PaddedBytesAmount::from(sector_class.sector_size),
-        },
-        manager,
-    }
+    SectorStore { manager }
 }
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
-
-    use std::fs::create_dir_all;
-
-    use filecoin_proofs::constants::{SECTOR_SIZE_2_KIB, SECTOR_SIZE_512_MIB};
-    use filecoin_proofs::types::{PoRepProofPartitions, SectorSize};
-
-    use tempfile;
-
-    fn create_sector_store(sector_class: SectorClass) -> SectorStore {
-        let staging_path = tempfile::tempdir().unwrap().path().to_owned();
-        let sealed_path = tempfile::tempdir().unwrap().path().to_owned();
-        let cache_root = tempfile::tempdir().unwrap().path().to_owned();
-
-        create_dir_all(&staging_path).expect("failed to create staging dir");
-        create_dir_all(&sealed_path).expect("failed to create sealed dir");
-
-        new_sector_store(
-            sector_class,
-            sealed_path.to_str().unwrap().to_owned(),
-            staging_path.to_str().unwrap().to_owned(),
-            cache_root.to_str().unwrap().to_owned(),
-        )
-    }
-
-    #[test]
-    fn max_unsealed_bytes_per_sector_checks() {
-        let xs = vec![
-            (
-                SectorClass {
-                    sector_size: SectorSize(SECTOR_SIZE_512_MIB),
-                    partitions: PoRepProofPartitions(2),
-                },
-                u64::from(UnpaddedBytesAmount::from(PaddedBytesAmount(536_870_912u64))),
-            ),
-            (
-                SectorClass {
-                    sector_size: SectorSize(SECTOR_SIZE_2_KIB),
-                    partitions: PoRepProofPartitions(2),
-                },
-                u64::from(UnpaddedBytesAmount::from(PaddedBytesAmount(2_048u64))),
-            ),
-        ];
-
-        for (sector_class, num_bytes) in xs {
-            let storage = create_sector_store(sector_class);
-            let cfg = storage.sector_config;
-            assert_eq!(u64::from(cfg.max_unsealed_bytes_per_sector), num_bytes);
-        }
-    }
 
     #[test]
     fn get_sector_id_from_access_original() {

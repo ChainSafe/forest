@@ -4,10 +4,7 @@ use async_std::fs;
 use async_std::sync::{channel, Sender};
 
 use anyhow::Context;
-use filecoin_proofs::constants::*;
-use filecoin_proofs::types::{PoRepConfig, PoStConfig, SectorClass};
-use filecoin_proofs::Candidate;
-use storage_proofs::sector::SectorId;
+use filecoin_proofs_api::{Candidate, RegisteredPoStProof, RegisteredSealProof, SectorId};
 
 use crate::disk_backed_storage::new_sector_store;
 use crate::error::{Result, SectorBuilderErr};
@@ -40,7 +37,6 @@ impl SectorBuilder {
     // metadata key is equal to the prover_id.
     #[allow(clippy::too_many_arguments)]
     pub async fn init_from_metadata<P: AsRef<Path>>(
-        sector_class: SectorClass,
         last_committed_sector_id: SectorId,
         metadata_dir: P,
         prover_id: [u8; 32],
@@ -50,15 +46,6 @@ impl SectorBuilder {
         max_num_staged_sectors: u8,
         num_workers: u8,
     ) -> Result<SectorBuilder> {
-        let porep_config = sector_class.into();
-        let post_config = PoStConfig {
-            sector_size: sector_class.sector_size,
-            challenge_count: POST_CHALLENGE_COUNT,
-            challenged_nodes: POST_CHALLENGED_NODES,
-            priority: true,
-        };
-        ensure_parameter_cache_hydrated(porep_config, post_config).await?;
-
         // Configure the scheduler's rendezvous channel.
         let (scheduler_tx, scheduler_rx) = channel(1);
 
@@ -73,28 +60,21 @@ impl SectorBuilder {
             (tx, workers)
         };
 
-        let sector_size = sector_class.sector_size.into();
-
-        // Initialize the key/value store in which we store metadata
-        // snapshots.
+        // Initialize the key/value store in which we store metadata snapshots.
         let kv_store = FileSystemKvs::initialize(metadata_dir.as_ref())
             .map_err(|err| format_err!("could not initialize metadata store: {:?}", err))?;
 
         // Initialize a SectorStore and wrap it in an Arc so we can access it
         // from multiple threads. Our implementation assumes that the
         // SectorStore is safe for concurrent access.
-        let sector_store = new_sector_store(
-            sector_class,
-            sealed_sector_dir,
-            staged_sector_dir,
-            sector_cache_root,
-        );
+        let sector_store =
+            new_sector_store(sealed_sector_dir, staged_sector_dir, sector_cache_root);
 
         // Build the scheduler's initial state. If available, we reconstitute
         // this state from persisted metadata. If not, we create it from
         // scratch.
         let loaded: Option<SectorBuilderState> =
-            helpers::load_snapshot(&kv_store, &SnapshotKey::new(prover_id, sector_size))
+            helpers::load_snapshot(&kv_store, &SnapshotKey::new(prover_id))
                 .map_err(|err| format_err!("failed to load metadata snapshot: {}", err))
                 .map(Into::into)?;
 
@@ -104,17 +84,12 @@ impl SectorBuilder {
             SectorBuilderState::new(last_committed_sector_id)
         };
 
-        let max_user_bytes_per_staged_sector =
-            sector_store.sector_config().max_unsealed_bytes_per_sector;
-
         let m = SectorMetadataManager::initialize(
             kv_store,
             sector_store,
             state,
             max_num_staged_sectors,
-            max_user_bytes_per_staged_sector,
             prover_id,
-            sector_size,
         );
 
         let scheduler =
@@ -131,24 +106,34 @@ impl SectorBuilder {
     // Sends a pre-commit command to the main runloop and blocks until complete.
     pub async fn seal_pre_commit(
         &self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         ticket: SealTicket,
     ) -> Result<StagedSectorMetadata> {
+        // Make sure we have params for the sectors we commit to.
+        ensure_parameter_cache_hydrated_seal(registered_proof).await?;
+        ensure_parameter_cache_hydrated_post(registered_proof.into()).await?;
+
         log_unrecov(
-            self.run_blocking(|tx| SchedulerTask::SealPreCommit(sector_id, ticket, tx))
-                .await,
+            self.run_blocking(|tx| {
+                SchedulerTask::SealPreCommit(registered_proof, sector_id, ticket, tx)
+            })
+            .await,
         )
     }
 
     // Sends a commit command to the main runloop and blocks until complete.
     pub async fn seal_commit(
         &self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         seed: SealSeed,
     ) -> Result<SealedSectorMetadata> {
         log_unrecov(
-            self.run_blocking(|tx| SchedulerTask::SealCommit(sector_id, seed, tx))
-                .await,
+            self.run_blocking(|tx| {
+                SchedulerTask::SealCommit(registered_proof, sector_id, seed, tx)
+            })
+            .await,
         )
     }
 
@@ -156,20 +141,29 @@ impl SectorBuilder {
     // until complete.
     pub async fn resume_seal_pre_commit(
         &self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
     ) -> Result<StagedSectorMetadata> {
         log_unrecov(
-            self.run_blocking(|tx| SchedulerTask::ResumeSealPreCommit(sector_id, tx))
-                .await,
+            self.run_blocking(|tx| {
+                SchedulerTask::ResumeSealPreCommit(registered_proof, sector_id, tx)
+            })
+            .await,
         )
     }
 
     // Sends a resume seal command to the main runloop and blocks until
     // complete.
-    pub async fn resume_seal_commit(&self, sector_id: SectorId) -> Result<SealedSectorMetadata> {
+    pub async fn resume_seal_commit(
+        &self,
+        registered_proof: RegisteredSealProof,
+        sector_id: SectorId,
+    ) -> Result<SealedSectorMetadata> {
         log_unrecov(
-            self.run_blocking(|tx| SchedulerTask::ResumeSealCommit(sector_id, tx))
-                .await,
+            self.run_blocking(|tx| {
+                SchedulerTask::ResumeSealCommit(registered_proof, sector_id, tx)
+            })
+            .await,
         )
     }
 
@@ -177,6 +171,7 @@ impl SectorBuilder {
     // processed sequentially to make bin packing easier.
     pub async fn add_piece<R: AsRef<Path>>(
         &self,
+        registered_proof: RegisteredSealProof,
         piece_key: String,
         piece_path: R,
         piece_bytes_amount: u64,
@@ -185,6 +180,7 @@ impl SectorBuilder {
         log_unrecov(
             self.run_blocking(|tx| {
                 SchedulerTask::AddPiece(
+                    registered_proof,
                     piece_key,
                     piece_bytes_amount,
                     piece_path.as_ref().to_path_buf(),
@@ -208,9 +204,13 @@ impl SectorBuilder {
     // Unseals the sector containing the referenced piece and returns its
     // bytes. Produces an error if this sector builder does not have a sealed
     // sector containing the referenced piece.
-    pub async fn read_piece_from_sealed_sector(&self, piece_key: String) -> Result<Vec<u8>> {
+    pub async fn read_piece_from_sealed_sector(
+        &self,
+        registered_proof: RegisteredSealProof,
+        piece_key: String,
+    ) -> Result<Vec<u8>> {
         log_unrecov(
-            self.run_blocking(|tx| SchedulerTask::RetrievePiece(piece_key, tx))
+            self.run_blocking(|tx| SchedulerTask::RetrievePiece(registered_proof, piece_key, tx))
                 .await,
         )
     }
@@ -262,7 +262,7 @@ impl SectorBuilder {
         challenge_seed: &[u8; 32],
         challenge_count: u64,
         winners: Vec<Candidate>,
-    ) -> Result<Vec<Vec<u8>>> {
+    ) -> Result<Vec<(RegisteredPoStProof, Vec<u8>)>> {
         log_unrecov(
             self.run_blocking(|tx| {
                 SchedulerTask::GeneratePoSt(
@@ -287,6 +287,7 @@ impl SectorBuilder {
     #[allow(clippy::too_many_arguments)]
     pub async fn import_sealed_sector(
         &self,
+        registered_proof: RegisteredSealProof,
         sector_id: SectorId,
         sector_cache_dir: PathBuf,
         sealed_sector: PathBuf,
@@ -299,6 +300,7 @@ impl SectorBuilder {
     ) -> Result<()> {
         log_unrecov(
             self.run_blocking(|tx| SchedulerTask::ImportSector {
+                registered_proof,
                 sector_id,
                 sector_cache_dir,
                 sealed_sector,
@@ -350,30 +352,36 @@ impl Drop for SectorBuilder {
     }
 }
 
-/// Checks the parameter cache for the given sector size.
+/// Checks the parameter cache for the given seal proof.
 /// Returns an `Err` if it is not hydrated.
-async fn ensure_parameter_cache_hydrated(
-    porep_config: PoRepConfig,
-    post_config: PoStConfig,
+async fn ensure_parameter_cache_hydrated_seal(
+    registered_seal_proof: RegisteredSealProof,
 ) -> Result<()> {
-    // PoRep
-    let porep_cache_key = porep_config.get_cache_verifying_key_path()?;
+    let porep_cache_key = registered_seal_proof.cache_verifying_key_path()?;
     ensure_file(porep_cache_key)
         .await
         .context("missing verifying key for PoRep")?;
 
-    let porep_cache_params = porep_config.get_cache_params_path()?;
+    let porep_cache_params = registered_seal_proof.cache_params_path()?;
     ensure_file(porep_cache_params)
         .await
         .context("missing Groth parameters for PoRep")?;
 
+    Ok(())
+}
+
+/// Checks the parameter cache for the given post proof.
+/// Returns an `Err` if it is not hydrated.
+async fn ensure_parameter_cache_hydrated_post(
+    registered_post_proof: RegisteredPoStProof,
+) -> Result<()> {
     // PoSt
-    let post_cache_key = post_config.get_cache_verifying_key_path()?;
+    let post_cache_key = registered_post_proof.cache_verifying_key_path()?;
     ensure_file(post_cache_key)
         .await
         .context("missing verifying key for PoSt")?;
 
-    let post_cache_params = post_config.get_cache_params_path()?;
+    let post_cache_params = registered_post_proof.cache_params_path()?;
     ensure_file(post_cache_params)
         .await
         .context("missing Groth parameters for PoSt")?;
@@ -406,7 +414,7 @@ async fn ensure_file(p: impl AsRef<Path>) -> Result<()> {
 
 #[cfg(test)]
 pub mod tests {
-    use filecoin_proofs::{PoRepProofPartitions, SectorSize};
+    use filecoin_proofs_api::RegisteredSealProof;
 
     use super::*;
     use async_std::prelude::*;
@@ -429,10 +437,6 @@ pub mod tests {
         let cache_root_dir = f();
 
         let sector_builder = SectorBuilder::init_from_metadata(
-            SectorClass {
-                sector_size: SectorSize(2048),
-                partitions: PoRepProofPartitions(2),
-            },
             SectorId::from(0),
             &meta_dir,
             [0u8; 32],
@@ -455,7 +459,13 @@ pub mod tests {
         .unwrap();
 
         sector_builder
-            .add_piece("foo".into(), piece_file.path(), 1016, SecondsSinceEpoch(0))
+            .add_piece(
+                RegisteredSealProof::StackedDrg2KiBV1,
+                "foo".into(),
+                piece_file.path(),
+                1016,
+                SecondsSinceEpoch(0),
+            )
             .await
             .expect("piece add failed");
 
@@ -478,10 +488,6 @@ pub mod tests {
 
         // instantiate a second builder
         let init_result = SectorBuilder::init_from_metadata(
-            SectorClass {
-                sector_size: SectorSize(1024),
-                partitions: PoRepProofPartitions(2),
-            },
             SectorId::from(0),
             &meta_dir,
             [0u8; 32],
@@ -497,35 +503,5 @@ pub mod tests {
             init_result.is_err(),
             "corrupted snapshot must cause an error"
         );
-    }
-
-    #[async_std::test]
-    async fn test_cannot_init_sector_builder_with_empty_parameter_cache() {
-        let temp_dir = tempfile::tempdir()
-            .unwrap()
-            .path()
-            .to_str()
-            .unwrap()
-            .to_string();
-
-        let nonsense_sector_class = SectorClass {
-            sector_size: SectorSize(2048),
-            partitions: PoRepProofPartitions(123),
-        };
-
-        let result = SectorBuilder::init_from_metadata(
-            nonsense_sector_class,
-            SectorId::from(0),
-            temp_dir.clone(),
-            [0u8; 32],
-            temp_dir.clone(),
-            temp_dir.clone(),
-            temp_dir,
-            1,
-            2,
-        )
-        .await;
-
-        assert!(result.is_err());
     }
 }
