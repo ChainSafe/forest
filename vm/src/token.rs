@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de, ser};
-use num_bigint::{biguint_ser, BigUint};
+use num_bigint::{biguint_ser, BigUint, ParseBigIntError};
+use std::str::FromStr;
 
 /// Wrapper around a big int variable to handle token specific functionality
 // TODO verify on finished spec whether or not big int or uint
@@ -30,5 +31,13 @@ impl<'de> de::Deserialize<'de> for TokenAmount {
         D: de::Deserializer<'de>,
     {
         Ok(Self(biguint_ser::deserialize(deserializer)?))
+    }
+}
+
+impl FromStr for TokenAmount {
+    type Err = ParseBigIntError;
+
+    fn from_str(src: &str) -> Result<Self, ParseBigIntError> {
+        Ok(TokenAmount(BigUint::from_str(src)?))
     }
 }

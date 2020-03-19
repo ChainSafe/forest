@@ -1,3 +1,5 @@
+SER_TESTS = "tests/serialization_tests"
+
 clean-all:
 	cargo clean
 
@@ -25,14 +27,15 @@ clean:
 	@cargo clean -p ipld_hamt
 	@cargo clean -p ipld_amt
 	@cargo clean -p forest_bigint
+	@cargo clean -p 
 	@echo "Done cleaning."
 
 lint: license clean
-	cargo fmt
+	cargo fmt --all
 	cargo clippy -- -D warnings
 
 install:
-	cargo install --path forest
+	cargo install --path forest --force
 
 build:
 	cargo build
@@ -40,8 +43,16 @@ build:
 release:
 	cargo build --release
 
+pull-serialization-tests:
+	git submodule update --init
+
+run-vectors:
+	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "serde_tests"
+
+test-vectors: pull-serialization-tests run-vectors
+
 test:
-	cargo test --all-features
+	cargo test --all --exclude serialization_tests
 
 license:
 	./scripts/add_license.sh

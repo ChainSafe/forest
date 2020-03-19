@@ -77,7 +77,7 @@ impl Message for SignedMessage {
     fn gas_price(&self) -> &BigUint {
         self.message.gas_price()
     }
-    fn gas_limit(&self) -> &BigUint {
+    fn gas_limit(&self) -> u64 {
         self.message.gas_limit()
     }
     fn required_funds(&self) -> BigUint {
