@@ -14,7 +14,7 @@ pub struct PeerManager {
     /// Hash set of full peers available
     full_peers: RwLock<HashSet<PeerId>>,
     /// Represents peers and proposed tipsets from the network
-    pub peer_heads: HashMap<PeerId, Tipset>,
+    pub peer_heads: RwLock<HashMap<PeerId, Tipset>>,
 }
 
 impl PeerManager {
@@ -39,6 +39,9 @@ impl PeerManager {
     pub async fn remove_peer(&self, peer_id: &PeerId) -> bool {
         // TODO replace this with a shuffled or more random sample
         self.full_peers.write().await.remove(&peer_id)
+    }
+    pub async fn insert_peer_head(&self, peer_id: PeerId, tipset: Tipset) {
+        self.peer_heads.write().await.insert(peer_id, tipset);
     }
 
     /// Gets count of full peers managed

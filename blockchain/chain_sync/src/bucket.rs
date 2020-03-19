@@ -39,7 +39,7 @@ impl SyncBucket {
         }
     }
     /// Returns true if SyncBucket is empty
-    pub fn is_empty(&self) -> bool {
+    pub fn _is_empty(&self) -> bool {
         self.tips.is_empty()
     }
 }
@@ -61,7 +61,7 @@ impl SyncBucketSet {
         self.buckets.push(SyncBucket::new(vec![tipset]))
     }
     /// Removes the SyncBucket with heaviest weighted Tipset from SyncBucketSet
-    pub(crate) fn pop(&mut self) -> Option<SyncBucket> {
+    pub(crate) fn _pop(&mut self) -> Option<SyncBucket> {
         if let Some(heaviest_bucket) = self.buckets().iter().max_by_key(|b| b.heaviest_tipset()) {
             self.clone()._remove(heaviest_bucket);
             Some(heaviest_bucket.clone())
@@ -104,7 +104,7 @@ impl SyncBucketSet {
         &self.buckets
     }
     /// Returns true if SyncBucket is empty
-    pub(crate) fn is_empty(&self) -> bool {
+    pub(crate) fn _is_empty(&self) -> bool {
         if !self.buckets.is_empty() {
             return false;
         }

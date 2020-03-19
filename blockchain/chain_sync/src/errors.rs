@@ -103,6 +103,6 @@ impl From<StErr> for Error {
 
 impl From<String> for Error {
     fn from(e: String) -> Error {
-        Error::Other(e.to_string())
+        Error::Other(e)
     }
 }
