@@ -9,7 +9,7 @@ use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
@@ -43,7 +43,7 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for StoragePower actor
-    fn constructor<BS, RT>(_rt: &RT)
+    fn constructor<BS, RT>(_rt: &RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -55,7 +55,12 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Result<Serialized, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -63,14 +68,11 @@ impl ActorCode for Actor {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
                 assert_empty_params(params);
-                Self::constructor(rt);
-                empty_return()
+                Self::constructor(rt)?;
+                Ok(empty_return())
             }
             // TODO handle other methods available
-            _ => {
-                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
-                unreachable!();
-            }
+            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }
 }
