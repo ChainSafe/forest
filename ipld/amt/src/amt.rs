@@ -10,10 +10,10 @@ use ipld_blockstore::BlockStore;
 ///
 /// Usage:
 /// ```
-/// use ipld_amt::AMT;
+/// use ipld_amt::Amt;
 ///
 /// let db = db::MemoryDB::default();
-/// let mut amt = AMT::new(&db);
+/// let mut amt = Amt::new(&db);
 ///
 /// // Insert or remove any serializable values
 /// amt.set(2, "foo".to_owned()).unwrap();
@@ -26,22 +26,18 @@ use ipld_blockstore::BlockStore;
 /// let cid = amt.flush().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct AMT<'db, DB, V>
-where
-    DB: BlockStore,
-    V: Clone,
-{
+pub struct Amt<'db, V, BS> {
     root: Root<V>,
-    block_store: &'db DB,
+    block_store: &'db BS,
 }
 
-impl<'db, DB, V> AMT<'db, DB, V>
+impl<'db, V, BS> Amt<'db, V, BS>
 where
-    DB: BlockStore,
     V: Clone + DeserializeOwned + Serialize,
+    BS: BlockStore,
 {
     /// Constructor for Root AMT node
-    pub fn new(block_store: &'db DB) -> Self {
+    pub fn new(block_store: &'db BS) -> Self {
         Self {
             root: Root::default(),
             block_store,
@@ -49,7 +45,7 @@ where
     }
 
     /// Constructs an AMT with a blockstore and a Cid of the root of the AMT
-    pub fn load(block_store: &'db DB, cid: &Cid) -> Result<Self, Error> {
+    pub fn load(cid: &Cid, block_store: &'db BS) -> Result<Self, Error> {
         // Load root bytes from database
         let root: Root<V> = block_store
             .get(cid)?
@@ -69,7 +65,7 @@ where
     }
 
     /// Generates an AMT with block store and array of cbor marshallable objects and returns Cid
-    pub fn new_from_slice(block_store: &'db DB, vals: &[V]) -> Result<Cid, Error> {
+    pub fn new_from_slice(block_store: &'db BS, vals: &[V]) -> Result<Cid, Error> {
         let mut t = Self::new(block_store);
 
         t.batch_set(vals)?;

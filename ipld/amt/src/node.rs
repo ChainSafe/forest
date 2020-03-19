@@ -74,7 +74,7 @@ where
         if bmap.get_bit(i as u64) {
             let value = v_iter
                 .next()
-                .ok_or_else(|| Error::Custom("Vector length does not match bitmap".to_owned()))?;
+                .ok_or_else(|| Error::Custom("Vector length does not match bitmap"))?;
             *e = Some(<T>::from(value.clone()));
         }
     }
@@ -173,7 +173,7 @@ where
         self.bitmap().is_empty()
     }
 
-    /// Gets value at given index of AMT given height
+    /// Gets value at given index of Amt given height
     pub(super) fn get<DB: BlockStore>(
         &self,
         bs: &DB,
@@ -253,7 +253,7 @@ where
                 unreachable!("Value is set as cached")
             }
         } else {
-            unreachable!("Non zero height in AMT is always Links type")
+            unreachable!("Non zero height in Amt is always Links type")
         }
     }
 
@@ -270,7 +270,7 @@ where
         }
     }
 
-    /// Delete value in AMT by index
+    /// Delete value in Amt by index
     pub(super) fn delete<DB: BlockStore>(
         &mut self,
         bs: &DB,
@@ -280,7 +280,7 @@ where
         let sub_i = i / nodes_for_height(height);
 
         if !self.bitmap().get_bit(sub_i) {
-            // Value does not exist in AMT
+            // Value does not exist in Amt
             return Ok(false);
         }
 
