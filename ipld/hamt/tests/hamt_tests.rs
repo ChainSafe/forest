@@ -169,14 +169,14 @@ fn add_and_remove_keys(bit_width: u8, keys: &[&str], extra_keys: &[&str]) {
 
     let store = db::MemoryDB::default();
 
-    let mut hamt: Hamt<String, u8, _> = Hamt::new_with_bit_width(&store, bit_width);
+    let mut hamt: Hamt<String, _> = Hamt::new_with_bit_width(&store, bit_width);
 
     for (k, v) in all.iter() {
         hamt.set(k.to_string(), *v).unwrap();
     }
     let cid = hamt.flush().unwrap();
 
-    let mut h1: Hamt<String, u8, _> = Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
+    let mut h1: Hamt<String, _> = Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
 
     for (k, v) in all {
         assert_eq!(Some(v), h1.get(&k).unwrap());
@@ -190,7 +190,7 @@ fn add_and_remove_keys(bit_width: u8, keys: &[&str], extra_keys: &[&str]) {
         hamt.delete(&k.to_string()).unwrap();
     }
     let cid2 = hamt.flush().unwrap();
-    let mut h2: Hamt<String, u8, _> = Hamt::load(&cid2, &store).unwrap();
+    let mut h2: Hamt<String, _> = Hamt::load(&cid2, &store).unwrap();
 
     let cid1 = h1.flush().unwrap();
     let cid2 = h2.flush().unwrap();
