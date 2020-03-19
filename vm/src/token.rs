@@ -6,6 +6,7 @@ use num_bigint::{biguint_ser, BigUint, ParseBigIntError};
 use num_traits::CheckedSub;
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub};
+use std::str::FromStr;
 
 /// Wrapper around a big int variable to handle token specific functionality
 // TODO verify on finished spec whether or not big int or uint
