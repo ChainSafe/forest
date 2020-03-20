@@ -31,6 +31,12 @@ pub struct Amt<'db, V, BS> {
     block_store: &'db BS,
 }
 
+impl<'a, V: PartialEq, BS: BlockStore> PartialEq for Amt<'a, V, BS> {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root
+    }
+}
+
 impl<'db, V, BS> Amt<'db, V, BS>
 where
     V: Clone + DeserializeOwned + Serialize,

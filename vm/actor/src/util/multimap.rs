@@ -3,10 +3,10 @@
 
 use crate::HAMT_BIT_WIDTH;
 use cid::Cid;
-use encoding::Cbor;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Multimap stores multiple values per key in a Hamt of Amts.
 /// The order of insertion of values for each key is retained.
@@ -25,7 +25,7 @@ where
         Ok(Self(Hamt::load_with_bit_width(cid, bs, HAMT_BIT_WIDTH)?))
     }
 
-    /// Retrieve root from multimap
+    /// Retrieve root from the multimap.
     #[inline]
     pub fn root(&mut self) -> Result<Cid, Error> {
         self.0.flush()
@@ -34,7 +34,7 @@ where
     /// Adds a value for a key.
     pub fn add<V>(&mut self, key: String, value: V) -> Result<(), String>
     where
-        V: Cbor + Clone,
+        V: Serialize + DeserializeOwned + Clone,
     {
         // Get construct amt from retrieved cid or create new
         let mut arr = self.get::<V>(&key)?.unwrap_or(Amt::new(self.0.store()));
@@ -49,11 +49,11 @@ where
         Ok(self.0.set(key, &new_root)?)
     }
 
-    /// Gets token amount for given address in multimap
+    /// Gets the Array of value type `V` using the multimap store.
     #[inline]
     pub fn get<V>(&self, key: &String) -> Result<Option<Amt<'a, V, BS>>, String>
     where
-        V: Cbor + Clone,
+        V: DeserializeOwned + Serialize + Clone,
     {
         match self.0.get(key)? {
             Some(cid) => Ok(Some(Amt::load(&cid, self.0.store())?)),
@@ -63,17 +63,17 @@ where
 
     /// Removes all values for a key.
     #[inline]
-    pub fn remove_all<C: Cbor>(&mut self, key: String) -> Result<(), String> {
+    pub fn remove_all(&mut self, key: String) -> Result<(), String> {
         // Remove entry from table
         self.0.delete(&key)?;
 
         Ok(())
     }
 
-    /// Returns total balance held by this multimap
+    /// Iterates through all values in the array at a given key.
     pub fn for_each<F, V>(&self, key: &String, mut f: F) -> Result<(), String>
     where
-        V: Cbor + Clone,
+        V: Serialize + DeserializeOwned + Clone,
         F: FnMut(u64, V) -> Result<(), String>,
     {
         if let Some(amt) = self.get::<V>(key)? {
