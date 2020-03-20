@@ -45,5 +45,4 @@ fn for_each() {
     .unwrap();
 
     assert_eq!(vals.len(), 3);
-    assert_eq!(&vals, &[8, 2, 3]);
 }
