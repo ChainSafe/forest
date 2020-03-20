@@ -37,7 +37,9 @@ where
         V: Serialize + DeserializeOwned + Clone,
     {
         // Get construct amt from retrieved cid or create new
-        let mut arr = self.get::<V>(&key)?.unwrap_or(Amt::new(self.0.store()));
+        let mut arr = self
+            .get::<V>(&key)?
+            .unwrap_or_else(|| Amt::new(self.0.store()));
 
         // Set value at next index
         arr.set(arr.count(), value)?;
@@ -51,7 +53,7 @@ where
 
     /// Gets the Array of value type `V` using the multimap store.
     #[inline]
-    pub fn get<V>(&self, key: &String) -> Result<Option<Amt<'a, V, BS>>, String>
+    pub fn get<V>(&self, key: &str) -> Result<Option<Amt<'a, V, BS>>, String>
     where
         V: DeserializeOwned + Serialize + Clone,
     {
@@ -71,7 +73,7 @@ where
     }
 
     /// Iterates through all values in the array at a given key.
-    pub fn for_each<F, V>(&self, key: &String, mut f: F) -> Result<(), String>
+    pub fn for_each<F, V>(&self, key: &str, mut f: F) -> Result<(), String>
     where
         V: Serialize + DeserializeOwned + Clone,
         F: FnMut(u64, V) -> Result<(), String>,

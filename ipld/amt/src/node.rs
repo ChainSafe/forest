@@ -47,7 +47,7 @@ impl<V> Default for Node<V> {
 }
 
 /// Turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T>(bmap: &BitMap, values: &[Option<T>; WIDTH]) -> Vec<T>
+fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<T>
 where
     T: Clone,
 {
@@ -103,7 +103,7 @@ where
         S: ser::Serializer,
     {
         match &self {
-            Node::Leaf { bmap, vals } => (bmap, [0u8; 0], values_to_vec(bmap, &vals)).serialize(s),
+            Node::Leaf { bmap, vals } => (bmap, [0u8; 0], values_to_vec(*bmap, &vals)).serialize(s),
             Node::Link { bmap, links } => {
                 let cids = cids_from_links(links).map_err(|e| ser::Error::custom(e.to_string()))?;
                 (bmap, cids, [0u8; 0]).serialize(s)
@@ -336,20 +336,20 @@ where
     {
         match self {
             Node::Leaf { bmap, vals } => {
-                for i in 0..WIDTH {
+                for (i, v) in vals.iter().enumerate() {
                     if bmap.get_bit(i as u64) {
                         f(
                             offset + i as u64,
-                            vals[i].clone().expect("set bit should contain value"),
+                            v.clone().expect("set bit should contain value"),
                         )?;
                     }
                 }
             }
             Node::Link { bmap, links } => {
-                for i in 0..WIDTH {
+                for (i, l) in links.iter().enumerate() {
                     if bmap.get_bit(i as u64) {
                         let offs = offset + (i as u64 * nodes_for_height(height));
-                        match links[i].as_ref().expect("bit set at index") {
+                        match l.as_ref().expect("bit set at index") {
                             Link::Cached(sub) => sub.for_each(store, height - 1, offs, f)?,
                             Link::Cid(cid) => {
                                 let node = store.get::<Node<V>>(cid)?.ok_or_else(|| {
