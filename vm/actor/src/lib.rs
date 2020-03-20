@@ -16,16 +16,19 @@ use ipld_hamt::Hamt;
 
 const HAMT_BIT_WIDTH: u8 = 5;
 
+type EmptyType = [u8; 0];
+const EMPTY_VALUE: EmptyType = [];
+
 /// Used when invocation requires parameters to be an empty array of bytes
 #[inline]
 fn assert_empty_params(params: &Serialized) {
-    params.deserialize::<[u8; 0]>().unwrap();
+    params.deserialize::<EmptyType>().unwrap();
 }
 
 /// Empty return is an empty serialized array
 #[inline]
 fn empty_return() -> Serialized {
-    Serialized::serialize::<[u8; 0]>([]).unwrap()
+    Serialized::serialize(EMPTY_VALUE).unwrap()
 }
 
 /// Create a map
