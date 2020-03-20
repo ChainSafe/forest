@@ -10,6 +10,7 @@ pub mod multisig;
 pub mod power;
 pub mod reward;
 mod singletons;
+pub mod system;
 
 pub use self::codes::*;
 pub use self::singletons::*;
