@@ -8,7 +8,7 @@ use ipld_amt::Amt;
 #[test]
 fn basic_add() {
     let store = db::MemoryDB::default();
-    let mut mm = Multimap::new_empty(&store);
+    let mut mm = Multimap::new(&store);
 
     let addr = Address::new_id(100).unwrap();
     assert_eq!(mm.get::<u64>(&addr.hash_key()), Ok(None));
@@ -24,7 +24,7 @@ fn basic_add() {
 #[test]
 fn for_each() {
     let store = db::MemoryDB::default();
-    let mut mm = Multimap::new_empty(&store);
+    let mut mm = Multimap::new(&store);
 
     let addr = Address::new_id(100).unwrap();
     assert_eq!(mm.get::<u64>(&addr.hash_key()), Ok(None));
@@ -47,7 +47,7 @@ fn for_each() {
 #[test]
 fn remove_all() {
     let store = db::MemoryDB::default();
-    let mut mm = Multimap::new_empty(&store);
+    let mut mm = Multimap::new(&store);
 
     let addr1 = Address::new_id(100).unwrap();
     let addr2 = Address::new_id(101).unwrap();
