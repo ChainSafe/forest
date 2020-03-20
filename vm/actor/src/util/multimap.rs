@@ -7,7 +7,6 @@ use encoding::Cbor;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
-use vm::TokenAmount;
 
 /// Multimap stores multiple values per key in a Hamt of Amts.
 /// The order of insertion of values for each key is retained.
@@ -33,14 +32,21 @@ where
     }
 
     /// Adds a value for a key.
-    pub fn add<V>(&mut self, key: &String, _value: &V) -> Result<(), String>
+    pub fn add<V>(&mut self, key: String, value: V) -> Result<(), String>
     where
         V: Cbor + Clone,
     {
-        let _prev = self
-            .get::<V>(key)?
-            .ok_or(format!("Array for key: {} does not exist", key))?;
-        todo!()
+        // Get construct amt from retrieved cid or create new
+        let mut arr = self.get::<V>(&key)?.unwrap_or(Amt::new(self.0.store()));
+
+        // Set value at next index
+        arr.set(arr.count(), value)?;
+
+        // flush to get new array root to put in hamt
+        let new_root = arr.flush()?;
+
+        // Set hamt node to array root
+        Ok(self.0.set(key, &new_root)?)
     }
 
     /// Gets token amount for given address in multimap
@@ -65,14 +71,15 @@ where
     }
 
     /// Returns total balance held by this multimap
-    pub fn for_each(&self) -> Result<TokenAmount, String> {
-        let mut total = TokenAmount::default();
+    pub fn for_each<F, V>(&self, key: &String, mut f: F) -> Result<(), String>
+    where
+        V: Cbor + Clone,
+        F: FnMut(u64, V) -> Result<(), String>,
+    {
+        if let Some(amt) = self.get::<V>(key)? {
+            amt.for_each(&mut f)?;
+        }
 
-        self.0.for_each(&mut |_, v| {
-            total += v;
-            Ok(())
-        })?;
-
-        Ok(total)
+        Ok(())
     }
 }

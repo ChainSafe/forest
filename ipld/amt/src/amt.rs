@@ -184,4 +184,38 @@ where
         self.root.node.flush(self.block_store)?;
         Ok(self.block_store.put(&self.root, Blake2b256)?)
     }
+
+    /// Iterates over each value in the Amt and runs a function on the values.
+    ///
+    /// The index in the amt is a `u64` and the value is the generic parameter `V` as defined
+    /// in the Amt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ipld_amt::Amt;
+    ///
+    /// let store = db::MemoryDB::default();
+    ///
+    /// let mut map: Amt<String, _> = Amt::new(&store);
+    /// map.set(1, "One".to_owned()).unwrap();
+    /// map.set(4, "Four".to_owned()).unwrap();
+    ///
+    /// let mut values: Vec<(u64, String)> = Vec::new();
+    /// map.for_each(&mut |i, v| {
+    ///    values.push((i, v));
+    ///    Ok(())
+    /// }).unwrap();
+    /// assert_eq!(&values, &[(1, "One".to_owned()), (4, "Four".to_owned())]);
+    /// ```
+    #[inline]
+    pub fn for_each<F>(&self, f: &mut F) -> Result<(), String>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, V) -> Result<(), String>,
+    {
+        self.root
+            .node
+            .for_each(self.block_store, self.height(), 0, f)
+    }
 }
