@@ -6,7 +6,6 @@ mod actor_code;
 pub use self::actor_code::*;
 
 use address::Address;
-use chain::ChainStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
@@ -19,91 +18,6 @@ use vm::{
 };
 
 pub struct Randomness; // TODO
-
-pub struct DefaultRuntime<'a, BS: BlockStore> {
-    chain: &'a ChainStore<BS>,
-}
-impl<'a, BS: BlockStore> DefaultRuntime<'a, BS> {
-    pub fn new(chain: &'a ChainStore<BS>) -> Self {
-        DefaultRuntime { chain }
-    }
-}
-
-impl<BS: BlockStore> Runtime<BS> for &DefaultRuntime<'_, BS> {
-    fn message(&self) -> &UnsignedMessage {
-        todo!()
-    }
-    fn curr_epoch(&self) -> ChainEpoch {
-        todo!()
-    }
-    fn validate_immediate_caller_accept_any(&self) {
-        todo!()
-    }
-    fn validate_immediate_caller_is<'a, I>(&self, addresses: I)
-    where
-        I: Iterator<Item = &'a Address>,
-    {
-        todo!()
-    }
-    fn validate_immediate_caller_type<'a, I>(&self, types: I)
-    where
-        I: Iterator<Item = &'a Cid>,
-    {
-        todo!()
-    }
-    fn current_balance(&self) -> TokenAmount {
-        todo!()
-    }
-    fn resolve_address(&self, address: &Address) -> Option<Address> {
-        todo!()
-    }
-    fn get_actor_code_cid(&self, addr: &Address) -> Option<Cid> {
-        todo!()
-    }
-    fn get_randomness(
-        personalization: DomainSeparationTag,
-        rand_epoch: ChainEpoch,
-        entropy: &[u8],
-    ) -> Randomness {
-        todo!()
-    }
-    fn create<C: Cbor>(&self, obj: &C) {
-        todo!()
-    }
-    fn state<C: Cbor>(&self) -> C {
-        todo!()
-    }
-    fn transaction<C: Cbor, R, F>(&self, f: F) -> R
-    where
-        F: FnOnce(&mut C) -> R,
-    {
-        todo!()
-    }
-    fn store(&self) -> &BS {
-        todo!()
-    }
-    fn send<SR: Cbor>(
-        &self,
-        to: &Address,
-        method: MethodNum,
-        params: &Serialized,
-        value: &TokenAmount,
-    ) -> (SR, ExitCode) {
-        todo!()
-    }
-    fn abort(&self, exit_code: ExitCode, msg: String) {
-        todo!()
-    }
-    fn new_actor_address(&self) -> Address {
-        todo!()
-    }
-    fn create_actor(&self, code_id: &Cid, address: &Address) {
-        todo!()
-    }
-    fn delete_actor(&self) {
-        todo!()
-    }
-}
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
@@ -171,13 +85,13 @@ pub trait Runtime<BS: BlockStore> {
     /// Sends a message to another actor, returning the exit code and return value envelope.
     /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
     /// will be rolled back.
-    fn send<SR: Cbor>(
+    fn send(
         &self,
         to: &Address,
         method: MethodNum,
         params: &Serialized,
         value: &TokenAmount,
-    ) -> (SR, ExitCode);
+    ) -> (Serialized, ExitCode);
 
     /// Halts execution upon an error from which the receiver cannot recover. The caller will receive the exitcode and
     /// an empty return value. State changes made within this call will be rolled back.
