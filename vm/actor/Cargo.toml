@@ -21,6 +21,7 @@ ipld_blockstore = { path = "../../ipld/blockstore" }
 ipld_hamt = { path = "../../ipld/hamt" }
 forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
+unsigned-varint = "0.3.2"
 
 [dev-dependencies]
 db = { path = "../../node/db" }

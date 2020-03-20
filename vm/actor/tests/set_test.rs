@@ -6,7 +6,7 @@ use actor::Set;
 #[test]
 fn put() {
     let store = db::MemoryDB::default();
-    let mut set = Set::new_empty(&store);
+    let mut set = Set::new(&store);
 
     let key = "test";
     assert_eq!(set.has(&key), Ok(false));
@@ -18,7 +18,7 @@ fn put() {
 #[test]
 fn collect_keys() {
     let store = db::MemoryDB::default();
-    let mut set = Set::new_empty(&store);
+    let mut set = Set::new(&store);
 
     set.put("0".to_owned()).unwrap();
 
@@ -34,7 +34,7 @@ fn collect_keys() {
 #[test]
 fn delete() {
     let store = db::MemoryDB::default();
-    let mut set = Set::new_empty(&store);
+    let mut set = Set::new(&store);
 
     assert_eq!(set.has(&"0"), Ok(false));
     set.put("0".to_owned()).unwrap();

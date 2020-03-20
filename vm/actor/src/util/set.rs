@@ -7,17 +7,25 @@ use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
 
 /// Set is a Hamt with empty values for the purpose of acting as a hash set.
+#[derive(Debug)]
 pub struct Set<'a, BS>(Hamt<'a, String, BS>);
+
+impl<'a, BS: BlockStore> PartialEq for Set<'a, BS> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
 impl<'a, BS> Set<'a, BS>
 where
     BS: BlockStore,
 {
     /// Initializes a new empty Set.
-    pub fn new_empty(bs: &'a BS) -> Self {
+    pub fn new(bs: &'a BS) -> Self {
         Self(Hamt::new_with_bit_width(bs, HAMT_BIT_WIDTH))
     }
 
-    /// Initializes a Set from a root Cid
+    /// Initializes a Set from a root Cid.
     pub fn from_root(bs: &'a BS, cid: &Cid) -> Result<Self, Error> {
         Ok(Self(Hamt::load_with_bit_width(cid, bs, HAMT_BIT_WIDTH)?))
     }
