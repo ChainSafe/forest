@@ -63,6 +63,12 @@ impl RegisteredProof {
     }
 }
 
+impl Default for RegisteredProof {
+    fn default() -> Self {
+        RegisteredProof::StackedDRG2KiBPoSt
+    }
+}
+
 impl Serialize for RegisteredProof {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

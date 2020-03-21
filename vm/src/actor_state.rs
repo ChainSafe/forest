@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::AddAssign;
 
 /// Identifier for Actors, includes builtin and initialized actors
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ActorID(pub u64);
 
 impl AddAssign<u64> for ActorID {

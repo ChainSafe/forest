@@ -11,6 +11,7 @@ pub type PartialTicket = [u8; 32];
 
 /// PoStVerifyInfo is the structure of all the information a verifier
 /// needs to verify a PoSt.
+#[derive(Debug, PartialEq, Default)]
 pub struct PoStVerifyInfo {
     pub randomness: PoStRandomness,
     pub candidates: Vec<PoStCandidate>,
@@ -21,6 +22,7 @@ pub struct PoStVerifyInfo {
 }
 
 // TODO docs
+#[derive(Debug, PartialEq, Default)]
 pub struct SectorInfo {
     /// Used when sealing - needs to be mapped to PoSt registered proof when used to verify a PoSt
     pub proof: RegisteredProof,
@@ -29,6 +31,7 @@ pub struct SectorInfo {
 }
 
 // TODO docs
+#[derive(Debug, PartialEq, Default)]
 pub struct OnChainElectionPoStVerifyInfo {
     /// each PoStCandidate has its own RegisteredProof
     pub candidates: Vec<PoStCandidate>,
@@ -37,6 +40,7 @@ pub struct OnChainElectionPoStVerifyInfo {
 }
 
 // TODO docs
+#[derive(Debug, PartialEq, Default)]
 pub struct OnChainPoStVerifyInfo {
     /// each PoStCandidate has its own RegisteredProof
     pub candidates: Vec<PoStCandidate>,
@@ -45,6 +49,7 @@ pub struct OnChainPoStVerifyInfo {
 }
 
 // TODO docs
+#[derive(Debug, PartialEq, Default)]
 pub struct PoStCandidate {
     pub registered_proof: RegisteredProof,
     pub ticket: PartialTicket,
@@ -54,12 +59,14 @@ pub struct PoStCandidate {
 }
 
 // TODO docs
+#[derive(Debug, PartialEq, Default)]
 pub struct PoStProof {
     pub registered_proof: RegisteredProof,
     pub proof_bytes: Vec<u8>,
 }
 
 // TODO docs
+#[derive(Debug, PartialEq, Default)]
 pub struct PrivatePoStCandidateProof {
     pub registered_proof: RegisteredProof,
     pub externalized: Vec<u8>,

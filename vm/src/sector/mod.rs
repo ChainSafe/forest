@@ -35,6 +35,7 @@ impl fmt::Display for SectorSize {
 }
 
 /// Sector ID which contains the sector number and the actor ID for the miner.
+#[derive(Debug, Default, PartialEq)]
 pub struct SectorID {
     pub miner: ActorID,
     pub number: SectorNumber,

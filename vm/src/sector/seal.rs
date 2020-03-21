@@ -10,6 +10,7 @@ pub type InteractiveSealRandomness = Randomness;
 
 /// SealVerifyInfo is the structure of all the information a verifier
 /// needs to verify a Seal.
+#[derive(Debug, PartialEq, Default)]
 pub struct SealVerifyInfo {
     pub sector_id: SectorID,
     pub on_chain: OnChainSealVerifyInfo,
@@ -22,6 +23,7 @@ pub struct SealVerifyInfo {
 /// a message to commit a sector. Most of this information is not needed in the
 /// state tree but will be verified in sm.CommitSector. See SealCommitment for
 /// data stored on the state tree for each sector.
+#[derive(Debug, PartialEq, Default)]
 pub struct OnChainSealVerifyInfo {
     pub sealed_cid: Cid,
     pub interactive_epoch: ChainEpoch,
