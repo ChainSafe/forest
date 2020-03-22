@@ -39,12 +39,17 @@ impl<'de> Deserialize<'de> for HelloMessage {
     where
         D: Deserializer<'de>,
     {
-        let (heaviest_tip_set, heaviest_tipset_height, weight, genesis_hash): (_, _, BigIntDe, _) =
-            Deserialize::deserialize(deserializer)?;
+        let (
+            heaviest_tip_set,
+            heaviest_tipset_height,
+            BigIntDe(heaviest_tipset_weight),
+            genesis_hash,
+        ) = Deserialize::deserialize(deserializer)?;
+
         Ok(HelloMessage {
             heaviest_tip_set,
             heaviest_tipset_height,
-            heaviest_tipset_weight: weight.0,
+            heaviest_tipset_weight,
             genesis_hash,
         })
     }
