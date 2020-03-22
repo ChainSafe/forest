@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 //! # RLE+ Bitset Encoding
 //!
 //! RLE+ is a lossless compression format based on [RLE](https://en.wikipedia.org/wiki/Run-length_encoding).
@@ -71,6 +74,9 @@ pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
     }
 
     // Header
+    // encode version "00" and push to start of encoding
+    encoding.insert(0, false);
+    encoding.insert(0, false);
 
     // encode the very first bit (the first block contains this, then alternating)
     encoding.push(*raw.get(0).unwrap());
@@ -121,10 +127,6 @@ pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
         }
     }
 
-    // encode version "00"
-    encoding.insert(0, false);
-    encoding.insert(0, false);
-
     encoding
 }
 
@@ -147,7 +149,7 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> 
     }
 
     // read the inital bit
-    let mut cur = *enc.get(0).unwrap();
+    let mut cur = *enc.get(2).unwrap();
 
     // pointer into the encoded bitvec
     let mut i = 3;
@@ -171,7 +173,8 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> 
                             .copied()
                             .collect::<BitVec<Lsb0, u8>>();
                         let buf_ref: &[u8] = buf.as_ref();
-                        let (len, rest) = unsigned_varint::decode::u64(buf_ref).unwrap();
+                        let (len, rest) = unsigned_varint::decode::u64(buf_ref)
+                            .map_err(|_| "Failed to decode uvarint")?;
 
                         // insert this many bits
                         decoded.extend((0..len).map(|_| cur));
@@ -191,7 +194,11 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> 
                             .copied()
                             .collect::<BitVec<Lsb0, u8>>();
                         let res: Vec<u8> = buf.into();
-                        assert_eq!(res.len(), 1);
+
+                        if res.len() != 1 {
+                            return Err("Invalid short block encoding");
+                        }
+
                         let len = res[0] as usize;
 
                         // prefix
@@ -202,7 +209,7 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> 
                         decoded.extend((0..len).map(|_| cur));
                     }
                     None => {
-                        panic!("premature end");
+                        return Err("premature end to bits");
                     }
                 }
             }

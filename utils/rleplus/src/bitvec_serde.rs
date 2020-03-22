@@ -1,11 +1,14 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{decode, encode};
 use bitvec::prelude::{BitVec, Lsb0};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-/// Remote derive type for big int	/// Wrapper for serializing big ints to match filecoin spec. Serializes as bytes.
+/// Wrapper for serializing bit vector with RLE+ encoding
 pub struct BitVecSer<'a>(pub &'a BitVec<Lsb0, u8>);
 
-/// Wrapper for deserializing as BigInt from bytes.
+/// Wrapper for deserializing bit vector with RLE+ decoding from bytes.
 pub struct BitVecDe(pub BitVec<Lsb0, u8>);
 
 impl Serialize for BitVecSer<'_> {
