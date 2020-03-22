@@ -12,13 +12,17 @@
 //!
 //! The format can be expressed as the following [BNF](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form) grammar.
 //!
-//!     <encoding> ::= <header> <blocks>
-//!       <header> ::= <bit>
-//!       <blocks> ::= <block_single> | <block_short> | <block_long>
-//! <block_single> ::= "1"
-//!  <block_short> ::= "01" <bit> <bit> <bit> <bit>
-//!   <block_long> ::= "00" <unsigned_varint>
-//!          <bit> ::= "0" | "1"
+//! ```compile_fail
+//!     <encoding>  ::= <header> <blocks>
+//!       <header>  ::= <version> <bit>
+//!      <version>  ::= "00"
+//!       <blocks>  ::= <block> <blocks> | ""
+//!        <block>  ::= <block_single> | <block_short> | <block_long>
+//! <block_single>  ::= "1"
+//!  <block_short>  ::= "01" <bit> <bit> <bit> <bit>
+//!   <block_long>  ::= "00" <unsigned_varint>
+//!          <bit>  ::= "0" | "1"
+//! ```
 //!
 //! An `<unsigned_varint>` is defined as specified [here](https://github.com/multiformats/unsigned-varint).
 //!
@@ -52,7 +56,11 @@
 //! > the same encoding, given the same input.
 //!
 
+mod bitvec_serde;
+
+pub use bitvec;
 use bitvec::prelude::{BitVec, Lsb0};
+pub use bitvec_serde::*;
 
 /// Encode the given bitset into their RLE+ encoded representation.
 pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
@@ -63,6 +71,7 @@ pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
     }
 
     // Header
+
     // encode the very first bit (the first block contains this, then alternating)
     encoding.push(*raw.get(0).unwrap());
 
@@ -112,23 +121,36 @@ pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
         }
     }
 
+    // encode version "00"
+    encoding.insert(0, false);
+    encoding.insert(0, false);
+
     encoding
 }
 
 /// Decode an RLE+ encoded bitset into its original form.
-pub fn decode(enc: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
+pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> {
     let mut decoded = BitVec::new();
 
     if enc.is_empty() {
-        return decoded;
+        return Ok(decoded);
     }
 
     // Header
+    if enc.len() < 3 {
+        return Err("Failed to decode, bytes must be at least 3 bits long");
+    }
+
+    // read version (expects "00")
+    if *enc.get(0).unwrap() || *enc.get(1).unwrap() {
+        return Err("Invalid version, expected '00'");
+    }
+
     // read the inital bit
     let mut cur = *enc.get(0).unwrap();
 
     // pointer into the encoded bitvec
-    let mut i = 1;
+    let mut i = 3;
 
     let len = enc.len();
 
@@ -146,7 +168,7 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
                             .iter()
                             .skip(i + 2)
                             .take(10 * 8)
-                            .cloned()
+                            .copied()
                             .collect::<BitVec<Lsb0, u8>>();
                         let buf_ref: &[u8] = buf.as_ref();
                         let (len, rest) = unsigned_varint::decode::u64(buf_ref).unwrap();
@@ -166,7 +188,7 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
                             .iter()
                             .skip(i + 2)
                             .take(4)
-                            .cloned()
+                            .copied()
                             .collect::<BitVec<Lsb0, u8>>();
                         let res: Vec<u8> = buf.into();
                         assert_eq!(res.len(), 1);
@@ -195,7 +217,7 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
         cur = !cur;
     }
 
-    decoded
+    Ok(decoded)
 }
 
 #[cfg(test)]
@@ -212,6 +234,7 @@ mod tests {
             (
                 bitvec![Lsb0, u8; 0; 8],
                 bitvec![Lsb0, u8;
+                        0, 0, // version
                         0, // starts with 0
                         0, 1, // fits into 4 bits
                         0, 0, 0, 1, // 8
@@ -220,6 +243,7 @@ mod tests {
             (
                 bitvec![Lsb0, u8; 0, 0, 0, 0, 1, 0, 0, 0],
                 bitvec![Lsb0, u8;
+                        0, 0, // version
                         0, // starts with 0
                         0, 1, // fits into 4 bits
                         0, 0, 1, 0, // 4 - 0
@@ -249,7 +273,7 @@ mod tests {
             let original: BitVec<Lsb0, u8> = src.into();
 
             let encoded = encode(&original);
-            let decoded = decode(&encoded);
+            let decoded = decode(&encoded).unwrap();
 
             assert_eq!(original, decoded);
         }
@@ -269,7 +293,7 @@ mod tests {
             let original: BitVec<Lsb0, u8> = src.into();
 
             let encoded = encode(&original);
-            let decoded = decode(&encoded);
+            let decoded = decode(&encoded).unwrap();
 
             assert_eq!(original, decoded);
         }
