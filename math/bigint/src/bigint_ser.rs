@@ -2,10 +2,33 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use num_bigint::{BigInt, Sign};
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// Remote derive type for big int
+/// Wrapper for serializing big ints to match filecoin spec. Serializes as bytes.
+pub struct BigIntSer<'a>(pub &'a BigInt);
 
+/// Wrapper for deserializing as BigInt from bytes.
+pub struct BigIntDe(pub BigInt);
+
+impl Serialize for BigIntSer<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize(self.0, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for BigIntDe {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(BigIntDe(deserialize(deserializer)?))
+    }
+}
+
+/// Serializes big int as bytes following Filecoin spec.
 pub fn serialize<S>(int: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
@@ -24,6 +47,7 @@ where
     value.serialize(serializer)
 }
 
+/// Deserializes bytes into big int.
 pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
 where
     D: serde::Deserializer<'de>,

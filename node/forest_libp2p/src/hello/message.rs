@@ -4,7 +4,10 @@
 use clock::ChainEpoch;
 use forest_cid::Cid;
 use forest_encoding::{de::Deserializer, ser::Serializer};
-use num_bigint::{bigint_ser, BigInt};
+use num_bigint::{
+    bigint_ser::{BigIntDe, BigIntSer},
+    BigInt,
+};
 use serde::{Deserialize, Serialize};
 
 /// Hello message https://filecoin-project.github.io/specs/#hello-spec
@@ -21,20 +24,13 @@ impl Serialize for HelloMessage {
     where
         S: Serializer,
     {
-        #[derive(Serialize)]
-        struct TupleHelloMessage<'a>(
-            &'a [Cid],
-            &'a ChainEpoch,
-            #[serde(with = "bigint_ser")] &'a BigInt,
-            &'a Cid,
-        );
-        TupleHelloMessage(
+        (
             &self.heaviest_tip_set,
             &self.heaviest_tipset_height,
-            &self.heaviest_tipset_weight,
+            BigIntSer(&self.heaviest_tipset_weight),
             &self.genesis_hash,
         )
-        .serialize(serializer)
+            .serialize(serializer)
     }
 }
 
@@ -43,23 +39,12 @@ impl<'de> Deserialize<'de> for HelloMessage {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        struct TupleHelloMessage(
-            Vec<Cid>,
-            ChainEpoch,
-            #[serde(with = "bigint_ser")] BigInt,
-            Cid,
-        );
-        let TupleHelloMessage(
-            heaviest_tip_set,
-            heaviest_tipset_height,
-            heaviest_tipset_weight,
-            genesis_hash,
-        ) = Deserialize::deserialize(deserializer)?;
+        let (heaviest_tip_set, heaviest_tipset_height, weight, genesis_hash): (_, _, BigIntDe, _) =
+            Deserialize::deserialize(deserializer)?;
         Ok(HelloMessage {
             heaviest_tip_set,
             heaviest_tipset_height,
-            heaviest_tipset_weight,
+            heaviest_tipset_weight: weight.0,
             genesis_hash,
         })
     }
