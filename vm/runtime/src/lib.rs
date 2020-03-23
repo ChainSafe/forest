@@ -13,11 +13,9 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{
-    ActorError, ExitCode, MethodNum, PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo,
-    Serialized, TokenAmount,
+    ActorError, ExitCode, MethodNum, PieceInfo, PoStVerifyInfo, Randomness, RegisteredProof,
+    SealVerifyInfo, Serialized, TokenAmount,
 };
-
-pub struct Randomness; // TODO
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.

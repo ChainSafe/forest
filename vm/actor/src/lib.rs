@@ -9,7 +9,7 @@ mod util;
 
 pub use self::builtin::*;
 pub use self::util::*;
-pub use vm::{ActorID, ActorState, Serialized};
+pub use vm::{ActorID, ActorState, DealID, Serialized};
 
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
@@ -37,9 +37,6 @@ fn empty_return() -> Serialized {
 fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, String, BS> {
     Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH)
 }
-
-// TODO possibly move this type out of actor crate
-type DealID = u64;
 
 pub fn deal_key(d: DealID) -> String {
     let mut bz = unsigned_varint::encode::u64_buffer();

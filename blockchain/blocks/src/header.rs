@@ -12,8 +12,11 @@ use encoding::{
     ser::{self, Serializer},
     Cbor, Error as EncodingError,
 };
-use num_bigint::{biguint_ser, BigUint};
-use serde::{Deserialize, Serialize};
+use num_bigint::{
+    biguint_ser::{BigUintDe, BigUintSer},
+    BigUint,
+};
+use serde::Deserialize;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -119,28 +122,12 @@ impl ser::Serialize for BlockHeader {
     where
         S: Serializer,
     {
-        #[derive(Serialize)]
-        struct TupleBlockHeader<'a>(
-            &'a Address,                                // miner_address
-            &'a Ticket,                                 // ticket
-            &'a EPostProof,                             // epost_verify
-            &'a TipSetKeys,                             // parents []cid
-            #[serde(with = "biguint_ser")] &'a BigUint, // weight
-            &'a ChainEpoch,                             // epoch
-            &'a Cid,                                    // state_root
-            &'a Cid,                                    // message_receipts
-            &'a Cid,                                    // messages
-            &'a Signature,                              // bls_aggregate
-            &'a u64,                                    // timestamp
-            &'a Signature,                              // signature
-            &'a u64,                                    // fork_signal
-        );
-        TupleBlockHeader(
+        (
             &self.miner_address,
             &self.ticket,
             &self.epost_verify,
             &self.parents,
-            &self.weight,
+            BigUintSer(&self.weight),
             &self.epoch,
             &self.state_root,
             &self.message_receipts,
@@ -150,7 +137,7 @@ impl ser::Serialize for BlockHeader {
             &self.signature,
             &self.fork_signal,
         )
-        .serialize(serializer)
+            .serialize(serializer)
     }
 }
 
@@ -159,28 +146,12 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        struct TupleBlockHeader(
-            Address,
-            Ticket,
-            EPostProof,
-            TipSetKeys,
-            #[serde(with = "biguint_ser")] BigUint,
-            ChainEpoch,
-            Cid,
-            Cid,
-            Cid,
-            Signature,
-            u64,
-            Signature,
-            u64,
-        );
-        let TupleBlockHeader(
+        let (
             miner_address,
             ticket,
             epost_verify,
             parents,
-            weight,
+            BigUintDe(weight),
             epoch,
             state_root,
             message_receipts,
