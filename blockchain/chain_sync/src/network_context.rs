@@ -75,15 +75,14 @@ impl SyncNetworkContext {
         &mut self,
         peer_id: PeerId,
         tsk: &TipSetKeys,
-        count: u64,
     ) -> Result<FullTipset, String> {
         let bs_res = self
             .blocksync_request(
                 peer_id,
                 BlockSyncRequest {
                     start: tsk.cids().to_vec(),
-                    request_len: count,
-                    options: 1,
+                    request_len: 1,
+                    options: 3,
                 },
             )
             .await?;

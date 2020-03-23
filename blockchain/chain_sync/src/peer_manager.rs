@@ -40,6 +40,7 @@ impl PeerManager {
         // TODO replace this with a shuffled or more random sample
         self.full_peers.write().await.remove(&peer_id)
     }
+    /// Inserts peer id and given tipset
     pub async fn insert_peer_head(&self, peer_id: PeerId, tipset: Tipset) {
         self.peer_heads.write().await.insert(peer_id, tipset);
     }

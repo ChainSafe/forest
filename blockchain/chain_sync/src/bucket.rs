@@ -39,7 +39,7 @@ impl SyncBucket {
         }
     }
     /// Returns true if SyncBucket is empty
-    pub fn _is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.tips.is_empty()
     }
 }
@@ -61,9 +61,9 @@ impl SyncBucketSet {
         self.buckets.push(SyncBucket::new(vec![tipset]))
     }
     /// Removes the SyncBucket with heaviest weighted Tipset from SyncBucketSet
-    pub(crate) fn _pop(&mut self) -> Option<SyncBucket> {
+    pub(crate) fn pop(&mut self) -> Option<SyncBucket> {
         if let Some(heaviest_bucket) = self.buckets().iter().max_by_key(|b| b.heaviest_tipset()) {
-            self.clone()._remove(heaviest_bucket);
+            self.clone().remove(heaviest_bucket);
             Some(heaviest_bucket.clone())
         } else {
             None
@@ -81,7 +81,7 @@ impl SyncBucketSet {
         vals.iter().max_by_key(|b| b.weight()).cloned()
     }
     /// Updates SyncBucketSet by removing specified SyncBucket
-    pub(crate) fn _remove(&mut self, ts_bucket: &SyncBucket) {
+    pub(crate) fn remove(&mut self, ts_bucket: &SyncBucket) {
         let vals: Vec<SyncBucket> = self
             .buckets
             .clone()
@@ -95,12 +95,12 @@ impl SyncBucketSet {
     pub(crate) fn _pop_related(&mut self, ts: Tipset) {
         for b in self.buckets() {
             if b.clone().same_chain_as(&ts.clone()) {
-                self.clone()._remove(b)
+                self.clone().remove(b)
             }
         }
     }
     /// Returns a vector of SyncBuckets
-    pub(crate) fn buckets(&self) -> &Vec<SyncBucket> {
+    pub(crate) fn buckets(&self) -> &[SyncBucket] {
         &self.buckets
     }
     /// Returns true if SyncBucket is empty
