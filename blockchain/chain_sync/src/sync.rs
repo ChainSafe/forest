@@ -243,17 +243,17 @@ where
                 return Ok(());
             }
         }
-        self.schedule_tipset(ts.clone()).await?;
+        self.schedule_tipset(ts).await?;
         Ok(())
     }
     /// Retrieves the heaviest tipset in the sync queue; considered best target head
     pub async fn select_sync_target(&mut self) -> Option<Tipset> {
-        let heads = Vec::new();
+        let mut heads = Vec::new();
         for (_, ts) in self.peer_manager.peer_heads.read().await.iter() {
             heads.clone().push(ts);
         }
         // sort tipsets by epoch
-        heads.clone().sort_by_key(|header| (*header.epoch()));
+        heads.sort_by_key(|header| (*header.epoch()));
 
         // insert tipsets into sync queue
         for ts in heads {
