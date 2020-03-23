@@ -4,7 +4,7 @@
 mod state;
 
 pub use self::state::State;
-use crate::{assert_empty_params, empty_return};
+use crate::check_empty_params;
 use address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
@@ -74,13 +74,13 @@ impl ActorCode for Actor {
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::constructor(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::PubkeyAddress) => {
-                assert_empty_params(params);
+                check_empty_params(params)?;
                 Self::pubkey_address(rt)?;
-                Ok(empty_return())
+                Ok(Serialized::default())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
