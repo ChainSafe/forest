@@ -70,8 +70,8 @@ pub struct SignedVoucher {
     /// (optional) Set of lanes to be merged into `lane`
     pub merges: Vec<Merge>,
 
-    /// Sender's signature over the voucher
-    pub signature: Signature,
+    /// Sender's signature over the voucher (sign on none)
+    pub signature: Option<Signature>,
 }
 
 impl Serialize for SignedVoucher {
@@ -229,7 +229,7 @@ mod tests {
             lane: 3,
             nonce: 4,
             amount: BigInt::from(5),
-            signature: Signature::new_bls(b"doesn't matter".to_vec()),
+            signature: Some(Signature::new_bls(b"doesn't matter".to_vec())),
             ..Default::default()
         };
         let bz = to_vec(&v).unwrap();
