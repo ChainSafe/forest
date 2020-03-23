@@ -13,7 +13,7 @@ use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -41,7 +41,7 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Multisig actor
-    pub fn constructor<BS, RT>(rt: &RT, params: ConstructorParams)
+    pub fn constructor<BS, RT>(rt: &RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -50,22 +50,18 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(sys_ref));
 
         if params.signers.is_empty() {
-            rt.abort(
+            return Err(rt.abort(
                 ExitCode::ErrIllegalArgument,
                 "Must have at least one signer".to_owned(),
-            );
+            ));
         }
 
-        let empty_root = match make_map(rt.store()).flush() {
-            Ok(c) => c,
-            Err(e) => {
-                rt.abort(
-                    ExitCode::ErrIllegalState,
-                    format!("Failed to create empty map: {}", e),
-                );
-                unreachable!()
-            }
-        };
+        let empty_root = make_map(rt.store()).flush().map_err(|err| {
+            rt.abort(
+                ExitCode::ErrIllegalState,
+                format!("Failed to create empty map: {}", err),
+            )
+        })?;
 
         let mut st: State = State {
             signers: params.signers,
@@ -83,10 +79,12 @@ impl Actor {
             st.start_epoch = rt.curr_epoch();
         }
         rt.create(&st);
+
+        Ok(())
     }
 
     /// Multisig actor propose function
-    pub fn propose<BS, RT>(rt: &RT, params: ProposeParams) -> TxnID
+    pub fn propose<BS, RT>(rt: &RT, params: ProposeParams) -> Result<TxnID, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -95,7 +93,7 @@ impl Actor {
         let caller_addr: &Address = rt.message().from();
 
         let tx_id = rt.transaction::<State, _, _>(|st| {
-            Self::validate_signer(rt, &st, &caller_addr);
+            Self::validate_signer(rt, &st, &caller_addr)?;
             let t_id = st.next_tx_id;
             st.next_tx_id.0 += 1;
 
@@ -110,27 +108,27 @@ impl Actor {
                     approved: Vec::new(),
                 },
             ) {
-                rt.abort(
+                return Err(rt.abort(
                     ExitCode::ErrIllegalState,
                     format!("Failed to put transaction for reason: {}", err),
-                )
+                ));
             }
             // Return the tx id
-            t_id
-        });
+            Ok(t_id)
+        })?;
 
         // Proposal implicitly includes approval of a transaction
-        Self::approve_transaction(rt, tx_id);
+        Self::approve_transaction(rt, tx_id)?;
 
         // TODO revisit issue referenced in spec:
         // Note: this ID may not be stable across chain re-orgs.
         // https://github.com/filecoin-project/specs-actors/issues/7
 
-        tx_id
+        Ok(tx_id)
     }
 
     /// Multisig actor approve function
-    pub fn approve<BS, RT>(rt: &RT, params: TxnIDParams)
+    pub fn approve<BS, RT>(rt: &RT, params: TxnIDParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -139,13 +137,13 @@ impl Actor {
         let caller_addr: &Address = rt.message().from();
 
         // Validate signer
-        rt.transaction::<State, _, _>(|st| Self::validate_signer(rt, &st, &caller_addr));
+        rt.transaction::<State, _, _>(|st| Self::validate_signer(rt, &st, &caller_addr))?;
 
-        Self::approve_transaction(rt, params.id);
+        Self::approve_transaction(rt, params.id)
     }
 
     /// Multisig actor cancel function
-    pub fn cancel<BS, RT>(rt: &RT, params: TxnIDParams)
+    pub fn cancel<BS, RT>(rt: &RT, params: TxnIDParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -154,40 +152,40 @@ impl Actor {
         let caller_addr: &Address = rt.message().from();
 
         rt.transaction::<State, _, _>(|st| {
-            Self::validate_signer(rt, &st, caller_addr);
+            Self::validate_signer(rt, &st, caller_addr)?;
 
             // Get transaction to cancel
-            let tx = match st.get_pending_transaction(rt.store(), params.id) {
-                Ok(tx) => tx,
-                Err(e) => {
+            let tx = st
+                .get_pending_transaction(rt.store(), params.id)
+                .map_err(|err| {
                     rt.abort(
                         ExitCode::ErrNotFound,
-                        format!("Failed to get transaction for cancel: {}", e),
-                    );
-                    unreachable!()
-                }
-            };
+                        format!("Failed to get transaction for cancel: {}", err),
+                    )
+                })?;
 
             // Check to make sure transaction proposer is caller address
             if tx.approved.get(0) != Some(&caller_addr) {
-                rt.abort(
+                return Err(rt.abort(
                     ExitCode::ErrForbidden,
-                    "Cannot cancel another signers transaction".to_owned(),
-                );
+                    "Cannot cancel another signers transaction",
+                ));
             }
 
             // Remove transaction
             if let Err(e) = st.delete_pending_transaction(rt.store(), params.id) {
-                rt.abort(
+                return Err(rt.abort(
                     ExitCode::ErrIllegalState,
                     format!("Failed to delete transaction for cancel: {}", e),
-                );
+                ));
             }
-        });
+
+            Ok(())
+        })
     }
 
     /// Multisig actor function to add signers to multisig
-    pub fn add_signer<BS, RT>(rt: &RT, params: AddSignerParams)
+    pub fn add_signer<BS, RT>(rt: &RT, params: AddSignerParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -197,10 +195,7 @@ impl Actor {
         rt.transaction::<State, _, _>(|st| {
             // Check if signer to add is already signer
             if st.is_signer(&params.signer) {
-                rt.abort(
-                    ExitCode::ErrIllegalArgument,
-                    "Party is already a signer".to_owned(),
-                )
+                return Err(rt.abort(ExitCode::ErrIllegalArgument, "Party is already a signer"));
             }
 
             // Add signer and increase threshold if set
@@ -208,11 +203,13 @@ impl Actor {
             if params.increase {
                 st.num_approvals_threshold += 1;
             }
-        });
+
+            Ok(())
+        })
     }
 
     /// Multisig actor function to remove signers to multisig
-    pub fn remove_signer<BS, RT>(rt: &RT, params: RemoveSignerParams)
+    pub fn remove_signer<BS, RT>(rt: &RT, params: RemoveSignerParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -222,7 +219,7 @@ impl Actor {
         rt.transaction::<State, _, _>(|st| {
             // Check that signer to remove exists
             if !st.is_signer(&params.signer) {
-                rt.abort(ExitCode::ErrNotFound, "Party not found".to_owned())
+                return Err(rt.abort(ExitCode::ErrNotFound, "Party not found"));
             }
 
             if st.signers.len() == 1 {
@@ -239,11 +236,12 @@ impl Actor {
             if params.decrease || st.signers.len() - 1 < st.num_approvals_threshold as usize {
                 st.num_approvals_threshold -= 1;
             }
-        });
+            Ok(())
+        })
     }
 
     /// Multisig actor function to swap signers to multisig
-    pub fn swap_signer<BS, RT>(rt: &RT, params: SwapSignerParams)
+    pub fn swap_signer<BS, RT>(rt: &RT, params: SwapSignerParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -253,15 +251,15 @@ impl Actor {
         rt.transaction::<State, _, _>(|st| {
             // Check that signer to remove exists
             if !st.is_signer(&params.from) {
-                rt.abort(ExitCode::ErrNotFound, "Party not found".to_owned())
+                return Err(rt.abort(ExitCode::ErrNotFound, "Party not found"));
             }
 
             // Check if signer to add is already signer
             if st.is_signer(&params.to) {
-                rt.abort(
+                return Err(rt.abort(
                     ExitCode::ErrIllegalArgument,
                     "Party already present".to_owned(),
-                )
+                ));
             }
 
             // Remove signer from state
@@ -269,14 +267,17 @@ impl Actor {
 
             // Add new signer
             st.signers.push(params.to);
-        });
+
+            Ok(())
+        })
     }
 
     /// Multisig actor function to change number of approvals needed
     pub fn change_num_approvals_threshold<BS, RT>(
         rt: &RT,
         params: ChangeNumApprovalsThresholdParams,
-    ) where
+    ) -> Result<(), ActorError>
+    where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
@@ -285,18 +286,19 @@ impl Actor {
         rt.transaction::<State, _, _>(|st| {
             // Check if valid threshold value
             if params.new_threshold <= 0 || params.new_threshold as usize > st.signers.len() {
-                rt.abort(
+                return Err(rt.abort(
                     ExitCode::ErrIllegalArgument,
-                    "New threshold value not supported".to_owned(),
-                );
+                    "New threshold value not supported",
+                ));
             }
 
             // Update threshold on state
-            st.num_approvals_threshold = params.new_threshold
-        });
+            st.num_approvals_threshold = params.new_threshold;
+            Ok(())
+        })
     }
 
-    fn approve_transaction<BS, RT>(rt: &RT, tx_id: TxnID)
+    fn approve_transaction<BS, RT>(rt: &RT, tx_id: TxnID) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -317,10 +319,9 @@ impl Actor {
             // abort duplicate approval
             for previous_approver in &txn.approved {
                 if previous_approver == rt.message().from() {
-                    rt.abort(
-                        ExitCode::ErrIllegalState,
-                        "Already approved this message".to_owned(),
-                    )
+                    return Err(
+                        rt.abort(ExitCode::ErrIllegalState, "Already approved this message")
+                    );
                 }
             }
 
@@ -328,10 +329,10 @@ impl Actor {
             txn.approved.push(rt.message().from().clone());
 
             if let Err(e) = st.put_pending_transaction(rt.store(), tx_id, txn.clone()) {
-                rt.abort(
+                return Err(rt.abort(
                     ExitCode::ErrIllegalState,
                     format!("Failed to put transaction for approval: {}", e),
-                );
+                ));
             }
 
             // Check if number approvals is met
@@ -340,86 +341,93 @@ impl Actor {
                 if let Err(e) =
                     st.check_available(rt.current_balance(), txn.value.clone(), rt.curr_epoch())
                 {
-                    rt.abort(
+                    return Err(rt.abort(
                         ExitCode::ErrInsufficientFunds,
                         format!("Insufficient funds unlocked: {}", e),
-                    )
+                    ));
                 }
 
                 // Delete pending transaction
                 if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
-                    rt.abort(
+                    return Err(rt.abort(
                         ExitCode::ErrIllegalState,
                         format!("failed to delete transaction for cleanup: {}", e),
-                    )
+                    ));
                 }
 
-                (txn, true)
+                Ok((txn, true))
             } else {
                 // Number of approvals required not met, do not relay message
-                (txn, false)
+                Ok((txn, false))
             }
-        });
+        })?;
 
         // Sufficient number of approvals have arrived, relay message
         if threshold_met {
-            rt.send::<Serialized>(&tx.to, tx.method, &tx.params, &tx.value);
+            rt.send::<Serialized>(&tx.to, tx.method, &tx.params, &tx.value)?;
         }
+
+        Ok(())
     }
 
-    fn validate_signer<BS, RT>(rt: &RT, st: &State, address: &Address)
+    fn validate_signer<BS, RT>(rt: &RT, st: &State, address: &Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         if !st.is_signer(address) {
-            rt.abort(ExitCode::ErrForbidden, "Party not a signer".to_owned())
+            return Err(rt.abort(ExitCode::ErrForbidden, "Party not a signer"));
         }
+
+        Ok(())
     }
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Result<Serialized, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::constructor(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
             Some(Method::Propose) => {
-                Serialized::serialize(Self::propose(rt, params.deserialize().unwrap())).unwrap()
+                let res = Self::propose(rt, params.deserialize().unwrap())?;
+                Ok(Serialized::serialize(res).unwrap())
             }
             Some(Method::Approve) => {
-                Self::approve(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::approve(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
             Some(Method::Cancel) => {
-                Self::cancel(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::cancel(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
             Some(Method::AddSigner) => {
-                Self::add_signer(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::add_signer(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
             Some(Method::RemoveSigner) => {
-                Self::remove_signer(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::remove_signer(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
             Some(Method::SwapSigner) => {
-                Self::swap_signer(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::swap_signer(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
             Some(Method::ChangeNumApprovalsThreshold) => {
-                Self::change_num_approvals_threshold(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::change_num_approvals_threshold(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
-            _ => {
-                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
-                unreachable!();
-            }
+            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned())),
         }
     }
 }
