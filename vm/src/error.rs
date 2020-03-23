@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use encoding::Error as EncodingError;
 use thiserror::Error;
 
 use crate::ExitCode;
@@ -28,5 +29,15 @@ impl ActorError {
 
     pub fn msg(&self) -> &str {
         &self.msg
+    }
+}
+
+impl From<EncodingError> for ActorError {
+    fn from(e: EncodingError) -> Self {
+        Self {
+            fatal: true,
+            exit_code: ExitCode::ErrSerialization,
+            msg: e.to_string(),
+        }
     }
 }

@@ -4,7 +4,7 @@
 mod state;
 
 pub use self::state::{Entry, State};
-use crate::{assert_empty_params, empty_return, SYSTEM_ACTOR_ADDR};
+use crate::{check_empty_params, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
@@ -107,13 +107,13 @@ impl ActorCode for Actor {
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::constructor(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::EpochTick) => {
-                assert_empty_params(params);
+                check_empty_params(params)?;
                 Self::epoch_tick(rt)?;
-                Ok(empty_return())
+                Ok(Serialized::default())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
