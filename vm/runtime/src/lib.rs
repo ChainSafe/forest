@@ -13,8 +13,8 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{
-    ExitCode, MethodNum, PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo, Serialized,
-    TokenAmount,
+    ActorError, ExitCode, MethodNum, PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo,
+    Serialized, TokenAmount,
 };
 
 pub struct Randomness; // TODO
@@ -91,13 +91,13 @@ pub trait Runtime<BS: BlockStore> {
         method: MethodNum,
         params: &Serialized,
         value: &TokenAmount,
-    ) -> (SR, ExitCode);
+    ) -> Result<SR, ActorError>;
 
     /// Halts execution upon an error from which the receiver cannot recover. The caller will receive the exitcode and
     /// an empty return value. State changes made within this call will be rolled back.
     /// This method does not return.
     /// The message and args are for diagnostic purposes and do not persist on chain.
-    fn abort(&self, exit_code: ExitCode, msg: String);
+    fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError;
 
     /// Computes an address for a new actor. The returned address is intended to uniquely refer to
     /// the actor even in the event of a chain re-org (whereas an ID-address might refer to a
