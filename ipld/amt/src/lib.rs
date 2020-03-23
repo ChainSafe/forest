@@ -12,7 +12,7 @@ mod error;
 mod node;
 mod root;
 
-pub use self::amt::AMT;
+pub use self::amt::Amt;
 pub use self::bitmap::BitMap;
 pub use self::error::Error;
 pub(crate) use self::node::Node;

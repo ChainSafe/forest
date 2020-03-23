@@ -18,7 +18,7 @@ use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Init actor methods available
 #[derive(FromPrimitive)]
@@ -38,7 +38,7 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Init actor constructor
-    pub fn constructor<BS, RT>(rt: &RT, params: ConstructorParams)
+    pub fn constructor<BS, RT>(rt: &RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -46,21 +46,20 @@ impl Actor {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
         rt.validate_immediate_caller_is(std::iter::once(sys_ref));
         let mut empty_map = make_map(rt.store());
-        let root = match empty_map.flush() {
-            Ok(cid) => cid,
-            Err(e) => {
-                rt.abort(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to construct state: {}", e),
-                );
-                unreachable!()
-            }
-        };
+        let root = empty_map.flush().map_err(|err| {
+            rt.abort(
+                ExitCode::ErrIllegalState,
+                format!("failed to construct state: {}", err),
+            )
+        })?;
+
         rt.create(&State::new(root, params.network_name));
+
+        Ok(())
     }
 
     /// Exec init actor
-    pub fn exec<BS, RT>(rt: &RT, params: ExecParams) -> ExecReturn
+    pub fn exec<BS, RT>(rt: &RT, params: ExecParams) -> Result<ExecReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -70,13 +69,13 @@ impl Actor {
             .get_actor_code_cid(rt.message().from())
             .expect("no code for actor");
         if !can_exec(&caller_code, &params.code_cid) {
-            rt.abort(
+            return Err(rt.abort(
                 ExitCode::ErrForbidden,
                 format!(
                     "called type {} cannot exec actor type {}",
                     &caller_code, &params.code_cid
                 ),
-            )
+            ));
         }
 
         // Compute a re-org-stable address.
@@ -101,42 +100,44 @@ impl Actor {
         rt.create_actor(&params.code_cid, &id_address);
 
         // Invoke constructor
-        let (_, exit_code) = rt.send::<Ipld>(
+        rt.send::<Ipld>(
             &id_address,
             MethodNum::new(METHOD_CONSTRUCTOR as u64),
             &params.constructor_params,
             rt.message().value(),
-        );
+        )
+        .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))?;
 
-        if !exit_code.is_success() {
-            rt.abort(exit_code, "constructor failed".to_owned());
-        }
-
-        ExecReturn {
+        Ok(ExecReturn {
             id_address,
             robust_address,
-        }
+        })
     }
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Result<Serialized, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::constructor(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
             Some(Method::Exec) => {
-                Serialized::serialize(Self::exec(rt, params.deserialize().unwrap())).unwrap()
+                let res = Self::exec(rt, params.deserialize().unwrap())?;
+                Ok(Serialized::serialize(res).unwrap())
             }
             _ => {
                 // Method number does not match available, abort in runtime
-                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
-                unreachable!();
+                Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method"))
             }
         }
     }

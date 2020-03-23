@@ -10,7 +10,7 @@ use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Account actor methods available
 #[derive(FromPrimitive)]
@@ -30,54 +30,59 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Account actor
-    pub fn constructor<BS, RT>(rt: &RT, address: Address)
+    pub fn constructor<BS, RT>(rt: &RT, address: Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&address));
         match address.protocol() {
-            Protocol::Secp256k1 | Protocol::BLS => (),
-            protocol => rt.abort(
-                ExitCode::ErrIllegalArgument,
-                format!("address must use BLS or SECP protocol, got {}", protocol),
-            ),
+            Protocol::Secp256k1 | Protocol::BLS => {}
+            protocol => {
+                return Err(rt.abort(
+                    ExitCode::ErrIllegalArgument,
+                    format!("address must use BLS or SECP protocol, got {}", protocol),
+                ));
+            }
         }
-        rt.create(&State { address })
+        rt.create(&State { address });
+        Ok(())
     }
 
     // Fetches the pubkey-type address from this actor.
-    pub fn pubkey_address<BS, RT>(rt: &RT) -> Address
+    pub fn pubkey_address<BS, RT>(rt: &RT) -> Result<Address, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any();
         let st: State = rt.state();
-        st.address
+        Ok(st.address)
     }
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Result<Serialized, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::constructor(rt, params.deserialize().unwrap())?;
+                Ok(empty_return())
             }
             Some(Method::PubkeyAddress) => {
                 assert_empty_params(params);
-                Self::pubkey_address(rt);
-                empty_return()
+                Self::pubkey_address(rt)?;
+                Ok(empty_return())
             }
-            _ => {
-                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
-                unreachable!();
-            }
+            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }
 }
