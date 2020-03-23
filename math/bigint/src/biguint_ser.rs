@@ -2,7 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use num_bigint::BigUint;
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+/// Wrapper for serializing big ints to match filecoin spec. Serializes as bytes.
+pub struct BigUintSer<'a>(pub &'a BigUint);
+
+/// Wrapper for deserializing as BigUint from bytes.
+pub struct BigUintDe(pub BigUint);
+
+impl Serialize for BigUintSer<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize(self.0, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for BigUintDe {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(BigUintDe(deserialize(deserializer)?))
+    }
+}
 
 pub fn serialize<S>(int: &BigUint, serializer: S) -> Result<S::Ok, S::Error>
 where
