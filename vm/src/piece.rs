@@ -30,7 +30,7 @@ impl UnpaddedPieceSize {
 }
 
 /// Size of a piece in bytes with padding
-#[derive(PartialEq, Debug, Eq, Clone, Copy)]
+#[derive(PartialEq, Debug, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct PaddedPieceSize(pub u64);
 
 impl PaddedPieceSize {
@@ -50,24 +50,6 @@ impl PaddedPieceSize {
         }
 
         Ok(())
-    }
-}
-
-impl Serialize for PaddedPieceSize {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(s)
-    }
-}
-
-impl<'de> Deserialize<'de> for PaddedPieceSize {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self(Deserialize::deserialize(deserializer)?))
     }
 }
 

@@ -9,7 +9,7 @@ use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::Address;
-use amt::AMT;
+use amt::Amt;
 use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
@@ -317,9 +317,9 @@ where
         // collect bls and secp cids
         let bls_cids = cids_from_messages(block.bls_msgs())?;
         let secp_cids = cids_from_messages(block.secp_msgs())?;
-        // generate AMT and batch set message values
-        let bls_root = AMT::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
-        let secp_root = AMT::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
+        // generate Amt and batch set message values
+        let bls_root = Amt::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
+        let secp_root = Amt::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
 
         let meta = TxMeta {
             bls_message_root: bls_root,
