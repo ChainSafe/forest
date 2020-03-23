@@ -2,41 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
-use encoding::{
-    de::{self, Deserializer},
-    ser::{self, Serializer},
-};
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
 use std::ops::Sub;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, PartialOrd, Serialize, Deserialize)]
 /// An epoch represents a single valid state in the blockchain
 pub struct ChainEpoch(pub u64);
 
 impl From<u64> for ChainEpoch {
     fn from(num: u64) -> ChainEpoch {
         ChainEpoch(num)
-    }
-}
-
-impl ser::Serialize for ChainEpoch {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de> de::Deserialize<'de> for ChainEpoch {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(ChainEpoch(de::Deserialize::deserialize(deserializer)?))
     }
 }
 

@@ -2,35 +2,35 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de::DeserializeOwned, ser::Serialize};
-use ipld_amt::{Error, AMT, MAX_INDEX};
+use ipld_amt::{Amt, Error, MAX_INDEX};
 use ipld_blockstore::BlockStore;
 use std::fmt::Debug;
 
-fn assert_get<DB, V>(a: &mut AMT<DB, V>, i: u64, v: &V)
+fn assert_get<V, BS>(a: &mut Amt<V, BS>, i: u64, v: &V)
 where
     V: Clone + Serialize + DeserializeOwned + PartialEq + Debug,
-    DB: BlockStore,
+    BS: BlockStore,
 {
     assert_eq!(&a.get(i).unwrap().unwrap(), v);
 }
 
-fn assert_count<DB, V>(a: &mut AMT<DB, V>, c: u64)
+fn assert_count<V, BS>(a: &mut Amt<V, BS>, c: u64)
 where
-    DB: BlockStore,
     V: Clone + Serialize + DeserializeOwned + PartialEq,
+    BS: BlockStore,
 {
     assert_eq!(a.count(), c);
 }
 
 #[test]
 fn constructor() {
-    AMT::<_, u8>::new(&db::MemoryDB::default());
+    Amt::<u8, _>::new(&db::MemoryDB::default());
 }
 
 #[test]
 fn basic_get_set() {
     let db = db::MemoryDB::default();
-    let mut a = AMT::new(&db);
+    let mut a = Amt::new(&db);
 
     a.set(2, "foo".to_owned()).unwrap();
     assert_get(&mut a, 2, &"foo".to_owned());
@@ -47,7 +47,7 @@ fn basic_get_set() {
 #[test]
 fn out_of_range() {
     let db = db::MemoryDB::default();
-    let mut a = AMT::new(&db);
+    let mut a = Amt::new(&db);
 
     let res = a.set(1 << 50, "test".to_owned());
     assert_eq!(res.err(), Some(Error::OutOfRange(1 << 50)));
@@ -63,7 +63,7 @@ fn out_of_range() {
 #[test]
 fn expand() {
     let db = db::MemoryDB::default();
-    let mut a = AMT::new(&db);
+    let mut a = Amt::new(&db);
 
     a.set(2, "foo".to_owned()).unwrap();
     a.set(11, "bar".to_owned()).unwrap();
@@ -77,7 +77,7 @@ fn expand() {
     let c = a.flush().unwrap();
 
     // Load amt with that cid
-    let mut new_amt = AMT::load(&db, &c).unwrap();
+    let mut new_amt = Amt::load(&c, &db).unwrap();
 
     assert_get(&mut new_amt, 2, &"foo".to_owned());
     assert_get(&mut new_amt, 11, &"bar".to_owned());
@@ -93,7 +93,7 @@ fn expand() {
 #[test]
 fn bulk_insert() {
     let db = db::MemoryDB::default();
-    let mut a = AMT::new(&db);
+    let mut a = Amt::new(&db);
 
     let iterations: u64 = 5000;
 
@@ -109,7 +109,7 @@ fn bulk_insert() {
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
-    let mut new_amt = AMT::load(&db, &c).unwrap();
+    let mut new_amt = Amt::load(&c, &db).unwrap();
 
     for i in 0..iterations {
         assert_get(&mut new_amt, i, &"foo foo bar".to_owned());
@@ -125,7 +125,7 @@ fn bulk_insert() {
 #[test]
 fn delete() {
     let db = db::MemoryDB::default();
-    let mut a = AMT::new(&db);
+    let mut a = Amt::new(&db);
     a.set(0, "ferret".to_owned()).unwrap();
     a.set(1, "ferret".to_owned()).unwrap();
     a.set(2, "ferret".to_owned()).unwrap();
@@ -152,11 +152,11 @@ fn delete() {
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
-    let regen_amt: AMT<_, String> = AMT::load(&db, &c).unwrap();
+    let regen_amt: Amt<String, _> = Amt::load(&c, &db).unwrap();
     assert_eq!(regen_amt.count(), 1);
 
     // Test that a new amt inserting just at index 24 is the same
-    let mut new_amt = AMT::new(&db);
+    let mut new_amt = Amt::new(&db);
     new_amt.set(24, "dog".to_owned()).unwrap();
     let c2 = new_amt.flush().unwrap();
 
@@ -171,7 +171,7 @@ fn delete() {
 #[test]
 fn delete_first_entry() {
     let db = db::MemoryDB::default();
-    let mut a = AMT::new(&db);
+    let mut a = Amt::new(&db);
 
     a.set(0, "cat".to_owned()).unwrap();
     a.set(27, "cat".to_owned()).unwrap();
@@ -183,7 +183,7 @@ fn delete_first_entry() {
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
-    let new_amt: AMT<_, String> = AMT::load(&db, &c).unwrap();
+    let new_amt: Amt<String, _> = Amt::load(&c, &db).unwrap();
     assert_eq!(new_amt.count(), 1);
     assert_eq!(new_amt.height(), 0);
 
@@ -197,7 +197,7 @@ fn delete_first_entry() {
 #[test]
 fn delete_reduce_height() {
     let db = db::MemoryDB::default();
-    let mut a = AMT::new(&db);
+    let mut a = Amt::new(&db);
 
     a.set(1, "thing".to_owned()).unwrap();
     let c1 = a.flush().unwrap();
@@ -206,7 +206,7 @@ fn delete_reduce_height() {
     assert_eq!(a.height(), 1);
     let c2 = a.flush().unwrap();
 
-    let mut a2: AMT<_, String> = AMT::load(&db, &c2).unwrap();
+    let mut a2: Amt<String, _> = Amt::load(&c2, &db).unwrap();
     a2.delete(37).unwrap();
     assert_eq!(a2.count(), 1);
     assert_eq!(a2.height(), 0);
