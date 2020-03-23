@@ -6,7 +6,7 @@ mod types;
 
 pub use self::state::State;
 pub use self::types::*;
-use crate::{empty_return, make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
+use crate::{make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
 use message::Message;
@@ -396,36 +396,36 @@ impl ActorCode for Actor {
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::constructor(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::Propose) => {
-                let res = Self::propose(rt, params.deserialize().unwrap())?;
-                Ok(Serialized::serialize(res).unwrap())
+                let res = Self::propose(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
             }
             Some(Method::Approve) => {
-                Self::approve(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::approve(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::Cancel) => {
-                Self::cancel(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::cancel(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::AddSigner) => {
-                Self::add_signer(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::add_signer(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::RemoveSigner) => {
-                Self::remove_signer(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::remove_signer(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::SwapSigner) => {
-                Self::swap_signer(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::swap_signer(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::ChangeNumApprovalsThreshold) => {
-                Self::change_num_approvals_threshold(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::change_num_approvals_threshold(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned())),
         }

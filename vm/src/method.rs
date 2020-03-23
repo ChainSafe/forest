@@ -28,9 +28,17 @@ pub const METHOD_SEND: isize = 0;
 pub const METHOD_CONSTRUCTOR: isize = 1;
 
 /// Serialized bytes to be used as parameters into actor methods
-#[derive(Default, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Serialized {
     bytes: Vec<u8>,
+}
+
+impl Default for Serialized {
+    /// Default serialized bytes is an empty array serialized
+    #[inline]
+    fn default() -> Self {
+        Self::serialize::<[u8; 0]>([]).unwrap()
+    }
 }
 
 impl ser::Serialize for Serialized {
