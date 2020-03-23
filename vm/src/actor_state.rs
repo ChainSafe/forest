@@ -3,12 +3,15 @@
 
 use cid::Cid;
 use encoding::Cbor;
-use num_bigint::{biguint_ser, BigUint};
+use num_bigint::{
+    biguint_ser::{BigUintDe, BigUintSer},
+    BigUint,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::AddAssign;
 
 /// Identifier for Actors, includes builtin and initialized actors
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ActorID(pub u64);
 
 impl AddAssign<u64> for ActorID {
@@ -33,14 +36,12 @@ impl Serialize for ActorState {
     where
         S: Serializer,
     {
-        #[derive(Serialize)]
-        struct TupleActorState<'a>(
-            &'a Cid,
-            &'a Cid,
-            &'a u64,
-            #[serde(with = "biguint_ser")] &'a BigUint,
-        );
-        TupleActorState(&self.code, &self.state, &self.sequence, &self.balance)
+        (
+            &self.code,
+            &self.state,
+            &self.sequence,
+            BigUintSer(&self.balance),
+        )
             .serialize(serializer)
     }
 }
@@ -50,10 +51,7 @@ impl<'de> Deserialize<'de> for ActorState {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        struct TupleActorState(Cid, Cid, u64, #[serde(with = "biguint_ser")] BigUint);
-        let TupleActorState(code, state, sequence, balance) =
-            Deserialize::deserialize(deserializer)?;
+        let (code, state, sequence, BigUintDe(balance)) = Deserialize::deserialize(deserializer)?;
         Ok(ActorState {
             code,
             state,

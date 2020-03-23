@@ -10,10 +10,10 @@ use ipld_blockstore::BlockStore;
 ///
 /// Usage:
 /// ```
-/// use ipld_amt::AMT;
+/// use ipld_amt::Amt;
 ///
 /// let db = db::MemoryDB::default();
-/// let mut amt = AMT::new(&db);
+/// let mut amt = Amt::new(&db);
 ///
 /// // Insert or remove any serializable values
 /// amt.set(2, "foo".to_owned()).unwrap();
@@ -26,22 +26,24 @@ use ipld_blockstore::BlockStore;
 /// let cid = amt.flush().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct AMT<'db, DB, V>
-where
-    DB: BlockStore,
-    V: Clone,
-{
+pub struct Amt<'db, V, BS> {
     root: Root<V>,
-    block_store: &'db DB,
+    block_store: &'db BS,
 }
 
-impl<'db, DB, V> AMT<'db, DB, V>
+impl<'a, V: PartialEq, BS: BlockStore> PartialEq for Amt<'a, V, BS> {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root
+    }
+}
+
+impl<'db, V, BS> Amt<'db, V, BS>
 where
-    DB: BlockStore,
     V: Clone + DeserializeOwned + Serialize,
+    BS: BlockStore,
 {
     /// Constructor for Root AMT node
-    pub fn new(block_store: &'db DB) -> Self {
+    pub fn new(block_store: &'db BS) -> Self {
         Self {
             root: Root::default(),
             block_store,
@@ -49,7 +51,7 @@ where
     }
 
     /// Constructs an AMT with a blockstore and a Cid of the root of the AMT
-    pub fn load(block_store: &'db DB, cid: &Cid) -> Result<Self, Error> {
+    pub fn load(cid: &Cid, block_store: &'db BS) -> Result<Self, Error> {
         // Load root bytes from database
         let root: Root<V> = block_store
             .get(cid)?
@@ -69,7 +71,7 @@ where
     }
 
     /// Generates an AMT with block store and array of cbor marshallable objects and returns Cid
-    pub fn new_from_slice(block_store: &'db DB, vals: &[V]) -> Result<Cid, Error> {
+    pub fn new_from_slice(block_store: &'db BS, vals: &[V]) -> Result<Cid, Error> {
         let mut t = Self::new(block_store);
 
         t.batch_set(vals)?;
@@ -187,5 +189,39 @@ where
     pub fn flush(&mut self) -> Result<Cid, Error> {
         self.root.node.flush(self.block_store)?;
         Ok(self.block_store.put(&self.root, Blake2b256)?)
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values.
+    ///
+    /// The index in the amt is a `u64` and the value is the generic parameter `V` as defined
+    /// in the Amt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ipld_amt::Amt;
+    ///
+    /// let store = db::MemoryDB::default();
+    ///
+    /// let mut map: Amt<String, _> = Amt::new(&store);
+    /// map.set(1, "One".to_owned()).unwrap();
+    /// map.set(4, "Four".to_owned()).unwrap();
+    ///
+    /// let mut values: Vec<(u64, String)> = Vec::new();
+    /// map.for_each(&mut |i, v| {
+    ///    values.push((i, v));
+    ///    Ok(())
+    /// }).unwrap();
+    /// assert_eq!(&values, &[(1, "One".to_owned()), (4, "Four".to_owned())]);
+    /// ```
+    #[inline]
+    pub fn for_each<F>(&self, f: &mut F) -> Result<(), String>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, V) -> Result<(), String>,
+    {
+        self.root
+            .node
+            .for_each(self.block_store, self.height(), 0, f)
     }
 }

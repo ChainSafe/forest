@@ -74,7 +74,7 @@ where
         if bmap.get_bit(i as u64) {
             let value = v_iter
                 .next()
-                .ok_or_else(|| Error::Custom("Vector length does not match bitmap".to_owned()))?;
+                .ok_or_else(|| Error::Custom("Vector length does not match bitmap"))?;
             *e = Some(<T>::from(value.clone()));
         }
     }
@@ -173,7 +173,7 @@ where
         self.bitmap().is_empty()
     }
 
-    /// Gets value at given index of AMT given height
+    /// Gets value at given index of Amt given height
     pub(super) fn get<DB: BlockStore>(
         &self,
         bs: &DB,
@@ -253,7 +253,7 @@ where
                 unreachable!("Value is set as cached")
             }
         } else {
-            unreachable!("Non zero height in AMT is always Links type")
+            unreachable!("Non zero height in Amt is always Links type")
         }
     }
 
@@ -270,7 +270,7 @@ where
         }
     }
 
-    /// Delete value in AMT by index
+    /// Delete value in Amt by index
     pub(super) fn delete<DB: BlockStore>(
         &mut self,
         bs: &DB,
@@ -280,7 +280,7 @@ where
         let sub_i = i / nodes_for_height(height);
 
         if !self.bitmap().get_bit(sub_i) {
-            // Value does not exist in AMT
+            // Value does not exist in Amt
             return Ok(false);
         }
 
@@ -321,6 +321,49 @@ where
                 Ok(true)
             }
         }
+    }
+
+    pub(super) fn for_each<S, F>(
+        &self,
+        store: &S,
+        height: u32,
+        offset: u64,
+        f: &mut F,
+    ) -> Result<(), String>
+    where
+        F: FnMut(u64, V) -> Result<(), String>,
+        S: BlockStore,
+    {
+        match self {
+            Node::Leaf { bmap, vals } => {
+                for (i, v) in vals.iter().enumerate() {
+                    if bmap.get_bit(i as u64) {
+                        f(
+                            offset + i as u64,
+                            v.clone().expect("set bit should contain value"),
+                        )?;
+                    }
+                }
+            }
+            Node::Link { bmap, links } => {
+                for (i, l) in links.iter().enumerate() {
+                    if bmap.get_bit(i as u64) {
+                        let offs = offset + (i as u64 * nodes_for_height(height));
+                        match l.as_ref().expect("bit set at index") {
+                            Link::Cached(sub) => sub.for_each(store, height - 1, offs, f)?,
+                            Link::Cid(cid) => {
+                                let node = store.get::<Node<V>>(cid)?.ok_or_else(|| {
+                                    Error::Cid("Cid did not match any in database".to_owned())
+                                })?;
+
+                                node.for_each(store, height - 1, offs, f)?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }
 

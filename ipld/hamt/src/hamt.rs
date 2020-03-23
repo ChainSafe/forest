@@ -97,7 +97,7 @@ where
     }
 
     /// Returns a reference to the underlying store of the Hamt.
-    pub fn store(&self) -> &BS {
+    pub fn store(&self) -> &'a BS {
         self.store
     }
 

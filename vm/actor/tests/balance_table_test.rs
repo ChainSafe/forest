@@ -10,7 +10,7 @@ use vm::TokenAmount;
 fn add_create() {
     let addr = Address::new_id(100).unwrap();
     let store = db::MemoryDB::default();
-    let mut bt = BalanceTable::new_empty(&store);
+    let mut bt = BalanceTable::new(&store);
 
     assert_eq!(bt.has(&addr), Ok(false));
 
@@ -27,7 +27,7 @@ fn total() {
     let addr1 = Address::new_id(100).unwrap();
     let addr2 = Address::new_id(101).unwrap();
     let store = db::MemoryDB::default();
-    let mut bt = BalanceTable::new_empty(&store);
+    let mut bt = BalanceTable::new(&store);
 
     assert_eq!(bt.total(), Ok(TokenAmount::new(0)));
 
@@ -70,7 +70,7 @@ fn total() {
 fn balance_subtracts() {
     let addr = Address::new_id(100).unwrap();
     let store = db::MemoryDB::default();
-    let mut bt = BalanceTable::new_empty(&store);
+    let mut bt = BalanceTable::new(&store);
 
     bt.set(&addr, TokenAmount::new(80)).unwrap();
     assert_eq!(bt.get(&addr), Ok(TokenAmount::new(80)));
@@ -100,7 +100,7 @@ fn balance_subtracts() {
 fn remove() {
     let addr = Address::new_id(100).unwrap();
     let store = db::MemoryDB::default();
-    let mut bt = BalanceTable::new_empty(&store);
+    let mut bt = BalanceTable::new(&store);
 
     bt.set(&addr, TokenAmount::new(1)).unwrap();
     assert_eq!(bt.get(&addr), Ok(TokenAmount::new(1)));

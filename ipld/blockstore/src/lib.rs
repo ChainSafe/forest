@@ -5,7 +5,7 @@ use cid::{multihash::MultihashDigest, Cid};
 use db::{Error, MemoryDB, RocksDb, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 
-/// Wrapper for database to handle inserting and retrieving data from AMT with Cids
+/// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
     /// Get bytes from block store by Cid
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Error> {
