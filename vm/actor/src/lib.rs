@@ -11,6 +11,7 @@ pub use self::builtin::*;
 pub use self::util::*;
 pub use vm::{ActorID, ActorState, DealID, Serialized};
 
+use encoding::Error as EncodingError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use unsigned_varint::decode::Error as UVarintError;
@@ -19,14 +20,8 @@ const HAMT_BIT_WIDTH: u8 = 5;
 
 /// Used when invocation requires parameters to be an empty array of bytes
 #[inline]
-fn assert_empty_params(params: &Serialized) {
-    params.deserialize::<[u8; 0]>().unwrap();
-}
-
-/// Empty return is an empty serialized array
-#[inline]
-fn empty_return() -> Serialized {
-    Serialized::serialize::<[u8; 0]>([]).unwrap()
+fn check_empty_params(params: &Serialized) -> Result<(), EncodingError> {
+    params.deserialize::<[u8; 0]>().map(|_| ())
 }
 
 /// Create a map
