@@ -18,6 +18,9 @@ use unsigned_varint::decode::Error as UVarintError;
 
 const HAMT_BIT_WIDTH: u8 = 5;
 
+type EmptyType = [u8; 0];
+const EMPTY_VALUE: EmptyType = [];
+
 /// Used when invocation requires parameters to be an empty array of bytes
 #[inline]
 fn check_empty_params(params: &Serialized) -> Result<(), EncodingError> {
