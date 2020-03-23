@@ -19,6 +19,7 @@ libp2p = "0.15.0"
 lazy_static = "1.4.0"
 ipld_blockstore = { path = "../../ipld/blockstore" }
 ipld_hamt = { path = "../../ipld/hamt" }
+ipld_amt = { path = "../../ipld/amt" }
 forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
 

@@ -16,7 +16,7 @@ where
     BS: BlockStore,
 {
     /// Initializes a new empty balance table
-    pub fn new_empty(bs: &'a BS) -> Self {
+    pub fn new(bs: &'a BS) -> Self {
         Self(Hamt::new_with_bit_width(bs, HAMT_BIT_WIDTH))
     }
 

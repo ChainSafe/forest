@@ -20,7 +20,7 @@ pub enum Error {
     /// Error when trying to serialize an AMT without a flushed cache
     Cached,
     /// Custom AMT error
-    Custom(String),
+    Custom(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -32,10 +32,16 @@ impl fmt::Display for Error {
             Error::Db(msg) => write!(f, "{}", msg),
             Error::Cached => write!(
                 f,
-                "Tried to serialize without saving cache, run flush() on AMT before serializing"
+                "Tried to serialize without saving cache, run flush() on Amt before serializing"
             ),
-            Error::Custom(msg) => write!(f, "Custom AMT error: {}", msg),
+            Error::Custom(msg) => write!(f, "Amt error: {}", msg),
         }
+    }
+}
+
+impl From<Error> for String {
+    fn from(e: Error) -> Self {
+        e.to_string()
     }
 }
 
