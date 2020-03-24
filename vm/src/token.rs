@@ -1,9 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use num_bigint::{biguint_ser, BigUint, ParseBigIntError};
+use num_bigint::{biguint_ser, BigInt, BigUint, ParseBigIntError};
 use num_traits::CheckedSub;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::fmt;
 use std::ops::{Add, AddAssign, Mul, Sub};
 use std::str::FromStr;
@@ -16,6 +17,11 @@ pub struct TokenAmount(#[serde(with = "biguint_ser")] pub BigUint);
 impl TokenAmount {
     pub fn new(val: u64) -> Self {
         TokenAmount(BigUint::from(val))
+    }
+
+    pub fn add_bigint(&self, other: BigInt) -> Result<TokenAmount, &'static str> {
+        let new_total = BigInt::from(self.0.clone()) + other;
+        TokenAmount::try_from(new_total)
     }
 }
 
@@ -75,6 +81,16 @@ impl CheckedSub for TokenAmount {
 impl fmt::Display for TokenAmount {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TokenAmount({})", self.0)
+    }
+}
+
+impl TryFrom<BigInt> for TokenAmount {
+    type Error = &'static str;
+
+    fn try_from(value: BigInt) -> Result<Self, Self::Error> {
+        Ok(TokenAmount(
+            value.to_biguint().ok_or("TokenAmount cannot be negative")?,
+        ))
     }
 }
 

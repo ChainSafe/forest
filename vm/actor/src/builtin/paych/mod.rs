@@ -16,9 +16,11 @@ use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use num_traits::{CheckedSub, FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use vm::{
+    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+};
 
 /// Payment Channel actor methods available
 #[derive(FromPrimitive)]
@@ -51,10 +53,10 @@ impl Actor {
 
         // Check both parties are capable of signing vouchers
         let to = Self::resolve_account(rt, &params.to)
-            .map_err(|e| rt.abort(ExitCode::ErrIllegalArgument, e.to_string()))?;
+            .map_err(|e| rt.abort(ExitCode::ErrIllegalArgument, e))?;
 
         let from = Self::resolve_account(rt, &params.from)
-            .map_err(|e| rt.abort(ExitCode::ErrIllegalArgument, e.to_string()))?;
+            .map_err(|e| rt.abort(ExitCode::ErrIllegalArgument, e))?;
 
         rt.create(&State::new(from, to));
         Ok(())
@@ -110,7 +112,7 @@ impl Actor {
         let sig = sv
             .signature
             .take()
-            .ok_or(rt.abort(ExitCode::ErrIllegalArgument, "voucher has no signature"))?;
+            .ok_or_else(|| rt.abort(ExitCode::ErrIllegalArgument, "voucher has no signature"))?;
 
         // Generate unsigned bytes
         let sv_bz = to_vec(&sv).map_err(|_| {
@@ -138,7 +140,7 @@ impl Actor {
             return Err(rt.abort(ExitCode::ErrIllegalArgument, "this voucher has expired"));
         }
 
-        if sv.secret_pre_image.len() > 0 {
+        if !sv.secret_pre_image.is_empty() {
             let hashed_secret: &[u8] = &rt.syscalls().hash_blake2b(&params.secret);
             if hashed_secret != sv.secret_pre_image.as_slice() {
                 return Err(rt.abort(ExitCode::ErrIllegalArgument, "incorrect secret"));
@@ -166,7 +168,7 @@ impl Actor {
                 }
                 let tmp_ls = LaneState {
                     id: sv.lane,
-                    redeemed: Default::default(),
+                    redeemed: BigInt::zero(),
                     nonce: 0,
                 };
                 st.lane_states.insert(idx, tmp_ls);
@@ -217,16 +219,15 @@ impl Actor {
             // 3. set new redeemed value for merged-into lane
             st.lane_states[idx].redeemed = sv.amount;
 
-            let new_send_balance = st.to_send.clone() + balance_delta;
-
             // 4. check operation validity
-            if new_send_balance < BigInt::default() {
-                return Err(rt.abort(
+            let new_send_balance = st.to_send.add_bigint(balance_delta).map_err(|_| {
+                rt.abort(
                     ExitCode::ErrIllegalState,
                     "voucher would leave channel balance negative",
-                ));
-            }
-            if new_send_balance > rt.current_balance().0.into() {
+                )
+            })?;
+
+            if new_send_balance > rt.current_balance() {
                 return Err(rt.abort(
                     ExitCode::ErrIllegalState,
                     "not enough funds in channel to cover voucher",
@@ -269,6 +270,55 @@ impl Actor {
             Ok(())
         })
     }
+
+    pub fn collect<BS, RT>(rt: &RT) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        let st: State = rt.state();
+        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
+
+        if st.settling_at == ChainEpoch(0) || rt.curr_epoch() < st.settling_at {
+            return Err(rt.abort(
+                ExitCode::ErrForbidden,
+                "payment channel not settling or settled",
+            ));
+        }
+
+        // TODO revisit: Spec doesn't check this, could be possible balance is below to_send?
+        let rem_bal = rt
+            .current_balance()
+            .checked_sub(&st.to_send)
+            .ok_or_else(|| {
+                rt.abort(
+                    ExitCode::ErrInsufficientFunds,
+                    "Cannot send more than remaining balance",
+                )
+            })?;
+
+        // send remaining balance to `from`
+        rt.send::<Ipld>(
+            &st.from,
+            MethodNum(METHOD_SEND as u64),
+            &Serialized::default(),
+            &rem_bal,
+        )?;
+
+        // send ToSend to `to`
+        rt.send::<Ipld>(
+            &st.to,
+            MethodNum(METHOD_SEND as u64),
+            &Serialized::default(),
+            &st.to_send,
+        )?;
+
+        rt.transaction(|st: &mut State| {
+            st.to_send = TokenAmount::new(0);
+
+            Ok(())
+        })
+    }
 }
 
 #[inline]
@@ -298,6 +348,11 @@ impl ActorCode for Actor {
             Some(Method::Settle) => {
                 check_empty_params(params)?;
                 Self::settle(rt)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::Collect) => {
+                check_empty_params(params)?;
+                Self::collect(rt)?;
                 Ok(Serialized::default())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
