@@ -27,9 +27,23 @@ impl Add for TokenAmount {
     }
 }
 
+impl Add<&TokenAmount> for TokenAmount {
+    type Output = Self;
+
+    fn add(self, other: &TokenAmount) -> TokenAmount {
+        Self(self.0 + &other.0)
+    }
+}
+
 impl AddAssign for TokenAmount {
     fn add_assign(&mut self, other: TokenAmount) {
         self.0.add_assign(other.0)
+    }
+}
+
+impl AddAssign<&TokenAmount> for TokenAmount {
+    fn add_assign(&mut self, other: &TokenAmount) {
+        self.0.add_assign(&other.0)
     }
 }
 

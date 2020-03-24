@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod state;
+mod types;
 
-pub use self::state::State;
+pub use self::state::{Claim, CronEvent, State};
+pub use self::types::*;
 use crate::check_empty_params;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;

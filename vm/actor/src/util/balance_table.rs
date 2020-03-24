@@ -57,7 +57,7 @@ where
     }
 
     /// Adds token amount to previously initialized account.
-    pub fn add(&mut self, key: &Address, value: TokenAmount) -> Result<(), String> {
+    pub fn add(&mut self, key: &Address, value: &TokenAmount) -> Result<(), String> {
         let prev = self.get(key)?;
         Ok(self.0.set(key.hash_key(), prev + value)?)
     }
@@ -122,7 +122,7 @@ where
     pub fn total(&self) -> Result<TokenAmount, String> {
         let mut total = TokenAmount::default();
 
-        self.0.for_each(&mut |_, v| {
+        self.0.for_each(&mut |_, v: TokenAmount| {
             total += v;
             Ok(())
         })?;
