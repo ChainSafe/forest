@@ -86,7 +86,7 @@ pub trait Runtime<BS: BlockStore> {
     /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
     /// will be rolled back.
     fn send(
-        &self,
+        &mut self,
         to: &Address,
         method: MethodNum,
         params: &Serialized,
@@ -106,10 +106,10 @@ pub trait Runtime<BS: BlockStore> {
     fn new_actor_address(&self) -> Address;
 
     /// Creates an actor with code `codeID` and address `address`, with empty state. May only be called by Init actor.
-    fn create_actor(&self, code_id: &Cid, address: &Address);
+    fn create_actor(&mut self, code_id: &Cid, address: &Address);
 
     /// Deletes the executing actor from the state tree. May only be called by the actor itself.
-    fn delete_actor(&self);
+    fn delete_actor(&mut self);
 
     /// Provides the system call interface.
     fn syscalls(&self) -> Syscalls {

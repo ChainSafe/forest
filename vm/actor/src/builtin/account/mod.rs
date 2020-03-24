@@ -59,7 +59,12 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &mut RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Serialized
     where
         BS: BlockStore,
         RT: Runtime<BS>,

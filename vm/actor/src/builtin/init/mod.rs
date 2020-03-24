@@ -59,7 +59,7 @@ impl Actor {
     }
 
     /// Exec init actor
-    pub fn exec<BS, RT>(rt: &RT, params: ExecParams) -> ExecReturn
+    pub fn exec<BS, RT>(rt: &mut RT, params: ExecParams) -> ExecReturn
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -100,11 +100,12 @@ impl Actor {
         rt.create_actor(&params.code_cid, &id_address);
 
         // Invoke constructor
+        let send_msg = rt.message().clone();
         let (_, exit_code) = rt.send(
             &id_address,
             MethodNum::new(METHOD_CONSTRUCTOR as u64),
             &params.constructor_params,
-            rt.message().value(),
+            send_msg.value(),
         );
 
         if !exit_code.is_success() {
@@ -119,7 +120,12 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &mut RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Serialized
     where
         BS: BlockStore,
         RT: Runtime<BS>,

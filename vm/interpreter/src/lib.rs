@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::RTType::Parent;
+use crate::RTType::New;
 use address::Address;
 use blocks::Tipset;
 use chain::ChainStore;
@@ -12,7 +14,7 @@ use ipld_blockstore::BlockStore;
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use runtime::{ActorCode, Randomness, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, StateTree, TokenAmount, METHOD_SEND};
+use vm::{ActorState, ExitCode, MethodNum, Serialized, StateTree, TokenAmount, METHOD_SEND};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
@@ -101,7 +103,8 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         msg: &UnsignedMessage,
         gas_cost: TokenAmount,
     ) -> Result<(ExitCode, Option<Serialized>), String> {
-        internal_send(&self.state, &self.chain, parent_runtime, msg, gas_cost)
+    let mut rt = DefaultRuntime::new(&mut self.state, self.chain, gas_cost.clone(), msg);
+    internal_send(RTType::New(&mut rt), msg, gas_cost.clone())
     }
 }
 
@@ -120,7 +123,7 @@ pub struct TipSetMessages {
 }
 
 pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
-    state: &'c ST,
+    state: &'c mut ST,
     chain: &'a ChainStore<BS>,
     gas_used: TokenAmount,
     gas_available: u64,
@@ -129,7 +132,7 @@ pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
 
 impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
     pub fn new(
-        state: &'c ST,
+        state: &'c mut ST,
         chain: &'a ChainStore<BS>,
         gas_used: TokenAmount,
         message: &'b UnsignedMessage,
@@ -144,7 +147,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
     }
 
     pub fn from_parent(
-        state: &'c ST,
+        state: &'c mut ST,
         chain: &'a ChainStore<BS>,
         gas_used: TokenAmount,
         message: &'b UnsignedMessage,
@@ -162,7 +165,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
 
 impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, ST, BS> {
     fn message(&self) -> &UnsignedMessage {
-        todo!()
+        &self.message
     }
     fn curr_epoch(&self) -> ChainEpoch {
         todo!()
@@ -216,7 +219,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
 
     fn send(
-        &self,
+        &mut self,
         to: &Address,
         method: MethodNum,
         params: &Serialized,
@@ -231,20 +234,19 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .value(value.clone())
             .gas_limit(self.gas_available)
             .build()
-            .unwrap(); // TODO: Handle errro
+            .unwrap(); // TODO: Handle error
 
-        match internal_send::<ST, BS>(
-            &self.state,
-            &self.chain,
-            Some(self),
-            &msg,
-            TokenAmount::new(0),
-        ) {
-            Ok((code, res)) => (res.unwrap(), code),
-            Err(err) => {
-                panic!("{}", err);
-            }
-        }
+        // let chain = &self.chain;
+        // let parent =  Self::from_parent(self.state, chain, TokenAmount::new(0), &msg, &self);
+
+
+        // match internal_send::<ST, BS>(self.state, chain, Some(&parent), &msg, TokenAmount::new(0)) {
+        //     Ok((code, res)) => (res.unwrap(), code),
+        //     Err(err) => {
+        //         panic!("{}", err);
+        //     }
+        // }
+        unimplemented!()
     }
 
     fn abort(&self, exit_code: ExitCode, msg: String) {
@@ -253,21 +255,60 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     fn new_actor_address(&self) -> Address {
         todo!()
     }
-    fn create_actor(&self, code_id: &Cid, address: &Address) {
-        todo!()
+    fn create_actor(&mut self, code_id: &Cid, address: &Address) {
+        match self.state.set_actor(
+            &address,
+            ActorState::new(code_id.clone(), Cid::default(), 0u64.into(), 0),
+        ) {
+            Err(_e) => self.abort(ExitCode::SysErrInternal, "creating actor entry".to_owned()),
+            _ => {}
+        }
     }
-    fn delete_actor(&self) {
-        todo!()
+    fn delete_actor(&mut self) {
+        // TODO: Handle these unwraps
+        let act = self.state.get_actor(self.message.to()).unwrap().unwrap();
+        // .unwrap_or_else(|_e| {
+        //     self.abort(
+        //         ExitCode::SysErrInternal,
+        //         "fail to load actor in delete actor".to_owned(),
+        //     )
+        // })
+        // .unwrap_or_else(|| self.abort(
+        //     ExitCode::SysErrInternal,
+        //     "fail to load actor in delete actor".to_owned(),
+        // ));
+        if act.balance != 0u8.into() {
+            self.abort(
+                ExitCode::SysErrInternal,
+                "cannot delete actor with non-zero balance".to_owned(),
+            )
+        }
+        if self.state.delete_actor(self.message.to()).is_err() {
+            self.abort(
+                ExitCode::SysErrInternal,
+                "failed to delete actor".to_owned(),
+            )
+        }
     }
+}
+enum RTType <'a, ST: StateTree, DB: BlockStore>{
+    New(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>),
+    Parent(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>)
 }
 
 fn internal_send<ST: StateTree, DB: BlockStore>(
-    state: &ST,
-    chain: &ChainStore<DB>,
-    parent_runtime: Option<&DefaultRuntime<'_, '_, '_, ST, DB>>,
+    // state: &mut ST, // delete this
+    // chain: &ChainStore<DB>,
+    parent_runtime: RTType<'_,ST, DB>, // this mutable ref
     msg: &UnsignedMessage,
     gas_cost: TokenAmount,
 ) -> Result<(ExitCode, Option<Serialized>), String> {
+    let mut runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
+        New(e) => e,
+        Parent(e) => e
+    };
+    let state = &runtime.state;
+
     let from_actor = state.get_actor(msg.from())?;
 
     let to_actor = state.get_actor(msg.to())?;
@@ -275,11 +316,13 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
 
     let method_num = msg.method_num();
 
-    let runtime = if let Some(parent) = parent_runtime {
-        DefaultRuntime::from_parent(state, chain, gas_cost, msg, parent)
-    } else {
-        DefaultRuntime::new(state, chain, gas_cost, msg)
-    };
+    
+    // let mut runtime = if let Some(parent) = parent_runtime {
+    //     DefaultRuntime::from_parent(state, chain, gas_cost, msg, parent)
+    // } else {
+    //     // Austin... Instantiate new state here
+    //     DefaultRuntime::new(state, chain, gas_cost, msg)
+    // };
 
     if method_num != &MethodNum::new(METHOD_SEND as u64) {
         // TODO: charge gas
@@ -292,7 +335,8 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
                 }
                 INIT_ACTOR_CODE_ID => {
                     let actor = actor::init::Actor;
-                    actor.invoke_method(&runtime, *method_num, msg.params())
+                    // <DB, DefaultRuntime<'_, ST, DB>>::
+                    actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
                 CRON_ACTOR_CODE_ID => todo!(),
                 ACCOUNT_ACTOR_CODE_ID => todo!(),

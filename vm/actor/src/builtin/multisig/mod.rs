@@ -86,7 +86,7 @@ impl Actor {
     }
 
     /// Multisig actor propose function
-    pub fn propose<BS, RT>(rt: &RT, params: ProposeParams) -> TxnID
+    pub fn propose<BS, RT>(rt: &mut RT, params: ProposeParams) -> TxnID
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -130,7 +130,7 @@ impl Actor {
     }
 
     /// Multisig actor approve function
-    pub fn approve<BS, RT>(rt: &RT, params: TxnIDParams)
+    pub fn approve<BS, RT>(rt: &mut RT, params: TxnIDParams)
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -296,7 +296,7 @@ impl Actor {
         });
     }
 
-    fn approve_transaction<BS, RT>(rt: &RT, tx_id: TxnID)
+    fn approve_transaction<BS, RT>(rt: &mut RT, tx_id: TxnID)
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -379,7 +379,12 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &mut RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Serialized
     where
         BS: BlockStore,
         RT: Runtime<BS>,

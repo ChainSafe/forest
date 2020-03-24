@@ -9,7 +9,12 @@ use vm::{MethodNum, Serialized};
 pub trait ActorCode {
     /// Invokes method with runtime on the actor's code. Method number will match one
     /// defined by the Actor, and parameters will be serialized and used in execution
-    fn invoke_method<BS, RT>(&self, rt: &RT, method: MethodNum, params: &Serialized) -> Serialized
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &mut RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Serialized
     where
         BS: BlockStore,
         RT: Runtime<BS>;
