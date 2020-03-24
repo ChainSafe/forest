@@ -25,6 +25,9 @@ const EMPTY_VALUE: EmptyType = [];
 /// Storage power unit, could possibly be a BigUint
 type StoragePower = BigInt;
 
+/// Deal weight
+type DealWeight = BigInt;
+
 /// Used when invocation requires parameters to be an empty array of bytes
 #[inline]
 fn check_empty_params(params: &Serialized) -> Result<(), EncodingError> {
