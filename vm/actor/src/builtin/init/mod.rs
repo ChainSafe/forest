@@ -7,8 +7,8 @@ mod state;
 pub use self::params::*;
 pub use self::state::State;
 use crate::{
-    empty_return, make_map, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
-    MINER_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
+    make_map, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID,
+    POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -128,12 +128,12 @@ impl ActorCode for Actor {
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap())?;
-                Ok(empty_return())
+                Self::constructor(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::Exec) => {
-                let res = Self::exec(rt, params.deserialize().unwrap())?;
-                Ok(Serialized::serialize(res).unwrap())
+                let res = Self::exec(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
             }
             _ => {
                 // Method number does not match available, abort in runtime

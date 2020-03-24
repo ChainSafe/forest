@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{assert_empty_params, empty_return, SYSTEM_ACTOR_ADDR};
+use crate::{check_empty_params, SYSTEM_ACTOR_ADDR};
 
 use address::Address;
 use ipld_blockstore::BlockStore;
@@ -52,9 +52,9 @@ impl ActorCode for Actor {
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                assert_empty_params(params);
+                check_empty_params(params)?;
                 Self::constructor(rt)?;
-                Ok(empty_return())
+                Ok(Serialized::default())
             }
             _ => {
                 // Method number does not match available, abort in runtime
