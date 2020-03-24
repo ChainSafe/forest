@@ -6,7 +6,7 @@ mod types;
 
 pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
-use crate::{ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
+use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -248,6 +248,27 @@ impl Actor {
             Ok(())
         })
     }
+
+    pub fn settle<BS, RT>(rt: &RT) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.transaction(|st: &mut State| {
+            rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
+
+            if st.settling_at != ChainEpoch(0) {
+                return Err(rt.abort(ExitCode::ErrIllegalState, "channel already settling"));
+            }
+
+            st.settling_at = rt.curr_epoch() + SETTLE_DELAY;
+            if st.settling_at < st.min_settle_height {
+                st.settling_at = st.min_settle_height;
+            }
+
+            Ok(())
+        })
+    }
 }
 
 #[inline]
@@ -274,11 +295,11 @@ impl ActorCode for Actor {
                 Self::constructor(rt, params.deserialize().unwrap())?;
                 Ok(Serialized::default())
             }
-            // Some(Method::EpochTick) => {
-            //     assert_empty_params(params);
-            //     Self::epoch_tick(rt)?;
-            //     Ok(empty_return())
-            // }
+            Some(Method::Settle) => {
+                check_empty_params(params)?;
+                Self::settle(rt)?;
+                Ok(Serialized::default())
+            }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }

@@ -5,7 +5,7 @@ use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
-use std::ops::Sub;
+use std::ops::{Add, Sub};
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
@@ -55,6 +55,14 @@ impl ChainEpochClock {
             .num_nanoseconds()
             .expect("Epoch_at_time failed");
         Ok(ChainEpoch(epochs.try_into()?))
+    }
+}
+
+impl Add for ChainEpoch {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
     }
 }
 
