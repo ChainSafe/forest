@@ -81,7 +81,7 @@ pub struct ChainSyncer<DB> {
     net_handler: NetworkHandler,
 
     /// Peer manager to handle full peers to send ChainSync requests to
-    peer_manager: Arc<PeerManager>,
+    pub peer_manager: Arc<PeerManager>,
 }
 
 /// Message data used to ensure valid state transition
@@ -145,6 +145,10 @@ where
 
         while let Some(event) = self.network.receiver.next().await {
             if let NetworkEvent::Hello { source, message } = &event {
+                info!(
+                    "Message inbound, heaviest tipset cid: {:?}",
+                    message.heaviest_tip_set
+                );
                 if let Ok(fts) = self
                     .fetch_tipset(
                         source.clone(),

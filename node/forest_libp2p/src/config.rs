@@ -18,8 +18,8 @@ impl Default for Libp2pConfig {
         Libp2pConfig {
             listening_multiaddr: "/ip4/0.0.0.0/tcp/0".to_owned(),
             pubsub_topics: vec![
-                Topic::new("/fil/blocks".to_owned()),
-                Topic::new("/fil/messages".to_owned()),
+                Topic::new("/fil/blocks/interop".to_owned()),
+                Topic::new("/fil/msgs/interop".to_owned()),
             ],
             bootstrap_peers: vec![],
         }
