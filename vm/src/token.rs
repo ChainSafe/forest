@@ -5,7 +5,7 @@ use num_bigint::{biguint_ser, BigUint, ParseBigIntError};
 use num_traits::CheckedSub;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::ops::{Add, AddAssign, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub};
 use std::str::FromStr;
 
 /// Wrapper around a big int variable to handle token specific functionality
@@ -27,6 +27,15 @@ impl Add for TokenAmount {
     }
 }
 
+impl<'a> Add<&'a TokenAmount> for TokenAmount {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, other: &TokenAmount) -> TokenAmount {
+        TokenAmount(self.0 + &other.0)
+    }
+}
+
 impl AddAssign for TokenAmount {
     fn add_assign(&mut self, other: TokenAmount) {
         self.0.add_assign(other.0)
@@ -38,6 +47,22 @@ impl Sub for TokenAmount {
 
     fn sub(self, other: TokenAmount) -> TokenAmount {
         Self(self.0 - other.0)
+    }
+}
+
+impl<'a> Sub<&'a TokenAmount> for &TokenAmount {
+    type Output = TokenAmount;
+
+    fn sub(self, other: &TokenAmount) -> TokenAmount {
+        TokenAmount(&self.0 - &other.0)
+    }
+}
+
+impl Mul<u64> for &TokenAmount {
+    type Output = TokenAmount;
+
+    fn mul(self, rhs: u64) -> TokenAmount {
+        TokenAmount(&self.0 * rhs)
     }
 }
 

@@ -9,15 +9,16 @@ pub use self::types::*;
 use crate::{ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use cid::Cid;
+use clock::ChainEpoch;
 use encoding::to_vec;
+use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use message::Message;
+use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-// use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use clock::ChainEpoch;
-use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 /// Payment Channel actor methods available
 #[derive(FromPrimitive)]
@@ -144,7 +145,116 @@ impl Actor {
             }
         }
 
-        todo!()
+        if let Some(extra) = &sv.extra {
+            rt.send::<Ipld>(
+                &extra.actor,
+                extra.method,
+                &Serialized::serialize(PaymentVerifyParams {
+                    extra: extra.data.clone(),
+                    proof: params.proof,
+                })?,
+                &TokenAmount::new(0),
+            )?;
+        }
+
+        rt.transaction(|st: &mut State| {
+            // Find the voucher lane, create and insert it in sorted order if necessary.
+            let (idx, exists) = find_lane(&st.lane_states, sv.lane);
+            if !exists {
+                if st.lane_states.len() >= LANE_LIMIT {
+                    return Err(rt.abort(ExitCode::ErrIllegalArgument, "lane limit exceeded"));
+                }
+                let tmp_ls = LaneState {
+                    id: sv.lane,
+                    redeemed: Default::default(),
+                    nonce: 0,
+                };
+                st.lane_states.insert(idx, tmp_ls);
+            };
+            // let mut ls = st.lane_states[idx].clone();
+
+            if st.lane_states[idx].nonce > sv.nonce {
+                return Err(rt.abort(
+                    ExitCode::ErrIllegalArgument,
+                    "voucher has an outdated nonce, cannot redeem",
+                ));
+            }
+
+            // The next section actually calculates the payment amounts to update the payment channel state
+            // 1. (optional) sum already redeemed value of all merging lanes
+            let mut redeemed = BigInt::default();
+            for merge in sv.merges {
+                if merge.lane == sv.lane {
+                    return Err(rt.abort(
+                        ExitCode::ErrIllegalArgument,
+                        "voucher cannot merge lanes into it's own lane",
+                    ));
+                }
+                let (idx, exists) = find_lane(&st.lane_states, merge.lane);
+                if exists {
+                    if st.lane_states[idx].nonce >= merge.nonce {
+                        return Err(rt.abort(
+                            ExitCode::ErrIllegalArgument,
+                            "merged lane in voucher has outdated nonce, cannot redeem",
+                        ));
+                    }
+
+                    redeemed += &st.lane_states[idx].redeemed;
+                    st.lane_states[idx].nonce = merge.nonce;
+                } else {
+                    return Err(rt.abort(
+                        ExitCode::ErrIllegalArgument,
+                        format!("voucher specifies invalid merge lane {}", merge.lane),
+                    ));
+                }
+            }
+
+            // 2. To prevent double counting, remove already redeemed amounts (from
+            // voucher or other lanes) from the voucher amount
+            st.lane_states[idx].nonce = sv.nonce;
+            let balance_delta = &sv.amount - redeemed + &st.lane_states[idx].redeemed;
+
+            // 3. set new redeemed value for merged-into lane
+            st.lane_states[idx].redeemed = sv.amount;
+
+            let new_send_balance = st.to_send.clone() + balance_delta;
+
+            // 4. check operation validity
+            if new_send_balance < BigInt::default() {
+                return Err(rt.abort(
+                    ExitCode::ErrIllegalState,
+                    "voucher would leave channel balance negative",
+                ));
+            }
+            if new_send_balance > rt.current_balance().0.into() {
+                return Err(rt.abort(
+                    ExitCode::ErrIllegalState,
+                    "not enough funds in channel to cover voucher",
+                ));
+            }
+
+            // 5. add new redemption ToSend
+            st.to_send = new_send_balance;
+
+            // update channel settlingAt and MinSettleHeight if delayed by voucher
+            if sv.min_settle_height != ChainEpoch(0) {
+                if st.settling_at != ChainEpoch(0) && st.settling_at < sv.min_settle_height {
+                    st.settling_at = sv.min_settle_height;
+                }
+                if st.min_settle_height < sv.min_settle_height {
+                    st.min_settle_height = sv.min_settle_height;
+                }
+            }
+            Ok(())
+        })
+    }
+}
+
+#[inline]
+fn find_lane(lanes: &[LaneState], id: u64) -> (usize, bool) {
+    match lanes.binary_search_by(|lane| lane.id.cmp(&id)) {
+        Ok(idx) => (idx, true),
+        Err(idx) => (idx, false),
     }
 }
 

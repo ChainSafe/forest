@@ -9,7 +9,6 @@ use num_bigint::{
     BigInt,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::TokenAmount;
 
 /// A given payment channel actor is established by `from`
 /// to enable off-chain microtransactions to `to` address
@@ -21,7 +20,7 @@ pub struct State {
     /// Recipient of payouts from channel.
     pub to: Address,
     /// Amount successfully redeemed through the payment channel, paid out on `Collect`.
-    pub to_send: TokenAmount,
+    pub to_send: BigInt,
     /// Height at which the channel can be collected.
     pub settling_at: ChainEpoch,
     /// Height before which the channel `ToSend` cannot be collected.
@@ -70,7 +69,7 @@ impl Serialize for State {
         (
             &self.from,
             &self.to,
-            &self.to_send,
+            BigIntSer(&self.to_send),
             &self.settling_at,
             &self.min_settle_height,
             &self.lane_states,
@@ -84,7 +83,7 @@ impl<'de> Deserialize<'de> for State {
     where
         D: Deserializer<'de>,
     {
-        let (from, to, to_send, settling_at, min_settle_height, lane_states) =
+        let (from, to, BigIntDe(to_send), settling_at, min_settle_height, lane_states) =
             Deserialize::deserialize(deserializer)?;
         Ok(Self {
             from,

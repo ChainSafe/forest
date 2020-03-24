@@ -14,7 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized};
 
 /// Maximum number of lanes in a channel
-pub const LANE_LIMIT: u64 = 256;
+pub const LANE_LIMIT: usize = 256;
 
 // TODO replace placeholder when params finished
 pub const SETTLE_DELAY: ChainEpoch = ChainEpoch(1);
@@ -160,8 +160,8 @@ impl<'de> Deserialize<'de> for ModVerifyParams {
 
 /// Payment Verification parameters
 pub struct PaymentVerifyParams {
+    pub extra: Serialized,
     // TODO revisit these to see if they should be arrays or optional
-    pub extra: Vec<u8>,
     pub proof: Vec<u8>,
 }
 
@@ -179,9 +179,9 @@ impl<'de> Deserialize<'de> for PaymentVerifyParams {
     where
         D: Deserializer<'de>,
     {
-        let (extra, proof): (ByteBuf, ByteBuf) = Deserialize::deserialize(deserializer)?;
+        let (extra, proof): (_, ByteBuf) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
-            extra: extra.to_vec(),
+            extra,
             proof: proof.to_vec(),
         })
     }

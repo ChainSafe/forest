@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
+vm = { path = "../../vm" }
 amt = { package = "ipld_amt", path = "../../ipld/amt" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
