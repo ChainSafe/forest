@@ -11,7 +11,7 @@ use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
@@ -45,7 +45,7 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for StoragePower actor
-    fn constructor<BS, RT>(_rt: &RT) -> Result<(), ActorError>
+    pub fn constructor<BS, RT>(_rt: &RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -53,7 +53,148 @@ impl Actor {
         // TODO
         todo!();
     }
-    // TODO implement other actor methods based on methods available
+    pub fn add_balance<BS, RT>(_rt: &RT, _params: AddBalanceParams) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn withdraw_balance<BS, RT>(
+        _rt: &RT,
+        _params: WithdrawBalanceParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn create_miner<BS, RT>(
+        _rt: &RT,
+        _params: CreateMinerParams,
+    ) -> Result<CreateMinerReturn, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn delete_miner<BS, RT>(_rt: &RT, _params: DeleteMinerParams) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn on_sector_prove_commit<BS, RT>(
+        _rt: &RT,
+        _params: OnSectorProveCommitParams,
+    ) -> Result<TokenAmount, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn on_sector_terminate<BS, RT>(
+        _rt: &RT,
+        _params: OnSectorTerminateParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn on_sector_temporary_fault_effective_begin<BS, RT>(
+        _rt: &RT,
+        _params: OnSectorTemporaryFaultEffectiveBeginParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn on_sector_temporary_fault_effective_end<BS, RT>(
+        _rt: &RT,
+        _params: OnSectorTemporaryFaultEffectiveEndParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn on_sector_modify_weight_desc<BS, RT>(
+        _rt: &RT,
+        _params: OnSectorModifyWeightDescParams,
+    ) -> Result<TokenAmount, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn on_miner_windowed_post_success<BS, RT>(_rt: &RT) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn on_miner_windowed_post_failure<BS, RT>(
+        _rt: &RT,
+        _params: OnMinerWindowedPoStFailureParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn enroll_cron_event<BS, RT>(
+        _rt: &RT,
+        _params: EnrollCronEventParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn report_consensus_fault<BS, RT>(
+        _rt: &RT,
+        _params: ReportConsensusFaultParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
+    pub fn on_epoch_tick_end<BS, RT>(_rt: &RT) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO
+        todo!();
+    }
 }
 
 impl ActorCode for Actor {
@@ -73,7 +214,64 @@ impl ActorCode for Actor {
                 Self::constructor(rt)?;
                 Ok(Serialized::default())
             }
-            // TODO handle other methods available
+            Some(Method::AddBalance) => {
+                Self::add_balance(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::WithdrawBalance) => {
+                Self::withdraw_balance(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::CreateMiner) => {
+                let res = Self::create_miner(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
+            }
+            Some(Method::DeleteMiner) => {
+                Self::delete_miner(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::OnSectorProveCommit) => {
+                let res = Self::on_sector_prove_commit(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
+            }
+            Some(Method::OnSectorTerminate) => {
+                Self::on_sector_terminate(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::OnSectorTemporaryFaultEffectiveBegin) => {
+                Self::on_sector_temporary_fault_effective_begin(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::OnSectorTemporaryFaultEffectiveEnd) => {
+                Self::on_sector_temporary_fault_effective_end(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::OnSectorModifyWeightDesc) => {
+                let res = Self::on_sector_modify_weight_desc(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
+            }
+            Some(Method::OnMinerWindowedPoStSuccess) => {
+                check_empty_params(params)?;
+                Self::on_miner_windowed_post_success(rt)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::OnMinerWindowedPoStFailure) => {
+                Self::on_miner_windowed_post_failure(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::EnrollCronEvent) => {
+                Self::enroll_cron_event(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::ReportConsensusFault) => {
+                Self::report_consensus_fault(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::OnEpochTickEnd) => {
+                check_empty_params(params)?;
+                Self::on_epoch_tick_end(rt)?;
+                Ok(Serialized::default())
+            }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }
