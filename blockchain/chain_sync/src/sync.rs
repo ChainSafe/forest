@@ -208,7 +208,7 @@ where
     /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
     async fn sync_messages_check_state(&mut self, ts: &[Tipset]) -> Result<(), Error> {
         // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for request window size
-        const _REQUEST_WINDOW: u64 = 200;
+        const REQUEST_WINDOW: u64 = 200;
         // loop until i = 0;
         loop {
             // set i to the length of provided tipsets
@@ -225,13 +225,14 @@ where
                         if let Some(peer_id) =
                             self.peer_manager.find_key_for_value(tip.clone()).await
                         {
-                            let mut batch_size = usize::try_from(_REQUEST_WINDOW)?;
+                            let mut batch_size = usize::try_from(REQUEST_WINDOW)?;
                             if i < batch_size {
                                 batch_size = i;
                             }
                             // set params for blocksync request
                             let next = &ts[i - batch_size];
                             let req_len = u64::try_from(batch_size + 1)?;
+                            // only fetch messages
                             let option: u64 = 2;
 
                             // receive tipset bundle from block sync
@@ -263,7 +264,7 @@ where
                                 self.chain_store.put_messages(&b.secp_msgs)?;
                             }
                         }
-                        i -= usize::try_from(_REQUEST_WINDOW)?;
+                        i -= usize::try_from(REQUEST_WINDOW)?;
                         continue;
                     }
                 };
