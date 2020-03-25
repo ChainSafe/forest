@@ -3,7 +3,7 @@
 
 use crate::Runtime;
 use ipld_blockstore::BlockStore;
-use vm::{MethodNum, Serialized};
+use vm::{ActorError, MethodNum, Serialized};
 
 /// Interface for invoking methods on an Actor
 pub trait ActorCode {
@@ -14,7 +14,7 @@ pub trait ActorCode {
         rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
-    ) -> Serialized
+    ) -> Result<Serialized, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>;

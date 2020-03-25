@@ -4,12 +4,12 @@
 mod state;
 
 pub use self::state::State;
-use crate::{assert_empty_params, empty_return};
+use crate::check_empty_params;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
@@ -43,7 +43,7 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for StoragePower actor
-    fn constructor<BS, RT>(_rt: &RT)
+    fn constructor<BS, RT>(_rt: &RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -60,22 +60,19 @@ impl ActorCode for Actor {
         rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
-    ) -> Serialized
+    ) -> Result<Serialized, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                assert_empty_params(params);
-                Self::constructor(rt);
-                empty_return()
+                check_empty_params(params)?;
+                Self::constructor(rt)?;
+                Ok(Serialized::default())
             }
             // TODO handle other methods available
-            _ => {
-                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
-                unreachable!();
-            }
+            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }
 }

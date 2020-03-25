@@ -4,14 +4,14 @@
 mod state;
 
 pub use self::state::{Entry, State};
-use crate::{assert_empty_params, empty_return, SYSTEM_ACTOR_ADDR};
+use crate::{check_empty_params, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 /// Cron actor methods available
 #[derive(FromPrimitive)]
@@ -58,7 +58,7 @@ impl<'de> Deserialize<'de> for ConstructorParams {
 pub struct Actor;
 impl Actor {
     /// Constructor for Cron actor
-    fn constructor<BS, RT>(rt: &RT, params: ConstructorParams)
+    fn constructor<BS, RT>(rt: &RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -67,12 +67,13 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(sys_ref));
         rt.create(&State {
             entries: params.entries,
-        })
+        });
+        Ok(())
     }
     /// Executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    fn epoch_tick<BS, RT>(rt: &mut RT)
+    fn epoch_tick<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -82,13 +83,14 @@ impl Actor {
 
         let st: State = rt.state();
         for entry in st.entries {
-            rt.send(
+            rt.send::<Serialized>(
                 &entry.receiver,
                 entry.method_num,
                 &Serialized::default(),
                 &TokenAmount::new(0),
-            );
+            )?;
         }
+        Ok(())
     }
 }
 
@@ -98,25 +100,22 @@ impl ActorCode for Actor {
         rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
-    ) -> Serialized
+    ) -> Result<Serialized, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         match Method::from_method_num(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap());
-                empty_return()
+                Self::constructor(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::EpochTick) => {
-                assert_empty_params(params);
-                Self::epoch_tick(rt);
-                empty_return()
+                check_empty_params(params)?;
+                Self::epoch_tick(rt)?;
+                Ok(Serialized::default())
             }
-            _ => {
-                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
-                unreachable!();
-            }
+            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }
 }

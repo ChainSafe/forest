@@ -5,8 +5,11 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
-use num_bigint::{biguint_ser, BigUint};
-use serde::{Deserialize, Serialize};
+use num_bigint::{
+    biguint_ser::{BigUintDe, BigUintSer},
+    BigUint,
+};
+use serde::Deserialize;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
@@ -64,46 +67,22 @@ impl UnsignedMessage {
     }
 }
 
-// Type declared outside of deserialize block because of clippy bug
-#[derive(Deserialize)]
-pub struct TupleUnsignedMessage(
-    Address,
-    Address,
-    u64,
-    TokenAmount,
-    #[serde(with = "biguint_ser")] BigUint,
-    u64,
-    MethodNum,
-    Serialized,
-);
-
 impl ser::Serialize for UnsignedMessage {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
-        #[derive(Serialize)]
-        pub struct TupleUnsignedMessage<'a>(
-            &'a Address,
-            &'a Address,
-            &'a u64,
-            &'a TokenAmount,
-            #[serde(with = "biguint_ser")] &'a BigUint,
-            &'a u64,
-            &'a MethodNum,
-            &'a Serialized,
-        );
-        TupleUnsignedMessage(
+        (
             &self.to,
             &self.from,
             &self.sequence,
             &self.value,
-            &self.gas_price,
+            BigUintSer(&self.gas_price),
             &self.gas_limit,
             &self.method_num,
             &self.params,
         )
-        .serialize(s)
+            .serialize(s)
     }
 }
 
@@ -112,16 +91,8 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
     where
         D: de::Deserializer<'de>,
     {
-        let TupleUnsignedMessage(
-            to,
-            from,
-            sequence,
-            value,
-            gas_price,
-            gas_limit,
-            method_num,
-            params,
-        ) = Deserialize::deserialize(deserializer)?;
+        let (to, from, sequence, value, BigUintDe(gas_price), gas_limit, method_num, params) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Self {
             to,
             from,

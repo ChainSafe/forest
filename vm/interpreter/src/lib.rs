@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use vm::ActorError;
 use crate::RTType::New;
 use crate::RTType::Parent;
 use address::Address;
@@ -14,8 +15,8 @@ use ipld_blockstore::BlockStore;
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
-use runtime::{ActorCode, Randomness, Runtime};
-use vm::{ActorState, ExitCode, MethodNum, Serialized, StateTree, TokenAmount, METHOD_SEND};
+use runtime::{ActorCode,  Runtime};
+use vm::{ActorState, ExitCode, MethodNum, Serialized, StateTree, TokenAmount, METHOD_SEND, Randomness};
 
 const PLACEHOLDER_NUMBER: u64 = 1;
 /// Interpreter which handles execution of state transitioning messages and returns receipts
@@ -210,13 +211,14 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         let imm = self.resolve_address(self.message().from()).unwrap();
 
         let mut x = addresses.filter(|a| **a == imm);
-        match x.next() {
-            Some(_) => return,
-            None => self.abort(
-                ExitCode::SysErrForbidden,
-                format!("caller is not one of {}", self.message().from()),
-            ),
-        }
+    //     match x.next() {
+    //         Some(_) => return,
+    //         None => Err(self.abort(
+    //             ExitCode::SysErrForbidden,
+    //             format!("caller is not one of {}", self.message().from()),
+    //         )),
+    //     }
+    todo!()
     }
     fn validate_immediate_caller_type<'a, I>(&self, types: I)
     where
@@ -257,13 +259,13 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         self.chain.blockstore()
     }
 
-    fn send(
+    fn send<SR: Cbor>(
         &mut self,
         to: &Address,
         method: MethodNum,
         params: &Serialized,
         value: &TokenAmount,
-    ) -> (Serialized, ExitCode) {
+    ) -> Result<SR, ActorError> {
         // TODO: snapshot and revert logic
 
         let msg = UnsignedMessage::builder()
@@ -289,32 +291,34 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             self.curr_epoch(),
             self.origin.clone(),
         );
-        match internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, TokenAmount::new(0)) {
-            Ok((code, res)) => {
-                self.state.revert_to_snapshot(&snapshot).unwrap();
-                (res.unwrap(), code)
-            }
-            Err(err) => {
-                self.state.revert_to_snapshot(&snapshot).unwrap();
-                panic!("{}", err);
-            }
-        }
+        // match internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, TokenAmount::new(0)) {
+        //     Ok((code, res)) => {
+        //         self.state.revert_to_snapshot(&snapshot).unwrap();
+        //         Ok(res.unwrap())
+        //     }
+        //     Err(err) => {
+        //         self.state.revert_to_snapshot(&snapshot).unwrap();
+        //         panic!("{}", err);
+        //     }
+        // }
+        todo!()
     }
 
-    fn abort(&self, exit_code: ExitCode, msg: String) {
+    fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
         todo!()
     }
     fn new_actor_address(&self) -> Address {
         todo!()
     }
     fn create_actor(&mut self, code_id: &Cid, address: &Address) {
-        match self.state.set_actor(
-            &address,
-            ActorState::new(code_id.clone(), Cid::default(), 0u64.into(), 0),
-        ) {
-            Err(_e) => self.abort(ExitCode::SysErrInternal, "creating actor entry".to_owned()),
-            _ => {}
-        }
+        // match self.state.set_actor(
+        //     &address,
+        //     ActorState::new(code_id.clone(), Cid::default(), 0u64.into(), 0),
+        // ) {
+        //     Err(_e) => self.abort(ExitCode::SysErrInternal, "creating actor entry".to_owned()),
+        //     _ => {}
+        // }
+        todo!()
     }
     fn delete_actor(&mut self) {
         // TODO: Handle these unwraps
@@ -329,18 +333,20 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         //     ExitCode::SysErrInternal,
         //     "fail to load actor in delete actor".to_owned(),
         // ));
-        if act.balance != 0u8.into() {
-            self.abort(
-                ExitCode::SysErrInternal,
-                "cannot delete actor with non-zero balance".to_owned(),
-            )
-        }
-        if self.state.delete_actor(self.message.to()).is_err() {
-            self.abort(
-                ExitCode::SysErrInternal,
-                "failed to delete actor".to_owned(),
-            )
-        }
+        
+        // if act.balance != 0u8.into() {
+        //     self.abort(
+        //         ExitCode::SysErrInternal,
+        //         "cannot delete actor with non-zero balance".to_owned(),
+        //     )
+        // }
+        // if self.state.delete_actor(self.message.to()).is_err() {
+        //     self.abort(
+        //         ExitCode::SysErrInternal,
+        //         "failed to delete actor".to_owned(),
+        //     )
+        // }
+        todo!()
     }
 }
 enum RTType<'a, ST: StateTree, DB: BlockStore> {
@@ -425,7 +431,8 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
             }
         };
         let exit_code = ExitCode::Ok; // TODO: get from invocation
-        return Ok((exit_code, Some(ret)));
+        // return Ok((exit_code, Some(ret)));
+        todo!()
     }
 
     Ok((ExitCode::Ok, None))
