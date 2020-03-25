@@ -6,11 +6,12 @@ use crate::{BalanceTable, Set, StoragePower, HAMT_BIT_WIDTH};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
+use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
-    BigInt, Sign,
+    Sign,
 };
 use num_traits::Zero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -56,7 +57,7 @@ impl State {
 
     /// Get miner balance from address using escrow table
     #[allow(dead_code)]
-    fn get_miner_balance<BS: BlockStore>(
+    pub(super) fn get_miner_balance<BS: BlockStore>(
         &self,
         store: &BS,
         miner: &Address,
@@ -67,7 +68,7 @@ impl State {
 
     /// Sets miner balance at address using escrow table
     #[allow(dead_code)]
-    fn set_miner_balance<BS: BlockStore>(
+    pub(super) fn set_miner_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
         miner: &Address,
@@ -80,8 +81,7 @@ impl State {
     }
 
     /// Adds amount to miner balance at address using escrow table
-    #[allow(dead_code)]
-    fn add_miner_balance<BS: BlockStore>(
+    pub(super) fn add_miner_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
         miner: &Address,
@@ -95,17 +95,17 @@ impl State {
 
     /// Subtracts amount to miner balance at address using escrow table
     #[allow(dead_code)]
-    fn subtract_miner_balance<BS: BlockStore>(
+    pub(super) fn subtract_miner_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
         miner: &Address,
         amount: &TokenAmount,
         balance_floor: &TokenAmount,
-    ) -> Result<(), String> {
+    ) -> Result<TokenAmount, String> {
         let mut bt = BalanceTable::from_root(store, &self.escrow_table)?;
-        bt.subtract_with_minimum(miner, amount, balance_floor)?;
+        let amount = bt.subtract_with_minimum(miner, amount, balance_floor)?;
         self.escrow_table = bt.root()?;
-        Ok(())
+        Ok(amount)
     }
     /// Parameters may be negative to subtract
     pub fn add_to_claim<BS: BlockStore>(
@@ -113,7 +113,7 @@ impl State {
         store: &BS,
         miner: &Address,
         power: &StoragePower,
-        pledge: &BigInt,
+        pledge: &TokenAmount,
     ) -> Result<(), String> {
         let mut claim = self
             .get_claim(store, miner)?
@@ -154,9 +154,9 @@ impl State {
         if claim.power.sign() == Sign::Minus {
             return Err(format!("negative claimed power: {}", claim.power));
         }
-        if claim.pledge.sign() == Sign::Minus {
-            return Err(format!("negative claimed pledge: {}", claim.pledge));
-        }
+        // if claim.pledge.sign() == Sign::Minus {
+        //     return Err(format!("negative claimed pledge: {}", claim.pledge));
+        // }
         if self.num_miners_meeting_min_power < 0 {
             return Err(format!(
                 "negative number of miners: {}",
@@ -168,20 +168,24 @@ impl State {
     }
 
     /// Gets claim from claims map by address
-    fn get_claim<BS: BlockStore>(&self, store: &BS, a: &Address) -> Result<Option<Claim>, String> {
+    pub(super) fn get_claim<BS: BlockStore>(
+        &self,
+        store: &BS,
+        a: &Address,
+    ) -> Result<Option<Claim>, String> {
         let map: Hamt<String, _> = Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
         Ok(map.get(&a.hash_key())?)
     }
 
-    fn set_claim<BS: BlockStore>(
+    pub(super) fn set_claim<BS: BlockStore>(
         &mut self,
         store: &BS,
         addr: &Address,
         claim: Claim,
     ) -> Result<(), String> {
         assert!(claim.power.sign() == Sign::Minus);
-        assert!(claim.pledge.sign() == Sign::Minus);
+        // assert!(claim.pledge.sign() == Sign::Minus);
 
         let mut map: Hamt<String, _> =
             Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
@@ -215,9 +219,58 @@ impl State {
     }
 }
 
+impl Cbor for State {}
+impl Serialize for State {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (
+            BigIntSer(&self.total_network_power),
+            &self.miner_count,
+            &self.escrow_table,
+            &self.cron_event_queue,
+            &self.last_epoch_tick,
+            &self.post_detected_fault_miners,
+            &self.claims,
+            &self.num_miners_meeting_min_power,
+        )
+            .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for State {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (
+            BigIntDe(total_network_power),
+            miner_count,
+            escrow_table,
+            cron_event_queue,
+            last_epoch_tick,
+            post_detected_fault_miners,
+            claims,
+            num_miners_meeting_min_power,
+        ) = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            total_network_power,
+            miner_count,
+            escrow_table,
+            cron_event_queue,
+            last_epoch_tick,
+            post_detected_fault_miners,
+            claims,
+            num_miners_meeting_min_power,
+        })
+    }
+}
+
+#[derive(Default, Debug)]
 pub struct Claim {
     pub power: StoragePower,
-    pub pledge: BigInt,
+    pub pledge: TokenAmount,
 }
 
 impl Serialize for Claim {
@@ -225,7 +278,7 @@ impl Serialize for Claim {
     where
         S: Serializer,
     {
-        (BigIntSer(&self.power), BigIntSer(&self.pledge)).serialize(serializer)
+        (BigIntSer(&self.power), &self.pledge).serialize(serializer)
     }
 }
 
@@ -234,7 +287,7 @@ impl<'de> Deserialize<'de> for Claim {
     where
         D: Deserializer<'de>,
     {
-        let (BigIntDe(power), BigIntDe(pledge)) = Deserialize::deserialize(deserializer)?;
+        let (BigIntDe(power), pledge) = Deserialize::deserialize(deserializer)?;
         Ok(Self { power, pledge })
     }
 }

@@ -364,7 +364,7 @@ impl Actor {
 
         // Sufficient number of approvals have arrived, relay message
         if threshold_met {
-            rt.send::<Serialized>(&tx.to, tx.method, &tx.params, &tx.value)?;
+            rt.send(&tx.to, tx.method, &tx.params, &tx.value)?;
         }
 
         Ok(())

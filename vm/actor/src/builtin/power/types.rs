@@ -4,6 +4,7 @@
 use crate::{DealWeight, StoragePower};
 use address::Address;
 use clock::ChainEpoch;
+use encoding::Cbor;
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -17,46 +18,6 @@ lazy_static! {
 }
 
 type SectorTermination = i64;
-
-/// Storage miner actor constructor params are defined here so the power actor can send them
-/// to the init actor to instantiate miners.
-pub struct MinerConstructorParams {
-    pub owner_addr: Address,
-    pub worker_addr: Address,
-    pub sector_size: SectorSize,
-    pub peer_id: String,
-}
-
-impl Serialize for MinerConstructorParams {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.owner_addr,
-            &self.worker_addr,
-            &self.sector_size,
-            &self.peer_id,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for MinerConstructorParams {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (owner_addr, worker_addr, sector_size, peer_id) =
-            Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            owner_addr,
-            worker_addr,
-            sector_size,
-            peer_id,
-        })
-    }
-}
 
 pub struct SectorStorageWeightDesc {
     pub sector_size: SectorSize,
@@ -117,7 +78,7 @@ impl<'de> Deserialize<'de> for AddBalanceParams {
 }
 
 pub struct WithdrawBalanceParams {
-    pub miner: SectorSize,
+    pub miner: Address,
     pub requested: TokenAmount,
 }
 
@@ -140,6 +101,7 @@ impl<'de> Deserialize<'de> for WithdrawBalanceParams {
     }
 }
 
+// TODO on miner impl, alias these params for constructor
 pub struct CreateMinerParams {
     pub owner_addr: Address,
     pub worker_addr: Address,
@@ -147,6 +109,7 @@ pub struct CreateMinerParams {
     pub peer: String,
 }
 
+impl Cbor for CreateMinerParams {}
 impl Serialize for CreateMinerParams {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -6,12 +6,20 @@ mod types;
 
 pub use self::state::{Claim, CronEvent, State};
 pub use self::types::*;
-use crate::check_empty_params;
+use crate::{
+    check_empty_params, init, request_miner_control_addrs, CALLER_TYPES_SIGNABLE, HAMT_BIT_WIDTH,
+    INIT_ACTOR_ADDR,
+};
+use address::Address;
 use ipld_blockstore::BlockStore;
+use ipld_hamt::Hamt;
+use message::Message;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use vm::{
+    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+};
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
@@ -45,55 +53,214 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for StoragePower actor
-    pub fn constructor<BS, RT>(_rt: &RT) -> Result<(), ActorError>
+    pub fn constructor<BS, RT>(rt: &RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        let empty_root = Hamt::<String, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
+            .flush()
+            .map_err(|e| {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to create storage power state: {}", e),
+                )
+            })?;
+        let st = State::new(empty_root);
+        rt.create(&st);
+        Ok(())
     }
-    pub fn add_balance<BS, RT>(_rt: &RT, _params: AddBalanceParams) -> Result<(), ActorError>
+    pub fn add_balance<BS, RT>(rt: &RT, params: AddBalanceParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        let nominal = rt.resolve_address(&params.miner).ok_or(rt.abort(
+            ExitCode::ErrIllegalArgument,
+            format!("failed to resolve address {}", params.miner),
+        ))?;
+
+        validate_pledge_account(rt, &nominal)?;
+        let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
+        rt.validate_immediate_caller_is([owner_addr.clone(), worker_addr.clone()].iter());
+
+        rt.transaction(|st: &mut State| {
+            st.add_miner_balance(rt.store(), &nominal, rt.message().value())
+                .map_err(|e| {
+                    rt.abort(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to add pledge balance: {}", e),
+                    )
+                })?;
+            Ok(())
+        })
     }
     pub fn withdraw_balance<BS, RT>(
-        _rt: &RT,
-        _params: WithdrawBalanceParams,
+        rt: &RT,
+        params: WithdrawBalanceParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        let nominal = rt.resolve_address(&params.miner).ok_or(rt.abort(
+            ExitCode::ErrIllegalArgument,
+            format!("failed to resolve address {}", params.miner),
+        ))?;
+
+        validate_pledge_account(rt, &nominal)?;
+        let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
+        rt.validate_immediate_caller_is([owner_addr.clone(), worker_addr.clone()].iter());
+
+        if params.requested < TokenAmount::new(0) {
+            return Err(rt.abort(
+                ExitCode::ErrIllegalArgument,
+                format!("negative withdrawal {}", params.requested),
+            ));
+        }
+
+        let amount_extracted =
+            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st| {
+                let claim = st
+                    .get_claim(rt.store(), &nominal)
+                    .map_err(|e| {
+                        rt.abort(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to load claim for miner {}: {}", nominal, e),
+                        )
+                    })?
+                    .ok_or(rt.abort(
+                        ExitCode::ErrIllegalArgument,
+                        format!("no claim for miner {}", nominal),
+                    ))?;
+
+                Ok(st
+                    .subtract_miner_balance(rt.store(), &nominal, &params.requested, &claim.pledge)
+                    .map_err(|e| {
+                        rt.abort(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to subtract pledge balance: {}", e),
+                        )
+                    })?)
+            })?;
+
+        rt.send(
+            &owner_addr,
+            MethodNum(METHOD_SEND as u64),
+            &Serialized::default(),
+            &amount_extracted,
+        )?;
+        Ok(())
     }
     pub fn create_miner<BS, RT>(
-        _rt: &RT,
-        _params: CreateMinerParams,
+        rt: &RT,
+        params: &Serialized,
     ) -> Result<CreateMinerReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter());
+
+        let addresses: init::ExecReturn = rt
+            .send(
+                &INIT_ACTOR_ADDR,
+                MethodNum(init::Method::Exec as u64),
+                params,
+                &TokenAmount::new(0),
+            )?
+            .deserialize()?;
+
+        rt.transaction::<State, Result<(), ActorError>, _>(|st| {
+            st.set_miner_balance(
+                rt.store(),
+                &addresses.id_address,
+                rt.message().value().clone(),
+            )
+            .map_err(|e| {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to set pledge balance {}", e),
+                )
+            })?;
+
+            st.set_claim(rt.store(), &addresses.id_address, Claim::default())
+                .map_err(|e| {
+                    rt.abort(
+                        ExitCode::ErrIllegalState,
+                        format!(
+                            "failed to put power in claimed table while creating miner: {}",
+                            e
+                        ),
+                    )
+                })?;
+            st.miner_count += 1;
+            Ok(())
+        })?;
+        Ok(CreateMinerReturn {
+            id_address: addresses.id_address,
+            robust_address: addresses.robust_address,
+        })
     }
-    pub fn delete_miner<BS, RT>(_rt: &RT, _params: DeleteMinerParams) -> Result<(), ActorError>
+    pub fn delete_miner<BS, RT>(rt: &RT, params: DeleteMinerParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        let nominal = rt.resolve_address(&params.miner).ok_or(rt.abort(
+            ExitCode::ErrIllegalArgument,
+            format!("failed to resolve address {}", params.miner),
+        ))?;
+
+        let st: State = rt.state();
+
+        let balance = st.get_miner_balance(rt.store(), &nominal).map_err(|e| {
+            rt.abort(
+                ExitCode::ErrIllegalState,
+                format!("failed to get pledge balance for deletion: {}", e),
+            )
+        })?;
+        if balance > TokenAmount::new(0) {
+            return Err(rt.abort(
+                ExitCode::ErrForbidden,
+                format!(
+                    "deletion requested for miner {} with pledge balance {}",
+                    nominal, balance
+                ),
+            ));
+        }
+
+        let claim = st
+            .get_claim(rt.store(), &nominal)
+            .map_err(|e| {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load miner claim for deletion: {}", e),
+                )
+            })?
+            .ok_or(rt.abort(
+                ExitCode::ErrIllegalState,
+                format!("Failed to find miner {} claim for deletion", &nominal),
+            ))?;
+
+        if claim.power > Zero::zero() {
+            return Err(rt.abort(
+                ExitCode::ErrIllegalState,
+                format!(
+                    "deletion requested for miner {} with power {}",
+                    nominal, claim.power
+                ),
+            ));
+        }
+
+        let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
+        rt.validate_immediate_caller_is([owner_addr, worker_addr].iter());
+
+        Self::delete_miner_actor(rt, &nominal)
     }
     pub fn on_sector_prove_commit<BS, RT>(
-        _rt: &RT,
-        _params: OnSectorProveCommitParams,
+        rt: &RT,
+        params: OnSectorProveCommitParams,
     ) -> Result<TokenAmount, ActorError>
     where
         BS: BlockStore,
@@ -103,8 +270,8 @@ impl Actor {
         todo!();
     }
     pub fn on_sector_terminate<BS, RT>(
-        _rt: &RT,
-        _params: OnSectorTerminateParams,
+        rt: &RT,
+        params: OnSectorTerminateParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -114,8 +281,8 @@ impl Actor {
         todo!();
     }
     pub fn on_sector_temporary_fault_effective_begin<BS, RT>(
-        _rt: &RT,
-        _params: OnSectorTemporaryFaultEffectiveBeginParams,
+        rt: &RT,
+        params: OnSectorTemporaryFaultEffectiveBeginParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -125,8 +292,8 @@ impl Actor {
         todo!();
     }
     pub fn on_sector_temporary_fault_effective_end<BS, RT>(
-        _rt: &RT,
-        _params: OnSectorTemporaryFaultEffectiveEndParams,
+        rt: &RT,
+        params: OnSectorTemporaryFaultEffectiveEndParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -136,8 +303,8 @@ impl Actor {
         todo!();
     }
     pub fn on_sector_modify_weight_desc<BS, RT>(
-        _rt: &RT,
-        _params: OnSectorModifyWeightDescParams,
+        rt: &RT,
+        params: OnSectorModifyWeightDescParams,
     ) -> Result<TokenAmount, ActorError>
     where
         BS: BlockStore,
@@ -146,7 +313,7 @@ impl Actor {
         // TODO
         todo!();
     }
-    pub fn on_miner_windowed_post_success<BS, RT>(_rt: &RT) -> Result<(), ActorError>
+    pub fn on_miner_windowed_post_success<BS, RT>(rt: &RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -155,8 +322,8 @@ impl Actor {
         todo!();
     }
     pub fn on_miner_windowed_post_failure<BS, RT>(
-        _rt: &RT,
-        _params: OnMinerWindowedPoStFailureParams,
+        rt: &RT,
+        params: OnMinerWindowedPoStFailureParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -166,8 +333,8 @@ impl Actor {
         todo!();
     }
     pub fn enroll_cron_event<BS, RT>(
-        _rt: &RT,
-        _params: EnrollCronEventParams,
+        rt: &RT,
+        params: EnrollCronEventParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -177,8 +344,8 @@ impl Actor {
         todo!();
     }
     pub fn report_consensus_fault<BS, RT>(
-        _rt: &RT,
-        _params: ReportConsensusFaultParams,
+        rt: &RT,
+        params: ReportConsensusFaultParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -187,7 +354,7 @@ impl Actor {
         // TODO
         todo!();
     }
-    pub fn on_epoch_tick_end<BS, RT>(_rt: &RT) -> Result<(), ActorError>
+    pub fn on_epoch_tick_end<BS, RT>(rt: &RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -195,6 +362,22 @@ impl Actor {
         // TODO
         todo!();
     }
+
+    fn delete_miner_actor<BS, RT>(_rt: &RT, _miner: &Address) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        todo!()
+    }
+}
+
+fn validate_pledge_account<BS, RT>(_rt: &RT, _addr: &Address) -> Result<(), ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    todo!()
 }
 
 impl ActorCode for Actor {
@@ -223,7 +406,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CreateMiner) => {
-                let res = Self::create_miner(rt, params.deserialize()?)?;
+                let res = Self::create_miner(rt, params)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::DeleteMiner) => {
