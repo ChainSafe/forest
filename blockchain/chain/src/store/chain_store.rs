@@ -133,16 +133,18 @@ where
         Ok(ts)
     }
 
-    fn read_msg_cids(&self, mmc: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error> {
-        if let Some(roots) = self.blockstore().get::<TxMeta>(mmc)? {
+    /// Returns a tuple of cids for both Unsigned and Signed messages
+    fn read_msg_cids(&self, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error> {
+        if let Some(roots) = self.blockstore().get::<TxMeta>(msg_cid)? {
             let bls_cids = self.read_amt_cids(&roots.bls_message_root)?;
             let secpk_cids = self.read_amt_cids(&roots.secp_message_root)?;
             Ok((bls_cids, secpk_cids))
         } else {
-            Err(Error::UndefinedKey("no blocks with that key".to_string()))
+            Err(Error::UndefinedKey("no msgs with that key".to_string()))
         }
     }
 
+    /// Returns a vector of cids from provided root cid
     fn read_amt_cids(&self, root: &Cid) -> Result<Vec<Cid>, Error> {
         let amt = Amt::load(root, self.blockstore())?;
 
@@ -183,16 +185,10 @@ where
             })
             .collect()
     }
-    /// Returns a full tipset
-    /// TODO THIS SHOULD STILL BE AN OPTION
-    /// NOT RETURN AN ERROR
+
+    /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
-
-        // Ok(match self.db.read(GENESIS_KEY)? {
-        //     Some(bz) => Some(BlockHeader::unmarshal_cbor(&bz)?),
-        //     None => None,
-        // })
 
         for header in ts.blocks() {
             let (bls_messages, secp_messages) = self.messages(header)?;

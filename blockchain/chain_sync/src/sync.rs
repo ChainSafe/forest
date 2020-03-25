@@ -50,7 +50,7 @@ pub enum SyncState {
 
     /// Once all blocks are validated to the heaviest chain, follow network
     /// by receiving blocks over the network and validating them
-    _Follow,
+    Follow,
 }
 
 pub struct ChainSyncer<DB> {
@@ -198,93 +198,114 @@ where
         // Persist header chain pulled from network
         self.persist_headers(&headers)?;
 
+        // Sync and validate messages from fetched tipsets
         self.sync_messages_check_state(&headers).await?;
-        self.set_state(SyncState::_Follow);
+        self.set_state(SyncState::Follow);
 
         Ok(())
     }
 
+    /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
     async fn sync_messages_check_state(&mut self, ts: &[Tipset]) -> Result<(), Error> {
-        const _REQUEST_WINDOW: u64 = 100;
+        // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for request window size
+        const _REQUEST_WINDOW: u64 = 200;
+        // loop until i = 0;
+        loop {
+            // set i to the length of provided tipsets
+            let mut i = ts.len();
+            for tip in ts {
+                // check storage first to see if we have full tipset
+                let fts = match self.chain_store.fill_tipsets(tip.clone()) {
+                    Ok(fts) => fts,
+                    Err(_) => {
+                        // no full tipset in storage; request messages via blocksync
 
-        for tip in ts {
-            let fts = match self.chain_store.fill_tipsets(tip.clone()) {
-                Ok(fts) => fts,
-                Err(_) => {
-                    if let Some(peer_id) = self.peer_manager.find_key_for_value(tip.clone()).await {
-                        let option: u64 = 3;
-                        let ts_bundle = self
-                            .network
-                            .blocksync_request(
-                                peer_id.clone(),
-                                BlockSyncRequest {
-                                    start: tip.clone().cids().to_vec(),
-                                    request_len: _REQUEST_WINDOW,
-                                    options: option,
-                                },
-                            )
-                            .await?;
+                        // retrieve peerId used for blocksync request
+                        // Question: will peerId even be available? Tipset value might not exist in peer_heads map?
+                        if let Some(peer_id) =
+                            self.peer_manager.find_key_for_value(tip.clone()).await
+                        {
+                            let mut batch_size = usize::try_from(_REQUEST_WINDOW)?;
+                            if i < batch_size {
+                                batch_size = i;
+                            }
+                            // set params for blocksync request
+                            let next = &ts[i - batch_size];
+                            let req_len = u64::try_from(batch_size + 1)?;
+                            let option: u64 = 2;
 
-                        for b in ts_bundle.chain {
-                            let fts = self._zip_tipset_msgs(
-                                tip.clone(),
-                                b.bls_msgs.clone(),
-                                b.secp_msgs.clone(),
-                                b.bls_msg_includes,
-                                b.secp_msg_includes,
-                            )?;
-                            self.validate_tipsets(fts)?;
-                            self.chain_store.put_messages(&b.bls_msgs)?;
-                            self.chain_store.put_messages(&b.secp_msgs)?;
+                            // receive tipset bundle from block sync
+                            let ts_bundle = self
+                                .network
+                                .blocksync_request(
+                                    peer_id.clone(),
+                                    BlockSyncRequest {
+                                        start: next.cids().to_vec(),
+                                        request_len: req_len,
+                                        options: option,
+                                    },
+                                )
+                                .await?;
+
+                            for b in ts_bundle.chain {
+                                // construct full tipsets from fetched messages
+                                let fts = self._tipset_msgs(
+                                    tip.clone(),
+                                    &b.bls_msgs,
+                                    &b.secp_msgs,
+                                    b.bls_msg_includes.len(),
+                                    b.secp_msg_includes.len(),
+                                )?;
+                                // validate tipset and messages
+                                self.validate_tipsets(fts)?;
+                                // store messages
+                                self.chain_store.put_messages(&b.bls_msgs)?;
+                                self.chain_store.put_messages(&b.secp_msgs)?;
+                            }
                         }
+                        i -= usize::try_from(_REQUEST_WINDOW)?;
+                        continue;
                     }
-                    continue;
-                }
-            };
-            self.validate_tipsets(fts)?;
-            continue;
+                };
+                // full tipset found in storage; validate and continue
+                self.validate_tipsets(fts)?;
+                i -= 1;
+                continue;
+            }
+            // break loop when we get to 0
+            if i == 0 {
+                break;
+            }
         }
         Ok(())
     }
 
-    fn _zip_tipset_msgs(
+    /// Returns FullTipset with unchecked messages
+    fn _tipset_msgs(
         &self,
         ts: Tipset,
-        bls_msgs: Vec<UnsignedMessage>,
-        secp_msgs: Vec<SignedMessage>,
-        bls_msg_includes: Vec<Vec<u64>>,
-        secp_msg_includes: Vec<Vec<u64>>,
+        bls_msgs: &[UnsignedMessage],
+        secp_msgs: &[SignedMessage],
+        bls_msg_len: usize,
+        secp_msg_len: usize,
     ) -> Result<FullTipset, Error> {
+        // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for block message limit
         const BLOCK_MESSAGE_LIMIT: usize = 512;
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
 
-        if ts.blocks().len() != secp_msg_includes.len()
-            || ts.blocks().len() != bls_msg_includes.len()
-        {
+        if ts.blocks().len() != secp_msg_len || ts.blocks().len() != bls_msg_len {
             return Err(Error::Other(
-                "msgincl length didnt match tipset size".to_string(),
+                "msg included length didnt match tipset size".to_string(),
             ));
         }
 
-        for (i, header) in ts.blocks().iter().enumerate() {
-            let mut smsgs = Vec::new();
-            let mut smsgs_cids = Vec::new();
-            for m in secp_msg_includes[i].clone() {
-                let b = usize::try_from(m)?;
-                smsgs.push(secp_msgs[b].clone());
-                smsgs_cids.push(secp_msgs[b].cid());
-            }
-
-            let mut blsmsgs = Vec::new();
-            let mut blsmsgs_cids = Vec::new();
-            for m in bls_msg_includes[i].clone() {
-                let b = usize::try_from(m)?;
-                blsmsgs.push(bls_msgs[b].clone());
-                blsmsgs_cids.push(bls_msgs[b].cid());
-            }
-
-            let msgc = blsmsgs_cids.len() + smsgs_cids.len();
-            if msgc > BLOCK_MESSAGE_LIMIT {
+        for header in ts.blocks() {
+            // collect bls and secp cids
+            let bls_cids = cids_from_messages(bls_msgs)?;
+            let secp_cids = cids_from_messages(secp_msgs)?;
+            // ensure message count is below the limit
+            let msg_count = bls_cids.len() + secp_cids.len();
+            if msg_count > BLOCK_MESSAGE_LIMIT {
                 return Err(Error::Other("block has too many messages".to_string()));
             }
 
@@ -296,8 +317,8 @@ where
 
             blocks.push(Block {
                 header: header.clone(),
-                bls_messages: blsmsgs,
-                secp_messages: smsgs,
+                bls_messages: bls_msgs.to_vec(),
+                secp_messages: secp_msgs.to_vec(),
             });
         }
         Ok(FullTipset::new(blocks))
@@ -432,6 +453,7 @@ where
             bls_message_root: bls_root,
             secp_message_root: secp_root,
         };
+        // TODO this should be memoryDB for temp storage
         // store message roots and receive meta_root
         let meta_root = self.chain_store.blockstore().put(&meta, Blake2b256)?;
 
