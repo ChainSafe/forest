@@ -5,6 +5,7 @@ use blocks::Error as BlkErr;
 use cid::Error as CidErr;
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
+use ipld_amt::Error as AmtErr;
 use serde::Deserialize;
 use std::fmt;
 
@@ -22,6 +23,8 @@ pub enum Error {
     Encoding(String),
     /// Error originating from Cid creation
     Cid(String),
+    /// Amt error
+    Amt,
 }
 
 impl fmt::Display for Error {
@@ -29,6 +32,7 @@ impl fmt::Display for Error {
         match self {
             Error::UndefinedKey(msg) => write!(f, "Invalid key: {}", msg),
             Error::NoBlocks => write!(f, "No blocks for tipset"),
+            Error::Amt => write!(f, "Error originating from AMT"),
             Error::KeyValueStore(msg) => {
                 write!(f, "Error originating from Key-Value store: {}", msg)
             }
@@ -70,5 +74,11 @@ impl From<SerdeErr> for Error {
 impl From<CidErr> for Error {
     fn from(e: CidErr) -> Error {
         Error::Cid(e.to_string())
+    }
+}
+
+impl From<AmtErr> for Error {
+    fn from(_e: AmtErr) -> Error {
+        Error::Amt
     }
 }

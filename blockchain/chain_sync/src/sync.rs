@@ -14,7 +14,7 @@ use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
 use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
-use chain::ChainStore;
+use chain::{ChainStore, TipSetMetadata};
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use crypto::is_valid_signature;
@@ -203,6 +203,16 @@ where
 
         Ok(())
     }
+
+    // fn sync_messages_check_state(&self, ts: [Tipset]) -> Result<(), Error> {
+    //     const REQUEST_WINDOW: u64 = 100;
+
+    //     for i in 0..ts.len() {
+    //         let fts = self.chain_store.try_fill_tipsets(ts[i])?;
+    //         self.validate_tipsets(fts)?;
+    //     }
+    //     Ok(())
+    // }
 
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
@@ -453,7 +463,7 @@ where
     }
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-    pub fn validate(&self, block: Block) -> Result<(), Error> {
+    pub fn validate(&self, block: &Block) -> Result<(), Error> {
         // get header from full block
         let header = block.header();
 
@@ -488,6 +498,24 @@ where
         // TODO verify_ticket_vrf
         // TODO verify_election_proof_check
 
+        Ok(())
+    }
+
+    fn validate_tipsets(&self, fts: FullTipset) -> Result<(), Error> {
+        if fts.tipset()? == self._genesis {
+            return Ok(());
+        }
+
+        for b in fts.blocks() {
+            self.validate(b)?;
+            // add bad blocks to bad_blocks
+            let meta = TipSetMetadata {
+                tipset_state_root: fts.tipset()?.blocks()[0].state_root().clone(),
+                tipset_receipts_root: fts.tipset()?.blocks()[0].message_receipts().clone(),
+                tipset: fts.tipset()?,
+            };
+            self.chain_store.tip_index.put(&meta)?;
+        }
         Ok(())
     }
 
