@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RTType::Parent;
 use crate::RTType::New;
+use crate::RTType::Parent;
 use address::Address;
 use blocks::Tipset;
 use chain::ChainStore;
@@ -13,9 +13,11 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
+use num_traits::cast::ToPrimitive;
 use runtime::{ActorCode, Randomness, Runtime};
 use vm::{ActorState, ExitCode, MethodNum, Serialized, StateTree, TokenAmount, METHOD_SEND};
 
+const PLACEHOLDER_NUMBER: u64 = 1;
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'a, ST: StateTree, DB: BlockStore> {
@@ -61,8 +63,8 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         _miner_addr: &Address,
     ) -> Result<MessageReceipt, String> {
         let snapshot = self.state.snapshot()?;
-        let mut gas_cost: TokenAmount = (msg.gas_price() * msg.gas_limit()).into();
-        gas_cost += msg.value().clone();
+        let mut gas_cost = msg.gas_price() * msg.gas_limit();
+        gas_cost += &msg.value().0;
 
         // TODO: gascost for message size
 
@@ -74,7 +76,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
 
         // TODO: increase from actor nonce
 
-        let (exit_code, return_data) = self.send(None, msg, gas_cost)?;
+        let (exit_code, return_data) = self.send(None, msg, gas_cost.to_u64().unwrap())?;
 
         match exit_code {
             ExitCode::Ok => {
@@ -101,10 +103,18 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         &mut self,
         parent_runtime: Option<&DefaultRuntime<ST, DB>>,
         msg: &UnsignedMessage,
-        gas_cost: TokenAmount,
+        gas_cost: u64,
     ) -> Result<(ExitCode, Option<Serialized>), String> {
-    let mut rt = DefaultRuntime::new(&mut self.state, self.chain, gas_cost.clone(), msg);
-    internal_send(RTType::New(&mut rt), msg, gas_cost.clone())
+        // TODO: Those params should DEF not be default
+        let mut rt = DefaultRuntime::new(
+            &mut self.state,
+            self.chain,
+            gas_cost,
+            msg,
+            ChainEpoch::default(),
+            Address::default(),
+        );
+        internal_send(RTType::New(&mut rt), msg, TokenAmount::new(gas_cost))
     }
 }
 
@@ -125,17 +135,21 @@ pub struct TipSetMessages {
 pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     state: &'c mut ST,
     chain: &'a ChainStore<BS>,
-    gas_used: TokenAmount,
+    gas_used: u64,
     gas_available: u64,
     message: &'b UnsignedMessage,
+    epoch: ChainEpoch,
+    origin: Address,
 }
 
 impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
     pub fn new(
         state: &'c mut ST,
         chain: &'a ChainStore<BS>,
-        gas_used: TokenAmount,
+        gas_used: u64,
         message: &'b UnsignedMessage,
+        epoch: ChainEpoch,
+        origin: Address,
     ) -> Self {
         DefaultRuntime {
             state,
@@ -143,23 +157,38 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
             gas_used,
             gas_available: message.gas_limit(),
             message,
+            epoch,
+            origin,
         }
     }
 
     pub fn from_parent(
         state: &'c mut ST,
         chain: &'a ChainStore<BS>,
-        gas_used: TokenAmount,
+        gas_used: u64,
         message: &'b UnsignedMessage,
+        epoch: ChainEpoch,
+        origin: Address,
         parent: &DefaultRuntime<'a, 'b, 'c, ST, BS>,
     ) -> Self {
         DefaultRuntime {
             state,
             chain,
-            gas_used: parent.gas_used.clone() + gas_used,
+            gas_used: parent.gas_used + gas_used,
             gas_available: message.gas_limit(),
             message,
+            epoch,
+            origin,
         }
+    }
+
+    pub fn charge_gas(&mut self, to_use: u64) {
+        self.gas_used += to_use;
+    }
+
+    pub fn get_balance(&self, addr: &Address) -> Result<BigUint, ExitCode> {
+        let act = self.state.get_actor(&addr).unwrap().unwrap();
+        Ok(act.balance)
     }
 }
 
@@ -168,16 +197,26 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         &self.message
     }
     fn curr_epoch(&self) -> ChainEpoch {
-        todo!()
+        self.epoch
     }
     fn validate_immediate_caller_accept_any(&self) {
-        todo!()
+        return;
     }
     fn validate_immediate_caller_is<'a, I>(&self, addresses: I)
     where
         I: Iterator<Item = &'a Address>,
     {
-        todo!()
+        // TODO: Specs actor calls this "Caller". Need to verify whats right
+        let imm = self.resolve_address(self.message().from()).unwrap();
+
+        let mut x = addresses.filter(|a| **a == imm);
+        match x.next() {
+            Some(_) => return,
+            None => self.abort(
+                ExitCode::SysErrForbidden,
+                format!("caller is not one of {}", self.message().from()),
+            ),
+        }
     }
     fn validate_immediate_caller_type<'a, I>(&self, types: I)
     where
@@ -186,10 +225,10 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         todo!()
     }
     fn current_balance(&self) -> TokenAmount {
-        todo!()
+        self.get_balance(self.message.to()).unwrap().into()
     }
     fn resolve_address(&self, address: &Address) -> Option<Address> {
-        todo!()
+        Some(self.state.lookup_id(&address).unwrap())
     }
     fn get_actor_code_cid(&self, addr: &Address) -> Option<Cid> {
         todo!()
@@ -215,7 +254,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
 
     fn store(&self) -> &BS {
-        todo!()
+        self.chain.blockstore()
     }
 
     fn send(
@@ -233,20 +272,33 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .method_num(method)
             .value(value.clone())
             .gas_limit(self.gas_available)
+            .params(params.clone())
             .build()
             .unwrap(); // TODO: Handle error
 
-        // let chain = &self.chain;
-        // let parent =  Self::from_parent(self.state, chain, TokenAmount::new(0), &msg, &self);
+        // let mut parent =  DefaultRuntime::from_parent(&mut self.state, &self.chain, TokenAmount::new(0), &msg, &self);
 
+        // snapshot state tree
+        let snapshot = self.state.snapshot().unwrap();
 
-        // match internal_send::<ST, BS>(self.state, chain, Some(&parent), &msg, TokenAmount::new(0)) {
-        //     Ok((code, res)) => (res.unwrap(), code),
-        //     Err(err) => {
-        //         panic!("{}", err);
-        //     }
-        // }
-        unimplemented!()
+        let mut parent = DefaultRuntime::new(
+            self.state,
+            self.chain,
+            0,
+            &msg,
+            self.curr_epoch(),
+            self.origin.clone(),
+        );
+        match internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, TokenAmount::new(0)) {
+            Ok((code, res)) => {
+                self.state.revert_to_snapshot(&snapshot).unwrap();
+                (res.unwrap(), code)
+            }
+            Err(err) => {
+                self.state.revert_to_snapshot(&snapshot).unwrap();
+                panic!("{}", err);
+            }
+        }
     }
 
     fn abort(&self, exit_code: ExitCode, msg: String) {
@@ -291,38 +343,59 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         }
     }
 }
-enum RTType <'a, ST: StateTree, DB: BlockStore>{
+enum RTType<'a, ST: StateTree, DB: BlockStore> {
     New(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>),
-    Parent(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>)
+    Parent(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>),
 }
 
 fn internal_send<ST: StateTree, DB: BlockStore>(
     // state: &mut ST, // delete this
     // chain: &ChainStore<DB>,
-    parent_runtime: RTType<'_,ST, DB>, // this mutable ref
+    parent_runtime: RTType<'_, ST, DB>, // this mutable ref
     msg: &UnsignedMessage,
     gas_cost: TokenAmount,
 ) -> Result<(ExitCode, Option<Serialized>), String> {
     let mut runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
         New(e) => e,
-        Parent(e) => e
+        Parent(e) => e,
     };
-    let state = &runtime.state;
 
-    let from_actor = state.get_actor(msg.from())?;
+    //////// - rt internal send - ////////
 
-    let to_actor = state.get_actor(msg.to())?;
+    // do that snapshotting outside
+    // let snapshot = runtime.state.snapshot()?;
+
+    // Charge for method invocation
+    runtime.charge_gas(PLACEHOLDER_NUMBER);
+    // do the vm send stuff here
+
+    let from_actor = runtime.state.get_actor(msg.from())?.unwrap();
+    // TODO: i think we should try to recover here and try to create account actor
+    let to_actor = runtime.state.get_actor(msg.to())?.unwrap();
+
+    let get_charge = 0u64;
+    let gas_used = 0u64;
+
+    let origin = msg.from();
+    let on = msg.sequence();
+
+    let nac: u64 = 0;
+
+    // TODO: This does some check to see if parent is null. since this is from rt internal send,
+    // the parent is null. But we make it outside of this function.
+    // still need to set parent.gasused to rt.gasused
+
+    // end do the vm send stuff
+
+    // defer
+    // did the snapshotting outside
+    // runtime.state.revert_to_snapshot(&snapshot)?;
+    ////// end rt internal send
+
     // TODO: if to_actor doesn't exist try to create it
+    runtime.charge_gas(PLACEHOLDER_NUMBER);
 
     let method_num = msg.method_num();
-
-    
-    // let mut runtime = if let Some(parent) = parent_runtime {
-    //     DefaultRuntime::from_parent(state, chain, gas_cost, msg, parent)
-    // } else {
-    //     // Austin... Instantiate new state here
-    //     DefaultRuntime::new(state, chain, gas_cost, msg)
-    // };
 
     if method_num != &MethodNum::new(METHOD_SEND as u64) {
         // TODO: charge gas
@@ -335,10 +408,12 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
                 }
                 INIT_ACTOR_CODE_ID => {
                     let actor = actor::init::Actor;
-                    // <DB, DefaultRuntime<'_, ST, DB>>::
                     actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                CRON_ACTOR_CODE_ID => todo!(),
+                CRON_ACTOR_CODE_ID => {
+                    let actor = actor::cron::Actor;
+                    actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                }
                 ACCOUNT_ACTOR_CODE_ID => todo!(),
                 POWER_ACTOR_CODE_ID => todo!(),
                 MINER_ACTOR_CODE_ID => todo!(),
