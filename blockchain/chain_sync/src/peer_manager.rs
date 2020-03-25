@@ -44,6 +44,16 @@ impl PeerManager {
     pub async fn insert_peer_head(&self, peer_id: PeerId, tipset: Tipset) {
         self.peer_heads.write().await.insert(peer_id, tipset);
     }
+    /// Returns key from value if it exists
+    pub async fn find_key_for_value(&self, value: Tipset) -> Option<PeerId> {
+        self.peer_heads.read().await.iter().find_map(|(key, val)| {
+            if *val == value {
+                Some(key.clone())
+            } else {
+                None
+            }
+        })
+    }
 
     /// Gets count of full peers managed
     pub async fn len(&self) -> usize {

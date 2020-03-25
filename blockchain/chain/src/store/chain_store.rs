@@ -184,8 +184,16 @@ where
             .collect()
     }
     /// Returns a full tipset
-    pub fn try_fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
+    /// TODO THIS SHOULD STILL BE AN OPTION
+    /// NOT RETURN AN ERROR
+    pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
+
+        // Ok(match self.db.read(GENESIS_KEY)? {
+        //     Some(bz) => Some(BlockHeader::unmarshal_cbor(&bz)?),
+        //     None => None,
+        // })
+
         for header in ts.blocks() {
             let (bls_messages, secp_messages) = self.messages(header)?;
             blocks.push(Block {
