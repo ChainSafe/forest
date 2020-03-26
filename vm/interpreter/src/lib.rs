@@ -306,17 +306,9 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             self.curr_epoch(),
             self.origin.clone(),
         );
-        // match internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, TokenAmount::new(0)) {
-        //     Ok((code, res)) => {
-        //         self.state.revert_to_snapshot(&snapshot).unwrap();
-        //         Ok(res.unwrap())
-        //     }
-        //     Err(err) => {
-        //         self.state.revert_to_snapshot(&snapshot).unwrap();
-        //         panic!("{}", err);
-        //     }
-        // }
-        todo!()
+        let send_res =internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, TokenAmount::new(0));
+        self.state.revert_to_snapshot(&snapshot).unwrap();
+        send_res 
     }
 
     fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
@@ -369,13 +361,13 @@ enum RTType<'a, ST: StateTree, DB: BlockStore> {
     Parent(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>),
 }
 
-fn internal_send<SR: Cbor, ST: StateTree, DB: BlockStore>(
+fn internal_send<ST: StateTree, DB: BlockStore>(
     // state: &mut ST, // delete this
     // chain: &ChainStore<DB>,
     parent_runtime: RTType<'_, ST, DB>, // this mutable ref
     msg: &UnsignedMessage,
     gas_cost: TokenAmount,
-) -> Result<SR, ActorError> {
+) -> Result<Serialized, ActorError> {
     let mut runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
         New(e) => e,
         Parent(e) => e,
@@ -446,7 +438,7 @@ fn internal_send<SR: Cbor, ST: StateTree, DB: BlockStore>(
             }
         };
         let exit_code = ExitCode::Ok; // TODO: get from invocation
-                                      // return ret;
+        return ret;
     }
     todo!()
     // Ok((ExitCode::Ok, None))
