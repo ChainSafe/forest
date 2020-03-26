@@ -212,8 +212,8 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         // TODO: Specs actor calls this "Caller". Need to verify whats right
         let imm = self.resolve_address(self.message().from()).unwrap();
 
-        let mut x = addresses.filter(|a| **a == imm);
-        match x.next() {
+        // Check if theres is at least one match
+        match addresses.filter(|a| **a == imm).next() {
             Some(_) => Ok(()),
             None => Err(self.abort(
                 ExitCode::SysErrForbidden,
@@ -221,11 +221,18 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             )),
         }
     }
-    fn validate_immediate_caller_type<'a, I>(&self, types: I)
+    fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
     where
         I: Iterator<Item = &'a Cid>,
     {
-        todo!()
+        let caller_cid = self.get_actor_code_cid(self.message().to())?;
+        match types.filter(|c| **c == caller_cid).next() {
+            Some(_) => Ok(()),
+            None => Err(self.abort(
+                ExitCode::SysErrForbidden,
+                format!("caller cid type {} one of {}", caller_cid, self.message().from()),
+            )),
+        }
     }
     fn current_balance(&self) -> Result<TokenAmount, ActorError> {
         self.get_balance(self.message.to())

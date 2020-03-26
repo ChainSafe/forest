@@ -32,7 +32,7 @@ pub trait Runtime<BS: BlockStore> {
     fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
     where
         I: Iterator<Item = &'a Address>;
-    fn validate_immediate_caller_type<'a, I>(&self, types: I)
+    fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
     where
         I: Iterator<Item = &'a Cid>;
 
