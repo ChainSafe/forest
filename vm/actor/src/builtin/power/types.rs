@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{DealWeight, StoragePower};
+use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::Cbor;
@@ -12,13 +12,14 @@ use num_bigint::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{SectorSize, Serialized, TokenAmount};
 
-lazy_static! {
-    /// Minimum number of registered miners for the minimum miner size limit to effectively limit consensus power.
-    pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = BigInt::from(2 << 30);
-}
+pub type SectorTermination = i64;
 
-type SectorTermination = i64;
+/// Implicit termination after all deals expire
+pub const SECTOR_TERMINATION_EXPIRED: SectorTermination = 0;
+/// Unscheduled explicit termination by the miner
+pub const SECTOR_TERMINATION_MANUAL: SectorTermination = 1;
 
+#[derive(Clone)]
 pub struct SectorStorageWeightDesc {
     pub sector_size: SectorSize,
     pub duration: ChainEpoch,
@@ -218,7 +219,7 @@ impl<'de> Deserialize<'de> for OnSectorProveCommitParams {
 pub struct OnSectorTerminateParams {
     pub termination_type: SectorTermination,
     pub weights: Vec<SectorStorageWeightDesc>,
-    pub pledge: TokenAmount,
+    pub pledge: BigInt,
 }
 
 impl Serialize for OnSectorTerminateParams {
@@ -226,7 +227,12 @@ impl Serialize for OnSectorTerminateParams {
     where
         S: Serializer,
     {
-        (&self.termination_type, &self.weights, &self.pledge).serialize(serializer)
+        (
+            &self.termination_type,
+            &self.weights,
+            BigIntSer(&self.pledge),
+        )
+            .serialize(serializer)
     }
 }
 
@@ -235,7 +241,7 @@ impl<'de> Deserialize<'de> for OnSectorTerminateParams {
     where
         D: Deserializer<'de>,
     {
-        let (termination_type, weights, pledge) = Deserialize::deserialize(deserializer)?;
+        let (termination_type, weights, BigIntDe(pledge)) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             termination_type,
             weights,

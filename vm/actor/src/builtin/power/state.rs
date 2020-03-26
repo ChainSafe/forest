@@ -11,7 +11,7 @@ use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
-    Sign,
+    BigInt, Sign,
 };
 use num_traits::Zero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -113,7 +113,7 @@ impl State {
         store: &BS,
         miner: &Address,
         power: &StoragePower,
-        pledge: &TokenAmount,
+        pledge: &BigInt,
     ) -> Result<(), String> {
         let mut claim = self
             .get_claim(store, miner)?
@@ -122,7 +122,10 @@ impl State {
         let old_nominal_power = self.compute_nominal_power(store, miner, &claim.power)?;
 
         claim.power += power;
-        claim.pledge += pledge;
+        claim.pledge = claim
+            .pledge
+            .checked_add_bigint(pledge)
+            .ok_or("negative claimed pledge")?;
 
         let new_nominal_power = self.compute_nominal_power(store, miner, &claim.power)?;
 

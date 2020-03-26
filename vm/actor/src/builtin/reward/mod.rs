@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod state;
+mod types;
 
 pub use self::state::{Reward, State};
+pub use self::types::*;
 use crate::check_empty_params;
 use address::Address;
 use ipld_blockstore::BlockStore;

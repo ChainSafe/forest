@@ -1,14 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod policy;
 mod state;
 mod types;
 
+pub use self::policy::*;
 pub use self::state::{Claim, CronEvent, State};
 pub use self::types::*;
 use crate::{
-    check_empty_params, init, request_miner_control_addrs, CALLER_TYPES_SIGNABLE, HAMT_BIT_WIDTH,
-    INIT_ACTOR_ADDR,
+    check_empty_params, init, request_miner_control_addrs, StoragePower, BURNT_FUNDS_ACTOR_ADDR,
+    CALLER_TYPES_SIGNABLE, HAMT_BIT_WIDTH, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
 };
 use address::Address;
 use ipld_blockstore::BlockStore;
@@ -17,6 +19,8 @@ use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
+use std::convert::TryFrom;
+use std::ops::Neg;
 use vm::{
     ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
@@ -266,8 +270,20 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
+
+        rt.transaction(|st: &mut State| {
+            let power = consensus_power_for_weight(&params.weight);
+            let pledge = pledge_for_weight(&params.weight, &st.total_network_power);
+            st.add_to_claim(rt.store(), rt.message().from(), &power, &pledge.into())
+                .map_err(|e| {
+                    rt.abort(
+                        ExitCode::ErrIllegalState,
+                        format!("Failed to add power for sector: {}", e),
+                    )
+                })?;
+            Ok(pledge_for_weight(&params.weight, &st.total_network_power))
+        })
     }
     pub fn on_sector_terminate<BS, RT>(
         rt: &RT,
@@ -277,8 +293,34 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
+        let miner_addr = rt.message().from().clone();
+
+        rt.transaction(|st: &mut State| {
+            let power = consensus_power_for_weights(&params.weights);
+            st.add_to_claim(
+                rt.store(),
+                &miner_addr,
+                &power.neg(),
+                &params.pledge.clone().neg(),
+            )
+            .map_err(|e| {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to deduct claimed power for sector: {}", e),
+                )
+            })
+        })?;
+
+        if params.termination_type != SECTOR_TERMINATION_EXPIRED {
+            let amount_to_slash = pledge_penalty_for_sector_termination(
+                &TokenAmount::try_from(params.pledge).unwrap(),
+                params.termination_type,
+            );
+            Self::slash_pledge_collateral(rt, &miner_addr, amount_to_slash)?;
+        }
+
+        Ok(())
     }
     pub fn on_sector_temporary_fault_effective_begin<BS, RT>(
         rt: &RT,
@@ -288,6 +330,8 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
+
         // TODO
         todo!();
     }
@@ -370,6 +414,40 @@ impl Actor {
     {
         todo!()
     }
+
+    fn slash_pledge_collateral<BS, RT>(
+        rt: &RT,
+        miner_addr: &Address,
+        amount_to_slash: TokenAmount,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        let amount_slashed = rt.transaction(|st: &mut State| {
+            st.subtract_miner_balance(
+                rt.store(),
+                miner_addr,
+                &amount_to_slash,
+                &TokenAmount::new(0),
+            )
+            .map_err(|e| {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to subtract collateral for slash: {}", e),
+                )
+            })
+        })?;
+
+        rt.send(
+            &*BURNT_FUNDS_ACTOR_ADDR,
+            MethodNum(METHOD_SEND as u64),
+            &Serialized::default(),
+            &amount_slashed,
+        )?;
+
+        Ok(())
+    }
 }
 
 fn validate_pledge_account<BS, RT>(_rt: &RT, _addr: &Address) -> Result<(), ActorError>
@@ -378,6 +456,14 @@ where
     RT: Runtime<BS>,
 {
     todo!()
+}
+
+fn consensus_power_for_weights(weights: &[SectorStorageWeightDesc]) -> StoragePower {
+    let mut power = StoragePower::zero();
+    for weight in weights {
+        power += consensus_power_for_weight(weight);
+    }
+    power
 }
 
 impl ActorCode for Actor {
