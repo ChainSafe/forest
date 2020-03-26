@@ -6,7 +6,7 @@ use num_traits::{CheckedSub, Signed};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
-use std::ops::{Add, AddAssign, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub};
 use std::str::FromStr;
 
 /// Wrapper around a big int variable to handle token specific functionality
@@ -20,11 +20,9 @@ impl TokenAmount {
     }
     /// Utility function just to be able to do arithmetic with negative bigint values
     /// To match actor spec
-    pub fn checked_add_bigint(&self, other: &BigInt) -> Option<TokenAmount> {
-        match other.sign() {
-            Sign::Minus => self.checked_sub(&TokenAmount::try_from(other.abs()).unwrap()),
-            _ => Some(TokenAmount::try_from(BigInt::from(self.0.clone()) + other).unwrap()),
-        }
+    pub fn checked_add_bigint(&self, other: BigInt) -> Result<TokenAmount, &'static str> {
+        let new_total = BigInt::from(self.0.clone()) + other;
+        TokenAmount::try_from(new_total)
     }
 }
 
@@ -36,10 +34,11 @@ impl Add for TokenAmount {
     }
 }
 
-impl Add<&TokenAmount> for TokenAmount {
+impl<'a> Add<&'a TokenAmount> for TokenAmount {
     type Output = Self;
 
-    fn add(self, other: &TokenAmount) -> TokenAmount {
+    #[inline]
+    fn add(self, other: &TokenAmount) -> Self {
         Self(self.0 + &other.0)
     }
 }
@@ -61,6 +60,22 @@ impl Sub for TokenAmount {
 
     fn sub(self, other: TokenAmount) -> TokenAmount {
         Self(self.0 - other.0)
+    }
+}
+
+impl<'a> Sub<&'a TokenAmount> for &TokenAmount {
+    type Output = TokenAmount;
+
+    fn sub(self, other: &TokenAmount) -> TokenAmount {
+        TokenAmount(&self.0 - &other.0)
+    }
+}
+
+impl Mul<u64> for &TokenAmount {
+    type Output = TokenAmount;
+
+    fn mul(self, rhs: u64) -> TokenAmount {
+        TokenAmount(&self.0 * rhs)
     }
 }
 

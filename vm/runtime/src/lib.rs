@@ -136,20 +136,22 @@ pub struct Syscalls;
 impl Syscalls {
     /// Verifies that a signature is valid for an address and plaintext.
     pub fn verify_signature(
-        _signature: Signature,
-        _signer: Address,
+        &self,
+        _signature: &Signature,
+        _signer: &Address,
         _plaintext: &[u8],
     ) -> Result<(), &'static str> {
         // TODO
         todo!()
     }
     /// Hashes input data using blake2b with 256 bit output.
-    pub fn hash_blake_2b(_data: &[u8]) -> [u8; 32] {
+    pub fn hash_blake2b(&self, _data: &[u8]) -> [u8; 32] {
         // TODO
         todo!()
     }
     /// Computes an unsealed sector CID (CommD) from its constituent piece CIDs (CommPs) and sizes.
     pub fn compute_unsealed_sector_cid(
+        &self,
         _reg: RegisteredProof,
         _pieces: &[PieceInfo],
     ) -> Result<Cid, &'static str> {
@@ -157,12 +159,12 @@ impl Syscalls {
         todo!()
     }
     /// Verifies a sector seal proof.
-    pub fn verify_seal(_vi: SealVerifyInfo) -> Result<(), &'static str> {
+    pub fn verify_seal(&self, _vi: SealVerifyInfo) -> Result<(), &'static str> {
         // TODO
         todo!()
     }
     /// Verifies a proof of spacetime.
-    pub fn verify_post(_vi: PoStVerifyInfo) -> Result<(), &'static str> {
+    pub fn verify_post(&self, _vi: PoStVerifyInfo) -> Result<(), &'static str> {
         // TODO
         todo!()
     }
@@ -177,6 +179,7 @@ impl Syscalls {
     /// blocks in the parent of h2 (i.e. h2's grandparent).
     /// Returns nil and an error if the headers don't prove a fault.
     pub fn verify_consensus_fault(
+        &self,
         _h1: &[u8],
         _h2: &[u8],
         _extra: &[u8],
