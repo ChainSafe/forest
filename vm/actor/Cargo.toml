@@ -23,6 +23,8 @@ ipld_amt = { path = "../../ipld/amt" }
 forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
 unsigned-varint = "0.3.2"
+crypto = { path = "../../crypto" }
 
 [dev-dependencies]
 db = { path = "../../node/db" }
+hex = "0.4.0"

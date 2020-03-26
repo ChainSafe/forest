@@ -6,7 +6,6 @@ use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::Cbor;
 use encoding::{de::Deserializer, ser::Serializer};
-use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -74,13 +73,13 @@ impl Message for SignedMessage {
     fn params(&self) -> &Serialized {
         self.message.params()
     }
-    fn gas_price(&self) -> &BigUint {
+    fn gas_price(&self) -> &TokenAmount {
         self.message.gas_price()
     }
     fn gas_limit(&self) -> u64 {
         self.message.gas_limit()
     }
-    fn required_funds(&self) -> BigUint {
+    fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()
     }
 }

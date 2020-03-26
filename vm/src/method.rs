@@ -7,7 +7,7 @@ use std::ops::Deref;
 
 /// Method number indicator for calling actor methods
 #[derive(Default, Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
-pub struct MethodNum(u64); // TODO: add constraints to this
+pub struct MethodNum(pub u64); // TODO: add constraints to this
 
 impl MethodNum {
     /// Constructor for new MethodNum

@@ -6,6 +6,7 @@ mod state;
 pub use self::state::{Entry, State};
 use crate::{check_empty_params, SYSTEM_ACTOR_ADDR};
 use address::Address;
+use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -83,7 +84,7 @@ impl Actor {
 
         let st: State = rt.state();
         for entry in st.entries {
-            rt.send::<Serialized>(
+            rt.send::<Ipld>(
                 &entry.receiver,
                 entry.method_num,
                 &Serialized::default(),
