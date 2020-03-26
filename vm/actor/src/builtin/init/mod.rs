@@ -42,8 +42,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
-        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR));
         let mut empty_map = make_map(rt.store());
         let root = empty_map.flush().map_err(|err| {
             rt.abort(

@@ -8,7 +8,6 @@ pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
 use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
-use cid::Cid;
 use clock::ChainEpoch;
 use encoding::to_vec;
 use ipld_blockstore::BlockStore;
@@ -48,7 +47,7 @@ impl Actor {
     {
         // Only InitActor can create a payment channel actor. It creates the actor on
         // behalf of the payer/payee.
-        rt.validate_immediate_caller_type(std::iter::once::<&Cid>(&INIT_ACTOR_CODE_ID));
+        rt.validate_immediate_caller_type(std::iter::once(&*INIT_ACTOR_CODE_ID));
 
         // Check both parties are capable of signing vouchers
         let to = Self::resolve_account(rt, &params.to)
@@ -77,11 +76,10 @@ impl Actor {
             .get_actor_code_cid(&resolved)
             .ok_or(format!("no code for address {}", resolved))?;
 
-        let account_code_ref: &Cid = &ACCOUNT_ACTOR_CODE_ID;
-        if &code_cid != account_code_ref {
+        if code_cid != *ACCOUNT_ACTOR_CODE_ID {
             Err(format!(
                 "actor {} must be an account ({}), was {}",
-                raw, account_code_ref, code_cid
+                raw, *ACCOUNT_ACTOR_CODE_ID, code_cid
             ))
         } else {
             Ok(resolved)

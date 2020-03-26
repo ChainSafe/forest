@@ -58,8 +58,8 @@ pub(super) fn pledge_penalty_for_consensus_fault(
 lazy_static! {
     static ref INITIAL_SLASHER_SHARE_NUM: BigInt = BigInt::from(1);
     static ref INITIAL_SLASHER_SHARE_DENOM: BigInt = BigInt::from(1000);
-    static ref SLASHER_SHARE_GROWTH_RATE_NUM: BigInt = BigInt::from(102813);
-    static ref SLASHER_SHARE_GROWTH_RATE_DENOM: BigInt = BigInt::from(100000);
+    static ref SLASHER_SHARE_GROWTH_RATE_NUM: BigInt = BigInt::from(102_813);
+    static ref SLASHER_SHARE_GROWTH_RATE_DENOM: BigInt = BigInt::from(100_000);
 }
 
 pub(super) fn reward_for_consensus_slash_report(
@@ -83,7 +83,7 @@ pub(super) fn reward_for_consensus_slash_report(
     let num: BigInt =
         slasher_share_numerator * &*INITIAL_SLASHER_SHARE_NUM * BigInt::from(collateral.clone());
     let denom = slasher_share_denom * &*INITIAL_SLASHER_SHARE_DENOM;
-    return std::cmp::min(TokenAmount::try_from(num / denom).unwrap(), collateral);
+    std::cmp::min(TokenAmount::try_from(num / denom).unwrap(), collateral)
 }
 
 pub fn consensus_power_for_weight(weight: &SectorStorageWeightDesc) -> StoragePower {

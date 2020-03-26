@@ -80,14 +80,16 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let nominal = rt.resolve_address(&params.miner).ok_or(rt.abort(
-            ExitCode::ErrIllegalArgument,
-            format!("failed to resolve address {}", params.miner),
-        ))?;
+        let nominal = rt.resolve_address(&params.miner).ok_or_else(|| {
+            rt.abort(
+                ExitCode::ErrIllegalArgument,
+                format!("failed to resolve address {}", params.miner),
+            )
+        })?;
 
         validate_pledge_account(rt, &nominal)?;
         let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
-        rt.validate_immediate_caller_is([owner_addr.clone(), worker_addr.clone()].iter());
+        rt.validate_immediate_caller_is([owner_addr, worker_addr].iter());
 
         rt.transaction(|st: &mut State| {
             st.add_miner_balance(rt.store(), &nominal, rt.message().value())
@@ -108,14 +110,16 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let nominal = rt.resolve_address(&params.miner).ok_or(rt.abort(
-            ExitCode::ErrIllegalArgument,
-            format!("failed to resolve address {}", params.miner),
-        ))?;
+        let nominal = rt.resolve_address(&params.miner).ok_or_else(|| {
+            rt.abort(
+                ExitCode::ErrIllegalArgument,
+                format!("failed to resolve address {}", params.miner),
+            )
+        })?;
 
         validate_pledge_account(rt, &nominal)?;
         let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
-        rt.validate_immediate_caller_is([owner_addr.clone(), worker_addr.clone()].iter());
+        rt.validate_immediate_caller_is([owner_addr.clone(), worker_addr].iter());
 
         if params.requested < TokenAmount::new(0) {
             return Err(rt.abort(
@@ -201,10 +205,12 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let nominal = rt.resolve_address(&params.miner).ok_or(rt.abort(
-            ExitCode::ErrIllegalArgument,
-            format!("failed to resolve address {}", params.miner),
-        ))?;
+        let nominal = rt.resolve_address(&params.miner).ok_or_else(|| {
+            rt.abort(
+                ExitCode::ErrIllegalArgument,
+                format!("failed to resolve address {}", params.miner),
+            )
+        })?;
 
         let st: State = rt.state();
 
@@ -254,7 +260,7 @@ impl Actor {
         rt.transaction(|st: &mut State| {
             let power = consensus_power_for_weight(&params.weight);
             let pledge = pledge_for_weight(&params.weight, &st.total_network_power);
-            st.add_to_claim(rt.store(), rt.message().from(), &power, &pledge.into())
+            st.add_to_claim(rt.store(), rt.message().from(), &power, &pledge)
                 .map_err(|e| {
                     rt.abort(
                         ExitCode::ErrIllegalState,
@@ -543,20 +549,18 @@ impl Actor {
                 pledge_penalty_for_consensus_fault(curr_balance, fault.fault_type);
             let target_reward = reward_for_consensus_slash_report(fault_age, collateral_to_slash);
 
-            let available_reward = st
-                .subtract_miner_balance(
-                    rt.store(),
-                    &fault.target,
-                    &target_reward,
-                    &TokenAmount::new(0),
+            st.subtract_miner_balance(
+                rt.store(),
+                &fault.target,
+                &target_reward,
+                &TokenAmount::new(0),
+            )
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to subtract pledge for reward: {}", e),
                 )
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to subtract pledge for reward: {}", e),
-                    )
-                });
-            return available_reward;
+            })
         })?;
 
         rt.send(
@@ -587,7 +591,7 @@ impl Actor {
                     events.extend_from_slice(&epoch_events);
 
                     // Clear loaded events
-                    if epoch_events.len() > 0 {
+                    if !epoch_events.is_empty() {
                         st.clear_cron_events(rt.store(), ChainEpoch(i))?;
                     }
                 }
@@ -701,10 +705,12 @@ impl Actor {
                     format!("failed to load claim for miner {}: {}", a, e),
                 )
             })?
-            .ok_or(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                format!("no claim for miner {}", a),
-            ))
+            .ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!("no claim for miner {}", a),
+                )
+            })
     }
 }
 
@@ -713,10 +719,12 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let code_id = rt.get_actor_code_cid(addr).ok_or(ActorError::new(
-        ExitCode::ErrIllegalArgument,
-        format!("no code for address {}", addr),
-    ))?;
+    let code_id = rt.get_actor_code_cid(addr).ok_or_else(|| {
+        ActorError::new(
+            ExitCode::ErrIllegalArgument,
+            format!("no code for address {}", addr),
+        )
+    })?;
     if code_id != *MINER_ACTOR_CODE_ID {
         Err(ActorError::new(
             ExitCode::ErrIllegalArgument,
