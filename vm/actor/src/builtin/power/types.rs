@@ -5,10 +5,7 @@ use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::Cbor;
-use num_bigint::{
-    bigint_ser::{BigIntDe, BigIntSer},
-    BigInt,
-};
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{SectorSize, Serialized, TokenAmount};
 
@@ -219,7 +216,7 @@ impl<'de> Deserialize<'de> for OnSectorProveCommitParams {
 pub struct OnSectorTerminateParams {
     pub termination_type: SectorTermination,
     pub weights: Vec<SectorStorageWeightDesc>,
-    pub pledge: BigInt,
+    pub pledge: TokenAmount,
 }
 
 impl Serialize for OnSectorTerminateParams {
@@ -227,12 +224,7 @@ impl Serialize for OnSectorTerminateParams {
     where
         S: Serializer,
     {
-        (
-            &self.termination_type,
-            &self.weights,
-            BigIntSer(&self.pledge),
-        )
-            .serialize(serializer)
+        (&self.termination_type, &self.weights, &self.pledge).serialize(serializer)
     }
 }
 
@@ -241,7 +233,7 @@ impl<'de> Deserialize<'de> for OnSectorTerminateParams {
     where
         D: Deserializer<'de>,
     {
-        let (termination_type, weights, BigIntDe(pledge)) = Deserialize::deserialize(deserializer)?;
+        let (termination_type, weights, pledge) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             termination_type,
             weights,

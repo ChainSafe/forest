@@ -20,7 +20,6 @@ use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use std::convert::TryFrom;
-use std::ops::Neg;
 use vm::{
     ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
@@ -125,18 +124,7 @@ impl Actor {
 
         let amount_extracted =
             rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st| {
-                let claim = st
-                    .get_claim(rt.store(), &nominal)
-                    .map_err(|e| {
-                        rt.abort(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to load claim for miner {}: {}", nominal, e),
-                        )
-                    })?
-                    .ok_or(rt.abort(
-                        ExitCode::ErrIllegalArgument,
-                        format!("no claim for miner {}", nominal),
-                    ))?;
+                let claim = Self::get_claim_or_abort(st, rt.store(), &nominal)?;
 
                 Ok(st
                     .subtract_miner_balance(rt.store(), &nominal, &params.requested, &claim.pledge)
@@ -234,18 +222,7 @@ impl Actor {
             ));
         }
 
-        let claim = st
-            .get_claim(rt.store(), &nominal)
-            .map_err(|e| {
-                rt.abort(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to load miner claim for deletion: {}", e),
-                )
-            })?
-            .ok_or(rt.abort(
-                ExitCode::ErrIllegalState,
-                format!("Failed to find miner {} claim for deletion", &nominal),
-            ))?;
+        let claim = Self::get_claim_or_abort(&st, rt.store(), &nominal)?;
 
         if claim.power > Zero::zero() {
             return Err(rt.abort(
@@ -298,18 +275,13 @@ impl Actor {
 
         rt.transaction(|st: &mut State| {
             let power = consensus_power_for_weights(&params.weights);
-            st.add_to_claim(
-                rt.store(),
-                &miner_addr,
-                &power.neg(),
-                &params.pledge.clone().neg(),
-            )
-            .map_err(|e| {
-                rt.abort(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to deduct claimed power for sector: {}", e),
-                )
-            })
+            st.subtract_from_claim(rt.store(), &miner_addr, &power, &params.pledge)
+                .map_err(|e| {
+                    rt.abort(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to deduct claimed power for sector: {}", e),
+                    )
+                })
         })?;
 
         if params.termination_type != SECTOR_TERMINATION_EXPIRED {
@@ -332,8 +304,21 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
 
-        // TODO
-        todo!();
+        rt.transaction(|st: &mut State| {
+            let power = consensus_power_for_weights(&params.weights);
+            st.subtract_from_claim(
+                rt.store(),
+                &rt.message().from().clone(),
+                &power,
+                &params.pledge,
+            )
+            .map_err(|e| {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to deduct claimed power for sector: {}", e),
+                )
+            })
+        })
     }
     pub fn on_sector_temporary_fault_effective_end<BS, RT>(
         rt: &RT,
@@ -343,8 +328,23 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
+
+        rt.transaction(|st: &mut State| {
+            let power = consensus_power_for_weights(&params.weights);
+            st.add_to_claim(
+                rt.store(),
+                &rt.message().from().clone(),
+                &power,
+                &params.pledge,
+            )
+            .map_err(|e| {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to add claimed power for sector: {}", e),
+                )
+            })
+        })
     }
     pub fn on_sector_modify_weight_desc<BS, RT>(
         rt: &RT,
@@ -354,16 +354,58 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
+
+        rt.transaction(|st: &mut State| {
+            let prev_power = consensus_power_for_weight(&params.prev_weight);
+            st.subtract_from_claim(
+                rt.store(),
+                rt.message().from(),
+                &prev_power,
+                &params.prev_pledge,
+            )
+            .map_err(|e| {
+                rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to deduct claimed power for sector: {}", e),
+                )
+            })?;
+            let new_power = consensus_power_for_weight(&params.new_weight);
+            let new_pledge = pledge_for_weight(&params.new_weight, &st.total_network_power);
+            st.add_to_claim(rt.store(), rt.message().from(), &new_power, &new_pledge)
+                .map_err(|e| {
+                    rt.abort(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to deduct claimed power for sector: {}", e),
+                    )
+                })?;
+            Ok(new_pledge)
+        })
     }
     pub fn on_miner_windowed_post_success<BS, RT>(rt: &RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
+        let miner_addr = rt.message().from().clone();
+        rt.transaction(
+            |st: &mut State| match st.has_detected_fault(rt.store(), &miner_addr) {
+                Ok(false) => Ok(()),
+                Ok(true) => st
+                    .delete_detected_fault(rt.store(), &miner_addr)
+                    .map_err(|e| {
+                        rt.abort(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to check miner for detected fault: {}", e),
+                        )
+                    }),
+                Err(e) => Err(rt.abort(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to check miner for detected fault: {}", e),
+                )),
+            },
+        )
     }
     pub fn on_miner_windowed_post_failure<BS, RT>(
         rt: &RT,
@@ -373,8 +415,52 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
+        let miner_addr = rt.message().from().clone();
+        let claim: Option<Claim> =
+            rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State| {
+                let faulty = st
+                    .has_detected_fault(rt.store(), &miner_addr)
+                    .map_err(|e| {
+                        rt.abort(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to check if miner was faulty already: {}", e),
+                        )
+                    })?;
+                if faulty {
+                    return Ok(None);
+                }
+                st.put_detected_fault(rt.store(), &miner_addr)
+                    .map_err(|e| {
+                        rt.abort(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to put miner fault: {}", e),
+                        )
+                    })?;
+
+                let claim = Self::get_claim_or_abort(st, rt.store(), &miner_addr)?;
+
+                if claim.power >= *CONSENSUS_MINER_MIN_POWER {
+                    st.total_network_power -= &claim.power;
+                }
+
+                Ok(Some(claim))
+            })?;
+        let claim = match claim {
+            Some(cl) => cl,
+            None => return Ok(()),
+        };
+
+        if params.num_consecutive_failures > WINDOWED_POST_FAILURE_LIMIT {
+            Self::delete_miner_actor(rt, &miner_addr)?;
+        } else {
+            let amount_to_slash = pledge_penalty_for_sector_termination(
+                &claim.pledge,
+                params.num_consecutive_failures,
+            );
+            Self::slash_pledge_collateral(rt, &miner_addr, amount_to_slash)?;
+        }
+        Ok(())
     }
     pub fn enroll_cron_event<BS, RT>(
         rt: &RT,
@@ -384,8 +470,22 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID));
+        let miner_addr = rt.message().from().clone();
+        let miner_event = CronEvent {
+            miner_addr,
+            callback_payload: params.payload.clone(),
+        };
+
+        rt.transaction(|st: &mut State| {
+            st.append_cron_event(rt.store(), params.event_epoch, &miner_event)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to enroll cron event: {}", e),
+                    )
+                })
+        })
     }
     pub fn report_consensus_fault<BS, RT>(
         rt: &RT,
@@ -395,8 +495,9 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        let curr_epoch = rt.curr_epoch();
+        let earliest = curr_epoch - CONSENSUS_FAULT_REPORTING_WINDOW;
+        todo!()
     }
     pub fn on_epoch_tick_end<BS, RT>(rt: &RT) -> Result<(), ActorError>
     where
@@ -447,6 +548,24 @@ impl Actor {
         )?;
 
         Ok(())
+    }
+
+    fn get_claim_or_abort<BS: BlockStore>(
+        st: &State,
+        store: &BS,
+        a: &Address,
+    ) -> Result<Claim, ActorError> {
+        st.get_claim(store, a)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load claim for miner {}: {}", a, e),
+                )
+            })?
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!("no claim for miner {}", a),
+            ))
     }
 }
 

@@ -11,9 +11,9 @@ use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
-    BigInt, Sign,
+    Sign,
 };
-use num_traits::Zero;
+use num_traits::{CheckedSub, Zero};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{Serialized, TokenAmount};
 
@@ -107,13 +107,33 @@ impl State {
         self.escrow_table = bt.root()?;
         Ok(amount)
     }
-    /// Parameters may be negative to subtract
+    pub fn subtract_from_claim<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        miner: &Address,
+        power: &StoragePower,
+        pledge: &TokenAmount,
+    ) -> Result<(), String> {
+        let mut claim = self
+            .get_claim(store, miner)?
+            .ok_or(format!("no claim for actor {}", miner))?;
+
+        let old_nominal_power = self.compute_nominal_power(store, miner, &claim.power)?;
+
+        claim.power -= power;
+        claim.pledge = claim
+            .pledge
+            .checked_sub(pledge)
+            .ok_or("negative claimed pledge")?;
+
+        self.update_claim(store, miner, power, claim, old_nominal_power)
+    }
     pub fn add_to_claim<BS: BlockStore>(
         &mut self,
         store: &BS,
         miner: &Address,
         power: &StoragePower,
-        pledge: &BigInt,
+        pledge: &TokenAmount,
     ) -> Result<(), String> {
         let mut claim = self
             .get_claim(store, miner)?
@@ -122,11 +142,21 @@ impl State {
         let old_nominal_power = self.compute_nominal_power(store, miner, &claim.power)?;
 
         claim.power += power;
-        claim.pledge = claim
-            .pledge
-            .checked_add_bigint(pledge)
-            .ok_or("negative claimed pledge")?;
+        claim.pledge += pledge;
 
+        self.update_claim(store, miner, power, claim, old_nominal_power)
+    }
+    /// Function will update the claim after `add_to_claim` or `subtract_from_claim` are called
+    /// * Logic is modified from spec to not use negative values
+    /// TODO revisit: logic for parts of this function seem wrong/ unnecessary
+    fn update_claim<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        miner: &Address,
+        power: &StoragePower,
+        claim: Claim,
+        old_nominal_power: StoragePower,
+    ) -> Result<(), String> {
         let new_nominal_power = self.compute_nominal_power(store, miner, &claim.power)?;
 
         let min_power_ref: &StoragePower = &CONSENSUS_MINER_MIN_POWER;
@@ -157,9 +187,6 @@ impl State {
         if claim.power.sign() == Sign::Minus {
             return Err(format!("negative claimed power: {}", claim.power));
         }
-        // if claim.pledge.sign() == Sign::Minus {
-        //     return Err(format!("negative claimed pledge: {}", claim.pledge));
-        // }
         if self.num_miners_meeting_min_power < 0 {
             return Err(format!(
                 "negative number of miners: {}",
@@ -216,9 +243,54 @@ impl State {
         }
     }
 
-    fn has_detected_fault<BS: BlockStore>(&self, store: &BS, a: &Address) -> Result<bool, String> {
+    pub(super) fn has_detected_fault<BS: BlockStore>(
+        &self,
+        store: &BS,
+        a: &Address,
+    ) -> Result<bool, String> {
         let faulty = Set::from_root(store, &self.post_detected_fault_miners)?;
         Ok(faulty.has(&a.hash_key())?)
+    }
+
+    pub(super) fn put_detected_fault<BS: BlockStore>(
+        &self,
+        s: &BS,
+        a: &Address,
+    ) -> Result<(), String> {
+        // TODO
+        todo!()
+    }
+
+    pub(super) fn delete_detected_fault<BS: BlockStore>(
+        &mut self,
+        s: &BS,
+        a: &Address,
+    ) -> Result<(), String> {
+        let mut faulty_miners = Set::from_root(s, &self.post_detected_fault_miners)?;
+        faulty_miners.delete(&a.hash_key())?;
+        self.post_detected_fault_miners = faulty_miners.root()?;
+
+        let claim = self
+            .get_claim(s, a)?
+            .ok_or(format!("no claim for actor: {}", a))?;
+
+        let nominal_power = self.compute_nominal_power(s, a, &claim.power)?;
+        if nominal_power >= *CONSENSUS_MINER_MIN_POWER {
+            self.num_miners_meeting_min_power += 1;
+            self.total_network_power += claim.power;
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn append_cron_event<BS: BlockStore>(
+        &mut self,
+        s: &BS,
+        epoch: ChainEpoch,
+        event: &CronEvent,
+    ) -> Result<(), String> {
+        // TODO
+        todo!()
     }
 }
 

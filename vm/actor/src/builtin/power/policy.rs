@@ -18,6 +18,9 @@ pub const WINDOWED_POST_FAILURE_LIMIT: i64 = 3; // PARAM_FINISH
 /// Minimum number of registered miners for the minimum miner size limit to effectively limit consensus power.
 pub const CONSENSUS_MINER_MIN_MINERS: usize = 3;
 
+/// Maximum age of a block header used as proof of a consensus fault to appear in the chain.
+pub const CONSENSUS_FAULT_REPORTING_WINDOW: ChainEpoch = ChainEpoch(2880); // 1 day @ 30 second epochs.
+
 lazy_static! {
     /// Multiplier on sector pledge requirement.
     pub static ref PLEDGE_FACTOR: BigInt = BigInt::from(3); // PARAM_FINISH
@@ -28,8 +31,6 @@ lazy_static! {
     /// Minimum power of an individual miner to meet the threshold for leader election.
     pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = StoragePower::from(2 << 30); // placeholder
 
-    /// Maximum age of a block header used as proof of a consensus fault to appear in the chain.
-    pub static ref CONSENSUS_FAULT_REPORTING_WINDOW: ChainEpoch = ChainEpoch(2880); // 1 day @ 30 second epochs.
 }
 
 pub(super) fn pledge_penalty_for_sector_termination(
