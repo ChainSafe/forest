@@ -83,7 +83,7 @@ impl Actor {
 
         let st: State = rt.state();
         for entry in st.entries {
-            rt.send::<Serialized>(
+            rt.send(
                 &entry.receiver,
                 entry.method_num,
                 &Serialized::default(),

@@ -339,7 +339,7 @@ impl Actor {
             if txn.approved.len() >= st.num_approvals_threshold as usize {
                 // Ensure sufficient funds
                 if let Err(e) =
-                    st.check_available(rt.current_balance(), txn.value.clone(), rt.curr_epoch())
+                    st.check_available(rt.current_balance()?, txn.value.clone(), rt.curr_epoch())
                 {
                     return Err(rt.abort(
                         ExitCode::ErrInsufficientFunds,
@@ -364,7 +364,7 @@ impl Actor {
 
         // Sufficient number of approvals have arrived, relay message
         if threshold_met {
-            rt.send::<Serialized>(&tx.to, tx.method, &tx.params, &tx.value)?;
+            rt.send(&tx.to, tx.method, &tx.params, &tx.value)?;
         }
 
         Ok(())

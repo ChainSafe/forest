@@ -29,7 +29,7 @@ pub trait Runtime<BS: BlockStore> {
     /// Validates the caller against some predicate.
     /// Exported actor methods must invoke at least one caller validation before returning.
     fn validate_immediate_caller_accept_any(&self);
-    fn validate_immediate_caller_is<'a, I>(&self, addresses: I)
+    fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
     where
         I: Iterator<Item = &'a Address>;
     fn validate_immediate_caller_type<'a, I>(&self, types: I)
@@ -37,15 +37,15 @@ pub trait Runtime<BS: BlockStore> {
         I: Iterator<Item = &'a Cid>;
 
     /// The balance of the receiver.
-    fn current_balance(&self) -> TokenAmount;
+    fn current_balance(&self) -> Result<TokenAmount, ActorError>;
 
     /// Resolves an address of any protocol to an ID address (via the Init actor's table).
     /// This allows resolution of externally-provided SECP, BLS, or actor addresses to the canonical form.
     /// If the argument is an ID address it is returned directly.
-    fn resolve_address(&self, address: &Address) -> Option<Address>;
+    fn resolve_address(&self, address: &Address) -> Result<Address, ActorError>;
 
     /// Look up the code ID at an actor address.
-    fn get_actor_code_cid(&self, addr: &Address) -> Option<Cid>;
+    fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError>;
 
     /// Randomness returns a (pseudo)random byte array drawing from a
     /// random beacon at a given epoch and incorporating reequisite entropy
@@ -83,13 +83,13 @@ pub trait Runtime<BS: BlockStore> {
     /// Sends a message to another actor, returning the exit code and return value envelope.
     /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
     /// will be rolled back.
-    fn send<SR: Cbor>(
+    fn send(
         &mut self,
         to: &Address,
         method: MethodNum,
         params: &Serialized,
         value: &TokenAmount,
-    ) -> Result<SR, ActorError>;
+    ) -> Result<Serialized, ActorError>;
 
     /// Halts execution upon an error from which the receiver cannot recover. The caller will receive the exitcode and
     /// an empty return value. State changes made within this call will be rolled back.

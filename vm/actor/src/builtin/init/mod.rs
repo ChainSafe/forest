@@ -100,7 +100,7 @@ impl Actor {
         rt.create_actor(&params.code_cid, &id_address);
 
         // Invoke constructor
-        rt.send::<Ipld>(
+        rt.send(
             &id_address,
             MethodNum::new(METHOD_CONSTRUCTOR as u64),
             &params.constructor_params,

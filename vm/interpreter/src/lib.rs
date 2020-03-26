@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use vm::ActorError;
 use crate::RTType::New;
 use crate::RTType::Parent;
 use address::Address;
@@ -15,8 +14,11 @@ use ipld_blockstore::BlockStore;
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
-use runtime::{ActorCode,  Runtime};
-use vm::{ActorState, ExitCode, MethodNum, Serialized, StateTree, TokenAmount, METHOD_SEND, Randomness};
+use runtime::{ActorCode, Runtime};
+use vm::ActorError;
+use vm::{
+    ActorState, ExitCode, MethodNum, Randomness, Serialized, StateTree, TokenAmount, METHOD_SEND,
+};
 
 const PLACEHOLDER_NUMBER: u64 = 1;
 /// Interpreter which handles execution of state transitioning messages and returns receipts
@@ -77,23 +79,23 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
 
         // TODO: increase from actor nonce
 
-        let (exit_code, return_data) = self.send(None, msg, gas_cost.to_u64().unwrap())?;
+        let return_data = self.send(None, msg, gas_cost.to_u64().unwrap());
+        // where to get exit code?
+        // match exit_code {
+        //     ExitCode::Ok => {
+        //         // all good
+        //     }
+        //     _ => {
+        //         // TODO: handle fatal exit codes and return
 
-        match exit_code {
-            ExitCode::Ok => {
-                // all good
-            }
-            _ => {
-                // TODO: handle fatal exit codes and return
-
-                // Revert state on failed method execution
-                self.state.revert_to_snapshot(&snapshot)?;
-            }
-        }
+        //         // Revert state on failed method execution
+        //         self.state.revert_to_snapshot(&snapshot)?;
+        //     }
+        // }
 
         let receipt = MessageReceipt {
             return_data: return_data.unwrap(), // TODO: what about Send?
-            exit_code,
+            exit_code: ExitCode::Ok,
             gas_used: BigUint::from(0u64), // TODO: get from runtime, runtime.gas_used()
         };
 
@@ -105,7 +107,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         parent_runtime: Option<&DefaultRuntime<ST, DB>>,
         msg: &UnsignedMessage,
         gas_cost: u64,
-    ) -> Result<(ExitCode, Option<Serialized>), String> {
+    ) -> Result<Serialized, ActorError> {
         // TODO: Those params should DEF not be default
         let mut rt = DefaultRuntime::new(
             &mut self.state,
@@ -203,7 +205,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     fn validate_immediate_caller_accept_any(&self) {
         return;
     }
-    fn validate_immediate_caller_is<'a, I>(&self, addresses: I)
+    fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
     where
         I: Iterator<Item = &'a Address>,
     {
@@ -211,14 +213,13 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         let imm = self.resolve_address(self.message().from()).unwrap();
 
         let mut x = addresses.filter(|a| **a == imm);
-    //     match x.next() {
-    //         Some(_) => return,
-    //         None => Err(self.abort(
-    //             ExitCode::SysErrForbidden,
-    //             format!("caller is not one of {}", self.message().from()),
-    //         )),
-    //     }
-    todo!()
+        match x.next() {
+            Some(_) => Ok(()),
+            None => Err(self.abort(
+                ExitCode::SysErrForbidden,
+                format!("caller is not one of {}", self.message().from()),
+            )),
+        }
     }
     fn validate_immediate_caller_type<'a, I>(&self, types: I)
     where
@@ -226,14 +227,21 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     {
         todo!()
     }
-    fn current_balance(&self) -> TokenAmount {
-        self.get_balance(self.message.to()).unwrap().into()
+    fn current_balance(&self) -> Result<TokenAmount, ActorError> {
+        self.get_balance(self.message.to())
+            .map(|bal| bal.into())
+            .map_err(|e| self.abort(e, "Error getting current balance"))
     }
-    fn resolve_address(&self, address: &Address) -> Option<Address> {
-        Some(self.state.lookup_id(&address).unwrap())
+    fn resolve_address(&self, address: &Address) -> Result<Address, ActorError> {
+        self.state
+            .lookup_id(&address)
+            .map_err(|e| self.abort(ExitCode::ErrPlaceholder, e))
     }
-    fn get_actor_code_cid(&self, addr: &Address) -> Option<Cid> {
-        todo!()
+    fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
+        self.state
+            .get_actor(&addr)
+            .map(|act| act.unwrap().code)
+            .map_err(|e| self.abort(ExitCode::ErrPlaceholder, e))
     }
     fn get_randomness(
         personalization: DomainSeparationTag,
@@ -259,13 +267,13 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         self.chain.blockstore()
     }
 
-    fn send<SR: Cbor>(
+    fn send(
         &mut self,
         to: &Address,
         method: MethodNum,
         params: &Serialized,
         value: &TokenAmount,
-    ) -> Result<SR, ActorError> {
+    ) -> Result<Serialized, ActorError> {
         // TODO: snapshot and revert logic
 
         let msg = UnsignedMessage::builder()
@@ -333,7 +341,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         //     ExitCode::SysErrInternal,
         //     "fail to load actor in delete actor".to_owned(),
         // ));
-        
+
         // if act.balance != 0u8.into() {
         //     self.abort(
         //         ExitCode::SysErrInternal,
@@ -354,13 +362,13 @@ enum RTType<'a, ST: StateTree, DB: BlockStore> {
     Parent(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>),
 }
 
-fn internal_send<ST: StateTree, DB: BlockStore>(
+fn internal_send<SR: Cbor, ST: StateTree, DB: BlockStore>(
     // state: &mut ST, // delete this
     // chain: &ChainStore<DB>,
     parent_runtime: RTType<'_, ST, DB>, // this mutable ref
     msg: &UnsignedMessage,
     gas_cost: TokenAmount,
-) -> Result<(ExitCode, Option<Serialized>), String> {
+) -> Result<SR, ActorError> {
     let mut runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
         New(e) => e,
         Parent(e) => e,
@@ -375,9 +383,9 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
     runtime.charge_gas(PLACEHOLDER_NUMBER);
     // do the vm send stuff here
 
-    let from_actor = runtime.state.get_actor(msg.from())?.unwrap();
+    let from_actor = runtime.state.get_actor(msg.from()).unwrap().unwrap();
     // TODO: i think we should try to recover here and try to create account actor
-    let to_actor = runtime.state.get_actor(msg.to())?.unwrap();
+    let to_actor = runtime.state.get_actor(msg.to()).unwrap().unwrap();
 
     let get_charge = 0u64;
     let gas_used = 0u64;
@@ -431,9 +439,8 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
             }
         };
         let exit_code = ExitCode::Ok; // TODO: get from invocation
-        // return Ok((exit_code, Some(ret)));
-        todo!()
+                                      // return ret;
     }
-
-    Ok((ExitCode::Ok, None))
+    todo!()
+    // Ok((ExitCode::Ok, None))
 }
