@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::CONSENSUS_MINER_MIN_POWER;
-use crate::{BalanceTable, Set, StoragePower, HAMT_BIT_WIDTH};
+use crate::{BalanceTable, Multimap, Set, StoragePower, HAMT_BIT_WIDTH};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -253,12 +253,24 @@ impl State {
     }
 
     pub(super) fn put_detected_fault<BS: BlockStore>(
-        &self,
+        &mut self,
         s: &BS,
         a: &Address,
     ) -> Result<(), String> {
-        // TODO
-        todo!()
+        let claim = self
+            .get_claim(s, a)?
+            .ok_or(format!("no claim for actor: {}", a))?;
+
+        let nominal_power = self.compute_nominal_power(s, a, &claim.power)?;
+        if nominal_power >= *CONSENSUS_MINER_MIN_POWER {
+            self.num_miners_meeting_min_power -= 1;
+        }
+
+        let mut faulty_miners = Set::from_root(s, &self.post_detected_fault_miners)?;
+        faulty_miners.put(a.hash_key())?;
+        self.post_detected_fault_miners = faulty_miners.root()?;
+
+        Ok(())
     }
 
     pub(super) fn delete_detected_fault<BS: BlockStore>(
@@ -287,11 +299,57 @@ impl State {
         &mut self,
         s: &BS,
         epoch: ChainEpoch,
-        event: &CronEvent,
+        event: CronEvent,
     ) -> Result<(), String> {
-        // TODO
-        todo!()
+        let mut mmap = Multimap::from_root(s, &self.cron_event_queue)?;
+        mmap.add(epoch_key(epoch), event)?;
+        self.cron_event_queue = mmap.root()?;
+        Ok(())
     }
+
+    pub(super) fn load_cron_events<BS: BlockStore>(
+        &mut self,
+        s: &BS,
+        epoch: ChainEpoch,
+    ) -> Result<Vec<CronEvent>, String> {
+        let mut events = Vec::new();
+
+        let mmap = Multimap::from_root(s, &self.cron_event_queue)?;
+        mmap.for_each(&epoch_key(epoch), |_, v: CronEvent| {
+            match self.get_claim(s, &v.miner_addr) {
+                Ok(Some(_)) => events.push(v),
+                Err(e) => {
+                    return Err(format!(
+                        "failed to find claimed power for {} for cron event: {}",
+                        v.miner_addr, e
+                    ))
+                }
+                _ => (), // ignore events for defunct miners.
+            }
+            Ok(())
+        })?;
+
+        Ok(events)
+    }
+
+    pub(super) fn clear_cron_events<BS: BlockStore>(
+        &mut self,
+        s: &BS,
+        epoch: ChainEpoch,
+    ) -> Result<(), String> {
+        let mut mmap = Multimap::from_root(s, &self.cron_event_queue)?;
+        mmap.remove_all(epoch_key(epoch))?;
+        self.cron_event_queue = mmap.root()?;
+        Ok(())
+    }
+}
+
+fn epoch_key(ChainEpoch(e): ChainEpoch) -> String {
+    // TODO switch logic to flip bits on negative value before encoding if ChainEpoch changed to i64
+    let ux = e << 1;
+    let mut bz = unsigned_varint::encode::u64_buffer();
+    unsigned_varint::encode::u64(ux, &mut bz);
+    String::from_utf8_lossy(&bz).to_string()
 }
 
 impl Cbor for State {}
@@ -367,8 +425,31 @@ impl<'de> Deserialize<'de> for Claim {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct CronEvent {
     pub miner_addr: Address,
-    // TODO revisit to make sure this should be this type
     pub callback_payload: Serialized,
+}
+
+impl Cbor for CronEvent {}
+impl Serialize for CronEvent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (&self.miner_addr, &self.callback_payload).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CronEvent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (miner_addr, callback_payload) = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            miner_addr,
+            callback_payload,
+        })
+    }
 }

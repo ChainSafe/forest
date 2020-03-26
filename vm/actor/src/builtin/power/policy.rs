@@ -5,7 +5,8 @@ use super::{SectorStorageWeightDesc, SectorTermination};
 use crate::{reward, StoragePower};
 use clock::ChainEpoch;
 use num_bigint::BigInt;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Pow};
+use runtime::ConsensusFaultType;
 use std::convert::TryFrom;
 use vm::TokenAmount;
 
@@ -39,6 +40,50 @@ pub(super) fn pledge_penalty_for_sector_termination(
 ) -> TokenAmount {
     // PARAM_FINISH
     TokenAmount::new(0)
+}
+
+/// Penalty to pledge collateral for a consensus fault.
+pub(super) fn pledge_penalty_for_consensus_fault(
+    pledge: TokenAmount,
+    fault_type: ConsensusFaultType,
+) -> TokenAmount {
+    // PARAM_FINISH: always penalise the entire pledge.
+    match fault_type {
+        ConsensusFaultType::DoubleForkMining => pledge,
+        ConsensusFaultType::ParentGrinding => pledge,
+        ConsensusFaultType::TimeOffsetMining => pledge,
+    }
+}
+
+lazy_static! {
+    static ref INITIAL_SLASHER_SHARE_NUM: BigInt = BigInt::from(1);
+    static ref INITIAL_SLASHER_SHARE_DENOM: BigInt = BigInt::from(1000);
+    static ref SLASHER_SHARE_GROWTH_RATE_NUM: BigInt = BigInt::from(102813);
+    static ref SLASHER_SHARE_GROWTH_RATE_DENOM: BigInt = BigInt::from(100000);
+}
+
+pub(super) fn reward_for_consensus_slash_report(
+    elapsed_epoch: ChainEpoch,
+    collateral: TokenAmount,
+) -> TokenAmount {
+    // PARAM_FINISH
+    // var growthRate = SLASHER_SHARE_GROWTH_RATE_NUM / SLASHER_SHARE_GROWTH_RATE_DENOM
+    // var multiplier = growthRate^elapsed_epoch
+    // var slasherProportion = min(INITIAL_SLASHER_SHARE * multiplier, 1.0)
+    // return collateral * slasherProportion
+
+    // BigInt Operation
+    // NUM = SLASHER_SHARE_GROWTH_RATE_NUM^elapsed_epoch * INITIAL_SLASHER_SHARE_NUM * collateral
+    // DENOM = SLASHER_SHARE_GROWTH_RATE_DENOM^elapsed_epoch * INITIAL_SLASHER_SHARE_DENOM
+    // slasher_amount = min(NUM/DENOM, collateral)
+    let elapsed = elapsed_epoch.0;
+    let slasher_share_numerator: BigInt = SLASHER_SHARE_GROWTH_RATE_NUM.pow(elapsed);
+    let slasher_share_denom: BigInt = SLASHER_SHARE_GROWTH_RATE_DENOM.pow(elapsed);
+
+    let num: BigInt =
+        slasher_share_numerator * &*INITIAL_SLASHER_SHARE_NUM * BigInt::from(collateral.clone());
+    let denom = slasher_share_denom * &*INITIAL_SLASHER_SHARE_DENOM;
+    return std::cmp::min(TokenAmount::try_from(num / denom).unwrap(), collateral);
 }
 
 pub fn consensus_power_for_weight(weight: &SectorStorageWeightDesc) -> StoragePower {

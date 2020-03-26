@@ -10,9 +10,10 @@ pub use self::state::{Claim, CronEvent, State};
 pub use self::types::*;
 use crate::{
     check_empty_params, init, request_miner_control_addrs, StoragePower, BURNT_FUNDS_ACTOR_ADDR,
-    CALLER_TYPES_SIGNABLE, HAMT_BIT_WIDTH, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
+    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, HAMT_BIT_WIDTH, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
 };
 use address::Address;
+use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::Message;
@@ -478,7 +479,7 @@ impl Actor {
         };
 
         rt.transaction(|st: &mut State| {
-            st.append_cron_event(rt.store(), params.event_epoch, &miner_event)
+            st.append_cron_event(rt.store(), params.event_epoch, miner_event)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -497,15 +498,119 @@ impl Actor {
     {
         let curr_epoch = rt.curr_epoch();
         let earliest = curr_epoch - CONSENSUS_FAULT_REPORTING_WINDOW;
-        todo!()
+        let fault = rt
+            .syscalls()
+            .verify_consensus_fault(
+                params.block_header_1.bytes(),
+                params.block_header_2.bytes(),
+                params.block_header_extra.bytes(),
+                earliest,
+            )
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!("fault not verified: {}", e),
+                )
+            })?;
+
+        let reporter = rt.message().from().clone();
+        let reward = rt.transaction(|st: &mut State| {
+            let claim = Self::get_claim_or_abort(st, rt.store(), &fault.target)?;
+            let curr_balance = st
+                .get_miner_balance(rt.store(), &fault.target)
+                .map_err(|_| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        "failed to get miner pledge balance".to_owned(),
+                    )
+                })?;
+            assert!(claim.power >= StoragePower::from(0));
+
+            // Elapsed since the fault (i.e. since the higher of the two blocks)
+            let fault_age = curr_epoch - fault.epoch;
+            if fault_age <= ChainEpoch(0) {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "invalid fault epoch {:?} ahead of current {:?}",
+                        fault.epoch, curr_epoch
+                    ),
+                ));
+            }
+            // Note: this slashes the miner's whole balance, including any excess over the required claim.Pledge.
+            let collateral_to_slash =
+                pledge_penalty_for_consensus_fault(curr_balance, fault.fault_type);
+            let target_reward = reward_for_consensus_slash_report(fault_age, collateral_to_slash);
+
+            let available_reward = st
+                .subtract_miner_balance(
+                    rt.store(),
+                    &fault.target,
+                    &target_reward,
+                    &TokenAmount::new(0),
+                )
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to subtract pledge for reward: {}", e),
+                    )
+                });
+            return available_reward;
+        })?;
+
+        rt.send(
+            &reporter,
+            MethodNum(METHOD_SEND as u64),
+            &Serialized::default(),
+            &reward,
+        )?;
+
+        Self::delete_miner_actor(rt, &fault.target)
     }
     pub fn on_epoch_tick_end<BS, RT>(rt: &RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO
-        todo!();
+        rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR));
+
+        let rt_epoch = rt.curr_epoch();
+        let cron_events = rt
+            .transaction::<_, Result<_, String>, _>(|st: &mut State| {
+                let mut events = Vec::new();
+                for i in st.last_epoch_tick.0..=rt_epoch.0 {
+                    // Load epoch cron events
+                    let epoch_events = st.load_cron_events(rt.store(), ChainEpoch(i))?;
+
+                    // Add all events to vector
+                    events.extend_from_slice(&epoch_events);
+
+                    // Clear loaded events
+                    if epoch_events.len() > 0 {
+                        st.clear_cron_events(rt.store(), ChainEpoch(i))?;
+                    }
+                }
+                st.last_epoch_tick = rt_epoch;
+                Ok(events)
+            })
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("Failed to clear cron events: {}", e),
+                )
+            })?;
+
+        for event in cron_events {
+            // TODO switch 12 to OnDeferredCronEvent on miner actor impl
+            rt.send(
+                &event.miner_addr,
+                MethodNum(12),
+                &event.callback_payload,
+                &TokenAmount::new(0),
+            )?;
+        }
+
+        Ok(())
     }
 
     fn delete_miner_actor<BS, RT>(_rt: &RT, _miner: &Address) -> Result<(), ActorError>
@@ -569,12 +674,26 @@ impl Actor {
     }
 }
 
-fn validate_pledge_account<BS, RT>(_rt: &RT, _addr: &Address) -> Result<(), ActorError>
+fn validate_pledge_account<BS, RT>(rt: &RT, addr: &Address) -> Result<(), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    todo!()
+    let code_id = rt.get_actor_code_cid(addr).ok_or(ActorError::new(
+        ExitCode::ErrIllegalArgument,
+        format!("no code for address {}", addr),
+    ))?;
+    if code_id != *MINER_ACTOR_CODE_ID {
+        Err(ActorError::new(
+            ExitCode::ErrIllegalArgument,
+            format!(
+                "pledge account {} must be address of miner actor, was {}",
+                addr, code_id
+            ),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn consensus_power_for_weights(weights: &[SectorStorageWeightDesc]) -> StoragePower {

@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use num_bigint::{biguint_ser, BigInt, BigUint, ParseBigIntError, Sign};
-use num_traits::{CheckedSub, Signed};
+use num_bigint::{biguint_ser, BigInt, BigUint, ParseBigIntError};
+use num_traits::CheckedSub;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
