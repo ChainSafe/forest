@@ -9,8 +9,9 @@ pub use self::policy::*;
 pub use self::state::{Claim, CronEvent, State};
 pub use self::types::*;
 use crate::{
-    check_empty_params, init, request_miner_control_addrs, StoragePower, BURNT_FUNDS_ACTOR_ADDR,
-    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, HAMT_BIT_WIDTH, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
+    check_empty_params, init, request_miner_control_addrs, BalanceTable, StoragePower,
+    BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, HAMT_BIT_WIDTH,
+    INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
 };
 use address::Address;
 use clock::ChainEpoch;
@@ -613,12 +614,45 @@ impl Actor {
         Ok(())
     }
 
-    fn delete_miner_actor<BS, RT>(_rt: &RT, _miner: &Address) -> Result<(), ActorError>
+    fn delete_miner_actor<BS, RT>(rt: &RT, miner: &Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
+        let amount_slashed: TokenAmount = rt
+            .transaction::<_, Result<_, String>, _>(|st: &mut State| {
+                st.delete_claim(rt.store(), miner)?;
+
+                st.miner_count -= 1;
+
+                if st.has_detected_fault(rt.store(), miner)? {
+                    st.delete_detected_fault(rt.store(), miner)?;
+                }
+
+                let mut table = BalanceTable::from_root(rt.store(), &st.escrow_table)?;
+                let balance = table.remove(miner)?;
+
+                st.escrow_table = table.root()?;
+
+                Ok(balance)
+            })
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
+
+        // TODO switch 6 to OnDeleteMiner on miner actor impl
+        rt.send(
+            &miner,
+            MethodNum(6),
+            &Serialized::serialize(&*BURNT_FUNDS_ACTOR_ADDR)?,
+            &TokenAmount::new(0),
+        )?;
+        rt.send(
+            &*BURNT_FUNDS_ACTOR_ADDR,
+            MethodNum(METHOD_SEND as u64),
+            &Serialized::default(),
+            &amount_slashed,
+        )?;
+
+        Ok(())
     }
 
     fn slash_pledge_collateral<BS, RT>(

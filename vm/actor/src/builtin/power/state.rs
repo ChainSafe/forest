@@ -215,12 +215,24 @@ impl State {
         claim: Claim,
     ) -> Result<(), String> {
         assert!(claim.power.sign() == Sign::Minus);
-        // assert!(claim.pledge.sign() == Sign::Minus);
 
         let mut map: Hamt<String, _> =
             Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
         map.set(addr.hash_key(), claim)?;
+        self.claims = map.flush()?;
+        Ok(())
+    }
+
+    pub(super) fn delete_claim<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        addr: &Address,
+    ) -> Result<(), String> {
+        let mut map: Hamt<String, _> =
+            Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
+
+        map.delete(&addr.hash_key())?;
         self.claims = map.flush()?;
         Ok(())
     }
@@ -346,6 +358,7 @@ impl State {
 
 fn epoch_key(ChainEpoch(e): ChainEpoch) -> String {
     // TODO switch logic to flip bits on negative value before encoding if ChainEpoch changed to i64
+    // and add tests for edge cases once decided
     let ux = e << 1;
     let mut bz = unsigned_varint::encode::u64_buffer();
     unsigned_varint::encode::u64(ux, &mut bz);
