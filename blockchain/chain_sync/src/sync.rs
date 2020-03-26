@@ -25,12 +25,12 @@ use libp2p::core::PeerId;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::Message;
-use num_bigint::BigUint;
 use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::Arc;
+use vm::TokenAmount;
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -86,7 +86,7 @@ pub struct ChainSyncer<DB> {
 
 /// Message data used to ensure valid state transition
 struct MsgMetaData {
-    balance: BigUint,
+    balance: TokenAmount,
     sequence: u64,
 }
 
@@ -402,7 +402,7 @@ where
                     }
                     // update balance and increment sequence by 1
                     MsgMetaData {
-                        balance: balance - msg.required_funds(),
+                        balance: balance - &msg.required_funds(),
                         sequence: sequence + 1,
                     }
                 }

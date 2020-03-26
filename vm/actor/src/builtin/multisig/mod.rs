@@ -8,6 +8,7 @@ pub use self::state::State;
 pub use self::types::*;
 use crate::{make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
 use address::Address;
+use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_derive::FromPrimitive;
@@ -364,7 +365,7 @@ impl Actor {
 
         // Sufficient number of approvals have arrived, relay message
         if threshold_met {
-            rt.send::<Serialized>(&tx.to, tx.method, &tx.params, &tx.value)?;
+            rt.send::<Ipld>(&tx.to, tx.method, &tx.params, &tx.value)?;
         }
 
         Ok(())
