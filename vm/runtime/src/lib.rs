@@ -104,10 +104,10 @@ pub trait Runtime<BS: BlockStore> {
     fn new_actor_address(&self) -> Address;
 
     /// Creates an actor with code `codeID` and address `address`, with empty state. May only be called by Init actor.
-    fn create_actor(&mut self, code_id: &Cid, address: &Address);
+    fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError>;
 
     /// Deletes the executing actor from the state tree. May only be called by the actor itself.
-    fn delete_actor(&mut self);
+    fn delete_actor(&mut self) -> Result<(), ActorError>;
 
     /// Provides the system call interface.
     fn syscalls(&self) -> Syscalls {

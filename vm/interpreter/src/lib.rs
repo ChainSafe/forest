@@ -230,7 +230,11 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             Some(_) => Ok(()),
             None => Err(self.abort(
                 ExitCode::SysErrForbidden,
-                format!("caller cid type {} one of {}", caller_cid, self.message().from()),
+                format!(
+                    "caller cid type {} one of {}",
+                    caller_cid,
+                    self.message().from()
+                ),
             )),
         }
     }
@@ -306,9 +310,10 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             self.curr_epoch(),
             self.origin.clone(),
         );
-        let send_res =internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, TokenAmount::new(0));
+        let send_res =
+            internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, TokenAmount::new(0));
         self.state.revert_to_snapshot(&snapshot).unwrap();
-        send_res 
+        send_res
     }
 
     fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
@@ -317,43 +322,47 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     fn new_actor_address(&self) -> Address {
         todo!()
     }
-    fn create_actor(&mut self, code_id: &Cid, address: &Address) {
-        // match self.state.set_actor(
-        //     &address,
-        //     ActorState::new(code_id.clone(), Cid::default(), 0u64.into(), 0),
-        // ) {
-        //     Err(_e) => self.abort(ExitCode::SysErrInternal, "creating actor entry".to_owned()),
-        //     _ => {}
-        // }
-        todo!()
+    fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
+        // TODO: Charge gas
+        self.state
+            .set_actor(
+                &address,
+                ActorState::new(code_id.clone(), Cid::default(), 0u64.into(), 0),
+            )
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::SysErrInternal,
+                    format!("creating actor entry: {}", e),
+                )
+            })
     }
-    fn delete_actor(&mut self) {
-        // TODO: Handle these unwraps
-        let act = self.state.get_actor(self.message.to()).unwrap().unwrap();
-        // .unwrap_or_else(|_e| {
-        //     self.abort(
-        //         ExitCode::SysErrInternal,
-        //         "fail to load actor in delete actor".to_owned(),
-        //     )
-        // })
-        // .unwrap_or_else(|| self.abort(
-        //     ExitCode::SysErrInternal,
-        //     "fail to load actor in delete actor".to_owned(),
-        // ));
-
-        // if act.balance != 0u8.into() {
-        //     self.abort(
-        //         ExitCode::SysErrInternal,
-        //         "cannot delete actor with non-zero balance".to_owned(),
-        //     )
-        // }
-        // if self.state.delete_actor(self.message.to()).is_err() {
-        //     self.abort(
-        //         ExitCode::SysErrInternal,
-        //         "failed to delete actor".to_owned(),
-        //     )
-        // }
-        todo!()
+    fn delete_actor(&mut self) -> Result<(), ActorError> {
+        // TODO: Charge gas
+        let balance = self
+            .state
+            .get_actor(self.message.to())
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::SysErrInternal,
+                    format!("failed to load actore in delete actor: {}", e),
+                )
+            })
+            .and_then(|act| {
+                act.ok_or(self.abort(ExitCode::SysErrInternal, "actor not found in delete actor"))
+            })
+            .map(|act| act.balance)?;
+        if !balance.eq(&0u64.into()) {
+            return Err(self.abort(
+                ExitCode::SysErrInternal,
+                "cannot delete actor with non-zero balance",
+            ));
+        }
+        self.state.delete_actor(self.message.to()).map_err(|e| {
+            self.abort(
+                ExitCode::SysErrInternal,
+                format!("failed to delete actor: {}", e),
+            )
+        })
     }
 }
 enum RTType<'a, ST: StateTree, DB: BlockStore> {
