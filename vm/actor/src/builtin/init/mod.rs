@@ -13,7 +13,6 @@ use crate::{
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
-use forest_ipld::Ipld;
 use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -44,7 +43,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
-        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+        rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
         let mut empty_map = make_map(rt.store());
         let root = empty_map.flush().map_err(|err| {
             rt.abort(
@@ -97,7 +96,7 @@ impl Actor {
         });
 
         // Create an empty actor
-        rt.create_actor(&params.code_cid, &id_address);
+        rt.create_actor(&params.code_cid, &id_address)?;
 
         // Invoke constructor
         rt.send(

@@ -33,7 +33,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
-        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+        rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
 
         Ok(())
     }

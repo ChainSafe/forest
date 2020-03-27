@@ -47,7 +47,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let sys_ref: &Address = &INIT_ACTOR_ADDR;
-        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+        rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
 
         if params.signers.is_empty() {
             return Err(rt.abort(
@@ -89,7 +89,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter());
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: &Address = rt.message().from();
 
         let tx_id = rt.transaction::<State, _, _>(|st| {
@@ -133,7 +133,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter());
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: &Address = rt.message().from();
 
         // Validate signer
@@ -148,7 +148,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter());
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: &Address = rt.message().from();
 
         rt.transaction::<State, _, _>(|st| {
@@ -190,7 +190,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()));
+        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()))?;
 
         rt.transaction::<State, _, _>(|st| {
             // Check if signer to add is already signer
@@ -214,7 +214,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()));
+        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()))?;
 
         rt.transaction::<State, _, _>(|st| {
             // Check that signer to remove exists
@@ -246,7 +246,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()));
+        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()))?;
 
         rt.transaction::<State, _, _>(|st| {
             // Check that signer to remove exists
@@ -281,7 +281,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()));
+        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()))?;
 
         rt.transaction::<State, _, _>(|st| {
             // Check if valid threshold value
