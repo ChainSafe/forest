@@ -155,7 +155,7 @@ impl Actor {
                     extra: extra.data.clone(),
                     proof: params.proof,
                 })?,
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )?;
         }
 
@@ -220,12 +220,14 @@ impl Actor {
             st.lane_states[idx].redeemed = sv.amount;
 
             // 4. check operation validity
-            let new_send_balance = st.to_send.add_bigint(balance_delta).map_err(|_| {
-                rt.abort(
-                    ExitCode::ErrIllegalState,
-                    "voucher would leave channel balance negative",
-                )
-            })?;
+            let new_send_balance = (BigInt::from(st.to_send.clone()) + balance_delta)
+                .to_biguint()
+                .ok_or_else(|| {
+                    rt.abort(
+                        ExitCode::ErrIllegalState,
+                        "voucher would leave channel balance negative",
+                    )
+                })?;
 
             if new_send_balance > rt.current_balance() {
                 return Err(rt.abort(
@@ -314,7 +316,7 @@ impl Actor {
         )?;
 
         rt.transaction(|st: &mut State| {
-            st.to_send = TokenAmount::new(0);
+            st.to_send = TokenAmount::from(0u8);
 
             Ok(())
         })

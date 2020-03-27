@@ -68,7 +68,7 @@ impl Actor {
             signers: params.signers,
             num_approvals_threshold: params.num_approvals_threshold,
             pending_txs: empty_root,
-            initial_balance: TokenAmount::new(0),
+            initial_balance: TokenAmount::from(0u8),
             next_tx_id: Default::default(),
             start_epoch: Default::default(),
             unlock_duration: Default::default(),

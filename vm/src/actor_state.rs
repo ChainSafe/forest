@@ -4,6 +4,7 @@
 use crate::TokenAmount;
 use cid::Cid;
 use encoding::Cbor;
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::ops::AddAssign;
 
@@ -24,8 +25,8 @@ impl Cbor for ActorID {}
 pub struct ActorState {
     pub code: Cid,
     pub state: Cid,
-    pub balance: TokenAmount,
     pub sequence: u64,
+    pub balance: TokenAmount,
 }
 
 impl Serialize for ActorState {
@@ -33,7 +34,13 @@ impl Serialize for ActorState {
     where
         S: Serializer,
     {
-        (&self.code, &self.state, &self.sequence, &self.balance).serialize(serializer)
+        (
+            &self.code,
+            &self.state,
+            &self.sequence,
+            BigUintSer(&self.balance),
+        )
+            .serialize(serializer)
     }
 }
 
@@ -42,7 +49,7 @@ impl<'de> Deserialize<'de> for ActorState {
     where
         D: Deserializer<'de>,
     {
-        let (code, state, sequence, balance) = Deserialize::deserialize(deserializer)?;
+        let (code, state, sequence, BigUintDe(balance)) = Deserialize::deserialize(deserializer)?;
         Ok(ActorState {
             code,
             state,

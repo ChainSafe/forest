@@ -5,6 +5,7 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::Deserialize;
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -21,11 +22,11 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///     .to(Address::new_id(0).unwrap())
 ///     .from(Address::new_id(1).unwrap())
 ///     .sequence(0) // optional
-///     .value(TokenAmount::new(0)) // optional
+///     .value(TokenAmount::from(0u8)) // optional
 ///     .method_num(MethodNum::default()) // optional
 ///     .params(Serialized::default()) // optional
 ///     .gas_limit(0) // optional
-///     .gas_price(TokenAmount::new(0)) // optional
+///     .gas_price(TokenAmount::from(0u8)) // optional
 ///     .build()
 ///     .unwrap();
 ///
@@ -71,8 +72,8 @@ impl ser::Serialize for UnsignedMessage {
             &self.to,
             &self.from,
             &self.sequence,
-            &self.value,
-            &self.gas_price,
+            BigUintSer(&self.value),
+            BigUintSer(&self.gas_price),
             &self.gas_limit,
             &self.method_num,
             &self.params,
@@ -86,8 +87,16 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
     where
         D: de::Deserializer<'de>,
     {
-        let (to, from, sequence, value, gas_price, gas_limit, method_num, params) =
-            Deserialize::deserialize(deserializer)?;
+        let (
+            to,
+            from,
+            sequence,
+            BigUintDe(value),
+            BigUintDe(gas_price),
+            gas_limit,
+            method_num,
+            params,
+        ) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             to,
             from,
