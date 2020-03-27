@@ -74,7 +74,7 @@ impl Actor {
             unlock_duration: Default::default(),
         };
 
-        if params.unlock_duration.0 != 0 {
+        if params.unlock_duration != 0 {
             st.initial_balance = rt.message().value().clone();
             st.unlock_duration = params.unlock_duration;
             st.start_epoch = rt.curr_epoch();

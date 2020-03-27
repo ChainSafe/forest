@@ -17,7 +17,7 @@ use vm::{MethodNum, Serialized};
 pub const LANE_LIMIT: usize = 256;
 
 // TODO replace placeholder when params finished
-pub const SETTLE_DELAY: ChainEpoch = ChainEpoch(1);
+pub const SETTLE_DELAY: ChainEpoch = 1;
 
 /// Constructor parameters for payment channel actor
 pub struct ConstructorParams {
@@ -224,8 +224,8 @@ mod tests {
     #[test]
     fn signed_voucher_serialize_optional_unset() {
         let v = SignedVoucher {
-            time_lock_min: ChainEpoch(1),
-            time_lock_max: ChainEpoch(2),
+            time_lock_min: 1,
+            time_lock_max: 2,
             lane: 3,
             nonce: 4,
             amount: BigInt::from(5),

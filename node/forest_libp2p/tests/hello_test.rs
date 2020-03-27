@@ -18,7 +18,7 @@ fn test_empty_rpc() {
     let rpc_request = RPCRequest::Hello(HelloMessage {
         heaviest_tip_set: vec![Cid::default()],
         heaviest_tipset_weight: BigInt::from(1),
-        heaviest_tipset_height: ChainEpoch::from(2),
+        heaviest_tipset_height: 2,
         genesis_hash: Cid::default(),
     });
 

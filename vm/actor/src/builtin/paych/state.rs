@@ -37,8 +37,8 @@ impl State {
             from,
             to,
             to_send: Default::default(),
-            settling_at: ChainEpoch(0),
-            min_settle_height: ChainEpoch(0),
+            settling_at: 0,
+            min_settle_height: 0,
             lane_states: Vec::new(),
         }
     }

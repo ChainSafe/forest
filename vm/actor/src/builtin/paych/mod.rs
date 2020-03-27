@@ -9,7 +9,6 @@ pub use self::types::*;
 use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::to_vec;
 use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
@@ -136,7 +135,7 @@ impl Actor {
             return Err(rt.abort(ExitCode::ErrIllegalArgument, "cannot use this voucher yet"));
         }
 
-        if sv.time_lock_max != ChainEpoch(0) && rt.curr_epoch() > sv.time_lock_max {
+        if sv.time_lock_max != 0 && rt.curr_epoch() > sv.time_lock_max {
             return Err(rt.abort(ExitCode::ErrIllegalArgument, "this voucher has expired"));
         }
 
@@ -240,8 +239,8 @@ impl Actor {
             st.to_send = new_send_balance;
 
             // update channel settlingAt and MinSettleHeight if delayed by voucher
-            if sv.min_settle_height != ChainEpoch(0) {
-                if st.settling_at != ChainEpoch(0) && st.settling_at < sv.min_settle_height {
+            if sv.min_settle_height != 0 {
+                if st.settling_at != 0 && st.settling_at < sv.min_settle_height {
                     st.settling_at = sv.min_settle_height;
                 }
                 if st.min_settle_height < sv.min_settle_height {
@@ -260,7 +259,7 @@ impl Actor {
         rt.transaction(|st: &mut State| {
             rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
 
-            if st.settling_at != ChainEpoch(0) {
+            if st.settling_at != 0 {
                 return Err(rt.abort(ExitCode::ErrIllegalState, "channel already settling"));
             }
 
@@ -281,7 +280,7 @@ impl Actor {
         let st: State = rt.state();
         rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
 
-        if st.settling_at == ChainEpoch(0) || rt.curr_epoch() < st.settling_at {
+        if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {
             return Err(rt.abort(
                 ExitCode::ErrForbidden,
                 "payment channel not settling or settled",
