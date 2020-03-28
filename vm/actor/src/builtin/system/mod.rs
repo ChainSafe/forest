@@ -12,6 +12,7 @@ use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Init actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
 }
@@ -19,7 +20,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into a Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 
