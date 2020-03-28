@@ -41,7 +41,7 @@ impl State {
         map.set(addr.hash_key(), id)?;
         self.address_map = map.flush()?;
 
-        Ok(Address::new_id(id.0).expect("Id Address should be created without Error"))
+        Ok(Address::new_id(id).expect("Id Address should be created without Error"))
     }
 
     /// ResolveAddress resolves an address to an ID-address, if possible.
@@ -66,7 +66,7 @@ impl State {
             .get(&addr.hash_key())?
             .ok_or_else(|| "Address not found".to_owned())?;
 
-        Ok(Address::new_id(actor_id.0).map_err(|e| e.to_string())?)
+        Ok(Address::new_id(actor_id).map_err(|e| e.to_string())?)
     }
 }
 
