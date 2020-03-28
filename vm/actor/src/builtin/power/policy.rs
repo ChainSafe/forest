@@ -34,7 +34,17 @@ lazy_static! {
 
 }
 
+/// Penalty to pledge collateral for the termination of an individual sector.
 pub(super) fn pledge_penalty_for_sector_termination(
+    _pledge: &TokenAmount,
+    _term_type: SectorTermination,
+) -> TokenAmount {
+    // PARAM_FINISH
+    TokenAmount::new(0)
+}
+
+// Penalty to pledge collateral for repeated failure to prove storage.
+pub(super) fn pledge_penalty_for_windowed_post_failure(
     _pledge: &TokenAmount,
     _term_type: SectorTermination,
 ) -> TokenAmount {

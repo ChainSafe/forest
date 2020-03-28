@@ -462,7 +462,7 @@ impl Actor {
         if params.num_consecutive_failures > WINDOWED_POST_FAILURE_LIMIT {
             Self::delete_miner_actor(rt, &miner_addr)?;
         } else {
-            let amount_to_slash = pledge_penalty_for_sector_termination(
+            let amount_to_slash = pledge_penalty_for_windowed_post_failure(
                 &claim.pledge,
                 params.num_consecutive_failures,
             );
