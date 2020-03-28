@@ -88,7 +88,7 @@ impl Actor {
                 &entry.receiver,
                 entry.method_num,
                 &Serialized::default(),
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )?;
         }
         Ok(())

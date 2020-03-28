@@ -5,6 +5,7 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::TokenAmount;
 
@@ -38,7 +39,7 @@ impl Serialize for State {
     where
         S: Serializer,
     {
-        (&self.reward_map, &self.reward_total).serialize(serializer)
+        (&self.reward_map, BigUintSer(&self.reward_total)).serialize(serializer)
     }
 }
 
@@ -47,7 +48,7 @@ impl<'de> Deserialize<'de> for State {
     where
         D: Deserializer<'de>,
     {
-        let (reward_map, reward_total) = Deserialize::deserialize(deserializer)?;
+        let (reward_map, BigUintDe(reward_total)) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             reward_map,
             reward_total,

@@ -44,11 +44,11 @@ fn convert_single_tipset_bundle() {
 #[test]
 fn tipset_bundle_to_full_tipset() {
     let h0 = BlockHeader::builder()
-        .weight(BigUint::from(1 as u32))
+        .weight(BigUint::from(1u32))
         .build()
         .unwrap();
     let h1 = BlockHeader::builder()
-        .weight(BigUint::from(2 as u32))
+        .weight(BigUint::from(2u32))
         .build()
         .unwrap();
     let ua = UnsignedMessage::builder()

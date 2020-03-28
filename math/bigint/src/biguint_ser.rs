@@ -19,6 +19,15 @@ impl Serialize for BigUintSer<'_> {
     }
 }
 
+impl Serialize for BigUintDe {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize(&self.0, serializer)
+    }
+}
+
 impl<'de> Deserialize<'de> for BigUintDe {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
