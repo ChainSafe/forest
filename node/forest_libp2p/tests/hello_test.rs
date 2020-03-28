@@ -4,7 +4,6 @@
 mod rpc_test_utils;
 
 use self::rpc_test_utils::*;
-use clock::ChainEpoch;
 use forest_cid::Cid;
 use forest_libp2p::hello::{HelloMessage, HelloResponse};
 use forest_libp2p::rpc::{RPCEvent, RPCMessage, RPCRequest, RPCResponse};

@@ -519,7 +519,7 @@ where
 
         for i in 0..tips.len() {
             while ts.epoch() > tips[i].epoch() {
-                if ts.epoch() == &0 {
+                if ts.epoch() == 0 {
                     return Err(Error::Other(
                         "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));

@@ -196,8 +196,8 @@ impl BlockHeader {
         &self.weight
     }
     /// Getter for BlockHeader epoch
-    pub fn epoch(&self) -> &ChainEpoch {
-        &self.epoch
+    pub fn epoch(&self) -> ChainEpoch {
+        self.epoch
     }
     /// Getter for BlockHeader miner_address
     pub fn miner_address(&self) -> &Address {
@@ -283,7 +283,7 @@ impl BlockHeader {
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
             < base_tipset.tipset()?.min_timestamp()?
-                + FIXED_BLOCK_DELAY * (*self.epoch() - *base_tipset.tipset()?.epoch())
+                + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.tipset()?.epoch())
         {
             return Err(Error::Validation(
                 "Header was generated too soon".to_string(),
@@ -323,7 +323,6 @@ mod tests {
     use address::Address;
     use base64;
     use cid::Cid;
-    use clock::ChainEpoch;
     use crypto::{Signature, VRFResult};
     use encoding::from_slice;
     use encoding::to_vec;
