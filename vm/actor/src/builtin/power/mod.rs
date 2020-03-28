@@ -14,10 +14,10 @@ use crate::{
     INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
 };
 use address::Address;
-use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::Message;
+use num_bigint::biguint_ser::BigUintSer;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -121,7 +121,7 @@ impl Actor {
         let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
         rt.validate_immediate_caller_is([owner_addr.clone(), worker_addr].iter());
 
-        if params.requested < TokenAmount::new(0) {
+        if params.requested < TokenAmount::zero() {
             return Err(rt.abort(
                 ExitCode::ErrIllegalArgument,
                 format!("negative withdrawal {}", params.requested),
@@ -165,7 +165,7 @@ impl Actor {
                 &INIT_ACTOR_ADDR,
                 MethodNum(init::Method::Exec as u64),
                 params,
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )?
             .deserialize()?;
 
@@ -220,7 +220,7 @@ impl Actor {
                 format!("failed to get pledge balance for deletion: {}", e),
             )
         })?;
-        if balance > TokenAmount::new(0) {
+        if balance > TokenAmount::zero() {
             return Err(rt.abort(
                 ExitCode::ErrForbidden,
                 format!(
@@ -534,16 +534,15 @@ impl Actor {
             assert!(claim.power >= StoragePower::from(0));
 
             // Elapsed since the fault (i.e. since the higher of the two blocks)
-            let fault_age = curr_epoch - fault.epoch;
-            if fault_age <= ChainEpoch(0) {
-                return Err(ActorError::new(
+            let fault_age = curr_epoch.checked_sub(fault.epoch).ok_or_else(|| {
+                ActorError::new(
                     ExitCode::ErrIllegalArgument,
                     format!(
                         "invalid fault epoch {:?} ahead of current {:?}",
                         fault.epoch, curr_epoch
                     ),
-                ));
-            }
+                )
+            })?;
             // Note: this slashes the miner's whole balance, including any excess over the required claim.Pledge.
             let collateral_to_slash =
                 pledge_penalty_for_consensus_fault(curr_balance, fault.fault_type);
@@ -553,7 +552,7 @@ impl Actor {
                 rt.store(),
                 &fault.target,
                 &target_reward,
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )
             .map_err(|e| {
                 ActorError::new(
@@ -583,16 +582,16 @@ impl Actor {
         let cron_events = rt
             .transaction::<_, Result<_, String>, _>(|st: &mut State| {
                 let mut events = Vec::new();
-                for i in st.last_epoch_tick.0..=rt_epoch.0 {
+                for i in st.last_epoch_tick..=rt_epoch {
                     // Load epoch cron events
-                    let epoch_events = st.load_cron_events(rt.store(), ChainEpoch(i))?;
+                    let epoch_events = st.load_cron_events(rt.store(), i)?;
 
                     // Add all events to vector
                     events.extend_from_slice(&epoch_events);
 
                     // Clear loaded events
                     if !epoch_events.is_empty() {
-                        st.clear_cron_events(rt.store(), ChainEpoch(i))?;
+                        st.clear_cron_events(rt.store(), i)?;
                     }
                 }
                 st.last_epoch_tick = rt_epoch;
@@ -611,7 +610,7 @@ impl Actor {
                 &event.miner_addr,
                 MethodNum(12),
                 &event.callback_payload,
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )?;
         }
 
@@ -647,7 +646,7 @@ impl Actor {
             &miner,
             MethodNum(6),
             &Serialized::serialize(&*BURNT_FUNDS_ACTOR_ADDR)?,
-            &TokenAmount::new(0),
+            &TokenAmount::from(0u8),
         )?;
         rt.send(
             &*BURNT_FUNDS_ACTOR_ADDR,
@@ -673,7 +672,7 @@ impl Actor {
                 rt.store(),
                 miner_addr,
                 &amount_to_slash,
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )
             .map_err(|e| {
                 rt.abort(
@@ -781,7 +780,7 @@ impl ActorCode for Actor {
             }
             Some(Method::OnSectorProveCommit) => {
                 let res = Self::on_sector_prove_commit(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(res)?)
+                Ok(Serialized::serialize(BigUintSer(&res))?)
             }
             Some(Method::OnSectorTerminate) => {
                 Self::on_sector_terminate(rt, params.deserialize()?)?;
@@ -797,7 +796,7 @@ impl ActorCode for Actor {
             }
             Some(Method::OnSectorModifyWeightDesc) => {
                 let res = Self::on_sector_modify_weight_desc(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(res)?)
+                Ok(Serialized::serialize(BigUintSer(&res))?)
             }
             Some(Method::OnMinerWindowedPoStSuccess) => {
                 check_empty_params(params)?;

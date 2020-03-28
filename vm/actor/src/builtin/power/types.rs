@@ -6,6 +6,7 @@ use address::Address;
 use clock::ChainEpoch;
 use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{SectorSize, Serialized, TokenAmount};
 
@@ -85,7 +86,7 @@ impl Serialize for WithdrawBalanceParams {
     where
         S: Serializer,
     {
-        (&self.miner, &self.requested).serialize(serializer)
+        (&self.miner, BigUintSer(&self.requested)).serialize(serializer)
     }
 }
 
@@ -94,7 +95,7 @@ impl<'de> Deserialize<'de> for WithdrawBalanceParams {
     where
         D: Deserializer<'de>,
     {
-        let (miner, requested) = Deserialize::deserialize(deserializer)?;
+        let (miner, BigUintDe(requested)) = Deserialize::deserialize(deserializer)?;
         Ok(Self { miner, requested })
     }
 }
@@ -224,7 +225,12 @@ impl Serialize for OnSectorTerminateParams {
     where
         S: Serializer,
     {
-        (&self.termination_type, &self.weights, &self.pledge).serialize(serializer)
+        (
+            &self.termination_type,
+            &self.weights,
+            BigUintSer(&self.pledge),
+        )
+            .serialize(serializer)
     }
 }
 
@@ -233,7 +239,8 @@ impl<'de> Deserialize<'de> for OnSectorTerminateParams {
     where
         D: Deserializer<'de>,
     {
-        let (termination_type, weights, pledge) = Deserialize::deserialize(deserializer)?;
+        let (termination_type, weights, BigUintDe(pledge)) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Self {
             termination_type,
             weights,
@@ -253,7 +260,7 @@ impl Serialize for OnSectorTemporaryFaultEffectiveBeginParams {
     where
         S: Serializer,
     {
-        (&self.weights, &self.pledge).serialize(serializer)
+        (&self.weights, BigUintSer(&self.pledge)).serialize(serializer)
     }
 }
 
@@ -262,7 +269,7 @@ impl<'de> Deserialize<'de> for OnSectorTemporaryFaultEffectiveBeginParams {
     where
         D: Deserializer<'de>,
     {
-        let (weights, pledge) = Deserialize::deserialize(deserializer)?;
+        let (weights, BigUintDe(pledge)) = Deserialize::deserialize(deserializer)?;
         Ok(Self { weights, pledge })
     }
 }
@@ -278,7 +285,7 @@ impl Serialize for OnSectorTemporaryFaultEffectiveEndParams {
     where
         S: Serializer,
     {
-        (&self.weights, &self.pledge).serialize(serializer)
+        (&self.weights, BigUintSer(&self.pledge)).serialize(serializer)
     }
 }
 
@@ -287,7 +294,7 @@ impl<'de> Deserialize<'de> for OnSectorTemporaryFaultEffectiveEndParams {
     where
         D: Deserializer<'de>,
     {
-        let (weights, pledge) = Deserialize::deserialize(deserializer)?;
+        let (weights, BigUintDe(pledge)) = Deserialize::deserialize(deserializer)?;
         Ok(Self { weights, pledge })
     }
 }
@@ -304,7 +311,12 @@ impl Serialize for OnSectorModifyWeightDescParams {
     where
         S: Serializer,
     {
-        (&self.prev_weight, &self.prev_pledge, &self.new_weight).serialize(serializer)
+        (
+            &self.prev_weight,
+            BigUintSer(&self.prev_pledge),
+            &self.new_weight,
+        )
+            .serialize(serializer)
     }
 }
 
@@ -313,7 +325,8 @@ impl<'de> Deserialize<'de> for OnSectorModifyWeightDescParams {
     where
         D: Deserializer<'de>,
     {
-        let (prev_weight, prev_pledge, new_weight) = Deserialize::deserialize(deserializer)?;
+        let (prev_weight, BigUintDe(prev_pledge), new_weight) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Self {
             prev_weight,
             prev_pledge,

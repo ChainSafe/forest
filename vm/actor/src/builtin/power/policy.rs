@@ -7,11 +7,10 @@ use clock::ChainEpoch;
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, Pow};
 use runtime::ConsensusFaultType;
-use std::convert::TryFrom;
 use vm::TokenAmount;
 
 /// The time a miner has to respond to a surprise PoSt challenge.
-pub const WINDOWED_POST_CHALLENGE_DURATION: ChainEpoch = ChainEpoch(240); // ~2 hours @ 30 second epochs. PARAM_FINISH
+pub const WINDOWED_POST_CHALLENGE_DURATION: ChainEpoch = 240; // ~2 hours @ 30 second epochs. PARAM_FINISH
 
 /// The number of consecutive failures to meet a surprise PoSt challenge before a miner is terminated.
 pub const WINDOWED_POST_FAILURE_LIMIT: i64 = 3; // PARAM_FINISH
@@ -20,7 +19,7 @@ pub const WINDOWED_POST_FAILURE_LIMIT: i64 = 3; // PARAM_FINISH
 pub const CONSENSUS_MINER_MIN_MINERS: usize = 3;
 
 /// Maximum age of a block header used as proof of a consensus fault to appear in the chain.
-pub const CONSENSUS_FAULT_REPORTING_WINDOW: ChainEpoch = ChainEpoch(2880); // 1 day @ 30 second epochs.
+pub const CONSENSUS_FAULT_REPORTING_WINDOW: ChainEpoch = 2880; // 1 day @ 30 second epochs.
 
 lazy_static! {
     /// Multiplier on sector pledge requirement.
@@ -40,7 +39,7 @@ pub(super) fn pledge_penalty_for_sector_termination(
     _term_type: SectorTermination,
 ) -> TokenAmount {
     // PARAM_FINISH
-    TokenAmount::new(0)
+    TokenAmount::from(0u8)
 }
 
 // Penalty to pledge collateral for repeated failure to prove storage.
@@ -49,7 +48,7 @@ pub(super) fn pledge_penalty_for_windowed_post_failure(
     _term_type: SectorTermination,
 ) -> TokenAmount {
     // PARAM_FINISH
-    TokenAmount::new(0)
+    TokenAmount::from(0u8)
 }
 
 /// Penalty to pledge collateral for a consensus fault.
@@ -86,14 +85,13 @@ pub(super) fn reward_for_consensus_slash_report(
     // NUM = SLASHER_SHARE_GROWTH_RATE_NUM^elapsed_epoch * INITIAL_SLASHER_SHARE_NUM * collateral
     // DENOM = SLASHER_SHARE_GROWTH_RATE_DENOM^elapsed_epoch * INITIAL_SLASHER_SHARE_DENOM
     // slasher_amount = min(NUM/DENOM, collateral)
-    let elapsed = elapsed_epoch.0;
-    let slasher_share_numerator: BigInt = SLASHER_SHARE_GROWTH_RATE_NUM.pow(elapsed);
-    let slasher_share_denom: BigInt = SLASHER_SHARE_GROWTH_RATE_DENOM.pow(elapsed);
+    let slasher_share_numerator: BigInt = SLASHER_SHARE_GROWTH_RATE_NUM.pow(elapsed_epoch);
+    let slasher_share_denom: BigInt = SLASHER_SHARE_GROWTH_RATE_DENOM.pow(elapsed_epoch);
 
     let num: BigInt =
         slasher_share_numerator * &*INITIAL_SLASHER_SHARE_NUM * BigInt::from(collateral.clone());
     let denom = slasher_share_denom * &*INITIAL_SLASHER_SHARE_DENOM;
-    std::cmp::min(TokenAmount::try_from(num / denom).unwrap(), collateral)
+    std::cmp::min((num / denom).to_biguint().unwrap(), collateral)
 }
 
 pub fn consensus_power_for_weight(weight: &SectorStorageWeightDesc) -> StoragePower {
@@ -105,10 +103,12 @@ pub fn pledge_for_weight(
     network_power: &StoragePower,
 ) -> TokenAmount {
     let numerator = (weight.sector_size as u64)
-        * weight.duration.0
+        * weight.duration
         * &*EPOCH_TOTAL_EXPECTED_REWARD
         * &*PLEDGE_FACTOR;
     let denominator = network_power;
 
-    TokenAmount::try_from(numerator / denominator).expect("all values should be positive")
+    (numerator / denominator)
+        .to_biguint()
+        .expect("all values should be positive")
 }

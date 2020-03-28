@@ -11,6 +11,7 @@ use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
+    biguint_ser::{BigUintDe, BigUintSer},
     Sign,
 };
 use num_traits::{CheckedSub, Zero};
@@ -356,7 +357,7 @@ impl State {
     }
 }
 
-fn epoch_key(ChainEpoch(e): ChainEpoch) -> String {
+fn epoch_key(e: ChainEpoch) -> String {
     // TODO switch logic to flip bits on negative value before encoding if ChainEpoch changed to i64
     // and add tests for edge cases once decided
     let ux = e << 1;
@@ -424,7 +425,7 @@ impl Serialize for Claim {
     where
         S: Serializer,
     {
-        (BigIntSer(&self.power), &self.pledge).serialize(serializer)
+        (BigIntSer(&self.power), BigUintSer(&self.pledge)).serialize(serializer)
     }
 }
 
@@ -433,7 +434,7 @@ impl<'de> Deserialize<'de> for Claim {
     where
         D: Deserializer<'de>,
     {
-        let (BigIntDe(power), pledge) = Deserialize::deserialize(deserializer)?;
+        let (BigIntDe(power), BigUintDe(pledge)) = Deserialize::deserialize(deserializer)?;
         Ok(Self { power, pledge })
     }
 }

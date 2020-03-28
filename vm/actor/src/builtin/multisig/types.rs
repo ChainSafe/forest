@@ -3,6 +3,7 @@
 
 use address::Address;
 use clock::ChainEpoch;
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -54,7 +55,7 @@ impl Serialize for Transaction {
     {
         (
             &self.to,
-            &self.value,
+            BigUintSer(&self.value),
             &self.method,
             &self.params,
             &self.approved,
@@ -68,7 +69,8 @@ impl<'de> Deserialize<'de> for Transaction {
     where
         D: Deserializer<'de>,
     {
-        let (to, value, method, params, approved) = Deserialize::deserialize(deserializer)?;
+        let (to, BigUintDe(value), method, params, approved) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Self {
             to,
             value,
@@ -128,7 +130,13 @@ impl Serialize for ProposeParams {
     where
         S: Serializer,
     {
-        (&self.to, &self.value, &self.method, &self.params).serialize(serializer)
+        (
+            &self.to,
+            BigUintSer(&self.value),
+            &self.method,
+            &self.params,
+        )
+            .serialize(serializer)
     }
 }
 
@@ -137,7 +145,7 @@ impl<'de> Deserialize<'de> for ProposeParams {
     where
         D: Deserializer<'de>,
     {
-        let (to, value, method, params) = Deserialize::deserialize(deserializer)?;
+        let (to, BigUintDe(value), method, params) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             to,
             value,

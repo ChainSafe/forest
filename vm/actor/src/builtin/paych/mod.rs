@@ -8,7 +8,6 @@ pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
 use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
-use clock::ChainEpoch;
 use encoding::to_vec;
 use ipld_blockstore::BlockStore;
 use message::Message;
@@ -133,7 +132,7 @@ impl Actor {
             return Err(rt.abort(ExitCode::ErrIllegalArgument, "cannot use this voucher yet"));
         }
 
-        if sv.time_lock_max != ChainEpoch(0) && rt.curr_epoch() > sv.time_lock_max {
+        if sv.time_lock_max != 0 && rt.curr_epoch() > sv.time_lock_max {
             return Err(rt.abort(ExitCode::ErrIllegalArgument, "this voucher has expired"));
         }
 
@@ -152,7 +151,7 @@ impl Actor {
                     extra: extra.data.clone(),
                     proof: params.proof,
                 })?,
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )?;
         }
 
@@ -217,12 +216,14 @@ impl Actor {
             st.lane_states[idx].redeemed = sv.amount;
 
             // 4. check operation validity
-            let new_send_balance = st.to_send.checked_add_bigint(balance_delta).map_err(|_| {
-                rt.abort(
-                    ExitCode::ErrIllegalState,
-                    "voucher would leave channel balance negative",
-                )
-            })?;
+            let new_send_balance = (BigInt::from(st.to_send.clone()) + balance_delta)
+                .to_biguint()
+                .ok_or_else(|| {
+                    rt.abort(
+                        ExitCode::ErrIllegalState,
+                        "voucher would leave channel balance negative",
+                    )
+                })?;
 
             if new_send_balance > rt.current_balance() {
                 return Err(rt.abort(
@@ -235,8 +236,8 @@ impl Actor {
             st.to_send = new_send_balance;
 
             // update channel settlingAt and MinSettleHeight if delayed by voucher
-            if sv.min_settle_height != ChainEpoch(0) {
-                if st.settling_at != ChainEpoch(0) && st.settling_at < sv.min_settle_height {
+            if sv.min_settle_height != 0 {
+                if st.settling_at != 0 && st.settling_at < sv.min_settle_height {
                     st.settling_at = sv.min_settle_height;
                 }
                 if st.min_settle_height < sv.min_settle_height {
@@ -255,7 +256,7 @@ impl Actor {
         rt.transaction(|st: &mut State| {
             rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
 
-            if st.settling_at != ChainEpoch(0) {
+            if st.settling_at != 0 {
                 return Err(rt.abort(ExitCode::ErrIllegalState, "channel already settling"));
             }
 
@@ -276,7 +277,7 @@ impl Actor {
         let st: State = rt.state();
         rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
 
-        if st.settling_at == ChainEpoch(0) || rt.curr_epoch() < st.settling_at {
+        if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {
             return Err(rt.abort(
                 ExitCode::ErrForbidden,
                 "payment channel not settling or settled",
@@ -311,7 +312,7 @@ impl Actor {
         )?;
 
         rt.transaction(|st: &mut State| {
-            st.to_send = TokenAmount::new(0);
+            st.to_send = TokenAmount::from(0u8);
 
             Ok(())
         })
