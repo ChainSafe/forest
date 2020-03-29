@@ -3,7 +3,7 @@
 
 use address::Address;
 use encoding::{from_slice, to_vec};
-use vm::{MethodNum, Serialized};
+use vm::Serialized;
 
 #[test]
 fn serialized_deserialize() {
@@ -37,11 +37,4 @@ fn cbor_params() {
     let addr = Address::new_id(1).unwrap();
     let params = Serialized::serialize(addr.clone()).unwrap();
     assert_eq!(from_slice::<Address>(&params).unwrap(), addr);
-}
-
-#[test]
-fn method_num() {
-    // Test constructor available publicly
-    let method = MethodNum::new(1);
-    assert_eq!(1 as u64, u64::from(method));
 }

@@ -28,6 +28,7 @@ use vm::{
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     /// Constructor for Storage Power Actor
     Constructor = METHOD_CONSTRUCTOR,
@@ -50,7 +51,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into an Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 
@@ -144,7 +145,7 @@ impl Actor {
 
         rt.send(
             &owner_addr,
-            MethodNum(METHOD_SEND as u64),
+            METHOD_SEND,
             &Serialized::default(),
             &amount_extracted,
         )?;
@@ -163,7 +164,7 @@ impl Actor {
         let addresses: init::ExecReturn = rt
             .send(
                 &INIT_ACTOR_ADDR,
-                MethodNum(init::Method::Exec as u64),
+                init::Method::Exec as u64,
                 params,
                 &TokenAmount::from(0u8),
             )?
@@ -562,12 +563,7 @@ impl Actor {
             })
         })?;
 
-        rt.send(
-            &reporter,
-            MethodNum(METHOD_SEND as u64),
-            &Serialized::default(),
-            &reward,
-        )?;
+        rt.send(&reporter, METHOD_SEND, &Serialized::default(), &reward)?;
 
         Self::delete_miner_actor(rt, &fault.target)
     }
@@ -608,7 +604,7 @@ impl Actor {
             // TODO switch 12 to OnDeferredCronEvent on miner actor impl
             rt.send(
                 &event.miner_addr,
-                MethodNum(12),
+                12,
                 &event.callback_payload,
                 &TokenAmount::from(0u8),
             )?;
@@ -644,13 +640,13 @@ impl Actor {
         // TODO switch 6 to OnDeleteMiner on miner actor impl
         rt.send(
             &miner,
-            MethodNum(6),
+            6,
             &Serialized::serialize(&*BURNT_FUNDS_ACTOR_ADDR)?,
             &TokenAmount::from(0u8),
         )?;
         rt.send(
             &*BURNT_FUNDS_ACTOR_ADDR,
-            MethodNum(METHOD_SEND as u64),
+            METHOD_SEND,
             &Serialized::default(),
             &amount_slashed,
         )?;
@@ -684,7 +680,7 @@ impl Actor {
 
         rt.send(
             &*BURNT_FUNDS_ACTOR_ADDR,
-            MethodNum(METHOD_SEND as u64),
+            METHOD_SEND,
             &Serialized::default(),
             &amount_slashed,
         )?;

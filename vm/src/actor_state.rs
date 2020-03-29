@@ -3,22 +3,11 @@
 
 use crate::TokenAmount;
 use cid::Cid;
-use encoding::Cbor;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::ops::AddAssign;
 
 /// Identifier for Actors, includes builtin and initialized actors
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Default)]
-pub struct ActorID(pub u64);
-
-impl AddAssign<u64> for ActorID {
-    fn add_assign(&mut self, other: u64) {
-        self.0 += other
-    }
-}
-
-impl Cbor for ActorID {}
+pub type ActorID = u64;
 
 /// State of all actor implementations
 #[derive(PartialEq, Eq, Clone, Debug)]
