@@ -23,6 +23,7 @@ use vm::{
 
 /// Payment Channel actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     UpdateChannelState = 2,
@@ -33,7 +34,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into an Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 
@@ -299,20 +300,10 @@ impl Actor {
             })?;
 
         // send remaining balance to `from`
-        rt.send::<Ipld>(
-            &st.from,
-            MethodNum(METHOD_SEND as u64),
-            &Serialized::default(),
-            &rem_bal,
-        )?;
+        rt.send::<Ipld>(&st.from, METHOD_SEND, &Serialized::default(), &rem_bal)?;
 
         // send ToSend to `to`
-        rt.send::<Ipld>(
-            &st.to,
-            MethodNum(METHOD_SEND as u64),
-            &Serialized::default(),
-            &st.to_send,
-        )?;
+        rt.send::<Ipld>(&st.to, METHOD_SEND, &Serialized::default(), &st.to_send)?;
 
         rt.transaction(|st: &mut State| {
             st.to_send = TokenAmount::from(0u8);

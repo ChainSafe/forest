@@ -16,4 +16,4 @@ lazy_static! {
 }
 
 /// Defines first available ID address after builtin actors
-pub const FIRST_NON_SINGLETON_ADDR: ActorID = ActorID(100);
+pub const FIRST_NON_SINGLETON_ADDR: ActorID = 100;

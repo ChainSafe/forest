@@ -13,6 +13,7 @@ use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     /// Constructor for Storage Power Actor
     Constructor = METHOD_CONSTRUCTOR,
@@ -35,7 +36,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into an Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 

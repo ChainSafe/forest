@@ -12,7 +12,7 @@ use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
 use std::str::FromStr;
-use vm::{MethodNum, Serialized};
+use vm::Serialized;
 
 #[derive(Debug, Deserialize)]
 struct MessageVector {
@@ -41,7 +41,7 @@ impl From<MessageVector> for UnsignedMessage {
             .from(Address::from_str(&vector.from).unwrap())
             .sequence(vector.nonce)
             .value(vector.value.parse().unwrap())
-            .method_num(MethodNum::new(vector.method))
+            .method_num(vector.method)
             .params(Serialized::new(base64::decode(&vector.params).unwrap()))
             .gas_limit(vector.gas_limit)
             .gas_price(vector.gas_price.parse().unwrap())

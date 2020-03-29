@@ -16,6 +16,7 @@ use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTR
 
 /// Cron actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     EpochTick = 2,
@@ -24,7 +25,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into an Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 
