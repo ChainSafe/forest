@@ -64,7 +64,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR));
-        if rt.current_balance() >= params.gas_reward {
+        if rt.current_balance() < params.gas_reward {
             return Err(ActorError::new(
                 ExitCode::ErrInsufficientFunds,
                 format!(
@@ -72,6 +72,13 @@ impl Actor {
                     rt.current_balance(),
                     params.gas_reward
                 ),
+            ));
+        }
+
+        if params.ticket_count == 0 {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "cannot give block reward for zero tickets".to_owned(),
             ));
         }
 
@@ -88,7 +95,6 @@ impl Actor {
             .transaction::<_, Result<_, String>, _>(|st: &mut State| {
                 let block_rew = Self::compute_block_reward(
                     st,
-                    // TODO revisit this sub, should probably be checked
                     &prior_bal - &params.gas_reward,
                     params.ticket_count,
                 );
