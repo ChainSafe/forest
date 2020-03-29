@@ -10,7 +10,6 @@ use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use cid::Cid;
 use encoding::to_vec;
-use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
@@ -148,7 +147,7 @@ impl Actor {
         }
 
         if let Some(extra) = &sv.extra {
-            rt.send::<Ipld>(
+            rt.send(
                 &extra.actor,
                 extra.method,
                 &Serialized::serialize(PaymentVerifyParams {
@@ -300,10 +299,10 @@ impl Actor {
             })?;
 
         // send remaining balance to `from`
-        rt.send::<Ipld>(&st.from, METHOD_SEND, &Serialized::default(), &rem_bal)?;
+        rt.send(&st.from, METHOD_SEND, &Serialized::default(), &rem_bal)?;
 
         // send ToSend to `to`
-        rt.send::<Ipld>(&st.to, METHOD_SEND, &Serialized::default(), &st.to_send)?;
+        rt.send(&st.to, METHOD_SEND, &Serialized::default(), &st.to_send)?;
 
         rt.transaction(|st: &mut State| {
             st.to_send = TokenAmount::from(0u8);

@@ -59,10 +59,10 @@ fn remove_all() {
     let arr: Amt<u64, _> = mm.get(&addr1.hash_key()).unwrap().unwrap();
     assert_eq!(arr.get(1), Ok(Some(88)));
 
-    mm.remove_all(addr1.hash_key()).unwrap();
+    mm.remove_all(&addr1.hash_key()).unwrap();
     assert_eq!(mm.get::<u64>(&addr1.hash_key()), Ok(None));
 
     assert!(mm.get::<u64>(&addr2.hash_key()).unwrap().is_some());
-    mm.remove_all(addr2.hash_key()).unwrap();
+    mm.remove_all(&addr2.hash_key()).unwrap();
     assert_eq!(mm.get::<u64>(&addr2.hash_key()), Ok(None));
 }

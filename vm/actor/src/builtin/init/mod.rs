@@ -12,7 +12,6 @@ use crate::{
 };
 use address::Address;
 use cid::Cid;
-use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_derive::FromPrimitive;
@@ -101,7 +100,7 @@ impl Actor {
         rt.create_actor(&params.code_cid, &id_address);
 
         // Invoke constructor
-        rt.send::<Ipld>(
+        rt.send(
             &id_address,
             METHOD_CONSTRUCTOR,
             &params.constructor_params,

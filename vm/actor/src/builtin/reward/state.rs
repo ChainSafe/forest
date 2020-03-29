@@ -5,6 +5,7 @@ use crate::Multimap;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
+use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use num_derive::FromPrimitive;
@@ -86,19 +87,20 @@ impl State {
             "withdrawable amount cannot exceed previous total"
         );
 
-        // Replace old reward table with remaining rewards
+        // Regenerate amt for multimap with updated rewards
         rewards.remove_all(&key)?;
         for rew in remaining_rewards {
             rewards.add(key.clone(), rew)?;
         }
 
-        // Replace old values with updated rewards and total
+        // Update rewards multimap root and total
         self.reward_map = rewards.root()?;
         self.reward_total -= &withdrawable_sum;
         Ok(withdrawable_sum)
     }
 }
 
+impl Cbor for State {}
 impl Serialize for State {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
