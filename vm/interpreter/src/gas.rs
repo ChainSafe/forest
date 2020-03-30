@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use vm::{TokenAmount, MethodNum, PieceInfo, RegisteredProof, SealVerifyInfo, PoStVerifyInfo};
 trait Pricelist {
     fn on_chain_message(msg_size: i64) -> i64;
