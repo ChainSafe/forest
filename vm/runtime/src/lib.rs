@@ -62,7 +62,7 @@ pub trait Runtime<BS: BlockStore> {
     /// Loads a readonly copy of the state of the receiver into the argument.
     ///
     /// Any modification to the state is illegal and will result in an abort.
-    fn state<C: Cbor>(&self) -> C;
+    fn state<C: Cbor>(&self) -> Result<C, ActorError>;
 
     /// Loads a mutable version of the state into the `obj` argument and protects
     /// the execution from side effects (including message send).

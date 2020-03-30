@@ -328,11 +328,38 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             )
         })?;
         self.state_commit(&Cid::default(), &c)
-
     }
     // readonly
-    fn state<C: Cbor>(&self) -> C {
-        todo!()
+    fn state<C: Cbor>(&self) -> Result<C, ActorError> {
+        let actor = self
+            .state
+            .get_actor(self.message().to())
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::SysErrInternal,
+                    format!("failed to load actor in read only state: {}", e),
+                )
+            })
+            .and_then(|act| {
+                act.ok_or(self.abort(
+                    ExitCode::SysErrInternal,
+                    "actor not found in read only state",
+                ))
+            })?;
+        self.store
+            .get(&actor.state)
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::ErrPlaceholder,
+                    format!("storage get error in read only state: {}", e.to_string()),
+                )
+            })
+            .and_then(|c| {
+                c.ok_or(self.abort(
+                    ExitCode::ErrPlaceholder,
+                    "storage get error in  read only state".to_owned(),
+                ))
+            })
     }
     fn transaction<C: Cbor, R, F>(&self, f: F) -> R
     where

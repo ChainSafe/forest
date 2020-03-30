@@ -97,7 +97,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let st: State = rt.state();
+        let st: State = rt.state()?;
 
         rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
         let signer = if rt.message().from() == &st.from {
@@ -278,7 +278,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let st: State = rt.state();
+        let st: State = rt.state()?;
         rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
 
         if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {

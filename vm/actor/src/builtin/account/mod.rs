@@ -57,7 +57,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any();
-        let st: State = rt.state();
+        let st: State = rt.state()?;
         Ok(st.address)
     }
 }
