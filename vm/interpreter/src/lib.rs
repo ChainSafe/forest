@@ -378,7 +378,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         send_res
     }
 
-    fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
+    fn abort<S: AsRef<str>>(&self, _exit_code: ExitCode, _msg: S) -> ActorError {
         todo!()
     }
     fn new_actor_address(&self) -> Address {
@@ -386,6 +386,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
         // TODO: Charge gas
+        self.charge_gas(PLACEHOLDER_NUMBER);
         self.state
             .set_actor(
                 &address,
@@ -400,6 +401,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
     fn delete_actor(&mut self) -> Result<(), ActorError> {
         // TODO: Charge gas
+        self.charge_gas(PLACEHOLDER_NUMBER);
         let balance = self
             .state
             .get_actor(self.message.to())
@@ -437,14 +439,15 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
     // chain: &ChainStore<DB>,
     parent_runtime: RTType<'_, ST, DB>, // this mutable ref
     msg: &UnsignedMessage,
-    gas_cost: u64,
+    _gas_cost: u64,
 ) -> Result<Serialized, ActorError> {
     let runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
         New(e) => e,
         Parent(e) => e,
     };
-
+    // TODO: Calculate true gas value
     runtime.charge_gas(PLACEHOLDER_NUMBER);
+
     // TODO: we need to try to recover here and try to create account actor
     let to_actor = runtime.state.get_actor(msg.to()).unwrap().unwrap();
 

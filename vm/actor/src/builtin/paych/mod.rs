@@ -48,7 +48,7 @@ impl Actor {
     {
         // Only InitActor can create a payment channel actor. It creates the actor on
         // behalf of the payer/payee.
-        rt.validate_immediate_caller_type(std::iter::once::<&Cid>(&INIT_ACTOR_CODE_ID));
+        rt.validate_immediate_caller_type(std::iter::once::<&Cid>(&INIT_ACTOR_CODE_ID))?;
 
         // Check both parties are capable of signing vouchers
         let to = Self::resolve_account(rt, &params.to)
@@ -99,7 +99,7 @@ impl Actor {
     {
         let st: State = rt.state();
 
-        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
+        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
         let signer = if rt.message().from() == &st.from {
             st.to
         } else {
@@ -258,7 +258,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.transaction(|st: &mut State| {
-            rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
+            rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
 
             if st.settling_at != 0 {
                 return Err(rt.abort(ExitCode::ErrIllegalState, "channel already settling"));
@@ -279,7 +279,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let st: State = rt.state();
-        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
+        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
 
         if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {
             return Err(rt.abort(
