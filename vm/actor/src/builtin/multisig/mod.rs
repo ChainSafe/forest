@@ -42,7 +42,7 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Multisig actor
-    pub fn constructor<BS, RT>(rt: &RT, params: ConstructorParams) -> Result<(), ActorError>
+    pub fn constructor<BS, RT>(rt: &mut RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,

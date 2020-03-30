@@ -59,7 +59,7 @@ impl<'de> Deserialize<'de> for ConstructorParams {
 pub struct Actor;
 impl Actor {
     /// Constructor for Cron actor
-    fn constructor<BS, RT>(rt: &RT, params: ConstructorParams) -> Result<(), ActorError>
+    fn constructor<BS, RT>(rt: &mut RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,

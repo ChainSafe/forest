@@ -57,7 +57,7 @@ pub trait Runtime<BS: BlockStore> {
 
     /// Initializes the state object.
     /// This is only valid in a constructor function and when the state has not yet been initialized.
-    fn create<C: Cbor>(&self, obj: &C);
+    fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError>;
 
     /// Loads a readonly copy of the state of the receiver into the argument.
     ///

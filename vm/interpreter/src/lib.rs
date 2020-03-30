@@ -3,7 +3,7 @@
 
 use address::Address;
 use blocks::Tipset;
-use cid::Cid;
+use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use forest_encoding::Cbor;
@@ -22,20 +22,16 @@ const PLACEHOLDER_GAS: u64 = 1;
 /// from the vm execution.
 pub struct VM<'a, ST: StateTree, DB: BlockStore> {
     state: ST,
-    chain: &'a DB,
+    store: &'a DB,
     epoch: ChainEpoch,
     // TODO: missing fields
 }
 
 impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
-    pub fn new(
-        state: ST,
-        chain: &'a DB,
-        epoch: ChainEpoch,
-    ) -> Self {
+    pub fn new(state: ST, store: &'a DB, epoch: ChainEpoch) -> Self {
         VM {
             state,
-            chain,
+            store,
             epoch,
         }
     }
@@ -107,15 +103,11 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             })?
     }
 
-    fn send(
-        &mut self,
-        msg: &UnsignedMessage,
-        gas_cost: u64,
-    ) -> Result<Serialized, ActorError> {
+    fn send(&mut self, msg: &UnsignedMessage, gas_cost: u64) -> Result<Serialized, ActorError> {
         // TODO: Those params should DEF not be default
         let mut rt = DefaultRuntime::new(
             &mut self.state,
-            self.chain,
+            self.store,
             gas_cost,
             &msg,
             self.epoch,
@@ -186,7 +178,7 @@ pub struct TipSetMessages {
 
 pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     state: &'c mut ST,
-    chain: &'a BS,
+    store: &'a BS,
     gas_used: u64,
     gas_available: u64,
     message: &'b UnsignedMessage,
@@ -198,7 +190,7 @@ pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
 impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
     pub fn new(
         state: &'c mut ST,
-        chain: &'a BS,
+        store: &'a BS,
         gas_used: u64,
         message: &'b UnsignedMessage,
         epoch: ChainEpoch,
@@ -207,7 +199,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
     ) -> Self {
         DefaultRuntime {
             state,
-            chain,
+            store,
             gas_used,
             gas_available: message.gas_limit(),
             message,
@@ -224,6 +216,37 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
     pub fn get_balance(&self, addr: &Address) -> Result<BigUint, ExitCode> {
         let act = self.state.get_actor(&addr).unwrap().unwrap();
         Ok(act.balance)
+    }
+
+    fn state_commit(&mut self, old_h: &Cid, new_h: &Cid) -> Result<(), ActorError> {
+        let to_addr = self.message().to().clone();
+        let mut actor = self
+            .state
+            .get_actor(&to_addr)
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::SysErrInternal,
+                    format!("failed to load actor in state_commit: {}", e),
+                )
+            })
+            .and_then(|act| {
+                act.ok_or(self.abort(ExitCode::SysErrInternal, "actor not found in state_commit"))
+            })?;
+        if &actor.state != old_h {
+            return Err(self.abort(
+                ExitCode::ErrIllegalState,
+                "failed to update, inconsistent base reference".to_owned(),
+            ));
+        }
+        actor.state = new_h.clone();
+        self.state.set_actor(&to_addr, actor).map_err(|e| {
+            self.abort(
+                ExitCode::SysErrInternal,
+                format!("failed to set actor in state_commit: {}", e),
+            )
+        })?;
+
+        Ok(())
     }
 }
 
@@ -296,8 +319,16 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     // fn create<C: Cbor>(&mut self, obj: &C) {
     //     todo!()
     // }
-    fn create<C: Cbor>(&self, obj: &C) {
-        todo!()
+    fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
+        // TODO: Verify if right hash
+        let c = self.store.put(obj, Blake2b256).map_err(|e| {
+            self.abort(
+                ExitCode::ErrPlaceholder,
+                format!("storage put in create: {}", e.to_string()),
+            )
+        })?;
+        self.state_commit(&Cid::default(), &c)
+
     }
     // readonly
     fn state<C: Cbor>(&self) -> C {
@@ -331,7 +362,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     // }
 
     fn store(&self) -> &BS {
-        self.chain
+        self.store
     }
 
     fn send(
@@ -341,7 +372,6 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         params: &Serialized,
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError> {
-
         let msg = UnsignedMessage::builder()
             .to(to.clone())
             .from(self.message.from().clone())
@@ -355,13 +385,14 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         // let mut parent =  DefaultRuntime::from_parent(&mut self.state, &self.chain, TokenAmount::new(0), &msg, &self);
 
         // snapshot state tree
-        let snapshot = self.state.snapshot().map_err(|_e| {
-            self.abort(ExitCode::ErrPlaceholder, "failed to create snapshot")
-        })?;
+        let snapshot = self
+            .state
+            .snapshot()
+            .map_err(|_e| self.abort(ExitCode::ErrPlaceholder, "failed to create snapshot"))?;
 
         let mut parent = DefaultRuntime::new(
             self.state,
-            self.chain,
+            self.store,
             self.gas_used,
             &msg,
             self.curr_epoch(),
@@ -369,9 +400,9 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             self.origin_nonce,
         );
         let send_res = internal_send::<ST, BS>(&mut parent, &msg, 0);
-        self.state.revert_to_snapshot(&snapshot).map_err(|_e| {
-            self.abort(ExitCode::ErrPlaceholder, "failed to revert snapshot")
-        })?;
+        self.state
+            .revert_to_snapshot(&snapshot)
+            .map_err(|_e| self.abort(ExitCode::ErrPlaceholder, "failed to revert snapshot"))?;
         send_res
     }
 
@@ -427,7 +458,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
 }
 fn internal_send<ST: StateTree, DB: BlockStore>(
-    runtime: &mut DefaultRuntime<'_,'_,'_, ST, DB>, 
+    runtime: &mut DefaultRuntime<'_, '_, '_, ST, DB>,
     msg: &UnsignedMessage,
     _gas_cost: u64,
 ) -> Result<Serialized, ActorError> {

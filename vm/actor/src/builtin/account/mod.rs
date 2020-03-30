@@ -31,7 +31,7 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Account actor
-    pub fn constructor<BS, RT>(rt: &RT, address: Address) -> Result<(), ActorError>
+    pub fn constructor<BS, RT>(rt: &mut RT, address: Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
