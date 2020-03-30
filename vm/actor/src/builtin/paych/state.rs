@@ -6,6 +6,7 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
+    biguint_ser::{BigUintDe, BigUintSer},
     BigInt,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -36,8 +37,8 @@ impl State {
             from,
             to,
             to_send: Default::default(),
-            settling_at: ChainEpoch(0),
-            min_settle_height: ChainEpoch(0),
+            settling_at: 0,
+            min_settle_height: 0,
             lane_states: Vec::new(),
         }
     }
@@ -70,7 +71,7 @@ impl Serialize for State {
         (
             &self.from,
             &self.to,
-            &self.to_send,
+            BigUintSer(&self.to_send),
             &self.settling_at,
             &self.min_settle_height,
             &self.lane_states,
@@ -84,7 +85,7 @@ impl<'de> Deserialize<'de> for State {
     where
         D: Deserializer<'de>,
     {
-        let (from, to, to_send, settling_at, min_settle_height, lane_states) =
+        let (from, to, BigUintDe(to_send), settling_at, min_settle_height, lane_states) =
             Deserialize::deserialize(deserializer)?;
         Ok(Self {
             from,

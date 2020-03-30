@@ -14,11 +14,11 @@ fn add_create() {
 
     assert_eq!(bt.has(&addr), Ok(false));
 
-    bt.add_create(&addr, TokenAmount::new(10)).unwrap();
-    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(10)));
+    bt.add_create(&addr, TokenAmount::from(10u8)).unwrap();
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::from(10u8)));
 
-    bt.add_create(&addr, TokenAmount::new(20)).unwrap();
-    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(30)));
+    bt.add_create(&addr, TokenAmount::from(20u8)).unwrap();
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::from(30u8)));
 }
 
 // Ported test from specs-actors
@@ -29,7 +29,7 @@ fn total() {
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
-    assert_eq!(bt.total(), Ok(TokenAmount::new(0)));
+    assert_eq!(bt.total(), Ok(TokenAmount::from(0u8)));
 
     struct TotalTestCase<'a> {
         amount: u64,
@@ -60,9 +60,9 @@ fn total() {
     ];
 
     for t in test_vectors.iter() {
-        bt.add_create(t.addr, TokenAmount::new(t.amount)).unwrap();
+        bt.add_create(t.addr, TokenAmount::from(t.amount)).unwrap();
 
-        assert_eq!(bt.total(), Ok(TokenAmount::new(t.total)));
+        assert_eq!(bt.total(), Ok(TokenAmount::from(t.total)));
     }
 }
 
@@ -72,28 +72,28 @@ fn balance_subtracts() {
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
-    bt.set(&addr, TokenAmount::new(80)).unwrap();
-    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(80)));
+    bt.set(&addr, TokenAmount::from(80u8)).unwrap();
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::from(80u8)));
     // Test subtracting past minimum only subtracts correct amount
     assert_eq!(
-        bt.subtract_with_minimum(&addr, &TokenAmount::new(20), &TokenAmount::new(70)),
-        Ok(TokenAmount::new(10))
+        bt.subtract_with_minimum(&addr, &TokenAmount::from(20u8), &TokenAmount::from(70u8)),
+        Ok(TokenAmount::from(10u8))
     );
-    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(70)));
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::from(70u8)));
 
     // Test subtracting to limit
     assert_eq!(
-        bt.subtract_with_minimum(&addr, &TokenAmount::new(10), &TokenAmount::new(60)),
-        Ok(TokenAmount::new(10))
+        bt.subtract_with_minimum(&addr, &TokenAmount::from(10u8), &TokenAmount::from(60u8)),
+        Ok(TokenAmount::from(10u8))
     );
-    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(60)));
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::from(60u8)));
 
     // Test must subtract success
-    bt.must_subtract(&addr, &TokenAmount::new(10)).unwrap();
-    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(50)));
+    bt.must_subtract(&addr, &TokenAmount::from(10u8)).unwrap();
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::from(50u8)));
 
     // Test subtracting more than available
-    assert!(bt.must_subtract(&addr, &TokenAmount::new(100)).is_err());
+    assert!(bt.must_subtract(&addr, &TokenAmount::from(100u8)).is_err());
 }
 
 #[test]
@@ -102,8 +102,8 @@ fn remove() {
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
-    bt.set(&addr, TokenAmount::new(1)).unwrap();
-    assert_eq!(bt.get(&addr), Ok(TokenAmount::new(1)));
+    bt.set(&addr, TokenAmount::from(1u8)).unwrap();
+    assert_eq!(bt.get(&addr), Ok(TokenAmount::from(1u8)));
     bt.remove(&addr).unwrap();
     assert!(bt.get(&addr).is_err());
 }

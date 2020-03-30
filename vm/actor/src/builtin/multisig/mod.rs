@@ -18,6 +18,7 @@ use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTR
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     Propose = 2,
@@ -34,7 +35,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into a Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 
@@ -68,13 +69,13 @@ impl Actor {
             signers: params.signers,
             num_approvals_threshold: params.num_approvals_threshold,
             pending_txs: empty_root,
-            initial_balance: TokenAmount::new(0),
+            initial_balance: TokenAmount::from(0u8),
             next_tx_id: Default::default(),
             start_epoch: Default::default(),
             unlock_duration: Default::default(),
         };
 
-        if params.unlock_duration.0 != 0 {
+        if params.unlock_duration != 0 {
             st.initial_balance = rt.message().value().clone();
             st.unlock_duration = params.unlock_duration;
             st.start_epoch = rt.curr_epoch();

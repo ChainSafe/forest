@@ -8,6 +8,7 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::TokenAmount;
 
@@ -29,10 +30,10 @@ impl State {
     /// Returns amount locked in multisig contract
     pub fn amount_locked(&self, elapsed_epoch: ChainEpoch) -> TokenAmount {
         if elapsed_epoch >= self.unlock_duration {
-            return TokenAmount::new(0);
+            return TokenAmount::from(0u8);
         }
-        let unit_locked = self.initial_balance.0.clone() / self.unlock_duration.0;
-        TokenAmount(unit_locked * (self.unlock_duration.0 - elapsed_epoch.0))
+        let unit_locked = self.initial_balance.clone() / self.unlock_duration;
+        unit_locked * (self.unlock_duration - elapsed_epoch)
     }
 
     pub(crate) fn is_signer(&self, addr: &Address) -> bool {
@@ -51,19 +52,19 @@ impl State {
         curr_epoch: ChainEpoch,
     ) -> Result<(), String> {
         // * Note `< 0` check skipped because `TokenAmount` is big uint
-        if balance.0 < amount_to_spend.0 {
+        if balance < amount_to_spend {
             return Err(format!(
                 "current balance {} less than amount to spend {}",
-                balance.0, amount_to_spend.0
+                balance, amount_to_spend
             ));
         }
 
-        let remaining_balance = balance.0 - amount_to_spend.0;
+        let remaining_balance = balance - amount_to_spend;
         let amount_locked = self.amount_locked(curr_epoch - self.start_epoch);
-        if remaining_balance < amount_locked.0 {
+        if remaining_balance < amount_locked {
             return Err(format!(
                 "actor balance if spent {} would be less than required locked amount {}",
-                remaining_balance, amount_locked.0
+                remaining_balance, amount_locked
             ));
         }
         Ok(())
@@ -118,7 +119,7 @@ impl Serialize for State {
             &self.signers,
             &self.num_approvals_threshold,
             &self.next_tx_id,
-            &self.initial_balance,
+            BigUintSer(&self.initial_balance),
             &self.start_epoch,
             &self.unlock_duration,
             &self.pending_txs,
@@ -136,7 +137,7 @@ impl<'de> Deserialize<'de> for State {
             signers,
             num_approvals_threshold,
             next_tx_id,
-            initial_balance,
+            BigUintDe(initial_balance),
             start_epoch,
             unlock_duration,
             pending_txs,

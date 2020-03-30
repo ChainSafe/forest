@@ -528,7 +528,7 @@ where
             }
 
             const REQUEST_WINDOW: u64 = 100;
-            let epoch_diff = u64::from(cur_ts.epoch() - to_epoch);
+            let epoch_diff = cur_ts.epoch() - to_epoch;
             let window = min(epoch_diff, REQUEST_WINDOW);
 
             // update sync state to Bootstrap indicating we are acquiring a 'secure enough' set of peers
@@ -635,7 +635,7 @@ where
 
         for i in 0..tips.len() {
             while ts.epoch() > tips[i].epoch() {
-                if *ts.epoch().as_u64() == 0 {
+                if ts.epoch() == 0 {
                     return Err(Error::Other(
                         "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));

@@ -147,8 +147,8 @@ impl Tipset {
         })
     }
     /// Returns epoch of the tipset
-    pub fn epoch(&self) -> &ChainEpoch {
-        &self.blocks[0].epoch()
+    pub fn epoch(&self) -> ChainEpoch {
+        self.blocks[0].epoch()
     }
     /// Returns all blocks in tipset
     pub fn blocks(&self) -> &[BlockHeader] {

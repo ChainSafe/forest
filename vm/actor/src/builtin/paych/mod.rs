@@ -9,7 +9,6 @@ pub use self::types::*;
 use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::to_vec;
 use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
@@ -24,6 +23,7 @@ use vm::{
 
 /// Payment Channel actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     UpdateChannelState = 2,
@@ -34,7 +34,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into an Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 
@@ -136,7 +136,7 @@ impl Actor {
             return Err(rt.abort(ExitCode::ErrIllegalArgument, "cannot use this voucher yet"));
         }
 
-        if sv.time_lock_max != ChainEpoch(0) && rt.curr_epoch() > sv.time_lock_max {
+        if sv.time_lock_max != 0 && rt.curr_epoch() > sv.time_lock_max {
             return Err(rt.abort(ExitCode::ErrIllegalArgument, "this voucher has expired"));
         }
 
@@ -155,7 +155,7 @@ impl Actor {
                     extra: extra.data.clone(),
                     proof: params.proof,
                 })?,
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )?;
         }
 
@@ -220,12 +220,14 @@ impl Actor {
             st.lane_states[idx].redeemed = sv.amount;
 
             // 4. check operation validity
-            let new_send_balance = st.to_send.add_bigint(balance_delta).map_err(|_| {
-                rt.abort(
-                    ExitCode::ErrIllegalState,
-                    "voucher would leave channel balance negative",
-                )
-            })?;
+            let new_send_balance = (BigInt::from(st.to_send.clone()) + balance_delta)
+                .to_biguint()
+                .ok_or_else(|| {
+                    rt.abort(
+                        ExitCode::ErrIllegalState,
+                        "voucher would leave channel balance negative",
+                    )
+                })?;
 
             if new_send_balance > rt.current_balance() {
                 return Err(rt.abort(
@@ -238,8 +240,8 @@ impl Actor {
             st.to_send = new_send_balance;
 
             // update channel settlingAt and MinSettleHeight if delayed by voucher
-            if sv.min_settle_height != ChainEpoch(0) {
-                if st.settling_at != ChainEpoch(0) && st.settling_at < sv.min_settle_height {
+            if sv.min_settle_height != 0 {
+                if st.settling_at != 0 && st.settling_at < sv.min_settle_height {
                     st.settling_at = sv.min_settle_height;
                 }
                 if st.min_settle_height < sv.min_settle_height {
@@ -258,7 +260,7 @@ impl Actor {
         rt.transaction(|st: &mut State| {
             rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
 
-            if st.settling_at != ChainEpoch(0) {
+            if st.settling_at != 0 {
                 return Err(rt.abort(ExitCode::ErrIllegalState, "channel already settling"));
             }
 
@@ -279,7 +281,7 @@ impl Actor {
         let st: State = rt.state();
         rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter());
 
-        if st.settling_at == ChainEpoch(0) || rt.curr_epoch() < st.settling_at {
+        if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {
             return Err(rt.abort(
                 ExitCode::ErrForbidden,
                 "payment channel not settling or settled",
@@ -298,23 +300,13 @@ impl Actor {
             })?;
 
         // send remaining balance to `from`
-        rt.send::<Ipld>(
-            &st.from,
-            MethodNum(METHOD_SEND as u64),
-            &Serialized::default(),
-            &rem_bal,
-        )?;
+        rt.send::<Ipld>(&st.from, METHOD_SEND, &Serialized::default(), &rem_bal)?;
 
         // send ToSend to `to`
-        rt.send::<Ipld>(
-            &st.to,
-            MethodNum(METHOD_SEND as u64),
-            &Serialized::default(),
-            &st.to_send,
-        )?;
+        rt.send::<Ipld>(&st.to, METHOD_SEND, &Serialized::default(), &st.to_send)?;
 
         rt.transaction(|st: &mut State| {
-            st.to_send = TokenAmount::new(0);
+            st.to_send = TokenAmount::from(0u8);
 
             Ok(())
         })
