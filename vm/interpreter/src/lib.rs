@@ -461,7 +461,7 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
             // TODO: make its own method/struct
             match to_actor.code {
                 x if x == *actor::SYSTEM_ACTOR_CODE_ID => {
-                    todo!("system actor");
+                    actor::system::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
                 x if x == *actor::INIT_ACTOR_CODE_ID => {
                     actor::init::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
