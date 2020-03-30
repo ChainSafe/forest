@@ -25,7 +25,7 @@ const PLACEHOLDER_NUMBER: u64 = 1;
 /// from the vm execution.
 pub struct VM<'a, ST: StateTree, DB: BlockStore> {
     state: ST,
-    chain: &'a ChainStore<DB>,
+    chain: &'a DB,
     epoch: ChainEpoch,
     // TODO: missing fields
 }
@@ -33,7 +33,7 @@ pub struct VM<'a, ST: StateTree, DB: BlockStore> {
 impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
     pub fn new(
         state: ST,
-        chain: &'a ChainStore<DB>,
+        chain: &'a DB,
         epoch: ChainEpoch,
     ) -> Self {
         VM {
@@ -189,7 +189,7 @@ pub struct TipSetMessages {
 
 pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     state: &'c mut ST,
-    chain: &'a ChainStore<BS>,
+    chain: &'a BS,
     gas_used: u64,
     gas_available: u64,
     message: &'b UnsignedMessage,
@@ -201,7 +201,7 @@ pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
 impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
     pub fn new(
         state: &'c mut ST,
-        chain: &'a ChainStore<BS>,
+        chain: &'a BS,
         gas_used: u64,
         message: &'b UnsignedMessage,
         epoch: ChainEpoch,
@@ -334,7 +334,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     // }
 
     fn store(&self) -> &BS {
-        self.chain.blockstore()
+        self.chain
     }
 
     fn send(
