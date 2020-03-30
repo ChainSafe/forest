@@ -1,11 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RTType::New;
-use crate::RTType::Parent;
 use address::Address;
 use blocks::Tipset;
-use chain::ChainStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
@@ -125,7 +122,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             &msg.from(),
             msg.sequence(),
         );
-        internal_send(RTType::New(&mut rt), msg, gas_cost)
+        internal_send(&mut rt, msg, gas_cost)
     }
 }
 
@@ -371,7 +368,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             &self.origin,
             self.origin_nonce,
         );
-        let send_res = internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, 0);
+        let send_res = internal_send::<ST, BS>(&mut parent, &msg, 0);
         self.state.revert_to_snapshot(&snapshot).map_err(|_e| {
             self.abort(ExitCode::ErrPlaceholder, "failed to revert snapshot")
         })?;
@@ -429,22 +426,11 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         })
     }
 }
-enum RTType<'a, ST: StateTree, DB: BlockStore> {
-    New(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>),
-    Parent(&'a mut DefaultRuntime<'a, 'a, 'a, ST, DB>),
-}
-
 fn internal_send<ST: StateTree, DB: BlockStore>(
-    // state: &mut ST, // delete this
-    // chain: &ChainStore<DB>,
-    parent_runtime: RTType<'_, ST, DB>, // this mutable ref
+    runtime: &mut DefaultRuntime<'_,'_,'_, ST, DB>, 
     msg: &UnsignedMessage,
     _gas_cost: u64,
 ) -> Result<Serialized, ActorError> {
-    let runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
-        New(e) => e,
-        Parent(e) => e,
-    };
     // TODO: Calculate true gas value
     runtime.charge_gas(PLACEHOLDER_NUMBER);
 
