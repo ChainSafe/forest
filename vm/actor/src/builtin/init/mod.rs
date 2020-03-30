@@ -53,7 +53,7 @@ impl Actor {
             )
         })?;
 
-        rt.create(&State::new(root, params.network_name));
+        rt.create(&State::new(root, params.network_name))?;
 
         Ok(())
     }
@@ -86,15 +86,15 @@ impl Actor {
 
         // Allocate an ID for this actor.
         // Store mapping of pubkey or actor address to actor ID
-        let id_address: Address = rt.transaction::<State, _, _>(|s| {
-            match s.map_address_to_new_id(rt.store(), &robust_address) {
+        let id_address: Address = rt.transaction::<State, _, _>(|s, bs| {
+            match s.map_address_to_new_id(bs, &robust_address) {
                 Ok(a) => a,
                 Err(e) => {
-                    rt.abort(ExitCode::ErrIllegalState, format!("exec failed {}", e));
+                    ActorError::new(ExitCode::ErrIllegalState, format!("exec failed {}", e));
                     unreachable!()
                 }
             }
-        });
+        })?;
 
         // Create an empty actor
         rt.create_actor(&params.code_cid, &id_address)?;

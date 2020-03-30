@@ -46,7 +46,7 @@ impl Actor {
                 ));
             }
         }
-        rt.create(&State { address });
+        rt.create(&State { address })?;
         Ok(())
     }
 

@@ -310,15 +310,13 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .map_err(|e| self.abort(ExitCode::ErrPlaceholder, e))
     }
     fn get_randomness(
-        personalization: DomainSeparationTag,
-        rand_epoch: ChainEpoch,
-        entropy: &[u8],
+        _personalization: DomainSeparationTag,
+        _rand_epoch: ChainEpoch,
+        _entropy: &[u8],
     ) -> Randomness {
         todo!()
     }
-    // fn create<C: Cbor>(&mut self, obj: &C) {
-    //     todo!()
-    // }
+
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
         // TODO: Verify if right hash
         let c = self.store.put(obj, Blake2b256).map_err(|e| {
@@ -327,9 +325,9 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                 format!("storage put in create: {}", e.to_string()),
             )
         })?;
+        // TODO: This is almost certainly wrong. Need to CBOR an empty slice and calculate CID
         self.state_commit(&Cid::default(), &c)
     }
-    // readonly
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
         let actor = self
             .state
@@ -361,32 +359,33 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                 ))
             })
     }
-    fn transaction<C: Cbor, R, F>(&self, f: F) -> R
+
+    fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
-        F: FnOnce(&mut C) -> R,
+        F: FnOnce(&mut C, &BS) -> R,
     {
-        todo!()
+        // get actor
+        let act = self.state.get_actor(self.message().to()).unwrap().unwrap();
+
+        // get state for actor based on generic C
+        let mut state: C = self.store.get(&act.state).unwrap().unwrap();
+
+        // Update the state
+        let r = f(&mut state, &self.store);
+
+        let c = self.store.put(&state, Blake2b256).map_err(|e| {
+            self.abort(
+                ExitCode::ErrPlaceholder,
+                format!("storage put in create: {}", e.to_string()),
+            )
+        })?;
+
+        // Committing that change
+        // TODO commit state to blockstore with stateCommit eq
+        self.state_commit(&act.state, &c)?;
+        // return
+        Ok(r)
     }
-    // fn transaction<C: Cbor, R, F>(&mut self, f: F) -> R
-    // where
-    //     F: FnOnce(&mut C, &BS) -> R,
-    // {
-    //     // // get actor
-    //     // let act = self.state.get_actor(&rt.message().to());
-
-    //     // // get state for actor based on generic C
-    //     // let state: C = self.bs.get(act.state);
-
-    //     // // Update the state
-    //     // let r = f(&mut state, &self.bs);
-
-    //     // // Committing that change
-    //     // // TODO commit state to blockstore with stateCommit eq
-
-    //     // // return
-    //     // r
-    //     todo!()
-    // }
 
     fn store(&self) -> &BS {
         self.store

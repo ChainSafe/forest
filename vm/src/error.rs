@@ -19,6 +19,14 @@ pub struct ActorError {
 }
 
 impl ActorError {
+    pub fn new(exit_code: ExitCode, msg: String) -> Self {
+        Self {
+            fatal: false,
+            exit_code,
+            msg,
+        }
+    }
+
     pub fn is_fatal(&self) -> bool {
         self.fatal
     }

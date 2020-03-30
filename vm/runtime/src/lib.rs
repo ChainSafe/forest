@@ -73,9 +73,9 @@ pub trait Runtime<BS: BlockStore> {
     /// If the state is modified after this function returns, execution will abort.
     ///
     /// The gas cost of this method is that of a Store.Put of the mutated state object.
-    fn transaction<C: Cbor, R, F>(&self, f: F) -> R
+    fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
-        F: FnOnce(&mut C) -> R;
+        F: FnOnce(&mut C, &BS) -> R;
 
     /// Returns reference to blockstore
     fn store(&self) -> &BS;

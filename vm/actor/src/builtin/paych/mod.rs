@@ -51,39 +51,34 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once::<&Cid>(&INIT_ACTOR_CODE_ID))?;
 
         // Check both parties are capable of signing vouchers
-        let to = Self::resolve_account(rt, &params.to)
-            .map_err(|e| rt.abort(ExitCode::ErrIllegalArgument, e))?;
+        let to = Self::resolve_account(rt, &params.to)?;
 
-        let from = Self::resolve_account(rt, &params.from)
-            .map_err(|e| rt.abort(ExitCode::ErrIllegalArgument, e))?;
+        let from = Self::resolve_account(rt, &params.from)?;
 
-        rt.create(&State::new(from, to));
+        rt.create(&State::new(from, to))?;
         Ok(())
     }
 
     /// Resolves an address to a canonical ID address and requires it to address an account actor.
     /// The account actor constructor checks that the embedded address is associated with an appropriate key.
     /// An alternative (more expensive) would be to send a message to the actor to fetch its key.
-    fn resolve_account<BS, RT>(rt: &RT, raw: &Address) -> Result<Address, String>
+    fn resolve_account<BS, RT>(rt: &RT, raw: &Address) -> Result<Address, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO: Ask austin how he wants to handle these errs
         let resolved = rt
-            .resolve_address(raw)
-            .map_err(|_e| format!("failed to resolve address {}", raw))?;
+            .resolve_address(raw)?;
 
         let code_cid = rt
-            .get_actor_code_cid(&resolved)
-            .map_err(|_e| format!("no code for address {}", resolved))?;
+            .get_actor_code_cid(&resolved)?;
 
         let account_code_ref: &Cid = &ACCOUNT_ACTOR_CODE_ID;
         if &code_cid != account_code_ref {
-            Err(format!(
+            Err(ActorError::new(ExitCode::ErrIllegalArgument, format!(
                 "actor {} must be an account ({}), was {}",
                 raw, account_code_ref, code_cid
-            ))
+            )))
         } else {
             Ok(resolved)
         }
@@ -159,12 +154,13 @@ impl Actor {
             )?;
         }
 
-        rt.transaction(|st: &mut State| {
+        let curr_bal = rt.current_balance()?;
+        rt.transaction(|st: &mut State, _| {
             // Find the voucher lane, create and insert it in sorted order if necessary.
             let (idx, exists) = find_lane(&st.lane_states, sv.lane);
             if !exists {
                 if st.lane_states.len() >= LANE_LIMIT {
-                    return Err(rt.abort(ExitCode::ErrIllegalArgument, "lane limit exceeded"));
+                    return Err(ActorError::new(ExitCode::ErrIllegalArgument, "lane limit exceeded".to_owned()));
                 }
                 let tmp_ls = LaneState {
                     id: sv.lane,
@@ -176,9 +172,9 @@ impl Actor {
             // let mut ls = st.lane_states[idx].clone();
 
             if st.lane_states[idx].nonce > sv.nonce {
-                return Err(rt.abort(
+                return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
-                    "voucher has an outdated nonce, cannot redeem",
+                    "voucher has an outdated nonce, cannot redeem".to_owned(),
                 ));
             }
 
@@ -187,24 +183,24 @@ impl Actor {
             let mut redeemed = BigInt::default();
             for merge in sv.merges {
                 if merge.lane == sv.lane {
-                    return Err(rt.abort(
+                    return Err(ActorError::new(
                         ExitCode::ErrIllegalArgument,
-                        "voucher cannot merge lanes into it's own lane",
+                        "voucher cannot merge lanes into it's own lane".to_owned(),
                     ));
                 }
                 let (idx, exists) = find_lane(&st.lane_states, merge.lane);
                 if exists {
                     if st.lane_states[idx].nonce >= merge.nonce {
-                        return Err(rt.abort(
+                        return Err(ActorError::new(
                             ExitCode::ErrIllegalArgument,
-                            "merged lane in voucher has outdated nonce, cannot redeem",
+                            "merged lane in voucher has outdated nonce, cannot redeem".to_owned(),
                         ));
                     }
 
                     redeemed += &st.lane_states[idx].redeemed;
                     st.lane_states[idx].nonce = merge.nonce;
                 } else {
-                    return Err(rt.abort(
+                    return Err(ActorError::new(
                         ExitCode::ErrIllegalArgument,
                         format!("voucher specifies invalid merge lane {}", merge.lane),
                     ));
@@ -223,16 +219,16 @@ impl Actor {
             let new_send_balance = (BigInt::from(st.to_send.clone()) + balance_delta)
                 .to_biguint()
                 .ok_or_else(|| {
-                    rt.abort(
+                    ActorError::new(
                         ExitCode::ErrIllegalState,
-                        "voucher would leave channel balance negative",
+                        "voucher would leave channel balance negative".to_owned(),
                     )
                 })?;
 
-            if new_send_balance > rt.current_balance()? {
-                return Err(rt.abort(
+            if new_send_balance > curr_bal {
+                return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
-                    "not enough funds in channel to cover voucher",
+                    "not enough funds in channel to cover voucher".to_owned(),
                 ));
             }
 
@@ -249,28 +245,30 @@ impl Actor {
                 }
             }
             Ok(())
-        })
+        })?
     }
 
-    pub fn settle<BS, RT>(rt: &RT) -> Result<(), ActorError>
+    pub fn settle<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.transaction(|st: &mut State| {
-            rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
+        let epoch = rt.curr_epoch();
+        let st: State = rt.state()?;
+        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
 
+        rt.transaction(|st: &mut State, _| {
             if st.settling_at != 0 {
-                return Err(rt.abort(ExitCode::ErrIllegalState, "channel already settling"));
+                return Err(ActorError::new(ExitCode::ErrIllegalState, "channel already settling".to_owned()));
             }
 
-            st.settling_at = rt.curr_epoch() + SETTLE_DELAY;
+            st.settling_at = epoch + SETTLE_DELAY;
             if st.settling_at < st.min_settle_height {
                 st.settling_at = st.min_settle_height;
             }
 
             Ok(())
-        })
+        })?
     }
 
     pub fn collect<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -305,11 +303,11 @@ impl Actor {
         // send ToSend to `to`
         rt.send(&st.to, METHOD_SEND, &Serialized::default(), &st.to_send)?;
 
-        rt.transaction(|st: &mut State| {
+        rt.transaction(|st: &mut State, _| {
             st.to_send = TokenAmount::from(0u8);
 
             Ok(())
-        })
+        })?
     }
 }
 
