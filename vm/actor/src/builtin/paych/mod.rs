@@ -67,18 +67,19 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let resolved = rt
-            .resolve_address(raw)?;
+        let resolved = rt.resolve_address(raw)?;
 
-        let code_cid = rt
-            .get_actor_code_cid(&resolved)?;
+        let code_cid = rt.get_actor_code_cid(&resolved)?;
 
         let account_code_ref: &Cid = &ACCOUNT_ACTOR_CODE_ID;
         if &code_cid != account_code_ref {
-            Err(ActorError::new(ExitCode::ErrIllegalArgument, format!(
-                "actor {} must be an account ({}), was {}",
-                raw, account_code_ref, code_cid
-            )))
+            Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "actor {} must be an account ({}), was {}",
+                    raw, account_code_ref, code_cid
+                ),
+            ))
         } else {
             Ok(resolved)
         }
@@ -160,7 +161,10 @@ impl Actor {
             let (idx, exists) = find_lane(&st.lane_states, sv.lane);
             if !exists {
                 if st.lane_states.len() >= LANE_LIMIT {
-                    return Err(ActorError::new(ExitCode::ErrIllegalArgument, "lane limit exceeded".to_owned()));
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        "lane limit exceeded".to_owned(),
+                    ));
                 }
                 let tmp_ls = LaneState {
                     id: sv.lane,
@@ -259,7 +263,10 @@ impl Actor {
 
         rt.transaction(|st: &mut State, _| {
             if st.settling_at != 0 {
-                return Err(ActorError::new(ExitCode::ErrIllegalState, "channel already settling".to_owned()));
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "channel already settling".to_owned(),
+                ));
             }
 
             st.settling_at = epoch + SETTLE_DELAY;

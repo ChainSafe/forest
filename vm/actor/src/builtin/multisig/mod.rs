@@ -159,16 +159,13 @@ impl Actor {
         Self::validate_signer(rt, &st, &caller_addr)?;
 
         rt.transaction::<State, _, _>(|st, bs| {
-
             // Get transaction to cancel
-            let tx = st
-                .get_pending_transaction(bs, params.id)
-                .map_err(|err| {
-                    ActorError::new(
-                        ExitCode::ErrNotFound,
-                        format!("Failed to get transaction for cancel: {}", err),
-                    )
-                })?;
+            let tx = st.get_pending_transaction(bs, params.id).map_err(|err| {
+                ActorError::new(
+                    ExitCode::ErrNotFound,
+                    format!("Failed to get transaction for cancel: {}", err),
+                )
+            })?;
 
             // Check to make sure transaction proposer is caller address
             if tx.approved.get(0) != Some(&caller_addr) {
@@ -201,7 +198,10 @@ impl Actor {
         rt.transaction::<State, _, _>(|st, _| {
             // Check if signer to add is already signer
             if st.is_signer(&params.signer) {
-                return Err(ActorError::new(ExitCode::ErrIllegalArgument, "Party is already a signer".to_owned()));
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    "Party is already a signer".to_owned(),
+                ));
             }
 
             // Add signer and increase threshold if set
@@ -225,7 +225,10 @@ impl Actor {
         rt.transaction::<State, _, _>(|st, _| {
             // Check that signer to remove exists
             if !st.is_signer(&params.signer) {
-                return Err(ActorError::new(ExitCode::ErrNotFound, "Party not found".to_owned()));
+                return Err(ActorError::new(
+                    ExitCode::ErrNotFound,
+                    "Party not found".to_owned(),
+                ));
             }
 
             if st.signers.len() == 1 {
@@ -257,7 +260,10 @@ impl Actor {
         rt.transaction::<State, _, _>(|st, _| {
             // Check that signer to remove exists
             if !st.is_signer(&params.from) {
-                return Err(ActorError::new(ExitCode::ErrNotFound, "Party not found".to_owned()));
+                return Err(ActorError::new(
+                    ExitCode::ErrNotFound,
+                    "Party not found".to_owned(),
+                ));
             }
 
             // Check if signer to add is already signer
@@ -313,62 +319,62 @@ impl Actor {
         let curr_bal = rt.current_balance()?;
         let curr_epoch = rt.curr_epoch();
         // Approval transaction
-        let (tx, threshold_met): (Transaction, bool) = rt.transaction::<State, _, _>(|st, bs| {
-            let mut txn = match st.get_pending_transaction(bs, tx_id) {
-                Ok(t) => t,
-                Err(e) => {
+        let (tx, threshold_met): (Transaction, bool) =
+            rt.transaction::<State, _, _>(|st, bs| {
+                let mut txn = match st.get_pending_transaction(bs, tx_id) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return Err(ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("Failed to get transaction for approval: {}", e),
+                        ));
+                    }
+                };
+
+                // abort duplicate approval
+                for previous_approver in &txn.approved {
+                    if previous_approver == &from {
+                        return Err(ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            "Already approved this message".to_owned(),
+                        ));
+                    }
+                }
+
+                // update approved on the transaction
+                txn.approved.push(from);
+
+                if let Err(e) = st.put_pending_transaction(bs, tx_id, txn.clone()) {
                     return Err(ActorError::new(
                         ExitCode::ErrIllegalState,
-                        format!("Failed to get transaction for approval: {}", e),
-                    ));
-                }
-            };
-
-            // abort duplicate approval
-            for previous_approver in &txn.approved {
-                if previous_approver == &from {
-                    return Err(
-                        ActorError::new(ExitCode::ErrIllegalState, "Already approved this message".to_owned())
-                    );
-                }
-            }
-
-            // update approved on the transaction
-            txn.approved.push(from);
-
-            if let Err(e) = st.put_pending_transaction(bs, tx_id, txn.clone()) {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("Failed to put transaction for approval: {}", e),
-                ));
-            }
-
-            // Check if number approvals is met
-            if txn.approved.len() >= st.num_approvals_threshold as usize {
-                // Ensure sufficient funds
-                if let Err(e) =
-                    st.check_available(curr_bal, txn.value.clone(), curr_epoch)
-                {
-                    return Err(ActorError::new(
-                        ExitCode::ErrInsufficientFunds,
-                        format!("Insufficient funds unlocked: {}", e),
+                        format!("Failed to put transaction for approval: {}", e),
                     ));
                 }
 
-                // Delete pending transaction
-                if let Err(e) = st.delete_pending_transaction(bs, tx_id) {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to delete transaction for cleanup: {}", e),
-                    ));
-                }
+                // Check if number approvals is met
+                if txn.approved.len() >= st.num_approvals_threshold as usize {
+                    // Ensure sufficient funds
+                    if let Err(e) = st.check_available(curr_bal, txn.value.clone(), curr_epoch) {
+                        return Err(ActorError::new(
+                            ExitCode::ErrInsufficientFunds,
+                            format!("Insufficient funds unlocked: {}", e),
+                        ));
+                    }
 
-                Ok((txn, true))
-            } else {
-                // Number of approvals required not met, do not relay message
-                Ok((txn, false))
-            }
-        })??;
+                    // Delete pending transaction
+                    if let Err(e) = st.delete_pending_transaction(bs, tx_id) {
+                        return Err(ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to delete transaction for cleanup: {}", e),
+                        ));
+                    }
+
+                    Ok((txn, true))
+                } else {
+                    // Number of approvals required not met, do not relay message
+                    Ok((txn, false))
+                }
+            })??;
 
         // Sufficient number of approvals have arrived, relay message
         if threshold_met {
