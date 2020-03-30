@@ -121,6 +121,44 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
     }
 }
 
+fn transfer<'a, ST>(
+    state: &ST,
+    from: &Address,
+    to: &Address,
+    value: &TokenAmount,
+) -> Result<(), String>
+where
+    ST: StateTree,
+{
+    if from == to {
+        return Ok(());
+    }
+    if value < &0u8.into() {
+        return Err("Negative transfer value".to_owned());
+    }
+    let mut from_actor = state
+        .get_actor(&from)
+        .map_err(|e| format!("transfer failed: {}", e))?
+        .ok_or(format!("transfer failed could not retrieve from actor"))?;
+    let mut to_actor = state
+        .get_actor(&to)
+        .map_err(|e| format!("transfer failed: {}", e))?
+        .ok_or(format!("transfer failed could not retrieve from actor"))?;
+
+    deduct_funds(&mut from_actor, &value)?;
+    deposit_funds(&mut to_actor, &value);
+    Ok(())
+}
+fn deduct_funds(from: &mut ActorState, amt: &TokenAmount) -> Result<(), String> {
+    if &from.balance < amt {
+        return Err("not enough funds".to_owned());
+    }
+    from.balance -= amt;
+    Ok(())
+}
+fn deposit_funds(to: &mut ActorState, amt: &TokenAmount) {
+    to.balance += amt;
+}
 /// Represents the messages from one block in a tipset.
 pub struct BlockMessages {
     bls_messages: Vec<UnsignedMessage>,
@@ -261,18 +299,41 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     ) -> Randomness {
         todo!()
     }
-    fn create<C: Cbor>(&self, obj: &C) {
+    // fn create<C: Cbor>(&mut self, obj: &C) {
+    //     todo!()
+    // }
+    fn create<C: Cbor>(& self, obj: &C) {
         todo!()
     }
+    // readonly
     fn state<C: Cbor>(&self) -> C {
         todo!()
     }
     fn transaction<C: Cbor, R, F>(&self, f: F) -> R
     where
-        F: FnOnce(&mut C) -> R,
-    {
-        todo!()
-    }
+        F: FnOnce(&mut C) -> R,{
+            todo!()
+        }
+    // fn transaction<C: Cbor, R, F>(&mut self, f: F) -> R
+    // where
+    //     F: FnOnce(&mut C, &BS) -> R,
+    // {
+    //     // // get actor
+    //     // let act = self.state.get_actor(&rt.message().to());
+
+    //     // // get state for actor based on generic C
+    //     // let state: C = self.bs.get(act.state);
+
+    //     // // Update the state
+    //     // let r = f(&mut state, &self.bs);
+
+    //     // // Committing that change
+    //     // // TODO commit state to blockstore with stateCommit eq
+
+    //     // // return
+    //     // r
+    //     todo!()
+    // }
 
     fn store(&self) -> &BS {
         self.chain.blockstore()
@@ -289,7 +350,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
 
         let msg = UnsignedMessage::builder()
             .to(to.clone())
-            .from(self.message.to().clone())
+            .from(self.message.from().clone())
             .method_num(method)
             .value(value.clone())
             .gas_limit(self.gas_available)
@@ -416,6 +477,10 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
     // TODO: if to_actor doesn't exist try to create it
     runtime.charge_gas(PLACEHOLDER_NUMBER);
 
+    if msg.value() != &0u8.into() {
+        transfer(runtime.state, &msg.from(), &msg.to(), &msg.value()).unwrap();
+    }
+
     let method_num = msg.method_num();
 
     if method_num != &METHOD_SEND {
@@ -423,25 +488,23 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
 
         let ret = {
             // TODO: make its own method/struct
-            match to_actor {
-                SYSTEM_ACTOR_CODE_ID => {
+            match to_actor.code {
+                x if x == *actor::SYSTEM_ACTOR_CODE_ID => {
                     todo!("system actor");
                 }
-                INIT_ACTOR_CODE_ID => {
-                    let actor = actor::init::Actor;
-                    actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                x if x == *actor::INIT_ACTOR_CODE_ID => {
+                    actor::init::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                CRON_ACTOR_CODE_ID => {
-                    let actor = actor::cron::Actor;
-                    actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                x if x == *actor::CRON_ACTOR_CODE_ID => {
+                    actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                ACCOUNT_ACTOR_CODE_ID => todo!(),
-                POWER_ACTOR_CODE_ID => todo!(),
-                MINER_ACTOR_CODE_ID => todo!(),
-                MARKET_ACTOR_CODE_ID => todo!(),
-                PAYCH_ACTOR_CODE_ID => todo!(),
-                MULTISIG_ACTOR_CODE_ID => todo!(),
-                REWARD_ACTOR_CODE_ID => todo!(),
+                x if x == *actor::ACCOUNT_ACTOR_CODE_ID => todo!(),
+                x if x == *actor::POWER_ACTOR_CODE_ID => todo!(),
+                x if x == *actor::MINER_ACTOR_CODE_ID => todo!(),
+                x if x == *actor::MARKET_ACTOR_CODE_ID => todo!(),
+                x if x == *actor::PAYCH_ACTOR_CODE_ID => todo!(),
+                x if x == *actor::MULTISIG_ACTOR_CODE_ID => todo!(),
+                x if x == *actor::REWARD_ACTOR_CODE_ID => todo!(),
                 _ => todo!("Handle unknown code cids"),
             }
         };
