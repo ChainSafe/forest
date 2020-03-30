@@ -17,6 +17,10 @@ use std::time::Duration;
 
 /// Timeout for response from an RPC request
 const RPC_TIMEOUT: u64 = 5;
+/// Blocksync request options
+const BLOCKS: u64 = 1;
+const _MESSAGES: u64 = 2;
+const FULL_BLOCKS: u64 = 3;
 
 /// Context used in chain sync to handle network requests
 pub struct SyncNetworkContext {
@@ -60,7 +64,7 @@ impl SyncNetworkContext {
                 BlockSyncRequest {
                     start: tsk.cids().to_vec(),
                     request_len: count,
-                    options: 1,
+                    options: BLOCKS,
                 },
             )
             .await?;
@@ -82,7 +86,7 @@ impl SyncNetworkContext {
                 BlockSyncRequest {
                     start: tsk.cids().to_vec(),
                     request_len: 1,
-                    options: 3,
+                    options: FULL_BLOCKS,
                 },
             )
             .await?;

@@ -671,3 +671,221 @@ where
 fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
     messages.iter().map(Cbor::cid).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use address::Address;
+    use async_std::sync::channel;
+    use blocks::{BlockHeader, Ticket, TipSetKeys, Tipset};
+    use cid::{multihash::Blake2b256, Cid};
+    use clock::ChainEpoch;
+    use crypto::VRFResult;
+    use crypto::{Signature, Signer};
+    use db::MemoryDB;
+    use forest_libp2p::hello::HelloMessage;
+    use message::{SignedMessage, UnsignedMessage};
+    use num_bigint::BigUint;
+    use std::error::Error;
+    use std::sync::Arc;
+
+    const WEIGHT: u64 = 1;
+
+    fn template_key(data: &[u8]) -> Cid {
+        Cid::new_from_cbor(data, Blake2b256).unwrap()
+    }
+
+    // key_setup returns a vec of 4 distinct CIDs
+    fn key_setup() -> Vec<Cid> {
+        return vec![template_key(b"test content")];
+    }
+
+    // template_header defines a block header used in testing
+    fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
+        let cids = key_setup();
+        let header = BlockHeader::builder()
+            .parents(TipSetKeys {
+                cids: vec![cids[0].clone()],
+            })
+            .miner_address(Address::new_secp256k1(&ticket_p).unwrap())
+            .timestamp(timestamp)
+            .ticket(Ticket {
+                vrfproof: VRFResult::new(ticket_p),
+            })
+            .weight(BigUint::from(WEIGHT))
+            .cached_cid(cid)
+            .build()
+            .unwrap();
+
+        header
+    }
+
+    // header_setup returns a vec of block headers to be used for testing purposes
+    fn header_setup() -> Vec<BlockHeader> {
+        let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
+        let cids = key_setup();
+        return vec![template_header(data0, cids[0].clone(), 1)];
+    }
+
+    fn setup() -> Tipset {
+        let headers = header_setup();
+        return Tipset::new(headers.clone()).expect("tipset is invalid");
+    }
+
+    const DUMMY_SIG: [u8; 1] = [0u8];
+
+    struct DummySigner;
+    impl Signer for DummySigner {
+        fn sign_bytes(&self, _: Vec<u8>, _: &Address) -> Result<Signature, Box<dyn Error>> {
+            Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
+        }
+    }
+
+    #[test]
+    fn chainsync_constructor() {
+        let db = MemoryDB::default();
+        let (local_sender, _test_receiver) = channel(20);
+        let (_event_sender, event_receiver) = channel(20);
+
+        // Test just makes sure that the chain syncer can be created without using a live database or
+        // p2p network (local channels to simulate network messages and responses)
+        let _chain_syncer = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+    }
+
+    #[test]
+    fn sync_given_tipset_syncs() {
+        let ts = setup();
+
+        let db = MemoryDB::default();
+        let (local_sender, _test_receiver) = channel(20);
+        let (_event_sender, event_receiver) = channel(20);
+
+        // Test just makes sure that the chain syncer can be created without using a live database or
+        // p2p network (local channels to simulate network messages and responses)
+        let mut cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+        task::spawn(async move {
+            cs.sync(ts).await.expect("sync to be invalid");
+        });
+    }
+
+    #[test]
+    fn inform_new_head_given_tipset_informs() {
+        let headers = header_setup();
+        let mut blocks: Vec<Block> = Vec::with_capacity(headers.len());
+
+        let bls_messages = UnsignedMessage::builder()
+            .to(Address::new_id(1).unwrap())
+            .from(Address::new_id(2).unwrap())
+            .build()
+            .unwrap();
+
+        let secp_messages = SignedMessage::new(&bls_messages, &DummySigner).unwrap();
+
+        for header in headers {
+            blocks.push(Block {
+                header,
+                secp_messages: vec![secp_messages.clone()],
+                bls_messages: vec![bls_messages.clone()],
+            });
+        }
+        let fts = FullTipset::new(blocks);
+        let source = PeerId::random();
+
+        let db = MemoryDB::default();
+        let (local_sender, _test_receiver) = channel(20);
+        let (_event_sender, event_receiver) = channel(20);
+
+        // Test just makes sure that the chain syncer can be created without using a live database or
+        // p2p network (local channels to simulate network messages and responses)
+        let mut cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+        task::spawn(async move {
+            cs.inform_new_head(&source, &fts)
+                .await
+                .expect("sync to be invalid");
+        });
+    }
+
+    #[test]
+    fn set_peer_head_and_select_target() {
+        let ts = setup();
+        let source = PeerId::random();
+
+        let db = MemoryDB::default();
+        let (local_sender, _test_receiver) = channel(20);
+        let (_event_sender, event_receiver) = channel(20);
+
+        // Test just makes sure that the chain syncer can be created without using a live database or
+        // p2p network (local channels to simulate network messages and responses)
+        let mut cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+
+        task::spawn(async move {
+            cs.set_peer_head(&source, ts.clone()).await.expect("not ok");
+            for (peer_id, tip) in cs.peer_manager.peer_heads.read().await.iter() {
+                assert_eq!(peer_id, &source);
+                assert_eq!(tip, &ts.clone());
+            }
+            assert_eq!(cs.select_sync_target().await.unwrap(), ts);
+        });
+    }
+
+    #[test]
+    fn schedule_tipset_given_tipset() {
+        let ts = setup();
+        let ts_copy = setup();
+
+        let db = MemoryDB::default();
+        let (local_sender, _test_receiver) = channel(20);
+        let (_event_sender, event_receiver) = channel(20);
+
+        // Test just makes sure that the chain syncer can be created without using a live database or
+        // p2p network (local channels to simulate network messages and responses)
+        let mut cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+
+        task::spawn(async move {
+            cs.schedule_tipset(ts.clone()).await.expect("not okay");
+            assert_eq!(cs.next_sync_target._tipsets(), &[ts]);
+
+            cs.schedule_tipset(ts_copy).await.expect("not okay");
+            assert_eq!(cs.next_sync_target._tipsets().len(), 2);
+        });
+    }
+
+    #[test]
+    fn sync_start_test() {
+        let ts = setup();
+
+        let db = MemoryDB::default();
+        let (local_sender, _test_receiver) = channel(20);
+        let (event_sender, event_receiver) = channel(20);
+
+        let cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+        let peer_manager = Arc::clone(&cs.peer_manager);
+
+        task::spawn(async {
+            cs.start().await.unwrap();
+        });
+
+        let source = PeerId::random();
+        let source_clone = source.clone();
+
+        task::block_on(async {
+            event_sender
+                .send(NetworkEvent::Hello {
+                    message: HelloMessage {
+                        heaviest_tip_set: ts.cids().to_vec(),
+                        heaviest_tipset_height: ChainEpoch(0),
+                        heaviest_tipset_weight: 0,
+                        genesis_hash: Cid::default(),
+                    },
+                    source,
+                })
+                .await;
+
+            // Would be ideal to not have to sleep here and have it deterministic
+            task::sleep(Duration::from_millis(50)).await;
+
+            assert_eq!(peer_manager.len().await, 1);
+            assert_eq!(peer_manager.get_peer().await, Some(source_clone));
+        });
+    }
+}

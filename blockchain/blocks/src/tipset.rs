@@ -12,12 +12,11 @@ use encoding::{
 };
 use num_bigint::BigUint;
 use serde::Deserialize;
-use std::cmp::Ordering;
 
 /// A set of CIDs forming a unique key for a TipSet.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Ord, PartialOrd)]
 pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
@@ -62,18 +61,6 @@ impl<'de> de::Deserialize<'de> for TipSetKeys {
     {
         let cids: Vec<Cid> = Deserialize::deserialize(deserializer)?;
         Ok(TipSetKeys { cids })
-    }
-}
-
-impl PartialOrd for TipSetKeys {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.cids.partial_cmp(&other.cids)
-    }
-}
-
-impl Ord for TipSetKeys {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.cids.cmp(&other.cids)
     }
 }
 

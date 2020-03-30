@@ -68,7 +68,4 @@ license:
 docs:
 	cargo doc --no-deps --all-features
 
-run:
-	cargo run -p forest -- --config config.toml	
-
 .PHONY: clean clean-all lint build release test license test-all test-vectors run-vectors pull-serialization-tests

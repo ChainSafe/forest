@@ -17,6 +17,7 @@ impl Default for Libp2pConfig {
     fn default() -> Self {
         Libp2pConfig {
             listening_multiaddr: "/ip4/0.0.0.0/tcp/0".to_owned(),
+            // TODO check to ensure topics are accurate
             pubsub_topics: vec![
                 Topic::new("/fil/blocks/interop".to_owned()),
                 Topic::new("/fil/msgs/interop".to_owned()),
