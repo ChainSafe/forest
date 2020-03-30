@@ -51,27 +51,24 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
     }
 
     pub fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
-        self.state.get_actor(&addr)
-        .map_err(|e| {
-            self.abort(
-                ExitCode::SysErrInternal,
-                format!("failed to load actor: {}", e),
-            )
-        })
-        .and_then(|act| {
-            act.ok_or(self.abort(ExitCode::SysErrInternal, "actor not found"))
-        })
+        self.state
+            .get_actor(&addr)
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::SysErrInternal,
+                    format!("failed to load actor: {}", e),
+                )
+            })
+            .and_then(|act| act.ok_or(self.abort(ExitCode::SysErrInternal, "actor not found")))
     }
 
     pub fn get_balance(&self, addr: &Address) -> Result<BigUint, ActorError> {
-        let act = self.state.get_actor(&addr).unwrap().unwrap();
-        Ok(act.balance)
+        self.get_actor(&addr).map(|act| act.balance)
     }
 
     fn state_commit(&mut self, old_h: &Cid, new_h: &Cid) -> Result<(), ActorError> {
         let to_addr = self.message().to().clone();
-        let mut actor = self
-            .get_actor(&to_addr)?;
+        let mut actor = self.get_actor(&to_addr)?;
 
         if &actor.state != old_h {
             return Err(self.abort(
@@ -105,8 +102,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     where
         I: Iterator<Item = &'a Address>,
     {
-        // TODO: Specs actor calls this "Caller". Need to verify whats right
-        let imm = self.resolve_address(self.message().from()).unwrap();
+        let imm = self.resolve_address(self.message().from())?;
 
         // Check if theres is at least one match
         match addresses.filter(|a| **a == imm).next() {
@@ -190,7 +186,21 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         let act = self.get_actor(self.message().to())?;
 
         // get state for actor based on generic C
-        let mut state: C = self.store.get(&act.state).unwrap().unwrap();
+        let mut state: C = self
+            .store
+            .get(&act.state)
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::ErrPlaceholder,
+                    format!("storage get error in transaction: {}", e.to_string()),
+                )
+            })
+            .and_then(|c| {
+                c.ok_or(self.abort(
+                    ExitCode::ErrPlaceholder,
+                    "storage get error in transaction".to_owned(),
+                ))
+            })?;
 
         // Update the state
         let r = f(&mut state, &self.store);
@@ -228,9 +238,8 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .gas_limit(self.gas_available)
             .params(params.clone())
             .build()
-            .unwrap(); // TODO: Handle error
+            .unwrap();
 
-        // let mut parent =  DefaultRuntime::from_parent(&mut self.state, &self.chain, TokenAmount::new(0), &msg, &self);
 
         // snapshot state tree
         let snapshot = self
@@ -278,9 +287,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     fn delete_actor(&mut self) -> Result<(), ActorError> {
         // TODO: Charge gas
         self.charge_gas(PLACEHOLDER_GAS);
-        let balance = self
-            .get_actor(self.message.to())
-            .map(|act| act.balance)?;
+        let balance = self.get_actor(self.message.to()).map(|act| act.balance)?;
         if !balance.eq(&0u64.into()) {
             return Err(self.abort(
                 ExitCode::SysErrInternal,
