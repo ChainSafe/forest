@@ -26,12 +26,21 @@ const PLACEHOLDER_NUMBER: u64 = 1;
 pub struct VM<'a, ST: StateTree, DB: BlockStore> {
     state: ST,
     chain: &'a ChainStore<DB>,
-    // TODO: missing fiels
+    epoch: ChainEpoch,
+    // TODO: missing fields
 }
 
 impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
-    pub fn new(state: ST, chain: &'a ChainStore<DB>) -> Self {
-        VM { state, chain }
+    pub fn new(
+        state: ST,
+        chain: &'a ChainStore<DB>,
+        epoch: ChainEpoch,
+    ) -> Self {
+        VM {
+            state,
+            chain,
+            epoch,
+        }
     }
 
     /// Apply all messages from a tipset
@@ -65,7 +74,11 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         msg: &UnsignedMessage,
         _miner_addr: &Address,
     ) -> Result<MessageReceipt, String> {
+        check_message(&msg)?;
+
         let snapshot = self.state.snapshot()?;
+
+        // TODO: Not the complete gas_cost. Calculate based on message size
         let mut gas_cost = msg.gas_price() * msg.gas_limit();
         gas_cost += msg.value();
 
@@ -79,32 +92,26 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
 
         // TODO: increase from actor nonce
 
-        let return_data = self.send(None, msg, gas_cost.to_u64().unwrap());
-        // where to get exit code?
-        // match exit_code {
-        //     ExitCode::Ok => {
-        //         // all good
-        //     }
-        //     _ => {
-        //         // TODO: handle fatal exit codes and return
-
-        //         // Revert state on failed method execution
-        //         self.state.revert_to_snapshot(&snapshot)?;
-        //     }
-        // }
-
-        let receipt = MessageReceipt {
-            return_data: return_data.unwrap(), // TODO: what about Send?
-            exit_code: ExitCode::Ok,
-            gas_used: BigUint::from(0u64), // TODO: get from runtime, runtime.gas_used()
-        };
-
-        Ok(receipt)
+        let return_data = self.send(msg, gas_cost.to_u64().unwrap());
+        return_data
+            .map(|r| {
+                Ok(MessageReceipt {
+                    return_data: r, // TODO: what about Send?,
+                    exit_code: ExitCode::Ok,
+                    gas_used: BigUint::from(0u64), // TODO: get from runtime, runtime.gas_used()
+                })
+            })
+            .map_err(|e| {
+                match self.state.revert_to_snapshot(&snapshot) {
+                    Err(state_err) => return state_err,
+                    _ => {}
+                };
+                e.to_string()
+            })?
     }
 
     fn send(
         &mut self,
-        parent_runtime: Option<&DefaultRuntime<ST, DB>>,
         msg: &UnsignedMessage,
         gas_cost: u64,
     ) -> Result<Serialized, ActorError> {
@@ -113,9 +120,10 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             &mut self.state,
             self.chain,
             gas_cost,
-            msg,
-            ChainEpoch::default(),
-            Address::default(),
+            &msg,
+            self.epoch,
+            &msg.from(),
+            msg.sequence(),
         );
         internal_send(RTType::New(&mut rt), msg, gas_cost)
     }
@@ -159,6 +167,12 @@ fn deduct_funds(from: &mut ActorState, amt: &TokenAmount) -> Result<(), String> 
 fn deposit_funds(to: &mut ActorState, amt: &TokenAmount) {
     to.balance += amt;
 }
+fn check_message(msg: &UnsignedMessage) -> Result<(), String> {
+    if msg.gas_limit() == 0 {
+        return Err("Gas limit is 0".to_owned());
+    }
+    Ok(())
+}
 /// Represents the messages from one block in a tipset.
 pub struct BlockMessages {
     bls_messages: Vec<UnsignedMessage>,
@@ -181,6 +195,7 @@ pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     message: &'b UnsignedMessage,
     epoch: ChainEpoch,
     origin: Address,
+    origin_nonce: u64,
 }
 
 impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
@@ -190,7 +205,8 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
         gas_used: u64,
         message: &'b UnsignedMessage,
         epoch: ChainEpoch,
-        origin: Address,
+        origin: &Address,
+        origin_nonce: u64,
     ) -> Self {
         DefaultRuntime {
             state,
@@ -199,27 +215,8 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
             gas_available: message.gas_limit(),
             message,
             epoch,
-            origin,
-        }
-    }
-
-    pub fn from_parent(
-        state: &'c mut ST,
-        chain: &'a ChainStore<BS>,
-        gas_used: u64,
-        message: &'b UnsignedMessage,
-        epoch: ChainEpoch,
-        origin: Address,
-        parent: &DefaultRuntime<'a, 'b, 'c, ST, BS>,
-    ) -> Self {
-        DefaultRuntime {
-            state,
-            chain,
-            gas_used: parent.gas_used + gas_used,
-            gas_available: message.gas_limit(),
-            message,
-            epoch,
-            origin,
+            origin: origin.clone(),
+            origin_nonce,
         }
     }
 
@@ -302,7 +299,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     // fn create<C: Cbor>(&mut self, obj: &C) {
     //     todo!()
     // }
-    fn create<C: Cbor>(& self, obj: &C) {
+    fn create<C: Cbor>(&self, obj: &C) {
         todo!()
     }
     // readonly
@@ -311,9 +308,10 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
     fn transaction<C: Cbor, R, F>(&self, f: F) -> R
     where
-        F: FnOnce(&mut C) -> R,{
-            todo!()
-        }
+        F: FnOnce(&mut C) -> R,
+    {
+        todo!()
+    }
     // fn transaction<C: Cbor, R, F>(&mut self, f: F) -> R
     // where
     //     F: FnOnce(&mut C, &BS) -> R,
@@ -346,7 +344,6 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         params: &Serialized,
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError> {
-        // TODO: snapshot and revert logic
 
         let msg = UnsignedMessage::builder()
             .to(to.clone())
@@ -361,18 +358,23 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         // let mut parent =  DefaultRuntime::from_parent(&mut self.state, &self.chain, TokenAmount::new(0), &msg, &self);
 
         // snapshot state tree
-        let snapshot = self.state.snapshot().unwrap();
+        let snapshot = self.state.snapshot().map_err(|_e| {
+            self.abort(ExitCode::ErrPlaceholder, "failed to create snapshot")
+        })?;
 
         let mut parent = DefaultRuntime::new(
             self.state,
             self.chain,
-            0,
+            self.gas_used,
             &msg,
             self.curr_epoch(),
-            self.origin.clone(),
+            &self.origin,
+            self.origin_nonce,
         );
         let send_res = internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, 0);
-        self.state.revert_to_snapshot(&snapshot).unwrap();
+        self.state.revert_to_snapshot(&snapshot).map_err(|_e| {
+            self.abort(ExitCode::ErrPlaceholder, "failed to revert snapshot")
+        })?;
         send_res
     }
 
@@ -437,45 +439,14 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
     msg: &UnsignedMessage,
     gas_cost: u64,
 ) -> Result<Serialized, ActorError> {
-    let mut runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
+    let runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
         New(e) => e,
         Parent(e) => e,
     };
 
-    //////// - rt internal send - ////////
-
-    // do that snapshotting outside
-    // let snapshot = runtime.state.snapshot()?;
-
-    // Charge for method invocation
     runtime.charge_gas(PLACEHOLDER_NUMBER);
-    // do the vm send stuff here
-
-    let from_actor = runtime.state.get_actor(msg.from()).unwrap().unwrap();
-    // TODO: i think we should try to recover here and try to create account actor
+    // TODO: we need to try to recover here and try to create account actor
     let to_actor = runtime.state.get_actor(msg.to()).unwrap().unwrap();
-
-    let get_charge = 0u64;
-    let gas_used = 0u64;
-
-    let origin = msg.from();
-    let on = msg.sequence();
-
-    let nac: u64 = 0;
-
-    // TODO: This does some check to see if parent is null. since this is from rt internal send,
-    // the parent is null. But we make it outside of this function.
-    // still need to set parent.gasused to rt.gasused
-
-    // end do the vm send stuff
-
-    // defer
-    // did the snapshotting outside
-    // runtime.state.revert_to_snapshot(&snapshot)?;
-    ////// end rt internal send
-
-    // TODO: if to_actor doesn't exist try to create it
-    runtime.charge_gas(PLACEHOLDER_NUMBER);
 
     if msg.value() != &0u8.into() {
         transfer(runtime.state, &msg.from(), &msg.to(), &msg.value()).unwrap();
@@ -498,19 +469,35 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
                 x if x == *actor::CRON_ACTOR_CODE_ID => {
                     actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                x if x == *actor::ACCOUNT_ACTOR_CODE_ID => todo!(),
-                x if x == *actor::POWER_ACTOR_CODE_ID => todo!(),
-                x if x == *actor::MINER_ACTOR_CODE_ID => todo!(),
-                x if x == *actor::MARKET_ACTOR_CODE_ID => todo!(),
-                x if x == *actor::PAYCH_ACTOR_CODE_ID => todo!(),
-                x if x == *actor::MULTISIG_ACTOR_CODE_ID => todo!(),
-                x if x == *actor::REWARD_ACTOR_CODE_ID => todo!(),
+                x if x == *actor::ACCOUNT_ACTOR_CODE_ID => {
+                    actor::account::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                }
+                x if x == *actor::POWER_ACTOR_CODE_ID => {
+                    actor::power::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                }
+                x if x == *actor::MINER_ACTOR_CODE_ID => {
+                    // not implemented yet
+                    // actor::miner::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    todo!()
+                }
+                x if x == *actor::MARKET_ACTOR_CODE_ID => {
+                    // not implemented yet
+                    // actor::market::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    todo!()
+                }
+                x if x == *actor::PAYCH_ACTOR_CODE_ID => {
+                    actor::paych::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                }
+                x if x == *actor::MULTISIG_ACTOR_CODE_ID => {
+                    actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                }
+                x if x == *actor::REWARD_ACTOR_CODE_ID => {
+                    actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                }
                 _ => todo!("Handle unknown code cids"),
             }
         };
-        let exit_code = ExitCode::Ok; // TODO: get from invocation
         return ret;
     }
-    todo!()
-    // Ok((ExitCode::Ok, None))
+    Ok(Serialized::default())
 }

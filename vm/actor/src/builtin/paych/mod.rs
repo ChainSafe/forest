@@ -10,7 +10,6 @@ use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use cid::Cid;
 use encoding::to_vec;
-use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
