@@ -17,7 +17,7 @@ use vm::{
     ActorState, ExitCode, MethodNum, Randomness, Serialized, StateTree, TokenAmount, METHOD_SEND,
 };
 
-const PLACEHOLDER_NUMBER: u64 = 1;
+const PLACEHOLDER_GAS: u64 = 1;
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'a, ST: StateTree, DB: BlockStore> {
@@ -383,7 +383,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
         // TODO: Charge gas
-        self.charge_gas(PLACEHOLDER_NUMBER);
+        self.charge_gas(PLACEHOLDER_GAS);
         self.state
             .set_actor(
                 &address,
@@ -398,7 +398,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
     fn delete_actor(&mut self) -> Result<(), ActorError> {
         // TODO: Charge gas
-        self.charge_gas(PLACEHOLDER_NUMBER);
+        self.charge_gas(PLACEHOLDER_GAS);
         let balance = self
             .state
             .get_actor(self.message.to())
@@ -432,7 +432,7 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
     _gas_cost: u64,
 ) -> Result<Serialized, ActorError> {
     // TODO: Calculate true gas value
-    runtime.charge_gas(PLACEHOLDER_NUMBER);
+    runtime.charge_gas(PLACEHOLDER_GAS);
 
     // TODO: we need to try to recover here and try to create account actor
     let to_actor = runtime.state.get_actor(msg.to()).unwrap().unwrap();
