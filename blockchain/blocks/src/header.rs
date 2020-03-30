@@ -27,7 +27,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// use forest_blocks::{BlockHeader, TipSetKeys, Ticket};
 /// use address::Address;
 /// use cid::Cid;
-/// use clock::ChainEpoch;
 /// use num_bigint::BigUint;
 /// use crypto::Signature;
 ///
@@ -36,7 +35,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///     .bls_aggregate(Signature::new_bls(vec![])) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
-///     .epoch(ChainEpoch::default()) // optional
+///     .epoch(0) // optional
 ///     .messages(Cid::default()) // optional
 ///     .message_receipts(Cid::default()) // optional
 ///     .state_root(Cid::default()) // optional
@@ -197,8 +196,8 @@ impl BlockHeader {
         &self.weight
     }
     /// Getter for BlockHeader epoch
-    pub fn epoch(&self) -> &ChainEpoch {
-        &self.epoch
+    pub fn epoch(&self) -> ChainEpoch {
+        self.epoch
     }
     /// Getter for BlockHeader miner_address
     pub fn miner_address(&self) -> &Address {
@@ -284,7 +283,7 @@ impl BlockHeader {
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
             < base_tipset.tipset()?.min_timestamp()?
-                + FIXED_BLOCK_DELAY * (*self.epoch() - *base_tipset.tipset()?.epoch()).as_u64()
+                + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.tipset()?.epoch())
         {
             return Err(Error::Validation(
                 "Header was generated too soon".to_string(),
@@ -324,7 +323,6 @@ mod tests {
     use address::Address;
     use base64;
     use cid::Cid;
-    use clock::ChainEpoch;
     use crypto::{Signature, VRFResult};
     use encoding::from_slice;
     use encoding::to_vec;
@@ -442,7 +440,7 @@ mod tests {
             .bls_aggregate(Signature::new_bls(base64::decode("lLZtMQuT27qNPC4a4AJ8fgdpfMaH1KGlndt+YppQsAdDAK1m4VYIlrY6wtbSAdQEAb1AswRaLdlt9YfJFCg/+mVVhFU648UqnvhRYeBtBZlEA+XMEaim1889O8Ca73PR").unwrap()))
             .parents(TipSetKeys{ cids: parents})
             .weight(BigUint::from(91439483u64))
-            .epoch(ChainEpoch::new(7205).unwrap())
+            .epoch(7205)
             .messages(Cid::try_from("BAFY2BZACECEESIZT2Q67TZB3WZMZLLTIHENHZ37AW4B24KFCUBR3AF42DIMRS".to_owned()).unwrap())
             .state_root(Cid::try_from("BAFY2BZACEDZ5KXJ6XLNYGKCNFQ6EFZMANDC4VF7NASPXXRHJOOKZEAJUVGFC4".to_owned()).unwrap())
             .message_receipts(Cid::try_from("BAFY2BZACECAE6NZYPUOHWAQOVMRP4A7HO6SPBC5QLWW4FKL25OREPPUKBEO2M".to_owned()).unwrap())

@@ -9,7 +9,7 @@ mod util;
 
 pub use self::builtin::*;
 pub use self::util::*;
-pub use vm::{ActorID, ActorState, DealID, Serialized};
+pub use vm::{ActorState, DealID, Serialized};
 
 use encoding::Error as EncodingError;
 use ipld_blockstore::BlockStore;

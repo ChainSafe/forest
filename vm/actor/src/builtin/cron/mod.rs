@@ -6,6 +6,7 @@ mod state;
 pub use self::state::{Entry, State};
 use crate::{check_empty_params, SYSTEM_ACTOR_ADDR};
 use address::Address;
+use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -15,6 +16,7 @@ use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTR
 
 /// Cron actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     EpochTick = 2,
@@ -23,7 +25,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into an Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 
@@ -87,7 +89,7 @@ impl Actor {
                 &entry.receiver,
                 entry.method_num,
                 &Serialized::default(),
-                &TokenAmount::new(0),
+                &TokenAmount::from(0u8),
             )?;
         }
         Ok(())

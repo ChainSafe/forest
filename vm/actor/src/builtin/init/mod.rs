@@ -21,6 +21,7 @@ use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Init actor methods available
 #[derive(FromPrimitive)]
+#[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     Exec = 2,
@@ -29,7 +30,7 @@ pub enum Method {
 impl Method {
     /// Converts a method number into an Method enum
     fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(u64::from(m))
+        FromPrimitive::from_u64(m)
     }
 }
 
@@ -101,7 +102,7 @@ impl Actor {
         // Invoke constructor
         rt.send(
             &id_address,
-            MethodNum::new(METHOD_CONSTRUCTOR as u64),
+            METHOD_CONSTRUCTOR,
             &params.constructor_params,
             rt.message().clone().value(),
         )

@@ -5,10 +5,7 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::{de, ser, Cbor};
-use num_bigint::{
-    biguint_ser::{BigUintDe, BigUintSer},
-    BigUint,
-};
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::Deserialize;
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -18,7 +15,6 @@ use vm::{MethodNum, Serialized, TokenAmount};
 /// ```
 /// use forest_message::{UnsignedMessage, Message};
 /// use vm::{TokenAmount, Serialized, MethodNum};
-/// use num_bigint::BigUint;
 /// use address::Address;
 ///
 /// // Use the builder pattern to generate a message
@@ -26,11 +22,11 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///     .to(Address::new_id(0).unwrap())
 ///     .from(Address::new_id(1).unwrap())
 ///     .sequence(0) // optional
-///     .value(TokenAmount::new(0)) // optional
+///     .value(TokenAmount::from(0u8)) // optional
 ///     .method_num(MethodNum::default()) // optional
 ///     .params(Serialized::default()) // optional
 ///     .gas_limit(0) // optional
-///     .gas_price(BigUint::default()) // optional
+///     .gas_price(TokenAmount::from(0u8)) // optional
 ///     .build()
 ///     .unwrap();
 ///
@@ -56,7 +52,7 @@ pub struct UnsignedMessage {
     #[builder(default)]
     params: Serialized,
     #[builder(default)]
-    gas_price: BigUint,
+    gas_price: TokenAmount,
     #[builder(default)]
     gas_limit: u64,
 }
@@ -76,7 +72,7 @@ impl ser::Serialize for UnsignedMessage {
             &self.to,
             &self.from,
             &self.sequence,
-            &self.value,
+            BigUintSer(&self.value),
             BigUintSer(&self.gas_price),
             &self.gas_limit,
             &self.method_num,
@@ -91,8 +87,16 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
     where
         D: de::Deserializer<'de>,
     {
-        let (to, from, sequence, value, BigUintDe(gas_price), gas_limit, method_num, params) =
-            Deserialize::deserialize(deserializer)?;
+        let (
+            to,
+            from,
+            sequence,
+            BigUintDe(value),
+            BigUintDe(gas_price),
+            gas_limit,
+            method_num,
+            params,
+        ) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             to,
             from,
@@ -125,15 +129,15 @@ impl Message for UnsignedMessage {
     fn params(&self) -> &Serialized {
         &self.params
     }
-    fn gas_price(&self) -> &BigUint {
+    fn gas_price(&self) -> &TokenAmount {
         &self.gas_price
     }
     fn gas_limit(&self) -> u64 {
         self.gas_limit
     }
-    fn required_funds(&self) -> BigUint {
-        let total = self.gas_price() * self.gas_limit();
-        total + self.value().0.clone()
+    fn required_funds(&self) -> TokenAmount {
+        let total: TokenAmount = self.gas_price() * self.gas_limit();
+        total + self.value()
     }
 }
 

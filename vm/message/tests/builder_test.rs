@@ -4,7 +4,6 @@
 use address::Address;
 use crypto::{Signature, Signer};
 use forest_message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::BigUint;
 use std::error::Error;
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -26,11 +25,11 @@ fn unsigned_message_builder() {
         .to(to_addr.clone())
         .from(from_addr.clone())
         .sequence(0)
-        .value(TokenAmount::new(0))
+        .value(TokenAmount::from(0u8))
         .method_num(MethodNum::default())
         .params(Serialized::default())
         .gas_limit(0)
-        .gas_price(BigUint::default())
+        .gas_price(TokenAmount::from(0u8))
         .build()
         .unwrap();
     assert_eq!(message.from(), &from_addr.clone());
@@ -38,8 +37,8 @@ fn unsigned_message_builder() {
     assert_eq!(message.sequence(), 0);
     assert_eq!(message.method_num(), &MethodNum::default());
     assert_eq!(message.params(), &Serialized::default());
-    assert_eq!(message.value(), &TokenAmount::new(0));
-    assert_eq!(message.gas_price(), &BigUint::default());
+    assert_eq!(message.value(), &TokenAmount::from(0u8));
+    assert_eq!(message.gas_price(), &TokenAmount::from(0u8));
     assert_eq!(message.gas_limit(), 0);
     let mut mb = UnsignedMessage::builder();
     mb.to(to_addr.clone());

@@ -172,7 +172,7 @@ mod tests {
 
         let cs = ChainStore::new(Arc::new(db));
         let gen_block = BlockHeader::builder()
-            .epoch(1.into())
+            .epoch(1)
             .weight((2 as u32).into())
             .build_and_validate()
             .unwrap();

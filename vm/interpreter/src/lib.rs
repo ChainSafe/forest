@@ -67,7 +67,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
     ) -> Result<MessageReceipt, String> {
         let snapshot = self.state.snapshot()?;
         let mut gas_cost = msg.gas_price() * msg.gas_limit();
-        gas_cost += &msg.value().0;
+        gas_cost += msg.value();
 
         // TODO: gascost for message size
 
@@ -117,7 +117,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             ChainEpoch::default(),
             Address::default(),
         );
-        internal_send(RTType::New(&mut rt), msg, TokenAmount::new(gas_cost))
+        internal_send(RTType::New(&mut rt), msg, gas_cost)
     }
 }
 
@@ -310,8 +310,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             self.curr_epoch(),
             self.origin.clone(),
         );
-        let send_res =
-            internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, TokenAmount::new(0));
+        let send_res = internal_send::<ST, BS>(RTType::Parent(&mut parent), &msg, 0);
         self.state.revert_to_snapshot(&snapshot).unwrap();
         send_res
     }
@@ -375,7 +374,7 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
     // chain: &ChainStore<DB>,
     parent_runtime: RTType<'_, ST, DB>, // this mutable ref
     msg: &UnsignedMessage,
-    gas_cost: TokenAmount,
+    gas_cost: u64,
 ) -> Result<Serialized, ActorError> {
     let mut runtime: &mut DefaultRuntime<ST, DB> = match parent_runtime {
         New(e) => e,
@@ -419,7 +418,7 @@ fn internal_send<ST: StateTree, DB: BlockStore>(
 
     let method_num = msg.method_num();
 
-    if method_num != &MethodNum::new(METHOD_SEND as u64) {
+    if method_num != &METHOD_SEND {
         // TODO: charge gas
 
         let ret = {

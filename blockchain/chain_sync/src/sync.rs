@@ -23,12 +23,12 @@ use libp2p::core::PeerId;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::Message;
-use num_bigint::BigUint;
 use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::Arc;
+use vm::TokenAmount;
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -79,7 +79,7 @@ pub struct ChainSyncer<DB> {
 
 /// Message data used to ensure valid state transition
 struct MsgMetaData {
-    balance: BigUint,
+    balance: TokenAmount,
     sequence: u64,
 }
 
@@ -292,7 +292,7 @@ where
                     }
                     // update balance and increment sequence by 1
                     MsgMetaData {
-                        balance: balance - msg.required_funds(),
+                        balance: balance - &msg.required_funds(),
                         sequence: sequence + 1,
                     }
                 }
@@ -418,7 +418,7 @@ where
             }
 
             const REQUEST_WINDOW: u64 = 100;
-            let epoch_diff = u64::from(cur_ts.epoch() - to_epoch);
+            let epoch_diff = cur_ts.epoch() - to_epoch;
             let window = min(epoch_diff, REQUEST_WINDOW);
 
             // TODO change from using random peerID to managed
@@ -519,7 +519,7 @@ where
 
         for i in 0..tips.len() {
             while ts.epoch() > tips[i].epoch() {
-                if *ts.epoch().as_u64() == 0 {
+                if ts.epoch() == 0 {
                     return Err(Error::Other(
                         "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));
