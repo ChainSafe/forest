@@ -50,6 +50,19 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
         self.gas_used += to_use;
     }
 
+    pub fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
+        self.state.get_actor(&addr)
+        .map_err(|e| {
+            self.abort(
+                ExitCode::SysErrInternal,
+                format!("failed to load actor: {}", e),
+            )
+        })
+        .and_then(|act| {
+            act.ok_or(self.abort(ExitCode::SysErrInternal, "actor not found"))
+        })
+    }
+
     pub fn get_balance(&self, addr: &Address) -> Result<BigUint, ActorError> {
         let act = self.state.get_actor(&addr).unwrap().unwrap();
         Ok(act.balance)
@@ -58,17 +71,8 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
     fn state_commit(&mut self, old_h: &Cid, new_h: &Cid) -> Result<(), ActorError> {
         let to_addr = self.message().to().clone();
         let mut actor = self
-            .state
-            .get_actor(&to_addr)
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    format!("failed to load actor in state_commit: {}", e),
-                )
-            })
-            .and_then(|act| {
-                act.ok_or(self.abort(ExitCode::SysErrInternal, "actor not found in state_commit"))
-            })?;
+            .get_actor(&to_addr)?;
+
         if &actor.state != old_h {
             return Err(self.abort(
                 ExitCode::ErrIllegalState,
@@ -139,10 +143,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .map_err(|e| self.abort(ExitCode::ErrPlaceholder, e))
     }
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
-        self.state
-            .get_actor(&addr)
-            .map(|act| act.unwrap().code)
-            .map_err(|e| self.abort(ExitCode::ErrPlaceholder, e))
+        self.get_actor(&addr).map(|act| act.code)
     }
     fn get_randomness(
         _personalization: DomainSeparationTag,
@@ -164,21 +165,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         self.state_commit(&Cid::default(), &c)
     }
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        let actor = self
-            .state
-            .get_actor(self.message().to())
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    format!("failed to load actor in read only state: {}", e),
-                )
-            })
-            .and_then(|act| {
-                act.ok_or(self.abort(
-                    ExitCode::SysErrInternal,
-                    "actor not found in read only state",
-                ))
-            })?;
+        let actor = self.get_actor(self.message().to())?;
         self.store
             .get(&actor.state)
             .map_err(|e| {
@@ -200,7 +187,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         F: FnOnce(&mut C, &BS) -> R,
     {
         // get actor
-        let act = self.state.get_actor(self.message().to()).unwrap().unwrap();
+        let act = self.get_actor(self.message().to())?;
 
         // get state for actor based on generic C
         let mut state: C = self.store.get(&act.state).unwrap().unwrap();
@@ -292,17 +279,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         // TODO: Charge gas
         self.charge_gas(PLACEHOLDER_GAS);
         let balance = self
-            .state
             .get_actor(self.message.to())
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    format!("failed to load actor in delete actor: {}", e),
-                )
-            })
-            .and_then(|act| {
-                act.ok_or(self.abort(ExitCode::SysErrInternal, "actor not found in delete actor"))
-            })
             .map(|act| act.balance)?;
         if !balance.eq(&0u64.into()) {
             return Err(self.abort(
