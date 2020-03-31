@@ -89,16 +89,14 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
                 })
             })
             .map_err(|e| {
-                match self.state.revert_to_snapshot(&snapshot) {
-                    Err(state_err) => return state_err,
-                    _ => {}
-                };
+                if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
+                    return state_err;
+                }
                 e.to_string()
             })?
     }
-
+    /// Instantiates a new Runtime, and calls internal_send to do the execution.
     fn send(&mut self, msg: &UnsignedMessage, gas_cost: u64) -> Result<Serialized, ActorError> {
-        // TODO: Those params should DEF not be default
         let mut rt = DefaultRuntime::new(
             &mut self.state,
             self.store,
@@ -112,6 +110,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
     }
 }
 
+/// Does some basic checks on the Message to see if the fields are valid.
 fn check_message(msg: &UnsignedMessage) -> Result<(), String> {
     if msg.gas_limit() == 0 {
         return Err("Gas limit is 0".to_owned());

@@ -110,9 +110,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     fn curr_epoch(&self) -> ChainEpoch {
         self.epoch
     }
-    fn validate_immediate_caller_accept_any(&self) {
-        return;
-    }
+    fn validate_immediate_caller_accept_any(&self) {}
     fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
     where
         I: Iterator<Item = &'a Address>,
@@ -165,14 +163,14 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
-        // TODO: Verify if right hash
+        // TODO: Verify if right hash to use
         let c = self.store.put(obj, Blake2b256).map_err(|e| {
             self.abort(
                 ExitCode::ErrPlaceholder,
                 format!("storage put in create: {}", e.to_string()),
             )
         })?;
-        // TODO: This is almost certainly wrong. Need to CBOR an empty slice and calculate CID
+        // TODO: This is almost certainly wrong. Need to CBOR an empty slice and calculate Cid
         self.state_commit(&Cid::default(), &c)
     }
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
@@ -233,7 +231,6 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
 
         // Committing that change
         self.state_commit(&act.state, &c)?;
-        // return
         Ok(r)
     }
 
@@ -274,9 +271,11 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             self.origin_nonce,
         );
         let send_res = internal_send::<ST, BS>(&mut parent, &msg, 0);
-        self.state
-            .revert_to_snapshot(&snapshot)
-            .map_err(|_e| self.abort(ExitCode::ErrPlaceholder, "failed to revert snapshot"))?;
+        if send_res.is_err() {
+            self.state
+                .revert_to_snapshot(&snapshot)
+                .map_err(|_e| self.abort(ExitCode::ErrPlaceholder, "failed to revert snapshot"))?;
+        }
         send_res
     }
 
@@ -404,12 +403,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
 }
 
 /// Transfers funds from one Actor to another Actor
-fn transfer<'a, ST>(
-    state: &ST,
-    from: &Address,
-    to: &Address,
-    value: &TokenAmount,
-) -> Result<(), String>
+fn transfer<ST>(state: &ST, from: &Address, to: &Address, value: &TokenAmount) -> Result<(), String>
 where
     ST: StateTree,
 {
