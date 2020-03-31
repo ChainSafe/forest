@@ -113,12 +113,12 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     fn validate_immediate_caller_accept_any(&self) {}
     fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
     where
-        I: Iterator<Item = &'a Address>,
+        I: IntoIterator<Item = &'a Address>,
     {
         let imm = self.resolve_address(self.message().from())?;
 
         // Check if theres is at least one match
-        if addresses.filter(|a| **a == imm).next().is_none() {
+        if !addresses.into_iter().any(|a| *a == imm) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
                 format!("caller is not one of {}", self.message().from()),
@@ -126,13 +126,13 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         }
         Ok(())
     }
-    
+
     fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
     where
-        I: Iterator<Item = &'a Cid>,
+        I: IntoIterator<Item = &'a Cid>,
     {
         let caller_cid = self.get_actor_code_cid(self.message().to())?;
-        if types.filter(|c| **c == caller_cid).next().is_none() {
+        if types.into_iter().any(|c| *c == caller_cid) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
                 format!(

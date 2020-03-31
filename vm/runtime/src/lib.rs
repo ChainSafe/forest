@@ -31,10 +31,10 @@ pub trait Runtime<BS: BlockStore> {
     fn validate_immediate_caller_accept_any(&self);
     fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
     where
-        I: Iterator<Item = &'a Address>;
+        I: IntoIterator<Item = &'a Address>;
     fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
     where
-        I: Iterator<Item = &'a Cid>;
+        I: IntoIterator<Item = &'a Cid>;
 
     /// The balance of the receiver.
     fn current_balance(&self) -> Result<TokenAmount, ActorError>;
