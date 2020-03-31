@@ -3,7 +3,6 @@
 
 use crate::{check_empty_params, SYSTEM_ACTOR_ADDR};
 
-use address::Address;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -33,8 +32,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
-        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR));
 
         Ok(())
     }

@@ -170,7 +170,7 @@ impl Reward {
                 if elapsed >= vest_duration {
                     self.value.clone()
                 } else {
-                    self.value.clone() * elapsed / vest_duration
+                    (self.value.clone() * elapsed) / vest_duration
                 }
             }
         }
