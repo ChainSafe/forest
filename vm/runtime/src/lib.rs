@@ -83,13 +83,13 @@ pub trait Runtime<BS: BlockStore> {
     /// Sends a message to another actor, returning the exit code and return value envelope.
     /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
     /// will be rolled back.
-    fn send<SR: Cbor>(
+    fn send(
         &self,
         to: &Address,
         method: MethodNum,
         params: &Serialized,
         value: &TokenAmount,
-    ) -> Result<SR, ActorError>;
+    ) -> Result<Serialized, ActorError>;
 
     /// Halts execution upon an error from which the receiver cannot recover. The caller will receive the exitcode and
     /// an empty return value. State changes made within this call will be rolled back.
@@ -201,6 +201,7 @@ pub struct ConsensusFault {
 }
 
 /// Consensus fault types in VM.
+#[derive(Clone, Copy)]
 pub enum ConsensusFaultType {
     DoubleForkMining = 1,
     ParentGrinding = 2,

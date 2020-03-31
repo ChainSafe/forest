@@ -12,7 +12,6 @@ use crate::{
 };
 use address::Address;
 use cid::Cid;
-use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_derive::FromPrimitive;
@@ -44,8 +43,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
-        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR));
         let mut empty_map = make_map(rt.store());
         let root = empty_map.flush().map_err(|err| {
             rt.abort(
@@ -101,7 +99,7 @@ impl Actor {
         rt.create_actor(&params.code_cid, &id_address);
 
         // Invoke constructor
-        rt.send::<Ipld>(
+        rt.send(
             &id_address,
             METHOD_CONSTRUCTOR,
             &params.constructor_params,
@@ -145,21 +143,14 @@ impl ActorCode for Actor {
 }
 
 fn can_exec(caller: &Cid, exec: &Cid) -> bool {
-    let (acc_ref, init_ref, power_ref, mar_ref, miner_ref): (&Cid, &Cid, &Cid, &Cid, &Cid) = (
-        &ACCOUNT_ACTOR_CODE_ID,
-        &INIT_ACTOR_CODE_ID,
-        &POWER_ACTOR_CODE_ID,
-        &MARKET_ACTOR_CODE_ID,
-        &MINER_ACTOR_CODE_ID,
-    );
     // TODO spec also checks for an undefined Cid, see if this should be supported
-    if exec == acc_ref
-        || exec == init_ref
-        || exec == power_ref
-        || exec == mar_ref
-        || exec == miner_ref
+    if exec == &*ACCOUNT_ACTOR_CODE_ID
+        || exec == &*INIT_ACTOR_CODE_ID
+        || exec == &*POWER_ACTOR_CODE_ID
+        || exec == &*MARKET_ACTOR_CODE_ID
+        || exec == &*MINER_ACTOR_CODE_ID
     {
-        exec == miner_ref && caller == power_ref
+        exec == &*MINER_ACTOR_CODE_ID && caller == &*POWER_ACTOR_CODE_ID
     } else {
         true
     }
