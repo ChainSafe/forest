@@ -67,7 +67,9 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
                     format!("failed to load actor: {}", e),
                 )
             })
-            .and_then(|act| act.ok_or_else(|| self.abort(ExitCode::SysErrInternal, "actor not found")))
+            .and_then(|act| {
+                act.ok_or_else(|| self.abort(ExitCode::SysErrInternal, "actor not found"))
+            })
     }
 
     pub fn get_balance(&self, addr: &Address) -> Result<BigUint, ActorError> {
@@ -179,10 +181,12 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                 )
             })
             .and_then(|c| {
-                c.ok_or_else(|| self.abort(
-                    ExitCode::ErrPlaceholder,
-                    "storage get error in  read only state".to_owned(),
-                ))
+                c.ok_or_else(|| {
+                    self.abort(
+                        ExitCode::ErrPlaceholder,
+                        "storage get error in  read only state".to_owned(),
+                    )
+                })
             })
     }
 
@@ -204,10 +208,12 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                 )
             })
             .and_then(|c| {
-                c.ok_or_else(|| self.abort(
-                    ExitCode::ErrPlaceholder,
-                    "storage get error in transaction".to_owned(),
-                ))
+                c.ok_or_else(|| {
+                    self.abort(
+                        ExitCode::ErrPlaceholder,
+                        "storage get error in transaction".to_owned(),
+                    )
+                })
             })?;
 
         // Update the state
@@ -327,10 +333,12 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
             )
         })
         .and_then(|act| {
-            act.ok_or_else(|| ActorError::new(
-                ExitCode::SysErrInternal,
-                "actor not found in internal_send".to_owned(),
-            ))
+            act.ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::SysErrInternal,
+                    "actor not found in internal_send".to_owned(),
+                )
+            })
         })?;
 
     if msg.value() != &0u8.into() {
