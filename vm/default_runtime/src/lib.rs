@@ -118,30 +118,31 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         let imm = self.resolve_address(self.message().from())?;
 
         // Check if theres is at least one match
-        match addresses.filter(|a| **a == imm).next() {
-            Some(_) => Ok(()),
-            None => Err(self.abort(
+        if addresses.filter(|a| **a == imm).next().is_none() {
+            return Err(self.abort(
                 ExitCode::SysErrForbidden,
                 format!("caller is not one of {}", self.message().from()),
-            )),
+            ));
         }
+        Ok(())
     }
+    
     fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
     where
         I: Iterator<Item = &'a Cid>,
     {
         let caller_cid = self.get_actor_code_cid(self.message().to())?;
-        match types.filter(|c| **c == caller_cid).next() {
-            Some(_) => Ok(()),
-            None => Err(self.abort(
+        if types.filter(|c| **c == caller_cid).next().is_none() {
+            return Err(self.abort(
                 ExitCode::SysErrForbidden,
                 format!(
                     "caller cid type {} one of {}",
                     caller_cid,
                     self.message().from()
                 ),
-            )),
+            ));
         }
+        Ok(())
     }
     fn current_balance(&self) -> Result<TokenAmount, ActorError> {
         self.get_balance(self.message.to())
