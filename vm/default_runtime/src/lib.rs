@@ -20,7 +20,7 @@ use vm::{
     METHOD_SEND,
 };
 pub const PLACEHOLDER_GAS: u64 = 1;
-
+/// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     state: &'c mut ST,
     store: &'a BS,
@@ -33,6 +33,7 @@ pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
 }
 
 impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
+    /// Constructs a new Runtime
     pub fn new(
         state: &'c mut ST,
         store: &'a BS,
@@ -54,11 +55,13 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
         }
     }
 
+    /// Adds to amount of used
     pub fn charge_gas(&mut self, to_use: u64) {
         self.gas_used += to_use;
     }
 
-    pub fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
+    /// Gets the specified Actor from the state tree
+    fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
         self.state
             .get_actor(&addr)
             .map_err(|e| {
@@ -72,10 +75,12 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
             })
     }
 
-    pub fn get_balance(&self, addr: &Address) -> Result<BigUint, ActorError> {
+    /// Get the balance of a particular Actor from their Address
+    fn get_balance(&self, addr: &Address) -> Result<BigUint, ActorError> {
         self.get_actor(&addr).map(|act| act.balance)
     }
 
+    /// Update the state Cid of the Message receiver
     fn state_commit(&mut self, old_h: &Cid, new_h: &Cid) -> Result<(), ActorError> {
         let to_addr = self.message().to().clone();
         let mut actor = self.get_actor(&to_addr)?;
@@ -314,6 +319,8 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         })
     }
 }
+/// Shared logic between the DefaultRuntime and the Interpreter.
+/// It invokes methods on different Actors based on the Message.
 pub fn internal_send<ST: StateTree, DB: BlockStore>(
     runtime: &mut DefaultRuntime<'_, '_, '_, ST, DB>,
     msg: &UnsignedMessage,
@@ -396,6 +403,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
     Ok(Serialized::default())
 }
 
+/// Transfers funds from one Actor to another Actor
 fn transfer<'a, ST>(
     state: &ST,
     from: &Address,
@@ -425,6 +433,7 @@ where
     Ok(())
 }
 
+/// Safely deducts funds from an Actor
 fn deduct_funds(from: &mut ActorState, amt: &TokenAmount) -> Result<(), String> {
     if &from.balance < amt {
         return Err("not enough funds".to_owned());
@@ -432,6 +441,7 @@ fn deduct_funds(from: &mut ActorState, amt: &TokenAmount) -> Result<(), String> 
     from.balance -= amt;
     Ok(())
 }
+/// Deposits funds to an Actor
 fn deposit_funds(to: &mut ActorState, amt: &TokenAmount) {
     to.balance += amt;
 }
