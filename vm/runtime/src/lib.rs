@@ -201,6 +201,7 @@ pub struct ConsensusFault {
 }
 
 /// Consensus fault types in VM.
+#[derive(Clone, Copy)]
 pub enum ConsensusFaultType {
     DoubleForkMining = 1,
     ParentGrinding = 2,

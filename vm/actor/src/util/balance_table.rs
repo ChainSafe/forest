@@ -59,7 +59,7 @@ where
     }
 
     /// Adds token amount to previously initialized account.
-    pub fn add(&mut self, key: &Address, value: TokenAmount) -> Result<(), String> {
+    pub fn add(&mut self, key: &Address, value: &TokenAmount) -> Result<(), String> {
         let prev = self.get(key)?;
         Ok(self.0.set(key.hash_key(), BigUintDe(prev + value))?)
     }

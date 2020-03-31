@@ -48,7 +48,7 @@ impl Actor {
     {
         // Only InitActor can create a payment channel actor. It creates the actor on
         // behalf of the payer/payee.
-        rt.validate_immediate_caller_type(std::iter::once::<&Cid>(&INIT_ACTOR_CODE_ID))?;
+        rt.validate_immediate_caller_type(std::iter::once(&*INIT_ACTOR_CODE_ID))?;
 
         // Check both parties are capable of signing vouchers
         let to = Self::resolve_account(rt, &params.to)?;

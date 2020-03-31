@@ -26,7 +26,6 @@ impl ActorError {
             msg,
         }
     }
-
     pub fn is_fatal(&self) -> bool {
         self.fatal
     }
@@ -43,7 +42,7 @@ impl ActorError {
 impl From<EncodingError> for ActorError {
     fn from(e: EncodingError) -> Self {
         Self {
-            fatal: true,
+            fatal: false,
             exit_code: ExitCode::ErrSerialization,
             msg: e.to_string(),
         }

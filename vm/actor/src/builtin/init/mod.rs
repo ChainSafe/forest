@@ -144,21 +144,14 @@ impl ActorCode for Actor {
 }
 
 fn can_exec(caller: &Cid, exec: &Cid) -> bool {
-    let (acc_ref, init_ref, power_ref, mar_ref, miner_ref): (&Cid, &Cid, &Cid, &Cid, &Cid) = (
-        &ACCOUNT_ACTOR_CODE_ID,
-        &INIT_ACTOR_CODE_ID,
-        &POWER_ACTOR_CODE_ID,
-        &MARKET_ACTOR_CODE_ID,
-        &MINER_ACTOR_CODE_ID,
-    );
     // TODO spec also checks for an undefined Cid, see if this should be supported
-    if exec == acc_ref
-        || exec == init_ref
-        || exec == power_ref
-        || exec == mar_ref
-        || exec == miner_ref
+    if exec == &*ACCOUNT_ACTOR_CODE_ID
+        || exec == &*INIT_ACTOR_CODE_ID
+        || exec == &*POWER_ACTOR_CODE_ID
+        || exec == &*MARKET_ACTOR_CODE_ID
+        || exec == &*MINER_ACTOR_CODE_ID
     {
-        exec == miner_ref && caller == power_ref
+        exec == &*MINER_ACTOR_CODE_ID && caller == &*POWER_ACTOR_CODE_ID
     } else {
         true
     }
