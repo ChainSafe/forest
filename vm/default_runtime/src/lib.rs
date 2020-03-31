@@ -67,7 +67,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
                     format!("failed to load actor: {}", e),
                 )
             })
-            .and_then(|act| act.ok_or(self.abort(ExitCode::SysErrInternal, "actor not found")))
+            .and_then(|act| act.ok_or_else(|| self.abort(ExitCode::SysErrInternal, "actor not found")))
     }
 
     pub fn get_balance(&self, addr: &Address) -> Result<BigUint, ActorError> {
@@ -179,7 +179,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                 )
             })
             .and_then(|c| {
-                c.ok_or(self.abort(
+                c.ok_or_else(|| self.abort(
                     ExitCode::ErrPlaceholder,
                     "storage get error in  read only state".to_owned(),
                 ))
@@ -204,7 +204,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                 )
             })
             .and_then(|c| {
-                c.ok_or(self.abort(
+                c.ok_or_else(|| self.abort(
                     ExitCode::ErrPlaceholder,
                     "storage get error in transaction".to_owned(),
                 ))
@@ -327,7 +327,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
             )
         })
         .and_then(|act| {
-            act.ok_or(ActorError::new(
+            act.ok_or_else(|| ActorError::new(
                 ExitCode::SysErrInternal,
                 "actor not found in internal_send".to_owned(),
             ))
@@ -406,11 +406,11 @@ where
     let mut from_actor = state
         .get_actor(&from)
         .map_err(|e| format!("transfer failed: {}", e))?
-        .ok_or(format!("transfer failed could not retrieve from actor"))?;
+        .ok_or_else(|| "transfer failed could not retrieve from actor".to_owned())?;
     let mut to_actor = state
         .get_actor(&to)
         .map_err(|e| format!("transfer failed: {}", e))?
-        .ok_or(format!("transfer failed could not retrieve from actor"))?;
+        .ok_or_else(|| "transfer failed could not retrieve from actor".to_owned())?;
 
     deduct_funds(&mut from_actor, &value)?;
     deposit_funds(&mut to_actor, &value);

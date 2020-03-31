@@ -259,7 +259,7 @@ impl Actor {
     {
         let epoch = rt.curr_epoch();
         let st: State = rt.state()?;
-        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
+        rt.validate_immediate_caller_is([st.from.clone(), st.to].iter())?;
 
         rt.transaction(|st: &mut State, _| {
             if st.settling_at != 0 {
