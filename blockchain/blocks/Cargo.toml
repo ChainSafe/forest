@@ -16,4 +16,4 @@ encoding = { package = "forest_encoding", path = "../../encoding" }
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 
 [dev-dependencies]
-base64 = "0.11.0"
+base64 = "0.12.0"

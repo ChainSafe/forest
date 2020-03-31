@@ -10,8 +10,8 @@ serde_tests = []
 [dev-dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-hex = "0.4.0"
-base64 = "0.11.0"
+hex = "0.4.2"
+base64 = "0.12.0"
 
 vm = { path = "../../vm" }
 address = { package = "forest_address", path = "../../vm/address" }
