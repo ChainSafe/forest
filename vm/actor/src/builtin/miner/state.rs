@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{u64_key, OptionalEpoch, HAMT_BIT_WIDTH};
+use crate::{power, u64_key, OptionalEpoch, HAMT_BIT_WIDTH};
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use address::Address;
 use cid::Cid;
@@ -167,11 +167,14 @@ impl State {
     }
     pub fn get_storage_weight_desc_for_sector<BS: BlockStore>(
         &self,
-        _store: &BS,
-        _sector_num: SectorNumber,
-    ) -> Result<(), String> {
-        // TODO implement when power actor changes come in (need SSWeightDesc type)
-        todo!()
+        store: &BS,
+        sector_num: SectorNumber,
+    ) -> Result<power::SectorStorageWeightDesc, String> {
+        let sector_info = self
+            .get_sector(store, sector_num)?
+            .ok_or(format!("no such sector {}", sector_num))?;
+
+        Ok(as_storage_weight_desc(self.info.sector_size, sector_info))
     }
     pub fn in_challenge_window<BS, RT>(&self, rt: &RT) -> bool
     where
@@ -525,5 +528,16 @@ impl<'de> Deserialize<'de> for SectorOnChainInfo {
             declared_fault_epoch,
             declared_fault_duration,
         })
+    }
+}
+
+fn as_storage_weight_desc(
+    sector_size: SectorSize,
+    sector_info: SectorOnChainInfo,
+) -> power::SectorStorageWeightDesc {
+    power::SectorStorageWeightDesc {
+        sector_size,
+        deal_weight: sector_info.deal_weight,
+        duration: sector_info.info.expiration - sector_info.activation_epoch,
     }
 }
