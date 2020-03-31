@@ -76,11 +76,6 @@ pub(super) fn reward_for_consensus_slash_report(
     collateral: TokenAmount,
 ) -> TokenAmount {
     // PARAM_FINISH
-    // var growthRate = SLASHER_SHARE_GROWTH_RATE_NUM / SLASHER_SHARE_GROWTH_RATE_DENOM
-    // var multiplier = growthRate^elapsed_epoch
-    // var slasherProportion = min(INITIAL_SLASHER_SHARE * multiplier, 1.0)
-    // return collateral * slasherProportion
-
     // BigInt Operation
     // NUM = SLASHER_SHARE_GROWTH_RATE_NUM^elapsed_epoch * INITIAL_SLASHER_SHARE_NUM * collateral
     // DENOM = SLASHER_SHARE_GROWTH_RATE_DENOM^elapsed_epoch * INITIAL_SLASHER_SHARE_DENOM
