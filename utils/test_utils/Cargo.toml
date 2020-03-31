@@ -1,0 +1,17 @@
+[package]
+name = "test_utils"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+address = { package = "forest_address", path = "../../vm/address" }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks/" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+ipld_blockstore = { path = "../../ipld/blockstore" }
+chain_sync = { path = "../../blockchain/chain_sync/"}
+message = { package = "forest_message", path = "../../vm/message" }
+num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+crypto = { path = "../../crypto" }
+async-std = { version = "1.4.0", features = ["unstable"] }
+forest_libp2p = { path = "../../node/forest_libp2p/" }
