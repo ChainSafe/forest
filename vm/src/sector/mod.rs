@@ -46,9 +46,9 @@ impl<'de> Deserialize<'de> for SectorSize {
     where
         D: Deserializer<'de>,
     {
-        let b: u64 = Deserialize::deserialize(deserializer)?;
-        Ok(FromPrimitive::from_u64(b)
-            .ok_or_else(|| de::Error::custom("Invalid registered proof byte"))?)
+        let v: u64 = Deserialize::deserialize(deserializer)?;
+        FromPrimitive::from_u64(v)
+            .ok_or_else(|| de::Error::custom(format!("Invalid sector size: {}", v)))
     }
 }
 

@@ -10,8 +10,10 @@ pub mod multisig;
 pub mod paych;
 pub mod power;
 pub mod reward;
+mod shared;
 mod singletons;
 pub mod system;
 
 pub use self::codes::*;
+pub(crate) use self::shared::*;
 pub use self::singletons::*;
