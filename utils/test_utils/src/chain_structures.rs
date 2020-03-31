@@ -12,12 +12,12 @@ use std::error::Error;
 
 const WEIGHT: u64 = 1;
 
-/// Add comment
+/// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
     Cid::new_from_cbor(data, Blake2b256).unwrap()
 }
 
-// template_header defines a block header used in testing
+// Defines a block header used in testing
 fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64, epoch: u64) -> BlockHeader {
     let cids = key_setup();
     BlockHeader::builder()
@@ -29,6 +29,10 @@ fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64, epoch: u64) -> B
         .ticket(Ticket {
             vrfproof: VRFResult::new(ticket_p),
         })
+        .messages(
+            Cid::from_raw_cid("bafy2bzaced5inutkibck2wagtnggbvjpbr65ghdncivs3gpagx67s3xs3i5wa")
+                .unwrap(),
+        )
         .epoch(epoch)
         .weight(BigUint::from(WEIGHT))
         .cached_cid(cid)
@@ -36,19 +40,19 @@ fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64, epoch: u64) -> B
         .unwrap()
 }
 
-/// returns a vec of 4 distinct CIDs
+/// Returns a vec of distinct CIDs
 pub fn key_setup() -> Vec<Cid> {
     return vec![template_key(b"test content")];
 }
 
-/// returns a vec of block headers to be used for testing purposes
+/// Returns a vec of block headers to be used for testing purposes
 pub fn header_setup(epoch: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
     let cids = key_setup();
     return vec![template_header(data0, cids[0].clone(), 1, epoch)];
 }
 
-/// /// Add comment
+/// Returns a full block used for testing
 pub fn block_setup() -> Block {
     let epoch: u64 = 1;
     let headers = header_setup(epoch);
@@ -60,11 +64,11 @@ pub fn block_setup() -> Block {
         bls_messages: vec![bls_messages],
     }
 }
-/// Add comment
+/// Returns a tipset used for testing
 pub fn tipset_setup(epoch: u64) -> Tipset {
     Tipset::new(header_setup(epoch)).expect("tipset is invalid")
 }
-/// Add comment
+/// Returns a full tipset used for testing
 pub fn full_tipset_setup() -> FullTipset {
     let epoch: u64 = 1;
     let headers = header_setup(epoch);
@@ -89,7 +93,7 @@ impl Signer for DummySigner {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }
-/// Add comment
+/// Returns a tuple of unsigned and signed messages used for testing
 pub fn block_msgs_setup() -> (UnsignedMessage, SignedMessage) {
     let bls_messages = UnsignedMessage::builder()
         .to(Address::new_id(1).unwrap())
@@ -101,16 +105,17 @@ pub fn block_msgs_setup() -> (UnsignedMessage, SignedMessage) {
     (bls_messages, secp_messages)
 }
 
-/// add comment
+/// Returns a TipsetBundle used for testing
 pub fn tipset_bundle(epoch: u64) -> TipSetBundle {
     let headers = header_setup(epoch);
     let (bls, secp) = block_msgs_setup();
+    let includes: Vec<Vec<u64>> = (0..headers.len()).map(|_| vec![]).collect();
 
     TipSetBundle {
         blocks: headers,
         bls_msgs: vec![bls],
         secp_msgs: vec![secp],
-        bls_msg_includes: vec![],
-        secp_msg_includes: vec![],
+        bls_msg_includes: includes.clone(),
+        secp_msg_includes: includes,
     }
 }
