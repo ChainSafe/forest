@@ -126,7 +126,7 @@ where
     pub fn total(&self) -> Result<TokenAmount, String> {
         let mut total = TokenAmount::default();
 
-        self.0.for_each(&mut |_, v: BigUintDe| {
+        self.0.for_each(|_, v: BigUintDe| {
             total += v.0;
             Ok(())
         })?;

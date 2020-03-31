@@ -1,19 +1,21 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::OptionalEpoch;
+use crate::{u64_key, OptionalEpoch, HAMT_BIT_WIDTH};
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
+use ipld_hamt::{Error as HamtError, Hamt};
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use num_bigint::BigInt;
 use rleplus::bitvec::prelude::{BitVec, Lsb0};
 use rleplus::{BitVecDe, BitVecSer};
-use vm::{DealID, RegisteredProof, SectorNumber, SectorSize, TokenAmount};
+use runtime::Runtime;
+use vm::{DealID, RegisteredProof, SectorInfo, SectorNumber, SectorSize, TokenAmount};
 
 /// Miner actor state
 pub struct State {
@@ -75,6 +77,145 @@ impl State {
     pub fn get_max_allowed_faults<BS: BlockStore>(&self, store: &BS) -> Result<u64, AmtError> {
         let sector_count = self.sector_count(store)?;
         Ok(2 * sector_count)
+    }
+    pub fn put_precommitted_sector<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        info: SectorPreCommitOnChainInfo,
+    ) -> Result<(), HamtError> {
+        let mut precommitted =
+            Hamt::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        precommitted.set(u64_key(info.info.sector_number), info)?;
+
+        self.pre_committed_sectors = precommitted.flush()?;
+        Ok(())
+    }
+    pub fn get_precommitted_sector<BS: BlockStore>(
+        &self,
+        store: &BS,
+        sector_num: SectorNumber,
+    ) -> Result<Option<SectorPreCommitOnChainInfo>, HamtError> {
+        let precommitted = Hamt::<String, _>::load_with_bit_width(
+            &self.pre_committed_sectors,
+            store,
+            HAMT_BIT_WIDTH,
+        )?;
+        precommitted.get(&u64_key(sector_num))
+    }
+    pub fn delete_precommitted_sector<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        sector_num: SectorNumber,
+    ) -> Result<(), HamtError> {
+        let mut precommitted = Hamt::<String, _>::load_with_bit_width(
+            &self.pre_committed_sectors,
+            store,
+            HAMT_BIT_WIDTH,
+        )?;
+        precommitted.delete(&u64_key(sector_num))?;
+
+        self.pre_committed_sectors = precommitted.flush()?;
+        Ok(())
+    }
+    pub fn has_sector_number<BS: BlockStore>(
+        &self,
+        store: &BS,
+        sector_num: SectorNumber,
+    ) -> Result<bool, AmtError> {
+        let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+        match sectors.get(sector_num)? {
+            Some(_) => Ok(true),
+            None => Ok(false),
+        }
+    }
+    pub fn put_sector<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        sector: SectorOnChainInfo,
+    ) -> Result<(), AmtError> {
+        let mut sectors = Amt::load(&self.sectors, store)?;
+        sectors.set(sector.info.sector_number, sector)?;
+
+        self.sectors = sectors.flush()?;
+        Ok(())
+    }
+    pub fn get_sector<BS: BlockStore>(
+        &self,
+        store: &BS,
+        sector_num: SectorNumber,
+    ) -> Result<Option<SectorOnChainInfo>, AmtError> {
+        let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+        sectors.get(sector_num)
+    }
+    pub fn delete_sector<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        sector_num: SectorNumber,
+    ) -> Result<(), AmtError> {
+        let mut sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+        sectors.delete(sector_num)?;
+
+        self.sectors = sectors.flush()?;
+        Ok(())
+    }
+    pub fn for_each_sector<BS: BlockStore, F>(&self, store: &BS, mut f: F) -> Result<(), String>
+    where
+        F: FnMut(&SectorOnChainInfo) -> Result<(), String>,
+    {
+        let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+        sectors.for_each(|_, v| f(&v))
+    }
+    pub fn get_storage_weight_desc_for_sector<BS: BlockStore>(
+        &self,
+        _store: &BS,
+        _sector_num: SectorNumber,
+    ) -> Result<(), String> {
+        // TODO implement when power actor changes come in (need SSWeightDesc type)
+        todo!()
+    }
+    pub fn in_challenge_window<BS, RT>(&self, rt: &RT) -> bool
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // TODO revisit TODO in spec impl
+        match *self.post_state.proving_period_start {
+            Some(e) => rt.curr_epoch() > e,
+            None => true,
+        }
+    }
+    pub fn compute_proving_set<BS: BlockStore>(
+        &self,
+        store: &BS,
+    ) -> Result<Vec<SectorInfo>, String> {
+        let proving_set = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+
+        let max_allowed_faults = self.get_max_allowed_faults(store)?;
+        if self.fault_set.count_ones() > max_allowed_faults as usize {
+            return Err("Bitfield larger than maximum allowed".to_owned());
+        }
+
+        let mut sector_infos: Vec<SectorInfo> = Vec::new();
+        proving_set.for_each(|i, v: &SectorOnChainInfo| {
+            if *v.declared_fault_epoch != None || *v.declared_fault_duration != None {
+                return Err("sector fault epoch or duration invalid".to_owned());
+            }
+
+            let fault = match self.fault_set.get(i as usize) {
+                Some(true) => true,
+                _ => false,
+            };
+            if !fault {
+                sector_infos.push(SectorInfo {
+                    sealed_cid: v.info.sealed_cid.clone(),
+                    sector_number: v.info.sector_number,
+                    proof: v.info.registered_proof,
+                });
+            }
+            Ok(())
+        })?;
+
+        Ok(sector_infos)
     }
 }
 
@@ -182,6 +323,15 @@ pub struct PoStState {
     pub num_consecutive_failures: i64,
 }
 
+impl PoStState {
+    pub fn has_failed_post(&self) -> bool {
+        self.num_consecutive_failures > 0
+    }
+    pub fn is_ok(&self) -> bool {
+        !self.has_failed_post()
+    }
+}
+
 impl Serialize for PoStState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -281,7 +431,7 @@ impl<'de> Deserialize<'de> for SectorPreCommitInfo {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SectorPreCommitOnChainInfo {
     pub info: SectorPreCommitInfo,
     pub pre_commit_deposit: TokenAmount,

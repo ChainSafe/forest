@@ -63,7 +63,7 @@ where
         F: FnMut(&String) -> Result<(), String>,
     {
         // Calls the for each function on the hamt with ignoring the value
-        self.0.for_each(&mut |s, _: EmptyType| f(s))
+        self.0.for_each(|s, _: EmptyType| f(s))
     }
 
     /// Collects all keys from the set into a vector.
