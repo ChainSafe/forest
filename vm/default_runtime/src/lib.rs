@@ -1,6 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use actor::{
+    self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
+    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
+    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
+};
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
@@ -10,9 +15,9 @@ use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigUint;
 use runtime::{ActorCode, Runtime};
-use vm::ActorError;
 use vm::{
-    ActorState, ExitCode, MethodNum, Randomness, Serialized, StateTree, TokenAmount, METHOD_SEND,
+    ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, StateTree, TokenAmount,
+    METHOD_SEND,
 };
 pub const PLACEHOLDER_GAS: u64 = 1;
 
@@ -216,7 +221,6 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         })?;
 
         // Committing that change
-        // TODO commit state to blockstore with stateCommit eq
         self.state_commit(&act.state, &c)?;
         // return
         Ok(r)
@@ -242,7 +246,6 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .params(params.clone())
             .build()
             .unwrap();
-
 
         // snapshot state tree
         let snapshot = self
@@ -305,7 +308,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         })
     }
 }
-pub(crate) fn internal_send<ST: StateTree, DB: BlockStore>(
+pub fn internal_send<ST: StateTree, DB: BlockStore>(
     runtime: &mut DefaultRuntime<'_, '_, '_, ST, DB>,
     msg: &UnsignedMessage,
     _gas_cost: u64,
@@ -343,38 +346,38 @@ pub(crate) fn internal_send<ST: StateTree, DB: BlockStore>(
         let ret = {
             // TODO: make its own method/struct
             match to_actor.code {
-                x if x == *actor::SYSTEM_ACTOR_CODE_ID => {
+                x if x == *SYSTEM_ACTOR_CODE_ID => {
                     actor::system::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                x if x == *actor::INIT_ACTOR_CODE_ID => {
+                x if x == *INIT_ACTOR_CODE_ID => {
                     actor::init::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                x if x == *actor::CRON_ACTOR_CODE_ID => {
+                x if x == *CRON_ACTOR_CODE_ID => {
                     actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                x if x == *actor::ACCOUNT_ACTOR_CODE_ID => {
+                x if x == *ACCOUNT_ACTOR_CODE_ID => {
                     actor::account::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                x if x == *actor::POWER_ACTOR_CODE_ID => {
+                x if x == *POWER_ACTOR_CODE_ID => {
                     actor::power::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                x if x == *actor::MINER_ACTOR_CODE_ID => {
+                x if x == *MINER_ACTOR_CODE_ID => {
                     // not implemented yet
                     // actor::miner::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                     todo!()
                 }
-                x if x == *actor::MARKET_ACTOR_CODE_ID => {
+                x if x == *MARKET_ACTOR_CODE_ID => {
                     // not implemented yet
                     // actor::market::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                     todo!()
                 }
-                x if x == *actor::PAYCH_ACTOR_CODE_ID => {
+                x if x == *PAYCH_ACTOR_CODE_ID => {
                     actor::paych::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                x if x == *actor::MULTISIG_ACTOR_CODE_ID => {
+                x if x == *MULTISIG_ACTOR_CODE_ID => {
                     actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                x if x == *actor::REWARD_ACTOR_CODE_ID => {
+                x if x == *REWARD_ACTOR_CODE_ID => {
                     actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
                 _ => todo!("Handle unknown code cids"),

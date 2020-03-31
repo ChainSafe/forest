@@ -1,11 +1,10 @@
 [package]
-name = "interpreter"
+name = "default_runtime"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-state_tree = { path = "../state_tree" }
 address = { package = "forest_address", path = "../address" }
 actor = { path = "../actor" }
 message = { package = "forest_message", path = "../message" }
@@ -20,4 +19,3 @@ forest_encoding = { path = "../../encoding" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 crypto = { path = "../../crypto" } 
 num-traits = "0.2.11"
-default_runtime = { path = "../default_runtime" }

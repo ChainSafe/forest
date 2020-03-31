@@ -4,14 +4,13 @@
 use address::Address;
 use blocks::Tipset;
 use clock::ChainEpoch;
+use default_runtime::{internal_send, DefaultRuntime};
 use ipld_blockstore::BlockStore;
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use vm::ActorError;
 use vm::{ExitCode, Serialized, StateTree};
-mod default_runtime;
-pub use default_runtime::*;
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
