@@ -284,7 +284,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let st: State = rt.state()?;
-        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
+        rt.validate_immediate_caller_is(&[st.from.clone(), st.to.clone()])?;
 
         if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {
             return Err(rt.abort(

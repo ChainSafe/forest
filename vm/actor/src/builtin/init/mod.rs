@@ -104,7 +104,7 @@ impl Actor {
             &id_address,
             METHOD_CONSTRUCTOR,
             &params.constructor_params,
-            rt.message().clone().value(),
+            &rt.message().value().clone(),
         )
         .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))?;
 

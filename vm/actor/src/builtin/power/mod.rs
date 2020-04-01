@@ -160,9 +160,9 @@ impl Actor {
             )?
             .deserialize()?;
 
-        let msg = rt.message().value().clone();
+        let value= rt.message().value().clone();
         rt.transaction::<State, Result<(), ActorError>, _>(|st, bs| {
-            st.set_miner_balance(bs, &addresses.id_address, msg)
+            st.set_miner_balance(bs, &addresses.id_address, value)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
