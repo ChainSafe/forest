@@ -8,7 +8,6 @@ pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
 use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
-use cid::Cid;
 use encoding::to_vec;
 use ipld_blockstore::BlockStore;
 use message::Message;
@@ -71,13 +70,12 @@ impl Actor {
 
         let code_cid = rt.get_actor_code_cid(&resolved)?;
 
-        let account_code_ref: &Cid = &ACCOUNT_ACTOR_CODE_ID;
-        if &code_cid != account_code_ref {
+        if &code_cid != &*ACCOUNT_ACTOR_CODE_ID {
             Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 format!(
                     "actor {} must be an account ({}), was {}",
-                    raw, account_code_ref, code_cid
+                    raw, &*ACCOUNT_ACTOR_CODE_ID, code_cid
                 ),
             ))
         } else {
