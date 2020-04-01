@@ -11,7 +11,6 @@ use futures_util::stream::StreamExt;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
-    core::nodes::Substream,
     core::transport::boxed::Boxed,
     gossipsub::{Topic, TopicHash},
     identity::{ed25519, Keypair},
@@ -21,9 +20,6 @@ use log::{debug, info, trace, warn};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 use utils::read_file_to_vec;
-
-type Libp2pStream = Boxed<(PeerId, StreamMuxerBox), Error>;
-type Libp2pBehaviour = ForestBehaviour<Substream<StreamMuxerBox>>;
 
 /// Events emitted by this Service
 #[derive(Clone, Debug)]
@@ -55,7 +51,7 @@ pub enum NetworkMessage {
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
-    pub swarm: Swarm<Libp2pStream, Libp2pBehaviour>,
+    pub swarm: Swarm<ForestBehaviour>,
 
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,

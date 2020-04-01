@@ -205,11 +205,12 @@ mod tests {
     use super::*;
     use address::Address;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
-    use rand::{Rng, SeedableRng, XorShiftRng};
+    use rand::rngs::mock::StepRng;
+    use rand::Rng;
 
     #[test]
     fn bls_verify() {
-        let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let rng = &mut StepRng::new(8, 3);
         let sk = PrivateKey::generate(rng);
 
         let msg = (0..64).map(|_| rng.gen()).collect::<Vec<u8>>();
@@ -244,7 +245,7 @@ mod tests {
         let num_sigs = 10;
         let message_length = num_sigs * 64;
 
-        let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let rng = &mut StepRng::new(8, 3);
 
         let msg = (0..message_length).map(|_| rng.gen()).collect::<Vec<u8>>();
         let data: Vec<&[u8]> = (0..num_sigs).map(|x| &msg[x * 64..(x + 1) * 64]).collect();

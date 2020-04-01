@@ -49,11 +49,12 @@ impl VRFResult {
 mod tests {
     use super::*;
     use bls_signatures::{PrivateKey, Serialize};
-    use rand::{Rng, SeedableRng, XorShiftRng};
+    use rand::rngs::mock::StepRng;
+    use rand::Rng;
 
     #[test]
     fn verify() {
-        let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let rng = &mut StepRng::new(4, 3);
         let privk = PrivateKey::generate(rng);
 
         let init_input = (0..64).map(|_| rng.gen()).collect::<Vec<u8>>();

@@ -8,7 +8,8 @@ use bytes::BytesMut;
 use futures::prelude::*;
 use futures::{AsyncRead, AsyncReadExt, AsyncWrite};
 use futures_codec::{Decoder, Encoder, Framed};
-use libp2p::core::{Negotiated, UpgradeInfo};
+use libp2p::core::UpgradeInfo;
+use libp2p::swarm::NegotiatedSubstream;
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use std::pin::Pin;
 
@@ -87,7 +88,7 @@ impl RPCRequest {
     }
 }
 
-pub(crate) type OutboundFramed<TSocket> = Framed<Negotiated<TSocket>, OutboundCodec>;
+pub(crate) type OutboundFramed = Framed<NegotiatedSubstream, OutboundCodec>;
 
 impl<TSocket> OutboundUpgrade<TSocket> for RPCRequest
 where
