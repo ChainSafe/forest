@@ -6,6 +6,7 @@ use base64;
 use blocks::{
     Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, TipSetKeys, Tipset, TxMeta,
 };
+use chain::TipSetMetadata;
 use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFResult};
 use encoding::to_vec;
@@ -29,7 +30,7 @@ fn template_header(
     epoch: u64,
     msg_root: Cid,
 ) -> BlockHeader {
-    let cids = key_setup();
+    let cids = construct_keys();
     BlockHeader::builder()
         .parents(TipSetKeys {
             cids: vec![cids[0].clone()],
@@ -47,8 +48,8 @@ fn template_header(
         .unwrap()
 }
 
-// key_setup returns a vec of 4 distinct CIDs
-pub fn key_setup() -> Vec<Cid> {
+// Returns a vec of 4 distinct CIDs
+pub fn construct_keys() -> Vec<Cid> {
     return vec![
         template_key(b"test content"),
         template_key(b"awesome test content "),
@@ -62,7 +63,7 @@ pub fn construct_header(epoch: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
     let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
     let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
-    let cids = key_setup();
+    let cids = construct_keys();
     // setup a deterministic message root within block header
     let meta = TxMeta {
         bls_message_root: Cid::from_raw_cid(
@@ -137,6 +138,16 @@ pub fn construct_full_tipset() -> FullTipset {
     });
 
     FullTipset::new(blocks)
+}
+
+/// Returns TipSetMetadata used for testing
+pub fn construct_tipset_metadata() -> TipSetMetadata {
+    let tip_set = construct_tipset(1);
+    TipSetMetadata {
+        tipset_state_root: tip_set.blocks()[0].state_root().clone(),
+        tipset_receipts_root: tip_set.blocks()[0].message_receipts().clone(),
+        tipset: tip_set,
+    }
 }
 
 const DUMMY_SIG: [u8; 1] = [0u8];

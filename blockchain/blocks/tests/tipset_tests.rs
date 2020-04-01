@@ -3,7 +3,7 @@
 
 use forest_blocks::*;
 use num_bigint::BigUint;
-use test_utils::{construct_header, construct_tipset, key_setup, template_key};
+use test_utils::{construct_header, construct_keys, construct_tipset, template_key};
 
 const WEIGHT: u64 = 10;
 
@@ -61,10 +61,10 @@ fn weight_test() {
 #[test]
 fn equals_test() {
     let tipset_keys = TipSetKeys {
-        cids: key_setup().clone(),
+        cids: construct_keys().clone(),
     };
     let tipset_keys2 = TipSetKeys {
-        cids: key_setup().clone(),
+        cids: construct_keys().clone(),
     };
     assert_eq!(tipset_keys.equals(&tipset_keys2), true);
 }

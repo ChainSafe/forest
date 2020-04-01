@@ -23,8 +23,7 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
-    // TODO revisit if this should be pointer to tipset on heap
-    heaviest: Arc<Tipset>,
+    heaviest: Tipset,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     pub tip_index: TipIndex,
@@ -37,13 +36,18 @@ where
     /// constructor
     pub fn new(db: Arc<DB>) -> Self {
         // TODO pull heaviest tipset from data storage
-        let heaviest = Arc::new(Tipset::new(vec![BlockHeader::default()]).unwrap());
+        let heaviest = Tipset::new(vec![BlockHeader::default()]).unwrap();
         Self {
             db,
             tip_index: TipIndex::new(),
             heaviest,
         }
     }
+
+    pub fn set_heaviest_tipset(&mut self, ts: Tipset) {
+        self.heaviest = ts;
+    }
+
     /// Sets tip_index tracker
     pub fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
         let ts: Tipset = Tipset::new(vec![header.clone()])?;
@@ -103,7 +107,7 @@ where
     }
 
     /// Returns heaviest tipset from blockstore
-    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
+    pub fn heaviest_tipset(&self) -> Tipset {
         self.heaviest.clone()
     }
 
@@ -197,6 +201,7 @@ where
                 secp_messages,
             });
         }
+
         Ok(FullTipset::new(blocks))
     }
 }

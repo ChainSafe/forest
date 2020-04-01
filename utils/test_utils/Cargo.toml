@@ -10,6 +10,7 @@ blocks = { package = "forest_blocks", path = "../../blockchain/blocks/" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 chain_sync = { path = "../../blockchain/chain_sync/"}
+chain = { path = "../../blockchain/chain/" }
 message = { package = "forest_message", path = "../../vm/message" }
 num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 crypto = { path = "../../crypto" }
