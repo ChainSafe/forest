@@ -40,7 +40,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
         gas_used: u64,
         message: &'b UnsignedMessage,
         epoch: ChainEpoch,
-        origin: &Address,
+        origin: Address,
         origin_nonce: u64,
     ) -> Self {
         DefaultRuntime {
@@ -50,7 +50,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
             gas_available: message.gas_limit(),
             message,
             epoch,
-            origin: origin.clone(),
+            origin,
             origin_nonce,
         }
     }
@@ -164,7 +164,6 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
-        // TODO: Verify if right hash to use
         let c = self.store.put(obj, Blake2b256).map_err(|e| {
             self.abort(
                 ExitCode::ErrPlaceholder,
@@ -183,14 +182,12 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                     ExitCode::ErrPlaceholder,
                     format!("storage get error in read only state: {}", e.to_string()),
                 )
-            })
-            .and_then(|c| {
-                c.ok_or_else(|| {
-                    self.abort(
-                        ExitCode::ErrPlaceholder,
-                        "storage get error in  read only state".to_owned(),
-                    )
-                })
+            })?
+            .ok_or_else(|| {
+                self.abort(
+                    ExitCode::ErrPlaceholder,
+                    "storage get error in read only state".to_owned(),
+                )
             })
     }
 
@@ -210,14 +207,12 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                     ExitCode::ErrPlaceholder,
                     format!("storage get error in transaction: {}", e.to_string()),
                 )
-            })
-            .and_then(|c| {
-                c.ok_or_else(|| {
-                    self.abort(
-                        ExitCode::ErrPlaceholder,
-                        "storage get error in transaction".to_owned(),
-                    )
-                })
+            })?
+            .ok_or_else(|| {
+                self.abort(
+                    ExitCode::ErrPlaceholder,
+                    "storage get error in transaction".to_owned(),
+                )
             })?;
 
         // Update the state
@@ -268,7 +263,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             self.gas_used,
             &msg,
             self.curr_epoch(),
-            &self.origin,
+            self.origin.clone(),
             self.origin_nonce,
         );
         let send_res = internal_send::<ST, BS>(&mut parent, &msg, 0);
@@ -280,8 +275,8 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         send_res
     }
 
-    fn abort<S: AsRef<str>>(&self, _exit_code: ExitCode, _msg: S) -> ActorError {
-        todo!()
+    fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
+        ActorError::new(exit_code, msg.as_ref().to_owned())
     }
     fn new_actor_address(&self) -> Address {
         todo!()
@@ -404,8 +399,12 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
 }
 
 /// Transfers funds from one Actor to another Actor
-fn transfer<ST: StateTree>(state: &mut ST, from: &Address, to: &Address, value: &TokenAmount) -> Result<(), String>
-{
+fn transfer<ST: StateTree>(
+    state: &mut ST,
+    from: &Address,
+    to: &Address,
+    value: &TokenAmount,
+) -> Result<(), String> {
     if from == to {
         return Ok(());
     }
@@ -419,17 +418,25 @@ fn transfer<ST: StateTree>(state: &mut ST, from: &Address, to: &Address, value: 
 }
 
 /// Safely deducts funds from an Actor
-fn deduct_funds<ST: StateTree>(state: &mut ST, from:&Address, amt: &TokenAmount) -> Result<(), String> {
+fn deduct_funds<ST: StateTree>(
+    state: &mut ST,
+    from: &Address,
+    amt: &TokenAmount,
+) -> Result<(), String> {
     state.mutate_actor(from, |act| {
-            if &act.balance < amt {
-                return Err("not enough funds".to_owned());
-            }
-            act.balance -= amt;
-            Ok(())
+        if &act.balance < amt {
+            return Err("not enough funds".to_owned());
+        }
+        act.balance -= amt;
+        Ok(())
     })
 }
 /// Deposits funds to an Actor
-fn deposit_funds<ST: StateTree> (state: &mut ST, to: &Address, amt: &TokenAmount) -> Result<(), String> {
+fn deposit_funds<ST: StateTree>(
+    state: &mut ST,
+    to: &Address,
+    amt: &TokenAmount,
+) -> Result<(), String> {
     state.mutate_actor(to, |act| {
         act.balance += amt;
         Ok(())
