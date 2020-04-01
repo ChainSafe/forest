@@ -44,7 +44,6 @@ where
             heaviest,
         }
     }
-
     /// Sets tip_index tracker
     pub fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
         let ts: Tipset = Tipset::new(vec![header.clone()])?;

@@ -2,15 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
-use blocks::{Block, BlockHeader, FullTipset, Ticket, TipSetKeys, Tipset};
+use base64;
+use blocks::{
+    Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, TipSetKeys, Tipset, TxMeta,
+};
 use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFResult};
+use encoding::to_vec;
 use forest_libp2p::blocksync::TipSetBundle;
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::error::Error;
 
-const WEIGHT: u64 = 1;
+const WEIGHT: u64 = 10;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
@@ -18,7 +22,13 @@ pub fn template_key(data: &[u8]) -> Cid {
 }
 
 // Defines a block header used in testing
-fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64, epoch: u64) -> BlockHeader {
+fn template_header(
+    ticket_p: Vec<u8>,
+    cid: Cid,
+    timestamp: u64,
+    epoch: u64,
+    msg_root: Cid,
+) -> BlockHeader {
     let cids = key_setup();
     BlockHeader::builder()
         .parents(TipSetKeys {
@@ -29,10 +39,7 @@ fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64, epoch: u64) -> B
         .ticket(Ticket {
             vrfproof: VRFResult::new(ticket_p),
         })
-        .messages(
-            Cid::from_raw_cid("bafy2bzaced5inutkibck2wagtnggbvjpbr65ghdncivs3gpagx67s3xs3i5wa")
-                .unwrap(),
-        )
+        .messages(msg_root)
         .epoch(epoch)
         .weight(BigUint::from(WEIGHT))
         .cached_cid(cid)
@@ -40,23 +47,69 @@ fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64, epoch: u64) -> B
         .unwrap()
 }
 
-/// Returns a vec of distinct CIDs
+// key_setup returns a vec of 4 distinct CIDs
 pub fn key_setup() -> Vec<Cid> {
-    return vec![template_key(b"test content")];
+    return vec![
+        template_key(b"test content"),
+        template_key(b"awesome test content "),
+        template_key(b"even better test content"),
+        template_key(b"the best test content out there"),
+    ];
 }
 
 /// Returns a vec of block headers to be used for testing purposes
-pub fn header_setup(epoch: u64) -> Vec<BlockHeader> {
+pub fn construct_header(epoch: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
+    let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
+    let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
     let cids = key_setup();
-    return vec![template_header(data0, cids[0].clone(), 1, epoch)];
+    // setup a deterministic message root within block header
+    let meta = TxMeta {
+        bls_message_root: Cid::from_raw_cid(
+            "bafy2bzacec4insvxxjqhl4sqdfjioz3gotxjrflb3cdpd3trtvw3zvm75jdzc",
+        )
+        .unwrap(),
+        secp_message_root: Cid::from_raw_cid(
+            "bafy2bzacecbnlmwafpin7d4wmnb6sgtsdo6cfp4dhjbroq2g574eqrzc65e5a",
+        )
+        .unwrap(),
+    };
+    let bz = to_vec(&meta).unwrap();
+    let msg_root = Cid::new_from_cbor(&bz, Blake2b256).unwrap();
+
+    return vec![
+        template_header(data0, cids[0].clone(), 1, epoch, msg_root.clone()),
+        template_header(data1, cids[1].clone(), 2, epoch, msg_root.clone()),
+        template_header(data2, cids[2].clone(), 3, epoch, msg_root),
+    ];
+}
+
+/// Returns a Ticket to be used for testing
+pub fn construct_ticket() -> Ticket {
+    let vrf_result = VRFResult::new(base64::decode("lmRJLzDpuVA7cUELHTguK9SFf+IVOaySG8t/0IbVeHHm3VwxzSNhi1JStix7REw6Apu6rcJQV1aBBkd39gQGxP8Abzj8YXH+RdSD5RV50OJHi35f3ixR0uhkY6+G08vV").unwrap());
+    Ticket::new(vrf_result)
+}
+
+/// Returns a deterministic EPostProof to be used for testing
+pub fn construct_epost_proof() -> EPostProof {
+    let etik = EPostTicket {
+        partial: base64::decode("TFliU6/pdbjRyomejlXMS77qjYdMDty07vigvXH/vjI=").unwrap(),
+        sector_id: 284,
+        challenge_index: 5,
+    };
+
+    EPostProof{
+        proof: base64::decode("rn85uiodD29xvgIuvN5/g37IXghPtVtl3li9y+nPHCueATI1q1/oOn0FEIDXRWHLpZ4CzAqOdQh9rdHih+BI5IsdI1YpwV+UdNDspJVW/cinVE+ZoiO86ap30l77RLkrEwxUZ5v8apsSRUizoXh1IFrHgK06gk1wl5LaxY2i/CQgBoWIPx9o2EYMBbNfQcu+pRzFmiDjzT6BIhYrPbo+gm6wHFiNhp3FvAuSUH2/N+5MKZo7Eh7LwgGLc0fL4MEI").unwrap(),
+        post_rand: base64::decode("hdodcCz5kLJYRb9PT7m4z9kRvc9h02KMye9DOklnQ8v05X2ds9rgNhcTV+d/cXS+AvADHpepQODMV/6E1kbT99kdFt0xMNUsO/9YbH4ujif7sY0P8pgRAunlMgPrx7Sx").unwrap(),
+        candidates: vec![etik]
+    }
 }
 
 /// Returns a full block used for testing
-pub fn block_setup() -> Block {
+pub fn construct_block() -> Block {
     let epoch: u64 = 1;
-    let headers = header_setup(epoch);
-    let (bls_messages, secp_messages) = block_msgs_setup();
+    let headers = construct_header(epoch);
+    let (bls_messages, secp_messages) = construct_messages();
 
     Block {
         header: headers[0].clone(),
@@ -64,24 +117,25 @@ pub fn block_setup() -> Block {
         bls_messages: vec![bls_messages],
     }
 }
-/// Returns a tipset used for testing
-pub fn tipset_setup(epoch: u64) -> Tipset {
-    Tipset::new(header_setup(epoch)).expect("tipset is invalid")
-}
-/// Returns a full tipset used for testing
-pub fn full_tipset_setup() -> FullTipset {
-    let epoch: u64 = 1;
-    let headers = header_setup(epoch);
-    let mut blocks: Vec<Block> = Vec::with_capacity(headers.len());
-    let (bls_messages, secp_messages) = block_msgs_setup();
 
-    for header in headers {
-        blocks.push(Block {
-            header,
-            secp_messages: vec![secp_messages.clone()],
-            bls_messages: vec![bls_messages.clone()],
-        });
-    }
+/// Returns a tipset used for testing
+pub fn construct_tipset(epoch: u64) -> Tipset {
+    Tipset::new(construct_header(epoch)).unwrap()
+}
+
+/// Returns a full tipset used for testing
+pub fn construct_full_tipset() -> FullTipset {
+    let epoch: u64 = 1;
+    let headers = construct_header(epoch);
+    let mut blocks: Vec<Block> = Vec::with_capacity(headers.len());
+    let (bls_messages, secp_messages) = construct_messages();
+
+    blocks.push(Block {
+        header: headers[0].clone(),
+        secp_messages: vec![secp_messages],
+        bls_messages: vec![bls_messages],
+    });
+
     FullTipset::new(blocks)
 }
 
@@ -94,7 +148,7 @@ impl Signer for DummySigner {
     }
 }
 /// Returns a tuple of unsigned and signed messages used for testing
-pub fn block_msgs_setup() -> (UnsignedMessage, SignedMessage) {
+pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
     let bls_messages = UnsignedMessage::builder()
         .to(Address::new_id(1).unwrap())
         .from(Address::new_id(2).unwrap())
@@ -106,9 +160,9 @@ pub fn block_msgs_setup() -> (UnsignedMessage, SignedMessage) {
 }
 
 /// Returns a TipsetBundle used for testing
-pub fn tipset_bundle(epoch: u64) -> TipSetBundle {
-    let headers = header_setup(epoch);
-    let (bls, secp) = block_msgs_setup();
+pub fn construct_tipset_bundle(epoch: u64) -> TipSetBundle {
+    let headers = construct_header(epoch);
+    let (bls, secp) = construct_messages();
     let includes: Vec<Vec<u64>> = (0..headers.len()).map(|_| vec![]).collect();
 
     TipSetBundle {

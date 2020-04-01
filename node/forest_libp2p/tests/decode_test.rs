@@ -21,7 +21,7 @@ impl Signer for DummySigner {
 }
 
 #[test]
-fn convert_single_tipset_bundle() {
+fn convert_single_construct_tipset_bundle() {
     let bundle = TipSetBundle {
         blocks: Vec::new(),
         bls_msgs: Vec::new(),
@@ -42,7 +42,7 @@ fn convert_single_tipset_bundle() {
 }
 
 #[test]
-fn tipset_bundle_to_full_tipset() {
+fn construct_tipset_bundle_to_full_tipset() {
     let h0 = BlockHeader::builder()
         .weight(BigUint::from(1u32))
         .build()

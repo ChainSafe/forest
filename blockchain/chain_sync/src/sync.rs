@@ -209,75 +209,67 @@ where
     async fn sync_messages_check_state(&mut self, ts: &[Tipset]) -> Result<(), Error> {
         // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for request window size
         const REQUEST_WINDOW: u64 = 200;
-        // loop until i = 0;
-        loop {
-            // set i to the length of provided tipsets
-            let mut i = ts.len();
-            // break loop when we get to 0
-            if i == 0 {
-                break;
-            }
-            for tip in ts {
-                // check storage first to see if we have full tipset
-                let fts = match self.chain_store.fill_tipsets(tip.clone()) {
-                    Ok(fts) => fts,
-                    Err(_) => {
-                        // no full tipset in storage; request messages via blocksync
 
-                        // retrieve peerId used for blocksync request
-                        // Question: will peerId even be available? Tipset value might not exist in peer_heads map?
-                        if let Some(peer_id) =
-                            self.peer_manager.find_key_for_value(tip.clone()).await
-                        {
-                            let mut batch_size = usize::try_from(REQUEST_WINDOW)?;
-                            if i < batch_size {
-                                batch_size = i;
-                            }
-                            // set params for blocksync request
-                            let next = &ts[i - batch_size];
-                            let req_len = u64::try_from(batch_size + 1)?;
-                            // only fetch messages
-                            let option: u64 = 2;
+        // set i to the length of provided tipsets
+        let mut i = ts.len();
+        while i > 0 {
+            // check storage first to see if we have full tipset
+            let fts = match self.chain_store.fill_tipsets(ts[i].clone()) {
+                Ok(fts) => fts,
+                Err(_) => {
+                    // no full tipset in storage; request messages via blocksync
 
-                            // receive tipset bundle from block sync
-                            let ts_bundle = self
-                                .network
-                                .blocksync_request(
-                                    peer_id.clone(),
-                                    BlockSyncRequest {
-                                        start: next.cids().to_vec(),
-                                        request_len: req_len,
-                                        options: option,
-                                    },
-                                )
-                                .await?;
-
-                            for b in ts_bundle.chain {
-                                // construct full tipsets from fetched messages
-                                let fts = self.tipset_msgs(
-                                    tip.clone(),
-                                    &b.bls_msgs,
-                                    &b.secp_msgs,
-                                    b.bls_msg_includes.len(),
-                                    b.secp_msg_includes.len(),
-                                )?;
-                                // validate tipset and messages
-                                self.validate_tipsets(fts)?;
-                                // store messages
-                                self.chain_store.put_messages(&b.bls_msgs)?;
-                                self.chain_store.put_messages(&b.secp_msgs)?;
-                            }
+                    // retrieve peerId used for blocksync request
+                    if let Some(peer_id) = self.peer_manager.get_peer().await {
+                        let mut batch_size = usize::try_from(REQUEST_WINDOW)?;
+                        if i < batch_size {
+                            batch_size = i;
                         }
-                        i -= usize::try_from(REQUEST_WINDOW)?;
-                        continue;
+                        // set params for blocksync request
+                        let next = &ts[i - batch_size];
+                        let req_len = u64::try_from(batch_size + 1)?;
+                        // only fetch messages
+                        let option: u64 = 2;
+
+                        // receive tipset bundle from block sync
+                        let ts_bundle = self
+                            .network
+                            .blocksync_request(
+                                peer_id.clone(),
+                                BlockSyncRequest {
+                                    start: next.cids().to_vec(),
+                                    request_len: req_len,
+                                    options: option,
+                                },
+                            )
+                            .await?;
+
+                        for b in ts_bundle.chain {
+                            // construct full tipsets from fetched messages
+                            let fts = self.tipset_msgs(
+                                ts[i].clone(),
+                                &b.bls_msgs,
+                                &b.secp_msgs,
+                                b.bls_msg_includes.len(),
+                                b.secp_msg_includes.len(),
+                            )?;
+                            // validate tipset and messages
+                            self.validate_tipsets(fts)?;
+                            // store messages
+                            self.chain_store.put_messages(&b.bls_msgs)?;
+                            self.chain_store.put_messages(&b.secp_msgs)?;
+                        }
                     }
-                };
-                // full tipset found in storage; validate and continue
-                self.validate_tipsets(fts)?;
-                i -= 1;
-                continue;
-            }
+                    i -= usize::try_from(REQUEST_WINDOW)?;
+                    continue;
+                }
+            };
+            // full tipset found in storage; validate and continue
+            self.validate_tipsets(fts)?;
+            i -= 1;
+            continue;
         }
+
         Ok(())
     }
 
@@ -296,7 +288,7 @@ where
 
         if ts.blocks().len() != secp_msg_len || ts.blocks().len() != bls_msg_len {
             return Err(Error::Other(
-                "msg included length didnt match tipset size".to_string(),
+                "Msg included length didnt match tipset size".to_string(),
             ));
         }
 
@@ -307,7 +299,7 @@ where
             // ensure message count is below the limit
             let msg_count = bls_cids.len() + secp_cids.len();
             if msg_count > BLOCK_MESSAGE_LIMIT {
-                return Err(Error::Other("block has too many messages".to_string()));
+                return Err(Error::Other("Block has too many messages".to_string()));
             }
 
             // validate message root from header matches message root
@@ -355,8 +347,8 @@ where
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
     }
-    /// Sets mapping from tipset to peerId 
-    pub async fn set_peer_head(&mut self, peer: &PeerId, ts: Tipset) -> Result<(), Error> {
+    /// Sets mapping from tipset to peerId
+    async fn set_peer_head(&mut self, peer: &PeerId, ts: Tipset) -> Result<(), Error> {
         // update peer heads map
         self.peer_manager
             .insert_peer_head(peer.clone(), ts.clone())
@@ -373,7 +365,7 @@ where
         Ok(())
     }
     /// Retrieves the heaviest tipset in the sync queue; considered best target head
-    pub async fn select_sync_target(&mut self) -> Option<Tipset> {
+    async fn select_sync_target(&mut self) -> Option<Tipset> {
         let mut heads = Vec::new();
         for (_, ts) in self.peer_manager.peer_heads.read().await.iter() {
             heads.clone().push(ts);
@@ -458,7 +450,7 @@ where
         // TODO this should be memoryDB for temp storage
         // store message roots and receive meta_root
         let meta_root = self.chain_store.blockstore().put(&meta, Blake2b256)?;
-        
+
         Ok(meta_root)
     }
     /// Returns FullTipset from store if TipSetKeys exist in key-value store otherwise requests FullTipset
@@ -497,7 +489,7 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    pub fn check_blk_msgs(&self, block: Block, _tip: &Tipset) -> Result<(), Error> {
+    fn check_blk_msgs(&self, block: Block, _tip: &Tipset) -> Result<(), Error> {
         // TODO retrieve bls public keys for verify_bls_aggregate
         // for _m in block.bls_msgs() {
         // }
@@ -580,7 +572,7 @@ where
     }
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-    pub fn validate(&self, block: &Block) -> Result<(), Error> {
+    fn validate(&self, block: &Block) -> Result<(), Error> {
         // get header from full block
         let header = block.header();
 
@@ -818,10 +810,14 @@ mod tests {
     use super::*;
     use db::MemoryDB;
     use forest_libp2p::blocksync::BlockSyncResponse;
+    use forest_libp2p::hello::HelloMessage;
     use forest_libp2p::rpc::RPCResponse;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
-    use test_utils::{tipset_bundle, tipset_setup, block_msgs_setup};
+    use test_utils::{
+        construct_block, construct_full_tipset, construct_messages, construct_tipset,
+        construct_tipset_bundle,
+    };
 
     pub fn chain_syncer_setup<Db>(db: Arc<Db>) -> ChainSyncer<Db>
     where
@@ -845,49 +841,52 @@ mod tests {
     }
 
     #[test]
-    fn sync_given_tipset_syncs() {
-        let ts = tipset_setup(1);
-
+    fn start_test() {
         let db = MemoryDB::default();
-        let mut cs = chain_syncer_setup(Arc::new(db));
+        let (local_sender, _test_receiver) = channel(20);
+        let (event_sender, event_receiver) = channel(20);
 
-        task::spawn(async move {
-            cs.sync(ts).await.expect("error with syncing");
-        });
-    }
+        let cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
 
-    #[test]
-    fn set_peer_head_and_select_target() {
-        let ts = tipset_setup(1);
+        let peer_manager = Arc::clone(&cs.peer_manager);
         let source = PeerId::random();
+        let source_clone = source.clone();
 
-        let db = MemoryDB::default();
-        let mut cs = chain_syncer_setup(Arc::new(db));
-
-        task::spawn(async move {
-            cs.set_peer_head(&source, ts.clone()).await.expect("error setting peer head");
-            for (peer_id, tip) in cs.peer_manager.peer_heads.read().await.iter() {
-                assert_eq!(peer_id, &source);
-                assert_eq!(tip, &ts.clone());
-            }
-            assert_eq!(cs.select_sync_target().await.unwrap(), ts);
+        task::spawn(async {
+            cs.start()
+                .await
+                .expect("error starting sync process thread");
         });
-    }
+        // initial HELLO message that begins syncing process
+        task::block_on(async {
+            event_sender
+                .send(NetworkEvent::Hello {
+                    message: HelloMessage::default(),
+                    source,
+                })
+                .await;
 
-    #[test]
-    fn schedule_tipset_given_tipset() {
-        let ts = tipset_setup(1);
-        let ts_copy = tipset_setup(1);
+            task::sleep(Duration::from_millis(50)).await;
 
-        let db = MemoryDB::default();
-        let mut cs = chain_syncer_setup(Arc::new(db));
+            assert_eq!(peer_manager.len().await, 1);
+            assert_eq!(peer_manager.get_peer().await, Some(source_clone));
+        });
 
-        task::spawn(async move {
-            cs.schedule_tipset(ts.clone()).await.expect("error scheduling tipsets");
-            assert_eq!(cs.next_sync_target._tipsets(), &[ts]);
+        // construct block sync response for fetch tipsets component
+        let rpc_response = RPCResponse::BlockSync(BlockSyncResponse {
+            chain: vec![construct_tipset_bundle(4)],
+            status: 0,
+            message: "message".to_owned(),
+        });
+        let c_response = rpc_response.clone();
 
-            cs.schedule_tipset(ts_copy).await.expect("error scheduling tipsets");
-            assert_eq!(cs.next_sync_target._tipsets().len(), 2);
+        task::block_on(async {
+            event_sender
+                .send(NetworkEvent::RPCResponse {
+                    req_id: 0,
+                    response: c_response.clone(),
+                })
+                .await;
         });
     }
 
@@ -902,7 +901,11 @@ mod tests {
 
         // construct block sync response
         let rpc_response = RPCResponse::BlockSync(BlockSyncResponse {
-            chain: vec![tipset_bundle(3), tipset_bundle(2), tipset_bundle(1)],
+            chain: vec![
+                construct_tipset_bundle(3),
+                construct_tipset_bundle(2),
+                construct_tipset_bundle(1),
+            ],
             status: 0,
             message: "message".to_owned(),
         });
@@ -922,8 +925,8 @@ mod tests {
 
         // params for sync_headers_reverse
         let source = PeerId::random();
-        let head = tipset_setup(4);
-        let to = tipset_setup(1);
+        let head = construct_tipset(4);
+        let to = construct_tipset(1);
 
         task::block_on(async move {
             cs.peer_manager.add_peer(source.clone()).await;
@@ -934,14 +937,94 @@ mod tests {
         });
     }
 
-    #[test] 
+    #[test]
+    fn inform_new_head_given_fts_test() {
+        let fts = construct_full_tipset();
+        let source = PeerId::random();
+
+        let db = MemoryDB::default();
+        let mut cs = chain_syncer_setup(Arc::new(db));
+
+        task::spawn(async move {
+            cs.inform_new_head(&source, &fts)
+                .await
+                .expect("error with informing of new head");
+        });
+    }
+
+    #[test]
+    fn sync_given_tipset_syncs() {
+        let ts = construct_tipset(1);
+
+        let db = MemoryDB::default();
+        let mut cs = chain_syncer_setup(Arc::new(db));
+
+        task::spawn(async move {
+            cs.sync(ts).await.expect("error with syncing");
+        });
+    }
+
+    #[test]
+    fn set_peer_head_and_select_target() {
+        let ts = construct_tipset(1);
+        let source = PeerId::random();
+
+        let db = MemoryDB::default();
+        let mut cs = chain_syncer_setup(Arc::new(db));
+
+        task::spawn(async move {
+            cs.set_peer_head(&source, ts.clone())
+                .await
+                .expect("error setting peer head");
+            for (peer_id, tip) in cs.peer_manager.peer_heads.read().await.iter() {
+                assert_eq!(peer_id, &source);
+                assert_eq!(tip, &ts.clone());
+            }
+            assert_eq!(cs.select_sync_target().await.unwrap(), ts);
+        });
+    }
+
+    #[test]
+    fn schedule_tipset_given_tipset() {
+        let ts = construct_tipset(1);
+        let ts_copy = construct_tipset(1);
+
+        let db = MemoryDB::default();
+        let mut cs = chain_syncer_setup(Arc::new(db));
+
+        task::spawn(async move {
+            cs.schedule_tipset(ts.clone())
+                .await
+                .expect("error scheduling tipsets");
+            assert_eq!(cs.next_sync_target._tipsets(), &[ts]);
+
+            cs.schedule_tipset(ts_copy)
+                .await
+                .expect("error scheduling tipsets");
+            assert_eq!(cs.next_sync_target._tipsets().len(), 2);
+        });
+    }
+
+    #[test]
     fn compute_msg_data_given_msgs() {
-        let (bls, secp) = block_msgs_setup();
+        let (bls, secp) = construct_messages();
+
+        let db = MemoryDB::default();
+        let cs = chain_syncer_setup(Arc::new(db));
+        let expected_root =
+            Cid::from_raw_cid("bafy2bzaced5inutkibck2wagtnggbvjpbr65ghdncivs3gpagx67s3xs3i5wa")
+                .unwrap();
+
+        let root = cs.compute_msg_data(&[bls], &[secp]).unwrap();
+        assert_eq!(root, expected_root);
+    }
+    #[test]
+    fn validate_msg_data_given_msgs() {
+        let block = construct_block();
 
         let db = MemoryDB::default();
         let cs = chain_syncer_setup(Arc::new(db));
 
-        let root = cs.compute_msg_data(&[bls], &[secp]).unwrap();
-        assert_eq!(root, Cid::from_raw_cid("bafy2bzaced5inutkibck2wagtnggbvjpbr65ghdncivs3gpagx67s3xs3i5wa").unwrap());       
-    } 
+        cs.validate_msg_data(&block).expect("invalid msg data");
+    }
 }
