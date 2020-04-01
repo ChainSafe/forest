@@ -12,4 +12,4 @@ serde = { version = "1.0", features = ["derive"] }
 ipld_blockstore = { path = "../blockstore" }
 
 [dev-dependencies]
-hex = "0.4.0"
+hex = "0.4.2"

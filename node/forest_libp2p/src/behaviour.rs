@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::rpc::{RPCEvent, RPCMessage, RPC};
-use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -12,19 +11,19 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
 use log::debug;
 use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
-pub struct ForestBehaviour<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> {
-    pub gossipsub: Gossipsub<TSubstream>,
-    pub mdns: Mdns<TSubstream>,
-    pub ping: Ping<TSubstream>,
-    pub identify: Identify<TSubstream>,
-    pub rpc: RPC<TSubstream>,
+pub struct ForestBehaviour {
+    pub gossipsub: Gossipsub,
+    pub mdns: Mdns,
+    pub ping: Ping,
+    pub identify: Identify,
+    pub rpc: RPC,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
 }
@@ -43,9 +42,7 @@ pub enum ForestBehaviourEvent {
     RPC(PeerId, RPCEvent),
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
-    NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour<TSubstream>
-{
+impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: MdnsEvent) {
         match event {
             MdnsEvent::Discovered(list) => {
@@ -64,9 +61,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
-    NetworkBehaviourEventProcess<GossipsubEvent> for ForestBehaviour<TSubstream>
-{
+impl NetworkBehaviourEventProcess<GossipsubEvent> for ForestBehaviour {
     fn inject_event(&mut self, message: GossipsubEvent) {
         if let GossipsubEvent::Message(_, _, message) = message {
             self.events.push(ForestBehaviourEvent::GossipMessage {
@@ -78,9 +73,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
-    NetworkBehaviourEventProcess<PingEvent> for ForestBehaviour<TSubstream>
-{
+impl NetworkBehaviourEventProcess<PingEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: PingEvent) {
         match event.result {
             Result::Ok(PingSuccess::Ping { rtt }) => {
@@ -103,9 +96,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
-    NetworkBehaviourEventProcess<IdentifyEvent> for ForestBehaviour<TSubstream>
-{
+impl NetworkBehaviourEventProcess<IdentifyEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
             IdentifyEvent::Received {
@@ -125,9 +116,7 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
         }
     }
 }
-impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
-    NetworkBehaviourEventProcess<RPCMessage> for ForestBehaviour<TSubstream>
-{
+impl NetworkBehaviourEventProcess<RPCMessage> for ForestBehaviour {
     fn inject_event(&mut self, event: RPCMessage) {
         match event {
             RPCMessage::PeerDialed(peer_id) => {
@@ -156,20 +145,19 @@ impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static>
     }
 }
 
-impl<TSubstream: AsyncRead + AsyncWrite + Send + Unpin + 'static> ForestBehaviour<TSubstream> {
+impl ForestBehaviour {
     /// Consumes the events list when polled.
     fn poll<TBehaviourIn>(
         &mut self,
         _: &mut Context,
+        _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<TBehaviourIn, ForestBehaviourEvent>> {
         if !self.events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
         }
         Poll::Pending
     }
-}
 
-impl<TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static> ForestBehaviour<TSubstream> {
     pub fn new(local_key: &Keypair) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
