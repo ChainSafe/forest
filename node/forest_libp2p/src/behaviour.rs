@@ -11,7 +11,7 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess};
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
 use log::debug;
 use std::{task::Context, task::Poll};
@@ -150,16 +150,14 @@ impl ForestBehaviour {
     fn poll<TBehaviourIn>(
         &mut self,
         _: &mut Context,
-        _: &mut impl libp2p::swarm::PollParameters,
+        _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<TBehaviourIn, ForestBehaviourEvent>> {
         if !self.events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
         }
         Poll::Pending
     }
-}
 
-impl ForestBehaviour {
     pub fn new(local_key: &Keypair) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
