@@ -325,23 +325,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
     runtime.charge_gas(PLACEHOLDER_GAS);
 
     // TODO: we need to try to recover here and try to create account actor
-    let to_actor = runtime
-        .state
-        .get_actor(msg.to())
-        .map_err(|e| {
-            ActorError::new(
-                ExitCode::SysErrInternal,
-                format!("failed to load actor in internal_send: {}", e),
-            )
-        })
-        .and_then(|act| {
-            act.ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::SysErrInternal,
-                    "actor not found in internal_send".to_owned(),
-                )
-            })
-        })?;
+    let to_actor = runtime.get_actor(msg.to())?;
 
     if msg.value() != &0u8.into() {
         transfer(runtime.state, &msg.from(), &msg.to(), &msg.value())

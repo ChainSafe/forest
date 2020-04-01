@@ -9,7 +9,6 @@ vm = { path = "../../vm" }
 crypto = { path = "../../crypto" }
 address = { package = "forest_address", path = "../address" }
 message = { package = "forest_message", path = "../message" }
-chain = { path = "../../blockchain/chain" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 clock = { path = "../../node/clock" }
