@@ -404,9 +404,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
 }
 
 /// Transfers funds from one Actor to another Actor
-fn transfer<ST>(state: &ST, from: &Address, to: &Address, value: &TokenAmount) -> Result<(), String>
-where
-    ST: StateTree,
+fn transfer<ST: StateTree>(state: &mut ST, from: &Address, to: &Address, value: &TokenAmount) -> Result<(), String>
 {
     if from == to {
         return Ok(());
@@ -414,29 +412,26 @@ where
     if value < &0u8.into() {
         return Err("Negative transfer value".to_owned());
     }
-    let mut from_actor = state
-        .get_actor(&from)
-        .map_err(|e| format!("transfer failed: {}", e))?
-        .ok_or_else(|| "transfer failed could not retrieve from actor".to_owned())?;
-    let mut to_actor = state
-        .get_actor(&to)
-        .map_err(|e| format!("transfer failed: {}", e))?
-        .ok_or_else(|| "transfer failed could not retrieve from actor".to_owned())?;
 
-    deduct_funds(&mut from_actor, &value)?;
-    deposit_funds(&mut to_actor, &value);
+    deduct_funds(state, from, &value)?;
+    deposit_funds(state, to, &value)?;
     Ok(())
 }
 
 /// Safely deducts funds from an Actor
-fn deduct_funds(from: &mut ActorState, amt: &TokenAmount) -> Result<(), String> {
-    if &from.balance < amt {
-        return Err("not enough funds".to_owned());
-    }
-    from.balance -= amt;
-    Ok(())
+fn deduct_funds<ST: StateTree>(state: &mut ST, from:&Address, amt: &TokenAmount) -> Result<(), String> {
+    state.mutate_actor(from, |act| {
+            if &act.balance < amt {
+                return Err("not enough funds".to_owned());
+            }
+            act.balance -= amt;
+            Ok(())
+    })
 }
 /// Deposits funds to an Actor
-fn deposit_funds(to: &mut ActorState, amt: &TokenAmount) {
-    to.balance += amt;
+fn deposit_funds<ST: StateTree> (state: &mut ST, to: &Address, amt: &TokenAmount) -> Result<(), String> {
+    state.mutate_actor(to, |act| {
+        act.balance += amt;
+        Ok(())
+    })
 }
