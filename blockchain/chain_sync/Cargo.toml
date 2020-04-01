@@ -11,7 +11,7 @@ amt = { package = "ipld_amt", path = "../../ipld/amt" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-libp2p = "0.15.0"
+libp2p = "0.16.2"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 chain = { path = "../chain" }

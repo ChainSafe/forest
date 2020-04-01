@@ -3,6 +3,7 @@
 
 use address::Address;
 use cid::Cid;
+use encoding::Cbor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::Serialized;
 
@@ -66,6 +67,7 @@ pub struct ExecReturn {
     pub robust_address: Address,
 }
 
+impl Cbor for ExecReturn {}
 impl Serialize for ExecReturn {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

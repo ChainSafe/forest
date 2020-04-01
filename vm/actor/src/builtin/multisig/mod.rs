@@ -8,7 +8,6 @@ pub use self::state::State;
 pub use self::types::*;
 use crate::{make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
 use address::Address;
-use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_derive::FromPrimitive;
@@ -48,8 +47,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let sys_ref: &Address = &INIT_ACTOR_ADDR;
-        rt.validate_immediate_caller_is(std::iter::once(sys_ref));
+        rt.validate_immediate_caller_is(std::iter::once(&*INIT_ACTOR_ADDR));
 
         if params.signers.is_empty() {
             return Err(rt.abort(
@@ -366,7 +364,7 @@ impl Actor {
 
         // Sufficient number of approvals have arrived, relay message
         if threshold_met {
-            rt.send::<Ipld>(&tx.to, tx.method, &tx.params, &tx.value)?;
+            rt.send(&tx.to, tx.method, &tx.params, &tx.value)?;
         }
 
         Ok(())
