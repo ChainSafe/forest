@@ -8,7 +8,7 @@ edition = "2018"
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
 db = { path = "../node/db" }
-libp2p = "0.15.0"
+libp2p = "0.16.2"
 futures = "0.3.1"
 clap = "2.33.0"
 log = "0.4.8"
