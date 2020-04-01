@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 utils = { path = "../utils" }
-libp2p = "0.15.0"
+libp2p = "0.16.2"
 futures = "0.3.2"
 futures-util = "0.3.1"
 futures_codec = "0.4.0"

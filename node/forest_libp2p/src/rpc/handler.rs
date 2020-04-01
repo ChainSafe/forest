@@ -5,11 +5,10 @@ use super::protocol::{OutboundFramed, RPCInbound};
 use super::{InboundCodec, RPCError, RPCEvent, RPCRequest, RPCResponse, RequestId};
 use fnv::FnvHashMap;
 use futures::prelude::*;
-use futures::{AsyncRead, AsyncWrite};
 use futures_codec::Framed;
-use libp2p::core::Negotiated;
 use libp2p::swarm::{
-    KeepAlive, ProtocolsHandler, ProtocolsHandlerEvent, ProtocolsHandlerUpgrErr, SubstreamProtocol,
+    KeepAlive, NegotiatedSubstream, ProtocolsHandler, ProtocolsHandlerEvent,
+    ProtocolsHandlerUpgrErr, SubstreamProtocol,
 };
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use log::error;
@@ -23,10 +22,7 @@ use std::{
 /// The time (in seconds) before a substream that is awaiting a response from the user times out.
 pub const RESPONSE_TIMEOUT: u64 = 10;
 
-pub struct RPCHandler<TSubstream>
-where
-    TSubstream: AsyncRead + AsyncWrite,
-{
+pub struct RPCHandler {
     /// Upgrade configuration for RPC protocol.
     listen_protocol: SubstreamProtocol<RPCInbound>,
 
@@ -43,10 +39,10 @@ where
     dial_negotiated: u32,
 
     /// Map of current substreams awaiting a response to an RPC request.
-    inbound_substreams: FnvHashMap<RequestId, WaitingResponse<TSubstream>>,
+    inbound_substreams: FnvHashMap<RequestId, WaitingResponse>,
 
     /// The vector of outbound substream states to progress.
-    outbound_substreams: Vec<SubstreamState<TSubstream>>,
+    outbound_substreams: Vec<SubstreamState>,
 
     /// Sequential ID for new substreams.
     current_substream_id: RequestId,
@@ -61,10 +57,7 @@ where
     keep_alive: KeepAlive,
 }
 
-impl<TSubstream> RPCHandler<TSubstream>
-where
-    TSubstream: AsyncRead + AsyncWrite,
-{
+impl RPCHandler {
     /// Constructor for new RPC handler
     pub fn new(inactive_timeout: Duration) -> Self {
         RPCHandler {
@@ -95,49 +88,39 @@ where
     }
 }
 
-impl<TSubstream> Default for RPCHandler<TSubstream>
-where
-    TSubstream: AsyncRead + AsyncWrite,
-{
+impl Default for RPCHandler {
     fn default() -> Self {
         RPCHandler::new(Duration::from_secs(30))
     }
 }
 
 /// An outbound substream is waiting a response from the user.
-struct WaitingResponse<TSubstream> {
+struct WaitingResponse {
     /// The framed negotiated substream.
-    substream: Framed<Negotiated<TSubstream>, InboundCodec>,
+    substream: Framed<NegotiatedSubstream, InboundCodec>,
     /// The time when the substream is closed.
     timeout: Instant,
 }
 
 /// State of the outbound substream, opened either by us or by the remote.
-enum SubstreamState<TSubstream>
-where
-    TSubstream: AsyncRead + AsyncWrite,
-{
+enum SubstreamState {
     /// Waiting to send a message to the remote.
     PendingSend {
-        substream: Framed<Negotiated<TSubstream>, InboundCodec>,
+        substream: Framed<NegotiatedSubstream, InboundCodec>,
         response: RPCResponse,
     },
     /// Request has been sent, awaiting response
     PendingResponse {
-        substream: OutboundFramed<TSubstream>,
+        substream: OutboundFramed,
         event: RPCEvent,
         timeout: Instant,
     },
 }
 
-impl<TSubstream> ProtocolsHandler for RPCHandler<TSubstream>
-where
-    TSubstream: AsyncWrite + AsyncRead + Unpin + Send + 'static,
-{
+impl ProtocolsHandler for RPCHandler {
     type InEvent = RPCEvent;
     type OutEvent = RPCEvent;
     type Error = RPCError;
-    type Substream = TSubstream;
     type InboundProtocol = RPCInbound;
     type OutboundProtocol = RPCRequest;
     type OutboundOpenInfo = RPCEvent;
@@ -148,7 +131,7 @@ where
 
     fn inject_fully_negotiated_inbound(
         &mut self,
-        out: <Self::InboundProtocol as InboundUpgrade<Negotiated<Self::Substream>>>::Output,
+        out: <Self::InboundProtocol as InboundUpgrade<NegotiatedSubstream>>::Output,
     ) {
         let (req, substream) = out;
 
@@ -167,7 +150,7 @@ where
 
     fn inject_fully_negotiated_outbound(
         &mut self,
-        substream: <Self::OutboundProtocol as OutboundUpgrade<Negotiated<TSubstream>>>::Output,
+        substream: <Self::OutboundProtocol as OutboundUpgrade<NegotiatedSubstream>>::Output,
         event: Self::OutboundOpenInfo,
     ) {
         // Decrement pending outbound substreams when processing new
@@ -217,7 +200,7 @@ where
         &mut self,
         _: Self::OutboundOpenInfo,
         error: ProtocolsHandlerUpgrErr<
-            <Self::OutboundProtocol as OutboundUpgrade<Self::Substream>>::Error,
+            <Self::OutboundProtocol as OutboundUpgrade<NegotiatedSubstream>>::Error,
         >,
     ) {
         if self.pending_error.is_none() {

@@ -2,18 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_libp2p::rpc::RPC;
+use std::io::Error;
+
 use libp2p::core::{
-    identity,
-    multiaddr::Protocol,
-    muxing::StreamMuxerBox,
-    nodes::Substream,
-    transport::{boxed::Boxed, MemoryTransport},
-    upgrade, Multiaddr, PeerId, Transport,
+    identity, multiaddr::Protocol, muxing::StreamMuxerBox, transport::MemoryTransport, upgrade,
+    Multiaddr, Transport,
 };
 use libp2p::plaintext::PlainText2Config;
-use libp2p::swarm::Swarm;
 use libp2p::yamux;
-use std::io::Error;
+use libp2p::Swarm;
 
 pub fn build_node_pair() -> (TestSwarm, TestSwarm) {
     let (_, mut s1) = build_node(10005);
@@ -26,7 +23,7 @@ pub fn build_node_pair() -> (TestSwarm, TestSwarm) {
     (s1, s2)
 }
 
-pub type TestSwarm = Swarm<Boxed<(PeerId, StreamMuxerBox), Error>, RPC<Substream<StreamMuxerBox>>>;
+pub type TestSwarm = Swarm<RPC>;
 pub fn build_node(port: u64) -> (Multiaddr, TestSwarm) {
     let key = identity::Keypair::generate_ed25519();
     let public_key = key.public();
@@ -38,7 +35,7 @@ pub fn build_node(port: u64) -> (Multiaddr, TestSwarm) {
         })
         .multiplex(yamux::Config::default())
         .map(|(p, m), _| (p, StreamMuxerBox::new(m)))
-        .map_err(|e| panic!("Failed to create transport: {:?}", e))
+        .map_err(|e| -> Error { panic!("Failed to create transport: {:?}", e) })
         .boxed();
 
     let peer_id = public_key.clone().into_peer_id();
