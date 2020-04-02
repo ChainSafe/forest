@@ -11,11 +11,12 @@ use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{info, trace};
 use std::cell::RefCell;
+use std::fs::File;
+use std::io::BufReader;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use utils::write_to_file;
-
 // Blocks current thread until ctrl-c is received
 fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
@@ -65,6 +66,15 @@ fn main() {
         }
     };
 
+    // Read Genesis file
+    let genesis_buffer: Option<BufReader<File>> = match config.genesis_file.clone() {
+        Some(path) => {
+            let file = File::open(path).expect("Could not load genesis");
+            Some(BufReader::new(file))
+        }
+        None => None,
+    };
+
     // Start libp2p service
     let p2p_service = Libp2pService::new(&config.network, net_keypair);
     let network_rx = p2p_service.network_receiver();
@@ -77,9 +87,11 @@ fn main() {
     let sync_thread = task::spawn(async {
         // Initialize database
         let mut db = RocksDb::new(config.data_dir + "/db");
+
         db.open().unwrap();
 
-        let chain_syncer = ChainSyncer::new(Arc::new(db), network_send, network_rx).unwrap();
+        let chain_syncer =
+            ChainSyncer::new(Arc::new(db), network_send, network_rx, genesis_buffer).unwrap();
         chain_syncer.sync().await.unwrap();
     });
 

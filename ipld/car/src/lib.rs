@@ -65,7 +65,10 @@ pub struct Block {
 }
 
 /// Loads a CAR buffer into a BlockStore
-pub fn load_car<R: Read, B: BlockStore>(s: &B, buf_reader: BufReader<R>) -> Result<(), Error> {
+pub fn load_car<R: Read, B: BlockStore>(
+    s: &B,
+    buf_reader: BufReader<R>,
+) -> Result<Vec<Cid>, Error> {
     let mut car_reader = CarReader::new(buf_reader)?;
 
     while !car_reader.buf_reader.buffer().is_empty() {
@@ -73,5 +76,5 @@ pub fn load_car<R: Read, B: BlockStore>(s: &B, buf_reader: BufReader<R>) -> Resu
         s.write(block.cid.to_bytes(), block.data)
             .map_err(|e| Error::Other(e.to_string()))?;
     }
-    Ok(())
+    Ok(car_reader.header.roots)
 }

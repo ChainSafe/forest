@@ -17,6 +17,7 @@ use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use crypto::is_valid_signature;
 use encoding::{Cbor, Error as EncodingError};
+use forest_car::load_car;
 use forest_libp2p::{NetworkEvent, NetworkMessage};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
@@ -27,9 +28,10 @@ use state_manager::StateManager;
 use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::Arc;
 use vm::TokenAmount;
-
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
 enum SyncState {
@@ -91,6 +93,7 @@ where
         db: Arc<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
+        genesis_buffer: Option<BufReader<File>>,
     ) -> Result<Self, Error> {
         let sync_manager = SyncManager::default();
 
@@ -99,8 +102,29 @@ where
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
                 // TODO change default logic for genesis or setup better initialization
-                warn!("no genesis found in data storage, using a default");
-                Tipset::new(vec![BlockHeader::default()])?
+                warn!("no genesis found in data storage, trying to load from file");
+                match genesis_buffer {
+                    Some(buf) => {
+                        // loads the genesis file into the database
+                        let genesis_cid: Vec<Cid> =
+                            load_car(&*db, buf).map_err(|e| Error::Other(e.to_string()))?;
+                        if genesis_cid.len() != 1 {
+                            return Err(Error::Validation(
+                                "Invalid Genesis. Genesis Tipset must have only 1 Block."
+                                    .to_owned(),
+                            ));
+                        }
+                        let genesis_block: BlockHeader = db
+                            .get(&genesis_cid[0])
+                            .map_err(|e| Error::Other(e.to_string()))?
+                            .ok_or(Error::Other("Could not find genesis block despite being loaded using a genesis file".to_owned()))?;
+                        Tipset::new(vec![genesis_block])?
+                    }
+                    None => {
+                        warn!("no genesis file, using default Tipset");
+                        Tipset::new(vec![BlockHeader::default()])?
+                    }
+                }
             }
         };
 
