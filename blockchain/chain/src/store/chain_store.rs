@@ -44,6 +44,8 @@ where
         }
     }
 
+    /// Sets heaviest tipset within ChainStore
+    // TODO
     pub fn set_heaviest_tipset(&mut self, ts: Tipset) {
         self.heaviest = ts;
     }

@@ -17,4 +17,4 @@ num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
 
 [dev-dependencies]
 base64 = "0.12.0"
-test_utils = {path="../../utils/test_utils/"}
+test_utils = { path="../../utils/test_utils/" }
