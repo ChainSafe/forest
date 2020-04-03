@@ -25,7 +25,5 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 
 [dev-dependencies]
 forest_address = { path = "../../vm/address" }
-slog-async = "2.3.0"
-slog-term = "2.4.2"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { path = "../../crypto" }
