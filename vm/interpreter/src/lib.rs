@@ -105,6 +105,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             self.epoch,
             msg.from().clone(),
             msg.sequence(),
+            0,
         );
         internal_send(&mut rt, msg, gas_cost)
     }

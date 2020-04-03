@@ -6,10 +6,12 @@ use actor::{
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
     REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
 };
-use address::Address;
+use address::{Address, Protocol};
+use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
+use forest_encoding::to_vec;
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
@@ -30,6 +32,7 @@ pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     epoch: ChainEpoch,
     origin: Address,
     origin_nonce: u64,
+    num_actors_created: u64,
 }
 
 impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
@@ -42,6 +45,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
         epoch: ChainEpoch,
         origin: Address,
         origin_nonce: u64,
+        num_actors_created: u64,
     ) -> Self {
         DefaultRuntime {
             state,
@@ -52,6 +56,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
             epoch,
             origin,
             origin_nonce,
+            num_actors_created,
         }
     }
 
@@ -100,6 +105,38 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
         })?;
 
         Ok(())
+    }
+    fn resolve_to_key_addr(&self, addr: &Address) -> Result<Address, ActorError> {
+        if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
+            return Ok(addr.clone());
+        }
+        let act = self.get_actor(&addr)?;
+        if act.code != *ACCOUNT_ACTOR_CODE_ID {
+            return Err(self.abort(
+                ExitCode::SysErrInternal,
+                format!("address {:?} was not for an account actor", addr),
+            ));
+        }
+        let actor_state: actor::account::State = self
+            .store
+            .get(&act.state)
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::SysErrInternal,
+                    format!(
+                        "Could not get actor state in resolve_to_key_addr: {:?}",
+                        e.to_string()
+                    ),
+                )
+            })?
+            .ok_or_else(|| {
+                self.abort(
+                    ExitCode::SysErrInternal,
+                    "Actor state not found in resolve_to_key_addr",
+                )
+            })?;
+
+        Ok(actor_state.address)
     }
 }
 
@@ -265,6 +302,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             self.curr_epoch(),
             self.origin.clone(),
             self.origin_nonce,
+            self.num_actors_created,
         );
         let send_res = internal_send::<ST, BS>(&mut parent, &msg, 0);
         if send_res.is_err() {
@@ -278,8 +316,38 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
         ActorError::new(exit_code, msg.as_ref().to_owned())
     }
-    fn new_actor_address(&self) -> Address {
-        todo!()
+    fn new_actor_address(&mut self) -> Result<Address, ActorError> {
+        let oa = self.resolve_to_key_addr(&self.origin)?;
+        let mut b = to_vec(&oa).map_err(|e| {
+            self.abort(
+                ExitCode::ErrSerialization,
+                format!("Could not serialize address in new_actor_address: {}", e),
+            )
+        })?;
+        b.write_u64::<BigEndian>(self.origin_nonce).map_err(|e| {
+            self.abort(
+                ExitCode::ErrSerialization,
+                format!("Writing nonce address into a buffer: {}", e.to_string()),
+            )
+        })?;
+        b.write_u64::<BigEndian>(self.num_actors_created)
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::ErrSerialization,
+                    format!(
+                        "Writing number of actors created into a buffer: {}",
+                        e.to_string()
+                    ),
+                )
+            })?;
+        let addr = Address::new_actor(&b).map_err(|e| {
+            self.abort(
+                ExitCode::ErrSerialization,
+                format!("Create new actor address: {}", e.to_string()),
+            )
+        })?;
+        self.num_actors_created += 1;
+        Ok(addr)
     }
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
         // TODO: Charge gas

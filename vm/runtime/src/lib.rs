@@ -101,7 +101,7 @@ pub trait Runtime<BS: BlockStore> {
     /// the actor even in the event of a chain re-org (whereas an ID-address might refer to a
     /// different actor after messages are re-ordered).
     /// Always an ActorExec address.
-    fn new_actor_address(&self) -> Address;
+    fn new_actor_address(&mut self) -> Result<Address, ActorError>;
 
     /// Creates an actor with code `codeID` and address `address`, with empty state. May only be called by Init actor.
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError>;

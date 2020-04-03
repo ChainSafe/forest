@@ -82,7 +82,7 @@ impl Actor {
         // This address exists for use by messages coming from outside the system, in order to
         // stably address the newly created actor even if a chain re-org causes it to end up with
         // a different ID.
-        let robust_address = rt.new_actor_address();
+        let robust_address = rt.new_actor_address()?;
 
         // Allocate an ID for this actor.
         // Store mapping of pubkey or actor address to actor ID
