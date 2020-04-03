@@ -176,14 +176,14 @@ impl State {
 
         Ok(as_storage_weight_desc(self.info.sector_size, sector_info))
     }
-    pub fn in_challenge_window<BS, RT>(&self, rt: &RT) -> bool
+    pub fn in_challenge_window<BS, RT>(&self, epoch: ChainEpoch) -> bool
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         // TODO revisit TODO in spec impl
         match *self.post_state.proving_period_start {
-            Some(e) => rt.curr_epoch() > e,
+            Some(e) => epoch > e,
             None => true,
         }
     }
