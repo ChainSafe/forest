@@ -442,7 +442,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
                 x if x == *REWARD_ACTOR_CODE_ID => {
                     actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
                 }
-                _ => todo!("Handle unknown code cids"),
+                _ => Err(ActorError::new(ExitCode::SysErrForbidden, "invalid method id".to_owned()))
             }
         };
         return ret;
