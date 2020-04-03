@@ -8,7 +8,7 @@ edition = "2018"
 vm = { path = "../../vm" }
 address = { package = "forest_address", path = "../address" }
 runtime = { path = "../runtime" }
-num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 num-traits = "0.2"
 num-derive = "0.3.0"
