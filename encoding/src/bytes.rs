@@ -40,3 +40,20 @@ impl<'de> Deserialize<'de> for Byte32De {
         Ok(Byte32De(array))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{from_slice, to_vec};
+
+    #[test]
+    fn array_symmetric_serialization() {
+        let vec: Vec<u8> = (0..32).map(|x| x).collect::<Vec<u8>>();
+        let slice_bz = to_vec(&BytesSer(&vec)).unwrap();
+        let Byte32De(arr) = from_slice(&slice_bz).unwrap();
+        // Check decoded array against slice
+        assert_eq!(arr.as_ref(), vec.as_slice());
+        // Check re-encoded array is equal to the slice encoded
+        assert_eq!(to_vec(&BytesSer(&arr)).unwrap(), slice_bz);
+    }
+}
