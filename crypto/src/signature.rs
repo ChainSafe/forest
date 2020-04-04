@@ -54,8 +54,7 @@ impl ser::Serialize for Signature {
         // Insert signature type byte
         bytes.insert(0, self.sig_type as u8);
 
-        let value = serde_bytes::Bytes::new(&bytes);
-        serde_bytes::Serialize::serialize(value, serializer)
+        serde_bytes::Serialize::serialize(&bytes, serializer)
     }
 }
 

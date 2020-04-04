@@ -6,10 +6,12 @@ use serde::{Deserialize, Serialize};
 
 /// Wrapper for serializing big ints to match filecoin spec. Serializes as bytes.
 #[derive(Serialize)]
+#[serde(transparent)]
 pub struct BigIntSer<'a>(#[serde(with = "self")] pub &'a BigInt);
 
 /// Wrapper for deserializing as BigInt from bytes.
 #[derive(Deserialize, Serialize)]
+#[serde(transparent)]
 pub struct BigIntDe(#[serde(with = "self")] pub BigInt);
 
 /// Serializes big int as bytes following Filecoin spec.
@@ -27,8 +29,7 @@ where
     }
 
     // Serialize as bytes
-    let value = serde_bytes::Bytes::new(&bz);
-    value.serialize(serializer)
+    serde_bytes::Serialize::serialize(&bz, serializer)
 }
 
 /// Deserializes bytes into big int.
