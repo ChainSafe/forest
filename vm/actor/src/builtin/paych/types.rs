@@ -205,11 +205,7 @@ impl<'de> Deserialize<'de> for UpdateChannelStateParams {
         D: Deserializer<'de>,
     {
         let (sv, BytesDe(secret), BytesDe(proof)) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            sv,
-            secret: secret.to_vec(),
-            proof: proof.to_vec(),
-        })
+        Ok(Self { sv, secret, proof })
     }
 }
 
