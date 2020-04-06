@@ -59,8 +59,14 @@ pub fn parse_uint_key(s: &[u8]) -> Result<u64, UVarintError> {
 /// Key type to be used to isolate usage of unsafe code and allow non utf-8 bytes to be
 /// serialized as a string.
 // TODO revisit to change serialization in spec or find a non-unsafe way to do this
-#[derive(PartialEq, Eq, PartialOrd, Clone, Debug)]
+#[derive(Eq, PartialOrd, Clone, Debug)]
 pub struct BytesKey(pub Vec<u8>);
+
+impl PartialEq for BytesKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
 
 impl Hash for BytesKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
