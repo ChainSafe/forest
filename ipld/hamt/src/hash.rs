@@ -116,6 +116,12 @@ impl<T: Hash> Hash for [T] {
     }
 }
 
+impl<T: Hash> Hash for Vec<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash_slice(self, state)
+    }
+}
+
 impl<T: ?Sized + Hash> Hash for &T {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (**self).hash(state);
