@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
 use cid::{
