@@ -18,3 +18,8 @@ cid = { package = "forest_cid", path = "../../ipld/cid" }
 crypto = { path = "../../crypto" } 
 num-traits = "0.2.11"
 byteorder = "1.3.4"
+
+[dev-dependencies]
+state_tree = { path = "../state_tree" }
+db = { path = "../../node/db" }
+ipld_hamt = { path = "../../ipld/hamt" }
