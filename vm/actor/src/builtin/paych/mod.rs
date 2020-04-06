@@ -70,7 +70,7 @@ impl Actor {
 
         let code_cid = rt.get_actor_code_cid(&resolved)?;
 
-        if &code_cid != &*ACCOUNT_ACTOR_CODE_ID {
+        if code_cid != *ACCOUNT_ACTOR_CODE_ID {
             Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 format!(
