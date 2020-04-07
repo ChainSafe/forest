@@ -14,7 +14,7 @@ chain = { path = "../../blockchain/chain" }
 clock = { path = "../../node/clock" }
 vm = { path = "../" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
-num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 forest_encoding = { path = "../../encoding" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 crypto = { path = "../../crypto" } 

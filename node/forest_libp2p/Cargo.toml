@@ -21,11 +21,9 @@ bytes = "0.5.2"
 fnv = "1.0.6"
 smallvec = "1.1.0"
 clock = { path = "../clock" }
-num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 
 [dev-dependencies]
 forest_address = { path = "../../vm/address" }
-slog-async = "2.3.0"
-slog-term = "2.4.2"
-num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { path = "../../crypto" }

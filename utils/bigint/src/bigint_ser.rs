@@ -2,40 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use num_bigint::{BigInt, Sign};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 /// Wrapper for serializing big ints to match filecoin spec. Serializes as bytes.
-pub struct BigIntSer<'a>(pub &'a BigInt);
+#[derive(Serialize)]
+#[serde(transparent)]
+pub struct BigIntSer<'a>(#[serde(with = "self")] pub &'a BigInt);
 
 /// Wrapper for deserializing as BigInt from bytes.
-pub struct BigIntDe(pub BigInt);
-
-impl Serialize for BigIntSer<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serialize(self.0, serializer)
-    }
-}
-
-impl Serialize for BigIntDe {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serialize(&self.0, serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for BigIntDe {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(BigIntDe(deserialize(deserializer)?))
-    }
-}
+#[derive(Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct BigIntDe(#[serde(with = "self")] pub BigInt);
 
 /// Serializes big int as bytes following Filecoin spec.
 pub fn serialize<S>(int: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
@@ -52,8 +29,7 @@ where
     }
 
     // Serialize as bytes
-    let value = serde_bytes::Bytes::new(&bz);
-    value.serialize(serializer)
+    serde_bytes::Serialize::serialize(&bz, serializer)
 }
 
 /// Deserializes bytes into big int.

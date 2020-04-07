@@ -16,4 +16,4 @@ parking_lot = "0.10.0"
 fnv = "1.0.6"
 
 [dev-dependencies]
-num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

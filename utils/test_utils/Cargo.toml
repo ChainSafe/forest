@@ -14,7 +14,7 @@ cid = { package = "forest_cid", path = "../../ipld/cid", optional = true }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 chain = { path = "../../blockchain/chain/", optional = true }
 message = { package = "forest_message", path = "../../vm/message", optional = true }
-num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { path = "../../crypto" }
 async-std = { version = "1.4.0", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p/", optional = true }

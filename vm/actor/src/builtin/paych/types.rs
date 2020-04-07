@@ -5,7 +5,7 @@ use super::Merge;
 use address::Address;
 use clock::ChainEpoch;
 use crypto::Signature;
-use encoding::serde_bytes::{ByteBuf, Bytes};
+use encoding::{BytesDe, BytesSer};
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -82,7 +82,7 @@ impl Serialize for SignedVoucher {
         (
             &self.time_lock_min,
             &self.time_lock_max,
-            Bytes::new(&self.secret_pre_image),
+            BytesSer(&self.secret_pre_image),
             &self.extra,
             &self.lane,
             &self.nonce,
@@ -103,7 +103,7 @@ impl<'de> Deserialize<'de> for SignedVoucher {
         let (
             time_lock_min,
             time_lock_max,
-            pre_buf,
+            BytesDe(secret_pre_image),
             extra,
             lane,
             nonce,
@@ -111,11 +111,11 @@ impl<'de> Deserialize<'de> for SignedVoucher {
             min_settle_height,
             merges,
             signature,
-        ): (_, _, ByteBuf, _, _, _, _, _, _, _) = Deserialize::deserialize(deserializer)?;
+        ) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             time_lock_min,
             time_lock_max,
-            secret_pre_image: pre_buf.to_vec(),
+            secret_pre_image,
             extra,
             lane,
             nonce,
@@ -170,7 +170,7 @@ impl Serialize for PaymentVerifyParams {
     where
         S: Serializer,
     {
-        (Bytes::new(&self.extra), Bytes::new(&self.proof)).serialize(serializer)
+        (&self.extra, BytesSer(&self.proof)).serialize(serializer)
     }
 }
 
@@ -179,11 +179,8 @@ impl<'de> Deserialize<'de> for PaymentVerifyParams {
     where
         D: Deserializer<'de>,
     {
-        let (extra, proof): (_, ByteBuf) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            extra,
-            proof: proof.to_vec(),
-        })
+        let (extra, BytesDe(proof)) = Deserialize::deserialize(deserializer)?;
+        Ok(Self { extra, proof })
     }
 }
 
@@ -198,7 +195,7 @@ impl Serialize for UpdateChannelStateParams {
     where
         S: Serializer,
     {
-        (&self.sv, Bytes::new(&self.secret), Bytes::new(&self.proof)).serialize(serializer)
+        (&self.sv, BytesSer(&self.secret), BytesSer(&self.proof)).serialize(serializer)
     }
 }
 
@@ -207,12 +204,8 @@ impl<'de> Deserialize<'de> for UpdateChannelStateParams {
     where
         D: Deserializer<'de>,
     {
-        let (sv, secret, proof): (_, ByteBuf, ByteBuf) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            sv,
-            secret: secret.to_vec(),
-            proof: proof.to_vec(),
-        })
+        let (sv, BytesDe(secret), BytesDe(proof)) = Deserialize::deserialize(deserializer)?;
+        Ok(Self { sv, secret, proof })
     }
 }
 

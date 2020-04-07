@@ -79,7 +79,7 @@ impl<'de> de::Deserialize<'de> for Cid {
         let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
         match tagged.tag {
             Some(CBOR_TAG_CID) | None => {
-                let mut bz = tagged.value.to_vec();
+                let mut bz = tagged.value.into_vec();
 
                 if bz.first() == Some(&MULTIBASE_IDENTITY) {
                     bz.remove(0);

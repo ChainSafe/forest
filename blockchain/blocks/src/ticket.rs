@@ -2,12 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crypto::VRFResult;
-use encoding::{
-    de::{self, Deserializer},
-    ser::{self, Serializer},
-    serde_bytes,
-};
-use serde::{Deserialize, Serialize};
+use encoding::{BytesDe, BytesSer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source
 /// of randomness for proofs of storage and leader election.  It is generated
@@ -25,7 +21,7 @@ impl Ticket {
     }
 }
 
-impl ser::Serialize for Ticket {
+impl Serialize for Ticket {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -34,7 +30,7 @@ impl ser::Serialize for Ticket {
     }
 }
 
-impl<'de> de::Deserialize<'de> for Ticket {
+impl<'de> Deserialize<'de> for Ticket {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -60,26 +56,26 @@ pub struct EPostProof {
     pub candidates: Vec<EPostTicket>,
 }
 
-impl ser::Serialize for EPostTicket {
+impl Serialize for EPostTicket {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        #[derive(Serialize)]
-        struct TupleEPostTicket<'a>(#[serde(with = "serde_bytes")] &'a [u8], &'a u64, &'a u64);
-        TupleEPostTicket(&self.partial, &self.sector_id, &self.challenge_index)
+        (
+            BytesSer(&self.partial),
+            &self.sector_id,
+            &self.challenge_index,
+        )
             .serialize(serializer)
     }
 }
 
-impl<'de> de::Deserialize<'de> for EPostTicket {
+impl<'de> Deserialize<'de> for EPostTicket {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        struct TupleEPostTicket(#[serde(with = "serde_bytes")] Vec<u8>, u64, u64);
-        let TupleEPostTicket(partial, sector_id, challenge_index) =
+        let (BytesDe(partial), sector_id, challenge_index) =
             Deserialize::deserialize(deserializer)?;
         Ok(Self {
             partial,
@@ -89,36 +85,27 @@ impl<'de> de::Deserialize<'de> for EPostTicket {
     }
 }
 
-impl ser::Serialize for EPostProof {
+impl Serialize for EPostProof {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        #[derive(Serialize)]
-        struct TupleEPostProof<'a>(
-            #[serde(with = "serde_bytes")] &'a [u8],
-            #[serde(with = "serde_bytes")] &'a [u8],
-            &'a [EPostTicket],
-        );
-        TupleEPostProof(&self.proof, &self.post_rand, &self.candidates).serialize(serializer)
+        (
+            BytesSer(&self.proof),
+            BytesSer(&self.post_rand),
+            &self.candidates,
+        )
+            .serialize(serializer)
     }
 }
-
-// Type defined outside of deserialize block because of bug with clippy
-// with more than one annotated field
-#[derive(Deserialize)]
-struct TupleEPostProof(
-    #[serde(with = "serde_bytes")] Vec<u8>,
-    #[serde(with = "serde_bytes")] Vec<u8>,
-    Vec<EPostTicket>,
-);
 
 impl<'de> Deserialize<'de> for EPostProof {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let TupleEPostProof(proof, post_rand, candidates) = Deserialize::deserialize(deserializer)?;
+        let (BytesDe(proof), BytesDe(post_rand), candidates) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Self {
             proof,
             post_rand,

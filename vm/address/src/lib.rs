@@ -212,8 +212,7 @@ impl ser::Serialize for Address {
         S: ser::Serializer,
     {
         let address_bytes = self.to_bytes();
-        let value = serde_bytes::Bytes::new(&address_bytes);
-        serde_bytes::Serialize::serialize(value, s)
+        serde_bytes::Serialize::serialize(&address_bytes, s)
     }
 }
 
