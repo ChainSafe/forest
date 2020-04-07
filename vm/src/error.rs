@@ -26,6 +26,7 @@ impl ActorError {
             msg,
         }
     }
+
     pub fn is_fatal(&self) -> bool {
         self.fatal
     }

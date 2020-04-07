@@ -351,7 +351,7 @@ impl State {
         epoch: ChainEpoch,
     ) -> Result<(), String> {
         let mut mmap = Multimap::from_root(s, &self.cron_event_queue)?;
-        mmap.remove_all(epoch_key(epoch))?;
+        mmap.remove_all(&epoch_key(epoch))?;
         self.cron_event_queue = mmap.root()?;
         Ok(())
     }

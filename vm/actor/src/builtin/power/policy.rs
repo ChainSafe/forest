@@ -4,7 +4,7 @@
 use super::{SectorStorageWeightDesc, SectorTermination};
 use crate::{reward, StoragePower};
 use clock::ChainEpoch;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use num_traits::{FromPrimitive, Pow};
 use runtime::ConsensusFaultType;
 use vm::TokenAmount;
@@ -23,10 +23,10 @@ pub const CONSENSUS_FAULT_REPORTING_WINDOW: ChainEpoch = 2880; // 1 day @ 30 sec
 
 lazy_static! {
     /// Multiplier on sector pledge requirement.
-    pub static ref PLEDGE_FACTOR: BigInt = BigInt::from(3); // PARAM_FINISH
+    pub static ref PLEDGE_FACTOR: BigUint = BigUint::from(3u8); // PARAM_FINISH
 
     /// Total expected block reward per epoch (per-winner reward * expected winners), as input to pledge requirement.
-    pub static ref EPOCH_TOTAL_EXPECTED_REWARD: BigInt = reward::BLOCK_REWARD_TARGET.clone() * 5; // PARAM_FINISH
+    pub static ref EPOCH_TOTAL_EXPECTED_REWARD: BigUint = reward::BLOCK_REWARD_TARGET.clone() * 5u8; // PARAM_FINISH
 
     /// Minimum power of an individual miner to meet the threshold for leader election.
     pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = StoragePower::from(2 << 30); // placeholder
@@ -101,9 +101,9 @@ pub fn pledge_for_weight(
         * weight.duration
         * &*EPOCH_TOTAL_EXPECTED_REWARD
         * &*PLEDGE_FACTOR;
-    let denominator = network_power;
-
-    (numerator / denominator)
+    let denominator = network_power
         .to_biguint()
-        .expect("all values should be positive")
+        .expect("Storage power should be positive");
+
+    numerator / denominator
 }

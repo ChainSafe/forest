@@ -65,9 +65,9 @@ where
 
     /// Removes all values for a key.
     #[inline]
-    pub fn remove_all(&mut self, key: String) -> Result<(), String> {
+    pub fn remove_all(&mut self, key: &str) -> Result<(), String> {
         // Remove entry from table
-        self.0.delete(&key)?;
+        self.0.delete(key)?;
 
         Ok(())
     }
