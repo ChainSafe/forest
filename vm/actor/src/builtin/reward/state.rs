@@ -60,7 +60,7 @@ impl State {
         // Iterate rewards, accumulate total and remaining reward state
         let mut remaining_rewards = Vec::new();
         let mut withdrawable_sum = TokenAmount::from(0u8);
-        rewards.for_each(&key, |_, reward: Reward| {
+        rewards.for_each(&key, |_, reward: &Reward| {
             let unlocked = reward.amount_vested(curr_epoch);
             let withdrawable = unlocked
                 .checked_sub(&reward.amount_withdrawn)
@@ -75,7 +75,7 @@ impl State {
                     vesting_function: reward.vesting_function,
                     start_epoch: reward.start_epoch,
                     end_epoch: reward.end_epoch,
-                    value: reward.value,
+                    value: reward.value.clone(),
                     amount_withdrawn: unlocked,
                 });
             }
