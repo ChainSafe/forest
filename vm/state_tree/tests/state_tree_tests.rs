@@ -68,7 +68,7 @@ fn get_set_non_id() {
     // Test mutate function
     tree.mutate_actor(&INIT_ACTOR_ADDR, |mut actor| {
         actor.sequence = 2;
-        Ok(actor)
+        Ok(())
     })
     .unwrap();
     let new_init_s = tree.get_actor(&INIT_ACTOR_ADDR).unwrap();

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Error, TipIndex, TipSetMetadata};
-use blocks::{BlockHeader, TipSetKeys, Tipset};
+use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
+use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
@@ -22,7 +23,6 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
-    // TODO revisit if this should be pointer to tipset on heap
     heaviest: Arc<Tipset>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
@@ -42,6 +42,11 @@ where
             tip_index: TipIndex::new(),
             heaviest,
         }
+    }
+
+    /// Sets heaviest tipset within ChainStore
+    pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
+        self.heaviest = ts;
     }
 
     /// Sets tip_index tracker
@@ -132,21 +137,47 @@ where
         Ok(ts)
     }
 
+    /// Returns a tuple of cids for both Unsigned and Signed messages
+    fn read_msg_cids(&self, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error> {
+        if let Some(roots) = self.blockstore().get::<TxMeta>(msg_cid)? {
+            let bls_cids = self.read_amt_cids(&roots.bls_message_root)?;
+            let secpk_cids = self.read_amt_cids(&roots.secp_message_root)?;
+            Ok((bls_cids, secpk_cids))
+        } else {
+            Err(Error::UndefinedKey("no msgs with that key".to_string()))
+        }
+    }
+
+    /// Returns a vector of cids from provided root cid
+    fn read_amt_cids(&self, root: &Cid) -> Result<Vec<Cid>, Error> {
+        let amt = Amt::load(root, self.blockstore())?;
+
+        let mut cids = Vec::new();
+        for i in 0..amt.count() {
+            if let Some(c) = amt.get(i)? {
+                cids.push(c);
+            }
+        }
+
+        Ok(cids)
+    }
+
     /// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
     /// of type SignedMessage
     pub fn messages(
         &self,
-        _bh: &BlockHeader,
+        bh: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        // TODO dependent on HAMT
+        let (bls_cids, secpk_cids) = self.read_msg_cids(bh.messages())?;
 
-        let bls_msgs: Vec<UnsignedMessage> = self.messages_from_cids(Vec::new())?;
-        let secp_msgs: Vec<SignedMessage> = self.messages_from_cids(Vec::new())?;
+        let bls_msgs: Vec<UnsignedMessage> = self.messages_from_cids(bls_cids)?;
+        let secp_msgs: Vec<SignedMessage> = self.messages_from_cids(secpk_cids)?;
+
         Ok((bls_msgs, secp_msgs))
     }
 
     /// Returns messages from key-value store
-    pub fn messages_from_cids<T>(&self, keys: Vec<&Cid>) -> Result<Vec<T>, Error>
+    pub fn messages_from_cids<T>(&self, keys: Vec<Cid>) -> Result<Vec<T>, Error>
     where
         T: DeserializeOwned,
     {
@@ -159,6 +190,22 @@ where
                 from_slice(&bytes)?
             })
             .collect()
+    }
+
+    /// Constructs and returns a full tipset if messages from storage exists
+    pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
+        let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
+
+        for header in ts.blocks() {
+            let (bls_messages, secp_messages) = self.messages(header)?;
+            blocks.push(Block {
+                header: header.clone(),
+                bls_messages,
+                secp_messages,
+            });
+        }
+
+        Ok(FullTipset::new(blocks))
     }
 }
 

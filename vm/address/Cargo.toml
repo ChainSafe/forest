@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 num-traits = "0.2"
-num-derive = "0.2"
+num-derive = "0.3.0"
 data-encoding = "2.1.2"
 data-encoding-macro = "0.1.7"
 leb128 = "0.2.1"

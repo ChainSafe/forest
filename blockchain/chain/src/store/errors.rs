@@ -5,6 +5,7 @@ use blocks::Error as BlkErr;
 use cid::Error as CidErr;
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
+use ipld_amt::Error as AmtErr;
 use serde::Deserialize;
 use std::fmt;
 
@@ -22,6 +23,8 @@ pub enum Error {
     Encoding(String),
     /// Error originating from Cid creation
     Cid(String),
+    /// Amt error
+    Amt(String),
 }
 
 impl fmt::Display for Error {
@@ -37,6 +40,7 @@ impl fmt::Display for Error {
                 "Error originating from construction of blockchain structures: {}",
                 msg
             ),
+            Error::Amt(msg) => write!(f, "Error originating from AMT: {}", msg),
             Error::Encoding(msg) => write!(f, "Error originating from Encoding type: {}", msg),
             Error::Cid(msg) => write!(f, "Error originating from from Cid creation: {}", msg),
         }
@@ -70,5 +74,11 @@ impl From<SerdeErr> for Error {
 impl From<CidErr> for Error {
     fn from(e: CidErr) -> Error {
         Error::Cid(e.to_string())
+    }
+}
+
+impl From<AmtErr> for Error {
+    fn from(e: AmtErr) -> Error {
+        Error::Amt(e.to_string())
     }
 }

@@ -16,7 +16,7 @@ use serde::Deserialize;
 /// A set of CIDs forming a unique key for a TipSet.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Ord, PartialOrd)]
 pub struct TipSetKeys {
     pub cids: Vec<Cid>,
 }
@@ -27,7 +27,7 @@ impl TipSetKeys {
     }
 
     /// checks whether the set contains exactly the same CIDs as another.
-    fn equals(&self, key: &TipSetKeys) -> bool {
+    pub fn equals(&self, key: &TipSetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
             return false;
         }
@@ -66,7 +66,7 @@ impl<'de> de::Deserialize<'de> for TipSetKeys {
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, PartialOrd, Ord, Eq)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipSetKeys,
@@ -155,7 +155,7 @@ impl Tipset {
         &self.blocks
     }
     /// Returns the smallest ticket of all blocks in the tipset
-    fn min_ticket(&self) -> Result<Ticket, Error> {
+    pub fn min_ticket(&self) -> Result<Ticket, Error> {
         if self.blocks.is_empty() {
             return Err(Error::NoBlocks);
         }
@@ -175,7 +175,7 @@ impl Tipset {
         Ok(min)
     }
     /// Returns the number of blocks in the tipset
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.blocks.len()
     }
     /// Returns true if no blocks present in tipset
@@ -228,131 +228,5 @@ impl FullTipset {
         }
         let tip: Tipset = Tipset::new(headers)?;
         Ok(tip)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use address::Address;
-    use cid::{multihash::Blake2b256, Cid};
-    use crypto::VRFResult;
-    use num_bigint::BigUint;
-
-    const WEIGHT: u64 = 1;
-    const CACHED_BYTES: [u8; 1] = [0];
-
-    fn template_key(data: &[u8]) -> Cid {
-        Cid::new_from_cbor(data, Blake2b256).unwrap()
-    }
-
-    // key_setup returns a vec of 4 distinct CIDs
-    fn key_setup() -> Vec<Cid> {
-        return vec![
-            template_key(b"test content"),
-            template_key(b"awesome test content "),
-            template_key(b"even better test content"),
-            template_key(b"the best test content out there"),
-        ];
-    }
-
-    // template_header defines a block header used in testing
-    fn template_header(ticket_p: Vec<u8>, cid: Cid, timestamp: u64) -> BlockHeader {
-        let cids = key_setup();
-        let header = BlockHeader::builder()
-            .parents(TipSetKeys {
-                cids: vec![cids[3].clone()],
-            })
-            .miner_address(Address::new_secp256k1(&ticket_p).unwrap())
-            .timestamp(timestamp)
-            .ticket(Ticket {
-                vrfproof: VRFResult::new(ticket_p),
-            })
-            .weight(BigUint::from(WEIGHT))
-            .cached_cid(cid)
-            .build()
-            .unwrap();
-
-        header
-    }
-
-    // header_setup returns a vec of block headers to be used for testing purposes
-    fn header_setup() -> Vec<BlockHeader> {
-        let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
-        let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
-        let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
-        let cids = key_setup();
-        return vec![
-            template_header(data0, cids[0].clone(), 1),
-            template_header(data1, cids[1].clone(), 2),
-            template_header(data2, cids[2].clone(), 3),
-        ];
-    }
-
-    fn setup() -> Tipset {
-        let headers = header_setup();
-        return Tipset::new(headers.clone()).expect("tipset is invalid");
-    }
-
-    #[test]
-    fn new_test() {
-        let headers = header_setup();
-        assert!(Tipset::new(headers).is_ok(), "result is invalid");
-    }
-
-    #[test]
-    fn min_ticket_test() {
-        let tipset = setup();
-        let expected_value: &[u8] = &[1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
-        let min = Tipset::min_ticket(&tipset).unwrap();
-        assert_eq!(min.vrfproof.bytes(), expected_value);
-    }
-
-    #[test]
-    fn min_timestamp_test() {
-        let tipset = setup();
-        let min_time = Tipset::min_timestamp(&tipset).unwrap();
-        assert_eq!(min_time, 1);
-    }
-
-    #[test]
-    fn len_test() {
-        let tipset = setup();
-        assert_eq!(Tipset::len(&tipset), 3);
-    }
-
-    #[test]
-    fn is_empty_test() {
-        let tipset = setup();
-        assert_eq!(Tipset::is_empty(&tipset), false);
-    }
-
-    #[test]
-    fn parents_test() {
-        let tipset = setup();
-        let expected_value = template_key(b"the best test content out there");
-        assert_eq!(
-            *tipset.parents(),
-            TipSetKeys {
-                cids: vec!(expected_value)
-            }
-        );
-    }
-
-    #[test]
-    fn weight_test() {
-        let tipset = setup();
-        assert_eq!(tipset.weight(), &BigUint::from(WEIGHT));
-    }
-
-    #[test]
-    fn equals_test() {
-        let tipset_keys = TipSetKeys {
-            cids: key_setup().clone(),
-        };
-        let tipset_keys2 = TipSetKeys {
-            cids: key_setup().clone(),
-        };
-        assert_eq!(tipset_keys.equals(&tipset_keys2), true);
     }
 }

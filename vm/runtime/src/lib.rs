@@ -29,23 +29,23 @@ pub trait Runtime<BS: BlockStore> {
     /// Validates the caller against some predicate.
     /// Exported actor methods must invoke at least one caller validation before returning.
     fn validate_immediate_caller_accept_any(&self);
-    fn validate_immediate_caller_is<'a, I>(&self, addresses: I)
+    fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
     where
-        I: Iterator<Item = &'a Address>;
-    fn validate_immediate_caller_type<'a, I>(&self, types: I)
+        I: IntoIterator<Item = &'a Address>;
+    fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
     where
-        I: Iterator<Item = &'a Cid>;
+        I: IntoIterator<Item = &'a Cid>;
 
     /// The balance of the receiver.
-    fn current_balance(&self) -> TokenAmount;
+    fn current_balance(&self) -> Result<TokenAmount, ActorError>;
 
     /// Resolves an address of any protocol to an ID address (via the Init actor's table).
     /// This allows resolution of externally-provided SECP, BLS, or actor addresses to the canonical form.
     /// If the argument is an ID address it is returned directly.
-    fn resolve_address(&self, address: &Address) -> Option<Address>;
+    fn resolve_address(&self, address: &Address) -> Result<Address, ActorError>;
 
     /// Look up the code ID at an actor address.
-    fn get_actor_code_cid(&self, addr: &Address) -> Option<Cid>;
+    fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError>;
 
     /// Randomness returns a (pseudo)random byte array drawing from a
     /// random beacon at a given epoch and incorporating reequisite entropy
@@ -57,12 +57,12 @@ pub trait Runtime<BS: BlockStore> {
 
     /// Initializes the state object.
     /// This is only valid in a constructor function and when the state has not yet been initialized.
-    fn create<C: Cbor>(&self, obj: &C);
+    fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError>;
 
     /// Loads a readonly copy of the state of the receiver into the argument.
     ///
     /// Any modification to the state is illegal and will result in an abort.
-    fn state<C: Cbor>(&self) -> C;
+    fn state<C: Cbor>(&self) -> Result<C, ActorError>;
 
     /// Loads a mutable version of the state into the `obj` argument and protects
     /// the execution from side effects (including message send).
@@ -73,9 +73,9 @@ pub trait Runtime<BS: BlockStore> {
     /// If the state is modified after this function returns, execution will abort.
     ///
     /// The gas cost of this method is that of a Store.Put of the mutated state object.
-    fn transaction<C: Cbor, R, F>(&self, f: F) -> R
+    fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
-        F: FnOnce(&mut C) -> R;
+        F: FnOnce(&mut C, &BS) -> R;
 
     /// Returns reference to blockstore
     fn store(&self) -> &BS;
@@ -84,7 +84,7 @@ pub trait Runtime<BS: BlockStore> {
     /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
     /// will be rolled back.
     fn send(
-        &self,
+        &mut self,
         to: &Address,
         method: MethodNum,
         params: &Serialized,
@@ -101,13 +101,13 @@ pub trait Runtime<BS: BlockStore> {
     /// the actor even in the event of a chain re-org (whereas an ID-address might refer to a
     /// different actor after messages are re-ordered).
     /// Always an ActorExec address.
-    fn new_actor_address(&self) -> Address;
+    fn new_actor_address(&mut self) -> Result<Address, ActorError>;
 
     /// Creates an actor with code `codeID` and address `address`, with empty state. May only be called by Init actor.
-    fn create_actor(&self, code_id: &Cid, address: &Address);
+    fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError>;
 
     /// Deletes the executing actor from the state tree. May only be called by the actor itself.
-    fn delete_actor(&self);
+    fn delete_actor(&mut self) -> Result<(), ActorError>;
 
     /// Provides the system call interface.
     fn syscalls(&self) -> Syscalls {
