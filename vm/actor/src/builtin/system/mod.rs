@@ -57,8 +57,7 @@ impl ActorCode for Actor {
             }
             _ => {
                 // Method number does not match available, abort in runtime
-                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
-                unreachable!();
+                Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned()))
             }
         }
     }
