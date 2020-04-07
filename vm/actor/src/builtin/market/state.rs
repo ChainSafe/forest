@@ -450,6 +450,12 @@ impl State {
 
         self.delete_deal(store, deal_id, deal)
     }
+    #[allow(dead_code)]
+    pub(super) fn generate_storage_deal_id(&mut self) -> DealID {
+        let ret = self.next_id;
+        self.next_id += 1;
+        ret
+    }
 
     ////////////////////////////////////////////////////////////////////////////////
     // Method utility functions
