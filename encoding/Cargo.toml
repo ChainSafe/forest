@@ -8,6 +8,5 @@ edition = "2018"
 blake2b_simd = "0.5.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.3"
-# TODO Remove this from a fork, it has to use unsafe code to allow deserializing a non utf-8 string
-serde_cbor = { version = "0.11.0", git = "https://github.com/austinabell/cbor", rev = "f6729ccd088b94d37cc6d4f8151846a229464bb1", features = ["tags"] }
+serde_cbor = { version = "0.11.0", features = ["tags"] }
 cid = { package = "forest_cid", path = "../ipld/cid" }

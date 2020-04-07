@@ -72,12 +72,9 @@ fn delete() {
         b"cat dog".as_ref(),
         b"cat".as_ref(),
     );
-    hamt.set(BytesKey(b"foo".to_vec()), ByteBuf::from(v1))
-        .unwrap();
-    hamt.set(BytesKey(b"bar".to_vec()), ByteBuf::from(v2))
-        .unwrap();
-    hamt.set(BytesKey(b"baz".to_vec()), ByteBuf::from(v3))
-        .unwrap();
+    hamt.set(b"foo".to_vec().into(), ByteBuf::from(v1)).unwrap();
+    hamt.set(b"bar".to_vec().into(), ByteBuf::from(v2)).unwrap();
+    hamt.set(b"baz".to_vec().into(), ByteBuf::from(v3)).unwrap();
 
     let c = hamt.flush().unwrap();
     assert_eq!(
@@ -124,8 +121,7 @@ fn set_delete_many() {
     let mut hamt: Hamt<BytesKey, _> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 0..200 {
-        hamt.set(BytesKey(format!("{}", i).into_bytes()), i)
-            .unwrap();
+        hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
     }
 
     let c1 = hamt.flush().unwrap();
@@ -135,8 +131,7 @@ fn set_delete_many() {
     );
 
     for i in 200..400 {
-        hamt.set(BytesKey(format!("{}", i).into_bytes()), i)
-            .unwrap();
+        hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
     }
 
     let cid_all = hamt.flush().unwrap();
