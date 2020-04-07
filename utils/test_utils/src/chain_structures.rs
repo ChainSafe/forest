@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![cfg(feature = "test_constructors")]
+
 use address::Address;
 use base64;
 use blocks::{
@@ -18,13 +20,11 @@ use num_bigint::BigUint;
 use std::error::Error;
 
 /// Defines a TipsetKey used in testing
-#[cfg(feature = "test_constructors")]
 pub fn template_key(data: &[u8]) -> Cid {
     Cid::new_from_cbor(data, Blake2b256).unwrap()
 }
 
 /// Defines a block header used in testing
-#[cfg(feature = "test_constructors")]
 fn template_header(
     ticket_p: Vec<u8>,
     cid: Cid,
@@ -53,7 +53,6 @@ fn template_header(
 }
 
 /// Returns a vec of 4 distinct CIDs
-#[cfg(feature = "test_constructors")]
 pub fn construct_keys() -> Vec<Cid> {
     return vec![
         template_key(b"test content"),
@@ -64,7 +63,6 @@ pub fn construct_keys() -> Vec<Cid> {
 }
 
 /// Returns a vec of block headers to be used for testing purposes
-#[cfg(feature = "test_constructors")]
 pub fn construct_header(epoch: u64, weight: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
     let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
@@ -92,14 +90,12 @@ pub fn construct_header(epoch: u64, weight: u64) -> Vec<BlockHeader> {
 }
 
 /// Returns a Ticket to be used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_ticket() -> Ticket {
     let vrf_result = VRFResult::new(base64::decode("lmRJLzDpuVA7cUELHTguK9SFf+IVOaySG8t/0IbVeHHm3VwxzSNhi1JStix7REw6Apu6rcJQV1aBBkd39gQGxP8Abzj8YXH+RdSD5RV50OJHi35f3ixR0uhkY6+G08vV").unwrap());
     Ticket::new(vrf_result)
 }
 
 /// Returns a deterministic EPostProof to be used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_epost_proof() -> EPostProof {
     let etik = EPostTicket {
         partial: base64::decode("TFliU6/pdbjRyomejlXMS77qjYdMDty07vigvXH/vjI=").unwrap(),
@@ -115,7 +111,6 @@ pub fn construct_epost_proof() -> EPostProof {
 }
 
 /// Returns a full block used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_block() -> Block {
     const EPOCH: u64 = 1;
     const WEIGHT: u64 = 10;
@@ -130,13 +125,11 @@ pub fn construct_block() -> Block {
 }
 
 /// Returns a tipset used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_tipset(epoch: u64, weight: u64) -> Tipset {
     Tipset::new(construct_header(epoch, weight)).unwrap()
 }
 
 /// Returns a full tipset used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_full_tipset() -> FullTipset {
     const EPOCH: u64 = 1;
     const WEIGHT: u64 = 10;
@@ -154,7 +147,6 @@ pub fn construct_full_tipset() -> FullTipset {
 }
 
 /// Returns TipSetMetadata used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_tipset_metadata() -> TipSetMetadata {
     const EPOCH: u64 = 1;
     const WEIGHT: u64 = 10;
@@ -176,7 +168,6 @@ impl Signer for DummySigner {
 }
 
 /// Returns a tuple of unsigned and signed messages used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
     let bls_messages = UnsignedMessage::builder()
         .to(Address::new_id(1).unwrap())
@@ -189,7 +180,6 @@ pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
 }
 
 /// Returns a TipsetBundle used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_tipset_bundle(epoch: u64, weight: u64) -> TipSetBundle {
     let headers = construct_header(epoch, weight);
     let (bls, secp) = construct_messages();
@@ -205,7 +195,6 @@ pub fn construct_tipset_bundle(epoch: u64, weight: u64) -> TipSetBundle {
 }
 
 /// Returns a RPCResponse used for testing
-#[cfg(feature = "test_constructors")]
 pub fn construct_blocksync_response() -> RPCResponse {
     // construct block sync response
     RPCResponse::BlockSync(BlockSyncResponse {

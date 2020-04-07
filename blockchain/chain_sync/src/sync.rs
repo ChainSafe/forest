@@ -72,7 +72,7 @@ pub struct ChainSyncer<DB> {
     network: SyncNetworkContext,
 
     /// the known genesis tipset
-    _genesis: Tipset,
+    genesis: Tipset,
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
@@ -101,7 +101,7 @@ where
         network_rx: Receiver<NetworkEvent>,
     ) -> Result<Self, Error> {
         let chain_store = ChainStore::new(db.clone());
-        let _genesis = match chain_store.genesis()? {
+        let genesis = match chain_store.genesis()? {
             Some(gen) => Tipset::new(vec![gen])?,
             None => {
                 // TODO change default logic for genesis or setup better initialization
@@ -127,7 +127,7 @@ where
             state_manager,
             chain_store,
             network,
-            _genesis,
+            genesis,
             bad_blocks: LruCache::new(1 << 15),
             net_handler,
             peer_manager,
@@ -609,7 +609,7 @@ where
     }
     /// validates tipsets and adds header data to tipset tracker
     fn validate_tipsets(&mut self, fts: FullTipset) -> Result<(), Error> {
-        if fts.tipset()? == self._genesis {
+        if fts.tipset()? == self.genesis {
             return Ok(());
         }
 
@@ -809,13 +809,10 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 mod tests {
     use super::*;
     use db::MemoryDB;
-    //use forest_libp2p::blocksync::BlockSyncResponse;
-    use forest_libp2p::hello::HelloMessage;
-    //use forest_libp2p::rpc::RPCResponse;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{
-        construct_blocksync_response, construct_full_tipset, construct_messages, construct_tipset,
+        construct_blocksync_response, construct_messages, construct_tipset,
     };
 
     fn chain_syncer_setup<Db>(db: Arc<Db>) -> ChainSyncer<Db>
@@ -828,30 +825,7 @@ mod tests {
         ChainSyncer::new(db, local_sender, event_receiver).unwrap()
     }
 
-    fn channel_setup<T>() -> (Sender<T>, Receiver<T>) {
-        let (sender, receiver) = channel(20);
-        (sender, receiver)
-    }
-
-    fn send_hello_msg() {
-        let (event_sender, _) = channel_setup();
-        let source = PeerId::random();
-
-        // initial HELLO message that begins syncing process
-        task::block_on(async {
-            event_sender
-                .send(NetworkEvent::Hello {
-                    message: HelloMessage::default(),
-                    source,
-                })
-                .await;
-
-            task::sleep(Duration::from_millis(50)).await;
-        });
-    }
-
-    fn send_blocksync_response() {
-        let (event_sender, _) = channel_setup();
+    fn send_blocksync_response(event_sender: Sender<NetworkEvent>) {
         let rpc_response = construct_blocksync_response();
 
         task::block_on(async {
@@ -876,56 +850,27 @@ mod tests {
     }
 
     #[test]
-    fn start_test() {
-        let db = MemoryDB::default();
-        let cs = chain_syncer_setup(Arc::new(db));
-
-        // send HELLO message to channel
-        send_hello_msg();
-        // send blocksync response to channel
-        send_blocksync_response();
-
-        task::spawn(async {
-            cs.start()
-                .await
-                .expect("error starting sync process thread");
-        });
-    }
-
-    #[test]
     fn sync_headers_reverse_given_tipsets_test() {
         let db = MemoryDB::default();
-        let mut cs = chain_syncer_setup(Arc::new(db));
+        let (local_sender, _test_receiver) = channel(20);
+        let (event_sender, event_receiver) = channel(20);
+        let mut cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
         // send blocksync response to channel
-        send_blocksync_response();
+        send_blocksync_response(event_sender);
 
         // params for sync_headers_reverse
         let source = PeerId::random();
         let head = construct_tipset(4, 10);
         let to = construct_tipset(1, 10);
 
-        task::spawn(async move {
+        task::block_on(async move {
             cs.peer_manager.add_peer(source.clone()).await;
             assert_eq!(cs.peer_manager.len().await, 1);
 
             let return_set = cs.sync_headers_reverse(head, &to).await;
             assert_eq!(return_set.unwrap().len(), 4);
-        });
-    }
-
-    #[test]
-    fn inform_new_head_given_fts_test() {
-        let fts = construct_full_tipset();
-
-        let db = MemoryDB::default();
-        let mut cs = chain_syncer_setup(Arc::new(db));
-
-        task::spawn(async move {
-            cs.inform_new_head(&fts)
-                .await
-                .expect("error with informing of new head");
         });
     }
 
