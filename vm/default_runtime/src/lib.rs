@@ -37,6 +37,7 @@ pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
 
 impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
     /// Constructs a new Runtime
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: &'c mut ST,
         store: &'a BS,
