@@ -25,7 +25,7 @@ impl SyncBucket {
         self.tips.iter().max_by_key(|a| a.weight()).cloned()
     }
     /// Returns true if tipset is from same chain
-    pub fn same_chain_as(&mut self, ts: Arc<Tipset>) -> bool {
+    pub fn same_chain_as(&mut self, ts: &Tipset) -> bool {
         for t in self.tips.iter_mut() {
             // TODO Confirm that comparing keys will be sufficient on full tipset impl
             if ts.key() == t.key() || ts.key() == t.parents() || ts.parents() == t.key() {
@@ -57,7 +57,7 @@ impl SyncBucketSet {
     /// Inserts a tipset into a bucket
     pub(crate) fn insert(&mut self, tipset: Arc<Tipset>) {
         for b in self.buckets.iter_mut() {
-            if b.same_chain_as(tipset.clone()) {
+            if b.same_chain_as(&tipset) {
                 b.add(tipset);
                 return;
             }
