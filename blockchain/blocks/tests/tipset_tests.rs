@@ -9,13 +9,13 @@ const WEIGHT: u64 = 10;
 
 #[test]
 fn new_test() {
-    let headers = construct_header(0);
+    let headers = construct_header(0, WEIGHT);
     assert!(Tipset::new(headers).is_ok(), "result is invalid");
 }
 
 #[test]
 fn min_ticket_test() {
-    let tipset = construct_tipset(0);
+    let tipset = construct_tipset(0, WEIGHT);
     let expected_value: &[u8] = &[1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
     let min = Tipset::min_ticket(&tipset).unwrap();
     assert_eq!(min.vrfproof.bytes(), expected_value);
@@ -23,26 +23,26 @@ fn min_ticket_test() {
 
 #[test]
 fn min_timestamp_test() {
-    let tipset = construct_tipset(0);
+    let tipset = construct_tipset(0, WEIGHT);
     let min_time = Tipset::min_timestamp(&tipset).unwrap();
     assert_eq!(min_time, 1);
 }
 
 #[test]
 fn len_test() {
-    let tipset = construct_tipset(0);
+    let tipset = construct_tipset(0, WEIGHT);
     assert_eq!(Tipset::len(&tipset), 3);
 }
 
 #[test]
 fn is_empty_test() {
-    let tipset = construct_tipset(0);
+    let tipset = construct_tipset(0, WEIGHT);
     assert_eq!(Tipset::is_empty(&tipset), false);
 }
 
 #[test]
 fn parents_test() {
-    let tipset = construct_tipset(0);
+    let tipset = construct_tipset(0, WEIGHT);
     let expected_value = template_key(b"test content");
     assert_eq!(
         *tipset.parents(),
@@ -54,7 +54,7 @@ fn parents_test() {
 
 #[test]
 fn weight_test() {
-    let tipset = construct_tipset(0);
+    let tipset = construct_tipset(0, WEIGHT);
     assert_eq!(tipset.weight(), &BigUint::from(WEIGHT));
 }
 

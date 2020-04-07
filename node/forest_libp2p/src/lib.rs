@@ -11,6 +11,6 @@ pub mod rpc;
 mod service;
 
 pub use self::behaviour::*;
-pub use self::blocksync::BlockSyncRequest;
+pub use self::blocksync::{BlockSyncRequest, MESSAGES};
 pub use self::config::*;
 pub use self::service::*;

@@ -10,25 +10,28 @@ use chain::TipSetMetadata;
 use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFResult};
 use encoding::to_vec;
-use forest_libp2p::blocksync::TipSetBundle;
+use forest_libp2p::blocksync::{BlockSyncResponse, TipSetBundle};
+use forest_libp2p::rpc::RPCResponse;
+
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::error::Error;
 
-const WEIGHT: u64 = 10;
-
 /// Defines a TipsetKey used in testing
+#[cfg(feature = "test_constructors")]
 pub fn template_key(data: &[u8]) -> Cid {
     Cid::new_from_cbor(data, Blake2b256).unwrap()
 }
 
-// Defines a block header used in testing
+/// Defines a block header used in testing
+#[cfg(feature = "test_constructors")]
 fn template_header(
     ticket_p: Vec<u8>,
     cid: Cid,
     timestamp: u64,
     epoch: u64,
     msg_root: Cid,
+    weight: u64,
 ) -> BlockHeader {
     let cids = construct_keys();
     BlockHeader::builder()
@@ -41,14 +44,16 @@ fn template_header(
             vrfproof: VRFResult::new(ticket_p),
         })
         .messages(msg_root)
+        .signature(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2]))
         .epoch(epoch)
-        .weight(BigUint::from(WEIGHT))
+        .weight(BigUint::from(weight))
         .cached_cid(cid)
         .build()
         .unwrap()
 }
 
-// Returns a vec of 4 distinct CIDs
+/// Returns a vec of 4 distinct CIDs
+#[cfg(feature = "test_constructors")]
 pub fn construct_keys() -> Vec<Cid> {
     return vec![
         template_key(b"test content"),
@@ -59,7 +64,8 @@ pub fn construct_keys() -> Vec<Cid> {
 }
 
 /// Returns a vec of block headers to be used for testing purposes
-pub fn construct_header(epoch: u64) -> Vec<BlockHeader> {
+#[cfg(feature = "test_constructors")]
+pub fn construct_header(epoch: u64, weight: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
     let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
     let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
@@ -79,19 +85,21 @@ pub fn construct_header(epoch: u64) -> Vec<BlockHeader> {
     let msg_root = Cid::new_from_cbor(&bz, Blake2b256).unwrap();
 
     return vec![
-        template_header(data0, cids[0].clone(), 1, epoch, msg_root.clone()),
-        template_header(data1, cids[1].clone(), 2, epoch, msg_root.clone()),
-        template_header(data2, cids[2].clone(), 3, epoch, msg_root),
+        template_header(data0, cids[0].clone(), 1, epoch, msg_root.clone(), weight),
+        template_header(data1, cids[1].clone(), 2, epoch, msg_root.clone(), weight),
+        template_header(data2, cids[2].clone(), 3, epoch, msg_root, weight),
     ];
 }
 
 /// Returns a Ticket to be used for testing
+#[cfg(feature = "test_constructors")]
 pub fn construct_ticket() -> Ticket {
     let vrf_result = VRFResult::new(base64::decode("lmRJLzDpuVA7cUELHTguK9SFf+IVOaySG8t/0IbVeHHm3VwxzSNhi1JStix7REw6Apu6rcJQV1aBBkd39gQGxP8Abzj8YXH+RdSD5RV50OJHi35f3ixR0uhkY6+G08vV").unwrap());
     Ticket::new(vrf_result)
 }
 
 /// Returns a deterministic EPostProof to be used for testing
+#[cfg(feature = "test_constructors")]
 pub fn construct_epost_proof() -> EPostProof {
     let etik = EPostTicket {
         partial: base64::decode("TFliU6/pdbjRyomejlXMS77qjYdMDty07vigvXH/vjI=").unwrap(),
@@ -107,9 +115,11 @@ pub fn construct_epost_proof() -> EPostProof {
 }
 
 /// Returns a full block used for testing
+#[cfg(feature = "test_constructors")]
 pub fn construct_block() -> Block {
-    let epoch: u64 = 1;
-    let headers = construct_header(epoch);
+    const EPOCH: u64 = 1;
+    const WEIGHT: u64 = 10;
+    let headers = construct_header(EPOCH, WEIGHT);
     let (bls_messages, secp_messages) = construct_messages();
 
     Block {
@@ -120,14 +130,17 @@ pub fn construct_block() -> Block {
 }
 
 /// Returns a tipset used for testing
-pub fn construct_tipset(epoch: u64) -> Tipset {
-    Tipset::new(construct_header(epoch)).unwrap()
+#[cfg(feature = "test_constructors")]
+pub fn construct_tipset(epoch: u64, weight: u64) -> Tipset {
+    Tipset::new(construct_header(epoch, weight)).unwrap()
 }
 
 /// Returns a full tipset used for testing
+#[cfg(feature = "test_constructors")]
 pub fn construct_full_tipset() -> FullTipset {
-    let epoch: u64 = 1;
-    let headers = construct_header(epoch);
+    const EPOCH: u64 = 1;
+    const WEIGHT: u64 = 10;
+    let headers = construct_header(EPOCH, WEIGHT);
     let mut blocks: Vec<Block> = Vec::with_capacity(headers.len());
     let (bls_messages, secp_messages) = construct_messages();
 
@@ -141,8 +154,11 @@ pub fn construct_full_tipset() -> FullTipset {
 }
 
 /// Returns TipSetMetadata used for testing
+#[cfg(feature = "test_constructors")]
 pub fn construct_tipset_metadata() -> TipSetMetadata {
-    let tip_set = construct_tipset(1);
+    const EPOCH: u64 = 1;
+    const WEIGHT: u64 = 10;
+    let tip_set = construct_tipset(EPOCH, WEIGHT);
     TipSetMetadata {
         tipset_state_root: tip_set.blocks()[0].state_root().clone(),
         tipset_receipts_root: tip_set.blocks()[0].message_receipts().clone(),
@@ -158,7 +174,9 @@ impl Signer for DummySigner {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }
+
 /// Returns a tuple of unsigned and signed messages used for testing
+#[cfg(feature = "test_constructors")]
 pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
     let bls_messages = UnsignedMessage::builder()
         .to(Address::new_id(1).unwrap())
@@ -171,8 +189,9 @@ pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
 }
 
 /// Returns a TipsetBundle used for testing
-pub fn construct_tipset_bundle(epoch: u64) -> TipSetBundle {
-    let headers = construct_header(epoch);
+#[cfg(feature = "test_constructors")]
+pub fn construct_tipset_bundle(epoch: u64, weight: u64) -> TipSetBundle {
+    let headers = construct_header(epoch, weight);
     let (bls, secp) = construct_messages();
     let includes: Vec<Vec<u64>> = (0..headers.len()).map(|_| vec![]).collect();
 
@@ -183,4 +202,19 @@ pub fn construct_tipset_bundle(epoch: u64) -> TipSetBundle {
         bls_msg_includes: includes.clone(),
         secp_msg_includes: includes,
     }
+}
+
+/// Returns a RPCResponse used for testing
+#[cfg(feature = "test_constructors")]
+pub fn construct_blocksync_response() -> RPCResponse {
+    // construct block sync response
+    RPCResponse::BlockSync(BlockSyncResponse {
+        chain: vec![
+            construct_tipset_bundle(3, 10),
+            construct_tipset_bundle(2, 10),
+            construct_tipset_bundle(1, 10),
+        ],
+        status: 0,
+        message: "message".to_owned(),
+    })
 }

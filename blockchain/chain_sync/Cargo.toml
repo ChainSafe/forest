@@ -27,4 +27,4 @@ futures = "0.3.2"
 lru = "0.4.3"
 
 [dev-dependencies]
-test_utils = {path="../../utils/test_utils/"}
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }

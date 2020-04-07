@@ -7,7 +7,7 @@ use async_std::prelude::*;
 use async_std::sync::{Receiver, Sender};
 use blocks::{FullTipset, TipSetKeys, Tipset};
 use forest_libp2p::{
-    blocksync::{BlockSyncRequest, BlockSyncResponse},
+    blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
     rpc::{RPCEvent, RPCRequest, RPCResponse, RequestId},
     NetworkEvent, NetworkMessage,
 };
@@ -17,10 +17,6 @@ use std::time::Duration;
 
 /// Timeout for response from an RPC request
 const RPC_TIMEOUT: u64 = 5;
-/// Blocksync request options
-const BLOCKS: u64 = 1;
-const _MESSAGES: u64 = 2;
-const FULL_BLOCKS: u64 = 3;
 
 /// Context used in chain sync to handle network requests
 pub struct SyncNetworkContext {
@@ -86,17 +82,15 @@ impl SyncNetworkContext {
                 BlockSyncRequest {
                     start: tsk.cids().to_vec(),
                     request_len: 1,
-                    options: FULL_BLOCKS,
+                    options: BLOCKS | MESSAGES,
                 },
             )
             .await?;
 
         let fts = bs_res.into_result()?;
-        if let Some(full_tip) = fts.get(0) {
-            Ok(full_tip.clone())
-        } else {
-            Err(format!("No full tipset found for cid: {:?}", tsk))
-        }
+        fts.get(0)
+            .cloned()
+            .ok_or(format!("No full tipset found for cid: {:?}", tsk))
     }
 
     /// Send a blocksync request to the network and await response

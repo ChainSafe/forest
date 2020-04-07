@@ -23,10 +23,10 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
-    heaviest: Tipset,
+    heaviest: Arc<Tipset>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
-    pub tip_index: TipIndex,
+    tip_index: TipIndex,
 }
 
 impl<DB> ChainStore<DB>
@@ -36,7 +36,7 @@ where
     /// constructor
     pub fn new(db: Arc<DB>) -> Self {
         // TODO pull heaviest tipset from data storage
-        let heaviest = Tipset::new(vec![BlockHeader::default()]).unwrap();
+        let heaviest = Arc::new(Tipset::new(vec![BlockHeader::default()]).unwrap());
         Self {
             db,
             tip_index: TipIndex::new(),
@@ -45,8 +45,7 @@ where
     }
 
     /// Sets heaviest tipset within ChainStore
-    // TODO
-    pub fn set_heaviest_tipset(&mut self, ts: Tipset) {
+    pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
         self.heaviest = ts;
     }
 
@@ -109,7 +108,7 @@ where
     }
 
     /// Returns heaviest tipset from blockstore
-    pub fn heaviest_tipset(&self) -> Tipset {
+    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
         self.heaviest.clone()
     }
 
@@ -159,6 +158,7 @@ where
                 cids.push(c);
             }
         }
+
         Ok(cids)
     }
 
@@ -172,6 +172,7 @@ where
 
         let bls_msgs: Vec<UnsignedMessage> = self.messages_from_cids(bls_cids)?;
         let secp_msgs: Vec<SignedMessage> = self.messages_from_cids(secpk_cids)?;
+
         Ok((bls_msgs, secp_msgs))
     }
 

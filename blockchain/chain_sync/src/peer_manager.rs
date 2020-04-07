@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::sync::RwLock;
-use blocks::Tipset;
 use libp2p::core::PeerId;
 use log::debug;
-use std::collections::HashMap;
 use std::collections::HashSet;
 
 /// Thread safe peer manager
@@ -13,8 +11,6 @@ use std::collections::HashSet;
 pub struct PeerManager {
     /// Hash set of full peers available
     full_peers: RwLock<HashSet<PeerId>>,
-    /// Represents peers and proposed tipsets from the network
-    pub peer_heads: RwLock<HashMap<PeerId, Tipset>>,
 }
 
 impl PeerManager {
@@ -40,20 +36,7 @@ impl PeerManager {
         // TODO replace this with a shuffled or more random sample
         self.full_peers.write().await.remove(peer_id)
     }
-    /// Inserts peer id and given tipset
-    pub async fn insert_peer_head(&self, peer_id: PeerId, tipset: Tipset) {
-        self.peer_heads.write().await.insert(peer_id, tipset);
-    }
-    /// Returns key from value if it exists
-    pub async fn find_key_for_value(&self, value: Tipset) -> Option<PeerId> {
-        self.peer_heads.read().await.iter().find_map(|(key, val)| {
-            if *val == value {
-                Some(key.clone())
-            } else {
-                None
-            }
-        })
-    }
+
     /// Gets count of full peers managed
     pub async fn len(&self) -> usize {
         self.full_peers.read().await.len()
