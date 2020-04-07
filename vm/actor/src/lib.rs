@@ -40,9 +40,9 @@ fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, String, BS> {
     Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH)
 }
 
-pub fn deal_key(d: DealID) -> String {
+pub fn u64_key(v: u64) -> String {
     let mut bz = unsigned_varint::encode::u64_buffer();
-    unsigned_varint::encode::u64(d, &mut bz);
+    unsigned_varint::encode::u64(v, &mut bz);
     String::from_utf8_lossy(&bz).to_string()
 }
 

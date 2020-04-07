@@ -73,13 +73,13 @@ where
     }
 
     /// Iterates through all values in the array at a given key.
-    pub fn for_each<F, V>(&self, key: &str, mut f: F) -> Result<(), String>
+    pub fn for_each<F, V>(&self, key: &str, f: F) -> Result<(), String>
     where
         V: Serialize + DeserializeOwned + Clone,
-        F: FnMut(u64, V) -> Result<(), String>,
+        F: FnMut(u64, &V) -> Result<(), String>,
     {
         if let Some(amt) = self.get::<V>(key)? {
-            amt.for_each(&mut f)?;
+            amt.for_each(f)?;
         }
 
         Ok(())

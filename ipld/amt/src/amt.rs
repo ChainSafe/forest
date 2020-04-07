@@ -208,20 +208,20 @@ where
     /// map.set(4, "Four".to_owned()).unwrap();
     ///
     /// let mut values: Vec<(u64, String)> = Vec::new();
-    /// map.for_each(&mut |i, v| {
-    ///    values.push((i, v));
+    /// map.for_each(|i, v| {
+    ///    values.push((i, v.clone()));
     ///    Ok(())
     /// }).unwrap();
     /// assert_eq!(&values, &[(1, "One".to_owned()), (4, "Four".to_owned())]);
     /// ```
     #[inline]
-    pub fn for_each<F>(&self, f: &mut F) -> Result<(), String>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), String>
     where
         V: DeserializeOwned,
-        F: FnMut(u64, V) -> Result<(), String>,
+        F: FnMut(u64, &V) -> Result<(), String>,
     {
         self.root
             .node
-            .for_each(self.block_store, self.height(), 0, f)
+            .for_each(self.block_store, self.height(), 0, &mut f)
     }
 }
