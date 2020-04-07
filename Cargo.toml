@@ -23,7 +23,7 @@ members = [
     "ipld/amt",
     "ipld",
     "ipld/hamt",
-    "math/bigint",
+    "utils/bigint",
     "tests/serialization_tests",
     "utils/rleplus",
     "utils/test_utils",

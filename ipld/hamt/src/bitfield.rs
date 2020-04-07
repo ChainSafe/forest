@@ -26,13 +26,11 @@ impl Serialize for Bitfield {
 
         for i in 0..v.len() {
             if v[i] != 0 {
-                let byte_buf = serde_bytes::Bytes::new(&v[i..]);
-                return byte_buf.serialize(serializer);
+                return serde_bytes::Serialize::serialize(&v[i..], serializer);
             }
         }
 
-        let byte_buf = serde_bytes::Bytes::new(&[]);
-        byte_buf.serialize(serializer)
+        <[u8] as serde_bytes::Serialize>::serialize(&[], serializer)
     }
 }
 

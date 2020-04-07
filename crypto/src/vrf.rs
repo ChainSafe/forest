@@ -17,6 +17,7 @@ impl VRFPublicKey {
 
 /// The output from running a VRF
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct VRFResult(#[serde(with = "serde_bytes")] Vec<u8>);
 
 impl VRFResult {

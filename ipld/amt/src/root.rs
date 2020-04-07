@@ -34,7 +34,7 @@ where
     where
         S: ser::Serializer,
     {
-        (self.height, self.count, self.node.clone()).serialize(s)
+        (&self.height, &self.count, &self.node).serialize(s)
     }
 }
 
