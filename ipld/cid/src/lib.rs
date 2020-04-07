@@ -12,6 +12,7 @@ pub use self::version::Version;
 use integer_encoding::{VarIntReader, VarIntWriter};
 pub use multihash;
 use multihash::{Blake2b256, Code, Multihash, MultihashDigest};
+use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::fmt;
 use std::io::Cursor;
@@ -193,6 +194,18 @@ impl std::hash::Hash for Cid {
 impl PartialEq for Cid {
     fn eq(&self, other: &Self) -> bool {
         self.to_bytes() == other.to_bytes()
+    }
+}
+
+impl PartialOrd for Cid {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.to_bytes().partial_cmp(&other.to_bytes())
+    }
+}
+
+impl Ord for Cid {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.to_bytes().cmp(&other.to_bytes())
     }
 }
 

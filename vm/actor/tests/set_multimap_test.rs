@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{deal_key, SetMultimap};
+use actor::{u64_key, SetMultimap};
 use address::Address;
 
 #[test]
@@ -17,8 +17,8 @@ fn put_remove() {
     smm.remove(&addr, 2).unwrap();
 
     let set = smm.get(&addr).unwrap().unwrap();
-    assert_eq!(set.has(&deal_key(8)), Ok(true));
-    assert_eq!(set.has(&deal_key(2)), Ok(false));
+    assert_eq!(set.has(&u64_key(8)), Ok(true));
+    assert_eq!(set.has(&u64_key(2)), Ok(false));
 
     smm.remove_all(&addr).unwrap();
     assert_eq!(smm.get(&addr), Ok(None));

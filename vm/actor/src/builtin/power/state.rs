@@ -328,9 +328,9 @@ impl State {
         let mut events = Vec::new();
 
         let mmap = Multimap::from_root(s, &self.cron_event_queue)?;
-        mmap.for_each(&epoch_key(epoch), |_, v: CronEvent| {
+        mmap.for_each(&epoch_key(epoch), |_, v: &CronEvent| {
             match self.get_claim(s, &v.miner_addr) {
-                Ok(Some(_)) => events.push(v),
+                Ok(Some(_)) => events.push(v.clone()),
                 Err(e) => {
                     return Err(format!(
                         "failed to find claimed power for {} for cron event: {}",

@@ -218,18 +218,18 @@ where
     /// map.set(4, 2).unwrap();
     ///
     /// let mut total = 0;
-    /// map.for_each(&mut |_, v: u64| {
+    /// map.for_each(|_, v: u64| {
     ///    total += v;
     ///    Ok(())
     /// }).unwrap();
     /// assert_eq!(total, 3);
     /// ```
     #[inline]
-    pub fn for_each<F, V>(&self, f: &mut F) -> Result<(), String>
+    pub fn for_each<F, V>(&self, mut f: F) -> Result<(), String>
     where
         V: DeserializeOwned,
         F: FnMut(&K, V) -> Result<(), String>,
     {
-        self.root.for_each(self.store, f)
+        self.root.for_each(self.store, &mut f)
     }
 }

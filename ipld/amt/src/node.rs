@@ -331,7 +331,7 @@ where
         f: &mut F,
     ) -> Result<(), String>
     where
-        F: FnMut(u64, V) -> Result<(), String>,
+        F: FnMut(u64, &V) -> Result<(), String>,
         S: BlockStore,
     {
         match self {
@@ -340,7 +340,7 @@ where
                     if bmap.get_bit(i as u64) {
                         f(
                             offset + i as u64,
-                            v.clone().expect("set bit should contain value"),
+                            v.as_ref().expect("set bit should contain value"),
                         )?;
                     }
                 }
