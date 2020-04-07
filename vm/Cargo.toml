@@ -11,6 +11,6 @@ encoding = { package = "forest_encoding", path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 cid = { package = "forest_cid", path = "../ipld/cid", features = ["serde_derive"] }
 num-traits = "0.2"
-num-derive = "0.2"
+num-derive = "0.3.0"
 clock = { path = "../node/clock" }
 thiserror = "1.0.11"

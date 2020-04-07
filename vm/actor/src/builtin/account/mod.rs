@@ -31,12 +31,12 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Account actor
-    pub fn constructor<BS, RT>(rt: &RT, address: Address) -> Result<(), ActorError>
+    pub fn constructor<BS, RT>(rt: &mut RT, address: Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&address));
+        rt.validate_immediate_caller_is(std::iter::once(&address))?;
         match address.protocol() {
             Protocol::Secp256k1 | Protocol::BLS => {}
             protocol => {
@@ -46,7 +46,7 @@ impl Actor {
                 ));
             }
         }
-        rt.create(&State { address });
+        rt.create(&State { address })?;
         Ok(())
     }
 
@@ -57,7 +57,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any();
-        let st: State = rt.state();
+        let st: State = rt.state()?;
         Ok(st.address)
     }
 }
@@ -65,7 +65,7 @@ impl Actor {
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
         &self,
-        rt: &RT,
+        rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
     ) -> Result<Serialized, ActorError>

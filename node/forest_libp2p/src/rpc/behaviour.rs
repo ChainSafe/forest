@@ -3,7 +3,6 @@
 
 use super::handler::RPCHandler;
 use super::RPCEvent;
-use futures::prelude::*;
 use futures::task::Context;
 use futures_util::task::Poll;
 use libp2p::core::ConnectedPoint;
@@ -11,17 +10,14 @@ use libp2p::swarm::{
     protocols_handler::ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
 };
 use libp2p::{Multiaddr, PeerId};
-use std::marker::PhantomData;
 
 /// The RPC behaviour that gets consumed by the Swarm.
-pub struct RPC<TSubstream> {
+pub struct RPC {
     /// Queue of events to processed.
     events: Vec<NetworkBehaviourAction<RPCEvent, RPCMessage>>,
-    /// Pins the generic substream.
-    marker: PhantomData<TSubstream>,
 }
 
-impl<TSubstream> RPC<TSubstream> {
+impl RPC {
     /// Creates a new RPC behaviour
     pub fn new() -> Self {
         RPC::default()
@@ -34,12 +30,9 @@ impl<TSubstream> RPC<TSubstream> {
     }
 }
 
-impl<TSubstream> Default for RPC<TSubstream> {
+impl Default for RPC {
     fn default() -> Self {
-        RPC {
-            events: vec![],
-            marker: PhantomData,
-        }
+        RPC { events: vec![] }
     }
 }
 
@@ -51,11 +44,8 @@ pub enum RPCMessage {
     PeerDisconnected(PeerId),
 }
 
-impl<TSubstream> NetworkBehaviour for RPC<TSubstream>
-where
-    TSubstream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
-    type ProtocolsHandler = RPCHandler<TSubstream>;
+impl NetworkBehaviour for RPC {
+    type ProtocolsHandler = RPCHandler;
     type OutEvent = RPCMessage;
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         RPCHandler::default()
