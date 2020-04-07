@@ -1,5 +1,5 @@
 [package]
-name = "interpreter"
+name = "default_runtime"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -9,8 +9,6 @@ address = { package = "forest_address", path = "../address" }
 actor = { path = "../actor" }
 message = { package = "forest_message", path = "../message" }
 runtime = { path = "../runtime" }
-blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
-chain = { path = "../../blockchain/chain" }
 clock = { path = "../../node/clock" }
 vm = { path = "../" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
@@ -19,4 +17,9 @@ forest_encoding = { path = "../../encoding" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 crypto = { path = "../../crypto" } 
 num-traits = "0.2.11"
-default_runtime = { path = "../default_runtime" }
+byteorder = "1.3.4"
+
+[dev-dependencies]
+state_tree = { path = "../state_tree" }
+db = { path = "../../node/db" }
+ipld_hamt = { path = "../../ipld/hamt" }

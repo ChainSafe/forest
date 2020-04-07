@@ -18,7 +18,7 @@ pub trait StateTree {
     /// Mutate and set actor state for an Address.
     fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), String>
     where
-        F: FnOnce(ActorState) -> Result<ActorState, String>;
+        F: FnOnce(&mut ActorState) -> Result<(), String>;
     /// Register a new address through the init actor.
     fn register_new_address(
         &mut self,

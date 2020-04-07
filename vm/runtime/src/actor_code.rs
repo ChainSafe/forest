@@ -11,7 +11,7 @@ pub trait ActorCode {
     /// defined by the Actor, and parameters will be serialized and used in execution
     fn invoke_method<BS, RT>(
         &self,
-        rt: &RT,
+        rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
     ) -> Result<Serialized, ActorError>

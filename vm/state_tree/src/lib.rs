@@ -126,15 +126,17 @@ where
 
     fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), String>
     where
-        F: FnOnce(ActorState) -> Result<ActorState, String>,
+        F: FnOnce(&mut ActorState) -> Result<(), String>,
     {
         // Retrieve actor state from address
-        let act: ActorState = self
+        let mut act: ActorState = self
             .get_actor(addr)?
             .ok_or(format!("Actor for address: {} does not exist", addr))?;
 
-        // Apply function of actor state and set the actor
-        self.set_actor(addr, mutate(act)?)
+        // Apply function of actor state
+        mutate(&mut act)?;
+        // Set the actor
+        self.set_actor(addr, act)
     }
 
     fn register_new_address(
