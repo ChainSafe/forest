@@ -26,4 +26,5 @@ members = [
     "math/bigint",
     "tests/serialization_tests",
     "utils/rleplus",
+    "utils/test_utils",
 ]

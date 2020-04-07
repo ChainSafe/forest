@@ -19,7 +19,7 @@ fn peer_manager_update() {
     let peer_manager = Arc::clone(&cs.peer_manager);
 
     task::spawn(async {
-        cs.sync().await.unwrap();
+        cs.start().await.unwrap();
     });
 
     let source = PeerId::random();

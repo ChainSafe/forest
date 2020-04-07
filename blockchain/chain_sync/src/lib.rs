@@ -3,13 +3,11 @@
 
 mod bucket;
 mod errors;
-mod manager;
 mod network_context;
 mod network_handler;
 mod peer_manager;
 mod sync;
 
 pub use self::errors::Error;
-pub use self::manager::SyncManager;
 pub use self::network_context::SyncNetworkContext;
 pub use self::sync::ChainSyncer;
