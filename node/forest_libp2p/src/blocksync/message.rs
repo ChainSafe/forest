@@ -10,6 +10,10 @@ use forest_encoding::{
 use forest_message::{SignedMessage, UnsignedMessage};
 use std::convert::TryFrom;
 
+/// Blocksync request options
+pub const BLOCKS: u64 = 1;
+pub const MESSAGES: u64 = 2;
+
 /// The payload that gets sent to another node to request for blocks and messages. It get DagCBOR serialized before sending over the wire.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockSyncRequest {

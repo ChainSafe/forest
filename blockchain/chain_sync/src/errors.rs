@@ -25,8 +25,6 @@ pub enum Error {
     Store(String),
     /// Error originating from key-value store
     KeyValueStore(String),
-    /// Error originating from the AMT
-    Amt(String),
     /// Error originating from state
     State(String),
     /// Error in validating arbitrary data
@@ -45,7 +43,6 @@ impl fmt::Display for Error {
             Error::Encoding(msg) => write!(f, "{}", msg),
             Error::InvalidCid(msg) => write!(f, "{}", msg),
             Error::Store(msg) => write!(f, "{}", msg),
-            Error::Amt(msg) => write!(f, "{}", msg),
             Error::State(msg) => write!(f, "{}", msg),
             Error::Validation(msg) => write!(f, "{}", msg),
             Error::Other(msg) => write!(f, "chain_sync error: {}", msg),
@@ -91,12 +88,24 @@ impl From<StoreErr> for Error {
 
 impl From<AmtErr> for Error {
     fn from(e: AmtErr) -> Error {
-        Error::Amt(e.to_string())
+        Error::Other(e.to_string())
     }
 }
 
 impl From<StErr> for Error {
     fn from(e: StErr) -> Error {
         Error::State(e.to_string())
+    }
+}
+
+impl From<&str> for Error {
+    fn from(e: &str) -> Error {
+        Error::Other(e.to_string())
+    }
+}
+
+impl From<std::num::TryFromIntError> for Error {
+    fn from(e: std::num::TryFromIntError) -> Error {
+        Error::Other(e.to_string())
     }
 }
