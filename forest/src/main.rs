@@ -80,7 +80,7 @@ fn main() {
         db.open().unwrap();
 
         let chain_syncer = ChainSyncer::new(Arc::new(db), network_send, network_rx).unwrap();
-        chain_syncer.sync().await.unwrap();
+        chain_syncer.start().await.unwrap();
     });
 
     // Block until ctrl-c is hit

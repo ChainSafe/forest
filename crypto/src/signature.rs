@@ -18,7 +18,7 @@ pub const BLS_SIG_LEN: usize = 96;
 pub const BLS_PUB_LEN: usize = 48;
 
 /// Signature variants for Forest signatures
-#[derive(Clone, Debug, PartialEq, FromPrimitive, Copy)]
+#[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq)]
 pub enum SignatureType {
     Secp256 = 1,
     BLS = 2,
@@ -39,7 +39,7 @@ impl SignatureType {
 }
 
 /// A cryptographic signature, represented in bytes, of any key protocol
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Eq)]
 pub struct Signature {
     sig_type: SignatureType,
     bytes: Vec<u8>,
