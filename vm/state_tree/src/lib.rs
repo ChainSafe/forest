@@ -3,12 +3,12 @@
 
 pub use vm::StateTree;
 
-use actor::{init, BytesKey, INIT_ACTOR_ADDR};
+use actor::{init, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
 use cid::{multihash::Blake2b256, Cid};
 use fnv::FnvHashMap;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::Hamt;
+use ipld_hamt::{BytesKey, Hamt};
 use parking_lot::RwLock;
 use vm::ActorState;
 
