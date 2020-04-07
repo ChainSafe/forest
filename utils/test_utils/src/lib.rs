@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #[cfg(feature = "test_constructors")]
-
 mod chain_structures;
 
 pub use self::chain_structures::*;

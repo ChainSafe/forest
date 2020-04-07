@@ -811,9 +811,7 @@ mod tests {
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
-    use test_utils::{
-        construct_blocksync_response, construct_messages, construct_tipset,
-    };
+    use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
     fn chain_syncer_setup<Db>(db: Arc<Db>) -> ChainSyncer<Db>
     where
