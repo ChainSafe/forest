@@ -317,10 +317,16 @@ impl State {
             return Ok(TokenAmount::zero());
         }
 
-        assert!(deal.start_epoch <= epoch);
+        assert!(
+            deal.start_epoch <= epoch,
+            "Deal start cannot exceed current epoch"
+        );
 
         let deal_end = if ever_slashed {
-            assert!(state.slash_epoch.unwrap() <= deal.end_epoch);
+            assert!(
+                state.slash_epoch.unwrap() <= deal.end_epoch,
+                "Epoch slashed must be less or equal to the end epoch"
+            );
             state.slash_epoch.unwrap()
         } else {
             deal.end_epoch
@@ -420,7 +426,10 @@ impl State {
     where
         BS: BlockStore,
     {
-        assert!(state.sector_start_epoch.is_none());
+        assert!(
+            state.sector_start_epoch.is_none(),
+            "Sector start epoch must be undefined"
+        );
         self.unlock_balance(store, &deal.client, &deal.client_balance_requirement())?;
 
         let amount_slashed =
@@ -443,7 +452,10 @@ impl State {
     where
         BS: BlockStore,
     {
-        assert!(state.sector_start_epoch.is_some());
+        assert!(
+            state.sector_start_epoch.is_some(),
+            "Sector start epoch must be initialized at this point"
+        );
 
         self.unlock_balance(store, &deal.provider, &deal.provider_collateral)?;
         self.unlock_balance(store, &deal.client, &deal.client_collateral)?;
@@ -528,7 +540,10 @@ impl State {
 }
 
 fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAmount {
-    assert!(epoch <= deal.end_epoch);
+    assert!(
+        epoch <= deal.end_epoch,
+        "Current epoch must be before the end epoch of the deal"
+    );
 
     let duration_remaining = deal.end_epoch - (epoch - 1);
 
