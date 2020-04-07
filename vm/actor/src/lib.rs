@@ -45,7 +45,7 @@ fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, BytesKey, BS> {
     Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH)
 }
 
-pub fn deal_key(d: DealID) -> BytesKey {
+pub fn u64_key(d: DealID) -> BytesKey {
     let mut bz = unsigned_varint::encode::u64_buffer();
     unsigned_varint::encode::u64(d, &mut bz);
     bz.to_vec().into()

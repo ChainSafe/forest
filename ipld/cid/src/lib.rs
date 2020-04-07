@@ -12,6 +12,7 @@ pub use self::version::Version;
 use integer_encoding::{VarIntReader, VarIntWriter};
 pub use multihash;
 use multihash::{Blake2b256, Code, Multihash, MultihashDigest};
+use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::fmt;
 use std::io::Cursor;
@@ -78,7 +79,7 @@ impl<'de> de::Deserialize<'de> for Cid {
         let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
         match tagged.tag {
             Some(CBOR_TAG_CID) | None => {
-                let mut bz = tagged.value.to_vec();
+                let mut bz = tagged.value.into_vec();
 
                 if bz.first() == Some(&MULTIBASE_IDENTITY) {
                     bz.remove(0);
@@ -193,6 +194,18 @@ impl std::hash::Hash for Cid {
 impl PartialEq for Cid {
     fn eq(&self, other: &Self) -> bool {
         self.to_bytes() == other.to_bytes()
+    }
+}
+
+impl PartialOrd for Cid {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.to_bytes().partial_cmp(&other.to_bytes())
+    }
+}
+
+impl Ord for Cid {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.to_bytes().cmp(&other.to_bytes())
     }
 }
 

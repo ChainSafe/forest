@@ -16,8 +16,7 @@ impl ser::Serialize for BitMap {
         S: ser::Serializer,
     {
         let bitmap_bz = self.to_byte_array();
-        let value = serde_bytes::Bytes::new(&bitmap_bz);
-        serde_bytes::Serialize::serialize(value, s)
+        <[u8] as serde_bytes::Serialize>::serialize(&bitmap_bz, s)
     }
 }
 

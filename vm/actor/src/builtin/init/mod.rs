@@ -38,12 +38,13 @@ impl Method {
 pub struct Actor;
 impl Actor {
     /// Init actor constructor
-    pub fn constructor<BS, RT>(rt: &RT, params: ConstructorParams) -> Result<(), ActorError>
+    pub fn constructor<BS, RT>(rt: &mut RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR));
+        let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
+        rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
         let mut empty_map = make_map(rt.store());
         let root = empty_map.flush().map_err(|err| {
             rt.abort(
@@ -52,13 +53,13 @@ impl Actor {
             )
         })?;
 
-        rt.create(&State::new(root, params.network_name));
+        rt.create(&State::new(root, params.network_name))?;
 
         Ok(())
     }
 
     /// Exec init actor
-    pub fn exec<BS, RT>(rt: &RT, params: ExecParams) -> Result<ExecReturn, ActorError>
+    pub fn exec<BS, RT>(rt: &mut RT, params: ExecParams) -> Result<ExecReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -81,29 +82,25 @@ impl Actor {
         // This address exists for use by messages coming from outside the system, in order to
         // stably address the newly created actor even if a chain re-org causes it to end up with
         // a different ID.
-        let robust_address = rt.new_actor_address();
+        let robust_address = rt.new_actor_address()?;
 
         // Allocate an ID for this actor.
         // Store mapping of pubkey or actor address to actor ID
-        let id_address: Address = rt.transaction::<State, _, _>(|s| {
-            match s.map_address_to_new_id(rt.store(), &robust_address) {
-                Ok(a) => a,
-                Err(e) => {
-                    rt.abort(ExitCode::ErrIllegalState, format!("exec failed {}", e));
-                    unreachable!()
-                }
-            }
-        });
+        let id_address: Address = rt.transaction::<State, _, _>(|s, bs| {
+            s.map_address_to_new_id(bs, &robust_address).map_err(|e| {
+                ActorError::new(ExitCode::ErrIllegalState, format!("exec failed {}", e))
+            })
+        })??;
 
         // Create an empty actor
-        rt.create_actor(&params.code_cid, &id_address);
+        rt.create_actor(&params.code_cid, &id_address)?;
 
         // Invoke constructor
         rt.send(
             &id_address,
             METHOD_CONSTRUCTOR,
             &params.constructor_params,
-            rt.message().value(),
+            &rt.message().value().clone(),
         )
         .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))?;
 
@@ -117,7 +114,7 @@ impl Actor {
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
         &self,
-        rt: &RT,
+        rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
     ) -> Result<Serialized, ActorError>
