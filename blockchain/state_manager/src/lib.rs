@@ -11,6 +11,7 @@ use encoding::de::DeserializeOwned;
 use forest_blocks::Tipset;
 use state_tree::{HamtStateTree, StateTree};
 use std::sync::Arc;
+use vm::SectorSize;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub struct StateManager<DB> {
@@ -39,17 +40,18 @@ where
         Ok(act)
     }
     /// Returns the epoch at which the miner was slashed at
-    pub fn miner_slashed(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
-        let act: miner::State = self.load_actor_state(addr, ts)?;
-        Ok(act.slashed_at)
+    pub fn miner_slashed(&self, _addr: &Address, _ts: &Tipset) -> Result<u64, Error> {
+        // TODO update to use power actor if needed
+        todo!()
     }
     /// Returns the amount of space in each sector committed to the network by this miner
-    pub fn miner_sector_size(&self, addr: &Address, ts: &Tipset) -> Result<u64, Error> {
+    pub fn miner_sector_size(&self, addr: &Address, ts: &Tipset) -> Result<SectorSize, Error> {
         let act: miner::State = self.load_actor_state(addr, ts)?;
-        let info: miner::MinerInfo = self.bs.get(&act.info)?.ok_or_else(|| {
-            Error::State("Could not retrieve miner info from IPLD store".to_owned())
-        })?;
-        Ok(*info.sector_size())
+        // * Switch back to retrieving from Cid if/when changed in actors
+        // let info: miner::MinerInfo = self.bs.get(&act.info)?.ok_or_else(|| {
+        //     Error::State("Could not retrieve miner info from IPLD store".to_owned())
+        // })?;
+        Ok(act.info.sector_size)
     }
     pub fn get_actor(&self, addr: &Address, ts: &Tipset) -> Result<Option<ActorState>, Error> {
         let state = HamtStateTree::new_from_root(self.bs.as_ref(), ts.parent_state())

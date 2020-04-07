@@ -23,8 +23,8 @@ pub type SectorNumber = u64;
 pub type StoragePower = BigInt;
 
 /// SectorSize indicates one of a set of possible sizes in the network.
+#[derive(Clone, Debug, PartialEq, Copy, FromPrimitive)]
 #[repr(u64)]
-#[derive(Debug, FromPrimitive, Clone, Copy)]
 pub enum SectorSize {
     _2KiB = 2 << 10,
     _8MiB = 8 << 20,

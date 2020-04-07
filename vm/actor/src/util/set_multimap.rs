@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{deal_key, parse_uint_key, DealID, HAMT_BIT_WIDTH};
+use crate::{parse_uint_key, u64_key, DealID, HAMT_BIT_WIDTH};
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
@@ -36,7 +36,7 @@ where
         // Get construct amt from retrieved cid or create new
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
-        set.put(deal_key(value))?;
+        set.put(u64_key(value))?;
 
         // Save and calculate new root
         let new_root = set.root()?;
@@ -63,7 +63,7 @@ where
             None => return Ok(()),
         };
 
-        set.delete(&deal_key(v))?;
+        set.delete(&u64_key(v))?;
 
         // Save and calculate new root
         let new_root = set.root()?;

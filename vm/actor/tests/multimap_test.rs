@@ -36,7 +36,7 @@ fn for_each() {
 
     let mut vals: Vec<(u64, u64)> = Vec::new();
     mm.for_each(&addr.hash_key(), |i, v| {
-        vals.push((i, v));
+        vals.push((i, *v));
         Ok(())
     })
     .unwrap();
