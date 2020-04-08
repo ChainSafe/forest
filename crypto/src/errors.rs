@@ -5,43 +5,26 @@ use address::Error as AddressError;
 use encoding::Error as EncodingError;
 use secp256k1::Error as SecpError;
 use std::error;
-use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug, PartialEq)]
+/// Crypto error
+#[derive(Debug, PartialEq, Error)]
 pub enum Error {
     /// Failed to produce a signature
+    #[error("Failed to sign data {0}")]
     SigningError(String),
     /// Unable to perform ecrecover with the given params
+    #[error("Could not recover public key from signature: {0}")]
     InvalidRecovery(String),
     /// Provided public key is not understood
-    InvalidPubKey(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::SigningError(s) => write!(f, "Could not sign data: {}", s),
-            Error::InvalidRecovery(s) => {
-                write!(f, "Could not recover public key from signature: {}", s)
-            }
-            Error::InvalidPubKey(s) => {
-                write!(f, "Invalid generated pub key to create address: {}", s)
-            }
-        }
-    }
+    #[error("Invalid generated pub key to create address: {0}")]
+    InvalidPubKey(#[from] AddressError),
 }
 
 impl From<Box<dyn error::Error>> for Error {
     fn from(err: Box<dyn error::Error>) -> Error {
         // Pass error encountered in signer trait as module error type
         Error::SigningError(err.to_string())
-    }
-}
-
-impl From<AddressError> for Error {
-    fn from(err: AddressError) -> Error {
-        // convert error from generating address
-        Error::InvalidPubKey(err.to_string())
     }
 }
 

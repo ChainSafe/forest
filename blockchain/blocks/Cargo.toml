@@ -14,6 +14,7 @@ derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+thiserror = "1.0"
 
 [dev-dependencies]
 base64 = "0.12.0"

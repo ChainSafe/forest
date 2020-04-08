@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::BytesKey;
 use address::Address;
 use clock::ChainEpoch;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
@@ -13,7 +14,7 @@ use vm::{MethodNum, Serialized, TokenAmount};
 pub struct TxnID(pub i64);
 
 impl TxnID {
-    pub fn key(self) -> String {
+    pub fn key(self) -> BytesKey {
         // TODO
         todo!();
     }

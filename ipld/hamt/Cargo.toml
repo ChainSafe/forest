@@ -13,6 +13,7 @@ db = { path = "../../node/db" }
 ipld_blockstore = { path = "../blockstore" }
 forest_ipld = { path = "../" }
 serde_bytes = "0.11.3"
+thiserror = "1.0"
 
 # TODO replace fork with updated fork or make PR into https://github.com/stusmall/murmur3
 [dependencies.murmur3]

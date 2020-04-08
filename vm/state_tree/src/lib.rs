@@ -8,7 +8,7 @@ use address::{Address, Protocol};
 use cid::{multihash::Blake2b256, Cid};
 use fnv::FnvHashMap;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::Hamt;
+use ipld_hamt::{BytesKey, Hamt};
 use parking_lot::RwLock;
 use vm::ActorState;
 
@@ -16,7 +16,7 @@ const TREE_BIT_WIDTH: u8 = 5;
 
 /// State tree implementation using hamt
 pub struct HamtStateTree<'db, S> {
-    hamt: Hamt<'db, String, S>,
+    hamt: Hamt<'db, BytesKey, S>,
 
     // TODO switch cache lock from using sync mutex when usage switches to async
     actor_cache: RwLock<FnvHashMap<Address, ActorState>>,
@@ -63,7 +63,7 @@ where
         }
 
         // if state doesn't exist, find using hamt
-        let act: Option<ActorState> = self.hamt.get(&addr.hash_key()).map_err(|e| e.to_string())?;
+        let act: Option<ActorState> = self.hamt.get(&addr.to_bytes()).map_err(|e| e.to_string())?;
 
         // Update cache if state was found
         if let Some(act_s) = &act {
@@ -86,7 +86,7 @@ where
 
         // Set actor state in hamt
         self.hamt
-            .set(addr.hash_key(), actor)
+            .set(addr.to_bytes().into(), actor)
             .map_err(|e| e.to_string())?;
 
         Ok(())
@@ -118,7 +118,7 @@ where
         self.actor_cache.write().remove(&addr);
 
         self.hamt
-            .delete(&addr.hash_key())
+            .delete(&addr.to_bytes())
             .map_err(|e| e.to_string())?;
 
         Ok(())
@@ -181,7 +181,7 @@ where
             // Set each value from cache into hamt
             // TODO this shouldn't be necessary, revisit
             self.hamt
-                .set(addr.hash_key(), act.clone())
+                .set(addr.to_bytes().into(), act.clone())
                 .map_err(|e| e.to_string())?;
         }
 

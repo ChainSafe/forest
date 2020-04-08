@@ -190,9 +190,9 @@ where
             Node::Link { links, .. } => match &links[sub_i as usize] {
                 Some(Link::Cid(cid)) => {
                     // TODO after benchmarking check if cache should be updated from get
-                    let node: Node<V> = bs.get::<Node<V>>(cid)?.ok_or_else(|| {
-                        Error::Cid("Cid did not match any in database".to_owned())
-                    })?;
+                    let node: Node<V> = bs
+                        .get::<Node<V>>(cid)?
+                        .ok_or_else(|| Error::Custom("Cid did not match any in database"))?;
 
                     // Get from node pulled into memory from Cid
                     node.get(bs, height - 1, i % nodes_for_height(height))
@@ -224,9 +224,9 @@ where
         if let Node::Link { links, bmap } = self {
             links[idx] = match &mut links[idx] {
                 Some(Link::Cid(cid)) => {
-                    let node = bs.get::<Node<V>>(cid)?.ok_or_else(|| {
-                        Error::Cid("Cid did not match any in database".to_owned())
-                    })?;
+                    let node = bs
+                        .get::<Node<V>>(cid)?
+                        .ok_or_else(|| Error::Custom("Cid did not match any in database"))?;
 
                     Some(Link::Cached(Box::new(node)))
                 }
@@ -298,9 +298,9 @@ where
             Self::Link { links, bmap } => {
                 let mut sub_node: Node<V> = match &links[sub_i as usize] {
                     Some(Link::Cached(n)) => *n.clone(),
-                    Some(Link::Cid(cid)) => bs.get(cid)?.ok_or_else(|| {
-                        Error::Cid("Cid did not match any in database".to_owned())
-                    })?,
+                    Some(Link::Cid(cid)) => bs
+                        .get(cid)?
+                        .ok_or_else(|| Error::Custom("Cid did not match any in database"))?,
                     None => unreachable!("Bitmap value for index is set"),
                 };
 
@@ -353,7 +353,7 @@ where
                             Link::Cached(sub) => sub.for_each(store, height - 1, offs, f)?,
                             Link::Cid(cid) => {
                                 let node = store.get::<Node<V>>(cid)?.ok_or_else(|| {
-                                    Error::Cid("Cid did not match any in database".to_owned())
+                                    Error::Custom("Cid did not match any in database")
                                 })?;
 
                                 node.for_each(store, height - 1, offs, f)?;

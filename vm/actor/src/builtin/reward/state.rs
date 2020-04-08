@@ -39,7 +39,7 @@ impl State {
         let mut rewards = Multimap::from_root(store, &self.reward_map)?;
         let value = reward.value.clone();
 
-        rewards.add(owner.hash_key(), reward)?;
+        rewards.add(owner.to_bytes().into(), reward)?;
 
         self.reward_map = rewards.root()?;
         self.reward_total += value;
@@ -55,7 +55,7 @@ impl State {
         curr_epoch: ChainEpoch,
     ) -> Result<TokenAmount, String> {
         let mut rewards = Multimap::from_root(store, &self.reward_map)?;
-        let key = owner.hash_key();
+        let key = owner.to_bytes();
 
         // Iterate rewards, accumulate total and remaining reward state
         let mut remaining_rewards = Vec::new();
@@ -90,7 +90,7 @@ impl State {
         // Regenerate amt for multimap with updated rewards
         rewards.remove_all(&key)?;
         for rew in remaining_rewards {
-            rewards.add(key.clone(), rew)?;
+            rewards.add(key.clone().into(), rew)?;
         }
 
         // Update rewards multimap root and total
