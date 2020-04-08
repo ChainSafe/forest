@@ -539,6 +539,11 @@ impl State {
     }
 }
 
+// TODO complete for market actor
+pub fn _deal_proposal_is_internally_valid() {
+    todo!();
+}
+
 fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAmount {
     assert!(
         epoch <= deal.end_epoch,
