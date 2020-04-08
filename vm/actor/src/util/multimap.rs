@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::HAMT_BIT_WIDTH;
+use crate::{BytesKey, HAMT_BIT_WIDTH};
 use cid::Cid;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -10,7 +10,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 /// Multimap stores multiple values per key in a Hamt of Amts.
 /// The order of insertion of values for each key is retained.
-pub struct Multimap<'a, BS>(Hamt<'a, String, BS>);
+pub struct Multimap<'a, BS>(Hamt<'a, BytesKey, BS>);
 impl<'a, BS> Multimap<'a, BS>
 where
     BS: BlockStore,
@@ -32,7 +32,7 @@ where
     }
 
     /// Adds a value for a key.
-    pub fn add<V>(&mut self, key: String, value: V) -> Result<(), String>
+    pub fn add<V>(&mut self, key: BytesKey, value: V) -> Result<(), String>
     where
         V: Serialize + DeserializeOwned + Clone,
     {
@@ -53,7 +53,7 @@ where
 
     /// Gets the Array of value type `V` using the multimap store.
     #[inline]
-    pub fn get<V>(&self, key: &str) -> Result<Option<Amt<'a, V, BS>>, String>
+    pub fn get<V>(&self, key: &[u8]) -> Result<Option<Amt<'a, V, BS>>, String>
     where
         V: DeserializeOwned + Serialize + Clone,
     {
@@ -65,7 +65,7 @@ where
 
     /// Removes all values for a key.
     #[inline]
-    pub fn remove_all(&mut self, key: &str) -> Result<(), String> {
+    pub fn remove_all(&mut self, key: &[u8]) -> Result<(), String> {
         // Remove entry from table
         self.0.delete(key)?;
 
@@ -73,7 +73,7 @@ where
     }
 
     /// Iterates through all values in the array at a given key.
-    pub fn for_each<F, V>(&self, key: &str, f: F) -> Result<(), String>
+    pub fn for_each<F, V>(&self, key: &[u8], f: F) -> Result<(), String>
     where
         V: Serialize + DeserializeOwned + Clone,
         F: FnMut(u64, &V) -> Result<(), String>,
