@@ -7,9 +7,10 @@ edition = "2018"
 [dependencies]
 unsigned-varint = "0.3.1"
 cid = { package = "forest_cid", path = "../cid", features = ["serde_derive"] }
-forest_encoding = { path = "../../encoding"}
-blockstore = { package = "ipld_blockstore", path = "../blockstore"}
+forest_encoding = { path = "../../encoding" }
+blockstore = { package = "ipld_blockstore", path = "../blockstore" }
 serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
 
 [dev-dependencies]
-db = { path = "../../node/db"}
+db = { path = "../../node/db" }

@@ -13,3 +13,4 @@ state_tree = { path = "../../vm/state_tree/" }
 vm = { path = "../../vm" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
 forest_blocks = { path = "../../blockchain/blocks" }
+thiserror = "1.0"

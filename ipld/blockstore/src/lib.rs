@@ -30,7 +30,7 @@ pub trait BlockStore: Store {
         T: MultihashDigest,
     {
         let bz = to_vec(obj)?;
-        let cid = Cid::new_from_cbor(&bz, hash).map_err(|e| Error::Encoding(e.to_string()))?;
+        let cid = Cid::new_from_cbor(&bz, hash).map_err(|e| Error::Other(e.to_string()))?;
         self.write(cid.to_bytes(), bz)?;
         Ok(cid)
     }

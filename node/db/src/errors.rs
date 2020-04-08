@@ -2,21 +2,33 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::error::Error as CborError;
-use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("Invalid bulk write kv lengths, must be equal")]
     InvalidBulkLen,
-    Database(String),
-    Encoding(String),
+    #[error("Cannot use unopened database")]
+    Unopened,
+    #[error("{0}")]
+    Database(#[from] rocksdb::Error),
+    #[error("{0}")]
+    Encoding(#[from] CborError),
+    #[error("{0}")]
+    Other(String),
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::InvalidBulkLen => write!(f, "Invalid bulk write kv lengths, must be equal"),
-            Error::Database(msg) => write!(f, "{}", msg),
-            Error::Encoding(msg) => write!(f, "{}", msg),
+impl PartialEq for Error {
+    fn eq(&self, other: &Self) -> bool {
+        use Error::*;
+
+        match (self, other) {
+            (&InvalidBulkLen, &InvalidBulkLen) => true,
+            (&Unopened, &Unopened) => true,
+            (&Database(_), &Database(_)) => true,
+            (&Encoding(_), &Encoding(_)) => true,
+            (&Other(ref a), &Other(ref b)) => a == b,
+            _ => false,
         }
     }
 }
@@ -24,17 +36,5 @@ impl fmt::Display for Error {
 impl From<Error> for String {
     fn from(e: Error) -> Self {
         e.to_string()
-    }
-}
-
-impl From<rocksdb::Error> for Error {
-    fn from(e: rocksdb::Error) -> Error {
-        Error::Database(String::from(e))
-    }
-}
-
-impl From<CborError> for Error {
-    fn from(e: CborError) -> Error {
-        Error::Encoding(e.to_string())
     }
 }
