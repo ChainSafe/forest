@@ -6,6 +6,7 @@ use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
+use encoding::{BytesDe, BytesSer};
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
@@ -48,7 +49,7 @@ impl State {
         empty_map: Cid,
         owner: Address,
         worker: Address,
-        peer_id: String,
+        peer_id: Vec<u8>,
         sector_size: SectorSize,
     ) -> Self {
         Self {
@@ -275,8 +276,7 @@ pub struct MinerInfo {
     pub pending_worker_key: Option<WorkerKeyChange>,
 
     /// Libp2p identity that should be used when connecting to this miner
-    // TODO revisit this, broken because invalid utf8 bytes will panic
-    pub peer_id: String,
+    pub peer_id: Vec<u8>,
 
     /// Amount of space in each sector committed to the network by this miner
     pub sector_size: SectorSize,
@@ -291,7 +291,7 @@ impl Serialize for MinerInfo {
             &self.owner,
             &self.worker,
             &self.pending_worker_key,
-            &self.peer_id,
+            BytesSer(&self.peer_id),
             &self.sector_size,
         )
             .serialize(serializer)
@@ -303,7 +303,7 @@ impl<'de> Deserialize<'de> for MinerInfo {
     where
         D: Deserializer<'de>,
     {
-        let (owner, worker, pending_worker_key, peer_id, sector_size) =
+        let (owner, worker, pending_worker_key, BytesDe(peer_id), sector_size) =
             Deserialize::deserialize(deserializer)?;
         Ok(Self {
             owner,
@@ -539,5 +539,25 @@ fn as_storage_weight_desc(
         sector_size,
         deal_weight: sector_info.deal_weight,
         duration: sector_info.info.expiration - sector_info.activation_epoch,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use encoding::{from_slice, to_vec};
+    use libp2p::PeerId;
+
+    #[test]
+    fn miner_info_serialize() {
+        let info = MinerInfo {
+            owner: Address::new_id(2).unwrap(),
+            worker: Address::new_id(3).unwrap(),
+            pending_worker_key: None,
+            peer_id: PeerId::random().into_bytes(),
+            sector_size: SectorSize::_2KiB,
+        };
+        let bz = to_vec(&info).unwrap();
+        assert_eq!(from_slice::<MinerInfo>(&bz).unwrap(), info);
     }
 }
