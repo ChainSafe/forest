@@ -8,10 +8,10 @@ fn put() {
     let store = db::MemoryDB::default();
     let mut set = Set::new(&store);
 
-    let key = "test";
+    let key = "test".as_bytes();
     assert_eq!(set.has(&key), Ok(false));
 
-    set.put(key.to_owned()).unwrap();
+    set.put(key.into()).unwrap();
     assert_eq!(set.has(&key), Ok(true));
 }
 
@@ -20,13 +20,13 @@ fn collect_keys() {
     let store = db::MemoryDB::default();
     let mut set = Set::new(&store);
 
-    set.put("0".to_owned()).unwrap();
+    set.put("0".into()).unwrap();
 
-    assert_eq!(set.collect_keys().unwrap(), ["0".to_owned()]);
+    assert_eq!(set.collect_keys().unwrap(), ["0".into()]);
 
-    set.put("1".to_owned()).unwrap();
-    set.put("2".to_owned()).unwrap();
-    set.put("3".to_owned()).unwrap();
+    set.put("1".into()).unwrap();
+    set.put("2".into()).unwrap();
+    set.put("3".into()).unwrap();
 
     assert_eq!(set.collect_keys().unwrap().len(), 4);
 }
@@ -36,12 +36,14 @@ fn delete() {
     let store = db::MemoryDB::default();
     let mut set = Set::new(&store);
 
-    assert_eq!(set.has(&"0"), Ok(false));
-    set.put("0".to_owned()).unwrap();
-    assert_eq!(set.has(&"0"), Ok(true));
-    set.delete(&"0").unwrap();
-    assert_eq!(set.has(&"0"), Ok(false));
+    let key = "0".as_bytes();
+
+    assert_eq!(set.has(key), Ok(false));
+    set.put(key.into()).unwrap();
+    assert_eq!(set.has(key), Ok(true));
+    set.delete(key).unwrap();
+    assert_eq!(set.has(key), Ok(false));
 
     // Test delete when doesn't exist doesn't error
-    set.delete(&"0").unwrap();
+    set.delete(key).unwrap();
 }

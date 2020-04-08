@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{parse_uint_key, u64_key, DealID, HAMT_BIT_WIDTH};
+use crate::{parse_uint_key, u64_key, BytesKey, DealID, HAMT_BIT_WIDTH};
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
+use std::borrow::Borrow;
 
 /// SetMultimap is a hamt with values that are also a hamt but are of the set variant.
 /// This allows hash sets to be indexable by an address.
-pub struct SetMultimap<'a, BS>(Hamt<'a, String, BS>);
+pub struct SetMultimap<'a, BS>(Hamt<'a, BytesKey, BS>);
 impl<'a, BS> SetMultimap<'a, BS>
 where
     BS: BlockStore,
@@ -42,13 +43,13 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(key.hash_key(), &new_root)?)
+        Ok(self.0.set(key.to_bytes().into(), &new_root)?)
     }
 
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
     pub fn get(&self, key: &Address) -> Result<Option<Set<'a, BS>>, String> {
-        match self.0.get(&key.hash_key())? {
+        match self.0.get(&key.to_bytes())? {
             Some(cid) => Ok(Some(Set::from_root(self.0.store(), &cid)?)),
             None => Ok(None),
         }
@@ -63,19 +64,19 @@ where
             None => return Ok(()),
         };
 
-        set.delete(&u64_key(v))?;
+        set.delete(u64_key(v).borrow())?;
 
         // Save and calculate new root
         let new_root = set.root()?;
 
-        Ok(self.0.set(key.hash_key(), &new_root)?)
+        Ok(self.0.set(key.to_bytes().into(), &new_root)?)
     }
 
     /// Removes set at index.
     #[inline]
     pub fn remove_all(&mut self, key: &Address) -> Result<(), String> {
         // Remove entry from table
-        self.0.delete(&key.hash_key())?;
+        self.0.delete(&key.to_bytes())?;
 
         Ok(())
     }
@@ -92,8 +93,8 @@ where
         };
 
         set.for_each(|k| {
-            let v =
-                parse_uint_key(k).map_err(|e| format!("Could not parse key: {}, ({})", k, e))?;
+            let v = parse_uint_key(&k)
+                .map_err(|e| format!("Could not parse key: {:?}, ({})", &k.0, e))?;
 
             // Run function on all parsed keys
             f(v)

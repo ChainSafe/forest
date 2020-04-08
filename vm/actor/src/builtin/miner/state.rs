@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{power, u64_key, OptionalEpoch, HAMT_BIT_WIDTH};
+use crate::{power, u64_key, BytesKey, OptionalEpoch, HAMT_BIT_WIDTH};
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use address::Address;
 use cid::Cid;
@@ -96,7 +96,7 @@ impl State {
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<Option<SectorPreCommitOnChainInfo>, HamtError> {
-        let precommitted = Hamt::<String, _>::load_with_bit_width(
+        let precommitted = Hamt::<BytesKey, _>::load_with_bit_width(
             &self.pre_committed_sectors,
             store,
             HAMT_BIT_WIDTH,
@@ -108,7 +108,7 @@ impl State {
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<(), HamtError> {
-        let mut precommitted = Hamt::<String, _>::load_with_bit_width(
+        let mut precommitted = Hamt::<BytesKey, _>::load_with_bit_width(
             &self.pre_committed_sectors,
             store,
             HAMT_BIT_WIDTH,
