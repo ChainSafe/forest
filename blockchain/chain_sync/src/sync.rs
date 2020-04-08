@@ -123,7 +123,7 @@ where
                         let genesis_block: BlockHeader = db
                             .get(&genesis_cid[0])
                             .map_err(|e| Error::Other(e.to_string()))?
-                            .ok_or(Error::Other("Could not find genesis block despite being loaded using a genesis file".to_owned()))?;
+                            .ok_or_else(|| Error::Other("Could not find genesis block despite being loaded using a genesis file".to_owned()))?;
                         Tipset::new(vec![genesis_block])?
                     }
                     None => {
