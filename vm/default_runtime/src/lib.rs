@@ -21,6 +21,7 @@ use vm::{
     ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, StateTree, TokenAmount,
     METHOD_SEND,
 };
+
 pub const PLACEHOLDER_GAS: u64 = 1;
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
