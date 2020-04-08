@@ -27,7 +27,7 @@ where
     let value = [1];
     db.write(key.clone(), value.clone()).unwrap();
     let res = db.read(key).unwrap().unwrap();
-    assert_eq!(value.to_vec(), res);
+    assert_eq!(value.as_ref(), res.as_slice());
 }
 
 pub fn exists<DB>(db: &DB)

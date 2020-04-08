@@ -24,4 +24,3 @@ identity-hash = []
 
 [dev-dependencies]
 hex = "0.4.2"
-rand = "0.7.3"

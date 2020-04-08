@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-num-bigint = { path = "../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 address = { package = "forest_address", path = "./address" }
 encoding = { package = "forest_encoding", path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }

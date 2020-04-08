@@ -8,14 +8,11 @@ edition = "2018"
 vm = { path = "../../vm" }
 address = { package = "forest_address", path = "../address" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 crypto = { path = "../../crypto" }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
-serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-hex = "0.4.2"
-base64 = "0.12.0"

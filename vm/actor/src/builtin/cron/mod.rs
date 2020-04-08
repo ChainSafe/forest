@@ -58,28 +58,28 @@ impl<'de> Deserialize<'de> for ConstructorParams {
 pub struct Actor;
 impl Actor {
     /// Constructor for Cron actor
-    fn constructor<BS, RT>(rt: &RT, params: ConstructorParams) -> Result<(), ActorError>
+    fn constructor<BS, RT>(rt: &mut RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR));
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
         rt.create(&State {
             entries: params.entries,
-        });
+        })?;
         Ok(())
     }
     /// Executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    fn epoch_tick<BS, RT>(rt: &RT) -> Result<(), ActorError>
+    fn epoch_tick<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR));
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        let st: State = rt.state();
+        let st: State = rt.state()?;
         for entry in st.entries {
             rt.send(
                 &entry.receiver,
@@ -95,7 +95,7 @@ impl Actor {
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
         &self,
-        rt: &RT,
+        rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
     ) -> Result<Serialized, ActorError>

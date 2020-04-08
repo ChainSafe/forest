@@ -11,11 +11,13 @@ cid = { package = "forest_cid", path = "../../ipld/cid" }
 clock = { path = "../../node/clock" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
-num-bigint = { path = "../../math/bigint", package = "forest_bigint" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 message = { package = "forest_message", path = "../../vm/message" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
+ipld_amt = { path = "../../ipld/amt/" }
 
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
 crypto = { path = "../../crypto" }
 multihash = "0.10.0"
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }

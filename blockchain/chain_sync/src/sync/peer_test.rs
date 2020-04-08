@@ -15,11 +15,11 @@ fn peer_manager_update() {
     let (local_sender, _test_receiver) = channel(20);
     let (event_sender, event_receiver) = channel(20);
 
-    let cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+    let cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver, None).unwrap();
     let peer_manager = Arc::clone(&cs.peer_manager);
 
     task::spawn(async {
-        cs.sync().await.unwrap();
+        cs.start().await.unwrap();
     });
 
     let source = PeerId::random();

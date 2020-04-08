@@ -31,8 +31,7 @@ impl ser::Serialize for Serialized {
     where
         S: ser::Serializer,
     {
-        let value = serde_bytes::Bytes::new(&self.bytes);
-        serde_bytes::Serialize::serialize(value, s)
+        serde_bytes::Serialize::serialize(&self.bytes, s)
     }
 }
 

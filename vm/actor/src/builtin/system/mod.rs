@@ -32,7 +32,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR));
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
         Ok(())
     }
@@ -41,7 +41,7 @@ impl Actor {
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
         &self,
-        rt: &RT,
+        rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
     ) -> Result<Serialized, ActorError>
@@ -57,8 +57,7 @@ impl ActorCode for Actor {
             }
             _ => {
                 // Method number does not match available, abort in runtime
-                rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned());
-                unreachable!();
+                Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned()))
             }
         }
     }

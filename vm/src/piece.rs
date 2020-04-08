@@ -31,6 +31,7 @@ impl UnpaddedPieceSize {
 
 /// Size of a piece in bytes with padding
 #[derive(PartialEq, Debug, Eq, Clone, Copy, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct PaddedPieceSize(pub u64);
 
 impl PaddedPieceSize {
