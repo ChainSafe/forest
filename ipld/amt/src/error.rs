@@ -13,13 +13,13 @@ pub enum Error {
     #[error("index {0} out of range for the amt")]
     OutOfRange(u64),
     /// Cbor encoding error
-    #[error("{0}")]
+    #[error(transparent)]
     Encoding(#[from] EncodingError),
     /// Error generating a Cid for data
-    #[error("{0}")]
+    #[error(transparent)]
     Cid(#[from] CidError),
     /// Error interacting with underlying database
-    #[error("{0}")]
+    #[error(transparent)]
     DB(#[from] DBError),
     /// Error when trying to serialize an AMT without a flushed cache
     #[error("Tried to serialize without saving cache, run flush() on Amt before serializing")]

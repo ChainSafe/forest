@@ -4,6 +4,7 @@
 use db::Error as DbErr;
 use thiserror::Error;
 
+/// State manager error
 #[derive(Debug, PartialEq, Error)]
 pub enum Error {
     /// Error orginating from state
@@ -16,6 +17,6 @@ pub enum Error {
     #[error("Actor state with cid {0} not found")]
     ActorStateNotFound(String),
     /// Error originating from key-value store
-    #[error("{0}")]
+    #[error(transparent)]
     DB(#[from] DbErr),
 }

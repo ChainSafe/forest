@@ -10,29 +10,28 @@ use encoding::{error::Error as SerdeErr, Error as EncErr};
 use state_manager::Error as StErr;
 use thiserror::Error;
 
+/// ChainSync error
 #[derive(Debug, PartialEq, Error)]
 pub enum Error {
     #[error("No blocks for tipset")]
     NoBlocks,
     /// Error originating constructing blockchain structures
-    #[error("{0}")]
+    #[error(transparent)]
     Blockchain(#[from] BlkErr),
     /// Error originating from encoding arbitrary data
     #[error("{0}")]
     Encoding(String),
     /// Error originating from CID construction
-    #[error("{0}")]
+    #[error(transparent)]
     InvalidCid(#[from] CidErr),
     /// Error indicating an invalid root
     #[error("Invalid root detected")]
     InvalidRoots,
     /// Error indicating a chain store error
-    #[error("{0}")]
+    #[error(transparent)]
     Store(#[from] StoreErr),
-    // /// Error originating from key-value store
-    // KeyValueStore(String),
     /// Error originating from state
-    #[error("{0}")]
+    #[error(transparent)]
     State(#[from] StErr),
     /// Error in validating arbitrary data
     #[error("{0}")]

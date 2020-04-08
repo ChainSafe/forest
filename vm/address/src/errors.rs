@@ -6,6 +6,7 @@ use data_encoding::DecodeError;
 use std::{io, num};
 use thiserror::Error;
 
+/// Address error
 #[derive(Debug, PartialEq, Error)]
 pub enum Error {
     #[error("Unknown address network")]

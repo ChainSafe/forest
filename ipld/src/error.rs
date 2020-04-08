@@ -5,6 +5,7 @@ use serde::ser;
 use std::fmt;
 use thiserror::Error;
 
+/// Ipld error
 #[derive(Debug, PartialEq, Error)]
 pub enum Error {
     #[error("{0}")]

@@ -13,7 +13,7 @@ pub enum Error {
     #[error("Maximum depth reached")]
     MaxDepth,
     /// Error interacting with underlying database
-    #[error("{0}")]
+    #[error(transparent)]
     Db(#[from] DBError),
     /// Error encoding/ decoding values in store
     #[error("{0}")]

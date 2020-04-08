@@ -8,6 +8,7 @@ use encoding::{error::Error as SerdeErr, Error as EncErr};
 use ipld_amt::Error as AmtErr;
 use thiserror::Error;
 
+/// Chain error
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {
     /// Key was not found
@@ -20,19 +21,19 @@ pub enum Error {
     #[error("{0} not found")]
     NotFound(&'static str),
     /// Error originating from key-value store
-    #[error("{0}")]
+    #[error(transparent)]
     DB(#[from] DbErr),
     /// Error originating constructing blockchain structures
-    #[error("{0}")]
+    #[error(transparent)]
     Blockchain(#[from] BlkErr),
     /// Error originating from encoding arbitrary data
     #[error("{0}")]
     Encoding(String),
     /// Error originating from Cid creation
-    #[error("{0}")]
+    #[error(transparent)]
     Cid(#[from] CidErr),
     /// Amt error
-    #[error("{0}")]
+    #[error(transparent)]
     Amt(#[from] AmtErr),
 }
 

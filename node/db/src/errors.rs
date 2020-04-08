@@ -4,15 +4,16 @@
 use encoding::error::Error as CborError;
 use thiserror::Error;
 
+/// Database error
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Invalid bulk write kv lengths, must be equal")]
     InvalidBulkLen,
     #[error("Cannot use unopened database")]
     Unopened,
-    #[error("{0}")]
+    #[error(transparent)]
     Database(#[from] rocksdb::Error),
-    #[error("{0}")]
+    #[error(transparent)]
     Encoding(#[from] CborError),
     #[error("{0}")]
     Other(String),
