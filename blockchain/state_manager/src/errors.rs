@@ -2,29 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use db::Error as DbErr;
-use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug, PartialEq)]
+/// State manager error
+#[derive(Debug, PartialEq, Error)]
 pub enum Error {
     /// Error orginating from state
+    #[error("{0}")]
     State(String),
+    /// Actor for given address not found
+    #[error("Actor for address: {0} does not exist")]
+    ActorNotFound(String),
+    /// Actor state not found at given cid
+    #[error("Actor state with cid {0} not found")]
+    ActorStateNotFound(String),
     /// Error originating from key-value store
-    KeyValueStore(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::State(msg) => write!(f, "{}", msg),
-            Error::KeyValueStore(msg) => {
-                write!(f, "Error originating from Key-Value store: {}", msg)
-            }
-        }
-    }
-}
-
-impl From<DbErr> for Error {
-    fn from(e: DbErr) -> Error {
-        Error::KeyValueStore(e.to_string())
-    }
+    #[error(transparent)]
+    DB(#[from] DbErr),
 }

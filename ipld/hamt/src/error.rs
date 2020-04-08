@@ -4,41 +4,28 @@
 use db::Error as DBError;
 use forest_encoding::error::Error as CborError;
 use forest_ipld::Error as IpldError;
-use std::fmt;
+use thiserror::Error;
 
 /// HAMT Error
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum Error {
     /// Maximum depth error
+    #[error("Maximum depth reached")]
     MaxDepth,
     /// Error interacting with underlying database
-    Db(String),
+    #[error(transparent)]
+    Db(#[from] DBError),
     /// Error encoding/ decoding values in store
+    #[error("{0}")]
     Encoding(String),
     /// Custom HAMT error
+    #[error("{0}")]
     Custom(&'static str),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::MaxDepth => write!(f, "Maximum depth reached"),
-            Error::Db(msg) => write!(f, "Database Error: {}", msg),
-            Error::Encoding(msg) => write!(f, "Encoding Error: {}", msg),
-            Error::Custom(msg) => write!(f, "HAMT error: {}", msg),
-        }
-    }
 }
 
 impl From<Error> for String {
     fn from(e: Error) -> Self {
         e.to_string()
-    }
-}
-
-impl From<DBError> for Error {
-    fn from(e: DBError) -> Error {
-        Error::Db(e.to_string())
     }
 }
 

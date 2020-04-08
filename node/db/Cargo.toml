@@ -7,4 +7,5 @@ edition = "2018"
 [dependencies]
 rocksdb = "0.13.0"
 parking_lot = "0.10.0"
-encoding = { package = "forest_encoding", path = "../../encoding"}
+encoding = { package = "forest_encoding", path = "../../encoding" }
+thiserror = "1.0"

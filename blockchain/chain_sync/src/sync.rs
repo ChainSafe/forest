@@ -504,13 +504,13 @@ where
                 Some(MsgMetaData { sequence, balance }) => {
                     // sequence equality check
                     if *sequence != msg.sequence() {
-                        return Err(Error::Validation("Sequences are not equal".to_string()));
+                        return Err(Error::Validation("Sequences are not equal"));
                     }
 
                     // sufficient funds check
                     if *balance < msg.required_funds() {
                         return Err(Error::Validation(
-                            "Insufficient funds for message execution".to_string(),
+                            "Insufficient funds for message execution",
                         ));
                     }
                     // update balance and increment sequence by 1
@@ -523,9 +523,9 @@ where
                 None => {
                     let actor = tree
                         .get_actor(msg.from())
-                        .map_err(Error::Blockchain)?
+                        .map_err(Error::Other)?
                         .ok_or_else(|| {
-                            Error::State("Could not retrieve actor from state tree".to_owned())
+                            Error::Other("Could not retrieve actor from state tree".to_owned())
                         })?;
 
                     MsgMetaData {
@@ -551,9 +551,7 @@ where
             check_msg(m, &mut msg_meta_data, &tree)?;
             // signature validation
             if !is_valid_signature(&m.cid()?.to_bytes(), m.from(), m.signature()) {
-                return Err(Error::Validation(
-                    "Message signature is not valid".to_string(),
-                ));
+                return Err(Error::Validation("Message signature is not valid"));
             }
         }
         // validate message root from header matches message root
@@ -572,7 +570,7 @@ where
 
         // check if block has been signed
         if header.signature().bytes().is_empty() {
-            return Err(Error::Validation("Signature is nil in header".to_string()));
+            return Err(Error::Validation("Signature is nil in header"));
         }
 
         let base_tipset = self.load_fts(&TipSetKeys::new(header.parents().cids.clone()))?;
@@ -634,11 +632,7 @@ where
 
         let mut return_set = vec![head];
 
-        let to_epoch = to
-            .blocks()
-            .get(0)
-            .ok_or_else(|| Error::Blockchain("Tipset must not be empty".to_owned()))?
-            .epoch();
+        let to_epoch = to.blocks().get(0).expect("Tipset cannot be empty").epoch();
 
         // Loop until most recent tipset height is less than to tipset height
         'sync: while let Some(cur_ts) = return_set.last() {

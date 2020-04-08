@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use data_encoding::{DecodeError, DecodeKind};
 use encoding::{from_slice, Cbor};
 use forest_address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
@@ -290,11 +291,17 @@ fn invalid_string_addresses() {
         },
         StringAddrVec {
             input: "t2gfvuyh7v2sx3patm1k23wdzmhyhtmqctasbr24y",
-            expected: Error::Base32Decoding("invalid symbol at 16".to_owned()),
+            expected: Error::Base32Decoding(DecodeError {
+                position: 16,
+                kind: DecodeKind::Symbol,
+            }),
         },
         StringAddrVec {
             input: "t2gfvuyh7v2sx3paTm1k23wdzmhyhtmqctasbr24y",
-            expected: Error::Base32Decoding("invalid symbol at 14".to_owned()),
+            expected: Error::Base32Decoding(DecodeError {
+                position: 14,
+                kind: DecodeKind::Symbol,
+            }),
         },
         StringAddrVec {
             input: "t2",
