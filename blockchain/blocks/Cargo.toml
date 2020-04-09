@@ -15,7 +15,9 @@ serde = { version = "1.0", features = ["derive"] }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 thiserror = "1.0"
+vm = { path = "../../vm" }
 
 [dev-dependencies]
 base64 = "0.12.0"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+hex = "0.4.2"
