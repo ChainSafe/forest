@@ -44,7 +44,7 @@ impl Serialize for OnMinerSectorsTerminateParams {
     where
         S: Serializer,
     {
-        (&self.deal_ids).serialize(serializer)
+        [&self.deal_ids].serialize(serializer)
     }
 }
 
@@ -53,7 +53,7 @@ impl<'de> Deserialize<'de> for OnMinerSectorsTerminateParams {
     where
         D: Deserializer<'de>,
     {
-        let deal_ids = Deserialize::deserialize(deserializer)?;
+        let [deal_ids]: [Vec<DealID>; 1] = Deserialize::deserialize(deserializer)?;
         Ok(Self { deal_ids })
     }
 }
@@ -67,7 +67,7 @@ impl Serialize for HandleExpiredDealsParams {
     where
         S: Serializer,
     {
-        (&self.deal_ids).serialize(serializer)
+        [&self.deal_ids].serialize(serializer)
     }
 }
 
@@ -76,7 +76,7 @@ impl<'de> Deserialize<'de> for HandleExpiredDealsParams {
     where
         D: Deserializer<'de>,
     {
-        let deal_ids = Deserialize::deserialize(deserializer)?;
+        let [deal_ids]: [Vec<DealID>; 1] = Deserialize::deserialize(deserializer)?;
         Ok(Self { deal_ids })
     }
 }
@@ -90,7 +90,7 @@ impl Serialize for PublishStorageDealsParams {
     where
         S: Serializer,
     {
-        (&self.deals).serialize(serializer)
+        [&self.deals].serialize(serializer)
     }
 }
 
@@ -99,7 +99,7 @@ impl<'de> Deserialize<'de> for PublishStorageDealsParams {
     where
         D: Deserializer<'de>,
     {
-        let deals = Deserialize::deserialize(deserializer)?;
+        let [deals]: [Vec<ClientDealProposal>; 1] = Deserialize::deserialize(deserializer)?;
         Ok(Self { deals })
     }
 }
@@ -113,7 +113,7 @@ impl Serialize for PublishStorageDealsReturn {
     where
         S: Serializer,
     {
-        (&self.ids).serialize(serializer)
+        [&self.ids].serialize(serializer)
     }
 }
 
@@ -122,7 +122,7 @@ impl<'de> Deserialize<'de> for PublishStorageDealsReturn {
     where
         D: Deserializer<'de>,
     {
-        let ids = Deserialize::deserialize(deserializer)?;
+        let [ids]: [Vec<DealID>; 1] = Deserialize::deserialize(deserializer)?;
         Ok(Self { ids })
     }
 }
