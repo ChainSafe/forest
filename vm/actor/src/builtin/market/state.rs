@@ -245,7 +245,6 @@ impl State {
     // Deal state operations
     ////////////////////////////////////////////////////////////////////////////////
 
-    #[allow(dead_code)]
     pub(super) fn update_pending_deal_states_for_party<BS>(
         &mut self,
         store: &BS,
@@ -269,7 +268,7 @@ impl State {
 
         self.update_pending_deal_states(store, extracted_ids, epoch)
     }
-    #[allow(dead_code)]
+
     pub(super) fn update_pending_deal_states<BS>(
         &mut self,
         store: &BS,
@@ -473,7 +472,6 @@ impl State {
     // Method utility functions
     ////////////////////////////////////////////////////////////////////////////////
 
-    #[allow(dead_code)]
     pub(super) fn must_get_deal<BS: BlockStore>(
         &self,
         store: &BS,
@@ -521,7 +519,6 @@ impl State {
             })?)
     }
 
-    #[allow(dead_code)]
     pub(super) fn lock_balance_or_abort<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -537,11 +534,6 @@ impl State {
 
         self.maybe_lock_balance(store, addr, amount)
     }
-}
-
-// TODO complete for market actor
-pub fn _deal_proposal_is_internally_valid() {
-    todo!();
 }
 
 fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAmount {

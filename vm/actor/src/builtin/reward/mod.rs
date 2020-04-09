@@ -91,7 +91,7 @@ impl Actor {
 
         let cur_epoch = rt.curr_epoch();
         let penalty: TokenAmount = rt
-            .transaction::<_, Result<_, String>, _>(|st: &mut State, bs| {
+            .transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
                 let block_rew = Self::compute_block_reward(
                     st,
                     &prior_bal - &params.gas_reward,
@@ -113,7 +113,7 @@ impl Actor {
                 // Record new reward into reward map.
                 if rew_payable > TokenAmount::zero() {
                     st.add_reward(
-                        bs,
+                        rt.store(),
                         &miner,
                         Reward {
                             start_epoch: cur_epoch,
@@ -154,13 +154,15 @@ impl Actor {
 
         let cur_epoch = rt.curr_epoch();
         let withdrawable_reward =
-            rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, bs| {
-                let withdrawn = st.withdraw_reward(bs, &maddr, cur_epoch).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to withdraw record: {}", e),
-                    )
-                })?;
+            rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+                let withdrawn = st
+                    .withdraw_reward(rt.store(), &maddr, cur_epoch)
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to withdraw record: {}", e),
+                        )
+                    })?;
                 Ok(withdrawn)
             })??;
 

@@ -6,7 +6,7 @@ use address::Address;
 use clock::ChainEpoch;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{DealID, RegisteredProof, TokenAmount};
+use vm::{DealID, RegisteredProof, SectorSize, TokenAmount};
 
 pub struct WithdrawBalanceParams {
     pub provider_or_client: Address,
@@ -129,6 +129,7 @@ impl<'de> Deserialize<'de> for PublishStorageDealsReturn {
 
 pub struct VerifyDealsOnSectorProveCommitParams {
     pub deal_ids: Vec<DealID>,
+    pub sector_size: SectorSize,
     pub sector_expiry: ChainEpoch,
 }
 
@@ -137,7 +138,7 @@ impl Serialize for VerifyDealsOnSectorProveCommitParams {
     where
         S: Serializer,
     {
-        (&self.deal_ids, &self.sector_expiry).serialize(serializer)
+        (&self.deal_ids, &self.sector_size, &self.sector_expiry).serialize(serializer)
     }
 }
 
@@ -146,9 +147,10 @@ impl<'de> Deserialize<'de> for VerifyDealsOnSectorProveCommitParams {
     where
         D: Deserializer<'de>,
     {
-        let (deal_ids, sector_expiry) = Deserialize::deserialize(deserializer)?;
+        let (deal_ids, sector_size, sector_expiry) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             deal_ids,
+            sector_size,
             sector_expiry,
         })
     }

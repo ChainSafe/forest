@@ -95,12 +95,12 @@ impl Actor {
         let st: State = rt.state()?;
         Self::validate_signer(rt, &st, &caller_addr)?;
 
-        let tx_id = rt.transaction::<State, _, _>(|st, bs| {
+        let tx_id = rt.transaction::<State, _, _>(|st, rt| {
             let t_id = st.next_tx_id;
             st.next_tx_id.0 += 1;
 
             if let Err(err) = st.put_pending_transaction(
-                bs,
+                rt.store(),
                 t_id,
                 Transaction {
                     to: params.to,
@@ -157,14 +157,16 @@ impl Actor {
         let st: State = rt.state()?;
         Self::validate_signer(rt, &st, &caller_addr)?;
 
-        rt.transaction::<State, _, _>(|st, bs| {
+        rt.transaction::<State, _, _>(|st, rt| {
             // Get transaction to cancel
-            let tx = st.get_pending_transaction(bs, params.id).map_err(|err| {
-                ActorError::new(
-                    ExitCode::ErrNotFound,
-                    format!("Failed to get transaction for cancel: {}", err),
-                )
-            })?;
+            let tx = st
+                .get_pending_transaction(rt.store(), params.id)
+                .map_err(|err| {
+                    ActorError::new(
+                        ExitCode::ErrNotFound,
+                        format!("Failed to get transaction for cancel: {}", err),
+                    )
+                })?;
 
             // Check to make sure transaction proposer is caller address
             if tx.approved.get(0) != Some(&caller_addr) {
@@ -175,7 +177,7 @@ impl Actor {
             }
 
             // Remove transaction
-            if let Err(e) = st.delete_pending_transaction(bs, params.id) {
+            if let Err(e) = st.delete_pending_transaction(rt.store(), params.id) {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("Failed to delete transaction for cancel: {}", e),
@@ -319,8 +321,8 @@ impl Actor {
         let curr_epoch = rt.curr_epoch();
         // Approval transaction
         let (tx, threshold_met): (Transaction, bool) =
-            rt.transaction::<State, _, _>(|st, bs| {
-                let mut txn = match st.get_pending_transaction(bs, tx_id) {
+            rt.transaction::<State, _, _>(|st, rt| {
+                let mut txn = match st.get_pending_transaction(rt.store(), tx_id) {
                     Ok(t) => t,
                     Err(e) => {
                         return Err(ActorError::new(
@@ -343,7 +345,7 @@ impl Actor {
                 // update approved on the transaction
                 txn.approved.push(from);
 
-                if let Err(e) = st.put_pending_transaction(bs, tx_id, txn.clone()) {
+                if let Err(e) = st.put_pending_transaction(rt.store(), tx_id, txn.clone()) {
                     return Err(ActorError::new(
                         ExitCode::ErrIllegalState,
                         format!("Failed to put transaction for approval: {}", e),
@@ -361,7 +363,7 @@ impl Actor {
                     }
 
                     // Delete pending transaction
-                    if let Err(e) = st.delete_pending_transaction(bs, tx_id) {
+                    if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
                         return Err(ActorError::new(
                             ExitCode::ErrIllegalState,
                             format!("failed to delete transaction for cleanup: {}", e),
