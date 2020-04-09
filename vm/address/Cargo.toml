@@ -11,3 +11,4 @@ data-encoding = "2.1.2"
 data-encoding-macro = "0.1.7"
 leb128 = "0.2.1"
 encoding = { package = "forest_encoding", path = "../../encoding" }
+thiserror = "1.0"

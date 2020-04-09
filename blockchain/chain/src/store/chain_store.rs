@@ -92,7 +92,7 @@ where
             let key = m.cid()?.key();
             let value = &m.marshal_cbor()?;
             if self.db.exists(&key)? {
-                return Err(Error::KeyValueStore("Keys exist".to_string()));
+                return Ok(());
             }
             self.db.write(&key, value)?
         }
@@ -127,9 +127,7 @@ where
                 let bh = BlockHeader::unmarshal_cbor(&x)?;
                 block_headers.push(bh);
             } else {
-                return Err(Error::KeyValueStore(
-                    "Key for header does not exist".to_string(),
-                ));
+                return Err(Error::NotFound("Key for header"));
             }
         }
         // construct new Tipset to return
@@ -187,7 +185,8 @@ where
                 let bytes = value.ok_or_else(|| Error::UndefinedKey(k.to_string()))?;
 
                 // Decode bytes into type T
-                from_slice(&bytes)?
+                let t = from_slice(&bytes)?;
+                Ok(t)
             })
             .collect()
     }

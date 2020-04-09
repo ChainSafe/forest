@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::CONSENSUS_MINER_MIN_POWER;
-use crate::{BalanceTable, Multimap, Set, StoragePower, HAMT_BIT_WIDTH};
+use crate::{BalanceTable, BytesKey, Multimap, Set, StoragePower, HAMT_BIT_WIDTH};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -204,9 +204,10 @@ impl State {
         store: &BS,
         a: &Address,
     ) -> Result<Option<Claim>, String> {
-        let map: Hamt<String, _> = Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
+        let map: Hamt<BytesKey, _> =
+            Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
-        Ok(map.get(&a.hash_key())?)
+        Ok(map.get(&a.to_bytes())?)
     }
 
     pub(super) fn set_claim<BS: BlockStore>(
@@ -217,10 +218,10 @@ impl State {
     ) -> Result<(), String> {
         assert!(claim.power.sign() == Sign::Minus);
 
-        let mut map: Hamt<String, _> =
+        let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
-        map.set(addr.hash_key(), claim)?;
+        map.set(addr.to_bytes().into(), claim)?;
         self.claims = map.flush()?;
         Ok(())
     }
@@ -230,10 +231,10 @@ impl State {
         store: &BS,
         addr: &Address,
     ) -> Result<(), String> {
-        let mut map: Hamt<String, _> =
+        let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
-        map.delete(&addr.hash_key())?;
+        map.delete(&addr.to_bytes())?;
         self.claims = map.flush()?;
         Ok(())
     }
@@ -262,7 +263,7 @@ impl State {
         a: &Address,
     ) -> Result<bool, String> {
         let faulty = Set::from_root(store, &self.post_detected_fault_miners)?;
-        Ok(faulty.has(&a.hash_key())?)
+        Ok(faulty.has(&a.to_bytes())?)
     }
 
     pub(super) fn put_detected_fault<BS: BlockStore>(
@@ -280,7 +281,7 @@ impl State {
         }
 
         let mut faulty_miners = Set::from_root(s, &self.post_detected_fault_miners)?;
-        faulty_miners.put(a.hash_key())?;
+        faulty_miners.put(a.to_bytes().into())?;
         self.post_detected_fault_miners = faulty_miners.root()?;
 
         Ok(())
@@ -292,7 +293,7 @@ impl State {
         a: &Address,
     ) -> Result<(), String> {
         let mut faulty_miners = Set::from_root(s, &self.post_detected_fault_miners)?;
-        faulty_miners.delete(&a.hash_key())?;
+        faulty_miners.delete(&a.to_bytes())?;
         self.post_detected_fault_miners = faulty_miners.root()?;
 
         let claim = self
@@ -357,13 +358,13 @@ impl State {
     }
 }
 
-fn epoch_key(e: ChainEpoch) -> String {
+fn epoch_key(e: ChainEpoch) -> BytesKey {
     // TODO switch logic to flip bits on negative value before encoding if ChainEpoch changed to i64
     // and add tests for edge cases once decided
     let ux = e << 1;
     let mut bz = unsigned_varint::encode::u64_buffer();
     unsigned_varint::encode::u64(ux, &mut bz);
-    String::from_utf8_lossy(&bz).to_string()
+    bz.to_vec().into()
 }
 
 impl Cbor for State {}

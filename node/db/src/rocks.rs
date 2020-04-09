@@ -59,7 +59,7 @@ impl RocksDb {
     /// Returns reference to db as long as it is initialized
     pub fn db(&self) -> Result<&DB, Error> {
         match &self.status {
-            DbStatus::Unopened(_) => Err(Error::Database("Unopened database used".to_string())),
+            DbStatus::Unopened(_) => Err(Error::Unopened),
             DbStatus::Open(db) => Ok(db),
         }
     }

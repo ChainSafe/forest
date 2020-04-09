@@ -6,57 +6,35 @@ use cid::Error as CidErr;
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
 use ipld_amt::Error as AmtErr;
-use serde::Deserialize;
-use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug, PartialEq, Deserialize)]
+/// Chain error
+#[derive(Debug, Error, PartialEq)]
 pub enum Error {
     /// Key was not found
+    #[error("Invalid tipset: {0}")]
     UndefinedKey(String),
     /// Tipset contains no blocks
+    #[error("No blocks for tipset")]
     NoBlocks,
+    /// Key not found in database
+    #[error("{0} not found")]
+    NotFound(&'static str),
     /// Error originating from key-value store
-    KeyValueStore(String),
+    #[error(transparent)]
+    DB(#[from] DbErr),
     /// Error originating constructing blockchain structures
-    Blockchain(String),
+    #[error(transparent)]
+    Blockchain(#[from] BlkErr),
     /// Error originating from encoding arbitrary data
+    #[error("{0}")]
     Encoding(String),
     /// Error originating from Cid creation
-    Cid(String),
+    #[error(transparent)]
+    Cid(#[from] CidErr),
     /// Amt error
-    Amt(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::UndefinedKey(msg) => write!(f, "Invalid key: {}", msg),
-            Error::NoBlocks => write!(f, "No blocks for tipset"),
-            Error::KeyValueStore(msg) => {
-                write!(f, "Error originating from Key-Value store: {}", msg)
-            }
-            Error::Blockchain(msg) => write!(
-                f,
-                "Error originating from construction of blockchain structures: {}",
-                msg
-            ),
-            Error::Amt(msg) => write!(f, "Error originating from AMT: {}", msg),
-            Error::Encoding(msg) => write!(f, "Error originating from Encoding type: {}", msg),
-            Error::Cid(msg) => write!(f, "Error originating from from Cid creation: {}", msg),
-        }
-    }
-}
-
-impl From<DbErr> for Error {
-    fn from(e: DbErr) -> Error {
-        Error::KeyValueStore(e.to_string())
-    }
-}
-
-impl From<BlkErr> for Error {
-    fn from(e: BlkErr) -> Error {
-        Error::Blockchain(e.to_string())
-    }
+    #[error(transparent)]
+    Amt(#[from] AmtErr),
 }
 
 impl From<EncErr> for Error {
@@ -68,17 +46,5 @@ impl From<EncErr> for Error {
 impl From<SerdeErr> for Error {
     fn from(e: SerdeErr) -> Error {
         Error::Encoding(e.to_string())
-    }
-}
-
-impl From<CidErr> for Error {
-    fn from(e: CidErr) -> Error {
-        Error::Cid(e.to_string())
-    }
-}
-
-impl From<AmtErr> for Error {
-    fn from(e: AmtErr) -> Error {
-        Error::Amt(e.to_string())
     }
 }

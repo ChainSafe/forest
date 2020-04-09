@@ -33,10 +33,11 @@ where
     {
         let actor = self
             .get_actor(addr, ts)?
-            .ok_or_else(|| Error::State(format!("Actor for address: {} does not exist", addr)))?;
-        let act: D = self.bs.get(&actor.state)?.ok_or_else(|| {
-            Error::State("Could not retrieve actor state from IPLD store".to_owned())
-        })?;
+            .ok_or_else(|| Error::ActorNotFound(addr.to_string()))?;
+        let act: D = self
+            .bs
+            .get(&actor.state)?
+            .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }
     /// Returns the epoch at which the miner was slashed at

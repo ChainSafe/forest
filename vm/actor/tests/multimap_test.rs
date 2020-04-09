@@ -11,14 +11,14 @@ fn basic_add() {
     let mut mm = Multimap::new(&store);
 
     let addr = Address::new_id(100).unwrap();
-    assert_eq!(mm.get::<u64>(&addr.hash_key()), Ok(None));
+    assert_eq!(mm.get::<u64>(&addr.to_bytes()), Ok(None));
 
-    mm.add(addr.hash_key(), 8).unwrap();
-    let arr: Amt<u64, _> = mm.get(&addr.hash_key()).unwrap().unwrap();
+    mm.add(addr.to_bytes().into(), 8).unwrap();
+    let arr: Amt<u64, _> = mm.get(&addr.to_bytes()).unwrap().unwrap();
     assert_eq!(arr.get(0), Ok(Some(8)));
 
-    mm.add(addr.hash_key(), 2).unwrap();
-    mm.add(addr.hash_key(), 78).unwrap();
+    mm.add(addr.to_bytes().into(), 2).unwrap();
+    mm.add(addr.to_bytes().into(), 78).unwrap();
 }
 
 #[test]
@@ -27,15 +27,15 @@ fn for_each() {
     let mut mm = Multimap::new(&store);
 
     let addr = Address::new_id(100).unwrap();
-    assert_eq!(mm.get::<u64>(&addr.hash_key()), Ok(None));
+    assert_eq!(mm.get::<u64>(&addr.to_bytes()), Ok(None));
 
-    mm.add(addr.hash_key(), 8).unwrap();
-    mm.add(addr.hash_key(), 2).unwrap();
-    mm.add(addr.hash_key(), 3).unwrap();
-    mm.add("Some other string".to_owned(), 7).unwrap();
+    mm.add(addr.to_bytes().into(), 8).unwrap();
+    mm.add(addr.to_bytes().into(), 2).unwrap();
+    mm.add(addr.to_bytes().into(), 3).unwrap();
+    mm.add("Some other string".into(), 7).unwrap();
 
     let mut vals: Vec<(u64, u64)> = Vec::new();
-    mm.for_each(&addr.hash_key(), |i, v| {
+    mm.for_each(&addr.to_bytes(), |i, v| {
         vals.push((i, *v));
         Ok(())
     })
@@ -52,17 +52,17 @@ fn remove_all() {
     let addr1 = Address::new_id(100).unwrap();
     let addr2 = Address::new_id(101).unwrap();
 
-    mm.add(addr1.hash_key(), 8).unwrap();
-    mm.add(addr1.hash_key(), 88).unwrap();
-    mm.add(addr2.hash_key(), 1).unwrap();
+    mm.add(addr1.to_bytes().into(), 8).unwrap();
+    mm.add(addr1.to_bytes().into(), 88).unwrap();
+    mm.add(addr2.to_bytes().into(), 1).unwrap();
 
-    let arr: Amt<u64, _> = mm.get(&addr1.hash_key()).unwrap().unwrap();
+    let arr: Amt<u64, _> = mm.get(&addr1.to_bytes()).unwrap().unwrap();
     assert_eq!(arr.get(1), Ok(Some(88)));
 
-    mm.remove_all(&addr1.hash_key()).unwrap();
-    assert_eq!(mm.get::<u64>(&addr1.hash_key()), Ok(None));
+    mm.remove_all(&addr1.to_bytes()).unwrap();
+    assert_eq!(mm.get::<u64>(&addr1.to_bytes()), Ok(None));
 
-    assert!(mm.get::<u64>(&addr2.hash_key()).unwrap().is_some());
-    mm.remove_all(&addr2.hash_key()).unwrap();
-    assert_eq!(mm.get::<u64>(&addr2.hash_key()), Ok(None));
+    assert!(mm.get::<u64>(&addr2.to_bytes()).unwrap().is_some());
+    mm.remove_all(&addr2.to_bytes()).unwrap();
+    assert_eq!(mm.get::<u64>(&addr2.to_bytes()), Ok(None));
 }

@@ -4,6 +4,7 @@
 use cid::Error as CidError;
 use serde_cbor::error::Error as CborError;
 use std::fmt;
+use thiserror::Error;
 
 /// Error type for encoding and decoding data through any Forest supported protocol
 ///
@@ -23,39 +24,18 @@ use std::fmt;
 ///     protocol: CodecProtocol::Cbor,
 /// };
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum Error {
+    #[error("Could not decode in format {protocol}: {description}")]
     Unmarshalling {
         description: String,
         protocol: CodecProtocol,
     },
+    #[error("Could not encode in format {protocol}: {description}")]
     Marshalling {
         description: String,
         protocol: CodecProtocol,
     },
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::Unmarshalling {
-                description,
-                protocol,
-            } => write!(
-                f,
-                "Could not decode in format {}: {}",
-                protocol, description
-            ),
-            Error::Marshalling {
-                description,
-                protocol,
-            } => write!(
-                f,
-                "Could not encode in format {}: {}",
-                protocol, description
-            ),
-        }
-    }
 }
 
 impl From<CborError> for Error {

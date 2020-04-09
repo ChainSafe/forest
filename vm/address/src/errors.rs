@@ -3,47 +3,28 @@
 
 use super::{BLS_PUB_LEN, PAYLOAD_HASH_LEN};
 use data_encoding::DecodeError;
-use std::{fmt, io, num};
+use std::{io, num};
+use thiserror::Error;
 
-#[derive(Debug, PartialEq)]
+/// Address error
+#[derive(Debug, PartialEq, Error)]
 pub enum Error {
+    #[error("Unknown address network")]
     UnknownNetwork,
+    #[error("Unknown address protocol")]
     UnknownProtocol,
+    #[error("Invalid address payload")]
     InvalidPayload,
+    #[error("Invalid address length")]
     InvalidLength,
+    #[error("Invalid payload length, wanted: {} got: {0}", PAYLOAD_HASH_LEN)]
     InvalidPayloadLength(usize),
+    #[error("Invalid BLS pub key length, wanted: {} got: {0}", BLS_PUB_LEN)]
     InvalidBLSLength(usize),
+    #[error("Invalid address checksum")]
     InvalidChecksum,
-    Base32Decoding(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::UnknownNetwork => write!(f, "Unknown address network"),
-            Error::UnknownProtocol => write!(f, "Unknown address protocol"),
-            Error::InvalidPayload => write!(f, "Invalid address payload"),
-            Error::InvalidLength => write!(f, "Invalid address length"),
-            Error::InvalidPayloadLength(len) => write!(
-                f,
-                "Invalid payload length, wanted: {} got: {}",
-                PAYLOAD_HASH_LEN, len
-            ),
-            Error::InvalidBLSLength(len) => write!(
-                f,
-                "Invalid BLS pub key length, wanted: {} got: {}",
-                BLS_PUB_LEN, len
-            ),
-            Error::InvalidChecksum => write!(f, "Invalid address checksum"),
-            Error::Base32Decoding(err) => write!(f, "Decoding error: {}", err),
-        }
-    }
-}
-
-impl From<DecodeError> for Error {
-    fn from(e: DecodeError) -> Error {
-        Error::Base32Decoding(e.to_string())
-    }
+    #[error("Decoding for address failed: {0}")]
+    Base32Decoding(#[from] DecodeError),
 }
 
 impl From<num::ParseIntError> for Error {

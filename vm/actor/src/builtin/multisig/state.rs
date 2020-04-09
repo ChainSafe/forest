@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Transaction, TxnID};
+use crate::BytesKey;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -75,7 +76,7 @@ impl State {
         s: &BS,
         txn_id: TxnID,
     ) -> Result<Transaction, String> {
-        let map: Hamt<String, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
+        let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
         match map.get(&txn_id.key()) {
             Ok(Some(tx)) => Ok(tx),
             Ok(None) => Err(format!(
@@ -92,7 +93,7 @@ impl State {
         txn_id: TxnID,
         txn: Transaction,
     ) -> Result<(), String> {
-        let mut map: Hamt<String, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
+        let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
         map.set(txn_id.key(), txn)?;
         self.pending_txs = map.flush()?;
         Ok(())
@@ -103,7 +104,7 @@ impl State {
         s: &BS,
         txn_id: TxnID,
     ) -> Result<(), String> {
-        let mut map: Hamt<String, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
+        let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
         map.delete(&txn_id.key())?;
         self.pending_txs = map.flush()?;
         Ok(())

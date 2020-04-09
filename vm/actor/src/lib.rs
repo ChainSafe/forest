@@ -13,7 +13,7 @@ pub use vm::{ActorState, DealID, Serialized};
 
 use encoding::Error as EncodingError;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::Hamt;
+use ipld_hamt::{BytesKey, Hamt};
 use num_bigint::BigInt;
 use unsigned_varint::decode::Error as UVarintError;
 
@@ -36,17 +36,17 @@ fn check_empty_params(params: &Serialized) -> Result<(), EncodingError> {
 
 /// Create a map
 #[inline]
-fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, String, BS> {
+fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, BytesKey, BS> {
     Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH)
 }
 
-pub fn u64_key(v: u64) -> String {
+pub fn u64_key(d: DealID) -> BytesKey {
     let mut bz = unsigned_varint::encode::u64_buffer();
-    unsigned_varint::encode::u64(v, &mut bz);
-    String::from_utf8_lossy(&bz).to_string()
+    unsigned_varint::encode::u64(d, &mut bz);
+    bz.to_vec().into()
 }
 
-pub fn parse_uint_key(s: &str) -> Result<u64, UVarintError> {
-    let (v, _) = unsigned_varint::decode::u64(s.as_ref())?;
+pub fn parse_uint_key(s: &[u8]) -> Result<u64, UVarintError> {
+    let (v, _) = unsigned_varint::decode::u64(s)?;
     Ok(v)
 }

@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{FIRST_NON_SINGLETON_ADDR, HAMT_BIT_WIDTH};
+use crate::{BytesKey, FIRST_NON_SINGLETON_ADDR, HAMT_BIT_WIDTH};
 use address::{Address, Protocol};
 use cid::Cid;
 use encoding::Cbor;
@@ -36,9 +36,9 @@ impl State {
         let id = self.next_id;
         self.next_id += 1;
 
-        let mut map: Hamt<String, _> =
+        let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&self.address_map, store, HAMT_BIT_WIDTH)?;
-        map.set(addr.hash_key(), id)?;
+        map.set(addr.to_bytes().into(), id)?;
         self.address_map = map.flush()?;
 
         Ok(Address::new_id(id).expect("Id Address should be created without Error"))
@@ -59,11 +59,11 @@ impl State {
             return Ok(addr.clone());
         }
 
-        let map: Hamt<String, _> =
+        let map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&self.address_map, store, HAMT_BIT_WIDTH)?;
 
         let actor_id: ActorID = map
-            .get(&addr.hash_key())?
+            .get(&addr.to_bytes())?
             .ok_or_else(|| "Address not found".to_owned())?;
 
         Ok(Address::new_id(actor_id).map_err(|e| e.to_string())?)
