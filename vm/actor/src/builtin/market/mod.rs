@@ -25,7 +25,7 @@ use message::Message;
 use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
-use runtime::Runtime;
+use runtime::{ActorCode, Runtime};
 use vm::{
     ActorError, ExitCode, MethodNum, PieceInfo, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
     METHOD_SEND,
@@ -46,7 +46,7 @@ pub enum Method {
 }
 impl Method {
     /// Converts a method number into a Method enum
-    fn _from_method_num(m: MethodNum) -> Option<Method> {
+    fn from_method_num(m: MethodNum) -> Option<Method> {
         FromPrimitive::from_u64(m)
     }
 }
@@ -87,9 +87,7 @@ impl Actor {
     }
     /// Attempt to withdraw the specified amount from the balance held in escrow.
     /// If less than the specified amount is available, yields the entire available balance.
-    #[allow(dead_code)]
     pub fn withdraw_balance<BS, RT>(
-        &self,
         rt: &mut RT,
         params: WithdrawBalanceParams,
     ) -> Result<(), ActorError>
@@ -142,7 +140,6 @@ impl Actor {
     }
 
     /// Deposits the received value into the balance held in escrow.
-    #[allow(dead_code)]
     fn add_balance<BS, RT>(rt: &mut RT, provider_or_client: Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -175,9 +172,7 @@ impl Actor {
     }
 
     /// Publish a new set of storage deals (not yet included in a sector).
-    #[allow(dead_code)]
     fn publish_storage_deals<BS, RT>(
-        &self,
         rt: &mut RT,
         params: PublishStorageDealsParams,
     ) -> Result<PublishStorageDealsReturn, ActorError>
@@ -287,9 +282,7 @@ impl Actor {
     /// The weight is defined as the sum, over all deals in the set, of the product of its size
     /// with its duration. This quantity may be an input into the functions specifying block reward,
     /// sector power, collateral, and/or other parameters.    
-    #[allow(dead_code)]
     fn verify_deals_on_sector_prove_commit<BS, RT>(
-        &self,
         rt: &mut RT,
         params: VerifyDealsOnSectorProveCommitParams,
     ) -> Result<DealWeight, ActorError>
@@ -354,9 +347,7 @@ impl Actor {
         Ok(deal_weight)
     }
 
-    #[allow(dead_code)]
     fn compute_data_commitment<BS, RT>(
-        &self,
         rt: &mut RT,
         params: ComputeDataCommitmentParams,
     ) -> Result<Cid, ActorError>
@@ -393,7 +384,6 @@ impl Actor {
     /// Terminate a set of deals in response to their containing sector being terminated.
     /// Slash provider collateral, refund client collateral, and refund partial unpaid escrow
     /// amount to client.    
-    #[allow(dead_code)]
     fn on_miners_sector_terminate<BS, RT>(
         rt: &mut RT,
         params: OnMinerSectorsTerminateParams,
@@ -435,9 +425,7 @@ impl Actor {
         Ok(())
     }
 
-    #[allow(dead_code)]
     fn handle_expired_deal<BS, RT>(
-        &self,
         rt: &mut RT,
         params: HandleExpiredDealsParams,
     ) -> Result<(), ActorError>
@@ -615,4 +603,53 @@ where
     let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
     rt.validate_immediate_caller_is([owner_addr.clone(), worker_addr].iter())?;
     Ok((nominal, owner_addr))
+}
+
+impl ActorCode for Actor {
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &mut RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Result<Serialized, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        match Method::from_method_num(method) {
+            Some(Method::Constructor) => {
+                Self::constructor(rt)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::AddBalance) => {
+                Self::add_balance(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::WithdrawBalance) => {
+                Self::withdraw_balance(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::HandleExpiredDeals) => {
+                Self::handle_expired_deal(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::PublishStorageDeals) => {
+                Self::publish_storage_deals(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::VerifyDealsOnSectorProveCommit) => {
+                Self::verify_deals_on_sector_prove_commit(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::OnMinerSectorsTerminate) => {
+                Self::on_miners_sector_terminate(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::ComputeDataCommitment) => {
+                Self::compute_data_commitment(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+        }
+    }
 }
