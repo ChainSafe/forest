@@ -33,7 +33,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///
 /// BlockHeader::builder()
 ///     .miner_address(Address::new_id(0).unwrap()) // optional
-///     .bls_aggregate(Signature::new_bls(vec![])) // optional
+///     .bls_aggregate(None) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(0) // optional
@@ -85,7 +85,7 @@ pub struct BlockHeader {
     fork_signal: u64,
 
     #[builder(default)]
-    signature: Signature,
+    signature: Option<Signature>,
 
     #[builder(default)]
     epost_verify: EPostProof,
@@ -100,7 +100,7 @@ pub struct BlockHeader {
     // SIGNATURES
     /// aggregate signature of miner in block
     #[builder(default)]
-    bls_aggregate: Signature,
+    bls_aggregate: Option<Signature>,
     // CACHE
     /// stores the cid for the block after the first call to `cid()`
     #[builder(default)]
@@ -237,7 +237,7 @@ impl BlockHeader {
         &self.ticket
     }
     /// Getter for BlockHeader bls_aggregate
-    pub fn bls_aggregate(&self) -> &Signature {
+    pub fn bls_aggregate(&self) -> &Option<Signature> {
         &self.bls_aggregate
     }
     /// Getter for BlockHeader cid
@@ -254,7 +254,7 @@ impl BlockHeader {
         &self.epost_verify
     }
     /// Getter for BlockHeader signature
-    pub fn signature(&self) -> &Signature {
+    pub fn signature(&self) -> &Option<Signature> {
         &self.signature
     }
     /// Updates cache and returns mutable reference of header back
@@ -266,16 +266,13 @@ impl BlockHeader {
     }
     /// Check to ensure block signature is valid
     pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
-        if self.signature().bytes().is_empty() {
-            return Err(Error::InvalidSignature(
-                "Signature is nil in header".to_string(),
-            ));
-        }
+        let signature = self
+            .signature()
+            .as_ref()
+            .ok_or(Error::InvalidSignature("Signature is nil in header"))?;
 
-        if !is_valid_signature(&self.cid().to_bytes(), addr, self.signature()) {
-            return Err(Error::InvalidSignature(
-                "Block signature is invalid".to_string(),
-            ));
+        if !is_valid_signature(&self.cid().to_bytes(), addr, signature) {
+            return Err(Error::InvalidSignature("Block signature is invalid"));
         }
 
         Ok(())
@@ -337,8 +334,7 @@ mod tests {
     use base64;
     use cid::Cid;
     use crypto::{Signature, VRFResult};
-    use encoding::from_slice;
-    use encoding::to_vec;
+    use encoding::{from_slice, to_vec, Cbor};
     use num_bigint::BigUint;
     use std::convert::TryFrom;
 
@@ -450,7 +446,7 @@ mod tests {
 
         BlockHeader::builder()
             .miner_address(Address::new_id(1227).unwrap())
-            .bls_aggregate(Signature::new_bls(base64::decode("lLZtMQuT27qNPC4a4AJ8fgdpfMaH1KGlndt+YppQsAdDAK1m4VYIlrY6wtbSAdQEAb1AswRaLdlt9YfJFCg/+mVVhFU648UqnvhRYeBtBZlEA+XMEaim1889O8Ca73PR").unwrap()))
+            .bls_aggregate(Some(Signature::new_bls(base64::decode("lLZtMQuT27qNPC4a4AJ8fgdpfMaH1KGlndt+YppQsAdDAK1m4VYIlrY6wtbSAdQEAb1AswRaLdlt9YfJFCg/+mVVhFU648UqnvhRYeBtBZlEA+XMEaim1889O8Ca73PR").unwrap())))
             .parents(TipSetKeys{ cids: parents})
             .weight(BigUint::from(91439483u64))
             .epoch(7205)
@@ -459,10 +455,17 @@ mod tests {
             .message_receipts(Cid::try_from("BAFY2BZACECAE6NZYPUOHWAQOVMRP4A7HO6SPBC5QLWW4FKL25OREPPUKBEO2M".to_owned()).unwrap())
             .timestamp(1579287825)
             .ticket(ticket)
-            .signature(Signature::new_bls(base64::decode("rGjWpvE9h9DOaTAYJjRtDhzTO6U++NePy/4xSnN7aiWNvYomemrt1+sKsS8hnVHpBVjkWMknZOLYi5k6uxQgvo4VG9IHEYJD+CSA9b2iV/V9VleMoQHsiYnMmgwn33an").unwrap()))
+            .signature(Some(Signature::new_bls(base64::decode("rGjWpvE9h9DOaTAYJjRtDhzTO6U++NePy/4xSnN7aiWNvYomemrt1+sKsS8hnVHpBVjkWMknZOLYi5k6uxQgvo4VG9IHEYJD+CSA9b2iV/V9VleMoQHsiYnMmgwn33an").unwrap())))
             .fork_signal(0)
             .epost_verify(epost)
             .build_and_validate()
             .unwrap()
+    }
+    #[test]
+    fn symmetric_header_encoding() {
+        // This test vector is the genesis header for testnet/3 config
+        let bz = hex::decode("8D4200008158207672662070726F6F66303030303030307672662070726F6F663030303030303083506E6F742061207265616C2070726F6F66581C692067756573732074686973206973206B696E64612072616E646F6D80804000D82A5827000171A0E402205C63974A98BDEFE7DE6B35B3FC288C786A3FA510D3693C861DC768E387D5E0CCD82A5827000171A0E4022001CD927FDCCD7938FABA323E32E70C44541B8A83F5DC941D90866565EF5AF14AD82A5827000171A0E402208D6F0E09E0453685B8816895CD56A7EE2FCE600026EE23AC445D78F020C1CA404D027369676E61747572656565651A5E1D12905302626C6F636B207369676E617475726565656500").unwrap();
+        let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
+        assert_eq!(header.marshal_cbor().unwrap(), bz);
     }
 }

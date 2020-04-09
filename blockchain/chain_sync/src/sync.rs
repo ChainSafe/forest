@@ -569,7 +569,7 @@ where
         let header = block.header();
 
         // check if block has been signed
-        if header.signature().bytes().is_empty() {
+        if header.signature().is_none() {
             return Err(Error::Validation("Signature is nil in header"));
         }
 

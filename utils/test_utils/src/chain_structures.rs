@@ -44,7 +44,7 @@ fn template_header(
             vrfproof: VRFResult::new(ticket_p),
         })
         .messages(msg_root)
-        .signature(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2]))
+        .signature(Some(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2])))
         .epoch(epoch)
         .weight(BigUint::from(weight))
         .cached_cid(cid)
