@@ -11,8 +11,9 @@ use self::policy::*;
 pub use self::state::State;
 pub use self::types::*;
 use crate::{
-    make_map, request_miner_control_addrs, DealWeight, Multimap, BURNT_FUNDS_ACTOR_ADDR,
-    CALLER_TYPES_SIGNABLE, HAMT_BIT_WIDTH, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
+    make_map, request_miner_control_addrs, BalanceTable, DealID, DealWeight, Multimap,
+    OptionalEpoch, SetMultimap, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, HAMT_BIT_WIDTH,
+    MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -20,6 +21,8 @@ use clock::ChainEpoch;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
+use message::Message;
+use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::Runtime;
@@ -91,46 +94,65 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let (_nominal, _recipient) = escrow_address(rt, params.provider_or_client)?;
-        rt.transaction::<State, Result<(), ActorError>, _>(|&mut st, &bs| {
-            // do something
+        let (nominal, recipient) = escrow_address(rt, params.provider_or_client)?;
+        let mut amount_slashed_total = TokenAmount::zero();
+        let mut amount_extracted = TokenAmount::zero();
+        rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, bs| {
+            // Before any operations that check the balance tables for funds, execute all deferred
+            // deal state updates.
+            amount_slashed_total +=
+                st.update_pending_deal_states_for_party(bs, rt.curr_epoch(), &nominal)?;
+            let min_balance = st.get_locked_balance(bs, &nominal)?;
+
+            let mut et = BalanceTable::from_root(bs, &st.escrow_table)?;
+            let ex = et.subtract_with_minimum(&nominal, &params.amount, &min_balance)?;
+            st.escrow_table = et.root()?;
+            amount_extracted = ex;
             Ok(())
         })??;
+
+        if amount_slashed_total > BigUint::zero() {
+            rt.send(
+                &*BURNT_FUNDS_ACTOR_ADDR,
+                METHOD_SEND,
+                &Serialized::default(),
+                &amount_slashed_total,
+            )?;
+        }
+        rt.send(
+            &recipient,
+            METHOD_SEND,
+            &Serialized::default(),
+            &amount_slashed_total,
+        )?;
         Ok(())
     }
 
     /// Deposits the received value into the balance held in escrow.
     #[allow(dead_code)]
-    fn add_balance<BS, RT>(
-        &self,
-        rt: &mut RT,
-        provider_or_client: Address,
-    ) -> Result<(), ActorError>
+    fn add_balance<BS, RT>(rt: &mut RT, provider_or_client: Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         let (nominal, _) = escrow_address(rt, provider_or_client)?;
 
-        rt.transaction::<State, Result<(), ActorError>, _>(|&mut st, &bs| {
-            let msg_value = rt.message().value().clone();
-
-            st.add_escrow_balance(&bs, &nominal, msg_value)
+        let msg_value = rt.message().value().clone();
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, bs| {
+            st.add_escrow_balance(bs, &nominal, msg_value)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
                         format!("adding to escrow table: {}", e),
                     )
                 })?;
-
-            st.add_locked_balance(&bs, &nominal, TokenAmount::zero())
+            st.add_locked_balance(bs, &nominal, TokenAmount::zero())
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalArgument,
                         format!("adding to locked table: {}", e),
                     )
                 })?;
-
             Ok(())
         })??;
 
@@ -141,14 +163,101 @@ impl Actor {
     #[allow(dead_code)]
     fn publish_storage_deals<BS, RT>(
         &self,
-        _rt: &mut RT,
-        _params: PublishStorageDealsParams,
-    ) -> Result<(), ActorError>
+        rt: &mut RT,
+        params: PublishStorageDealsParams,
+    ) -> Result<PublishStorageDealsReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        Ok(())
+        let mut amount_slashed_total = TokenAmount::zero();
+
+        // Deal message must have a From field identical to the provider of all the deals.
+        // This allows us to retain and verify only the client's signature in each deal proposal itself.
+
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
+        if params.deals.len() == 0 {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Empty deals parameter.".to_owned(),
+            ));
+        }
+
+        // All deals should have the same provider so get worker once
+        let provider_raw = &params.deals[0].proposal.provider;
+        let provider = rt.resolve_address(&provider_raw)?;
+
+        let (_, worker) = request_miner_control_addrs(rt, &provider)?;
+        if worker != *rt.message().from() {
+            return Err(ActorError::new(
+                ExitCode::ErrForbidden,
+                format!("Caller is not provider {}", worker),
+            ));
+        }
+
+        // All deals should have the same provider so get worker once
+        let provider_raw = &params.deals[0].clone().proposal.provider;
+        let provider = rt.resolve_address(&provider_raw)?;
+
+        params.deals.iter().map(|d| validate_deal(rt, d.clone()));
+
+        let mut new_deal_ids: Vec<DealID> = Vec::new();
+        rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, bs| {
+            let mut prop = Amt::load(&st.proposals, bs)?;
+            let mut dbp = SetMultimap::from_root(bs, &st.deal_ids_by_party)?;
+
+            for mut deal in params.deals {
+                if deal.proposal.provider != provider && deal.proposal.provider != *provider_raw {
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        "Cannot publish deals from different providers at the same time."
+                            .to_owned(),
+                    ));
+                }
+                let client = rt.resolve_address(&deal.proposal.client)?;
+                // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
+                deal.proposal.provider = provider.clone();
+                deal.proposal.client = client.clone();
+
+                // Before any operations that check the balance tables for funds, execute all deferred
+                // deal state updates.
+                //
+                // Note: as an optimization, implementations may cache efficient data structures indicating
+                // which of the following set of updates are redundant and can be skipped.
+
+                // TODO check why the chain epoch is included in this call
+                amount_slashed_total +=
+                    st.update_pending_deal_states_for_party(bs, rt.curr_epoch(), &client)?;
+                amount_slashed_total +=
+                    st.update_pending_deal_states_for_party(bs, rt.curr_epoch(), &provider)?;
+
+                st.lock_balance_or_abort(bs, &client, &deal.proposal.client_balance_requirement())?;
+                st.lock_balance_or_abort(
+                    bs,
+                    &provider,
+                    deal.proposal.provider_balance_requirement(),
+                )?;
+
+                let id = st.generate_storage_deal_id();
+
+                prop.set(id, deal.proposal)?;
+                dbp.put(&client, id)?;
+                dbp.put(&provider, id)?;
+
+                new_deal_ids.push(id);
+            }
+            st.proposals = prop.flush()?;
+            st.deal_ids_by_party = dbp.root()?;
+            Ok(())
+        })??;
+        rt.send(
+            &*BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            &Serialized::default(),
+            &amount_slashed_total,
+        )?;
+        // TODO check if require success usage is needed
+        Ok(PublishStorageDealsReturn { ids: new_deal_ids })
     }
 
     /// Verify that a given set of storage deals is valid for a sector currently being ProveCommitted,
@@ -160,14 +269,46 @@ impl Actor {
     #[allow(dead_code)]
     fn verify_deals_on_sector_prove_commit<BS, RT>(
         &self,
-        _rt: &mut RT,
-        _params: VerifyDealsOnSectorProveCommitParams,
+        rt: &mut RT,
+        params: VerifyDealsOnSectorProveCommitParams,
     ) -> Result<DealWeight, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
+        let miner_addr = rt.message().from();
+        let total_weight = BigInt::zero();
+
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, bs| {
+            // if there are no dealIDs, it is a CommittedCapacity sector
+            // and the totalDealSpaceTime should be zero
+            let proposals = Amt::load(&st.proposals, bs)?;
+            let mut states = Amt::load(&st.states, bs)?;
+
+            for id in params.deal_ids {
+                let deal: DealState = states.get(id)?.ok_or_else(|| {
+                    ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
+                })?;
+
+                let proposal: DealProposal = proposals.get(id)?.ok_or_else(|| {
+                    ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
+                })?;
+
+                validate_deal_can_activate(rt, *miner_addr, params.sector_expiry, proposal)?;
+
+                deal.sector_start_epoch = OptionalEpoch(Some(rt.curr_epoch()));
+                states.set(id, deal)?;
+
+                // compute deal weight
+                let weight = proposal.duration() * proposal.piece_size.0;
+                total_weight += weight;
+            }
+            st.states = states.flush()?;
+            Ok(())
+        })??;
+
+        Ok(total_weight)
     }
 
     #[allow(dead_code)]
@@ -182,10 +323,11 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        let pieces: Vec<PieceInfo> = Vec::new();
-        rt.transaction::<State, Result<(), ActorError>, _>(|&mut st, &bs| {
-            for id in params.deal_ids {
-                let deal = st.must_get_deal(&bs, id)?;
+        let mut pieces: Vec<PieceInfo> = Vec::new();
+        let deal_ids = params.deal_ids;
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, bs| {
+            for id in deal_ids {
+                let deal = st.must_get_deal(bs, id)?;
                 pieces.push(PieceInfo {
                     size: deal.piece_size,
                     cid: deal.piece_cid,
@@ -211,7 +353,6 @@ impl Actor {
     /// amount to client.    
     #[allow(dead_code)]
     fn on_miners_sector_terminate<BS, RT>(
-        &self,
         rt: &mut RT,
         params: OnMinerSectorsTerminateParams,
     ) -> Result<(), ActorError>
@@ -223,38 +364,28 @@ impl Actor {
 
         let miner_addr = rt.message().from().clone();
 
-        rt.transaction::<State, Result<(), ActorError>, _>(|&mut st, &bs| {
-            let prop = Amt::load(&st.proposals, &bs)?;
-            let states = Amt::load(&st.states, &bs)?;
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, bs| {
+            let prop = Amt::load(&st.proposals, bs)?;
+            let mut states = Amt::load(&st.states, bs)?;
 
             for id in params.deal_ids {
-                let deal = match prop.get(id)? {
-                    Some(deal) => deal,
-                    Err(e) => {
-                        return ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("Get deal error: {}", e),
-                        )
-                    }
-                };
+                let deal: DealProposal = prop.get(id)?.ok_or_else(|| {
+                    ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
+                })?;
                 assert_eq!(deal.provider, miner_addr);
-                let state = match states.get(id)? {
-                    Some(state) => state,
-                    Err(e) => {
-                        return ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("Get deal error: {}", e),
-                        )
-                    }
-                };
+
+                let state: DealState = states.get(id)?.ok_or_else(|| {
+                    ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
+                })?;
+
                 // Note: we do not perform the balance transfers here, but rather simply record the flag
                 // to indicate that processDealSlashed should be called when the deferred state computation
                 // is performed. // TODO: Do that here
 
-                state.slash_epoch = rt.curr_epoch();
+                state.slash_epoch = OptionalEpoch(Some(rt.curr_epoch()));
                 states.set(id, state).map_err(|e| {
                     ActorError::new(ExitCode::ErrIllegalState, format!("set deal error: {}", e))
-                });
+                })?;
             }
             Ok(())
         })??;
@@ -273,8 +404,9 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let mut slashed = TokenAmount::zero();
+        let curr_epoch = rt.curr_epoch();
         rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, bs| {
-            slashed = st.update_pending_deal_states(&bs, params.deal_ids, rt.curr_epoch())?;
+            slashed = st.update_pending_deal_states(bs, params.deal_ids, curr_epoch)?;
             Ok(())
         })??;
 
