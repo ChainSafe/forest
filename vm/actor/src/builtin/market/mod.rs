@@ -22,6 +22,7 @@ use encoding::to_vec;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
+use num_bigint::bigint_ser::BigIntSer;
 use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
@@ -107,7 +108,8 @@ impl Actor {
 
             let min_balance = st.get_locked_balance(rt.store(), &nominal)?;
 
-            let mut et = BalanceTable::from_root(rt.store(), &st.escrow_table)?;
+            let mut et = BalanceTable::from_root(rt.store(), &st.escrow_table)
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
             let ex = et
                 .subtract_with_minimum(&nominal, &params.amount, &min_balance)
                 .map_err(|e| {
@@ -117,7 +119,9 @@ impl Actor {
                     )
                 })?;
 
-            st.escrow_table = et.root()?;
+            st.escrow_table = et
+                .root()
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
             amount_extracted = ex;
             Ok(())
         })??;
@@ -210,8 +214,10 @@ impl Actor {
 
         let mut new_deal_ids: Vec<DealID> = Vec::new();
         rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, rt| {
-            let mut prop = Amt::load(&st.proposals, rt.store())?;
-            let mut dbp = SetMultimap::from_root(rt.store(), &st.deal_ids_by_party)?;
+            let mut prop = Amt::load(&st.proposals, rt.store())
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+            let mut dbp = SetMultimap::from_root(rt.store(), &st.deal_ids_by_party)
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
 
             for mut deal in params.deals {
                 validate_deal(rt, &deal)?;
@@ -255,14 +261,21 @@ impl Actor {
 
                 let id = st.generate_storage_deal_id();
 
-                prop.set(id, deal.proposal)?;
-                dbp.put(&client, id)?;
-                dbp.put(&provider, id)?;
+                prop.set(id, deal.proposal)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+                dbp.put(&client, id)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
+                dbp.put(&provider, id)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
 
                 new_deal_ids.push(id);
             }
-            st.proposals = prop.flush()?;
-            st.deal_ids_by_party = dbp.root()?;
+            st.proposals = prop
+                .flush()
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+            st.deal_ids_by_party = dbp
+                .root()
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
             Ok(())
         })??;
 
@@ -298,16 +311,24 @@ impl Actor {
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector
             // and the totalDealSpaceTime should be zero
-            let mut states = Amt::load(&st.states, rt.store())?;
-            let proposals = Amt::load(&st.proposals, rt.store())?;
+            let mut states = Amt::load(&st.states, rt.store())
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+            let proposals = Amt::load(&st.proposals, rt.store())
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
 
             for id in &params.deal_ids {
-                let mut deal: DealState = states.get(*id)?.ok_or_else(|| {
-                    ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
-                })?;
-                let proposal: DealProposal = proposals.get(*id)?.ok_or_else(|| {
-                    ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
-                })?;
+                let mut deal: DealState = states
+                    .get(*id)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?
+                    .ok_or_else(|| {
+                        ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
+                    })?;
+                let proposal: DealProposal = proposals
+                    .get(*id)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?
+                    .ok_or_else(|| {
+                        ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
+                    })?;
 
                 validate_deal_can_activate(
                     rt.curr_epoch(),
@@ -317,13 +338,17 @@ impl Actor {
                 )?;
 
                 deal.sector_start_epoch = OptionalEpoch(Some(rt.curr_epoch()));
-                states.set(*id, deal)?;
+                states
+                    .set(*id, deal)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
                 // compute deal weight
                 let deal_space_time = proposal.duration() * proposal.piece_size.0;
                 total_deal_space_time += deal_space_time;
             }
-            st.states = states.flush()?;
+            st.states = states
+                .flush()
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
             let epoch_value = params
                 .sector_expiry
@@ -396,18 +421,26 @@ impl Actor {
         let miner_addr = rt.message().from().clone();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-            let prop = Amt::load(&st.proposals, rt.store())?;
-            let mut states = Amt::load(&st.states, rt.store())?;
+            let prop = Amt::load(&st.proposals, rt.store())
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+            let mut states = Amt::load(&st.states, rt.store())
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
 
             for id in params.deal_ids {
-                let deal: DealProposal = prop.get(id)?.ok_or_else(|| {
-                    ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
-                })?;
+                let deal: DealProposal = prop
+                    .get(id)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?
+                    .ok_or_else(|| {
+                        ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
+                    })?;
                 assert_eq!(deal.provider, miner_addr);
 
-                let mut state: DealState = states.get(id)?.ok_or_else(|| {
-                    ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
-                })?;
+                let mut state: DealState = states
+                    .get(id)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?
+                    .ok_or_else(|| {
+                        ActorError::new(ExitCode::ErrIllegalState, "Get deal error".to_owned())
+                    })?;
 
                 // Note: we do not perform the balance transfers here, but rather simply record the flag
                 // to indicate that processDealSlashed should be called when the deferred state computation
@@ -419,7 +452,9 @@ impl Actor {
                 })?;
             }
 
-            st.states = states.flush()?;
+            st.states = states
+                .flush()
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
             Ok(())
         })??;
         Ok(())
@@ -583,7 +618,7 @@ where
 
 // Resolves a provider or client address to the canonical form against which a balance should be held, and
 // the designated recipient address of withdrawals (which is the same, for simple account parties).
-pub fn escrow_address<BS, RT>(rt: &RT, addr: &Address) -> Result<(Address, Address), ActorError>
+fn escrow_address<BS, RT>(rt: &RT, addr: &Address) -> Result<(Address, Address), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
@@ -634,20 +669,20 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::PublishStorageDeals) => {
-                Self::publish_storage_deals(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
+                let res = Self::publish_storage_deals(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
             }
             Some(Method::VerifyDealsOnSectorProveCommit) => {
-                Self::verify_deals_on_sector_prove_commit(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
+                let res = Self::verify_deals_on_sector_prove_commit(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(BigIntSer(&res))?)
             }
             Some(Method::OnMinerSectorsTerminate) => {
                 Self::on_miners_sector_terminate(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ComputeDataCommitment) => {
-                Self::compute_data_commitment(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
+                let res = Self::compute_data_commitment(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }

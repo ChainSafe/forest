@@ -5,14 +5,10 @@ use clock::ChainEpoch;
 use num_traits::Zero;
 use vm::{PaddedPieceSize, TokenAmount};
 
-// TODO remove allow dead_code on actor impl
-
-#[allow(dead_code)]
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {
     (0, 10000) // PARAM_FINISH
 }
 
-#[allow(dead_code)]
 pub(super) fn deal_price_per_epoch_bounds(
     _size: PaddedPieceSize,
     _duration: ChainEpoch,
@@ -20,7 +16,6 @@ pub(super) fn deal_price_per_epoch_bounds(
     (TokenAmount::zero(), TokenAmount::from(1u32 << 20)) // PARAM_FINISH
 }
 
-#[allow(dead_code)]
 pub(super) fn deal_provider_collateral_bounds(
     _piece_size: PaddedPieceSize,
     _duration: ChainEpoch,
@@ -28,7 +23,6 @@ pub(super) fn deal_provider_collateral_bounds(
     (TokenAmount::zero(), TokenAmount::from(1u32 << 20)) // PARAM_FINISH
 }
 
-#[allow(dead_code)]
 pub(super) fn deal_client_collateral_bounds(
     _piece_size: PaddedPieceSize,
     _duration: ChainEpoch,

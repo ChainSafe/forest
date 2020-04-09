@@ -13,8 +13,6 @@ use num_traits::Zero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{ActorError, ExitCode, TokenAmount};
 
-// TODO remove allow dead_code on actor impl
-
 /// Market actor state
 #[derive(Default)]
 pub struct State {
@@ -111,7 +109,7 @@ impl State {
             )
         })
     }
-    #[allow(dead_code)]
+
     pub(super) fn maybe_lock_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -143,7 +141,7 @@ impl State {
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
         Ok(())
     }
-    #[allow(dead_code)]
+
     pub(super) fn unlock_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -164,7 +162,7 @@ impl State {
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
         Ok(())
     }
-    #[allow(dead_code)]
+
     pub(super) fn transfer_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -205,7 +203,7 @@ impl State {
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
         Ok(())
     }
-    #[allow(dead_code)]
+
     pub(super) fn slash_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -286,7 +284,7 @@ impl State {
 
         Ok(amount_slashed_total)
     }
-    #[allow(dead_code)]
+
     pub(super) fn update_pending_deal_state<BS>(
         &mut self,
         store: &BS,
@@ -382,7 +380,7 @@ impl State {
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
         Ok(TokenAmount::zero())
     }
-    #[allow(dead_code)]
+
     pub(super) fn delete_deal<BS>(
         &mut self,
         store: &BS,
@@ -414,7 +412,7 @@ impl State {
             .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.into()))?;
         Ok(())
     }
-    #[allow(dead_code)]
+
     pub(super) fn process_deal_init_timed_out<BS>(
         &mut self,
         store: &BS,
@@ -440,7 +438,7 @@ impl State {
         self.delete_deal(store, deal_id, deal)?;
         Ok(amount_slashed)
     }
-    #[allow(dead_code)]
+
     pub(super) fn process_deal_expired<BS>(
         &mut self,
         store: &BS,
@@ -495,7 +493,6 @@ impl State {
             })?)
     }
 
-    #[allow(dead_code)]
     pub(super) fn must_get_deal_state<BS: BlockStore>(
         &self,
         store: &BS,

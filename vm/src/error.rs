@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::Error as EncodingError;
-use ipld_amt::Error as AmtError;
-use ipld_hamt::Error as HamtError;
+// use ipld_amt::Error as AmtError;
+// use ipld_hamt::Error as HamtError;
 use thiserror::Error;
 
 use crate::ExitCode;
@@ -48,36 +48,6 @@ impl From<EncodingError> for ActorError {
             fatal: false,
             exit_code: ExitCode::ErrSerialization,
             msg: e.to_string(),
-        }
-    }
-}
-
-impl From<AmtError> for ActorError {
-    fn from(e: AmtError) -> Self {
-        Self {
-            fatal: false,
-            exit_code: ExitCode::ErrSerialization,
-            msg: e.to_string(),
-        }
-    }
-}
-
-impl From<HamtError> for ActorError {
-    fn from(e: HamtError) -> Self {
-        Self {
-            fatal: false,
-            exit_code: ExitCode::ErrSerialization,
-            msg: e.to_string(),
-        }
-    }
-}
-
-impl From<String> for ActorError {
-    fn from(e: String) -> Self {
-        Self {
-            fatal: false,
-            exit_code: ExitCode::ErrSerialization,
-            msg: e,
         }
     }
 }
