@@ -11,7 +11,7 @@ use blocks::{
 use chain::TipSetMetadata;
 use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFResult};
-use encoding::to_vec;
+use encoding::{from_slice, to_vec};
 use forest_libp2p::blocksync::{BlockSyncResponse, TipSetBundle};
 use forest_libp2p::rpc::RPCResponse;
 
@@ -44,7 +44,7 @@ fn template_header(
             vrfproof: VRFResult::new(ticket_p),
         })
         .messages(msg_root)
-        .signature(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2]))
+        .signature(Some(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2])))
         .epoch(epoch)
         .weight(BigUint::from(weight))
         .cached_cid(cid)
@@ -104,7 +104,7 @@ pub fn construct_epost_proof() -> EPostProof {
     };
 
     EPostProof{
-        proof: base64::decode("rn85uiodD29xvgIuvN5/g37IXghPtVtl3li9y+nPHCueATI1q1/oOn0FEIDXRWHLpZ4CzAqOdQh9rdHih+BI5IsdI1YpwV+UdNDspJVW/cinVE+ZoiO86ap30l77RLkrEwxUZ5v8apsSRUizoXh1IFrHgK06gk1wl5LaxY2i/CQgBoWIPx9o2EYMBbNfQcu+pRzFmiDjzT6BIhYrPbo+gm6wHFiNhp3FvAuSUH2/N+5MKZo7Eh7LwgGLc0fL4MEI").unwrap(),
+        proof: from_slice(&base64::decode("rn85uiodD29xvgIuvN5/g37IXghPtVtl3li9y+nPHCueATI1q1/oOn0FEIDXRWHLpZ4CzAqOdQh9rdHih+BI5IsdI1YpwV+UdNDspJVW/cinVE+ZoiO86ap30l77RLkrEwxUZ5v8apsSRUizoXh1IFrHgK06gk1wl5LaxY2i/CQgBoWIPx9o2EYMBbNfQcu+pRzFmiDjzT6BIhYrPbo+gm6wHFiNhp3FvAuSUH2/N+5MKZo7Eh7LwgGLc0fL4MEI").unwrap()).unwrap(),
         post_rand: base64::decode("hdodcCz5kLJYRb9PT7m4z9kRvc9h02KMye9DOklnQ8v05X2ds9rgNhcTV+d/cXS+AvADHpepQODMV/6E1kbT99kdFt0xMNUsO/9YbH4ujif7sY0P8pgRAunlMgPrx7Sx").unwrap(),
         candidates: vec![etik]
     }
