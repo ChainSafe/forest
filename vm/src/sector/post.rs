@@ -59,7 +59,7 @@ pub struct PoStCandidate {
 }
 
 // TODO docs
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone, Eq)]
 pub struct PoStProof {
     pub registered_proof: RegisteredProof,
     pub proof_bytes: Vec<u8>,

@@ -64,6 +64,10 @@ impl<'de> de::Deserialize<'de> for Signature {
         D: de::Deserializer<'de>,
     {
         let mut bytes: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        if bytes.is_empty() {
+            return Err(de::Error::custom("Cannot deserialize empty bytes"));
+        }
+
         // Remove signature type byte
         let sig_type = SignatureType::from_byte(bytes.remove(0))
             .ok_or_else(|| de::Error::custom("Invalid signature type byte (must be 1 or 2)"))?;
