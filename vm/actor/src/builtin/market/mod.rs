@@ -100,7 +100,7 @@ impl Actor {
 
         let mut amount_slashed_total = TokenAmount::zero();
         let amount_extracted =
-            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st: &mut State, rt| {
+            rt.transaction::<_, Result<TokenAmount, ActorError>, _>(|st: &mut State, rt| {
                 // Before any operations that check the balance tables for funds, execute all deferred
                 // deal state updates.
                 amount_slashed_total += st.update_pending_deal_states_for_party(rt, &nominal)?;
@@ -354,7 +354,8 @@ impl Actor {
             let epoch_value = params
                 .sector_expiry
                 .checked_sub(rt.curr_epoch())
-                .ok_or_else(|| {
+                .ok_or(1u8)
+                .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalArgument,
                         format!(
@@ -364,7 +365,9 @@ impl Actor {
                         ),
                     )
                 })?;
-            let sector_space_time: BigInt = BigInt::from(params.sector_size as u64 * epoch_value);
+
+            let param_sec_size = BigInt::from(params.sector_size as u64);
+            let sector_space_time = param_sec_size * epoch_value;
             deal_weight = total_deal_space_time / sector_space_time;
 
             Ok(())
@@ -509,7 +512,7 @@ fn validate_deal_can_activate(
         ));
     };
 
-    if deal.sector_start_epoch != OptionalEpoch(None) {
+    if deal.sector_start_epoch.is_some() {
         return Err(ActorError::new(
             ExitCode::ErrIllegalArgument,
             "Deal has already appeared in proven sector.".to_owned(),
