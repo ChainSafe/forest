@@ -354,20 +354,9 @@ impl Actor {
             let epoch_value = params
                 .sector_expiry
                 .checked_sub(rt.curr_epoch())
-                .ok_or(1u8)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!(
-                            "invalid sector expiry epoch {:?} ahead of current {:?}",
-                            params.sector_expiry,
-                            rt.curr_epoch()
-                        ),
-                    )
-                })?;
+                .unwrap_or(1u64);
 
-            let param_sec_size = BigInt::from(params.sector_size as u64);
-            let sector_space_time = param_sec_size * epoch_value;
+            let sector_space_time = BigInt::from(params.sector_size as u64) * epoch_value;
             deal_weight = total_deal_space_time / sector_space_time;
 
             Ok(())
