@@ -75,7 +75,7 @@ pub trait Runtime<BS: BlockStore> {
     /// The gas cost of this method is that of a Store.Put of the mutated state object.
     fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
-        F: FnOnce(&mut C, &BS) -> R;
+        F: FnOnce(&mut C, &Self) -> R;
 
     /// Returns reference to blockstore
     fn store(&self) -> &BS;

@@ -231,7 +231,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
 
     fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
-        F: FnOnce(&mut C, &BS) -> R,
+        F: FnOnce(&mut C, &Self) -> R,
     {
         // get actor
         let act = self.get_actor(self.message().to())?;
@@ -254,7 +254,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             })?;
 
         // Update the state
-        let r = f(&mut state, &self.store);
+        let r = f(&mut state, &self);
 
         let c = self.store.put(&state, Blake2b256).map_err(|e| {
             self.abort(

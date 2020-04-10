@@ -101,7 +101,7 @@ impl<'de> Deserialize<'de> for DealProposal {
 /// ClientDealProposal is a DealProposal signed by a client
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClientDealProposal {
-    pub proposal: Cid,
+    pub proposal: DealProposal,
     pub client_signature: Signature,
 }
 

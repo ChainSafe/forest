@@ -86,10 +86,11 @@ impl Actor {
 
         // Allocate an ID for this actor.
         // Store mapping of pubkey or actor address to actor ID
-        let id_address: Address = rt.transaction::<State, _, _>(|s, bs| {
-            s.map_address_to_new_id(bs, &robust_address).map_err(|e| {
-                ActorError::new(ExitCode::ErrIllegalState, format!("exec failed {}", e))
-            })
+        let id_address: Address = rt.transaction::<State, _, _>(|s, rt| {
+            s.map_address_to_new_id(rt.store(), &robust_address)
+                .map_err(|e| {
+                    ActorError::new(ExitCode::ErrIllegalState, format!("exec failed {}", e))
+                })
         })??;
 
         // Create an empty actor

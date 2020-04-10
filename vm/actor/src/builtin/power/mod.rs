@@ -88,13 +88,14 @@ impl Actor {
         rt.validate_immediate_caller_is(&[owner_addr, worker_addr])?;
 
         let msg = rt.message().value().clone();
-        rt.transaction(|st: &mut State, bs| {
-            st.add_miner_balance(bs, &nominal, &msg).map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to add pledge balance: {}", e),
-                )
-            })?;
+        rt.transaction(|st: &mut State, rt| {
+            st.add_miner_balance(rt.store(), &nominal, &msg)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to add pledge balance: {}", e),
+                    )
+                })?;
             Ok(())
         })?
     }
@@ -120,11 +121,11 @@ impl Actor {
         }
 
         let amount_extracted =
-            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, bs| {
-                let claim = Self::get_claim_or_abort(st, bs, &nominal)?;
+            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
+                let claim = Self::get_claim_or_abort(st, rt.store(), &nominal)?;
 
                 Ok(st
-                    .subtract_miner_balance(bs, &nominal, &params.requested, &claim.pledge)
+                    .subtract_miner_balance(rt.store(), &nominal, &params.requested, &claim.pledge)
                     .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
@@ -161,8 +162,8 @@ impl Actor {
             .deserialize()?;
 
         let value = rt.message().value().clone();
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, bs| {
-            st.set_miner_balance(bs, &addresses.id_address, value)
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+            st.set_miner_balance(rt.store(), &addresses.id_address, value)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -170,7 +171,7 @@ impl Actor {
                     )
                 })?;
 
-            st.set_claim(bs, &addresses.id_address, Claim::default())
+            st.set_claim(rt.store(), &addresses.id_address, Claim::default())
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -241,15 +242,16 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
         let from = rt.message().from().clone();
-        rt.transaction(|st: &mut State, bs| {
+        rt.transaction(|st: &mut State, rt| {
             let power = consensus_power_for_weight(&params.weight);
             let pledge = pledge_for_weight(&params.weight, &st.total_network_power);
-            st.add_to_claim(bs, &from, &power, &pledge).map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("Failed to add power for sector: {}", e),
-                )
-            })?;
+            st.add_to_claim(rt.store(), &from, &power, &pledge)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("Failed to add power for sector: {}", e),
+                    )
+                })?;
             Ok(pledge_for_weight(&params.weight, &st.total_network_power))
         })?
     }
@@ -264,9 +266,9 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = rt.message().from().clone();
 
-        rt.transaction(|st: &mut State, bs| {
+        rt.transaction(|st: &mut State, rt| {
             let power = consensus_power_for_weights(&params.weights);
-            st.subtract_from_claim(bs, &miner_addr, &power, &params.pledge)
+            st.subtract_from_claim(rt.store(), &miner_addr, &power, &params.pledge)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -296,9 +298,9 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
         let from = rt.message().from().clone();
-        rt.transaction(|st: &mut State, bs| {
+        rt.transaction(|st: &mut State, rt| {
             let power = consensus_power_for_weights(&params.weights);
-            st.subtract_from_claim(bs, &from, &power, &params.pledge)
+            st.subtract_from_claim(rt.store(), &from, &power, &params.pledge)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -318,9 +320,9 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
         let from = rt.message().from().clone();
-        rt.transaction(|st: &mut State, bs| {
+        rt.transaction(|st: &mut State, rt| {
             let power = consensus_power_for_weights(&params.weights);
-            st.add_to_claim(bs, &from, &power, &params.pledge)
+            st.add_to_claim(rt.store(), &from, &power, &params.pledge)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -340,9 +342,9 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let from = rt.message().from().clone();
         let msg = rt.message().from().clone();
-        rt.transaction(|st: &mut State, bs| {
+        rt.transaction(|st: &mut State, rt| {
             let prev_power = consensus_power_for_weight(&params.prev_weight);
-            st.subtract_from_claim(bs, &msg, &prev_power, &params.prev_pledge)
+            st.subtract_from_claim(rt.store(), &msg, &prev_power, &params.prev_pledge)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -351,7 +353,7 @@ impl Actor {
                 })?;
             let new_power = consensus_power_for_weight(&params.new_weight);
             let new_pledge = pledge_for_weight(&params.new_weight, &st.total_network_power);
-            st.add_to_claim(bs, &from, &new_power, &new_pledge)
+            st.add_to_claim(rt.store(), &from, &new_power, &new_pledge)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -369,14 +371,16 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = rt.message().from().clone();
         rt.transaction(
-            |st: &mut State, bs| match st.has_detected_fault(bs, &miner_addr) {
+            |st: &mut State, rt| match st.has_detected_fault(rt.store(), &miner_addr) {
                 Ok(false) => Ok(()),
-                Ok(true) => st.delete_detected_fault(bs, &miner_addr).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to check miner for detected fault: {}", e),
-                    )
-                }),
+                Ok(true) => st
+                    .delete_detected_fault(rt.store(), &miner_addr)
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to check miner for detected fault: {}", e),
+                        )
+                    }),
                 Err(e) => Err(ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("failed to check miner for detected fault: {}", e),
@@ -395,24 +399,27 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = rt.message().from().clone();
         let claim: Option<Claim> =
-            rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, bs| {
-                let faulty = st.has_detected_fault(bs, &miner_addr).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to check if miner was faulty already: {}", e),
-                    )
-                })?;
+            rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+                let faulty = st
+                    .has_detected_fault(rt.store(), &miner_addr)
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to check if miner was faulty already: {}", e),
+                        )
+                    })?;
                 if faulty {
                     return Ok(None);
                 }
-                st.put_detected_fault(bs, &miner_addr).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to put miner fault: {}", e),
-                    )
-                })?;
+                st.put_detected_fault(rt.store(), &miner_addr)
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to put miner fault: {}", e),
+                        )
+                    })?;
 
-                let claim = Self::get_claim_or_abort(st, bs, &miner_addr)?;
+                let claim = Self::get_claim_or_abort(st, rt.store(), &miner_addr)?;
 
                 if claim.power >= *CONSENSUS_MINER_MIN_POWER {
                     st.total_network_power -= &claim.power;
@@ -451,8 +458,8 @@ impl Actor {
             callback_payload: params.payload.clone(),
         };
 
-        rt.transaction(|st: &mut State, bs| {
-            st.append_cron_event(bs, params.event_epoch, miner_event)
+        rt.transaction(|st: &mut State, rt| {
+            st.append_cron_event(rt.store(), params.event_epoch, miner_event)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -487,14 +494,16 @@ impl Actor {
             })?;
 
         let reporter = rt.message().from().clone();
-        let reward = rt.transaction(|st: &mut State, bs| {
-            let claim = Self::get_claim_or_abort(st, bs, &fault.target)?;
-            let curr_balance = st.get_miner_balance(bs, &fault.target).map_err(|_| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "failed to get miner pledge balance".to_owned(),
-                )
-            })?;
+        let reward = rt.transaction(|st: &mut State, rt| {
+            let claim = Self::get_claim_or_abort(st, rt.store(), &fault.target)?;
+            let curr_balance = st
+                .get_miner_balance(rt.store(), &fault.target)
+                .map_err(|_| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        "failed to get miner pledge balance".to_owned(),
+                    )
+                })?;
             assert!(claim.power >= StoragePower::from(0));
 
             // Elapsed since the fault (i.e. since the higher of the two blocks)
@@ -512,13 +521,18 @@ impl Actor {
                 pledge_penalty_for_consensus_fault(curr_balance, fault.fault_type);
             let target_reward = reward_for_consensus_slash_report(fault_age, collateral_to_slash);
 
-            st.subtract_miner_balance(bs, &fault.target, &target_reward, &TokenAmount::from(0u8))
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to subtract pledge for reward: {}", e),
-                    )
-                })
+            st.subtract_miner_balance(
+                rt.store(),
+                &fault.target,
+                &target_reward,
+                &TokenAmount::from(0u8),
+            )
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to subtract pledge for reward: {}", e),
+                )
+            })
         })??;
 
         rt.send(&reporter, METHOD_SEND, &Serialized::default(), &reward)?;
@@ -534,18 +548,18 @@ impl Actor {
 
         let rt_epoch = rt.curr_epoch();
         let cron_events = rt
-            .transaction::<_, Result<_, String>, _>(|st: &mut State, bs| {
+            .transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
                 let mut events = Vec::new();
                 for i in st.last_epoch_tick..=rt_epoch {
                     // Load epoch cron events
-                    let epoch_events = st.load_cron_events(bs, i)?;
+                    let epoch_events = st.load_cron_events(rt.store(), i)?;
 
                     // Add all events to vector
                     events.extend_from_slice(&epoch_events);
 
                     // Clear loaded events
                     if !epoch_events.is_empty() {
-                        st.clear_cron_events(bs, i)?;
+                        st.clear_cron_events(rt.store(), i)?;
                     }
                 }
                 st.last_epoch_tick = rt_epoch;
@@ -577,16 +591,16 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let amount_slashed: TokenAmount = rt
-            .transaction::<_, Result<_, String>, _>(|st: &mut State, bs| {
-                st.delete_claim(bs, miner)?;
+            .transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
+                st.delete_claim(rt.store(), miner)?;
 
                 st.miner_count -= 1;
 
-                if st.has_detected_fault(bs, miner)? {
-                    st.delete_detected_fault(bs, miner)?;
+                if st.has_detected_fault(rt.store(), miner)? {
+                    st.delete_detected_fault(rt.store(), miner)?;
                 }
 
-                let mut table = BalanceTable::from_root(bs, &st.escrow_table)?;
+                let mut table = BalanceTable::from_root(rt.store(), &st.escrow_table)?;
                 let balance = table.remove(miner)?;
 
                 st.escrow_table = table.root()?;
@@ -621,14 +635,19 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let amount_slashed = rt.transaction(|st: &mut State, bs| {
-            st.subtract_miner_balance(bs, miner_addr, &amount_to_slash, &TokenAmount::from(0u8))
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to subtract collateral for slash: {}", e),
-                    )
-                })
+        let amount_slashed = rt.transaction(|st: &mut State, rt| {
+            st.subtract_miner_balance(
+                rt.store(),
+                miner_addr,
+                &amount_to_slash,
+                &TokenAmount::from(0u8),
+            )
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to subtract collateral for slash: {}", e),
+                )
+            })
         })??;
 
         rt.send(
