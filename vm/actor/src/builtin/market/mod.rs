@@ -45,12 +45,7 @@ pub enum Method {
     OnMinerSectorsTerminate = 7,
     ComputeDataCommitment = 8,
 }
-impl Method {
-    /// Converts a method number into a Method enum
-    fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(m)
-    }
-}
+
 /// Market Actor
 pub struct Actor;
 impl Actor {
@@ -86,9 +81,42 @@ impl Actor {
         rt.create(&st)?;
         Ok(())
     }
+
+    /// Deposits the received value into the balance held in escrow.
+    fn add_balance<BS, RT>(rt: &mut RT, provider_or_client: Address) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        let (nominal, _) = escrow_address(rt, &provider_or_client)?;
+
+        let msg_value = rt.message().value().clone();
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+            st.add_escrow_balance(rt.store(), &nominal, msg_value)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("adding to escrow table: {}", e),
+                    )
+                })?;
+
+            // ensure there is an entry in the locked table
+            st.add_locked_balance(rt.store(), &nominal, TokenAmount::zero())
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        format!("adding to locked table: {}", e),
+                    )
+                })?;
+            Ok(())
+        })??;
+
+        Ok(())
+    }
+
     /// Attempt to withdraw the specified amount from the balance held in escrow.
     /// If less than the specified amount is available, yields the entire available balance.
-    pub fn withdraw_balance<BS, RT>(
+    fn withdraw_balance<BS, RT>(
         rt: &mut RT,
         params: WithdrawBalanceParams,
     ) -> Result<(), ActorError>
@@ -142,35 +170,28 @@ impl Actor {
         Ok(())
     }
 
-    /// Deposits the received value into the balance held in escrow.
-    fn add_balance<BS, RT>(rt: &mut RT, provider_or_client: Address) -> Result<(), ActorError>
+    fn handle_expired_deals<BS, RT>(
+        rt: &mut RT,
+        params: HandleExpiredDealsParams,
+    ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let (nominal, _) = escrow_address(rt, &provider_or_client)?;
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
 
-        let msg_value = rt.message().value().clone();
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-            st.add_escrow_balance(rt.store(), &nominal, msg_value)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("adding to escrow table: {}", e),
-                    )
-                })?;
-
-            // ensure there is an entry in the locked table
-            st.add_locked_balance(rt.store(), &nominal, TokenAmount::zero())
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("adding to locked table: {}", e),
-                    )
-                })?;
-            Ok(())
+        let slashed = rt.transaction(|st: &mut State, rt| {
+            st.update_pending_deal_states(rt.store(), params.deal_ids, rt.curr_epoch())
         })??;
 
+        // TODO: award some small portion of slashed to caller as incentive
+
+        rt.send(
+            &*BURNT_FUNDS_ACTOR_ADDR,
+            METHOD_SEND,
+            &Serialized::default(),
+            &slashed,
+        )?;
         Ok(())
     }
 
@@ -365,40 +386,6 @@ impl Actor {
         Ok(deal_weight)
     }
 
-    fn compute_data_commitment<BS, RT>(
-        rt: &mut RT,
-        params: ComputeDataCommitmentParams,
-    ) -> Result<Cid, ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-
-        let mut pieces: Vec<PieceInfo> = Vec::new();
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-            for id in &params.deal_ids {
-                let deal = st.must_get_deal(rt.store(), *id)?;
-                pieces.push(PieceInfo {
-                    size: deal.piece_size,
-                    cid: deal.piece_cid,
-                });
-            }
-            Ok(())
-        })??;
-
-        let commd = rt
-            .syscalls()
-            .compute_unsealed_sector_cid(params.sector_type, &pieces)
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::SysErrorIllegalArgument,
-                    format!("failed to compute unsealed sector CID: {}", e),
-                )
-            })?;
-
-        Ok(commd)
-    }
     /// Terminate a set of deals in response to their containing sector being terminated.
     /// Slash provider collateral, refund client collateral, and refund partial unpaid escrow
     /// amount to client.    
@@ -459,29 +446,39 @@ impl Actor {
         Ok(())
     }
 
-    fn handle_expired_deals<BS, RT>(
+    fn compute_data_commitment<BS, RT>(
         rt: &mut RT,
-        params: HandleExpiredDealsParams,
-    ) -> Result<(), ActorError>
+        params: ComputeDataCommitmentParams,
+    ) -> Result<Cid, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        let slashed = rt.transaction(|st: &mut State, rt| {
-            st.update_pending_deal_states(rt.store(), params.deal_ids, rt.curr_epoch())
+        let mut pieces: Vec<PieceInfo> = Vec::new();
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+            for id in &params.deal_ids {
+                let deal = st.must_get_deal(rt.store(), *id)?;
+                pieces.push(PieceInfo {
+                    size: deal.piece_size,
+                    cid: deal.piece_cid,
+                });
+            }
+            Ok(())
         })??;
 
-        // TODO: award some small portion of slashed to caller as incentive
+        let commd = rt
+            .syscalls()
+            .compute_unsealed_sector_cid(params.sector_type, &pieces)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::SysErrorIllegalArgument,
+                    format!("failed to compute unsealed sector CID: {}", e),
+                )
+            })?;
 
-        rt.send(
-            &*BURNT_FUNDS_ACTOR_ADDR,
-            METHOD_SEND,
-            &Serialized::default(),
-            &slashed,
-        )?;
-        Ok(())
+        Ok(commd)
     }
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -666,7 +663,7 @@ impl ActorCode for Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        match Method::from_method_num(method) {
+        match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
                 Self::constructor(rt)?;
                 Ok(Serialized::default())
