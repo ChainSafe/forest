@@ -4,11 +4,13 @@
 use address::Address;
 use blocks::Tipset;
 use clock::ChainEpoch;
-use default_runtime::{internal_send, DefaultRuntime};
+use default_runtime::{internal_send, transfer, DefaultRuntime};
+use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
+use num_traits::Zero;
 use vm::ActorError;
 use vm::{ExitCode, Serialized, StateTree};
 
@@ -20,6 +22,8 @@ pub struct VM<'a, ST: StateTree, DB: BlockStore> {
     epoch: ChainEpoch,
     // TODO: missing fields
 }
+
+const GAS_PER_MESSAGE_BYTE: u64 = 2;
 
 impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
     pub fn new(state: ST, store: &'a DB, epoch: ChainEpoch) -> Self {
@@ -47,7 +51,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             }
 
             for msg in &block.secp_messages {
-                receipts.push(self.apply_message(&msg.message(), &block.miner)?);
+                receipts.push(self.apply_message(msg.message(), &block.miner)?);
             }
         }
 
@@ -61,24 +65,42 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         msg: &UnsignedMessage,
         _miner_addr: &Address,
     ) -> Result<MessageReceipt, String> {
-        check_message(&msg)?;
-
+        check_message(msg)?;
         let snapshot = self.state.snapshot()?;
 
-        // TODO: Not the complete gas_cost. Calculate based on message size
+        let mut from_act = self
+            .state
+            .get_actor(msg.from())?
+            .ok_or("Actor address could not be resolved")?;
+        let value = &msg.marshal_cbor().map_err(|e| e.to_string())?;
+        let msg_gas_cost = value.len() as u64 * GAS_PER_MESSAGE_BYTE;
+
         let mut gas_cost = msg.gas_price() * msg.gas_limit();
         gas_cost += msg.value();
 
-        // TODO: gascost for message size
+        if from_act.balance < gas_cost {
+            return Err(format!(
+                "Not enough funds ({} < {})",
+                gas_cost, from_act.balance
+            ));
+        }
 
-        // TODO: verify nonce of the from actor matches nonce of the message
+        transfer(
+            &mut self.state,
+            msg.from(),
+            msg.to(),
+            &BigUint::from(msg_gas_cost),
+        )?;
+        if msg.sequence() != from_act.sequence {
+            return Err(format!(
+                "Invalid nonce (got: {}, expected: {})",
+                msg.sequence(),
+                from_act.sequence
+            ));
+        }
+        from_act.sequence += 1;
 
-        // TODO: check that the from actor has enough gas for the total gas cost
-
-        // TODO: transfer gas
-
-        // TODO: increase from actor nonce
-
+        // TODO need more data returned from send function (e.g. actor error code and default runtime to retrieve gas used)
         let return_data = self.send(msg, gas_cost.to_u64().unwrap());
         return_data
             .map(|r| {
@@ -116,6 +138,13 @@ fn check_message(msg: &UnsignedMessage) -> Result<(), String> {
     if msg.gas_limit() == 0 {
         return Err("Gas limit is 0".to_owned());
     }
+    if msg.value() == &BigUint::zero() {
+        return Err("No value set for message".to_owned());
+    }
+    if msg.gas_price() == &BigUint::zero() {
+        return Err("No gas price set for message".to_owned());
+    }
+
     Ok(())
 }
 /// Represents the messages from one block in a tipset.

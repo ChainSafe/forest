@@ -455,7 +455,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
 }
 
 /// Transfers funds from one Actor to another Actor
-fn transfer<ST: StateTree>(
+pub fn transfer<ST: StateTree>(
     state: &mut ST,
     from: &Address,
     to: &Address,
