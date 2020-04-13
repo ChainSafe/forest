@@ -20,6 +20,7 @@ pub struct VM<'a, ST: StateTree, DB: BlockStore> {
     state: ST,
     store: &'a DB,
     epoch: ChainEpoch,
+    block_miner: Address,
     // TODO: missing fields
 }
 
@@ -27,10 +28,12 @@ const GAS_PER_MESSAGE_BYTE: u64 = 2;
 
 impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
     pub fn new(state: ST, store: &'a DB, epoch: ChainEpoch) -> Self {
+        // TODO replace default block miner address
         VM {
             state,
             store,
             epoch,
+            block_miner: Address::default(),
         }
     }
 
@@ -100,25 +103,62 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         }
         from_act.sequence += 1;
 
-        // TODO need more data returned from send function (e.g. actor error code and default runtime to retrieve gas used)
-        let return_data = self.send(msg, gas_cost.to_u64().unwrap());
-        return_data
-            .map(|r| {
-                Ok(MessageReceipt {
-                    return_data: r, // TODO: what about Send?,
-                    exit_code: ExitCode::Ok,
-                    gas_used: BigUint::from(0u64), // TODO: get from runtime, runtime.gas_used()
-                })
-            })
-            .map_err(|e| {
-                if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
-                    return state_err;
+        let (ret_data, gas_used) = match self.send(msg, gas_cost.to_u64().unwrap()) {
+            Ok((ret_data, gas_used)) => (ret_data, gas_used),
+            Err(e) => {
+                if e.exit_code() != ExitCode::Ok {
+                    if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
+                        return Err(state_err);
+                    };
+                } else {
+                    // refund gas here BUT it uses gas used from runtime which wouldnt be available if err????
+                    //let refund = (msg.gas_limit().checked_sub(gas_used).unwrap_or(1u64)) * msg.gas_price();
+                    //transfer(&mut self.state, msg.to(), msg.from(), &refund).unwrap(); //TODO handle unwrap
                 }
-                e.to_string()
-            })?
+                return Err(e.to_string());
+            }
+        };
+
+        // let return_data = self.send(msg, gas_cost.to_u64().unwrap());
+        // return_data
+        //     .map(|(_, gas_used)| {
+        //         let refund = (msg.gas_limit().checked_sub(gas_used).unwrap_or(1u64)) * msg.gas_price();
+        //         transfer(&mut self.state, msg.to(), msg.from(), &refund).unwrap(); //TODO handle unwrap
+        //     })
+        //     .map_err(|e| {
+        //         if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
+        //             return state_err;
+        //         }
+        //         e.to_string()
+        //     })?;
+
+        let miner = self
+            .state
+            .get_actor(&self.block_miner)?
+            .ok_or("Actor address could not be resolved")?;
+
+        // TODO: support multiple blocks in a tipset
+        // TODO: actually wire this up (miner is undef for now)
+        let gas_reward = msg.gas_price() * gas_used;
+        transfer(&mut self.state, msg.to(), &self.block_miner, &gas_reward)?;
+        if miner.balance != BigUint::zero() {
+            return Err("Gas handling math is wrong".to_owned());
+        }
+
+        // TODO ask about ApplyRet structure from lotus and whether we want to know runtime execution result
+        // TODO exit_code field on lotus is filled by send errcode?
+        Ok(MessageReceipt {
+            return_data: ret_data,
+            exit_code: ExitCode::Ok,
+            gas_used: BigUint::from(gas_used),
+        })
     }
     /// Instantiates a new Runtime, and calls internal_send to do the execution.
-    fn send(&mut self, msg: &UnsignedMessage, gas_cost: u64) -> Result<Serialized, ActorError> {
+    fn send(
+        &mut self,
+        msg: &UnsignedMessage,
+        gas_cost: u64,
+    ) -> Result<(Serialized, u64), ActorError> {
         let mut rt = DefaultRuntime::new(
             &mut self.state,
             self.store,
@@ -129,7 +169,8 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             msg.sequence(),
             0,
         );
-        internal_send(&mut rt, msg, gas_cost)
+        let ser = internal_send(&mut rt, msg, gas_cost)?;
+        Ok((ser, *rt.gas_used()))
     }
 }
 

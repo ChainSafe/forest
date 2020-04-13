@@ -65,6 +65,10 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
     pub fn charge_gas(&mut self, to_use: u64) {
         self.gas_used += to_use;
     }
+    // Returns gas used
+    pub fn gas_used(&self) -> &u64 {
+        &self.gas_used
+    }
 
     /// Gets the specified Actor from the state tree
     fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
