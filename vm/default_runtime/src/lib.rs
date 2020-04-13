@@ -400,7 +400,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
 
     if msg.value() != &0u8.into() {
         transfer(runtime.state, &msg.from(), &msg.to(), &msg.value())
-            .map_err(|e| ActorError::new(ExitCode::SysErrInternal, e))?;
+            .map_err(|e| ActorError::new(ExitCode::SysErrSenderInvalid, e))?;
     }
 
     let method_num = msg.method_num();
