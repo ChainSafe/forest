@@ -28,13 +28,6 @@ pub enum Method {
     WithdrawReward = 3,
 }
 
-impl Method {
-    /// Converts a method number into an Method enum
-    fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(m)
-    }
-}
-
 /// Reward Actor
 pub struct Actor;
 impl Actor {
@@ -195,7 +188,7 @@ impl ActorCode for Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        match Method::from_method_num(method) {
+        match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
                 check_empty_params(params)?;
                 Self::constructor(rt)?;

@@ -27,13 +27,6 @@ pub enum Method {
     Exec = 2,
 }
 
-impl Method {
-    /// Converts a method number into an Method enum
-    fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(m)
-    }
-}
-
 /// Init actor
 pub struct Actor;
 impl Actor {
@@ -123,7 +116,7 @@ impl ActorCode for Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        match Method::from_method_num(method) {
+        match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
