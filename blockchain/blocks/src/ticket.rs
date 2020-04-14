@@ -4,6 +4,7 @@
 use crypto::VRFResult;
 use encoding::{BytesDe, BytesSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use vm::PoStProof;
 
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source
 /// of randomness for proofs of storage and leader election.  It is generated
@@ -51,7 +52,7 @@ pub struct EPostTicket {
 /// Proof of Spacetime election proof
 #[derive(Clone, Debug, PartialEq, Default, Eq)]
 pub struct EPostProof {
-    pub proof: Vec<u8>,
+    pub proof: Vec<PoStProof>,
     pub post_rand: Vec<u8>,
     pub candidates: Vec<EPostTicket>,
 }
@@ -90,12 +91,7 @@ impl Serialize for EPostProof {
     where
         S: Serializer,
     {
-        (
-            BytesSer(&self.proof),
-            BytesSer(&self.post_rand),
-            &self.candidates,
-        )
-            .serialize(serializer)
+        (&self.proof, BytesSer(&self.post_rand), &self.candidates).serialize(serializer)
     }
 }
 
@@ -104,8 +100,7 @@ impl<'de> Deserialize<'de> for EPostProof {
     where
         D: Deserializer<'de>,
     {
-        let (BytesDe(proof), BytesDe(post_rand), candidates) =
-            Deserialize::deserialize(deserializer)?;
+        let (proof, BytesDe(post_rand), candidates) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             proof,
             post_rand,
