@@ -79,7 +79,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
 
         // TODO: increase from actor nonce
 
-        let return_data = self.send(msg, gas_cost.to_u64().unwrap());
+        let return_data = self.send(msg, gas_cost.to_i64().unwrap());
         return_data
             .map(|r| {
                 Ok(MessageReceipt {
@@ -96,7 +96,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             })?
     }
     /// Instantiates a new Runtime, and calls internal_send to do the execution.
-    fn send(&mut self, msg: &UnsignedMessage, gas_cost: u64) -> Result<Serialized, ActorError> {
+    fn send(&mut self, msg: &UnsignedMessage, gas_cost: i64) -> Result<Serialized, ActorError> {
         let mut rt = DefaultRuntime::new(
             &mut self.state,
             self.store,

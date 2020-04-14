@@ -9,6 +9,7 @@ use crypto::SignatureType;
 use num_traits::Zero;
 
 /// Provides prices for operations in the VM
+#[derive(Copy, Clone, Debug)]
 pub struct PriceList {
     /// Gas cost charged to the originator of an on-chain message (regardless of
     /// whether it succeeds or fails in application) is given by:
@@ -82,8 +83,8 @@ impl PriceList {
     }
     /// Returns the gas required for storing the response of a message in the chain.
     #[inline]
-    pub fn on_chain_return_value(&self, data_size: i64) -> i64 {
-        data_size * self.on_chain_return_value_per_byte
+    pub fn on_chain_return_value(&self, data_size: usize) -> i64 {
+        data_size as i64 * self.on_chain_return_value_per_byte
     }
     /// Returns the gas required when invoking a method.
     #[inline]
@@ -99,13 +100,13 @@ impl PriceList {
     }
     /// Returns the gas required for storing an object
     #[inline]
-    pub fn on_ipld_get(&self, data_size: i64) -> i64 {
-        self.ipld_get_base + data_size * self.ipld_get_per_byte
+    pub fn on_ipld_get(&self, data_size: usize) -> i64 {
+        self.ipld_get_base + data_size as i64 * self.ipld_get_per_byte
     }
     /// Returns the gas required for storing an object
     #[inline]
-    pub fn on_ipld_put(&self, data_size: i64) -> i64 {
-        self.ipld_put_base + data_size * self.ipld_put_per_byte
+    pub fn on_ipld_put(&self, data_size: usize) -> i64 {
+        self.ipld_put_base + data_size as i64 * self.ipld_put_per_byte
     }
     /// Returns the gas required for creating an actor
     #[inline]
@@ -127,8 +128,8 @@ impl PriceList {
     }
     /// Returns gas required for hashing data
     #[inline]
-    pub fn on_hashing(&self, data_size: i64) -> i64 {
-        self.hashing_base + data_size * self.hashing_per_byte
+    pub fn on_hashing(&self, data_size: usize) -> i64 {
+        self.hashing_base + data_size as i64 * self.hashing_per_byte
     }
     /// Returns gas required for computing unsealed sector Cid
     #[inline]

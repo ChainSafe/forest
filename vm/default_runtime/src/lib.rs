@@ -1,6 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod gas_block_store;
+
+use self::gas_block_store::GasBlockStore;
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
@@ -17,54 +20,70 @@ use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigUint;
 use runtime::{ActorCode, Runtime};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vm::{
-    ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, StateTree, TokenAmount,
-    METHOD_SEND,
+    price_list_by_epoch, ActorError, ActorState, ExitCode, GasTracker, MethodNum, PriceList,
+    Randomness, Serialized, StateTree, TokenAmount, METHOD_SEND,
 };
 
-pub const PLACEHOLDER_GAS: u64 = 1;
+pub const PLACEHOLDER_GAS: i64 = 1;
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     state: &'c mut ST,
-    store: &'a BS,
-    gas_used: u64,
-    gas_available: u64,
+    store: GasBlockStore<'a, BS>,
+    gas_tracker: Rc<RefCell<GasTracker>>,
     message: &'b UnsignedMessage,
     epoch: ChainEpoch,
     origin: Address,
     origin_nonce: u64,
     num_actors_created: u64,
+    price_list: PriceList,
 }
 
-impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
+impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS>
+where
+    ST: StateTree,
+    BS: BlockStore,
+{
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: &'c mut ST,
         store: &'a BS,
-        gas_used: u64,
+        gas_used: i64,
         message: &'b UnsignedMessage,
         epoch: ChainEpoch,
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
     ) -> Self {
+        let price_list = price_list_by_epoch(epoch);
+        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
+            message.gas_limit() as i64,
+            gas_used,
+        )));
+        let gas_block_store = GasBlockStore {
+            price_list,
+            gas: Rc::clone(&gas_tracker),
+            store,
+        };
         DefaultRuntime {
             state,
-            store,
-            gas_used,
-            gas_available: message.gas_limit(),
+            store: gas_block_store,
+            gas_tracker,
             message,
             epoch,
             origin,
             origin_nonce,
             num_actors_created,
+            price_list,
         }
     }
 
     /// Adds to amount of used
-    pub fn charge_gas(&mut self, to_use: u64) {
-        self.gas_used += to_use;
+    pub fn charge_gas(&mut self, to_use: i64) -> Result<(), ActorError> {
+        self.gas_tracker.borrow_mut().charge_gas(to_use)
     }
 
     /// Gets the specified Actor from the state tree
@@ -230,8 +249,9 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             })
     }
 
-    fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
+    fn transaction<C, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
+        C: Cbor,
         F: FnOnce(&mut C, &BS) -> R,
     {
         // get actor
@@ -255,7 +275,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             })?;
 
         // Update the state
-        let r = f(&mut state, &self.store);
+        let r = f(&mut state, &self.store());
 
         let c = self.store.put(&state, Blake2b256).map_err(|e| {
             self.abort(
@@ -270,7 +290,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
 
     fn store(&self) -> &BS {
-        self.store
+        self.store.store
     }
 
     fn send(
@@ -285,7 +305,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .from(self.message.from().clone())
             .method_num(method)
             .value(value.clone())
-            .gas_limit(self.gas_available)
+            .gas_limit(self.gas_tracker.borrow().gas_available() as u64)
             .params(params.clone())
             .build()
             .unwrap();
@@ -296,17 +316,20 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .snapshot()
             .map_err(|_e| self.abort(ExitCode::ErrPlaceholder, "failed to create snapshot"))?;
 
-        let mut parent = DefaultRuntime::new(
-            self.state,
-            self.store,
-            self.gas_used,
-            &msg,
-            self.curr_epoch(),
-            self.origin.clone(),
-            self.origin_nonce,
-            self.num_actors_created,
-        );
-        let send_res = internal_send::<ST, BS>(&mut parent, &msg, 0);
+        let epoch = self.curr_epoch();
+        let send_res = {
+            let mut parent = DefaultRuntime::new(
+                self.state,
+                self.store.store,
+                self.gas_tracker.borrow().gas_used(),
+                &msg,
+                epoch,
+                self.origin.clone(),
+                self.origin_nonce,
+                self.num_actors_created,
+            );
+            internal_send::<ST, BS>(&mut parent, &msg, 0)
+        };
         if send_res.is_err() {
             self.state
                 .revert_to_snapshot(&snapshot)
@@ -353,7 +376,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
         // TODO: Charge gas
-        self.charge_gas(PLACEHOLDER_GAS);
+        self.charge_gas(PLACEHOLDER_GAS)?;
         self.state
             .set_actor(
                 &address,
@@ -368,7 +391,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
     fn delete_actor(&mut self) -> Result<(), ActorError> {
         // TODO: Charge gas
-        self.charge_gas(PLACEHOLDER_GAS);
+        self.charge_gas(PLACEHOLDER_GAS)?;
         let balance = self.get_actor(self.message.to()).map(|act| act.balance)?;
         if !balance.eq(&0u64.into()) {
             return Err(self.abort(
@@ -389,10 +412,10 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
 pub fn internal_send<ST: StateTree, DB: BlockStore>(
     runtime: &mut DefaultRuntime<'_, '_, '_, ST, DB>,
     msg: &UnsignedMessage,
-    _gas_cost: u64,
+    _gas_cost: i64,
 ) -> Result<Serialized, ActorError> {
     // TODO: Calculate true gas value
-    runtime.charge_gas(PLACEHOLDER_GAS);
+    runtime.charge_gas(PLACEHOLDER_GAS)?;
 
     // TODO: we need to try to recover here and try to create account actor
     let to_actor = runtime.get_actor(msg.to())?;
