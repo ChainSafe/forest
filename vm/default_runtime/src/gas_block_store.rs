@@ -6,6 +6,7 @@ use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
+use std::error::Error as StdError;
 use std::rc::Rc;
 use vm::{GasTracker, PriceList};
 
@@ -21,20 +22,19 @@ where
     BS: BlockStore,
 {
     /// Get bytes from block store by Cid
-    fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Error> {
+    fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
         // TODO investigate if should panic/exit here, should be fatal
         let ret = self.store.get_bytes(cid)?;
         if let Some(bz) = &ret {
             self.gas
                 .borrow_mut()
-                .charge_gas(self.price_list.on_ipld_get(bz.len()))
-                .unwrap();
+                .charge_gas(self.price_list.on_ipld_get(bz.len()))?;
         }
         Ok(ret)
     }
 
     /// Get typed object from block store by Cid
-    fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Error>
+    fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Box<dyn StdError>>
     where
         T: DeserializeOwned,
     {
@@ -45,15 +45,14 @@ where
     }
 
     /// Put an object in the block store and return the Cid identifier
-    fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Error>
+    fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,
         T: MultihashDigest,
     {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_ipld_put(to_vec(obj).unwrap().len()))
-            .unwrap();
+            .charge_gas(self.price_list.on_ipld_put(to_vec(obj).unwrap().len()))?;
 
         // TODO investigate if error here should be fatal
         self.store.put(obj, hash)
@@ -115,6 +114,7 @@ mod tests {
     use super::*;
     use cid::multihash::Blake2b256;
     use db::MemoryDB;
+    use vm::{ActorError, ExitCode};
 
     #[test]
     fn gas_blockstore() {
@@ -151,6 +151,13 @@ mod tests {
         };
         assert_eq!(gbs.gas.borrow().gas_used(), 0);
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
-        assert!(gbs.put(&200u8, Blake2b256).is_err());
+        assert_eq!(
+            gbs.put(&200u8, Blake2b256)
+                .unwrap_err()
+                .downcast::<ActorError>()
+                .unwrap()
+                .exit_code(),
+            ExitCode::SysErrOutOfGas
+        );
     }
 }
