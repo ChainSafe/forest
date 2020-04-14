@@ -88,9 +88,9 @@ impl PriceList {
     }
     /// Returns the gas required when invoking a method.
     #[inline]
-    pub fn on_method_invocation(&self, value: TokenAmount, method_num: MethodNum) -> i64 {
+    pub fn on_method_invocation(&self, value: &TokenAmount, method_num: MethodNum) -> i64 {
         let mut ret = self.send_base;
-        if value != TokenAmount::zero() {
+        if value != &TokenAmount::zero() {
             ret += self.send_transfer_funds;
         }
         if method_num != METHOD_SEND {

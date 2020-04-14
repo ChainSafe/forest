@@ -100,6 +100,10 @@ where
         self.gas_tracker.borrow_mut().charge_gas(to_use)
     }
 
+    pub fn price_list(&self) -> PriceList {
+        self.price_list
+    }
+
     /// Gets the specified Actor from the state tree
     fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
         self.state
@@ -395,8 +399,7 @@ where
         Ok(addr)
     }
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
-        // TODO: Charge gas
-        self.charge_gas(PLACEHOLDER_GAS)?;
+        self.charge_gas(self.price_list.on_create_actor())?;
         self.state
             .set_actor(
                 &address,
@@ -410,8 +413,7 @@ where
             })
     }
     fn delete_actor(&mut self) -> Result<(), ActorError> {
-        // TODO: Charge gas
-        self.charge_gas(PLACEHOLDER_GAS)?;
+        self.charge_gas(self.price_list.on_delete_actor())?;
         let balance = self.get_actor(self.message.to()).map(|act| act.balance)?;
         if !balance.eq(&0u64.into()) {
             return Err(self.abort(
@@ -427,7 +429,7 @@ where
         })
     }
     fn syscalls(&self) -> &dyn Syscalls {
-        todo!()
+        &self.syscalls
     }
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
@@ -456,7 +458,11 @@ where
     let method_num = msg.method_num();
 
     if method_num != &METHOD_SEND {
-        // TODO: charge gas
+        runtime.charge_gas(
+            runtime
+                .price_list()
+                .on_method_invocation(msg.value(), *msg.method_num()),
+        )?;
 
         let ret = {
             // TODO: make its own method/struct

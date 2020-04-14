@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use cid::{multihash::MultihashDigest, Cid};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
