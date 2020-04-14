@@ -447,7 +447,7 @@ where
     runtime.charge_gas(
         runtime
             .price_list()
-            .on_method_invocation(msg.value(), *msg.method_num()),
+            .on_method_invocation(msg.value(), msg.method_num()),
     )?;
 
     // TODO: we need to try to recover here and try to create account actor
@@ -460,39 +460,39 @@ where
 
     let method_num = msg.method_num();
 
-    if method_num != &METHOD_SEND {
+    if method_num != METHOD_SEND {
         let ret = {
             // TODO: make its own method/struct
             match to_actor.code {
                 x if x == *SYSTEM_ACTOR_CODE_ID => {
-                    actor::system::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::system::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *INIT_ACTOR_CODE_ID => {
-                    actor::init::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::init::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *CRON_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *ACCOUNT_ACTOR_CODE_ID => {
-                    actor::account::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::account::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *POWER_ACTOR_CODE_ID => {
-                    actor::power::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::power::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *MINER_ACTOR_CODE_ID => {
-                    actor::miner::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::miner::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *MARKET_ACTOR_CODE_ID => {
-                    actor::market::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::market::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *PAYCH_ACTOR_CODE_ID => {
-                    actor::paych::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::paych::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *MULTISIG_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *REWARD_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 _ => Err(ActorError::new(
                     ExitCode::SysErrorIllegalActor,

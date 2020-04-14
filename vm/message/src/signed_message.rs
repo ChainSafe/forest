@@ -67,7 +67,7 @@ impl Message for SignedMessage {
     fn value(&self) -> &TokenAmount {
         self.message.value()
     }
-    fn method_num(&self) -> &MethodNum {
+    fn method_num(&self) -> MethodNum {
         self.message.method_num()
     }
     fn params(&self) -> &Serialized {
