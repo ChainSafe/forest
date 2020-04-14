@@ -29,7 +29,6 @@ use vm::{
     Randomness, Serialized, StateTree, TokenAmount, METHOD_SEND,
 };
 
-pub const PLACEHOLDER_GAS: i64 = 1;
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
 where
@@ -275,6 +274,7 @@ where
 
     fn transaction<C, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
+        C: Cbor,
         F: FnOnce(&mut C, &Self) -> R,
     {
         // get actor
@@ -444,8 +444,11 @@ where
     BS: BlockStore,
     SYS: Syscalls + Copy,
 {
-    // TODO: Calculate true gas value
-    runtime.charge_gas(PLACEHOLDER_GAS)?;
+    runtime.charge_gas(
+        runtime
+            .price_list()
+            .on_method_invocation(msg.value(), *msg.method_num()),
+    )?;
 
     // TODO: we need to try to recover here and try to create account actor
     let to_actor = runtime.get_actor(msg.to())?;
@@ -458,12 +461,6 @@ where
     let method_num = msg.method_num();
 
     if method_num != &METHOD_SEND {
-        runtime.charge_gas(
-            runtime
-                .price_list()
-                .on_method_invocation(msg.value(), *msg.method_num()),
-        )?;
-
         let ret = {
             // TODO: make its own method/struct
             match to_actor.code {
