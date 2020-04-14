@@ -21,7 +21,7 @@ use std::error::Error;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
-    Cid::new_from_cbor(data, Blake2b256).unwrap()
+    Cid::new_from_cbor(data, Blake2b256)
 }
 
 /// Defines a block header used in testing
@@ -80,7 +80,7 @@ pub fn construct_header(epoch: u64, weight: u64) -> Vec<BlockHeader> {
         .unwrap(),
     };
     let bz = to_vec(&meta).unwrap();
-    let msg_root = Cid::new_from_cbor(&bz, Blake2b256).unwrap();
+    let msg_root = Cid::new_from_cbor(&bz, Blake2b256);
 
     return vec![
         template_header(data0, cids[0].clone(), 1, epoch, msg_root.clone(), weight),

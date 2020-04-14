@@ -17,62 +17,62 @@ pub struct PriceList {
     /// Together, these account for the cost of message propagation and validation,
     /// up to but excluding any actual processing by the VM.
     /// This is the cost a block producer burns when including an invalid message.
-    pub(super) on_chain_message_base: i64,
-    pub(super) on_chain_message_per_byte: i64,
+    pub on_chain_message_base: i64,
+    pub on_chain_message_per_byte: i64,
 
     /// Gas cost charged to the originator of a non-nil return value produced
     /// by an on-chain message is given by:
     ///   len(return value)*OnChainReturnValuePerByte
-    pub(super) on_chain_return_value_per_byte: i64,
+    pub on_chain_return_value_per_byte: i64,
 
     /// Gas cost for any message send execution(including the top-level one
     /// initiated by an on-chain message).
     /// This accounts for the cost of loading sender and receiver actors and
     /// (for top-level messages) incrementing the sender's sequence number.
     /// Load and store of actor sub-state is charged separately.
-    pub(super) send_base: i64,
+    pub send_base: i64,
 
     /// Gas cost charged, in addition to SendBase, if a message send
     /// is accompanied by any nonzero currency amount.
     /// Accounts for writing receiver's new balance (the sender's state is
     /// already accounted for).
-    pub(super) send_transfer_funds: i64,
+    pub send_transfer_funds: i64,
 
     /// Gas cost charged, in addition to SendBase, if a message invokes
     /// a method on the receiver.
     /// Accounts for the cost of loading receiver code and method dispatch.
-    pub(super) send_invoke_method: i64,
+    pub send_invoke_method: i64,
 
     /// Gas cost (Base + len*PerByte) for any Get operation to the IPLD store
     /// in the runtime VM context.
-    pub(super) ipld_get_base: i64,
-    pub(super) ipld_get_per_byte: i64,
+    pub ipld_get_base: i64,
+    pub ipld_get_per_byte: i64,
 
     /// Gas cost (Base + len*PerByte) for any Put operation to the IPLD store
     /// in the runtime VM context.
     /// Note: these costs should be significantly higher than the costs for Get
     /// operations, since they reflect not only serialization/deserialization
     /// but also persistent storage of chain data.
-    pub(super) ipld_put_base: i64,
-    pub(super) ipld_put_per_byte: i64,
+    pub ipld_put_base: i64,
+    pub ipld_put_per_byte: i64,
 
     /// Gas cost for creating a new actor (via InitActor's Exec method).
     /// Note: this costs assume that the extra will be partially or totally refunded while
     /// the base is covering for the put.
-    pub(super) create_actor_base: i64,
-    pub(super) create_actor_extra: i64,
+    pub create_actor_base: i64,
+    pub create_actor_extra: i64,
 
     /// Gas cost for deleting an actor.
     /// Note: this partially refunds the create cost to incentivise the deletion of the actors.
-    pub(super) delete_actor: i64,
+    pub delete_actor: i64,
 
-    pub(super) hashing_base: i64,
-    pub(super) hashing_per_byte: i64,
+    pub hashing_base: i64,
+    pub hashing_per_byte: i64,
 
-    pub(super) compute_unsealed_sector_cid_base: i64,
-    pub(super) verify_seal_base: i64,
-    pub(super) verify_post_base: i64,
-    pub(super) verify_consensus_fault: i64,
+    pub compute_unsealed_sector_cid_base: i64,
+    pub verify_seal_base: i64,
+    pub verify_post_base: i64,
+    pub verify_consensus_fault: i64,
 }
 
 impl PriceList {
@@ -154,6 +154,12 @@ impl PriceList {
     #[inline]
     pub fn on_verify_consensus_fault(&self) -> i64 {
         self.verify_consensus_fault
+    }
+}
+
+impl Default for PriceList {
+    fn default() -> Self {
+        BASE_PRICES
     }
 }
 
