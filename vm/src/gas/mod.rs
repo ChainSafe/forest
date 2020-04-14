@@ -47,3 +47,18 @@ impl GasTracker {
         self.gas_used
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_gas_tracker() {
+        let mut t = GasTracker::new(20, 10);
+        t.charge_gas(5).unwrap();
+        assert_eq!(t.gas_used(), 15);
+        t.charge_gas(5).unwrap();
+        assert_eq!(t.gas_used(), 20);
+        assert!(t.charge_gas(1).is_err())
+    }
+}
