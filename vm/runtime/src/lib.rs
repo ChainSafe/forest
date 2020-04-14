@@ -138,12 +138,12 @@ pub trait Syscalls {
         _signature: &Signature,
         _signer: &Address,
         _plaintext: &[u8],
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), ActorError> {
         // TODO
         todo!()
     }
     /// Hashes input data using blake2b with 256 bit output.
-    fn hash_blake2b(&self, _data: &[u8]) -> [u8; 32] {
+    fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], ActorError> {
         // TODO
         todo!()
     }
@@ -152,17 +152,17 @@ pub trait Syscalls {
         &self,
         _reg: RegisteredProof,
         _pieces: &[PieceInfo],
-    ) -> Result<Cid, &'static str> {
+    ) -> Result<Cid, ActorError> {
         // TODO
         todo!()
     }
     /// Verifies a sector seal proof.
-    fn verify_seal(&self, _vi: SealVerifyInfo) -> Result<(), &'static str> {
+    fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), ActorError> {
         // TODO
         todo!()
     }
     /// Verifies a proof of spacetime.
-    fn verify_post(&self, _vi: PoStVerifyInfo) -> Result<(), &'static str> {
+    fn verify_post(&self, _vi: &PoStVerifyInfo) -> Result<(), ActorError> {
         // TODO
         todo!()
     }
@@ -182,7 +182,7 @@ pub trait Syscalls {
         _h2: &[u8],
         _extra: &[u8],
         _earliest: ChainEpoch,
-    ) -> Result<ConsensusFault, &'static str> {
+    ) -> Result<ConsensusFault, ActorError> {
         // TODO
         todo!()
     }

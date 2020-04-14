@@ -5,8 +5,11 @@ use crypto::Signature;
 use runtime::{ConsensusFault, Syscalls};
 use std::cell::RefCell;
 use std::rc::Rc;
-use vm::{GasTracker, PieceInfo, PoStVerifyInfo, PriceList, RegisteredProof, SealVerifyInfo};
+use vm::{
+    ActorError, GasTracker, PieceInfo, PoStVerifyInfo, PriceList, RegisteredProof, SealVerifyInfo,
+};
 
+/// Syscall wrapper to charge gas on syscalls
 pub(crate) struct GasSyscalls<S: Copy> {
     pub price_list: PriceList,
     pub gas: Rc<RefCell<GasTracker>>,
@@ -19,41 +22,63 @@ where
 {
     fn verify_signature(
         &self,
-        _signature: &Signature,
-        _signer: &Address,
-        _plaintext: &[u8],
-    ) -> Result<(), &'static str> {
-        // TODO
-        todo!()
+        signature: &Signature,
+        signer: &Address,
+        plaintext: &[u8],
+    ) -> Result<(), ActorError> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(
+                self.price_list
+                    .on_verify_signature(signature.signature_type(), plaintext.len()),
+            )
+            .unwrap();
+        self.syscalls.verify_signature(signature, signer, plaintext)
     }
-    fn hash_blake2b(&self, _data: &[u8]) -> [u8; 32] {
-        // TODO
-        todo!()
+    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], ActorError> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_hashing(data.len()))
+            .unwrap();
+        self.syscalls.hash_blake2b(data)
     }
     fn compute_unsealed_sector_cid(
         &self,
-        _reg: RegisteredProof,
-        _pieces: &[PieceInfo],
-    ) -> Result<Cid, &'static str> {
-        // TODO
-        todo!()
+        reg: RegisteredProof,
+        pieces: &[PieceInfo],
+    ) -> Result<Cid, ActorError> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_compute_unsealed_sector_cid(reg, pieces))
+            .unwrap();
+        self.syscalls.compute_unsealed_sector_cid(reg, pieces)
     }
-    fn verify_seal(&self, _vi: SealVerifyInfo) -> Result<(), &'static str> {
-        // TODO
-        todo!()
+    fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), ActorError> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_verify_seal(vi))
+            .unwrap();
+        self.syscalls.verify_seal(vi)
     }
-    fn verify_post(&self, _vi: PoStVerifyInfo) -> Result<(), &'static str> {
-        // TODO
-        todo!()
+    fn verify_post(&self, vi: &PoStVerifyInfo) -> Result<(), ActorError> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_verify_post(vi))
+            .unwrap();
+        self.syscalls.verify_post(vi)
     }
     fn verify_consensus_fault(
         &self,
-        _h1: &[u8],
-        _h2: &[u8],
-        _extra: &[u8],
-        _earliest: ChainEpoch,
-    ) -> Result<ConsensusFault, &'static str> {
-        // TODO
-        todo!()
+        h1: &[u8],
+        h2: &[u8],
+        extra: &[u8],
+        earliest: ChainEpoch,
+    ) -> Result<ConsensusFault, ActorError> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_verify_consensus_fault())
+            .unwrap();
+        self.syscalls
+            .verify_consensus_fault(h1, h2, extra, earliest)
     }
 }

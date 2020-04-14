@@ -120,10 +120,10 @@ impl PriceList {
     }
     /// Returns gas required for signature verification
     #[inline]
-    pub fn on_verify_signature(&self, sig_type: SignatureType, plain_text_size: i64) -> i64 {
+    pub fn on_verify_signature(&self, sig_type: SignatureType, plain_text_size: usize) -> i64 {
         match sig_type {
-            SignatureType::BLS => 3 * plain_text_size + 2,
-            SignatureType::Secp256 => 3 * plain_text_size + 2,
+            SignatureType::BLS => (3 * plain_text_size + 2) as i64,
+            SignatureType::Secp256 => (3 * plain_text_size + 2) as i64,
         }
     }
     /// Returns gas required for hashing data
@@ -136,18 +136,18 @@ impl PriceList {
     pub fn on_compute_unsealed_sector_cid(
         &self,
         _proof: RegisteredProof,
-        _pieces: PieceInfo,
+        _pieces: &[PieceInfo],
     ) -> i64 {
         self.compute_unsealed_sector_cid_base
     }
     /// Returns gas required for seal verification
     #[inline]
-    pub fn on_verify_seal(&self, _info: SealVerifyInfo) -> i64 {
+    pub fn on_verify_seal(&self, _info: &SealVerifyInfo) -> i64 {
         self.verify_seal_base
     }
     /// Returns gas required for PoSt verification
     #[inline]
-    pub fn on_verify_post(&self, _info: PoStVerifyInfo) -> i64 {
+    pub fn on_verify_post(&self, _info: &PoStVerifyInfo) -> i64 {
         self.verify_post_base
     }
     /// Returns gas required for verifying consensus fault
