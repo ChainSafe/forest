@@ -27,13 +27,6 @@ pub enum Method {
     Exec = 2,
 }
 
-impl Method {
-    /// Converts a method number into an Method enum
-    fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(m)
-    }
-}
-
 /// Init actor
 pub struct Actor;
 impl Actor {
@@ -86,10 +79,11 @@ impl Actor {
 
         // Allocate an ID for this actor.
         // Store mapping of pubkey or actor address to actor ID
-        let id_address: Address = rt.transaction::<State, _, _>(|s, bs| {
-            s.map_address_to_new_id(bs, &robust_address).map_err(|e| {
-                ActorError::new(ExitCode::ErrIllegalState, format!("exec failed {}", e))
-            })
+        let id_address: Address = rt.transaction::<State, _, _>(|s, rt| {
+            s.map_address_to_new_id(rt.store(), &robust_address)
+                .map_err(|e| {
+                    ActorError::new(ExitCode::ErrIllegalState, format!("exec failed {}", e))
+                })
         })??;
 
         // Create an empty actor
@@ -122,7 +116,7 @@ impl ActorCode for Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        match Method::from_method_num(method) {
+        match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
