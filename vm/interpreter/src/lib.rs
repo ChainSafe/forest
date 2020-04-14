@@ -62,38 +62,35 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
     }
 
     /// Applies the state transition for a single message
-    /// Returns receipts from the transaction, and the miner penalty token amount.
+    /// Returns receipts from the transaction.
     pub fn apply_message(
         &mut self,
         msg: &UnsignedMessage,
         _miner_addr: &Address,
     ) -> Result<MessageReceipt, String> {
         check_message(msg)?;
+
         let snapshot = self.state.snapshot()?;
 
         let mut from_act = self
             .state
             .get_actor(msg.from())?
             .ok_or("Actor address could not be resolved")?;
-        let value = &msg.marshal_cbor().map_err(|e| e.to_string())?;
-        let msg_gas_cost = value.len() as u64 * GAS_PER_MESSAGE_BYTE;
 
-        let mut gas_cost = msg.gas_price() * msg.gas_limit();
-        gas_cost += msg.value();
+        let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
+        let msg_gas_cost = ser_msg.len() as u64 * GAS_PER_MESSAGE_BYTE;
 
-        if from_act.balance < gas_cost {
+        let gas_cost = msg.gas_price() * msg.gas_limit();
+        let total_cost = &gas_cost + msg.value();
+        if from_act.balance < total_cost {
             return Err(format!(
                 "Not enough funds ({} < {})",
-                gas_cost, from_act.balance
+                total_cost, from_act.balance
             ));
         }
 
-        transfer(
-            &mut self.state,
-            msg.from(),
-            msg.to(),
-            &BigUint::from(msg_gas_cost),
-        )?;
+        transfer(&mut self.state, msg.from(), msg.to(), &gas_cost)?;
+
         if msg.sequence() != from_act.sequence {
             return Err(format!(
                 "Invalid nonce (got: {}, expected: {})",
@@ -103,34 +100,22 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         }
         from_act.sequence += 1;
 
-        let (ret_data, gas_used) = match self.send(msg, gas_cost.to_u64().unwrap()) {
-            Ok((ret_data, gas_used)) => (ret_data, gas_used),
-            Err(e) => {
-                if e.exit_code() != ExitCode::Ok {
-                    if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
-                        return Err(state_err);
-                    };
-                } else {
-                    // refund gas here BUT it uses gas used from runtime which wouldnt be available if err????
-                    //let refund = (msg.gas_limit().checked_sub(gas_used).unwrap_or(1u64)) * msg.gas_price();
-                    //transfer(&mut self.state, msg.to(), msg.from(), &refund).unwrap(); //TODO handle unwrap
-                }
-                return Err(e.to_string());
-            }
-        };
+        let (ret_data, mut gas_used, act_err) = self.send(msg, msg_gas_cost);
 
-        // let return_data = self.send(msg, gas_cost.to_u64().unwrap());
-        // return_data
-        //     .map(|(_, gas_used)| {
-        //         let refund = (msg.gas_limit().checked_sub(gas_used).unwrap_or(1u64)) * msg.gas_price();
-        //         transfer(&mut self.state, msg.to(), msg.from(), &refund).unwrap(); //TODO handle unwrap
-        //     })
-        //     .map_err(|e| {
-        //         if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
-        //             return state_err;
-        //         }
-        //         e.to_string()
-        //     })?;
+        if act_err.is_fatal() {
+            return Err(format!("Fatal send actor error occurred, err: {}", act_err));
+        };
+        if act_err.exit_code() != ExitCode::Ok {
+            gas_used = msg.gas_limit();
+            // revert all state changes since snapshot
+            if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
+                return Err(format!("Revert state failed: {}", state_err));
+            };
+        } else {
+            // refund unused gas
+            let refund = (msg.gas_limit().checked_sub(gas_used).unwrap_or(1u64)) * msg.gas_price();
+            transfer(&mut self.state, msg.to(), msg.from(), &refund)?;
+        };
 
         let miner = self
             .state
@@ -145,20 +130,14 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             return Err("Gas handling math is wrong".to_owned());
         }
 
-        // TODO ask about ApplyRet structure from lotus and whether we want to know runtime execution result
-        // TODO exit_code field on lotus is filled by send errcode?
         Ok(MessageReceipt {
             return_data: ret_data,
-            exit_code: ExitCode::Ok,
+            exit_code: act_err.exit_code(),
             gas_used: BigUint::from(gas_used),
         })
     }
     /// Instantiates a new Runtime, and calls internal_send to do the execution.
-    fn send(
-        &mut self,
-        msg: &UnsignedMessage,
-        gas_cost: u64,
-    ) -> Result<(Serialized, u64), ActorError> {
+    fn send(&mut self, msg: &UnsignedMessage, gas_cost: u64) -> (Serialized, u64, ActorError) {
         let mut rt = DefaultRuntime::new(
             &mut self.state,
             self.store,
@@ -169,21 +148,26 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             msg.sequence(),
             0,
         );
-        let ser = internal_send(&mut rt, msg, gas_cost)?;
-        Ok((ser, *rt.gas_used()))
+        let ser = internal_send(&mut rt, msg, gas_cost)
+            .map_err(|actor_err| (Serialized::default(), 0.to_u64().unwrap_or(1u64), actor_err));
+        (
+            ser.unwrap(),
+            *rt.gas_used(),
+            ActorError::new(ExitCode::Ok, "Ok actor error".to_owned()),
+        )
     }
 }
 
 /// Does some basic checks on the Message to see if the fields are valid.
 fn check_message(msg: &UnsignedMessage) -> Result<(), String> {
     if msg.gas_limit() == 0 {
-        return Err("Gas limit is 0".to_owned());
+        return Err("Message has no gas limit set".to_owned());
     }
     if msg.value() == &BigUint::zero() {
-        return Err("No value set for message".to_owned());
+        return Err("Message has no value set".to_owned());
     }
     if msg.gas_price() == &BigUint::zero() {
-        return Err("No gas price set for message".to_owned());
+        return Err("Message has no gas price set".to_owned());
     }
 
     Ok(())
