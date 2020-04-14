@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod gas_block_store;
+mod gas_syscalls;
 
 use self::gas_block_store::GasBlockStore;
+use self::gas_syscalls::GasSyscalls;
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
@@ -19,7 +21,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigUint;
-use runtime::{ActorCode, Runtime};
+use runtime::{ActorCode, Runtime, Syscalls};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vm::{
@@ -29,9 +31,13 @@ use vm::{
 
 pub const PLACEHOLDER_GAS: i64 = 1;
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
+pub struct DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
+where
+    SYS: Copy,
+{
     state: &'c mut ST,
     store: GasBlockStore<'a, BS>,
+    syscalls: GasSyscalls<SYS>,
     gas_tracker: Rc<RefCell<GasTracker>>,
     message: &'b UnsignedMessage,
     epoch: ChainEpoch,
@@ -41,16 +47,18 @@ pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     price_list: PriceList,
 }
 
-impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS>
+impl<'a, 'b, 'c, ST, BS, SYS> DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
 where
     ST: StateTree,
     BS: BlockStore,
+    SYS: Syscalls + Copy,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: &'c mut ST,
         store: &'a BS,
+        syscalls: SYS,
         gas_used: i64,
         message: &'b UnsignedMessage,
         epoch: ChainEpoch,
@@ -68,9 +76,15 @@ where
             gas: Rc::clone(&gas_tracker),
             store,
         };
+        let gas_syscalls = GasSyscalls {
+            price_list,
+            gas: Rc::clone(&gas_tracker),
+            syscalls,
+        };
         DefaultRuntime {
             state,
             store: gas_block_store,
+            syscalls: gas_syscalls,
             gas_tracker,
             message,
             epoch,
@@ -161,7 +175,12 @@ where
     }
 }
 
-impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, ST, BS> {
+impl<ST, BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, ST, BS, SYS>
+where
+    ST: StateTree,
+    BS: BlockStore,
+    SYS: Syscalls + Copy,
+{
     fn message(&self) -> &UnsignedMessage {
         &self.message
     }
@@ -321,6 +340,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             let mut parent = DefaultRuntime::new(
                 self.state,
                 self.store.store,
+                self.syscalls.syscalls,
                 self.gas_tracker.borrow().gas_used(),
                 &msg,
                 epoch,
@@ -328,7 +348,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
                 self.origin_nonce,
                 self.num_actors_created,
             );
-            internal_send::<ST, BS>(&mut parent, &msg, 0)
+            internal_send::<ST, BS, SYS>(&mut parent, &msg, 0)
         };
         if send_res.is_err() {
             self.state
@@ -406,14 +426,22 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             )
         })
     }
+    fn syscalls(&self) -> &dyn Syscalls {
+        todo!()
+    }
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn internal_send<ST: StateTree, DB: BlockStore>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, ST, DB>,
+pub fn internal_send<ST, BS, SYS>(
+    runtime: &mut DefaultRuntime<'_, '_, '_, ST, BS, SYS>,
     msg: &UnsignedMessage,
     _gas_cost: i64,
-) -> Result<Serialized, ActorError> {
+) -> Result<Serialized, ActorError>
+where
+    ST: StateTree,
+    BS: BlockStore,
+    SYS: Syscalls + Copy,
+{
     // TODO: Calculate true gas value
     runtime.charge_gas(PLACEHOLDER_GAS)?;
 
