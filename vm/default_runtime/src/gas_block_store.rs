@@ -3,7 +3,7 @@
 
 use cid::{multihash::MultihashDigest, Cid};
 use db::{Error, Store};
-use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
+use forest_encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -38,7 +38,10 @@ where
     where
         T: DeserializeOwned,
     {
-        self.store.get(cid)
+        match self.get_bytes(cid)? {
+            Some(bz) => Ok(Some(from_slice(&bz)?)),
+            None => Ok(None),
+        }
     }
 
     /// Put an object in the block store and return the Cid identifier
@@ -104,5 +107,50 @@ where
         K: AsRef<[u8]>,
     {
         self.store.bulk_delete(keys)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cid::multihash::Blake2b256;
+    use db::MemoryDB;
+
+    #[test]
+    fn gas_blockstore() {
+        let db = MemoryDB::default();
+        let gbs = GasBlockStore {
+            price_list: PriceList {
+                ipld_get_base: 4,
+                ipld_get_per_byte: 1,
+                ipld_put_base: 3,
+                ipld_put_per_byte: 2,
+                ..Default::default()
+            },
+            gas: Rc::new(RefCell::new(GasTracker::new(20, 0))),
+            store: &db,
+        };
+        assert_eq!(gbs.gas.borrow().gas_used(), 0);
+        assert_eq!(to_vec(&200u8).unwrap().len(), 2);
+        let c = gbs.put(&200u8, Blake2b256).unwrap();
+        assert_eq!(gbs.gas.borrow().gas_used(), 7);
+        gbs.get::<u8>(&c).unwrap();
+        assert_eq!(gbs.gas.borrow().gas_used(), 13);
+    }
+
+    #[test]
+    fn gas_blockstore_oog() {
+        let db = MemoryDB::default();
+        let gbs = GasBlockStore {
+            price_list: PriceList {
+                ipld_put_base: 12,
+                ..Default::default()
+            },
+            gas: Rc::new(RefCell::new(GasTracker::new(10, 0))),
+            store: &db,
+        };
+        assert_eq!(gbs.gas.borrow().gas_used(), 0);
+        assert_eq!(to_vec(&200u8).unwrap().len(), 2);
+        assert!(gbs.put(&200u8, Blake2b256).is_err());
     }
 }
