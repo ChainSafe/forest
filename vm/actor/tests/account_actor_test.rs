@@ -7,6 +7,8 @@ use vm::Serialized;
 mod mock_rt;
 use mock_rt::*;
 use ipld_blockstore::BlockStore;
+
+
 #[test]
 fn secp() {
     let bs = MemoryDB::default();
@@ -32,4 +34,19 @@ fn secp() {
     
     let pk: Address = rt.call(&*ACCOUNT_ACTOR_CODE_ID, 2, &Serialized::default()).unwrap().deserialize().unwrap();
     assert_eq!(pk, secp_addr);
+}
+
+#[test]
+fn fail () {
+    let bs = MemoryDB::default();
+
+    let receiver = Address::new_id(1).unwrap(); 
+    let mut rt = MockRuntime::new(&bs, receiver.clone());
+    rt.caller = SYSTEM_ACTOR_ADDR.clone();
+    rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
+    rt.expect_validate_caller_addr(&vec![SYSTEM_ACTOR_ADDR.clone()]);
+
+    let res = rt.call(&*ACCOUNT_ACTOR_CODE_ID, 1, &Serialized::serialize(Address::new_id(1).unwrap()).unwrap());
+
+    println!("{:?}", res);
 }
