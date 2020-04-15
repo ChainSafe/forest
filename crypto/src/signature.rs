@@ -102,6 +102,7 @@ impl Signature {
     pub fn signature_type(&self) -> SignatureType {
         self.sig_type
     }
+
     /// Checks if a signature is valid given data and address
     pub fn verify(&self, data: &[u8], addr: &Address) -> Result<(), String> {
         match addr.protocol() {
@@ -111,7 +112,7 @@ impl Signature {
         }
     }
 
-    /// Returns true if a bls signature is valid
+    /// Returns `String` error if a bls signature is invalid
     pub(crate) fn verify_bls_sig(&self, data: &[u8], addr: &Address) -> Result<(), String> {
         let pub_k = addr.payload();
 
@@ -132,7 +133,7 @@ impl Signature {
         }
     }
 
-    /// Returns true if a secp256k1 signature is valid
+    /// Returns `String` error if a secp256k1 signature is invalid
     fn verify_secp256k1_sig(&self, data: &[u8], addr: &Address) -> Result<(), String> {
         // blake2b 256 hash
         let hash = blake2b_256(data);
