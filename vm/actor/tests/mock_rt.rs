@@ -5,52 +5,57 @@ use crypto::{DomainSeparationTag};
 use encoding::{Cbor, de::DeserializeOwned};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
-use runtime::{Runtime, Syscalls};
+use runtime::{Runtime, Syscalls, ActorCode};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use vm::{
     ActorError, ExitCode, MethodNum, Randomness,
     Serialized, TokenAmount,
 };
+use actor::{
+    self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
+    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
+    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
+};
 
 pub struct MockRuntime<'a, BS: BlockStore> {
-    epoch: ChainEpoch,
-    receiver: Address,
-    caller: Address,
-    caller_type: Cid,
-    miner: Address,
-    value_received: TokenAmount,
-    id_addresses: HashMap<Address, Address>,
-    actor_code_cids: HashMap<Address, Cid>,
-    new_actor_addr: Address,
+    pub epoch: ChainEpoch,
+    pub receiver: Address,
+    pub caller: Address,
+    pub caller_type: Cid,
+    pub miner: Address,
+    pub value_received: TokenAmount,
+    pub id_addresses: HashMap<Address, Address>,
+    pub actor_code_cids: HashMap<Address, Cid>,
+    pub new_actor_addr: Address,
 
     // syscalls: syscaller
 
     // Actor State
-    state: Option<Cid>,
-    balance: TokenAmount,
+    pub state: Option<Cid>,
+    pub balance: TokenAmount,
 
     // VM Impl
-    in_call: bool,
-    store: &'a BS,
-    in_transaction: bool,
+    pub in_call: bool,
+    pub store: &'a BS,
+    pub in_transaction: bool,
 
     // Expectations
-    expect_validate_caller_any: Cell<bool>,
-    expect_validate_caller_addr: RefCell<Option<Vec<Address>>>,
-    expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
-    expect_sends: VecDeque<ExpectedMessage>,
-    expect_create_actor: Option<ExpectCreateActor>,
-    marker1: std::marker::PhantomData<BS>,
+    pub expect_validate_caller_any: Cell<bool>,
+    pub expect_validate_caller_addr: RefCell<Option<Vec<Address>>>,
+    pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
+    pub expect_sends: VecDeque<ExpectedMessage>,
+    pub expect_create_actor: Option<ExpectCreateActor>,
+    pub marker1: std::marker::PhantomData<BS>,
 }
 
 #[derive(Clone)]
-struct ExpectCreateActor {
+pub struct ExpectCreateActor {
     pub code_id: Cid,
     pub address: Address,
 }
 #[derive(Clone, Debug)]
-struct ExpectedMessage {
+pub struct ExpectedMessage {
     pub to: Address,
     pub method: MethodNum,
     pub params: Serialized,
@@ -116,9 +121,62 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     fn get<T: DeserializeOwned>(&self, cid: Cid) -> Result<T, ActorError> {
         Ok(self.store.get(&cid).unwrap().unwrap())
     }
+    pub fn get_state<T: DeserializeOwned> (&self) -> Result<T, ActorError> {
+        println!("After {:?}", self.state.as_ref().unwrap());
+        let data: T = self.store.get(&self.state.as_ref().unwrap()).unwrap().unwrap();
+        Ok(data)
+    }
     pub fn expect_validate_caller_addr(&self, addr: &[Address]) {
         self.require(addr.len() > 0, "addrs must be non-empty".to_owned());
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
+    }
+    pub fn expect_validate_caller_any(&self) {
+        self.expect_validate_caller_any.set(true);
+    }
+    pub fn call (&mut self, to_code: &Cid, method_num: MethodNum, params: &Serialized) -> Result<Serialized, ActorError>{
+        self.in_call = true;
+        let res = match to_code {
+            x if x == &*SYSTEM_ACTOR_CODE_ID => {
+                actor::system::Actor.invoke_method(self, method_num, params)
+            }
+            x if x == &*INIT_ACTOR_CODE_ID => {
+                actor::init::Actor.invoke_method(self, method_num, params)
+            }
+            x if x == &*CRON_ACTOR_CODE_ID => {
+                actor::cron::Actor.invoke_method(self, method_num, params)
+            }
+            x if x == &*ACCOUNT_ACTOR_CODE_ID => {
+                actor::account::Actor.invoke_method(self, method_num, params)
+            }
+            x if x == &*POWER_ACTOR_CODE_ID => {
+                actor::power::Actor.invoke_method(self, method_num, params)
+            }
+            x if x == &*MINER_ACTOR_CODE_ID => {
+                // not implemented yet
+                // actor::miner::Actor.invoke_method(&mut *runtime, *method_num, params)
+                todo!()
+            }
+            x if x == &*MARKET_ACTOR_CODE_ID => {
+                // not implemented yet
+                // actor::market::Actor.invoke_method(&mut *runtime, *method_num, params)
+                todo!()
+            }
+            x if x == &*PAYCH_ACTOR_CODE_ID => {
+                actor::paych::Actor.invoke_method(self, method_num, params)
+            }
+            x if x == &*MULTISIG_ACTOR_CODE_ID => {
+                actor::cron::Actor.invoke_method(self, method_num, params)
+            }
+            x if x == &*REWARD_ACTOR_CODE_ID => {
+                actor::cron::Actor.invoke_method(self, method_num, params)
+            }
+            _ => Err(ActorError::new(
+                ExitCode::SysErrForbidden,
+                "invalid method id".to_owned(),
+            )),
+        };
+        self.in_call = false;
+        return res;
     }
 }
 
@@ -162,7 +220,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         if &addrs != expect_validate_caller_addr.as_ref().unwrap() {
             panic!(
                 "unexpected validate caller addrs {:?}, expected {:?}",
-                addrs, self.expect_validate_caller_addr
+                addrs, expect_validate_caller_addr.as_ref()
             );
         }
         for expected in &addrs {
@@ -252,7 +310,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
-        if self.state.is_none() == true {
+        if self.state.is_some() == true {
             return Err(self.abort(ExitCode::SysErrorIllegalActor, "state already constructed".to_owned()))
         }
         self.state = Some(self.store.put(obj, Blake2b256).unwrap());

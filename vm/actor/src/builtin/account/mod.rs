@@ -5,6 +5,7 @@ mod state;
 
 pub use self::state::State;
 use crate::check_empty_params;
+use crate::builtin::singletons::SYSTEM_ACTOR_ADDR;
 use address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
@@ -36,7 +37,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&address))?;
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
         match address.protocol() {
             Protocol::Secp256k1 | Protocol::BLS => {}
             protocol => {
