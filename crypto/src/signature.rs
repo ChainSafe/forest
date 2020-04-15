@@ -125,9 +125,10 @@ impl Signature {
         let sig = BlsSignature::from_bytes(self.bytes()).map_err(|e| e.to_string())?;
 
         // BLS verify hash against key
-        match verify(&sig, &[hashed], &[pk]) {
-            true => Ok(()),
-            false => Err("bls signature verification failed".to_owned()),
+        if verify(&sig, &[hashed], &[pk]) {
+            Ok(())
+        } else {
+            Err("bls signature verification failed".to_owned())
         }
     }
 
