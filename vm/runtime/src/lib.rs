@@ -9,7 +9,7 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
-use forest_encoding::Cbor;
+use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{
@@ -144,9 +144,8 @@ pub trait Syscalls {
             .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))
     }
     /// Hashes input data using blake2b with 256 bit output.
-    fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], ActorError> {
-        // TODO
-        todo!()
+    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], ActorError> {
+        Ok(blake2b_256(data))
     }
     /// Computes an unsealed sector CID (CommD) from its constituent piece CIDs (CommPs) and sizes.
     fn compute_unsealed_sector_cid(
