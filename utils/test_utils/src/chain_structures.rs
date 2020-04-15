@@ -4,13 +4,12 @@
 #![cfg(feature = "test_constructors")]
 
 use address::Address;
-use base64;
 use blocks::{
     Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, TipSetKeys, Tipset, TxMeta,
 };
 use chain::TipSetMetadata;
 use cid::{multihash::Blake2b256, Cid};
-use crypto::{Signature, Signer, VRFResult};
+use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
 use forest_libp2p::blocksync::{BlockSyncResponse, TipSetBundle};
 use forest_libp2p::rpc::RPCResponse;
@@ -41,7 +40,7 @@ fn template_header(
         .miner_address(Address::new_secp256k1(&ticket_p).unwrap())
         .timestamp(timestamp)
         .ticket(Ticket {
-            vrfproof: VRFResult::new(ticket_p),
+            vrfproof: VRFProof::new(ticket_p),
         })
         .messages(msg_root)
         .signature(Some(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2])))
@@ -91,7 +90,7 @@ pub fn construct_header(epoch: u64, weight: u64) -> Vec<BlockHeader> {
 
 /// Returns a Ticket to be used for testing
 pub fn construct_ticket() -> Ticket {
-    let vrf_result = VRFResult::new(base64::decode("lmRJLzDpuVA7cUELHTguK9SFf+IVOaySG8t/0IbVeHHm3VwxzSNhi1JStix7REw6Apu6rcJQV1aBBkd39gQGxP8Abzj8YXH+RdSD5RV50OJHi35f3ixR0uhkY6+G08vV").unwrap());
+    let vrf_result = VRFProof::new(base64::decode("lmRJLzDpuVA7cUELHTguK9SFf+IVOaySG8t/0IbVeHHm3VwxzSNhi1JStix7REw6Apu6rcJQV1aBBkd39gQGxP8Abzj8YXH+RdSD5RV50OJHi35f3ixR0uhkY6+G08vV").unwrap());
     Ticket::new(vrf_result)
 }
 

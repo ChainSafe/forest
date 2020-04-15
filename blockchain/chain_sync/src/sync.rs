@@ -17,7 +17,6 @@ use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
-use crypto::is_valid_signature;
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES};
 use ipld_blockstore::BlockStore;
@@ -508,13 +507,13 @@ where
                 Some(MsgMetaData { sequence, balance }) => {
                     // sequence equality check
                     if *sequence != msg.sequence() {
-                        return Err(Error::Validation("Sequences are not equal"));
+                        return Err(Error::Validation("Sequences are not equal".to_owned()));
                     }
 
                     // sufficient funds check
                     if *balance < msg.required_funds() {
                         return Err(Error::Validation(
-                            "Insufficient funds for message execution",
+                            "Insufficient funds for message execution".to_owned(),
                         ));
                     }
                     // update balance and increment sequence by 1
@@ -554,9 +553,9 @@ where
         for m in block.secp_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
             // signature validation
-            if !is_valid_signature(&m.cid()?.to_bytes(), m.from(), m.signature()) {
-                return Err(Error::Validation("Message signature is not valid"));
-            }
+            m.signature()
+                .verify(&m.cid()?.to_bytes(), m.from())
+                .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root
         let sm_root = self.compute_msg_data(block.bls_msgs(), block.secp_msgs())?;
@@ -574,14 +573,12 @@ where
 
         // check if block has been signed
         if header.signature().is_none() {
-            return Err(Error::Validation("Signature is nil in header"));
+            return Err(Error::Validation("Signature is nil in header".to_owned()));
         }
 
         let base_tipset = self.load_fts(&TipSetKeys::new(header.parents().cids.clone()))?;
-        println!("base tipset {:?}", base_tipset);
         let parent_tipset = base_tipset.tipset()?;
 
-        println!("BEFORE TIME STAMP VALIDATIONS");
         // time stamp checks
         header.validate_timestamps(&base_tipset)?;
 
