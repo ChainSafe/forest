@@ -265,9 +265,10 @@ impl BlockHeader {
     }
     /// Check to ensure block signature is valid
     pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
-        let signature = self.signature().as_ref().ok_or(Error::InvalidSignature(
-            "Signature is nil in header".to_owned(),
-        ))?;
+        let signature = self
+            .signature()
+            .as_ref()
+            .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
 
         signature
             .verify(&self.cid().to_bytes(), addr)

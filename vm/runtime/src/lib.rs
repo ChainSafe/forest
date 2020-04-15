@@ -141,7 +141,7 @@ pub trait Syscalls {
     ) -> Result<(), ActorError> {
         signature
             .verify(plaintext, signer)
-            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))
+            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))
     }
     /// Hashes input data using blake2b with 256 bit output.
     fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], ActorError> {
