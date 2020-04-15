@@ -588,7 +588,6 @@ fn deduct_funds(act: &mut ActorState, amt: &TokenAmount) -> Result<(), String> {
     Ok(())
 }
 /// Deposits funds to an Actor
-fn deposit_funds(act: &mut ActorState, amt: &TokenAmount) -> Result<(), String> {
+fn deposit_funds(act: &mut ActorState, amt: &TokenAmount) {
     act.balance += amt;
-    Ok(())
 }
