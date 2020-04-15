@@ -66,7 +66,8 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
     pub fn charge_gas(&mut self, to_use: u64) {
         self.gas_used += to_use;
     }
-    // Returns gas used
+
+    /// Returns gas used
     pub fn gas_used(&self) -> &u64 {
         &self.gas_used
     }
@@ -457,7 +458,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
 }
 
 /// Transfers funds from one Actor to another Actor
-pub fn transfer<ST: StateTree>(
+fn transfer<ST: StateTree>(
     state: &mut ST,
     from: &Address,
     to: &Address,
@@ -470,33 +471,60 @@ pub fn transfer<ST: StateTree>(
         return Err("Negative transfer value".to_owned());
     }
 
-    deduct_funds(state, from, &value)?;
-    deposit_funds(state, to, &value)?;
+    let mut f = state
+        .get_actor(from)?
+        .ok_or("Transfer failed when retrieving sender actor")?;
+    let mut t = state
+        .get_actor(to)?
+        .ok_or("Transfer failed when retrieving receiver actor")?;
+
+    deduct_funds(&mut f, &value)?;
+    deposit_funds(&mut t, &value)?;
     Ok(())
 }
 
-/// Safely deducts funds from an Actor
-fn deduct_funds<ST: StateTree>(
+pub fn transfer_to_gas_holder<ST: StateTree>(
     state: &mut ST,
-    from: &Address,
-    amt: &TokenAmount,
+    addr: &Address,
+    gas_holder: &mut ActorState,
+    value: &TokenAmount,
 ) -> Result<(), String> {
-    state.mutate_actor(from, |act| {
-        if &act.balance < amt {
-            return Err("not enough funds".to_owned());
-        }
-        act.balance -= amt;
+    if value < &0u8.into() {
+        return Err("Attempted to transfer negative value to gas holder".to_owned());
+    }
+    state.mutate_actor(addr, |act| {
+        deduct_funds(act, &value)?;
+        deposit_funds(gas_holder, &value)?;
         Ok(())
     })
 }
-/// Deposits funds to an Actor
-fn deposit_funds<ST: StateTree>(
+
+pub fn transfer_from_gas_holder<ST: StateTree>(
     state: &mut ST,
-    to: &Address,
-    amt: &TokenAmount,
+    addr: &Address,
+    gas_holder: &mut ActorState,
+    value: &TokenAmount,
 ) -> Result<(), String> {
-    state.mutate_actor(to, |act| {
-        act.balance += amt;
+    if value < &0u8.into() {
+        return Err("Attempted to transfer negative value to gas holder".to_owned());
+    }
+    state.mutate_actor(addr, |act| {
+        deduct_funds(gas_holder, &value)?;
+        deposit_funds(act, &value)?;
         Ok(())
     })
+}
+
+/// Safely deducts funds from an Actor
+fn deduct_funds(act: &mut ActorState, amt: &TokenAmount) -> Result<(), String> {
+    if &act.balance < amt {
+        return Err("not enough funds".to_owned());
+    }
+    act.balance -= amt;
+    Ok(())
+}
+/// Deposits funds to an Actor
+fn deposit_funds(act: &mut ActorState, amt: &TokenAmount) -> Result<(), String> {
+    act.balance += amt;
+    Ok(())
 }

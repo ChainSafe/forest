@@ -4,6 +4,8 @@
 use crate::TokenAmount;
 use cid::Cid;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_bigint::BigUint;
+use num_traits::Zero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Identifier for Actors, includes builtin and initialized actors
@@ -45,6 +47,17 @@ impl<'de> Deserialize<'de> for ActorState {
             sequence,
             balance,
         })
+    }
+}
+
+impl Default for ActorState {
+    fn default() -> Self {
+        Self {
+            code: Cid::default(),
+            state: Cid::default(),
+            balance: BigUint::zero(),
+            sequence: 0,
+        }
     }
 }
 

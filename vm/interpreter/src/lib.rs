@@ -1,15 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use actor::{ActorState, ACCOUNT_ACTOR_CODE_ID, REWARD_ACTOR_ADDR};
 use address::Address;
 use blocks::Tipset;
 use clock::ChainEpoch;
-use default_runtime::{internal_send, transfer, DefaultRuntime};
+use default_runtime::{
+    internal_send, transfer_from_gas_holder, transfer_to_gas_holder, DefaultRuntime,
+};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
-use num_traits::cast::ToPrimitive;
 use num_traits::Zero;
 use vm::ActorError;
 use vm::{ExitCode, Serialized, StateTree};
@@ -43,7 +45,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         &mut self,
         _tipset: &Tipset,
         msgs: &TipSetMessages,
-    ) -> Result<Vec<MessageReceipt>, String> {
+    ) -> Result<Vec<ApplyRet>, String> {
         let mut receipts = Vec::new();
 
         for block in &msgs.blocks {
@@ -67,77 +69,148 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         &mut self,
         msg: &UnsignedMessage,
         _miner_addr: &Address,
-    ) -> Result<MessageReceipt, String> {
+    ) -> Result<ApplyRet, String> {
         check_message(msg)?;
-
-        let snapshot = self.state.snapshot()?;
-
-        let mut from_act = self
-            .state
-            .get_actor(msg.from())?
-            .ok_or("Actor address could not be resolved")?;
 
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
         let msg_gas_cost = ser_msg.len() as u64 * GAS_PER_MESSAGE_BYTE;
-
-        let gas_cost = msg.gas_price() * msg.gas_limit();
-        let total_cost = &gas_cost + msg.value();
-        if from_act.balance < total_cost {
-            return Err(format!(
-                "Not enough funds ({} < {})",
-                total_cost, from_act.balance
-            ));
+        if msg_gas_cost > msg.gas_limit() {
+            // TODO add duration
+            return Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: Serialized::default(),
+                    exit_code: ExitCode::SysErrOutOfGas,
+                    gas_used: BigUint::zero(),
+                },
+                penalty: msg.gas_price() * msg_gas_cost,
+                act_err: ActorError::new(ExitCode::SysErrOutOfGas, "Out of gas".to_owned()),
+            });
         }
 
-        transfer(&mut self.state, msg.from(), msg.to(), &gas_cost)?;
+        let miner_penalty_amount = msg.gas_price() * msg_gas_cost;
+        let mut from_act = match self.state.get_actor(msg.from()) {
+            Ok(from_act) => from_act.ok_or("Failed to retrieve actor state")?,
+            Err(_) => {
+                return Ok(ApplyRet {
+                    msg_receipt: MessageReceipt {
+                        return_data: Serialized::default(),
+                        exit_code: ExitCode::SysErrSenderInvalid,
+                        gas_used: BigUint::zero(),
+                    },
+                    penalty: msg.gas_price() * msg_gas_cost,
+                    act_err: ActorError::new(
+                        ExitCode::SysErrSenderInvalid,
+                        "Sender invalid".to_owned(),
+                    ),
+                });
+            }
+        };
+
+        if from_act.code != *ACCOUNT_ACTOR_CODE_ID {
+            return Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: Serialized::default(),
+                    exit_code: ExitCode::SysErrSenderInvalid,
+                    gas_used: BigUint::zero(),
+                },
+                penalty: miner_penalty_amount,
+                act_err: ActorError::new(
+                    ExitCode::SysErrSenderInvalid,
+                    "Sender invalid".to_owned(),
+                ),
+            });
+        };
 
         if msg.sequence() != from_act.sequence {
-            return Err(format!(
-                "Invalid nonce (got: {}, expected: {})",
-                msg.sequence(),
-                from_act.sequence
-            ));
-        }
+            return Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: Serialized::default(),
+                    exit_code: ExitCode::SysErrSenderStateInvalid,
+                    gas_used: BigUint::zero(),
+                },
+                penalty: miner_penalty_amount,
+                act_err: ActorError::new(
+                    ExitCode::SysErrSenderStateInvalid,
+                    "Sender state invalid".to_owned(),
+                ),
+            });
+        };
+
+        let gas_cost = msg.gas_price() * msg.gas_limit();
+        let total_cost = &gas_cost + msg.value(); // TODO requires network_tx_fee to be added
+        if from_act.balance < total_cost {
+            return Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: Serialized::default(),
+                    exit_code: ExitCode::SysErrSenderStateInvalid,
+                    gas_used: BigUint::zero(),
+                },
+                penalty: miner_penalty_amount,
+                act_err: ActorError::new(
+                    ExitCode::SysErrSenderStateInvalid,
+                    "Sender state invalid".to_owned(),
+                ),
+            });
+        };
+
+        let mut gas_holder = ActorState::default();
+        transfer_to_gas_holder(&mut self.state, msg.from(), &mut gas_holder, &gas_cost)?;
         from_act.sequence += 1;
 
-        let (ret_data, mut gas_used, act_err) = self.send(msg, msg_gas_cost);
+        let snapshot = self.state.snapshot()?;
 
-        if act_err.is_fatal() {
-            return Err(format!("Fatal send actor error occurred, err: {}", act_err));
+        let (ret_data, act_err, gas_used) = {
+            let (ret_data, rt, act_err) = self.send(msg, msg_gas_cost);
+            if act_err.is_fatal() {
+                return Err(format!("Fatal send actor error occurred, err: {}", act_err));
+            };
+            // charge gas
+            // rt.charge_gas(..)..
+            (ret_data, act_err, rt.gas_used())
         };
+
+        // TODO rt.chargeGasSafe
+
         if act_err.exit_code() != ExitCode::Ok {
-            gas_used = msg.gas_limit();
             // revert all state changes since snapshot
             if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
                 return Err(format!("Revert state failed: {}", state_err));
             };
-        } else {
-            // refund unused gas
-            let refund = (msg.gas_limit().checked_sub(gas_used).unwrap_or(1u64)) * msg.gas_price();
-            transfer(&mut self.state, msg.to(), msg.from(), &refund)?;
-        };
+        }
+        // TODO free tx
+        // refund unused gas
+        let refund =
+            (msg.gas_limit().checked_sub(*rt.gas_used()).unwrap_or(1u64)) * msg.gas_price();
+        transfer_from_gas_holder(&mut self.state, msg.from(), &mut gas_holder, &refund)?;
 
-        let miner = self
-            .state
-            .get_actor(&self.block_miner)?
-            .ok_or("Actor address could not be resolved")?;
+        let gas_reward = msg.gas_price() * rt.gas_used();
+        transfer_from_gas_holder(
+            &mut self.state,
+            &*REWARD_ACTOR_ADDR,
+            &mut gas_holder,
+            &gas_reward,
+        )?;
 
-        // TODO: support multiple blocks in a tipset
-        // TODO: actually wire this up (miner is undef for now)
-        let gas_reward = msg.gas_price() * gas_used;
-        transfer(&mut self.state, msg.to(), &self.block_miner, &gas_reward)?;
-        if miner.balance != BigUint::zero() {
+        if gas_holder.balance != BigUint::zero() {
             return Err("Gas handling math is wrong".to_owned());
         }
 
-        Ok(MessageReceipt {
-            return_data: ret_data,
-            exit_code: act_err.exit_code(),
-            gas_used: BigUint::from(gas_used),
+        Ok(ApplyRet {
+            msg_receipt: MessageReceipt {
+                return_data: ret_data,
+                exit_code: act_err.exit_code(),
+                gas_used: BigUint::from(*rt.gas_used()),
+            },
+            penalty: BigUint::zero(),
+            act_err,
         })
     }
     /// Instantiates a new Runtime, and calls internal_send to do the execution.
-    fn send(&mut self, msg: &UnsignedMessage, gas_cost: u64) -> (Serialized, u64, ActorError) {
+    fn send(
+        &mut self,
+        msg: &UnsignedMessage,
+        gas_cost: u64,
+    ) -> (Serialized, DefaultRuntime<ST, DB>, ActorError) {
         let mut rt = DefaultRuntime::new(
             &mut self.state,
             self.store,
@@ -148,13 +221,35 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
             msg.sequence(),
             0,
         );
-        let ser = internal_send(&mut rt, msg, gas_cost)
-            .map_err(|actor_err| (Serialized::default(), 0.to_u64().unwrap_or(1u64), actor_err));
+
+        // TRY TO AVOID PASSING BACK RUNTIME
+        let ser = match internal_send(&mut rt, msg, gas_cost) {
+            Ok(ser) => ser,
+            Err(actor_err) => return (Serialized::default(), rt, actor_err),
+        };
+        // charge gas
         (
-            ser.unwrap(),
-            *rt.gas_used(),
+            ser,
+            // Austin:
+            rt.gas_used,
             ActorError::new(ExitCode::Ok, "Ok actor error".to_owned()),
         )
+    }
+}
+
+struct ApplyRet {
+    msg_receipt: MessageReceipt,
+    act_err: ActorError,
+    penalty: BigUint,
+}
+
+impl ApplyRet {
+    fn new(msg_receipt: MessageReceipt, act_err: ActorError, penalty: BigUint) -> Self {
+        Self {
+            msg_receipt,
+            act_err,
+            penalty,
+        }
     }
 }
 
