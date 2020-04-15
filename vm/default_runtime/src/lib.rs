@@ -115,11 +115,6 @@ where
         self.price_list
     }
 
-    /// Returns gas used
-    pub fn gas_used(&self) -> &u64 {
-        &self.gas_used
-    }
-
     /// Gets the specified Actor from the state tree
     fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
         // TODO handle exit codes specifically, this leads to a broken implementation
@@ -545,6 +540,10 @@ fn transfer<ST: StateTree>(
 
     deduct_funds(&mut f, &value)?;
     deposit_funds(&mut t, &value)?;
+
+    state.set_actor(from, f)?;
+    state.set_actor(to, t)?;
+
     Ok(())
 }
 

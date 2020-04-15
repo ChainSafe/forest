@@ -29,6 +29,4 @@ pub trait StateTree {
     fn snapshot(&mut self) -> Result<Cid, String>;
     /// Revert to Cid returned from `snapshot`
     fn revert_to_snapshot(&mut self, cid: &Cid) -> Result<(), String>;
-    /// Clears the last change
-    fn clear_snapshot(&mut self) -> Result<(), String>;
 }

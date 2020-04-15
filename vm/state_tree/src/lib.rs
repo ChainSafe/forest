@@ -195,8 +195,4 @@ where
         self.actor_cache = Default::default();
         Ok(())
     }
-    // TODO complete clear snapshot, see: https://github.com/filecoin-project/lotus/blob/testnet/3/chain/state/statetree.go#L282
-    fn clear_snapshot(&mut self) -> Result<(), String> {
-        todo!();
-    }
 }
