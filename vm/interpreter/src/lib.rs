@@ -12,7 +12,9 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
+use num_traits::cast::ToPrimitive;
 use num_traits::Zero;
+use runtime::DefaultSyscalls;
 use vm::ActorError;
 use vm::{ExitCode, Serialized, StateTree};
 
@@ -214,6 +216,7 @@ impl<'a, ST: StateTree, DB: BlockStore> VM<'a, ST, DB> {
         let mut rt = DefaultRuntime::new(
             &mut self.state,
             self.store,
+            DefaultSyscalls,
             gas_cost,
             &msg,
             self.epoch,

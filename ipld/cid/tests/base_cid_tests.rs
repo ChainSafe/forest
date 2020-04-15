@@ -106,7 +106,7 @@ fn test_hash() {
 fn test_prefix_retrieval() {
     let data: Vec<u8> = vec![1, 2, 3];
 
-    let cid = Cid::new_from_cbor(&data, Blake2b256).unwrap();
+    let cid = Cid::new_from_cbor(&data, Blake2b256);
 
     let prefix = cid.prefix();
     assert_eq!(prefix.version, Version::V1);

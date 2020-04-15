@@ -442,7 +442,11 @@ where
         };
         // TODO this should be memoryDB for temp storage
         // store message roots and receive meta_root
-        let meta_root = self.chain_store.blockstore().put(&meta, Blake2b256)?;
+        let meta_root = self
+            .chain_store
+            .blockstore()
+            .put(&meta, Blake2b256)
+            .map_err(|e| Error::Other(e.to_string()))?;
 
         Ok(meta_root)
     }

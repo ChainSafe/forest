@@ -103,13 +103,13 @@ impl Cid {
     }
 
     /// Constructs a cid with bytes using default version and codec
-    pub fn new_from_cbor<T: MultihashDigest>(bz: &[u8], hash: T) -> Result<Self, Error> {
+    pub fn new_from_cbor<T: MultihashDigest>(bz: &[u8], hash: T) -> Self {
         let hash = hash.digest(bz);
-        Ok(Cid {
+        Cid {
             version: Version::V1,
             codec: Codec::DagCBOR,
             hash,
-        })
+        }
     }
 
     /// Create a new CID from raw data (binary or multibase encoded string)

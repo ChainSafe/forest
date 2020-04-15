@@ -15,7 +15,7 @@ struct TestStruct {
 
 #[test]
 fn encode_new_type() {
-    let details = Cid::new_from_cbor(&[1, 2, 3], Blake2b256).unwrap();
+    let details = Cid::new_from_cbor(&[1, 2, 3], Blake2b256);
     let name = "Test".to_string();
     let t_struct = TestStruct {
         name: name.clone(),

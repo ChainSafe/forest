@@ -136,7 +136,7 @@ where
     {
         for p in &self.pointers {
             match p {
-                Pointer::Link(cid) => match store.get::<Node<K>>(cid)? {
+                Pointer::Link(cid) => match store.get::<Node<K>>(cid).map_err(|e| e.to_string())? {
                     Some(node) => node.for_each(store, f)?,
                     None => return Err(format!("Node with cid {} not found", cid)),
                 },
@@ -189,7 +189,7 @@ where
         match child {
             Pointer::Link(cid) => match store.get::<Node<K>>(cid)? {
                 Some(node) => Ok(node.get_value(hashed_key, bit_width, depth + 1, key, store)?),
-                None => Err(Error::Custom("Node not found")),
+                None => Err(Error::CidNotFound(cid.to_string())),
             },
             Pointer::Cache(n) => n.get_value(hashed_key, bit_width, depth + 1, key, store),
             Pointer::Values(vals) => Ok(vals.iter().find(|kv| key.eq(kv.key().borrow())).cloned()),
@@ -247,7 +247,7 @@ where
                     *child = Pointer::Cache(Box::new(node));
                     Ok(())
                 }
-                None => Err(Error::Custom("Node not found")),
+                None => Err(Error::CidNotFound(cid.to_string())),
             },
             Pointer::Cache(n) => {
                 Ok(n.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?)
@@ -330,7 +330,7 @@ where
                     child.clean()?;
                     Ok(del)
                 }
-                None => Err(Error::Custom("Node not found")),
+                None => Err(Error::CidNotFound(cid.to_string())),
             },
             Pointer::Cache(n) => {
                 // Delete value and return deleted value
@@ -348,7 +348,7 @@ where
                             if let Pointer::Values(new_v) = self.rm_child(cindex, idx) {
                                 new_v.into_iter().next().unwrap()
                             } else {
-                                return Err(Error::Custom("Should not reach this"));
+                                unreachable!()
                             }
                         } else {
                             vals.remove(i)

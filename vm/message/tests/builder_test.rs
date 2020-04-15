@@ -35,7 +35,7 @@ fn unsigned_message_builder() {
     assert_eq!(message.from(), &from_addr.clone());
     assert_eq!(message.to(), &to_addr.clone());
     assert_eq!(message.sequence(), 0);
-    assert_eq!(message.method_num(), &MethodNum::default());
+    assert_eq!(message.method_num(), MethodNum::default());
     assert_eq!(message.params(), &Serialized::default());
     assert_eq!(message.value(), &TokenAmount::from(0u8));
     assert_eq!(message.gas_price(), &TokenAmount::from(0u8));

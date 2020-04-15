@@ -4,6 +4,7 @@
 use cid::Error as CidError;
 use db::Error as DBError;
 use encoding::error::Error as EncodingError;
+use std::error::Error as StdError;
 use thiserror::Error;
 
 /// AMT Error
@@ -24,9 +25,18 @@ pub enum Error {
     /// Error when trying to serialize an AMT without a flushed cache
     #[error("Tried to serialize without saving cache, run flush() on Amt before serializing")]
     Cached,
+    /// Cid root was not found in underling data store
+    #[error("Cid root not found in database")]
+    RootNotFound,
+    /// Serialized vector less than number of bits set
+    #[error("Vector length does not match bitmap")]
+    InvalidVecLength,
+    /// Cid not found in store error
+    #[error("Cid ({0}) did not match any in database")]
+    CidNotFound(String),
     /// Custom AMT error
     #[error("{0}")]
-    Custom(&'static str),
+    Other(String),
 }
 
 impl PartialEq for Error {
@@ -39,7 +49,7 @@ impl PartialEq for Error {
             (&Cid(ref a), &Cid(ref b)) => a == b,
             (&DB(ref a), &DB(ref b)) => a == b,
             (&Cached, &Cached) => true,
-            (&Custom(ref a), &Custom(ref b)) => a == b,
+            (&Other(ref a), &Other(ref b)) => a == b,
             _ => false,
         }
     }
@@ -48,5 +58,11 @@ impl PartialEq for Error {
 impl From<Error> for String {
     fn from(e: Error) -> Self {
         e.to_string()
+    }
+}
+
+impl From<Box<dyn StdError>> for Error {
+    fn from(e: Box<dyn StdError>) -> Self {
+        Self::Other(e.to_string())
     }
 }
