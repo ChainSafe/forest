@@ -22,6 +22,7 @@ use vm::{
     METHOD_SEND,
 };
 pub const PLACEHOLDER_GAS: u64 = 1;
+
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
     state: &'c mut ST,
@@ -68,6 +69,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
 
     /// Gets the specified Actor from the state tree
     fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
+        // TODO handle exit codes specifically, this leads to a broken implementation
         self.state
             .get_actor(&addr)
             .map_err(|e| {
@@ -75,19 +77,18 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
                     ExitCode::SysErrInternal,
                     format!("failed to load actor: {}", e),
                 )
-            })
-            .and_then(|act| {
-                act.ok_or_else(|| self.abort(ExitCode::SysErrInternal, "actor not found"))
-            })
+            })?
+            .ok_or_else(|| self.abort(ExitCode::SysErrInternal, "actor not found"))
     }
 
     /// Get the balance of a particular Actor from their Address
     fn get_balance(&self, addr: &Address) -> Result<BigUint, ActorError> {
+        // TODO fix this, not found should return 0 not error, on error should turn error into fatal
         self.get_actor(&addr).map(|act| act.balance)
     }
 
     /// Update the state Cid of the Message receiver
-    fn state_commit(&mut self, old_h: &Cid, new_h: &Cid) -> Result<(), ActorError> {
+    fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
         let to_addr = self.message().to().clone();
         let mut actor = self.get_actor(&to_addr)?;
 
@@ -97,7 +98,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
                 "failed to update, inconsistent base reference".to_owned(),
             ));
         }
-        actor.state = new_h.clone();
+        actor.state = new_h;
         self.state.set_actor(&to_addr, actor).map_err(|e| {
             self.abort(
                 ExitCode::SysErrInternal,
@@ -121,6 +122,7 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
         let actor_state: actor::account::State = self
             .store
             .get(&act.state)
+            // TODO this needs to be a fatal error
             .map_err(|e| {
                 self.abort(
                     ExitCode::SysErrInternal,
@@ -209,7 +211,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             )
         })?;
         // TODO: This is almost certainly wrong. Need to CBOR an empty slice and calculate Cid
-        self.state_commit(&Cid::default(), &c)
+        self.state_commit(&Cid::default(), c)
     }
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
         let actor = self.get_actor(self.message().to())?;
@@ -264,7 +266,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         })?;
 
         // Committing that change
-        self.state_commit(&act.state, &c)?;
+        self.state_commit(&act.state, c)?;
         Ok(r)
     }
 
@@ -398,7 +400,7 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
 
     if msg.value() != &0u8.into() {
         transfer(runtime.state, &msg.from(), &msg.to(), &msg.value())
-            .map_err(|e| ActorError::new(ExitCode::SysErrInternal, e))?;
+            .map_err(|e| ActorError::new(ExitCode::SysErrSenderInvalid, e))?;
     }
 
     let method_num = msg.method_num();
@@ -410,42 +412,38 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
             // TODO: make its own method/struct
             match to_actor.code {
                 x if x == *SYSTEM_ACTOR_CODE_ID => {
-                    actor::system::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    actor::system::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *INIT_ACTOR_CODE_ID => {
-                    actor::init::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    actor::init::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *CRON_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *ACCOUNT_ACTOR_CODE_ID => {
-                    actor::account::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    actor::account::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *POWER_ACTOR_CODE_ID => {
-                    actor::power::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    actor::power::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *MINER_ACTOR_CODE_ID => {
-                    // not implemented yet
-                    // actor::miner::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
-                    todo!()
+                    actor::miner::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *MARKET_ACTOR_CODE_ID => {
-                    // not implemented yet
-                    // actor::market::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
-                    todo!()
+                    actor::market::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *PAYCH_ACTOR_CODE_ID => {
-                    actor::paych::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    actor::paych::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *MULTISIG_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 x if x == *REWARD_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(&mut *runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
                 }
                 _ => Err(ActorError::new(
-                    ExitCode::SysErrForbidden,
-                    "invalid method id".to_owned(),
+                    ExitCode::SysErrorIllegalActor,
+                    format!("no code for actor at address {}", msg.to()),
                 )),
             }
         };

@@ -8,10 +8,10 @@ pub enum ExitCode {
     Ok = 0,
 
     /// Indicates failure to find an actor in the state tree.
-    SysErrActorNotFound = 1,
+    SysErrSenderInvalid = 1,
 
     /// Indicates failure to find the code for an actor.
-    SysErrActorCodeNotFound = 2,
+    SysErrSenderStateInvalid = 2,
 
     /// Indicates failure to find a method in an actor.
     SysErrInvalidMethod = 3,
@@ -20,10 +20,10 @@ pub enum ExitCode {
     SysErrInvalidParameters = 4,
 
     /// Indicates a message sender has insufficient funds for a message's execution.
-    SysErrInsufficientFunds = 5,
+    SysErrInvalidReceiver = 5,
 
     /// Indicates a message invocation out of sequence.
-    SysErrInvalidCallSeqNum = 6,
+    SysErrInsufficientFunds = 6,
 
     /// Indicates message execution (including subcalls) used more gas than the specified limit.
     SysErrOutOfGas = 7,

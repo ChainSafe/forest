@@ -10,6 +10,7 @@ use encoding::Cbor;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;
+use runtime::Runtime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{ActorError, ExitCode, TokenAmount};
 
@@ -243,18 +244,18 @@ impl State {
     // Deal state operations
     ////////////////////////////////////////////////////////////////////////////////
 
-    pub(super) fn update_pending_deal_states_for_party<BS>(
+    pub(super) fn update_pending_deal_states_for_party<BS, RT>(
         &mut self,
-        store: &BS,
-        epoch: ChainEpoch,
+        rt: &RT,
         addr: &Address,
     ) -> Result<TokenAmount, ActorError>
     where
         BS: BlockStore,
+        RT: Runtime<BS>,
     {
         // TODO check if rt curr_epoch can be 0
-        let epoch = epoch - 1;
-        let dbp = SetMultimap::from_root(store, &self.deal_ids_by_party)
+        let epoch = rt.curr_epoch() - 1;
+        let dbp = SetMultimap::from_root(rt.store(), &self.deal_ids_by_party)
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
         let mut extracted_ids = Vec::new();
@@ -264,7 +265,7 @@ impl State {
         })
         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
 
-        self.update_pending_deal_states(store, extracted_ids, epoch)
+        self.update_pending_deal_states(rt.store(), extracted_ids, epoch)
     }
 
     pub(super) fn update_pending_deal_states<BS>(
