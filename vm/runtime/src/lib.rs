@@ -110,11 +110,7 @@ pub trait Runtime<BS: BlockStore> {
     fn delete_actor(&mut self) -> Result<(), ActorError>;
 
     /// Provides the system call interface.
-    fn syscalls(&self) -> Syscalls {
-        // If syscalls need to be handled dynamically, switch to returning Box<dyn Syscalls>
-        // If that is changed to a trait
-        Syscalls
-    }
+    fn syscalls(&self) -> &dyn Syscalls;
 }
 
 /// Message information available to the actor about executing message.
@@ -129,42 +125,44 @@ pub trait MessageInfo {
     fn value_received(&self) -> TokenAmount;
 }
 
-/// Pure functions implemented as primitives by the runtime.
-// TODO this may have to be a trait impl to handle dynamically
-pub struct Syscalls;
+/// Default syscalls information
+#[derive(Copy, Clone, Debug)]
+pub struct DefaultSyscalls;
+impl Syscalls for DefaultSyscalls {}
 
-impl Syscalls {
+/// Pure functions implemented as primitives by the runtime.
+pub trait Syscalls {
     /// Verifies that a signature is valid for an address and plaintext.
-    pub fn verify_signature(
+    fn verify_signature(
         &self,
         _signature: &Signature,
         _signer: &Address,
         _plaintext: &[u8],
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), ActorError> {
         // TODO
         todo!()
     }
     /// Hashes input data using blake2b with 256 bit output.
-    pub fn hash_blake2b(&self, _data: &[u8]) -> [u8; 32] {
+    fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], ActorError> {
         // TODO
         todo!()
     }
     /// Computes an unsealed sector CID (CommD) from its constituent piece CIDs (CommPs) and sizes.
-    pub fn compute_unsealed_sector_cid(
+    fn compute_unsealed_sector_cid(
         &self,
         _reg: RegisteredProof,
         _pieces: &[PieceInfo],
-    ) -> Result<Cid, &'static str> {
+    ) -> Result<Cid, ActorError> {
         // TODO
         todo!()
     }
     /// Verifies a sector seal proof.
-    pub fn verify_seal(&self, _vi: SealVerifyInfo) -> Result<(), &'static str> {
+    fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), ActorError> {
         // TODO
         todo!()
     }
     /// Verifies a proof of spacetime.
-    pub fn verify_post(&self, _vi: PoStVerifyInfo) -> Result<(), &'static str> {
+    fn verify_post(&self, _vi: &PoStVerifyInfo) -> Result<(), ActorError> {
         // TODO
         todo!()
     }
@@ -178,13 +176,13 @@ impl Syscalls {
     /// the "parent grinding fault", in which case it must be the sibling of h1 (same parent tipset) and one of the
     /// blocks in the parent of h2 (i.e. h2's grandparent).
     /// Returns nil and an error if the headers don't prove a fault.
-    pub fn verify_consensus_fault(
+    fn verify_consensus_fault(
         &self,
         _h1: &[u8],
         _h2: &[u8],
         _extra: &[u8],
         _earliest: ChainEpoch,
-    ) -> Result<ConsensusFault, &'static str> {
+    ) -> Result<ConsensusFault, ActorError> {
         // TODO
         todo!()
     }

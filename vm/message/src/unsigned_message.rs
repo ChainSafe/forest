@@ -123,8 +123,8 @@ impl Message for UnsignedMessage {
     fn value(&self) -> &TokenAmount {
         &self.value
     }
-    fn method_num(&self) -> &MethodNum {
-        &self.method_num
+    fn method_num(&self) -> MethodNum {
+        self.method_num
     }
     fn params(&self) -> &Serialized {
         &self.params

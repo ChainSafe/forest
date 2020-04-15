@@ -33,9 +33,7 @@ impl<'a> HashBits<'a> {
     /// Error when maximum depth is reached
     pub fn next(&mut self, i: u8) -> Result<u8, Error> {
         if i > 8 {
-            return Err(Error::Custom(
-                "HashBits does not support retrieving more than 8 bits",
-            ));
+            return Err(Error::InvalidHashBitLen);
         }
         if (self.consumed + i) as usize > self.b.len() * 8 {
             return Err(Error::MaxDepth);
@@ -93,12 +91,7 @@ mod tests {
         assert_eq!(hb.next(5).unwrap(), 0b01010);
         assert_eq!(hb.next(6).unwrap(), 0b111111);
         assert_eq!(hb.next(8).unwrap(), 0b11111111);
-        assert_eq!(
-            hb.next(9),
-            Err(Error::Custom(
-                "HashBits does not support retrieving more than 8 bits"
-            ))
-        );
+        assert_eq!(hb.next(9), Err(Error::InvalidHashBitLen));
         for _ in 0..12 {
             // Iterate through rest of key to test depth
             hb.next(8).unwrap();

@@ -72,9 +72,7 @@ where
 
     for (i, e) in r_arr.iter_mut().enumerate().take(WIDTH) {
         if bmap.get_bit(i as u64) {
-            let value = v_iter
-                .next()
-                .ok_or_else(|| Error::Custom("Vector length does not match bitmap"))?;
+            let value = v_iter.next().ok_or_else(|| Error::InvalidVecLength)?;
             *e = Some(<T>::from(value.clone()));
         }
     }
@@ -192,7 +190,7 @@ where
                     // TODO after benchmarking check if cache should be updated from get
                     let node: Node<V> = bs
                         .get::<Node<V>>(cid)?
-                        .ok_or_else(|| Error::Custom("Cid did not match any in database"))?;
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
                     // Get from node pulled into memory from Cid
                     node.get(bs, height - 1, i % nodes_for_height(height))
@@ -224,9 +222,7 @@ where
         if let Node::Link { links, bmap } = self {
             links[idx] = match &mut links[idx] {
                 Some(Link::Cid(cid)) => {
-                    let node = bs
-                        .get::<Node<V>>(cid)?
-                        .ok_or_else(|| Error::Custom("Cid did not match any in database"))?;
+                    let node = bs.get::<Node<V>>(cid)?.ok_or_else(|| Error::RootNotFound)?;
 
                     Some(Link::Cached(Box::new(node)))
                 }
@@ -298,9 +294,7 @@ where
             Self::Link { links, bmap } => {
                 let mut sub_node: Node<V> = match &links[sub_i as usize] {
                     Some(Link::Cached(n)) => *n.clone(),
-                    Some(Link::Cid(cid)) => bs
-                        .get(cid)?
-                        .ok_or_else(|| Error::Custom("Cid did not match any in database"))?,
+                    Some(Link::Cid(cid)) => bs.get(cid)?.ok_or_else(|| Error::RootNotFound)?,
                     None => unreachable!("Bitmap value for index is set"),
                 };
 
@@ -352,9 +346,10 @@ where
                         match l.as_ref().expect("bit set at index") {
                             Link::Cached(sub) => sub.for_each(store, height - 1, offs, f)?,
                             Link::Cid(cid) => {
-                                let node = store.get::<Node<V>>(cid)?.ok_or_else(|| {
-                                    Error::Custom("Cid did not match any in database")
-                                })?;
+                                let node = store
+                                    .get::<Node<V>>(cid)
+                                    .map_err(|e| e.to_string())?
+                                    .ok_or_else(|| Error::RootNotFound)?;
 
                                 node.for_each(store, height - 1, offs, f)?;
                             }

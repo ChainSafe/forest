@@ -7,16 +7,17 @@ use cid::{
     multihash::{Blake2b256, Identity},
     Cid,
 };
-use default_runtime::{internal_send, DefaultRuntime};
-
 use db::MemoryDB;
+use default_runtime::{internal_send, DefaultRuntime};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
+use runtime::DefaultSyscalls;
 use state_tree::HamtStateTree;
 use vm::ActorState;
 use vm::Serialized;
 use vm::StateTree;
+
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
@@ -94,6 +95,7 @@ fn transfer_test() {
     let mut runtime = DefaultRuntime::new(
         &mut state,
         &store,
+        DefaultSyscalls,
         0,
         &message,
         0,

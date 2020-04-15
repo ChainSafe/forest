@@ -91,9 +91,7 @@ where
     pub(crate) fn clean(&mut self) -> Result<(), Error> {
         match self {
             Pointer::Cache(n) => match n.pointers.len() {
-                0 => Err(Error::Custom(
-                    "Invalid HAMT format, node cannot have 0 pointers",
-                )),
+                0 => Err(Error::ZeroPointers),
                 1 => {
                     // Node has only one pointer, swap with parent node
                     if let p @ Pointer::Values(_) = &mut n.pointers[0] {

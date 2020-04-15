@@ -137,7 +137,11 @@ where
 
     /// Returns a tuple of cids for both Unsigned and Signed messages
     fn read_msg_cids(&self, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error> {
-        if let Some(roots) = self.blockstore().get::<TxMeta>(msg_cid)? {
+        if let Some(roots) = self
+            .blockstore()
+            .get::<TxMeta>(msg_cid)
+            .map_err(|e| Error::Other(e.to_string()))?
+        {
             let bls_cids = self.read_amt_cids(&roots.bls_message_root)?;
             let secpk_cids = self.read_amt_cids(&roots.secp_message_root)?;
             Ok((bls_cids, secpk_cids))

@@ -55,7 +55,7 @@ where
         // Load root bytes from database
         let root: Root<V> = block_store
             .get(cid)?
-            .ok_or_else(|| Error::Custom("Root not found in database"))?;
+            .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
         Ok(Self { root, block_store })
     }
@@ -173,7 +173,7 @@ where
                     Some(Link::Cid(cid)) => self
                         .block_store
                         .get(cid)?
-                        .ok_or_else(|| Error::Custom("Cid did not match any in database"))?,
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?,
                     _ => unreachable!("Link index should match bitmap"),
                 },
                 Node::Leaf { .. } => unreachable!("Non zero height cannot be a leaf node"),

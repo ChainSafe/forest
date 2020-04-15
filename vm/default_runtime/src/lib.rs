@@ -1,6 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod gas_block_store;
+mod gas_syscalls;
+
+use self::gas_block_store::GasBlockStore;
+use self::gas_syscalls::GasSyscalls;
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
@@ -16,55 +21,98 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigUint;
-use runtime::{ActorCode, Runtime};
+use runtime::{ActorCode, Runtime, Syscalls};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vm::{
-    ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, StateTree, TokenAmount,
-    METHOD_SEND,
+    price_list_by_epoch, ActorError, ActorState, ExitCode, GasTracker, MethodNum, PriceList,
+    Randomness, Serialized, StateTree, TokenAmount, METHOD_SEND,
 };
-pub const PLACEHOLDER_GAS: u64 = 1;
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'a, 'b, 'c, ST: StateTree, BS: BlockStore> {
+pub struct DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
+where
+    SYS: Copy,
+{
     state: &'c mut ST,
-    store: &'a BS,
-    gas_used: u64,
-    gas_available: u64,
+    store: GasBlockStore<'a, BS>,
+    syscalls: GasSyscalls<SYS>,
+    gas_tracker: Rc<RefCell<GasTracker>>,
     message: &'b UnsignedMessage,
     epoch: ChainEpoch,
     origin: Address,
     origin_nonce: u64,
     num_actors_created: u64,
+    price_list: PriceList,
 }
 
-impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, BS> {
+impl<'a, 'b, 'c, ST, BS, SYS> DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
+where
+    ST: StateTree,
+    BS: BlockStore,
+    SYS: Syscalls + Copy,
+{
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: &'c mut ST,
         store: &'a BS,
-        gas_used: u64,
+        syscalls: SYS,
+        gas_used: i64,
         message: &'b UnsignedMessage,
         epoch: ChainEpoch,
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
     ) -> Self {
+        let price_list = price_list_by_epoch(epoch);
+        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
+            message.gas_limit() as i64,
+            gas_used,
+        )));
+        let gas_block_store = GasBlockStore {
+            price_list,
+            gas: Rc::clone(&gas_tracker),
+            store,
+        };
+        let gas_syscalls = GasSyscalls {
+            price_list,
+            gas: Rc::clone(&gas_tracker),
+            syscalls,
+        };
         DefaultRuntime {
             state,
-            store,
-            gas_used,
-            gas_available: message.gas_limit(),
+            store: gas_block_store,
+            syscalls: gas_syscalls,
+            gas_tracker,
             message,
             epoch,
             origin,
             origin_nonce,
             num_actors_created,
+            price_list,
         }
     }
 
     /// Adds to amount of used
-    pub fn charge_gas(&mut self, to_use: u64) {
-        self.gas_used += to_use;
+    /// * Will borrow gas tracker RefCell, do not call if any reference to this exists
+    pub fn charge_gas(&mut self, to_use: i64) -> Result<(), ActorError> {
+        self.gas_tracker.borrow_mut().charge_gas(to_use)
+    }
+
+    /// Returns gas used by runtime
+    /// * Will borrow gas tracker RefCell, do not call if a mutable reference exists
+    pub fn gas_used(&self) -> i64 {
+        self.gas_tracker.borrow().gas_used()
+    }
+
+    fn gas_available(&self) -> i64 {
+        self.gas_tracker.borrow().gas_available()
+    }
+
+    /// Returns the price list for gas charges within the runtime
+    pub fn price_list(&self) -> PriceList {
+        self.price_list
     }
 
     /// Gets the specified Actor from the state tree
@@ -143,7 +191,12 @@ impl<'a, 'b, 'c, ST: StateTree, BS: BlockStore> DefaultRuntime<'a, 'b, 'c, ST, B
     }
 }
 
-impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, ST, BS> {
+impl<ST, BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, ST, BS, SYS>
+where
+    ST: StateTree,
+    BS: BlockStore,
+    SYS: Syscalls + Copy,
+{
     fn message(&self) -> &UnsignedMessage {
         &self.message
     }
@@ -231,8 +284,9 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             })
     }
 
-    fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
+    fn transaction<C, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
+        C: Cbor,
         F: FnOnce(&mut C, &Self) -> R,
     {
         // get actor
@@ -271,7 +325,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
     }
 
     fn store(&self) -> &BS {
-        self.store
+        self.store.store
     }
 
     fn send(
@@ -286,7 +340,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .from(self.message.from().clone())
             .method_num(method)
             .value(value.clone())
-            .gas_limit(self.gas_available)
+            .gas_limit(self.gas_available() as u64)
             .params(params.clone())
             .build()
             .unwrap();
@@ -297,17 +351,21 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             .snapshot()
             .map_err(|_e| self.abort(ExitCode::ErrPlaceholder, "failed to create snapshot"))?;
 
-        let mut parent = DefaultRuntime::new(
-            self.state,
-            self.store,
-            self.gas_used,
-            &msg,
-            self.curr_epoch(),
-            self.origin.clone(),
-            self.origin_nonce,
-            self.num_actors_created,
-        );
-        let send_res = internal_send::<ST, BS>(&mut parent, &msg, 0);
+        let epoch = self.curr_epoch();
+        let send_res = {
+            let mut parent = DefaultRuntime::new(
+                self.state,
+                self.store.store,
+                self.syscalls.syscalls,
+                self.gas_used(),
+                &msg,
+                epoch,
+                self.origin.clone(),
+                self.origin_nonce,
+                self.num_actors_created,
+            );
+            internal_send::<ST, BS, SYS>(&mut parent, &msg, 0)
+        };
         if send_res.is_err() {
             self.state
                 .revert_to_snapshot(&snapshot)
@@ -353,8 +411,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
         Ok(addr)
     }
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
-        // TODO: Charge gas
-        self.charge_gas(PLACEHOLDER_GAS);
+        self.charge_gas(self.price_list.on_create_actor())?;
         self.state
             .set_actor(
                 &address,
@@ -368,8 +425,7 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             })
     }
     fn delete_actor(&mut self) -> Result<(), ActorError> {
-        // TODO: Charge gas
-        self.charge_gas(PLACEHOLDER_GAS);
+        self.charge_gas(self.price_list.on_delete_actor())?;
         let balance = self.get_actor(self.message.to()).map(|act| act.balance)?;
         if !balance.eq(&0u64.into()) {
             return Err(self.abort(
@@ -384,16 +440,27 @@ impl<ST: StateTree, BS: BlockStore> Runtime<BS> for DefaultRuntime<'_, '_, '_, S
             )
         })
     }
+    fn syscalls(&self) -> &dyn Syscalls {
+        &self.syscalls
+    }
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn internal_send<ST: StateTree, DB: BlockStore>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, ST, DB>,
+pub fn internal_send<ST, BS, SYS>(
+    runtime: &mut DefaultRuntime<'_, '_, '_, ST, BS, SYS>,
     msg: &UnsignedMessage,
-    _gas_cost: u64,
-) -> Result<Serialized, ActorError> {
-    // TODO: Calculate true gas value
-    runtime.charge_gas(PLACEHOLDER_GAS);
+    _gas_cost: i64,
+) -> Result<Serialized, ActorError>
+where
+    ST: StateTree,
+    BS: BlockStore,
+    SYS: Syscalls + Copy,
+{
+    runtime.charge_gas(
+        runtime
+            .price_list()
+            .on_method_invocation(msg.value(), msg.method_num()),
+    )?;
 
     // TODO: we need to try to recover here and try to create account actor
     let to_actor = runtime.get_actor(msg.to())?;
@@ -405,41 +472,39 @@ pub fn internal_send<ST: StateTree, DB: BlockStore>(
 
     let method_num = msg.method_num();
 
-    if method_num != &METHOD_SEND {
-        // TODO: charge gas
-
+    if method_num != METHOD_SEND {
         let ret = {
             // TODO: make its own method/struct
             match to_actor.code {
                 x if x == *SYSTEM_ACTOR_CODE_ID => {
-                    actor::system::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::system::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *INIT_ACTOR_CODE_ID => {
-                    actor::init::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::init::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *CRON_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *ACCOUNT_ACTOR_CODE_ID => {
-                    actor::account::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::account::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *POWER_ACTOR_CODE_ID => {
-                    actor::power::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::power::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *MINER_ACTOR_CODE_ID => {
-                    actor::miner::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::miner::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *MARKET_ACTOR_CODE_ID => {
-                    actor::market::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::market::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *PAYCH_ACTOR_CODE_ID => {
-                    actor::paych::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::paych::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *MULTISIG_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *REWARD_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, *method_num, msg.params())
+                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 _ => Err(ActorError::new(
                     ExitCode::SysErrorIllegalActor,
