@@ -539,7 +539,7 @@ fn transfer<ST: StateTree>(
         .ok_or("Transfer failed when retrieving receiver actor")?;
 
     deduct_funds(&mut f, &value)?;
-    deposit_funds(&mut t, &value)?;
+    deposit_funds(&mut t, &value);
 
     state.set_actor(from, f)?;
     state.set_actor(to, t)?;
@@ -558,7 +558,7 @@ pub fn transfer_to_gas_holder<ST: StateTree>(
     }
     state.mutate_actor(addr, |act| {
         deduct_funds(act, &value)?;
-        deposit_funds(gas_holder, &value)?;
+        deposit_funds(gas_holder, &value);
         Ok(())
     })
 }
@@ -574,7 +574,7 @@ pub fn transfer_from_gas_holder<ST: StateTree>(
     }
     state.mutate_actor(addr, |act| {
         deduct_funds(gas_holder, &value)?;
-        deposit_funds(act, &value)?;
+        deposit_funds(act, &value);
         Ok(())
     })
 }
