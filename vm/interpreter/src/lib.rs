@@ -24,7 +24,7 @@ where
 {
     state: ST,
     store: &'a DB,
-    pub epoch: ChainEpoch,
+    epoch: ChainEpoch,
     syscalls: SYS,
     // TODO: missing fields
 }
@@ -34,13 +34,17 @@ where
     SYS: Syscalls + Copy,
 {
     pub fn new(state: ST, store: &'a DB, epoch: ChainEpoch, syscalls: SYS) -> Self {
-        // TODO replace default block miner address
         VM {
             state,
             store,
             epoch,
             syscalls,
         }
+    }
+
+    /// Returns ChainEpoch
+    fn epoch(&self) -> &ChainEpoch {
+        &self.epoch
     }
 
     /// Apply all messages from a tipset
@@ -98,7 +102,7 @@ where
     fn apply_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
         check_message(msg)?;
 
-        let pl = price_list_by_epoch(self.epoch);
+        let pl = price_list_by_epoch(*self.epoch());
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
         let msg_gas_cost = pl.on_chain_message(ser_msg.len() as i64);
 
