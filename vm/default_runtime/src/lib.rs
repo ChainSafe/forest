@@ -95,10 +95,22 @@ where
     }
 
     /// Adds to amount of used
+    /// * Will borrow gas tracker RefCell, do not call if any reference to this exists
     pub fn charge_gas(&mut self, to_use: i64) -> Result<(), ActorError> {
         self.gas_tracker.borrow_mut().charge_gas(to_use)
     }
 
+    /// Returns gas used by runtime
+    /// * Will borrow gas tracker RefCell, do not call if a mutable reference exists
+    pub fn gas_used(&self) -> i64 {
+        self.gas_tracker.borrow().gas_used()
+    }
+
+    fn gas_available(&self) -> i64 {
+        self.gas_tracker.borrow().gas_available()
+    }
+
+    /// Returns the price list for gas charges within the runtime
     pub fn price_list(&self) -> PriceList {
         self.price_list
     }
@@ -328,7 +340,7 @@ where
             .from(self.message.from().clone())
             .method_num(method)
             .value(value.clone())
-            .gas_limit(self.gas_tracker.borrow().gas_available() as u64)
+            .gas_limit(self.gas_available() as u64)
             .params(params.clone())
             .build()
             .unwrap();
@@ -345,7 +357,7 @@ where
                 self.state,
                 self.store.store,
                 self.syscalls.syscalls,
-                self.gas_tracker.borrow().gas_used(),
+                self.gas_used(),
                 &msg,
                 epoch,
                 self.origin.clone(),
