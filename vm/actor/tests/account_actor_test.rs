@@ -30,6 +30,6 @@ fn secp() {
     assert_eq!(state.address, secp_addr);
     rt.expect_validate_caller_any();
     
-    let pk = rt.call(&*ACCOUNT_ACTOR_CODE_ID, 2, &Serialized::default()).unwrap();
-
+    let pk: Address = rt.call(&*ACCOUNT_ACTOR_CODE_ID, 2, &Serialized::default()).unwrap().deserialize().unwrap();
+    assert_eq!(pk, secp_addr);
 }

@@ -74,8 +74,8 @@ impl ActorCode for Actor {
             }
             Some(Method::PubkeyAddress) => {
                 check_empty_params(params)?;
-                Self::pubkey_address(rt)?;
-                Ok(Serialized::default())
+                let addr = Self::pubkey_address(rt)?;
+                Ok(Serialized::serialize(addr).unwrap())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
