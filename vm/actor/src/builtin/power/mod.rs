@@ -482,7 +482,7 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalArgument,
-                    format!("fault not verified: {}", e),
+                    format!("fault not verified: {}", e.msg()),
                 )
             })?;
 

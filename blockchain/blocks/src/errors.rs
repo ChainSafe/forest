@@ -15,7 +15,7 @@ pub enum Error {
     NoBlocks,
     /// Invalid signature
     #[error("Invalid signature: {0}")]
-    InvalidSignature(&'static str),
+    InvalidSignature(String),
     /// Error in validating arbitrary data
     #[error("Error validating data: {0}")]
     Validation(String),
