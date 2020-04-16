@@ -16,12 +16,7 @@ use runtime::Syscalls;
 use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized, StateTree};
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'a, ST, DB, SYS>
-where
-    ST: StateTree,
-    DB: BlockStore,
-    SYS: Syscalls + Copy,
-{
+pub struct VM<'a, ST, DB, SYS> {
     state: ST,
     store: &'a DB,
     epoch: ChainEpoch,
@@ -45,8 +40,8 @@ where
     }
 
     /// Returns ChainEpoch
-    fn epoch(&self) -> &ChainEpoch {
-        &self.epoch
+    fn epoch(&self) -> ChainEpoch {
+        self.epoch
     }
 
     /// Apply all messages from a tipset
@@ -104,7 +99,7 @@ where
     fn apply_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
         check_message(msg)?;
 
-        let pl = price_list_by_epoch(*self.epoch());
+        let pl = price_list_by_epoch(self.epoch());
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
         let msg_gas_cost = pl.on_chain_message(ser_msg.len() as i64) as u64;
 
