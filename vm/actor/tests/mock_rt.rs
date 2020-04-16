@@ -1,22 +1,19 @@
-use address::Address;
-use cid::{multihash::Blake2b256, Cid};
-use clock::ChainEpoch;
-use crypto::{DomainSeparationTag};
-use encoding::{Cbor, de::DeserializeOwned};
-use ipld_blockstore::BlockStore;
-use message::UnsignedMessage;
-use runtime::{Runtime, Syscalls, ActorCode};
-use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, VecDeque};
-use vm::{
-    ActorError, ExitCode, MethodNum, Randomness,
-    Serialized, TokenAmount,
-};
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
     REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
 };
+use address::Address;
+use cid::{multihash::Blake2b256, Cid};
+use clock::ChainEpoch;
+use crypto::DomainSeparationTag;
+use encoding::{de::DeserializeOwned, Cbor};
+use ipld_blockstore::BlockStore;
+use message::UnsignedMessage;
+use runtime::{ActorCode, Runtime, Syscalls};
+use std::cell::{Cell, RefCell};
+use std::collections::{HashMap, VecDeque};
+use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 pub struct MockRuntime<'a, BS: BlockStore> {
     pub epoch: ChainEpoch,
@@ -46,10 +43,9 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
-    pub marker1: std::marker::PhantomData<BS>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ExpectCreateActor {
     pub code_id: Cid,
     pub address: Address,
@@ -67,7 +63,7 @@ pub struct ExpectedMessage {
 }
 
 impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
-    pub fn new (bs: &'a BS, receiver: Address) -> Self {
+    pub fn new(bs: &'a BS, receiver: Address) -> Self {
         Self {
             epoch: 0,
             receiver: receiver,
@@ -83,19 +79,18 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
 
             state: None,
             balance: 0u8.into(),
-        
+
             // VM Impl
             in_call: false,
             store: bs,
             in_transaction: false,
-        
+
             // Expectations
             expect_validate_caller_any: Cell::new(false),
             expect_validate_caller_addr: RefCell::new(None),
             expect_validate_caller_type: RefCell::new(None),
             expect_sends: VecDeque::new(),
             expect_create_actor: None,
-            marker1: std::marker::PhantomData::default(),
         }
     }
     fn require_in_call(&self) {
@@ -115,15 +110,19 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         }
         Ok(())
     }
-    fn put<C: Cbor> (&self, o: &C) -> Result<Cid, ActorError>{
+    fn put<C: Cbor>(&self, o: &C) -> Result<Cid, ActorError> {
         Ok(self.store.put(&o, Blake2b256).unwrap())
     }
     fn get<T: DeserializeOwned>(&self, cid: Cid) -> Result<T, ActorError> {
         Ok(self.store.get(&cid).unwrap().unwrap())
     }
-    pub fn get_state<T: DeserializeOwned> (&self) -> Result<T, ActorError> {
+    pub fn get_state<T: DeserializeOwned>(&self) -> Result<T, ActorError> {
         println!("After {:?}", self.state.as_ref().unwrap());
-        let data: T = self.store.get(&self.state.as_ref().unwrap()).unwrap().unwrap();
+        let data: T = self
+            .store
+            .get(&self.state.as_ref().unwrap())
+            .unwrap()
+            .unwrap();
         Ok(data)
     }
     pub fn expect_validate_caller_addr(&self, addr: &[Address]) {
@@ -133,7 +132,12 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn expect_validate_caller_any(&self) {
         self.expect_validate_caller_any.set(true);
     }
-    pub fn call (&mut self, to_code: &Cid, method_num: MethodNum, params: &Serialized) -> Result<Serialized, ActorError>{
+    pub fn call(
+        &mut self,
+        to_code: &Cid,
+        method_num: MethodNum,
+        params: &Serialized,
+    ) -> Result<Serialized, ActorError> {
         self.in_call = true;
         let res = match to_code {
             x if x == &*SYSTEM_ACTOR_CODE_ID => {
@@ -178,10 +182,66 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         self.in_call = false;
         return res;
     }
+    pub fn verify(&mut self) {
+        if self.expect_validate_caller_any.get() == true {
+            panic!("expected ValidateCallerAny, not received")
+        }
+        if self.expect_validate_caller_addr.borrow().as_ref().is_some() {
+            panic!(
+                "expected ValidateCallerAddr {:?}, not received",
+                self.expect_validate_caller_addr.borrow().as_ref().unwrap()
+            )
+        }
+        if self.expect_validate_caller_type.borrow().as_ref().is_some() {
+            panic!(
+                "expected ValidateCallerType {:?}, not received",
+                self.expect_validate_caller_type.borrow().as_ref().unwrap()
+            )
+        }
+        if self.expect_sends.len() > 0 {
+            panic!(
+                "expected all message to be send, unsent messages {:?}",
+                self.expect_sends
+            )
+        }
+        if self.expect_create_actor.is_some() {
+            panic!(
+                "expected actor to be created, uncreated actor: {:?}",
+                self.expect_create_actor
+            )
+        }
+
+        self.reset();
+    }
+    pub fn reset(&mut self) {
+        self.expect_validate_caller_any.set(false);
+        *self.expect_validate_caller_addr.borrow_mut() = None;
+        *self.expect_validate_caller_type.borrow_mut() = None;
+        self.expect_create_actor = None;
+    }
+
+    pub fn expect_send(
+        &mut self,
+        to: Address,
+        method: MethodNum,
+        params: Serialized,
+        value: TokenAmount,
+        send_return: Serialized,
+        exit_code: ExitCode,
+    ) {
+        self.expect_sends.push_back(ExpectedMessage {
+            to,
+            method,
+            params,
+            value,
+            send_return,
+            exit_code,
+        })
+    }
 }
 
 impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
-// impl<ST: StateTree, BS: BlockStore> Runtime<BS> for MockRuntime<'_, ST, BS> {
+    // impl<ST: StateTree, BS: BlockStore> Runtime<BS> for MockRuntime<'_, ST, BS> {
     fn message(&self) -> &UnsignedMessage {
         self.require_in_call();
         todo!();
@@ -220,7 +280,8 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         if &addrs != expect_validate_caller_addr.as_ref().unwrap() {
             panic!(
                 "unexpected validate caller addrs {:?}, expected {:?}",
-                addrs, expect_validate_caller_addr.as_ref()
+                addrs,
+                expect_validate_caller_addr.as_ref()
             );
         }
         for expected in &addrs {
@@ -302,23 +363,30 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     }
 
     fn get_randomness(
-        personalization: DomainSeparationTag,
-        rand_epoch: ChainEpoch,
-        entropy: &[u8],
+        _personalization: DomainSeparationTag,
+        _rand_epoch: ChainEpoch,
+        _entropy: &[u8],
     ) -> Randomness {
         unimplemented!()
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
         if self.state.is_some() == true {
-            return Err(self.abort(ExitCode::SysErrorIllegalActor, "state already constructed".to_owned()))
+            return Err(self.abort(
+                ExitCode::SysErrorIllegalActor,
+                "state already constructed".to_owned(),
+            ));
         }
         self.state = Some(self.store.put(obj, Blake2b256).unwrap());
         Ok(())
     }
 
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        Ok(self.store.get(&self.state.as_ref().unwrap()).unwrap().unwrap())
+        Ok(self
+            .store
+            .get(&self.state.as_ref().unwrap())
+            .unwrap()
+            .unwrap())
     }
 
     fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
