@@ -7,11 +7,13 @@ use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
+use log::warn;
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::sync::Arc;
 
 const GENESIS_KEY: &str = "gen_block";
+const _HEAD_KEY: &str = "head";
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
@@ -35,7 +37,6 @@ where
 {
     /// constructor
     pub fn new(db: Arc<DB>) -> Self {
-        // TODO pull heaviest tipset from data storage
         let heaviest = Arc::new(Tipset::new(vec![BlockHeader::default()]).unwrap());
         Self {
             db,
@@ -44,9 +45,16 @@ where
         }
     }
 
-    /// Sets heaviest tipset within ChainStore
-    pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
-        self.heaviest = ts;
+    /////////////////////////////////////////////////////////////////////////////////
+    /// Writes
+    /////////////////////////////////////////////////////////////////////////////////
+
+    /// Sets heaviest tipset within ChainStore and store its tipset cids under reserved HEAD_KEY
+    pub fn set_heaviest_tipset(&mut self, ts: Tipset) -> Result<(), Error> {
+        self.db.write(_HEAD_KEY, ts.marshal_cbor()?)?;
+        self.persist_headers(&ts)?;
+        self.heaviest = Arc::new(ts);
+        Ok(())
     }
 
     /// Sets tip_index tracker
@@ -58,11 +66,6 @@ where
             tipset: ts,
         };
         Ok(self.tip_index.put(&meta)?)
-    }
-    /// weight
-    pub fn weight(&self, _ts: &Tipset) -> Result<BigUint, Error> {
-        // TODO
-        Ok(BigUint::from(0 as u32))
     }
 
     /// Writes genesis to blockstore
@@ -97,6 +100,24 @@ where
             self.db.write(&key, value)?
         }
         Ok(())
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////
+    /// Reads
+    /////////////////////////////////////////////////////////////////////////////////
+
+    /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
+    fn _load_heaviest_tipset(&self) -> Result<Arc<Tipset>, Error> {
+        let keys: Vec<Cid> = match self.db.read(_HEAD_KEY)? {
+            Some(bz) => from_slice(&bz)?,
+            None => {
+                warn!("No previous chain state found");
+                return Err(Error::NotFound("No chain state found"));
+            }
+        };
+
+        let heaviest_ts = self.tipset_from_keys(&TipSetKeys::new(keys))?;
+        Ok(Arc::new(heaviest_ts))
     }
 
     /// Returns genesis blockheader from blockstore
@@ -195,6 +216,10 @@ where
             .collect()
     }
 
+    /////////////////////////////////////////////////////////////////////////////////
+    /// Utility
+    /////////////////////////////////////////////////////////////////////////////////
+
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
@@ -209,6 +234,12 @@ where
         }
 
         Ok(FullTipset::new(blocks))
+    }
+
+    /// weight
+    pub fn weight(&self, _ts: &Tipset) -> Result<BigUint, Error> {
+        // TODO
+        Ok(BigUint::from(0 as u32))
     }
 }
 

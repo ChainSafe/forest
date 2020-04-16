@@ -9,6 +9,7 @@ use clock::ChainEpoch;
 use encoding::{
     de::{self, Deserializer},
     ser::{self, Serializer},
+    to_vec, Cbor, Error as EncodingError,
 };
 use num_bigint::BigUint;
 use serde::Deserialize;
@@ -201,6 +202,32 @@ impl Tipset {
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
         &self.blocks[0].weight()
+    }
+}
+
+impl Cbor for Tipset {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
+        Ok(to_vec(&self.cids())?)
+    }
+}
+
+impl ser::Serialize for Tipset {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (&self.blocks, &self.key).serialize(serializer)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for Tipset {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (blocks, key) = Deserialize::deserialize(deserializer)?;
+
+        Ok(Tipset { blocks, key })
     }
 }
 

@@ -16,6 +16,7 @@ message = { package = "forest_message", path = "../../vm/message" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 ipld_amt = { path = "../../ipld/amt/" }
 thiserror = "1.0"
+log = "0.4.8"
 
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
