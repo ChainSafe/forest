@@ -135,12 +135,13 @@ pub trait Syscalls {
     /// Verifies that a signature is valid for an address and plaintext.
     fn verify_signature(
         &self,
-        _signature: &Signature,
-        _signer: &Address,
-        _plaintext: &[u8],
+        signature: &Signature,
+        signer: &Address,
+        plaintext: &[u8],
     ) -> Result<(), ActorError> {
-        // TODO
-        todo!()
+        signature
+            .verify(plaintext, signer)
+            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))
     }
     /// Hashes input data using blake2b with 256 bit output.
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], ActorError> {
