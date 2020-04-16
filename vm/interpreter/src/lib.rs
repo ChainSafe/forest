@@ -215,7 +215,7 @@ where
         }
         let gas_used = if gas_used < 0 { 0 } else { gas_used as u64 };
         // refund unused gas
-        let refund = (msg.gas_limit().checked_sub(gas_used).unwrap_or(1u64)) * msg.gas_price();
+        let refund = (msg.gas_limit() - gas_used) * msg.gas_price();
         self.state.mutate_actor(msg.from(), |act| {
             act.deposit_funds(&refund);
             Ok(())
