@@ -1,13 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{ActorState, ACCOUNT_ACTOR_CODE_ID, REWARD_ACTOR_ADDR};
+use actor::{ACCOUNT_ACTOR_CODE_ID, REWARD_ACTOR_ADDR};
 use address::Address;
 use blocks::Tipset;
 use clock::ChainEpoch;
-use default_runtime::{
-    internal_send, transfer_from_gas_holder, transfer_to_gas_holder, DefaultRuntime,
-};
+use default_runtime::{internal_send, DefaultRuntime};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
@@ -18,9 +16,11 @@ use runtime::Syscalls;
 use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized, StateTree};
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'a, ST: StateTree, DB: BlockStore, SYS: Syscalls>
+pub struct VM<'a, ST, DB, SYS>
 where
-    SYS: Copy,
+    ST: StateTree,
+    DB: BlockStore,
+    SYS: Syscalls + Copy,
 {
     state: ST,
     store: &'a DB,
@@ -29,8 +29,10 @@ where
     // TODO: missing fields
 }
 
-impl<'a, ST: StateTree, DB: BlockStore, SYS: Syscalls> VM<'a, ST, DB, SYS>
+impl<'a, ST, DB, SYS> VM<'a, ST, DB, SYS>
 where
+    ST: StateTree,
+    DB: BlockStore,
     SYS: Syscalls + Copy,
 {
     pub fn new(state: ST, store: &'a DB, epoch: ChainEpoch, syscalls: SYS) -> Self {
@@ -104,16 +106,16 @@ where
 
         let pl = price_list_by_epoch(*self.epoch());
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
-        let msg_gas_cost = pl.on_chain_message(ser_msg.len() as i64);
+        let msg_gas_cost = pl.on_chain_message(ser_msg.len() as i64) as u64;
 
-        if msg_gas_cost as u64 > msg.gas_limit() {
+        if msg_gas_cost > msg.gas_limit() {
             return Ok(ApplyRet::new(
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrOutOfGas,
                     gas_used: BigUint::zero(),
                 },
-                msg.gas_price() * msg_gas_cost as u64,
+                msg.gas_price() * msg_gas_cost,
                 Some(ActorError::new(
                     ExitCode::SysErrOutOfGas,
                     "Out of gas".to_owned(),
@@ -121,7 +123,7 @@ where
             ));
         }
 
-        let miner_penalty_amount = msg.gas_price() * msg_gas_cost as u64;
+        let miner_penalty_amount = msg.gas_price() * msg_gas_cost;
         let mut from_act = match self.state.get_actor(msg.from()) {
             Ok(from_act) => from_act.ok_or("Failed to retrieve actor state")?,
             Err(_) => {
@@ -131,7 +133,7 @@ where
                         exit_code: ExitCode::SysErrSenderInvalid,
                         gas_used: BigUint::zero(),
                     },
-                    msg.gas_price() * msg_gas_cost as u64,
+                    msg.gas_price() * msg_gas_cost,
                     Some(ActorError::new(
                         ExitCode::SysErrSenderInvalid,
                         "Sender invalid".to_owned(),
@@ -188,14 +190,16 @@ where
             ));
         };
 
-        let mut gas_holder = ActorState::default(); // used for balance tracking
-        transfer_to_gas_holder(&mut self.state, msg.from(), &mut gas_holder, &gas_cost)?;
-        from_act.sequence += 1;
+        self.state.mutate_actor(msg.from(), |act| {
+            from_act.deduct_funds(&gas_cost)?;
+            act.sequence += 1;
+            Ok(())
+        })?;
 
         let snapshot = self.state.snapshot()?;
 
         // scoped to deal with mutable reference borrowing
-        let (ret_data, mut gas_used, act_err) = {
+        let (ret_data, gas_used, act_err) = {
             let (ret_data, mut rt, act_err) = self.send(msg, msg_gas_cost as i64);
             rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
                 .map_err(|e| e.to_string())?;
@@ -214,25 +218,21 @@ where
             }
             warn!("Send actor error: from:{}, to:{}", msg.from(), msg.to());
         }
-        // TODO ask if this is correct as this could give a free tx if gas used was a negative value(e.g. delete_miner)
-        // see: https://github.com/filecoin-project/lotus/blob/testnet/3/chain/vm/vm.go#L388
-        if gas_used < 0 {
-            gas_used = 0;
-        }
+        let gas_used = if gas_used < 0 { 0 } else { gas_used as u64 };
         // refund unused gas
-        let refund =
-            (msg.gas_limit().checked_sub(gas_used as u64).unwrap_or(1u64)) * msg.gas_price();
-        transfer_from_gas_holder(&mut self.state, msg.from(), &mut gas_holder, &refund)?;
+        let refund = (msg.gas_limit().checked_sub(gas_used).unwrap_or(1u64)) * msg.gas_price();
+        self.state.mutate_actor(msg.from(), |act| {
+            act.deposit_funds(&refund);
+            Ok(())
+        })?;
 
-        let gas_reward = msg.gas_price() * BigUint::from(gas_used as u64);
-        transfer_from_gas_holder(
-            &mut self.state,
-            &*REWARD_ACTOR_ADDR,
-            &mut gas_holder,
-            &gas_reward,
-        )?;
+        let gas_reward = msg.gas_price() * BigUint::from(gas_used);
+        self.state.mutate_actor(&*REWARD_ACTOR_ADDR, |act| {
+            act.deposit_funds(&gas_reward);
+            Ok(())
+        })?;
 
-        if gas_holder.balance != BigUint::zero() {
+        if refund + gas_reward != gas_cost {
             return Err("Gas handling math is wrong".to_owned());
         }
 
@@ -240,7 +240,7 @@ where
             MessageReceipt {
                 return_data: ret_data,
                 exit_code: ExitCode::Ok,
-                gas_used: BigUint::from(gas_used as u64),
+                gas_used: BigUint::from(gas_used),
             },
             BigUint::zero(),
             None,
@@ -278,6 +278,7 @@ where
 
 // TODO remove allow dead_code
 #[allow(dead_code)]
+/// Apply message return data
 pub struct ApplyRet {
     msg_receipt: MessageReceipt,
     penalty: BigUint,

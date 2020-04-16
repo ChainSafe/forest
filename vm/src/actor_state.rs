@@ -4,8 +4,6 @@
 use crate::TokenAmount;
 use cid::Cid;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
-use num_bigint::BigUint;
-use num_traits::Zero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Identifier for Actors, includes builtin and initialized actors
@@ -50,17 +48,6 @@ impl<'de> Deserialize<'de> for ActorState {
     }
 }
 
-impl Default for ActorState {
-    fn default() -> Self {
-        Self {
-            code: Cid::default(),
-            state: Cid::default(),
-            balance: BigUint::zero(),
-            sequence: 0,
-        }
-    }
-}
-
 impl ActorState {
     /// Constructor for actor state
     pub fn new(code: Cid, state: Cid, balance: TokenAmount, sequence: u64) -> Self {
@@ -70,5 +57,18 @@ impl ActorState {
             balance,
             sequence,
         }
+    }
+    /// Safely deducts funds from an Actor
+    pub fn deduct_funds(&mut self, amt: &TokenAmount) -> Result<(), String> {
+        if &self.balance < amt {
+            return Err("Not enough funds".to_owned());
+        }
+        self.balance -= amt;
+
+        Ok(())
+    }
+    /// Deposits funds to an Actor
+    pub fn deposit_funds(&mut self, amt: &TokenAmount) {
+        self.balance += amt;
     }
 }
