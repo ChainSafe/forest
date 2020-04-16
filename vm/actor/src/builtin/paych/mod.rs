@@ -113,9 +113,9 @@ impl Actor {
         rt.syscalls()
             .verify_signature(&sig, &signer, &sv_bz)
             .map_err(|e| {
-                rt.abort(
+                ActorError::new(
                     ExitCode::ErrIllegalArgument,
-                    format!("voucher signature invalid: {}", e),
+                    format!("voucher signature invalid: {}", e.msg()),
                 )
             })?;
 
@@ -130,7 +130,10 @@ impl Actor {
         if !sv.secret_pre_image.is_empty() {
             let hashed_secret: &[u8] = &rt.syscalls().hash_blake2b(&params.secret)?;
             if hashed_secret != sv.secret_pre_image.as_slice() {
-                return Err(rt.abort(ExitCode::ErrIllegalArgument, "incorrect secret"));
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    "incorrect secret".to_owned(),
+                ));
             }
         }
 

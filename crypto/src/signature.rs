@@ -102,40 +102,54 @@ impl Signature {
     pub fn signature_type(&self) -> SignatureType {
         self.sig_type
     }
-}
 
-/// Checks if a signature is valid given data and address
-pub fn is_valid_signature(data: &[u8], addr: &Address, sig: &Signature) -> bool {
-    match addr.protocol() {
-        Protocol::BLS => verify_bls_sig(data, addr.payload(), sig),
-        Protocol::Secp256k1 => verify_secp256k1_sig(data, addr, sig),
-        _ => false,
-    }
-}
-
-/// Returns true if a bls signature is valid
-pub(crate) fn verify_bls_sig(data: &[u8], pub_k: &[u8], sig: &Signature) -> bool {
-    if pub_k.len() != BLS_PUB_LEN || sig.bytes().len() != BLS_SIG_LEN {
-        // validates pubkey length and signature length for protocol
-        return false;
+    /// Checks if a signature is valid given data and address
+    pub fn verify(&self, data: &[u8], addr: &Address) -> Result<(), String> {
+        match addr.protocol() {
+            Protocol::BLS => self.verify_bls_sig(data, addr),
+            Protocol::Secp256k1 => self.verify_secp256k1_sig(data, addr),
+            _ => Err("Address must be resolved to verify a signature".to_owned()),
+        }
     }
 
-    // hash data to be verified
-    let hashed = bls_hash(data);
+    /// Returns `String` error if a bls signature is invalid
+    pub(crate) fn verify_bls_sig(&self, data: &[u8], addr: &Address) -> Result<(), String> {
+        let pub_k = addr.payload();
 
-    // generate public key object from bytes
-    let pk = match BlsPubKey::from_bytes(&pub_k) {
-        Ok(v) => v,
-        Err(_) => return false,
-    };
-    // generate signature struct from bytes
-    let sig = match BlsSignature::from_bytes(sig.bytes()) {
-        Ok(v) => v,
-        Err(_) => return false,
-    };
+        // hash data to be verified
+        let hashed = bls_hash(data);
 
-    // BLS verify hash against key
-    verify(&sig, &[hashed], &[pk])
+        // generate public key object from bytes
+        let pk = BlsPubKey::from_bytes(&pub_k).map_err(|e| e.to_string())?;
+
+        // generate signature struct from bytes
+        let sig = BlsSignature::from_bytes(self.bytes()).map_err(|e| e.to_string())?;
+
+        // BLS verify hash against key
+        if verify(&sig, &[hashed], &[pk]) {
+            Ok(())
+        } else {
+            Err("bls signature verification failed".to_owned())
+        }
+    }
+
+    /// Returns `String` error if a secp256k1 signature is invalid
+    fn verify_secp256k1_sig(&self, data: &[u8], addr: &Address) -> Result<(), String> {
+        // blake2b 256 hash
+        let hash = blake2b_256(data);
+
+        // Ecrecover with hash and signature
+        let mut signature = [0u8; 65];
+        signature[..].clone_from_slice(self.bytes());
+        let rec_addr = ecrecover(&hash, &signature).map_err(|e| e.to_string())?;
+
+        // check address against recovered address
+        if &rec_addr == addr {
+            Ok(())
+        } else {
+            Err("Secp signature verification failed".to_owned())
+        }
+    }
 }
 
 pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &Signature) -> bool {
@@ -161,23 +175,6 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
 
     // DOes the aggregate verification
     verify(&sig, &hashed_data[..], &pks[..])
-}
-
-/// Returns true if a secp256k1 signature is valid
-fn verify_secp256k1_sig(data: &[u8], addr: &Address, sig: &Signature) -> bool {
-    // blake2b 256 hash
-    let hash = blake2b_256(data);
-
-    // Ecrecover with hash and signature
-    let mut signature = [0u8; 65];
-    signature[..].clone_from_slice(sig.bytes());
-    let rec_addr = ecrecover(&hash, &signature);
-
-    // check address against recovered address
-    match rec_addr {
-        Ok(r) => addr == &r,
-        Err(_) => false,
-    }
 }
 
 // TODO: verify signature data format after signing implemented
@@ -229,18 +226,12 @@ mod tests {
         let pk = sk.public_key();
         let addr = Address::new_bls(pk.as_bytes()).unwrap();
 
-        assert_eq!(
-            is_valid_signature(&msg, &addr, &Signature::new_bls(signature_bytes.clone())),
-            true
-        );
-        assert_eq!(
-            verify_bls_sig(
-                &msg,
-                &pk.as_bytes(),
-                &Signature::new_bls(signature_bytes.clone())
-            ),
-            true
-        );
+        Signature::new_bls(signature_bytes.clone())
+            .verify(&msg, &addr)
+            .unwrap();
+        Signature::new_bls(signature_bytes.clone())
+            .verify_bls_sig(&msg, &addr)
+            .unwrap();
     }
     #[test]
     fn bls_agg_verify() {

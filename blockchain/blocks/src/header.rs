@@ -5,7 +5,7 @@ use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::{is_valid_signature, Signature};
+use crypto::Signature;
 use derive_builder::Builder;
 use encoding::{
     de::{self, Deserializer},
@@ -268,11 +268,11 @@ impl BlockHeader {
         let signature = self
             .signature()
             .as_ref()
-            .ok_or(Error::InvalidSignature("Signature is nil in header"))?;
+            .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
 
-        if !is_valid_signature(&self.cid().to_bytes(), addr, signature) {
-            return Err(Error::InvalidSignature("Block signature is invalid"));
-        }
+        signature
+            .verify(&self.cid().to_bytes(), addr)
+            .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
 
         Ok(())
     }
