@@ -68,11 +68,11 @@ where
         Ok(receipts)
     }
 
-    fn _apply_implicit_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
+    fn _apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         let (ret_data, _, act_err) = self.send(msg, 0);
 
         if let Some(err) = act_err {
-            return Ok(ApplyRet::new(
+            return ApplyRet::new(
                 MessageReceipt {
                     return_data: ret_data,
                     exit_code: err.exit_code(),
@@ -80,10 +80,10 @@ where
                 },
                 BigUint::zero(),
                 Some(err),
-            ));
+            );
         };
 
-        Ok(ApplyRet::new(
+        ApplyRet::new(
             MessageReceipt {
                 return_data: ret_data,
                 exit_code: ExitCode::Ok,
@@ -91,7 +91,7 @@ where
             },
             BigUint::zero(),
             Some(ActorError::new(ExitCode::Ok, "Ok error".to_owned())),
-        ))
+        )
     }
 
     /// Applies the state transition for a single message
