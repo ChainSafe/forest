@@ -531,33 +531,18 @@ fn transfer<ST: StateTree>(
         return Err("Negative transfer value".to_owned());
     }
 
-    deduct_funds(state, from, &value)?;
-    deposit_funds(state, to, &value)?;
-    Ok(())
-}
+    let mut f = state
+        .get_actor(from)?
+        .ok_or("Transfer failed when retrieving sender actor")?;
+    let mut t = state
+        .get_actor(to)?
+        .ok_or("Transfer failed when retrieving receiver actor")?;
 
-/// Safely deducts funds from an Actor
-fn deduct_funds<ST: StateTree>(
-    state: &mut ST,
-    from: &Address,
-    amt: &TokenAmount,
-) -> Result<(), String> {
-    state.mutate_actor(from, |act| {
-        if &act.balance < amt {
-            return Err("not enough funds".to_owned());
-        }
-        act.balance -= amt;
-        Ok(())
-    })
-}
-/// Deposits funds to an Actor
-fn deposit_funds<ST: StateTree>(
-    state: &mut ST,
-    to: &Address,
-    amt: &TokenAmount,
-) -> Result<(), String> {
-    state.mutate_actor(to, |act| {
-        act.balance += amt;
-        Ok(())
-    })
+    f.deduct_funds(&value)?;
+    t.deposit_funds(&value);
+
+    state.set_actor(from, f)?;
+    state.set_actor(to, t)?;
+
+    Ok(())
 }

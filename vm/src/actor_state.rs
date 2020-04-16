@@ -58,4 +58,17 @@ impl ActorState {
             sequence,
         }
     }
+    /// Safely deducts funds from an Actor
+    pub fn deduct_funds(&mut self, amt: &TokenAmount) -> Result<(), String> {
+        if &self.balance < amt {
+            return Err("Not enough funds".to_owned());
+        }
+        self.balance -= amt;
+
+        Ok(())
+    }
+    /// Deposits funds to an Actor
+    pub fn deposit_funds(&mut self, amt: &TokenAmount) {
+        self.balance += amt;
+    }
 }
