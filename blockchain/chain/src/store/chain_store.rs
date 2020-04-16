@@ -215,6 +215,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use address::Address;
     use cid::multihash::Identity;
 
     #[test]
@@ -228,6 +229,7 @@ mod tests {
             .messages(Cid::new_from_cbor(&[], Identity))
             .message_receipts(Cid::new_from_cbor(&[], Identity))
             .state_root(Cid::new_from_cbor(&[], Identity))
+            .miner_address(Address::new_id(0).unwrap())
             .build_and_validate()
             .unwrap();
 

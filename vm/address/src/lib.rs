@@ -205,11 +205,10 @@ impl ser::Serialize for Address {
     where
         S: ser::Serializer,
     {
-        // if self == &Cid::default() {
-        //     // TODO remove if intended to use outside of Forest
-        //     // Only used for convenience of having Cid implement default
-        //     return Err(ser::Error::custom("Cannot serialize a default Cid"));
-        // }
+        if self == &Address::default() {
+            // Just a sanity check to disallow serialization of invalid address
+            return Err(ser::Error::custom("Cannot serialize a default Address"));
+        }
 
         let address_bytes = self.to_bytes();
         serde_bytes::Serialize::serialize(&address_bytes, s)
