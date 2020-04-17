@@ -16,13 +16,12 @@ use state_tree::{HamtStateTree, StateTree};
 use std::sync::Arc;
 
 const GENESIS_KEY: &str = "gen_block";
-const _HEAD_KEY: &str = "head";
-
+const HEAD_KEY: &str = "head";
 // constants for Weight calculation
-// The ratio of weight contributed by short-term vs long-term factors in a given round
+/// The ratio of weight contributed by short-term vs long-term factors in a given round
 const W_RATIO_NUM: u64 = 1;
 const W_RATIO_DEN: u64 = 2;
-// Blocks (e)
+/// Blocks epoch allowed
 const BLOCKS_PER_EPOCH: u64 = 5;
 
 /// Generic implementation of the datastore trait and structures
@@ -46,6 +45,7 @@ where
 {
     /// constructor
     pub fn new(db: Arc<DB>) -> Self {
+        // TODO pull heaviest tipset from data storage
         let heaviest = Arc::new(Tipset::new(vec![BlockHeader::default()]).unwrap());
         Self {
             db,
@@ -56,7 +56,7 @@ where
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
     pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
-        self.db.write(_HEAD_KEY, ts.marshal_cbor()?)?;
+        self.db.write(HEAD_KEY, ts.marshal_cbor()?)?;
         self.heaviest = ts;
         Ok(())
     }
@@ -110,7 +110,7 @@ where
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
     pub fn _load_heaviest_tipset(&mut self) -> Result<(), Error> {
-        let keys: Vec<Cid> = match self.db.read(_HEAD_KEY)? {
+        let keys: Vec<Cid> = match self.db.read(HEAD_KEY)? {
             Some(bz) => from_slice(&bz)?,
             None => {
                 warn!("No previous chain state found");
@@ -237,6 +237,7 @@ where
     }
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     fn is_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
+        // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         let new_weight = self.weight(ts)?;
         let curr_weight = self.weight(&self.heaviest)?;
 
@@ -271,13 +272,13 @@ where
         } else {
             return Err("All power in the net is gone. You network might be disconnected, or the net is dead!".to_owned());
         };
-        let mut new_v = ts.weight() + (&log2_p << 8);
 
+        let mut out = ts.weight() + (&log2_p << 8);
         let e_weight =
             ((log2_p * BigUint::from(ts.blocks().len())) * BigUint::from(W_RATIO_NUM)) << 8;
         let value = e_weight / (BigUint::from(BLOCKS_PER_EPOCH) * BigUint::from(W_RATIO_DEN));
-        new_v += &value;
-        Ok(new_v)
+        out += &value;
+        Ok(out)
     }
 }
 
