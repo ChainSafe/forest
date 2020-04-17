@@ -27,19 +27,19 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// ```
 /// use forest_blocks::{BlockHeader, TipSetKeys, Ticket};
 /// use address::Address;
-/// use cid::Cid;
+/// use cid::{Cid, multihash::Identity};
 /// use num_bigint::BigUint;
 /// use crypto::Signature;
 ///
 /// BlockHeader::builder()
+///     .messages(Cid::new_from_cbor(&[], Identity)) // required
+///     .message_receipts(Cid::new_from_cbor(&[], Identity)) // required
+///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0).unwrap()) // optional
 ///     .bls_aggregate(None) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(0) // optional
-///     .messages(Cid::default()) // optional
-///     .message_receipts(Cid::default()) // optional
-///     .state_root(Cid::default()) // optional
 ///     .timestamp(0) // optional
 ///     .ticket(Ticket::default()) // optional
 ///     .build_and_validate()
