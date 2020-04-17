@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{multihash, Cid, Codec, Version};
+use cid::{multihash, Cid, Codec};
 use filecoin_proofs_api::Commitment;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -39,7 +39,7 @@ pub enum FilecoinMultihashCode {
 pub fn commitment_to_cid(commitment: Commitment, code: FilecoinMultihashCode) -> Cid {
     let mh = multihash::wrap(multihash::Code::Custom(code as u64), &commitment);
 
-    Cid::new(Codec::Raw, Version::V1, mh)
+    Cid::new_v1(Codec::Raw, mh)
 }
 
 /// cid_to_commitment extracts the raw data commitment from a CID
