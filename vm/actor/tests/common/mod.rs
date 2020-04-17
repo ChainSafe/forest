@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
@@ -501,7 +504,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         todo!("implement me???")
     }
 
-    fn syscalls(&self) -> Syscalls {
+    fn syscalls(&self) -> &dyn Syscalls {
         unimplemented!()
     }
 }
