@@ -3,7 +3,7 @@
 
 use cid::{multihash, Cid, Codec};
 use commcid::*;
-use filecoin_proofs_api::Commitment;
+// use filecoin_proofs_api::Commitment;
 use rand::thread_rng;
 use rand::Rng;
 
