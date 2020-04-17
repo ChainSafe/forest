@@ -25,7 +25,7 @@ fn construct_with_empty_entries() {
     let bs = MemoryDB::default();
     let mut rt = construct_runtime(&bs);
 
-    construct_and_verify(&mut rt, ConstructorParams { entries: vec![] });
+    construct_and_verify(&mut rt, &ConstructorParams { entries: vec![] });
     let state: State = rt.get_state().unwrap();
 
     assert_eq!(state.entries, vec![]);
@@ -57,7 +57,7 @@ fn construct_with_entries() {
         entries: vec![entry1, entry2, entry3, entry4],
     };
 
-    construct_and_verify(&mut rt, params.clone());
+    construct_and_verify(&mut rt, &params);
 
     let state: State = rt.get_state().unwrap();
 
@@ -69,7 +69,7 @@ fn epoch_tick_with_empty_entries() {
     let bs = MemoryDB::default();
     let mut rt = construct_runtime(&bs);
 
-    construct_and_verify(&mut rt, ConstructorParams { entries: vec![] });
+    construct_and_verify(&mut rt, &ConstructorParams { entries: vec![] });
     epoch_tick_and_verify(&mut rt);
 }
 #[test]
@@ -103,7 +103,7 @@ fn epoch_tick_with_entries() {
         ],
     };
 
-    construct_and_verify(&mut rt, params);
+    construct_and_verify(&mut rt, &params);
 
     // ExitCodes dont matter here
     rt.expect_send(
@@ -142,13 +142,13 @@ fn epoch_tick_with_entries() {
     epoch_tick_and_verify(&mut rt);
 }
 
-fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>, params: ConstructorParams) {
+fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>, params: &ConstructorParams) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
     let ret = rt
         .call(
             &*CRON_ACTOR_CODE_ID,
             1,
-            &Serialized::serialize(params).unwrap(),
+            &Serialized::serialize(&params).unwrap(),
         )
         .unwrap();
     assert_eq!(Serialized::default(), ret);
