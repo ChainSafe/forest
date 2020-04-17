@@ -7,7 +7,6 @@ use actor::{
     CRON_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
 use common::*;
-// use crate::tests::mock_rt::*;
 use address::Address;
 use db::MemoryDB;
 use ipld_blockstore::BlockStore;
