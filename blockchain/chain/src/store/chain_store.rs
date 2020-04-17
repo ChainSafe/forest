@@ -55,7 +55,7 @@ where
     }
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
-    pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
+    fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.marshal_cbor()?)?;
         self.heaviest = ts;
         Ok(())
@@ -109,7 +109,7 @@ where
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    pub fn _load_heaviest_tipset(&mut self) -> Result<(), Error> {
+    fn _load_heaviest_tipset(&mut self) -> Result<(), Error> {
         let keys: Vec<Cid> = match self.db.read(HEAD_KEY)? {
             Some(bz) => from_slice(&bz)?,
             None => {
@@ -251,7 +251,7 @@ where
     }
 
     /// Returns the weight of provided tipset
-    pub fn weight(&self, ts: &Tipset) -> Result<BigUint, String> {
+    fn weight(&self, ts: &Tipset) -> Result<BigUint, String> {
         if ts.is_empty() {
             return Ok(BigUint::zero());
         }
