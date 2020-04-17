@@ -56,7 +56,7 @@ where
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
     fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
-        self.db.write(HEAD_KEY, ts.marshal_cbor()?)?;
+        self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         self.heaviest = ts;
         Ok(())
     }
@@ -90,7 +90,7 @@ where
                 keys.push(block.cid().key());
             }
         }
-        self.is_heaviest(tip)?;
+        self.update_heaviest(tip)?;
 
         Ok(self.db.bulk_write(&keys, &raw_header_data)?)
     }
@@ -236,7 +236,7 @@ where
         Ok(FullTipset::new(blocks))
     }
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    fn is_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
+    fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         let new_weight = self.weight(ts)?;
         let curr_weight = self.weight(&self.heaviest)?;
@@ -279,32 +279,5 @@ where
         let value = e_weight / (BigUint::from(BLOCKS_PER_EPOCH) * BigUint::from(W_RATIO_DEN));
         out += &value;
         Ok(out)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use address::Address;
-    use cid::multihash::Identity;
-
-    #[test]
-    fn genesis_test() {
-        let db = db::MemoryDB::default();
-
-        let mut cs = ChainStore::new(Arc::new(db));
-        let gen_block = BlockHeader::builder()
-            .epoch(1)
-            .weight((2 as u32).into())
-            .messages(Cid::new_from_cbor(&[], Identity))
-            .message_receipts(Cid::new_from_cbor(&[], Identity))
-            .state_root(Cid::new_from_cbor(&[], Identity))
-            .miner_address(Address::new_id(0).unwrap())
-            .build_and_validate()
-            .unwrap();
-
-        assert_eq!(cs.genesis().unwrap(), None);
-        cs.set_genesis(gen_block.clone()).unwrap();
-        assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 }

@@ -65,6 +65,12 @@ impl<'de> de::Deserialize<'de> for TipSetKeys {
     }
 }
 
+impl Cbor for TipSetKeys {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
+        Ok(to_vec(&self.cids())?)
+    }
+}
+
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
 #[derive(Clone, PartialEq, Debug, PartialOrd, Ord, Eq)]
@@ -202,32 +208,6 @@ impl Tipset {
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
         &self.blocks[0].weight()
-    }
-}
-
-impl Cbor for Tipset {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
-        Ok(to_vec(&self.cids())?)
-    }
-}
-
-impl ser::Serialize for Tipset {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.blocks, &self.key).serialize(serializer)
-    }
-}
-
-impl<'de> de::Deserialize<'de> for Tipset {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (blocks, key) = Deserialize::deserialize(deserializer)?;
-
-        Ok(Tipset { blocks, key })
     }
 }
 
