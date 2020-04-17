@@ -27,4 +27,5 @@ members = [
     "tests/serialization_tests",
     "utils/rleplus",
     "utils/test_utils",
+    "utils/commcid",
 ]

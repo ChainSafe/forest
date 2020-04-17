@@ -28,6 +28,7 @@ clean:
 	@cargo clean -p ipld_amt
 	@cargo clean -p forest_bigint
 	@cargo clean -p rleplus
+	@cargo clean -p commcid
 	@echo "Done cleaning."
 
 lint: license clean
