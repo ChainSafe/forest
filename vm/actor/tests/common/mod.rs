@@ -275,7 +275,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
             "unexpected validate caller addrs"
         );
         assert!(
-            expect_validate_caller_addr.as_ref().unwrap().len() != 0,
+            !expect_validate_caller_addr.as_ref().unwrap().is_empty(),
             "unexpected validate caller addrs"
         );
         assert!(
@@ -312,18 +312,20 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
         self.check_argument(types.len() > 0, "types must be non-empty".to_owned())?;
 
-        if !is_expect_validate_caller_type {
-            panic!("unexpected validate caller code");
-        }
-        if expect_validate_caller_type.as_ref().unwrap().len() == 0 {
-            panic!("unexpected validate caller code");
-        }
-        if expect_validate_caller_type.as_ref().unwrap() != &types {
-            panic!(
-                "unexpected validate caller code {:?}, expected {:?}",
-                types, self.expect_validate_caller_type
-            );
-        }
+        assert!(
+            is_expect_validate_caller_type,
+            "unexpected validate caller code"
+        );
+        assert!(
+            !expect_validate_caller_type.as_ref().unwrap().is_empty(),
+            "unexpected validate caller code"
+        );
+        assert!(
+            &types != expect_validate_caller_type.as_ref().unwrap(),
+            "unexpected validate caller code {:?}, expected {:?}",
+            types,
+            self.expect_validate_caller_type
+        );
 
         for expected in &types {
             if &self.caller_type == expected {
@@ -422,12 +424,16 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
                 "side-effect within transaction",
             ));
         }
-        if self.expect_sends.len() == 0 {
-            panic!(
-                "unexpected expectedMessage to: {:?} method: {:?}, value: {:?}, params: {:?}",
-                to, method, value, params
-            )
-        }
+
+        assert!(
+            !self.expect_sends.is_empty(),
+            "unexpected expectedMessage to: {:?} method: {:?}, value: {:?}, params: {:?}",
+            to,
+            method,
+            value,
+            params
+        );
+
         let expected_msg = self.expect_sends[0].clone();
 
         if &expected_msg.to != to
@@ -439,8 +445,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         }
         if value > &self.balance {
             return Err(self.abort(
-                ExitCode::SysErrInternal,
-                // ExitCode::SysErrSenderStateInvalid,
+                ExitCode::SysErrSenderStateInvalid,
                 format!(
                     "cannot send value: {:?} exceeds balance: {:?}",
                     value, self.balance
