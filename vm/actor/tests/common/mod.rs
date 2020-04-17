@@ -181,33 +181,30 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         return res;
     }
     pub fn verify(&mut self) {
-        if self.expect_validate_caller_any.get() == true {
-            panic!("expected ValidateCallerAny, not received")
-        }
-        if self.expect_validate_caller_addr.borrow().as_ref().is_some() {
-            panic!(
-                "expected ValidateCallerAddr {:?}, not received",
-                self.expect_validate_caller_addr.borrow().as_ref().unwrap()
-            )
-        }
-        if self.expect_validate_caller_type.borrow().as_ref().is_some() {
-            panic!(
-                "expected ValidateCallerType {:?}, not received",
-                self.expect_validate_caller_type.borrow().as_ref().unwrap()
-            )
-        }
-        if self.expect_sends.len() > 0 {
-            panic!(
-                "expected all message to be send, unsent messages {:?}",
-                self.expect_sends
-            )
-        }
-        if self.expect_create_actor.is_some() {
-            panic!(
-                "expected actor to be created, uncreated actor: {:?}",
-                self.expect_create_actor
-            )
-        }
+        assert!(
+            !self.expect_validate_caller_any.get(),
+            "expected ValidateCallerAny, not received"
+        );
+        assert!(
+            self.expect_validate_caller_addr.borrow().as_ref().is_none(),
+            "expected ValidateCallerAddr {:?}, not received",
+            self.expect_validate_caller_addr.borrow().as_ref().unwrap()
+        );
+        assert!(
+            self.expect_validate_caller_type.borrow().as_ref().is_none(),
+            "expected ValidateCallerType {:?}, not received",
+            self.expect_validate_caller_type.borrow().as_ref().unwrap()
+        );
+        assert!(
+            self.expect_sends.is_empty(),
+            "expected all message to be send, unsent messages {:?}",
+            self.expect_sends
+        );
+        assert!(
+            self.expect_create_actor.is_none(),
+            "expected actor to be created, uncreated actor: {:?}",
+            self.expect_create_actor
+        );
 
         self.reset();
     }
@@ -253,11 +250,13 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
     fn validate_immediate_caller_accept_any(&self) {
         self.require_in_call();
-        if !self.expect_validate_caller_any.get() {
-            panic!("unexpected validate-caller-any");
-        }
+        assert!(
+            self.expect_validate_caller_any.get(),
+            "unexpected validate-caller-any"
+        );
         self.expect_validate_caller_any.set(false);
     }
+
     fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
     where
         I: IntoIterator<Item = &'a Address>,
@@ -265,33 +264,36 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         self.require_in_call();
 
         let addrs: Vec<Address> = addresses.into_iter().cloned().collect();
-        let mut expect_validate_caller_addr = self.expect_validate_caller_addr.borrow_mut();
-        let is_expect_validate_caller_addr = expect_validate_caller_addr.is_some();
 
         self.check_argument(addrs.len() > 0, "addrs must be non-empty".to_owned())?;
 
         assert!(
-            is_expect_validate_caller_addr,
+            self.expect_validate_caller_addr.borrow().is_some(),
             "unexpected validate caller addrs"
         );
         assert!(
-            !expect_validate_caller_addr.as_ref().unwrap().is_empty(),
+            !self
+                .expect_validate_caller_addr
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .is_empty(),
             "unexpected validate caller addrs"
         );
         assert!(
-            &addrs == expect_validate_caller_addr.as_ref().unwrap(),
+            &addrs == self.expect_validate_caller_addr.borrow().as_ref().unwrap(),
             "unexpected validate caller addrs {:?}, expected {:?}",
             addrs,
-            expect_validate_caller_addr.as_ref()
+            self.expect_validate_caller_addr.borrow().as_ref()
         );
 
         for expected in &addrs {
             if &self.caller == expected {
-                *expect_validate_caller_addr = None;
+                *self.expect_validate_caller_addr.borrow_mut() = None;
                 return Ok(());
             }
         }
-        *expect_validate_caller_addr = None;
+        *self.expect_validate_caller_addr.borrow_mut() = None;
         return Err(ActorError::new(
             ExitCode::ErrForbidden,
             format!(
@@ -436,13 +438,8 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
         let expected_msg = self.expect_sends[0].clone();
 
-        if &expected_msg.to != to
-            || expected_msg.method != method
-            || &expected_msg.params != params
-            || &expected_msg.value != value
-        {
-            panic!("expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, &self.expect_sends[0])
-        }
+        assert!(&expected_msg.to == to && expected_msg.method == method && &expected_msg.params == params && &expected_msg.value == value, "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, &self.expect_sends[0]);
+
         if value > &self.balance {
             return Err(self.abort(
                 ExitCode::SysErrSenderStateInvalid,
@@ -464,12 +461,11 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
         self.require_in_call();
-        // TODO: This is supposed to be the Undef addr. We have no impled that in our default.
-        if self.new_actor_addr == None {
-            panic!("unexpected call to new actor address");
-        }
-        let ret = self.new_actor_addr.as_ref().unwrap().clone();
-        // TODO: This is supposed to be the Undef addr. We have no impled that in our default.
+        let ret = self
+            .new_actor_addr
+            .as_ref()
+            .expect("unexpected call to new actor address")
+            .clone();
         self.new_actor_addr = None;
         return Ok(ret);
     }
