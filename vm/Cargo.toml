@@ -7,8 +7,6 @@ edition = "2018"
 [dependencies]
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 address = { package = "forest_address", path = "./address" }
-ipld_amt = { path = "../ipld/amt" }
-ipld_hamt = { path = "../ipld/hamt" }
 encoding = { package = "forest_encoding", path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 cid = { package = "forest_cid", path = "../ipld/cid", features = ["serde_derive"] }

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::Error as EncodingError;
-// use ipld_amt::Error as AmtError;
-// use ipld_hamt::Error as HamtError;
 use thiserror::Error;
 
 use crate::ExitCode;
