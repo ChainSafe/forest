@@ -2,23 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Error, TipIndex, TipSetMetadata};
+use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::warn;
+use log::{info, warn};
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
+use num_traits::Zero;
+use state_tree::{HamtStateTree, StateTree};
 use std::sync::Arc;
 
 const GENESIS_KEY: &str = "gen_block";
 const _HEAD_KEY: &str = "head";
 
+// constants for Weight calculation
+// The ratio of weight contributed by short-term vs long-term factors in a given round
+const W_RATIO_NUM: u64 = 1;
+const W_RATIO_DEN: u64 = 2;
+// Blocks (e)
+const BLOCKS_PER_EPOCH: u64 = 5;
+
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
     // TODO add IPLD Store
-    // TODO add StateTreeLoader
     // TODO add a pubsub channel that publishes an event every time the head changes.
 
     // key-value datastore
@@ -45,15 +54,10 @@ where
         }
     }
 
-    /////////////////////////////////////////////////////////////////////////////////
-    /// Writes
-    /////////////////////////////////////////////////////////////////////////////////
-
-    /// Sets heaviest tipset within ChainStore and store its tipset cids under reserved HEAD_KEY
-    pub fn set_heaviest_tipset(&mut self, ts: Tipset) -> Result<(), Error> {
+    /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
+    pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(_HEAD_KEY, ts.marshal_cbor()?)?;
-        self.persist_headers(&ts)?;
-        self.heaviest = Arc::new(ts);
+        self.heaviest = ts;
         Ok(())
     }
 
@@ -69,14 +73,14 @@ where
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&self, header: BlockHeader) -> Result<(), Error> {
+    pub fn set_genesis(&mut self, header: BlockHeader) -> Result<(), Error> {
         self.db.write(GENESIS_KEY, header.marshal_cbor()?)?;
         let ts: Tipset = Tipset::new(vec![header])?;
         Ok(self.persist_headers(&ts)?)
     }
 
     /// Writes encoded blockheader data to blockstore
-    pub fn persist_headers(&self, tip: &Tipset) -> Result<(), Error> {
+    pub fn persist_headers(&mut self, tip: &Tipset) -> Result<(), Error> {
         let mut raw_header_data = Vec::new();
         let mut keys = Vec::new();
         // loop through block to push blockheader raw data and cid into vector to be stored
@@ -86,6 +90,8 @@ where
                 keys.push(block.cid().key());
             }
         }
+        self.is_heaviest(tip)?;
+
         Ok(self.db.bulk_write(&keys, &raw_header_data)?)
     }
 
@@ -102,12 +108,8 @@ where
         Ok(())
     }
 
-    /////////////////////////////////////////////////////////////////////////////////
-    /// Reads
-    /////////////////////////////////////////////////////////////////////////////////
-
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    fn _load_heaviest_tipset(&self) -> Result<Arc<Tipset>, Error> {
+    pub fn _load_heaviest_tipset(&mut self) -> Result<(), Error> {
         let keys: Vec<Cid> = match self.db.read(_HEAD_KEY)? {
             Some(bz) => from_slice(&bz)?,
             None => {
@@ -117,7 +119,9 @@ where
         };
 
         let heaviest_ts = self.tipset_from_keys(&TipSetKeys::new(keys))?;
-        Ok(Arc::new(heaviest_ts))
+        // set as heaviest tipset
+        self.heaviest = Arc::new(heaviest_ts);
+        Ok(())
     }
 
     /// Returns genesis blockheader from blockstore
@@ -216,10 +220,6 @@ where
             .collect()
     }
 
-    /////////////////////////////////////////////////////////////////////////////////
-    /// Utility
-    /////////////////////////////////////////////////////////////////////////////////
-
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
@@ -235,11 +235,49 @@ where
 
         Ok(FullTipset::new(blocks))
     }
+    /// Determines if provided tipset is heavier than existing known heaviest tipset
+    fn is_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
+        let new_weight = self.weight(ts)?;
+        let curr_weight = self.weight(&self.heaviest)?;
 
-    /// weight
-    pub fn weight(&self, _ts: &Tipset) -> Result<BigUint, Error> {
-        // TODO
-        Ok(BigUint::from(0 as u32))
+        if new_weight > curr_weight {
+            // TODO potentially need to deal with re-orgs here
+            info!("New heaviest tipset");
+            self.set_heaviest_tipset(Arc::new(ts.clone()))?;
+        }
+
+        Ok(())
+    }
+
+    /// Returns the weight of provided tipset
+    pub fn weight(&self, ts: &Tipset) -> Result<BigUint, String> {
+        if ts.is_empty() {
+            return Ok(BigUint::zero());
+        }
+
+        let mut tpow = BigUint::zero();
+        let state = HamtStateTree::new_from_root(self.db.as_ref(), ts.parent_state())?;
+        if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
+            if let Some(state) = self
+                .db
+                .get::<PowerState>(&act.state)
+                .map_err(|e| e.to_string())?
+            {
+                tpow = state.total_network_power;
+            }
+        }
+        let log2_p = if tpow > BigUint::zero() {
+            BigUint::from(tpow.bits() - 1)
+        } else {
+            return Err("All power in the net is gone. You network might be disconnected, or the net is dead!".to_owned());
+        };
+        let mut new_v = ts.weight() + (&log2_p << 8);
+
+        let e_weight =
+            ((log2_p * BigUint::from(ts.blocks().len())) * BigUint::from(W_RATIO_NUM)) << 8;
+        let value = e_weight / (BigUint::from(BLOCKS_PER_EPOCH) * BigUint::from(W_RATIO_DEN));
+        new_v += &value;
+        Ok(new_v)
     }
 }
 
@@ -251,7 +289,7 @@ mod tests {
     fn genesis_test() {
         let db = db::MemoryDB::default();
 
-        let cs = ChainStore::new(Arc::new(db));
+        let mut cs = ChainStore::new(Arc::new(db));
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight((2 as u32).into())
