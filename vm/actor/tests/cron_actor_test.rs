@@ -1,24 +1,71 @@
+mod common;
 use actor::{
-    cron::{ConstructorParams, Entry},
+    cron::{ConstructorParams, Entry, State},
     CRON_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
+use common::*;
 // use crate::tests::mock_rt::*;
 use address::Address;
 use db::MemoryDB;
-use vm::Serialized;
-#[path = "mock_rt.rs"]
-mod mock_rt;
 use ipld_blockstore::BlockStore;
-use mock_rt::*;
 use vm::ExitCode;
+use vm::Serialized;
+
+fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
+    let receiver = Address::new_id(100).unwrap();
+    let mut rt = MockRuntime::new(bs, receiver.clone());
+    rt.caller = SYSTEM_ACTOR_ADDR.clone();
+    rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
+    return rt;
+}
+#[test]
+fn construct_with_empty_entries() {
+    let bs = MemoryDB::default();
+    let mut rt = construct_runtime(&bs);
+
+    construct_and_verify(&mut rt, ConstructorParams { entries: vec![] });
+    let state: State = rt.get_state().unwrap();
+
+    assert_eq!(state.entries, vec![]);
+}
+
+#[test]
+fn construct_with_entries() {
+    let bs = MemoryDB::default();
+    let mut rt = construct_runtime(&bs);
+
+    let entry1 = Entry {
+        receiver: Address::new_id(1001).unwrap(),
+        method_num: 1001,
+    };
+    let entry2 = Entry {
+        receiver: Address::new_id(1002).unwrap(),
+        method_num: 1002,
+    };
+    let entry3 = Entry {
+        receiver: Address::new_id(1003).unwrap(),
+        method_num: 1003,
+    };
+    let entry4 = Entry {
+        receiver: Address::new_id(1004).unwrap(),
+        method_num: 1004,
+    };
+
+    let params = ConstructorParams {
+        entries: vec![entry1, entry2, entry3, entry4],
+    };
+
+    construct_and_verify(&mut rt, params.clone());
+
+    let state: State = rt.get_state().unwrap();
+
+    assert_eq!(state.entries, params.entries);
+}
 
 #[test]
 fn epoch_tick_with_empty_entries() {
     let bs = MemoryDB::default();
-    let receiver = Address::new_id(100).unwrap();
-    let mut rt = MockRuntime::new(&bs, receiver.clone());
-    rt.caller = SYSTEM_ACTOR_ADDR.clone();
-    rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
+    let mut rt = construct_runtime(&bs);
 
     construct_and_verify(&mut rt, ConstructorParams { entries: vec![] });
     epoch_tick_and_verify(&mut rt);
@@ -26,10 +73,7 @@ fn epoch_tick_with_empty_entries() {
 #[test]
 fn epoch_tick_with_entries() {
     let bs = MemoryDB::default();
-    let receiver = Address::new_id(100).unwrap();
-    let mut rt = MockRuntime::new(&bs, receiver.clone());
-    rt.caller = SYSTEM_ACTOR_ADDR.clone();
-    rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
+    let mut rt = construct_runtime(&bs);
 
     let entry1 = Entry {
         receiver: Address::new_id(1001).unwrap(),

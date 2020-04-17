@@ -13,7 +13,7 @@ pub struct State {
     pub entries: Vec<Entry>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Entry {
     pub receiver: Address,
     pub method_num: MethodNum,

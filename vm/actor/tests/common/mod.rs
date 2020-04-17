@@ -113,11 +113,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     fn put<C: Cbor>(&self, o: &C) -> Result<Cid, ActorError> {
         Ok(self.store.put(&o, Blake2b256).unwrap())
     }
-    fn get<T: DeserializeOwned>(&self, cid: Cid) -> Result<T, ActorError> {
+    fn _get<T: DeserializeOwned>(&self, cid: Cid) -> Result<T, ActorError> {
         Ok(self.store.get(&cid).unwrap().unwrap())
     }
     pub fn get_state<T: DeserializeOwned>(&self) -> Result<T, ActorError> {
-        println!("After {:?}", self.state.as_ref().unwrap());
         let data: T = self
             .store
             .get(&self.state.as_ref().unwrap())
@@ -129,6 +128,8 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         self.require(addr.len() > 0, "addrs must be non-empty".to_owned());
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
     }
+
+    #[allow(dead_code)]
     pub fn expect_validate_caller_any(&self) {
         self.expect_validate_caller_any.set(true);
     }
@@ -220,6 +221,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         self.expect_create_actor = None;
     }
 
+    #[allow(dead_code)]
     pub fn expect_send(
         &mut self,
         to: Address,
