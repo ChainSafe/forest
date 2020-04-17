@@ -285,6 +285,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use address::Address;
+    use cid::multihash::Identity;
 
     #[test]
     fn genesis_test() {
@@ -294,6 +296,10 @@ mod tests {
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight((2 as u32).into())
+            .messages(Cid::new_from_cbor(&[], Identity))
+            .message_receipts(Cid::new_from_cbor(&[], Identity))
+            .state_root(Cid::new_from_cbor(&[], Identity))
+            .miner_address(Address::new_id(0).unwrap())
             .build_and_validate()
             .unwrap();
 

@@ -11,7 +11,7 @@ pub use self::error::Error;
 pub use self::version::Version;
 use integer_encoding::{VarIntReader, VarIntWriter};
 pub use multihash;
-use multihash::{Blake2b256, Code, Multihash, MultihashDigest};
+use multihash::{Code, Identity, Multihash, MultihashDigest};
 use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::fmt;
@@ -49,7 +49,7 @@ pub struct Cid {
 
 impl Default for Cid {
     fn default() -> Self {
-        Self::new(Codec::Raw, Version::V1, Blake2b256.digest(&[]))
+        Self::new(Codec::Raw, Version::V1, Identity.digest(&[]))
     }
 }
 
@@ -59,9 +59,14 @@ impl ser::Serialize for Cid {
     where
         S: ser::Serializer,
     {
+        if self == &Cid::default() {
+            // TODO remove if intended to use outside of Forest
+            // Only used for convenience of having Cid implement default
+            return Err(ser::Error::custom("Cannot serialize a default Cid"));
+        }
+
         let mut cid_bytes = self.to_bytes();
 
-        // TODO determine if identity multibase prefix should just be included for IPLD links
         // or for all Cid bytes (byte is irrelevant and redundant)
         cid_bytes.insert(0, MULTIBASE_IDENTITY);
 
