@@ -36,7 +36,8 @@ where
             .ok_or_else(|| Error::ActorNotFound(addr.to_string()))?;
         let act: D = self
             .bs
-            .get(&actor.state)?
+            .get(&actor.state)
+            .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }

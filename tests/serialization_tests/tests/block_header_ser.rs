@@ -4,7 +4,7 @@
 #![cfg(feature = "serde_tests")]
 
 use cid::Cid;
-use crypto::VRFResult;
+use crypto::VRFProof;
 use encoding::{from_slice, to_vec};
 use forest_blocks::{BlockHeader, EPostProof, EPostTicket, Ticket, TipSetKeys};
 use hex::encode;
@@ -24,7 +24,7 @@ struct TicketVector {
 impl From<TicketVector> for Ticket {
     fn from(v: TicketVector) -> Self {
         Self {
-            vrfproof: VRFResult::new(base64::decode(&v.proof).unwrap()),
+            vrfproof: VRFProof::new(base64::decode(&v.proof).unwrap()),
         }
     }
 }

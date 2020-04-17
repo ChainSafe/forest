@@ -3,20 +3,18 @@
 
 use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
-use cid::{
-    multihash::{Blake2b256, Identity},
-    Cid,
-};
-use default_runtime::{internal_send, DefaultRuntime};
-
+use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
+use default_runtime::{internal_send, DefaultRuntime};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
+use runtime::DefaultSyscalls;
 use state_tree::HamtStateTree;
 use vm::ActorState;
 use vm::Serialized;
 use vm::StateTree;
+
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
@@ -34,7 +32,12 @@ fn transfer_test() {
         .map_err(|e| e.to_string())
         .unwrap();
 
-    let act_s = ActorState::new(Cid::default(), state_cid.clone(), Default::default(), 1);
+    let act_s = ActorState::new(
+        ACCOUNT_ACTOR_CODE_ID.clone(),
+        state_cid.clone(),
+        Default::default(),
+        1,
+    );
     state.set_actor(&INIT_ACTOR_ADDR, act_s.clone()).unwrap();
 
     let actor_addr_1 = Address::new_id(100).unwrap();
@@ -94,6 +97,7 @@ fn transfer_test() {
     let mut runtime = DefaultRuntime::new(
         &mut state,
         &store,
+        DefaultSyscalls,
         0,
         &message,
         0,

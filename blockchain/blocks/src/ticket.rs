@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crypto::VRFResult;
+use crypto::VRFProof;
 use encoding::{BytesDe, BytesSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::PoStProof;
@@ -12,12 +12,12 @@ use vm::PoStProof;
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Default)]
 pub struct Ticket {
     /// A proof output by running a VRF on the VDFResult of the parent ticket
-    pub vrfproof: VRFResult,
+    pub vrfproof: VRFProof,
 }
 
 impl Ticket {
     /// Ticket constructor
-    pub fn new(vrfproof: VRFResult) -> Self {
+    pub fn new(vrfproof: VRFProof) -> Self {
         Self { vrfproof }
     }
 }
@@ -36,7 +36,7 @@ impl<'de> Deserialize<'de> for Ticket {
     where
         D: Deserializer<'de>,
     {
-        let [cm]: [VRFResult; 1] = Deserialize::deserialize(deserializer)?;
+        let [cm]: [VRFProof; 1] = Deserialize::deserialize(deserializer)?;
         Ok(Self { vrfproof: cm })
     }
 }

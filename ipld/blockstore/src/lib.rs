@@ -2,18 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{multihash::MultihashDigest, Cid};
-use db::{Error, MemoryDB, RocksDb, Store};
+use db::{MemoryDB, RocksDb, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
+use std::error::Error as StdError;
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
     /// Get bytes from block store by Cid
-    fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Error> {
+    fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
         Ok(self.read(cid.to_bytes())?)
     }
 
     /// Get typed object from block store by Cid
-    fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Error>
+    fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Box<dyn StdError>>
     where
         T: DeserializeOwned,
     {
@@ -24,13 +25,13 @@ pub trait BlockStore: Store {
     }
 
     /// Put an object in the block store and return the Cid identifier
-    fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Error>
+    fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,
         T: MultihashDigest,
     {
         let bz = to_vec(obj)?;
-        let cid = Cid::new_from_cbor(&bz, hash).map_err(|e| Error::Other(e.to_string()))?;
+        let cid = Cid::new_from_cbor(&bz, hash);
         self.write(cid.to_bytes(), bz)?;
         Ok(cid)
     }

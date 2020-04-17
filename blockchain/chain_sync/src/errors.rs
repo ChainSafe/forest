@@ -35,7 +35,7 @@ pub enum Error {
     State(#[from] StErr),
     /// Error in validating arbitrary data
     #[error("{0}")]
-    Validation(&'static str),
+    Validation(String),
     /// Any other error that does not need to be specifically handled
     #[error("{0}")]
     Other(String),

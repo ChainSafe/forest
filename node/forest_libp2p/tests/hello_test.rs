@@ -4,21 +4,25 @@
 mod rpc_test_utils;
 
 use self::rpc_test_utils::*;
-use forest_cid::Cid;
+use forest_cid::{multihash::Identity, Cid};
 use forest_libp2p::hello::{HelloMessage, HelloResponse};
 use forest_libp2p::rpc::{RPCEvent, RPCMessage, RPCRequest, RPCResponse};
 use futures::future;
 use num_bigint::BigInt;
+
+fn empty_cid() -> Cid {
+    Cid::new_from_cbor(&[], Identity)
+}
 
 #[test]
 fn test_empty_rpc() {
     let (mut sender, mut receiver) = build_node_pair();
 
     let rpc_request = RPCRequest::Hello(HelloMessage {
-        heaviest_tip_set: vec![Cid::default()],
+        heaviest_tip_set: vec![empty_cid()],
         heaviest_tipset_weight: BigInt::from(1),
         heaviest_tipset_height: 2,
-        genesis_hash: Cid::default(),
+        genesis_hash: empty_cid(),
     });
 
     let c_request = rpc_request.clone();
