@@ -9,6 +9,9 @@ num-traits = "0.2"
 num-derive = "0.3"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 
+[dev-dependencies]
+rand = "0.7.3"
+
 [dependencies.filecoin-proofs-api]
 version = "0.1.0"
 git = "https://github.com/filecoin-project/rust-filecoin-proofs-api"
