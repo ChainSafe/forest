@@ -99,13 +99,11 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     fn require_in_call(&self) {
         self.require(
             self.in_call,
-            "invalid runtime invocation outside of method call".to_owned(),
+            "invalid runtime invocation outside of method call",
         )
     }
-    fn require(&self, predicate: bool, msg: String) {
-        if !predicate {
-            panic!(msg)
-        }
+    fn require(&self, predicate: bool, msg: &'static str) {
+        assert!(predicate, msg)
     }
     fn check_argument(&self, predicate: bool, msg: String) -> Result<(), ActorError> {
         if !predicate {
@@ -128,7 +126,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         Ok(data)
     }
     pub fn expect_validate_caller_addr(&self, addr: &[Address]) {
-        self.require(addr.len() > 0, "addrs must be non-empty".to_owned());
+        self.require(addr.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
     }
 
@@ -160,14 +158,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
                 actor::power::Actor.invoke_method(self, method_num, params)
             }
             x if x == &*MINER_ACTOR_CODE_ID => {
-                // not implemented yet
-                // actor::miner::Actor.invoke_method(&mut *runtime, *method_num, params)
-                todo!()
+                actor::miner::Actor.invoke_method(self, method_num, params)
             }
             x if x == &*MARKET_ACTOR_CODE_ID => {
-                // not implemented yet
-                // actor::market::Actor.invoke_method(&mut *runtime, *method_num, params)
-                todo!()
+                actor::market::Actor.invoke_method(self, method_num, params)
             }
             x if x == &*PAYCH_ACTOR_CODE_ID => {
                 actor::paych::Actor.invoke_method(self, method_num, params)
@@ -276,19 +270,21 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
         self.check_argument(addrs.len() > 0, "addrs must be non-empty".to_owned())?;
 
-        if !is_expect_validate_caller_addr {
-            panic!("unexpected validate caller addrs");
-        }
-        if expect_validate_caller_addr.as_ref().unwrap().len() == 0 {
-            panic!("unexpected validate caller addrs");
-        }
-        if &addrs != expect_validate_caller_addr.as_ref().unwrap() {
-            panic!(
-                "unexpected validate caller addrs {:?}, expected {:?}",
-                addrs,
-                expect_validate_caller_addr.as_ref()
-            );
-        }
+        assert!(
+            is_expect_validate_caller_addr,
+            "unexpected validate caller addrs"
+        );
+        assert!(
+            expect_validate_caller_addr.as_ref().unwrap().len() != 0,
+            "unexpected validate caller addrs"
+        );
+        assert!(
+            &addrs == expect_validate_caller_addr.as_ref().unwrap(),
+            "unexpected validate caller addrs {:?}, expected {:?}",
+            addrs,
+            expect_validate_caller_addr.as_ref()
+        );
+
         for expected in &addrs {
             if &self.caller == expected {
                 *expect_validate_caller_addr = None;
