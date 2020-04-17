@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{multihash, Cid, Codec};
-// use filecoin_proofs_api::Commitment;
+use filecoin_proofs_api::Commitment;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-
-pub type Commitment = [u8; 32];
 
 // Multicodec index that identifies a multihash type for Filecoin
 #[derive(PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash)]
