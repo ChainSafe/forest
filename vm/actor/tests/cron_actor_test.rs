@@ -6,8 +6,8 @@ use actor::{
     cron::{ConstructorParams, Entry, State},
     CRON_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
-use common::*;
 use address::Address;
+use common::*;
 use db::MemoryDB;
 use ipld_blockstore::BlockStore;
 use vm::ExitCode;

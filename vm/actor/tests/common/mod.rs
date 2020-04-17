@@ -27,7 +27,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub value_received: TokenAmount,
     pub id_addresses: HashMap<Address, Address>,
     pub actor_code_cids: HashMap<Address, Cid>,
-    pub new_actor_addr: Address,
+    pub new_actor_addr: Option<Address>,
 
     // syscalls: syscaller
 
@@ -78,7 +78,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
 
             id_addresses: HashMap::new(),
             actor_code_cids: HashMap::new(),
-            new_actor_addr: Address::default(),
+            new_actor_addr: None,
 
             state: None,
             balance: 0u8.into(),
@@ -465,31 +465,29 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
         self.require_in_call();
         // TODO: This is supposed to be the Undef addr. We have no impled that in our default.
-        if self.new_actor_addr == Address::default() {
+        if self.new_actor_addr == None {
             panic!("unexpected call to new actor address");
         }
-        let ret = self.new_actor_addr.clone();
+        let ret = self.new_actor_addr.as_ref().unwrap().clone();
         // TODO: This is supposed to be the Undef addr. We have no impled that in our default.
-        self.new_actor_addr = Address::default();
+        self.new_actor_addr = None;
         return Ok(ret);
     }
 
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
         self.require_in_call();
-        let is_expect_create_actor = self.expect_create_actor.is_none();
         if self.in_transaction {
             return Err(self.abort(
                 ExitCode::SysErrorIllegalActor,
                 "side-effect within transaction".to_owned(),
             ));
         }
-        if is_expect_create_actor {
-            panic!("unexpected call to create actor");
-        }
-        let expect_create_actor = self.expect_create_actor.clone().unwrap();
-        if &expect_create_actor.code_id != code_id || &expect_create_actor.address != address {
-            panic!("unexpected actor being created, expected code: {:?} address: {:?}, actual code: {:?} address: {:?}", expect_create_actor.code_id, expect_create_actor.address, code_id, address)
-        }
+        let expect_create_actor = self
+            .expect_create_actor
+            .clone()
+            .expect("unexpected call to create actor");
+
+        assert!(&expect_create_actor.code_id == code_id && &expect_create_actor.address == address, "unexpected actor being created, expected code: {:?} address: {:?}, actual code: {:?} address: {:?}", expect_create_actor.code_id, expect_create_actor.address, code_id, address);
         self.expect_create_actor = None;
         Ok(())
     }
