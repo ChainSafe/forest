@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
-    MethodNum, PieceInfo, PoStVerifyInfo, RegisteredProof, SealVerifyInfo, TokenAmount, METHOD_SEND,
+    MethodNum, PieceInfo, RegisteredProof, SealVerifyInfo, TokenAmount, WindowPoStVerifyInfo,
+    METHOD_SEND,
 };
 use clock::ChainEpoch;
 use crypto::SignatureType;
@@ -147,7 +148,7 @@ impl PriceList {
     }
     /// Returns gas required for PoSt verification
     #[inline]
-    pub fn on_verify_post(&self, _info: &PoStVerifyInfo) -> i64 {
+    pub fn on_verify_post(&self, _info: &WindowPoStVerifyInfo) -> i64 {
         self.verify_post_base
     }
     /// Returns gas required for verifying consensus fault
