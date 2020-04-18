@@ -107,6 +107,16 @@ impl Cid {
         }
     }
 
+    /// Create a new v1 CID.
+    pub fn new_v1(codec: Codec, hash: Multihash) -> Cid {
+        Cid::new(codec, Version::V1, hash)
+    }
+
+    /// Create a new v0 CID.
+    pub fn new_v0(codec: Codec, hash: Multihash) -> Cid {
+        Cid::new(codec, Version::V0, hash)
+    }
+
     /// Constructs a cid with bytes using default version and codec
     pub fn new_from_cbor<T: MultihashDigest>(bz: &[u8], hash: T) -> Self {
         let hash = hash.digest(bz);
