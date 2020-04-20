@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{multihash::Identity, Cid, Codec, Version};
+use cid::{multihash::Identity, Cid, Codec};
 
 lazy_static! {
     pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/system");
@@ -21,5 +21,5 @@ lazy_static! {
 }
 
 fn make_builtin(bz: &[u8]) -> Cid {
-    Cid::new(Codec::Raw, Version::V1, Identity::digest(bz))
+    Cid::new_v1(Codec::Raw, Identity::digest(bz))
 }

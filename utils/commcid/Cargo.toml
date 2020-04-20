@@ -1,0 +1,18 @@
+[package]
+name = "commcid"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+num-traits = "0.2"
+num-derive = "0.3"
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+
+[dev-dependencies]
+rand = "0.7.3"
+
+[dependencies.filecoin-proofs-api]
+version = "0.1.0"
+git = "https://github.com/filecoin-project/rust-filecoin-proofs-api"
+rev = "b00d2e26c68e49b81e434739336383304b293395"
