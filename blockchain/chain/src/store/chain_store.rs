@@ -75,24 +75,30 @@ where
     /// Writes genesis to blockstore
     pub fn set_genesis(&mut self, header: BlockHeader) -> Result<(), Error> {
         self.db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-        let ts: Tipset = Tipset::new(vec![header])?;
-        Ok(self.persist_headers(&ts)?)
+        Ok(self.persist_headers(&[header])?)
     }
 
     /// Writes encoded blockheader data to blockstore
-    pub fn persist_headers(&mut self, tip: &Tipset) -> Result<(), Error> {
+    fn persist_headers(&mut self, bh: &[BlockHeader]) -> Result<(), Error> {
         let mut raw_header_data = Vec::new();
         let mut keys = Vec::new();
         // loop through block to push blockheader raw data and cid into vector to be stored
-        for block in tip.blocks() {
-            if !self.db.exists(block.cid().key())? {
-                raw_header_data.push(block.marshal_cbor()?);
-                keys.push(block.cid().key());
+        for header in bh {
+            if !self.db.exists(header.cid().key())? {
+                raw_header_data.push(header.marshal_cbor()?);
+                keys.push(header.cid().key());
             }
         }
-        self.update_heaviest(tip)?;
 
         Ok(self.db.bulk_write(&keys, &raw_header_data)?)
+    }
+
+    /// Writes tipset block headers to data store and updates heaviest tipset
+    pub fn put_tipsets(&mut self, ts: &Tipset) -> Result<(), Error> {
+        self.persist_headers(ts.blocks())?;
+        // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
+        self.update_heaviest(ts)?;
+        Ok(())
     }
 
     /// Writes encoded message data to blockstore
@@ -114,7 +120,7 @@ where
             Some(bz) => from_slice(&bz)?,
             None => {
                 warn!("No previous chain state found");
-                return Err(Error::NotFound("No chain state found"));
+                return Err(Error::Other("No chain state found".to_owned()));
             }
         };
 
@@ -237,11 +243,11 @@ where
     }
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
-        // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         let new_weight = self.weight(ts)?;
         let curr_weight = self.weight(&self.heaviest)?;
 
         if new_weight > curr_weight {
+            println!("just make sure not here");
             // TODO potentially need to deal with re-orgs here
             info!("New heaviest tipset");
             self.set_heaviest_tipset(Arc::new(ts.clone()))?;
@@ -279,5 +285,32 @@ where
         let value = e_weight / (BigUint::from(BLOCKS_PER_EPOCH) * BigUint::from(W_RATIO_DEN));
         out += &value;
         Ok(out)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use address::Address;
+    use cid::multihash::Identity;
+
+    #[test]
+    fn genesis_test() {
+        let db = db::MemoryDB::default();
+
+        let mut cs = ChainStore::new(Arc::new(db));
+        let gen_block = BlockHeader::builder()
+            .epoch(1)
+            .weight((2 as u32).into())
+            .messages(Cid::new_from_cbor(&[], Identity))
+            .message_receipts(Cid::new_from_cbor(&[], Identity))
+            .state_root(Cid::new_from_cbor(&[], Identity))
+            .miner_address(Address::new_id(0).unwrap())
+            .build_and_validate()
+            .unwrap();
+
+        assert_eq!(cs.genesis().unwrap(), None);
+        cs.set_genesis(gen_block.clone()).unwrap();
+        assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 }
