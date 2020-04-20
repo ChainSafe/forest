@@ -9,6 +9,7 @@ use clock::ChainEpoch;
 use encoding::{
     de::{self, Deserializer},
     ser::{self, Serializer},
+    Cbor,
 };
 use num_bigint::BigUint;
 use serde::Deserialize;
@@ -63,6 +64,8 @@ impl<'de> de::Deserialize<'de> for TipSetKeys {
         Ok(TipSetKeys { cids })
     }
 }
+
+impl Cbor for TipSetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.

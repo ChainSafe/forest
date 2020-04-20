@@ -780,10 +780,10 @@ where
     }
 
     /// Persists headers from tipset slice to chain store
-    fn persist_headers(&self, tipsets: &[Tipset]) -> Result<(), Error> {
+    fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
         Ok(tipsets
             .iter()
-            .try_for_each(|ts| self.chain_store.persist_headers(ts))?)
+            .try_for_each(|ts| self.chain_store.put_tipsets(ts))?)
     }
     /// Returns the managed sync status
     pub fn get_state(&self) -> &SyncState {

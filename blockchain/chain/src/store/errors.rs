@@ -51,3 +51,9 @@ impl From<SerdeErr> for Error {
         Error::Encoding(e.to_string())
     }
 }
+
+impl From<String> for Error {
+    fn from(e: String) -> Self {
+        Error::Other(e)
+    }
+}

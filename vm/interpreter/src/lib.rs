@@ -14,6 +14,7 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 use runtime::Syscalls;
 use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized, StateTree};
+
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'a, ST, DB, SYS> {
