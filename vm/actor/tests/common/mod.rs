@@ -433,7 +433,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
             params
         );
 
-        let expected_msg = self.expect_sends[0].clone();
+        let expected_msg = self.expect_sends.pop_front().unwrap();
 
         assert!(&expected_msg.to == to && expected_msg.method == method && &expected_msg.params == params && &expected_msg.value == value, "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, &self.expect_sends[0]);
 
@@ -446,7 +446,6 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
                 ),
             ));
         }
-        let _ = self.expect_sends.pop_front();
         self.balance -= value;
 
         return Ok(expected_msg.send_return);
@@ -477,11 +476,10 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         }
         let expect_create_actor = self
             .expect_create_actor
-            .clone()
+            .take()
             .expect("unexpected call to create actor");
 
         assert!(&expect_create_actor.code_id == code_id && &expect_create_actor.address == address, "unexpected actor being created, expected code: {:?} address: {:?}, actual code: {:?} address: {:?}", expect_create_actor.code_id, expect_create_actor.address, code_id, address);
-        self.expect_create_actor = None;
         Ok(())
     }
 
