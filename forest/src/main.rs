@@ -17,6 +17,10 @@ use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use utils::write_to_file;
+use cid::Cid;
+use forest_car::load_car;
+use blocks::BlockHeader;
+use ipld_blockstore::BlockStore;
 // Blocks current thread until ctrl-c is received
 fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
@@ -69,7 +73,7 @@ fn main() {
     // Read Genesis file
     let genesis_buffer: Option<BufReader<File>> = match config.genesis_file.clone() {
         Some(path) => {
-            let file = File::open(path).expect("Could not load genesis");
+            let file = File::open(path).expect("Could not open genesis");
             Some(BufReader::new(file))
         }
         None => None,
@@ -87,11 +91,14 @@ fn main() {
     let sync_thread = task::spawn(async {
         // Initialize database
         let mut db = RocksDb::new(config.data_dir + "/db");
-
         db.open().unwrap();
-
+        // Load genesis file into the database
+        let genesis_cid: Vec<Cid> = load_car(&db, genesis_buffer.unwrap()).unwrap();
+        if genesis_cid.len() != 1 {
+            println! ("Invalid Genesis. Genesis Tipset must have only 1 Block.");
+        }
         let chain_syncer =
-            ChainSyncer::new(Arc::new(db), network_send, network_rx, genesis_buffer).unwrap();
+            ChainSyncer::new(Arc::new(db), network_send, network_rx, &genesis_cid[0]).unwrap();
         chain_syncer.start().await.unwrap();
     });
 
