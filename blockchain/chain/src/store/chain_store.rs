@@ -137,7 +137,11 @@ where
 
     /// Returns a tuple of cids for both Unsigned and Signed messages
     fn read_msg_cids(&self, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error> {
-        if let Some(roots) = self.blockstore().get::<TxMeta>(msg_cid)? {
+        if let Some(roots) = self
+            .blockstore()
+            .get::<TxMeta>(msg_cid)
+            .map_err(|e| Error::Other(e.to_string()))?
+        {
             let bls_cids = self.read_amt_cids(&roots.bls_message_root)?;
             let secpk_cids = self.read_amt_cids(&roots.secp_message_root)?;
             Ok((bls_cids, secpk_cids))
@@ -211,6 +215,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use address::Address;
+    use cid::multihash::Identity;
 
     #[test]
     fn genesis_test() {
@@ -220,6 +226,10 @@ mod tests {
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight((2 as u32).into())
+            .messages(Cid::new_from_cbor(&[], Identity))
+            .message_receipts(Cid::new_from_cbor(&[], Identity))
+            .state_root(Cid::new_from_cbor(&[], Identity))
+            .miner_address(Address::new_id(0).unwrap())
             .build_and_validate()
             .unwrap();
 

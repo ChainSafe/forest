@@ -35,6 +35,9 @@ pub enum Error {
     /// Amt error
     #[error(transparent)]
     Amt(#[from] AmtErr),
+    /// Other chain error
+    #[error("{0}")]
+    Other(String),
 }
 
 impl From<EncErr> for Error {

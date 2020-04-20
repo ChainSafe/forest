@@ -86,12 +86,17 @@ impl<'de> Deserialize<'de> for HelloResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use forest_cid::multihash::Identity;
     use forest_encoding::*;
 
     #[test]
     fn hello_default_ser() {
-        let bz = to_vec(&HelloMessage::default()).unwrap();
+        let orig_msg = HelloMessage {
+            genesis_hash: Cid::new_from_cbor(&[], Identity),
+            ..Default::default()
+        };
+        let bz = to_vec(&orig_msg).unwrap();
         let msg: HelloMessage = from_slice(&bz).unwrap();
-        assert_eq!(msg, HelloMessage::default());
+        assert_eq!(msg, orig_msg);
     }
 }

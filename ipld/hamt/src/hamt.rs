@@ -82,7 +82,7 @@ where
                 store,
                 bit_width,
             }),
-            None => Err(Error::Custom("No node found")),
+            None => Err(Error::CidNotFound(cid.to_string())),
         }
     }
 
@@ -90,7 +90,7 @@ where
     pub fn set_root(&mut self, cid: &Cid) -> Result<(), Error> {
         match self.store.get(cid)? {
             Some(root) => self.root = root,
-            None => return Err(Error::Custom("No node found")),
+            None => return Err(Error::CidNotFound(cid.to_string())),
         }
 
         Ok(())

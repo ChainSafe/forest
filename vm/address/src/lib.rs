@@ -205,6 +205,11 @@ impl ser::Serialize for Address {
     where
         S: ser::Serializer,
     {
+        if self == &Address::default() {
+            // Just a sanity check to disallow serialization of invalid address
+            return Err(ser::Error::custom("Cannot serialize a default Address"));
+        }
+
         let address_bytes = self.to_bytes();
         serde_bytes::Serialize::serialize(&address_bytes, s)
     }

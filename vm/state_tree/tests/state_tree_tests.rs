@@ -3,15 +3,19 @@
 
 use actor::{init, ActorState, INIT_ACTOR_ADDR};
 use address::Address;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{multihash::Identity, Cid};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use state_tree::*;
 
+fn empty_cid() -> Cid {
+    Cid::new_from_cbor(&[], Identity)
+}
+
 #[test]
 fn get_set_cache() {
-    let act_s = ActorState::new(Cid::default(), Cid::default(), Default::default(), 1);
-    let act_a = ActorState::new(Cid::default(), Cid::default(), Default::default(), 2);
+    let act_s = ActorState::new(empty_cid(), empty_cid(), Default::default(), 1);
+    let act_a = ActorState::new(empty_cid(), empty_cid(), Default::default(), 2);
     let addr = Address::new_id(1).unwrap();
     let store = db::MemoryDB::default();
     let mut tree = HamtStateTree::new(&store);
@@ -34,7 +38,7 @@ fn delete_actor() {
     let mut tree = HamtStateTree::new(&store);
 
     let addr = Address::new_id(3).unwrap();
-    let act_s = ActorState::new(Cid::default(), Cid::default(), Default::default(), 1);
+    let act_s = ActorState::new(empty_cid(), empty_cid(), Default::default(), 1);
     tree.set_actor(&addr, act_s.clone()).unwrap();
     assert_eq!(tree.get_actor(&addr).unwrap(), Some(act_s));
     tree.delete_actor(&addr).unwrap();
@@ -54,11 +58,11 @@ fn get_set_non_id() {
     let init_state = init::State::new(e_cid.clone(), "test".to_owned());
     let state_cid = tree
         .store()
-        .put(&init_state, Blake2b256)
+        .put(&init_state, Identity)
         .map_err(|e| e.to_string())
         .unwrap();
 
-    let act_s = ActorState::new(Cid::default(), state_cid.clone(), Default::default(), 1);
+    let act_s = ActorState::new(empty_cid(), state_cid.clone(), Default::default(), 1);
 
     // Test snapshot
     let snapshot = tree.snapshot().unwrap();
@@ -75,7 +79,7 @@ fn get_set_non_id() {
     assert_eq!(
         new_init_s,
         Some(ActorState {
-            code: Cid::default(),
+            code: empty_cid(),
             state: state_cid,
             balance: Default::default(),
             sequence: 2

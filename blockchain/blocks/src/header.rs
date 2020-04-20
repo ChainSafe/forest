@@ -5,7 +5,7 @@ use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::{is_valid_signature, Signature};
+use crypto::Signature;
 use derive_builder::Builder;
 use encoding::{
     de::{self, Deserializer},
@@ -27,19 +27,19 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// ```
 /// use forest_blocks::{BlockHeader, TipSetKeys, Ticket};
 /// use address::Address;
-/// use cid::Cid;
+/// use cid::{Cid, multihash::Identity};
 /// use num_bigint::BigUint;
 /// use crypto::Signature;
 ///
 /// BlockHeader::builder()
+///     .messages(Cid::new_from_cbor(&[], Identity)) // required
+///     .message_receipts(Cid::new_from_cbor(&[], Identity)) // required
+///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0).unwrap()) // optional
 ///     .bls_aggregate(None) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(0) // optional
-///     .messages(Cid::default()) // optional
-///     .message_receipts(Cid::default()) // optional
-///     .state_root(Cid::default()) // optional
 ///     .timestamp(0) // optional
 ///     .ticket(Ticket::default()) // optional
 ///     .build_and_validate()
@@ -260,8 +260,7 @@ impl BlockHeader {
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
-        self.cached_cid =
-            Cid::new_from_cbor(&self.cached_bytes, Blake2b256).map_err(|e| e.to_string())?;
+        self.cached_cid = Cid::new_from_cbor(&self.cached_bytes, Blake2b256);
         Ok(())
     }
     /// Check to ensure block signature is valid
@@ -269,11 +268,11 @@ impl BlockHeader {
         let signature = self
             .signature()
             .as_ref()
-            .ok_or(Error::InvalidSignature("Signature is nil in header"))?;
+            .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
 
-        if !is_valid_signature(&self.cid().to_bytes(), addr, signature) {
-            return Err(Error::InvalidSignature("Block signature is invalid"));
-        }
+        signature
+            .verify(&self.cid().to_bytes(), addr)
+            .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
 
         Ok(())
     }

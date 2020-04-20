@@ -29,13 +29,6 @@ pub enum Method {
     Collect = 4,
 }
 
-impl Method {
-    /// Converts a method number into an Method enum
-    fn from_method_num(m: MethodNum) -> Option<Method> {
-        FromPrimitive::from_u64(m)
-    }
-}
-
 /// Payment Channel actor
 pub struct Actor;
 impl Actor {
@@ -120,9 +113,9 @@ impl Actor {
         rt.syscalls()
             .verify_signature(&sig, &signer, &sv_bz)
             .map_err(|e| {
-                rt.abort(
+                ActorError::new(
                     ExitCode::ErrIllegalArgument,
-                    format!("voucher signature invalid: {}", e),
+                    format!("voucher signature invalid: {}", e.msg()),
                 )
             })?;
 
@@ -135,9 +128,12 @@ impl Actor {
         }
 
         if !sv.secret_pre_image.is_empty() {
-            let hashed_secret: &[u8] = &rt.syscalls().hash_blake2b(&params.secret);
+            let hashed_secret: &[u8] = &rt.syscalls().hash_blake2b(&params.secret)?;
             if hashed_secret != sv.secret_pre_image.as_slice() {
-                return Err(rt.abort(ExitCode::ErrIllegalArgument, "incorrect secret"));
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    "incorrect secret".to_owned(),
+                ));
             }
         }
 
@@ -335,7 +331,7 @@ impl ActorCode for Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        match Method::from_method_num(method) {
+        match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize().unwrap())?;
                 Ok(Serialized::default())

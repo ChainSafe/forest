@@ -22,7 +22,7 @@ pub trait Message {
     /// Returns the amount sent in message
     fn value(&self) -> &TokenAmount;
     /// Returns the method number to be called
-    fn method_num(&self) -> &MethodNum;
+    fn method_num(&self) -> MethodNum;
     /// Returns the encoded parameters for the method call
     fn params(&self) -> &Serialized;
     /// gas_price returns gas price for the message
