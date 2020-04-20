@@ -13,8 +13,8 @@ use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{
-    ActorError, ExitCode, MethodNum, PieceInfo, PoStVerifyInfo, Randomness, RegisteredProof,
-    SealVerifyInfo, Serialized, TokenAmount,
+    ActorError, ExitCode, MethodNum, PieceInfo, Randomness, RegisteredProof, SealVerifyInfo,
+    Serialized, TokenAmount, WindowPoStVerifyInfo,
 };
 
 /// Runtime is the VM's internal runtime object.
@@ -162,7 +162,7 @@ pub trait Syscalls {
         todo!()
     }
     /// Verifies a proof of spacetime.
-    fn verify_post(&self, _vi: &PoStVerifyInfo) -> Result<(), ActorError> {
+    fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), ActorError> {
         // TODO
         todo!()
     }

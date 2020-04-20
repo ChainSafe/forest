@@ -9,7 +9,8 @@ use runtime::{ConsensusFault, Syscalls};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vm::{
-    ActorError, GasTracker, PieceInfo, PoStVerifyInfo, PriceList, RegisteredProof, SealVerifyInfo,
+    ActorError, GasTracker, PieceInfo, PriceList, RegisteredProof, SealVerifyInfo,
+    WindowPoStVerifyInfo,
 };
 
 /// Syscall wrapper to charge gas on syscalls
@@ -63,7 +64,7 @@ where
             .unwrap();
         self.syscalls.verify_seal(vi)
     }
-    fn verify_post(&self, vi: &PoStVerifyInfo) -> Result<(), ActorError> {
+    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), ActorError> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_post(vi))
@@ -115,7 +116,7 @@ mod tests {
         fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), ActorError> {
             Ok(Default::default())
         }
-        fn verify_post(&self, _vi: &PoStVerifyInfo) -> Result<(), ActorError> {
+        fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), ActorError> {
             Ok(Default::default())
         }
         fn verify_consensus_fault(

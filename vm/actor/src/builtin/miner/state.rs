@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{power, u64_key, BytesKey, OptionalEpoch, HAMT_BIT_WIDTH};
-use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -16,6 +15,7 @@ use num_bigint::BigInt;
 use rleplus::bitvec::prelude::{BitVec, Lsb0};
 use rleplus::{BitVecDe, BitVecSer};
 use runtime::Runtime;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{DealID, RegisteredProof, SectorInfo, SectorNumber, SectorSize, TokenAmount};
 
 /// Miner actor state

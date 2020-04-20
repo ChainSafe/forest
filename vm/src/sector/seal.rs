@@ -8,11 +8,11 @@ use clock::ChainEpoch;
 pub type SealRandomness = Randomness;
 pub type InteractiveSealRandomness = Randomness;
 
-/// SealVerifyInfo is the structure of all the information a verifier
-/// needs to verify a Seal.
+/// Information needed to verify a seal proof.
 #[derive(Debug, PartialEq, Default)]
 pub struct SealVerifyInfo {
     pub sector_id: SectorID,
+    // TODO revisit issue to remove this: https://github.com/filecoin-project/specs-actors/issues/276
     pub on_chain: OnChainSealVerifyInfo,
     pub randomness: SealRandomness,
     pub interactive_randomness: InteractiveSealRandomness,
