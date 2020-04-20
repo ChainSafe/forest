@@ -22,7 +22,7 @@ pub enum Method {
 
 /// Constructor parameters for Cron actor, contains entries
 /// of actors and methods to call on each epoch
-#[derive(Default)]
+#[derive(Default, Clone, PartialEq, Debug)]
 pub struct ConstructorParams {
     /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
     pub entries: Vec<Entry>,
