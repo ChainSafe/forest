@@ -11,13 +11,13 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[repr(u8)]
 pub enum RegisteredProof {
     StackedDRG32GiBSeal = 1,
-    StackedDRG32GiBPoSt = 2, // unused (revisit if being removed)
+    StackedDRG32GiBPoSt = 2, // TODO unused (revisit if being removed)
     StackedDRG2KiBSeal = 3,
-    StackedDRG2KiBPoSt = 4, // unused (revisit if being removed)
+    StackedDRG2KiBPoSt = 4, // TODO unused (revisit if being removed)
     StackedDRG8MiBSeal = 5,
-    StackedDRG8MiBPoSt = 6, // unused (revisit if being removed)
+    StackedDRG8MiBPoSt = 6, // TODO unused (revisit if being removed)
     StackedDRG512MiBSeal = 7,
-    StackedDRG512MiBPoSt = 8, // unused (revisit if being removed)
+    StackedDRG512MiBPoSt = 8, // TODO unused (revisit if being removed)
 
     StackedDRG2KiBWinningPoSt = 9,
     StackedDRG2KiBWindowPoSt = 10,
