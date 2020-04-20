@@ -97,13 +97,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         }
     }
     fn require_in_call(&self) {
-        self.require(
+        assert!(
             self.in_call,
             "invalid runtime invocation outside of method call",
         )
-    }
-    fn require(&self, predicate: bool, msg: &'static str) {
-        assert!(predicate, msg)
     }
     fn check_argument(&self, predicate: bool, msg: String) -> Result<(), ActorError> {
         if !predicate {
@@ -126,7 +123,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         Ok(data)
     }
     pub fn expect_validate_caller_addr(&self, addr: &[Address]) {
-        self.require(addr.len() > 0, "addrs must be non-empty");
+        assert!(addr.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
     }
 
@@ -272,15 +269,6 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
             "unexpected validate caller addrs"
         );
         assert!(
-            !self
-                .expect_validate_caller_addr
-                .borrow()
-                .as_ref()
-                .unwrap()
-                .is_empty(),
-            "unexpected validate caller addrs"
-        );
-        assert!(
             &addrs == self.expect_validate_caller_addr.borrow().as_ref().unwrap(),
             "unexpected validate caller addrs {:?}, expected {:?}",
             addrs,
@@ -313,10 +301,6 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
         assert!(
             self.expect_validate_caller_type.borrow().is_some(),
-            "unexpected validate caller code"
-        );
-        assert!(
-            !self.expect_validate_caller_type.borrow().as_ref().unwrap().is_empty(),
             "unexpected validate caller code"
         );
         assert!(
