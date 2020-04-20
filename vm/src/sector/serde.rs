@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    OnChainElectionPoStVerifyInfo, OnChainPoStVerifyInfo, OnChainSealVerifyInfo, PoStCandidate,
-    PoStProof, PrivatePoStCandidateProof, SealVerifyInfo, SectorID,
+    OnChainSealVerifyInfo, OnChainWindowPoStVerifyInfo, PoStProof, SealVerifyInfo, SectorID,
+    SectorInfo, WindowPoStVerifyInfo, WinningPoStVerifyInfo,
 };
 use encoding::{Byte32De, BytesDe, BytesSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -111,36 +111,90 @@ impl<'de> Deserialize<'de> for OnChainSealVerifyInfo {
     }
 }
 
-impl Serialize for PoStCandidate {
+impl Serialize for SectorInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (&self.proof, &self.sector_number, &self.sealed_cid).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SectorInfo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (proof, sector_number, sealed_cid) = Deserialize::deserialize(deserializer)?;
+
+        Ok(Self {
+            proof,
+            sector_number,
+            sealed_cid,
+        })
+    }
+}
+
+impl Serialize for WindowPoStVerifyInfo {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         (
-            &self.registered_proof,
-            BytesSer(&self.ticket),
+            BytesSer(&self.randomness),
+            &self.proofs,
             &self.private_proof,
-            &self.sector_id,
-            &self.challenge_index,
+            &self.prover,
         )
             .serialize(serializer)
     }
 }
 
-impl<'de> Deserialize<'de> for PoStCandidate {
+impl<'de> Deserialize<'de> for WindowPoStVerifyInfo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let (registered_proof, Byte32De(ticket), private_proof, sector_id, challenge_index) =
+        let (Byte32De(randomness), proofs, private_proof, prover) =
             Deserialize::deserialize(deserializer)?;
 
         Ok(Self {
-            registered_proof,
-            ticket,
+            randomness,
+            proofs,
             private_proof,
-            sector_id,
-            challenge_index,
+            prover,
+        })
+    }
+}
+
+impl Serialize for WinningPoStVerifyInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (
+            BytesSer(&self.randomness),
+            &self.proofs,
+            &self.challenge_sectors,
+            &self.prover,
+        )
+            .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for WinningPoStVerifyInfo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (Byte32De(randomness), proofs, challenge_sectors, prover) =
+            Deserialize::deserialize(deserializer)?;
+
+        Ok(Self {
+            randomness,
+            proofs,
+            challenge_sectors,
+            prover,
         })
     }
 }
@@ -167,63 +221,22 @@ impl<'de> Deserialize<'de> for PoStProof {
     }
 }
 
-impl Serialize for PrivatePoStCandidateProof {
+impl Serialize for OnChainWindowPoStVerifyInfo {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        (&self.registered_proof, BytesSer(&self.externalized)).serialize(serializer)
+        [&self.proofs].serialize(serializer)
     }
 }
 
-impl<'de> Deserialize<'de> for PrivatePoStCandidateProof {
+impl<'de> Deserialize<'de> for OnChainWindowPoStVerifyInfo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let (registered_proof, BytesDe(externalized)) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            registered_proof,
-            externalized,
-        })
-    }
-}
-
-impl Serialize for OnChainPoStVerifyInfo {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.candidates, &self.proofs).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for OnChainPoStVerifyInfo {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (candidates, proofs) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { candidates, proofs })
-    }
-}
-
-impl Serialize for OnChainElectionPoStVerifyInfo {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.candidates, &self.proofs).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for OnChainElectionPoStVerifyInfo {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (candidates, proofs) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { candidates, proofs })
+        let [proofs]: [Vec<PoStProof>; 1] = Deserialize::deserialize(deserializer)?;
+        Ok(Self { proofs })
     }
 }
 
@@ -254,9 +267,9 @@ mod tests {
         let bz = to_vec(&s).unwrap();
         assert_eq!(from_slice::<SealVerifyInfo>(&bz).unwrap(), s);
 
-        let s = PoStCandidate::default();
+        let s = WindowPoStVerifyInfo::default();
         let bz = to_vec(&s).unwrap();
-        assert_eq!(from_slice::<PoStCandidate>(&bz).unwrap(), s);
+        assert_eq!(from_slice::<WindowPoStVerifyInfo>(&bz).unwrap(), s);
 
         let s = PoStProof::default();
         let bz = to_vec(&s).unwrap();
@@ -266,12 +279,8 @@ mod tests {
         let bz = to_vec(&s).unwrap();
         assert_eq!(from_slice::<PoStProof>(&bz).unwrap(), s);
 
-        let s = OnChainPoStVerifyInfo::default();
+        let s = OnChainWindowPoStVerifyInfo::default();
         let bz = to_vec(&s).unwrap();
-        assert_eq!(from_slice::<OnChainPoStVerifyInfo>(&bz).unwrap(), s);
-
-        let s = OnChainElectionPoStVerifyInfo::default();
-        let bz = to_vec(&s).unwrap();
-        assert_eq!(from_slice::<OnChainElectionPoStVerifyInfo>(&bz).unwrap(), s);
+        assert_eq!(from_slice::<OnChainWindowPoStVerifyInfo>(&bz).unwrap(), s);
     }
 }
