@@ -4,8 +4,7 @@
 mod state;
 
 pub use self::state::State;
-use crate::builtin::singletons::SYSTEM_ACTOR_ADDR;
-use crate::check_empty_params;
+use crate::{check_empty_params,builtin::singletons::SYSTEM_ACTOR_ADDR};
 use address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;

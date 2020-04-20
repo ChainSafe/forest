@@ -29,7 +29,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub actor_code_cids: HashMap<Address, Cid>,
     pub new_actor_addr: Option<Address>,
 
-    // syscalls: syscaller
+    // TODO: syscalls: syscaller
 
     // Actor State
     pub state: Option<Cid>,
@@ -234,7 +234,6 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
 }
 
 impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
-    // impl<ST: StateTree, BS: BlockStore> Runtime<BS> for MockRuntime<'_, ST, BS> {
     fn message(&self) -> &UnsignedMessage {
         self.require_in_call();
         todo!();
