@@ -309,21 +309,18 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         self.require_in_call();
         let types: Vec<Cid> = types.into_iter().cloned().collect();
 
-        let mut expect_validate_caller_type = self.expect_validate_caller_type.borrow_mut();
-        let is_expect_validate_caller_type = expect_validate_caller_type.is_some();
-
         self.check_argument(types.len() > 0, "types must be non-empty".to_owned())?;
 
         assert!(
-            is_expect_validate_caller_type,
+            self.expect_validate_caller_type.borrow().is_some(),
             "unexpected validate caller code"
         );
         assert!(
-            !expect_validate_caller_type.as_ref().unwrap().is_empty(),
+            !self.expect_validate_caller_type.borrow().as_ref().unwrap().is_empty(),
             "unexpected validate caller code"
         );
         assert!(
-            &types != expect_validate_caller_type.as_ref().unwrap(),
+            &types == self.expect_validate_caller_type.borrow().as_ref().unwrap(),
             "unexpected validate caller code {:?}, expected {:?}",
             types,
             self.expect_validate_caller_type
@@ -331,12 +328,12 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
         for expected in &types {
             if &self.caller_type == expected {
-                *expect_validate_caller_type = None;
+                *self.expect_validate_caller_type.borrow_mut() = None;
                 return Ok(());
             }
         }
 
-        *expect_validate_caller_type = None;
+        *self.expect_validate_caller_type.borrow_mut() = None;
 
         Err(self.abort(
             ExitCode::ErrForbidden,
