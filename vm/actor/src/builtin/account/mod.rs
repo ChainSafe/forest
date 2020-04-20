@@ -4,7 +4,7 @@
 mod state;
 
 pub use self::state::State;
-use crate::check_empty_params;
+use crate::{builtin::singletons::SYSTEM_ACTOR_ADDR, check_empty_params};
 use address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
@@ -29,7 +29,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&address))?;
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
         match address.protocol() {
             Protocol::Secp256k1 | Protocol::BLS => {}
             protocol => {
@@ -73,8 +73,8 @@ impl ActorCode for Actor {
             }
             Some(Method::PubkeyAddress) => {
                 check_empty_params(params)?;
-                Self::pubkey_address(rt)?;
-                Ok(Serialized::default())
+                let addr = Self::pubkey_address(rt)?;
+                Ok(Serialized::serialize(addr).unwrap())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }

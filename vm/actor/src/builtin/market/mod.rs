@@ -45,7 +45,6 @@ pub enum Method {
     OnMinerSectorsTerminate = 7,
     ComputeDataCommitment = 8,
 }
-
 /// Market Actor
 pub struct Actor;
 impl Actor {
