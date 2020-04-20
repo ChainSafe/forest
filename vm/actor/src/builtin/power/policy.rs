@@ -29,7 +29,7 @@ lazy_static! {
     pub static ref EPOCH_TOTAL_EXPECTED_REWARD: BigUint = reward::BLOCK_REWARD_TARGET.clone() * 5u8; // PARAM_FINISH
 
     /// Minimum power of an individual miner to meet the threshold for leader election.
-    pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = StoragePower::from(2 << 30); // placeholder
+    pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = StoragePower::from_i32(2 << 30).unwrap(); // placeholder
 
 }
 
@@ -101,9 +101,7 @@ pub fn pledge_for_weight(
         * weight.duration
         * &*EPOCH_TOTAL_EXPECTED_REWARD
         * &*PLEDGE_FACTOR;
-    let denominator = network_power
-        .to_biguint()
-        .expect("Storage power should be positive");
+    let denominator = network_power;
 
     numerator / denominator
 }

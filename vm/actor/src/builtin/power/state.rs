@@ -9,11 +9,7 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use num_bigint::{
-    bigint_ser::{BigIntDe, BigIntSer},
-    biguint_ser::{BigUintDe, BigUintSer},
-    Sign,
-};
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use num_traits::{CheckedSub, Zero};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{Serialized, TokenAmount};
@@ -184,10 +180,6 @@ impl State {
             }
         }
 
-        // Negative values check
-        if claim.power.sign() == Sign::Minus {
-            return Err(format!("negative claimed power: {}", claim.power));
-        }
         if self.num_miners_meeting_min_power < 0 {
             return Err(format!(
                 "negative number of miners: {}",
@@ -216,8 +208,6 @@ impl State {
         addr: &Address,
         claim: Claim,
     ) -> Result<(), String> {
-        assert!(claim.power.sign() == Sign::Minus);
-
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
@@ -374,7 +364,7 @@ impl Serialize for State {
         S: Serializer,
     {
         (
-            BigIntSer(&self.total_network_power),
+            BigUintDe(self.total_network_power.clone()),
             &self.miner_count,
             &self.escrow_table,
             &self.cron_event_queue,
@@ -393,7 +383,7 @@ impl<'de> Deserialize<'de> for State {
         D: Deserializer<'de>,
     {
         let (
-            BigIntDe(total_network_power),
+            BigUintDe(total_network_power),
             miner_count,
             escrow_table,
             cron_event_queue,
@@ -426,7 +416,7 @@ impl Serialize for Claim {
     where
         S: Serializer,
     {
-        (BigIntSer(&self.power), BigUintSer(&self.pledge)).serialize(serializer)
+        (BigUintSer(&self.power), BigUintSer(&self.pledge)).serialize(serializer)
     }
 }
 
@@ -435,7 +425,7 @@ impl<'de> Deserialize<'de> for Claim {
     where
         D: Deserializer<'de>,
     {
-        let (BigIntDe(power), BigUintDe(pledge)) = Deserialize::deserialize(deserializer)?;
+        let (BigUintDe(power), BigUintDe(pledge)) = Deserialize::deserialize(deserializer)?;
         Ok(Self { power, pledge })
     }
 }
