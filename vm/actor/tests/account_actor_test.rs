@@ -24,7 +24,7 @@ macro_rules! account_tests {
                 rt.expect_validate_caller_addr(&vec![SYSTEM_ACTOR_ADDR.clone()]);
 
                 if exit_code.is_success() {
-                    let _ = rt
+                    rt
                     .call(
                         &*ACCOUNT_ACTOR_CODE_ID,
                         1,
