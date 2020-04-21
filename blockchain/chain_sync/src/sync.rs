@@ -121,7 +121,10 @@ where
                 }
             }
         };
-        info!("Initializing ChainSyncer with genesis: {:?}", genesis.key().cids[0]);
+        info!(
+            "Initializing ChainSyncer with genesis: {:?}",
+            genesis.key().cids[0]
+        );
 
         let state_manager = StateManager::new(db);
 
