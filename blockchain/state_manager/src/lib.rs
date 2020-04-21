@@ -53,7 +53,7 @@ where
         if ms.post_state.has_failed_post() {
             return Ok(true);
         }
-        
+
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
         match ps.get_claim(self.bs.as_ref(), addr)? {
             Some(_) => Ok(false),
@@ -63,7 +63,7 @@ where
     /// Returns raw address of a miner
     pub fn get_miner_wrk_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
-        
+
         let state =
             HamtStateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         // Note: miner::State info likely to be changed to CID
