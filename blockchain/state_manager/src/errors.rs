@@ -19,4 +19,13 @@ pub enum Error {
     /// Error originating from key-value store
     #[error(transparent)]
     DB(#[from] DbErr),
+    /// Other state manager error
+    #[error("{0}")]
+    Other(String),
+}
+
+impl From<String> for Error {
+    fn from(e: String) -> Self {
+        Error::Other(e)
+    }
 }

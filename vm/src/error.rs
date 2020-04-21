@@ -27,10 +27,10 @@ impl ActorError {
         }
     }
 
-    pub fn new_fatal(msg: String) -> Self {
+    pub fn new_fatal(exit_code: ExitCode, msg: String) -> Self {
         Self {
             fatal: true,
-            exit_code: ExitCode::ErrPlaceholder,
+            exit_code,
             msg,
         }
     }
