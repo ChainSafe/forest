@@ -11,7 +11,6 @@ cid = { package = "forest_cid", path = "../../ipld/cid" }
 db = { path = "../../node/db/" }
 encoding = { package = "forest_encoding", path = "../../encoding/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-num-traits = "0.2.11"
 state_tree = { path = "../../vm/state_tree/" }
 default_runtime = { path = "../../vm/default_runtime/" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }

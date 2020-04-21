@@ -514,7 +514,7 @@ fn transfer<ST: StateTree>(
     Ok(())
 }
 
-/// resolve_to_key_addr
+/// Returns public address of the specified actor address
 pub fn resolve_to_key_addr<'st, 'bs, ST, BS>(
     st: &'st ST,
     store: &'bs BS,
