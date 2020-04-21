@@ -18,7 +18,6 @@ use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use encoding::{Cbor, Error as EncodingError};
-use forest_car::load_car;
 use forest_libp2p::{BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
@@ -30,8 +29,6 @@ use state_tree::{HamtStateTree, StateTree};
 use std::cmp::min;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::fs::File;
-use std::io::BufReader;
 use std::sync::Arc;
 use vm::TokenAmount;
 #[derive(PartialEq, Debug, Clone)]
@@ -100,38 +97,31 @@ where
         db: Arc<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
-        genesis_buffer: Option<BufReader<File>>,
+        genesis_buffer: Option<Cid>,
     ) -> Result<Self, Error> {
         let chain_store = ChainStore::new(db.clone());
-        let genesis = match chain_store.genesis()? {
-            Some(gen) => Tipset::new(vec![gen])?,
+
+        let genesis = match genesis_buffer {
+            Some(genesis_cid) => {
+                debug!("Initializing ChainSyncer with genesis from config");
+                let genesis_block =
+                    db.get(&genesis_cid)
+                    .map_err(|e| Error::Other(e.to_string()))?
+                    .ok_or_else(|| Error::Other("Could not find genesis block despite being loaded using a genesis file".to_owned()))?;
+                Tipset::new(vec![genesis_block])?
+            }
             None => {
-                // TODO change default logic for genesis or setup better initialization
-                warn!("no genesis found in data storage, trying to load from file");
-                match genesis_buffer {
-                    Some(buf) => {
-                        // loads the genesis file into the database
-                        let genesis_cid: Vec<Cid> =
-                            load_car(&*db, buf).map_err(|e| Error::Other(e.to_string()))?;
-                        if genesis_cid.len() != 1 {
-                            return Err(Error::Validation(
-                                "Invalid Genesis. Genesis Tipset must have only 1 Block."
-                                    .to_owned(),
-                            ));
-                        }
-                        let genesis_block: BlockHeader = db
-                            .get(&genesis_cid[0])
-                            .map_err(|e| Error::Other(e.to_string()))?
-                            .ok_or_else(|| Error::Other("Could not find genesis block despite being loaded using a genesis file".to_owned()))?;
-                        Tipset::new(vec![genesis_block])?
-                    }
+                debug!("No specified genesis in config. Attempting to load from store");
+                match chain_store.genesis()? {
+                    Some(store_genesis) => Tipset::new(vec![store_genesis])?,
                     None => {
-                        warn!("no genesis file, using default Tipset");
+                        warn!("No genesis provided by config or blockstore, using default Tipset");
                         Tipset::new(vec![BlockHeader::default()])?
                     }
                 }
             }
         };
+        info!("Initializing ChainSyncer with genesis: {:?}", genesis);
 
         let state_manager = StateManager::new(db);
 
