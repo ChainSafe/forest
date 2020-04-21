@@ -11,13 +11,25 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[repr(u8)]
 pub enum RegisteredProof {
     StackedDRG32GiBSeal = 1,
-    StackedDRG32GiBPoSt = 2,
+    StackedDRG32GiBPoSt = 2, // TODO unused (revisit if being removed)
     StackedDRG2KiBSeal = 3,
-    StackedDRG2KiBPoSt = 4,
+    StackedDRG2KiBPoSt = 4, // TODO unused (revisit if being removed)
     StackedDRG8MiBSeal = 5,
-    StackedDRG8MiBPoSt = 6,
+    StackedDRG8MiBPoSt = 6, // TODO unused (revisit if being removed)
     StackedDRG512MiBSeal = 7,
-    StackedDRG512MiBPoSt = 8,
+    StackedDRG512MiBPoSt = 8, // TODO unused (revisit if being removed)
+
+    StackedDRG2KiBWinningPoSt = 9,
+    StackedDRG2KiBWindowPoSt = 10,
+
+    StackedDRG8MiBWinningPoSt = 11,
+    StackedDRG8MiBWindowPoSt = 12,
+
+    StackedDRG512MiBWinningPoSt = 13,
+    StackedDRG512MiBWindowPoSt = 14,
+
+    StackedDRG32GiBWinningPoSt = 15,
+    StackedDRG32GiBWindowPoSt = 16,
 }
 
 impl RegisteredProof {
@@ -29,23 +41,54 @@ impl RegisteredProof {
     pub fn sector_size(self) -> SectorSize {
         use RegisteredProof::*;
         match self {
-            StackedDRG32GiBSeal | StackedDRG32GiBPoSt => SectorSize::_32GiB,
-            StackedDRG2KiBSeal | StackedDRG2KiBPoSt => SectorSize::_2KiB,
-            StackedDRG8MiBSeal | StackedDRG8MiBPoSt => SectorSize::_8MiB,
-            StackedDRG512MiBSeal | StackedDRG512MiBPoSt => SectorSize::_512MiB,
+            StackedDRG32GiBSeal
+            | StackedDRG32GiBPoSt
+            | StackedDRG32GiBWindowPoSt
+            | StackedDRG32GiBWinningPoSt => SectorSize::_32GiB,
+            StackedDRG2KiBSeal
+            | StackedDRG2KiBPoSt
+            | StackedDRG2KiBWindowPoSt
+            | StackedDRG2KiBWinningPoSt => SectorSize::_2KiB,
+            StackedDRG8MiBSeal
+            | StackedDRG8MiBPoSt
+            | StackedDRG8MiBWindowPoSt
+            | StackedDRG8MiBWinningPoSt => SectorSize::_8MiB,
+            StackedDRG512MiBSeal
+            | StackedDRG512MiBPoSt
+            | StackedDRG512MiBWindowPoSt
+            | StackedDRG512MiBWinningPoSt => SectorSize::_512MiB,
         }
     }
 
-    /// RegisteredPoStProof produces the PoSt-specific RegisteredProof corresponding
+    /// Produces the winning PoSt-specific RegisteredProof corresponding
     /// to the receiving RegisteredProof.
-    pub fn registered_post_proof(self) -> RegisteredProof {
+    pub fn registered_winning_post_proof(self) -> Result<RegisteredProof, String> {
         use RegisteredProof::*;
         match self {
-            StackedDRG32GiBSeal => StackedDRG32GiBPoSt,
-            StackedDRG2KiBSeal => StackedDRG2KiBPoSt,
-            StackedDRG8MiBSeal => StackedDRG8MiBPoSt,
-            StackedDRG512MiBSeal => StackedDRG512MiBPoSt,
-            p => p,
+            StackedDRG32GiBSeal | StackedDRG32GiBWinningPoSt => Ok(StackedDRG32GiBWinningPoSt),
+            StackedDRG2KiBSeal | StackedDRG2KiBWinningPoSt => Ok(StackedDRG2KiBWinningPoSt),
+            StackedDRG8MiBSeal | StackedDRG8MiBWinningPoSt => Ok(StackedDRG8MiBWinningPoSt),
+            StackedDRG512MiBSeal | StackedDRG512MiBWinningPoSt => Ok(StackedDRG512MiBWinningPoSt),
+            _ => Err(format!(
+                "Unsupported mapping from {:?} to PoSt-winning RegisteredProof",
+                self
+            )),
+        }
+    }
+
+    /// Produces the windowed PoSt-specific RegisteredProof corresponding
+    /// to the receiving RegisteredProof.
+    pub fn registered_window_post_proof(self) -> Result<RegisteredProof, String> {
+        use RegisteredProof::*;
+        match self {
+            StackedDRG32GiBSeal | StackedDRG32GiBWindowPoSt => Ok(StackedDRG32GiBWindowPoSt),
+            StackedDRG2KiBSeal | StackedDRG2KiBWindowPoSt => Ok(StackedDRG2KiBWindowPoSt),
+            StackedDRG8MiBSeal | StackedDRG8MiBWindowPoSt => Ok(StackedDRG8MiBWindowPoSt),
+            StackedDRG512MiBSeal | StackedDRG512MiBWindowPoSt => Ok(StackedDRG512MiBWindowPoSt),
+            _ => Err(format!(
+                "Unsupported mapping from {:?} to PoSt-window RegisteredProof",
+                self
+            )),
         }
     }
 
@@ -54,11 +97,22 @@ impl RegisteredProof {
     pub fn registered_seal_proof(self) -> RegisteredProof {
         use RegisteredProof::*;
         match self {
-            StackedDRG32GiBPoSt => StackedDRG32GiBSeal,
-            StackedDRG2KiBPoSt => StackedDRG2KiBSeal,
-            StackedDRG8MiBPoSt => StackedDRG8MiBSeal,
-            StackedDRG512MiBPoSt => StackedDRG512MiBSeal,
-            p => p,
+            StackedDRG32GiBSeal
+            | StackedDRG32GiBPoSt
+            | StackedDRG32GiBWindowPoSt
+            | StackedDRG32GiBWinningPoSt => StackedDRG32GiBSeal,
+            StackedDRG2KiBSeal
+            | StackedDRG2KiBPoSt
+            | StackedDRG2KiBWindowPoSt
+            | StackedDRG2KiBWinningPoSt => StackedDRG2KiBSeal,
+            StackedDRG8MiBSeal
+            | StackedDRG8MiBPoSt
+            | StackedDRG8MiBWindowPoSt
+            | StackedDRG8MiBWinningPoSt => StackedDRG8MiBSeal,
+            StackedDRG512MiBSeal
+            | StackedDRG512MiBPoSt
+            | StackedDRG512MiBWindowPoSt
+            | StackedDRG512MiBWinningPoSt => StackedDRG512MiBSeal,
         }
     }
 }

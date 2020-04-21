@@ -12,10 +12,14 @@ clock = { path = "../../node/clock" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+num-traits = "0.2"
 message = { package = "forest_message", path = "../../vm/message" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 ipld_amt = { path = "../../ipld/amt/" }
 thiserror = "1.0"
+log = "0.4.8"
+state_tree = { path = "../../vm/state_tree/" }
+actor = { path = "../../vm/actor/" }
 
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }

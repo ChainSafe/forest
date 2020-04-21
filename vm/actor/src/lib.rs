@@ -14,7 +14,7 @@ pub use vm::{ActorState, DealID, Serialized};
 use encoding::Error as EncodingError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Hamt};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use unsigned_varint::decode::Error as UVarintError;
 
 const HAMT_BIT_WIDTH: u8 = 5;
@@ -23,7 +23,7 @@ type EmptyType = [u8; 0];
 const EMPTY_VALUE: EmptyType = [];
 
 /// Storage power unit, could possibly be a BigUint
-type StoragePower = BigInt;
+type StoragePower = BigUint;
 
 /// Deal weight
 type DealWeight = BigInt;

@@ -497,7 +497,7 @@ impl Actor {
                         "failed to get miner pledge balance".to_owned(),
                     )
                 })?;
-            assert!(claim.power >= StoragePower::from(0));
+            assert!(claim.power >= StoragePower::zero());
 
             // Elapsed since the fault (i.e. since the higher of the two blocks)
             let fault_age = curr_epoch.checked_sub(fault.epoch).ok_or_else(|| {
