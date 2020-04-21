@@ -32,16 +32,15 @@ pub(super) fn cli() -> Result<Config, io::Error> {
         )
         .get_matches();
 
-    let mut cfg: Config = Config::default();
-
-    if let Some(config_file) = app.value_of("config") {
-        // Read from config file
-        let toml = read_file_to_string(config_file)?;
-
-        // Parse and return the configuration file
-        cfg = read_toml(&toml)?;
+    let mut cfg = match app.value_of("config") {
+        Some(config_file) => {
+            // Read from config file
+            let toml = read_file_to_string(config_file)?;
+            // Parse and return the configuration file
+            read_toml(&toml)?
+        }
+        None => Config::default(),
     };
-
     if let Some(genesis_file) = app.value_of("genesis") {
         cfg.genesis_file = Some(genesis_file.to_owned());
     }
