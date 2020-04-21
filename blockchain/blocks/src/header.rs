@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EPostProof, Error, FullTipset, Ticket, TipSetKeys};
+use super::{BeaconEntry, EPostProof, Error, FullTipset, Ticket, TipSetKeys};
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
@@ -63,6 +63,9 @@ pub struct BlockHeader {
     /// There may be multiple rounds in an epoch.
     #[builder(default)]
     epoch: ChainEpoch,
+
+    #[builder(default)]
+    beacon_entries: Vec<BeaconEntry>,
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
     #[builder(default)]
@@ -126,6 +129,7 @@ impl ser::Serialize for BlockHeader {
             &self.miner_address,
             &self.ticket,
             &self.epost_verify,
+            &self.beacon_entries,
             &self.parents,
             BigUintSer(&self.weight),
             &self.epoch,
@@ -150,6 +154,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             miner_address,
             ticket,
             epost_verify,
+            beacon_entries,
             parents,
             BigUintDe(weight),
             epoch,
@@ -166,6 +171,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             .parents(parents)
             .weight(weight)
             .epoch(epoch)
+            .beacon_entries(beacon_entries)
             .miner_address(miner_address)
             .messages(messages)
             .message_receipts(message_receipts)
@@ -211,6 +217,9 @@ impl BlockHeader {
     /// Getter for BlockHeader epoch
     pub fn epoch(&self) -> ChainEpoch {
         self.epoch
+    }
+    pub fn beacon_entries(&self) -> &[BeaconEntry] {
+        &self.beacon_entries
     }
     /// Getter for BlockHeader miner_address
     pub fn miner_address(&self) -> &Address {
