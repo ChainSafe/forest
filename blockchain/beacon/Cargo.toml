@@ -13,7 +13,6 @@ httpbis = { git = "https://github.com/stepancheg/rust-http2" }
 tls-api = "0.3.2"
 
 tls-api-rustls = "0.3.2"
-#ringd = {version =  "0.14.6", package = "ring"}
 
 [build-dependencies]
 protoc-rust-grpc = { version = "0.7.0", git = "https://github.com/stepancheg/grpc-rust/" }
