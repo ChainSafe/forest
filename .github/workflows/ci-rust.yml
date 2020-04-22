@@ -15,19 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      # TODO revisit this, workaround for now
-      - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev
+      - name: Pull serialization vectors
+        run: git submodule update --init
 
-      - name: Toolchain setup
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Build CI docker image
+        run: docker build -t forest/rust:latest -f ./Dockerfile-ci .
 
-      - name: Cargo test all
-        run: make test-all
+      - name: Test all
+        run: docker run forest/rust cargo test --all-features
 
   fmt:
     name: rustfmt
@@ -57,9 +52,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-
-      - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev
 
       - name: Cache cargo registry
         uses: actions/cache@v1
@@ -108,9 +100,6 @@ jobs:
       - uses: actions/checkout@master
       - name: Install Rust
         run: rustup update beta && rustup default beta
-
-      - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features
