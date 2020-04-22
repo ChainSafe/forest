@@ -528,18 +528,15 @@ where
         return Ok(addr.clone());
     }
 
-    let act = match st
+    let act = st
         .get_actor(&addr)
         .map_err(|e| ActorError::new(ExitCode::SysErrInternal, e))?
-    {
-        Some(act) => act,
-        None => {
-            return Err(ActorError::new(
+        .ok_or_else(|| {
+            ActorError::new(
                 ExitCode::SysErrInternal,
                 format!("Failed to retrieve actor: {}", addr),
-            ))
-        }
-    };
+            )
+        })?;
 
     if act.code != *ACCOUNT_ACTOR_CODE_ID {
         return Err(ActorError::new_fatal(format!(

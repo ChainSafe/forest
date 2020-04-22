@@ -60,7 +60,7 @@ where
             None => Ok(true),
         }
     }
-    /// Returns raw address of a miner
+    /// Returns raw work address of a miner
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
