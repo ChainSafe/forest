@@ -99,7 +99,7 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis_buffer: Option<Cid>,
     ) -> Result<Self, Error> {
-        let chain_store = ChainStore::new(db.clone());
+        let mut chain_store = ChainStore::new(db.clone());
 
         let genesis = match genesis_buffer {
             Some(genesis_cid) => {
@@ -115,12 +115,16 @@ where
                 match chain_store.genesis()? {
                     Some(store_genesis) => Tipset::new(vec![store_genesis])?,
                     None => {
+                        // TODO: Not convinced we should even allow someone to start without a genesis...
                         warn!("No genesis provided by config or blockstore, using default Tipset");
                         Tipset::new(vec![BlockHeader::default()])?
                     }
                 }
             }
         };
+
+        chain_store.set_genesis(genesis.blocks()[0].clone())?;
+
         info!(
             "Initializing ChainSyncer with genesis: {:?}",
             genesis.key().cids[0]
