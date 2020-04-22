@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::SectorSize;
+use filecoin_proofs_api::RegisteredSealProof;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -139,6 +140,31 @@ impl<'de> Deserialize<'de> for RegisteredProof {
     {
         let b: u8 = Deserialize::deserialize(deserializer)?;
         Ok(Self::from_byte(b).ok_or_else(|| de::Error::custom("Invalid registered proof byte"))?)
+    }
+}
+
+impl From<RegisteredProof> for RegisteredSealProof {
+    fn from(p: RegisteredProof) -> Self {
+        use RegisteredProof::*;
+
+        match p {
+            StackedDRG32GiBSeal
+            | StackedDRG32GiBPoSt
+            | StackedDRG32GiBWindowPoSt
+            | StackedDRG32GiBWinningPoSt => RegisteredSealProof::StackedDrg32GiBV1,
+            StackedDRG2KiBSeal
+            | StackedDRG2KiBPoSt
+            | StackedDRG2KiBWindowPoSt
+            | StackedDRG2KiBWinningPoSt => RegisteredSealProof::StackedDrg2KiBV1,
+            StackedDRG8MiBSeal
+            | StackedDRG8MiBPoSt
+            | StackedDRG8MiBWindowPoSt
+            | StackedDRG8MiBWinningPoSt => RegisteredSealProof::StackedDrg8MiBV1,
+            StackedDRG512MiBSeal
+            | StackedDRG512MiBPoSt
+            | StackedDRG512MiBWindowPoSt
+            | StackedDRG512MiBWinningPoSt => RegisteredSealProof::StackedDrg512MiBV1,
+        }
     }
 }
 

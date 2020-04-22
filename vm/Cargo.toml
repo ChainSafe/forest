@@ -15,3 +15,5 @@ num-derive = "0.3.0"
 clock = { path = "../node/clock" }
 thiserror = "1.0.11"
 crypto = { path = "../crypto" }
+commcid = { path = "../utils/commcid" }
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "b00d2e26c68e49b81e434739336383304b293395" }

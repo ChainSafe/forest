@@ -8,13 +8,16 @@ pub use self::actor_code::*;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
+use commcid::data_commitment_v1_to_cid;
 use crypto::{DomainSeparationTag, Signature};
+use filecoin_proofs_api::seal::compute_comm_d;
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
+use std::convert::TryFrom;
 use vm::{
-    ActorError, ExitCode, MethodNum, PieceInfo, Randomness, RegisteredProof, SealVerifyInfo,
-    Serialized, TokenAmount, WindowPoStVerifyInfo,
+    zero_piece_commitment, ActorError, ExitCode, MethodNum, PaddedPieceSize, PieceInfo, Randomness,
+    RegisteredProof, SealVerifyInfo, Serialized, TokenAmount, WindowPoStVerifyInfo,
 };
 
 /// Runtime is the VM's internal runtime object.
@@ -150,11 +153,39 @@ pub trait Syscalls {
     /// Computes an unsealed sector CID (CommD) from its constituent piece CIDs (CommPs) and sizes.
     fn compute_unsealed_sector_cid(
         &self,
-        _reg: RegisteredProof,
-        _pieces: &[PieceInfo],
+        proof_type: RegisteredProof,
+        pieces: &[PieceInfo],
     ) -> Result<Cid, ActorError> {
-        // TODO
-        todo!()
+        let sum: u64 = pieces.iter().map(|p| p.size.0).sum();
+
+        let ssize = proof_type.sector_size() as u64;
+
+        let mut fcp_pieces: Vec<filecoin_proofs_api::PieceInfo> = pieces
+            .iter()
+            .map(filecoin_proofs_api::PieceInfo::try_from)
+            .collect::<Result<_, &'static str>>()
+            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))?;
+
+        // pad remaining space with 0 piece commitments
+        {
+            let mut to_fill = ssize - sum;
+            let n = to_fill.count_ones();
+            for _ in 0..n {
+                let next = to_fill.trailing_zeros();
+                let p_size = 1 << next;
+                to_fill ^= p_size;
+                let padded = PaddedPieceSize(p_size);
+                fcp_pieces.push(filecoin_proofs_api::PieceInfo {
+                    commitment: zero_piece_commitment(padded),
+                    size: padded.unpadded().into(),
+                });
+            }
+        }
+
+        let comm_d = compute_comm_d(proof_type.into(), &fcp_pieces)
+            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))?;
+
+        Ok(data_commitment_v1_to_cid(&comm_d))
     }
     /// Verifies a sector seal proof.
     fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), ActorError> {
