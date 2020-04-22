@@ -13,10 +13,11 @@ use tls_api::*;
 use tls_api_openssl::*;
 struct DrandPeer {
     addr: String,
+    tls: bool
 }
 pub struct DrandBeacon {
     client: PublicClient,
-    peers: Vec<DrandPeer>,
+    // peers: Vec<DrandPeer>,
 
     // pubkey
     interval: u64,
@@ -43,7 +44,7 @@ impl DrandBeacon {
             .unwrap();
         let client = PublicClient::with_client(Arc::new(client));
 
-        // peers append all peers
+        // TODO: append all peers
 
         // get nodes in group
         let req = GroupRequest::new();
@@ -52,7 +53,16 @@ impl DrandBeacon {
             .drop_metadata()
             .await?;
         let group: Group = Group::try_from(group_resp)?;
-        todo!();
+        // TODO: Compare pubkeys with one in config
+
+        Ok(Self {
+            //pubkey
+            client,
+            interval: group.period as u64,
+            drand_gen_time: group.genesis_time,
+            fil_round_time: interval,
+            fil_gen_time: genesis_ts
+        })
     }
 }
 
