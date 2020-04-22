@@ -116,7 +116,6 @@ where
                     chain_store.set_genesis(genesis_block.clone())?;
                     let tipset = Tipset::new(vec![genesis_block])?;
                     chain_store.set_heaviest_tipset(Arc::new(tipset.clone()))?;
-                    chain_store.load_heaviest_tipset()?;
                     tipset
                 }
             }
@@ -877,7 +876,7 @@ mod tests {
         let (_event_sender, event_receiver) = channel(20);
 
         let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header.clone()).unwrap();
+        chain_store.set_genesis(gen_header).unwrap();
         // Test just makes sure that the chain syncer can be created without using a live database or
         // p2p network (local channels to simulate network messages and responses)
         let _chain_syncer =
