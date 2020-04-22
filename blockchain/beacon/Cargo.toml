@@ -12,6 +12,12 @@ protobuf = "2.14.0"
 httpbis = { git = "https://github.com/stepancheg/rust-http2" }
 tls-api = "0.3.2"
 tls-api-openssl = "0.3.2"
+crypto = { path = "../../crypto" }
+libsecp256k1 = "0.3.4"
+bls-signatures = "0.5.0"
+
+[dev-dependencies]
+async-std = {version = "1.5.0", features = ["attributes"]}
 
 [build-dependencies]
 protoc-rust-grpc = { version = "0.7.0", git = "https://github.com/stepancheg/grpc-rust/" }
