@@ -1,0 +1,20 @@
+# This Dockerfile is used for consistent build environment in CI
+# Example usage:
+# docker build -t forest/rust:latest -f ./Dockerfile-ci .
+# docker run forest/rust cargo c
+
+FROM rust:1.42-stretch
+
+WORKDIR /usr/src/forest
+COPY . .
+
+# Extra dependencies needed for rust-fil-proofs
+RUN apt-get update && \
+    apt-get install -y curl file gcc g++ git make openssh-client \
+    autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev \
+    libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+    xz-utils pkg-config python clang ocl-icd-opencl-dev
+
+RUN bash -l -c 'echo $(rustc --print sysroot)/lib >> /etc/ld.so.conf'
+RUN bash -l -c 'echo /usr/local/lib >> /etc/ld.so.conf'
+RUN ldconfig
