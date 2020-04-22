@@ -888,7 +888,7 @@ mod tests {
         let db = Arc::new(MemoryDB::default());
         let mut chain_store = ChainStore::new(db);
         let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header.clone()).unwrap();
+        chain_store.set_genesis(gen_header).unwrap();
 
         let (local_sender, _test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
@@ -921,7 +921,7 @@ mod tests {
         let db = Arc::new(MemoryDB::default());
         let mut chain_store = ChainStore::new(db);
         let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header.clone()).unwrap();
+        chain_store.set_genesis(gen_header).unwrap();
 
         let mut cs = chain_syncer_setup(chain_store);
 
@@ -945,7 +945,7 @@ mod tests {
         let db = Arc::new(MemoryDB::default());
         let mut chain_store = ChainStore::new(db);
         let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header.clone()).unwrap();
+        chain_store.set_genesis(gen_header).unwrap();
 
         let cs = chain_syncer_setup(chain_store);
 
