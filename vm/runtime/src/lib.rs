@@ -156,10 +156,7 @@ pub trait Syscalls {
         proof_type: RegisteredProof,
         pieces: &[PieceInfo],
     ) -> Result<Cid, ActorError> {
-        let mut sum = 0u64;
-        for p in pieces {
-            sum += p.size.0;
-        }
+        let sum: u64 = pieces.iter().map(|p| p.size.0).sum();
 
         let ssize = proof_type.sector_size() as u64;
 
