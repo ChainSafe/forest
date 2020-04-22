@@ -542,24 +542,24 @@ where
     };
 
     if act.code != *ACCOUNT_ACTOR_CODE_ID {
-        return Err(ActorError::new_fatal(
-            ExitCode::SysErrInternal,
-            format!("Address was not found for an account actor: {}", addr),
-        ));
+        return Err(ActorError::new_fatal(format!(
+            "Address was not found for an account actor: {}",
+            addr
+        )));
     }
     let acc_st: account::State = store
         .get(&act.state)
         .map_err(|e| {
-            ActorError::new_fatal(
-                ExitCode::SysErrInternal,
-                format!("Failed to get account actor state for: {}, e: {}", addr, e),
-            )
+            ActorError::new_fatal(format!(
+                "Failed to get account actor state for: {}, e: {}",
+                addr, e
+            ))
         })?
         .ok_or_else(|| {
-            ActorError::new_fatal(
-                ExitCode::SysErrInternal,
-                format!("Address was not found for an account actor: {}", addr),
-            )
+            ActorError::new_fatal(format!(
+                "Address was not found for an account actor: {}",
+                addr
+            ))
         })?;
 
     Ok(acc_st.address)

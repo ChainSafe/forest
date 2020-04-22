@@ -328,7 +328,7 @@ impl BlockHeader {
         rhs *= BigUint::from(BLOCKS_PER_EPOCH);
 
         // h(vrfout) * totalPower < e * sectorSize * 2^256
-        lhs.cmp(&rhs) < Ordering::Equal
+        lhs < rhs
     }
 }
 

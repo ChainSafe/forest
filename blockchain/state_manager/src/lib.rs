@@ -61,7 +61,7 @@ where
         }
     }
     /// Returns raw address of a miner
-    pub fn get_miner_wrk_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
+    pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
         let state =
@@ -73,7 +73,7 @@ where
     }
     /// Returns specified actor's claimed power and total network power as a tuple
     pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigUint, BigUint), Error> {
-        let ps: power::State = self.load_actor_state(addr, state_cid)?;
+        let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
         if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {
             Ok((claim.power, ps.total_network_power))
