@@ -123,9 +123,7 @@ where
             None => {
                 debug!("No specified genesis in config. Attempting to load from store");
                 match chain_store.genesis()? {
-                    Some(store_genesis) => {
-                        Tipset::new(vec![store_genesis])?
-                    }
+                    Some(store_genesis) => Tipset::new(vec![store_genesis])?,
                     None => {
                         return Err(Error::Other(
                             "No genesis provided by config or blockstore".to_owned(),
