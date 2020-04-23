@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::api::*;
+use super::api::PublicRandRequest;
 use super::api_grpc::PublicClient;
 use super::beacon_entries::BeaconEntry;
 use super::common::{GroupPacket as ProtoGroup, GroupRequest, Identity as ProtoIdentity};
@@ -33,10 +33,7 @@ pub struct DrandBeacon {
 }
 
 impl DrandBeacon {
-    pub async fn new(
-        genesis_ts: u64,
-        interval: u64,
-    ) -> std::result::Result<Self, Box<dyn error::Error>> {
+    pub async fn new(genesis_ts: u64, interval: u64) -> Result<Self, Box<dyn error::Error>> {
         if genesis_ts == 0 {
             panic!("what are you doing this cant be zero")
         }
@@ -69,8 +66,24 @@ impl DrandBeacon {
         })
     }
 
-    pub async fn entry(&self, round: u64) -> Result<BeaconEntry, String> {
-        todo!()
+    pub async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>> {
+        // TODO: Cache values into a database
+
+        let mut req = PublicRandRequest::new();
+        req.round = round;
+
+        let resp = self
+            .client
+            .public_rand(grpc::RequestOptions::new(), req)
+            .drop_metadata()
+            .await?;
+
+        Ok(BeaconEntry::new(
+            resp.round,
+            resp.signature,
+            // TODO: Is this right?
+            round - 1,
+        ))
     }
 }
 
