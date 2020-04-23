@@ -36,8 +36,8 @@ pub enum FilecoinMultihashCode {
 /// by adding:
 /// - serialization type of raw
 /// - the given filecoin hash type
-pub fn commitment_to_cid(commitment: Commitment, code: FilecoinMultihashCode) -> Cid {
-    let mh = multihash::wrap(multihash::Code::Custom(code as u64), &commitment);
+pub fn commitment_to_cid(commitment: &Commitment, code: FilecoinMultihashCode) -> Cid {
+    let mh = multihash::wrap(multihash::Code::Custom(code as u64), commitment);
 
     Cid::new_v1(Codec::Raw, mh)
 }
@@ -45,7 +45,7 @@ pub fn commitment_to_cid(commitment: Commitment, code: FilecoinMultihashCode) ->
 /// cid_to_commitment extracts the raw data commitment from a CID
 /// assuming that it has the correct hashing function and
 /// serialization types
-pub fn cid_to_commitment(c: Cid) -> Result<(Commitment, FilecoinMultihashCode), &'static str> {
+pub fn cid_to_commitment(c: &Cid) -> Result<(Commitment, FilecoinMultihashCode), &'static str> {
     if c.codec != Codec::Raw {
         return Err("codec for all commitments is raw");
     }
@@ -67,14 +67,14 @@ pub fn cid_to_commitment(c: Cid) -> Result<(Commitment, FilecoinMultihashCode), 
 /// by adding:
 /// - serialization type of raw
 /// - hashing type of Filecoin unsealed hashing function v1 (0xfc2)
-pub fn data_commitment_v1_to_cid(comm_d: Commitment) -> Cid {
+pub fn data_commitment_v1_to_cid(comm_d: &Commitment) -> Cid {
     commitment_to_cid(comm_d, FilecoinMultihashCode::UnsealedV1)
 }
 
 /// cid_to_data_commitment_v1 extracts the raw data commitment from a CID
 /// assuming that it has the correct hashing function and
 /// serialization types
-pub fn cid_to_data_commitment_v1(c: Cid) -> Result<Commitment, &'static str> {
+pub fn cid_to_data_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
     let (comm_d, code) = cid_to_commitment(c)?;
 
     if code != FilecoinMultihashCode::UnsealedV1 {
@@ -88,14 +88,14 @@ pub fn cid_to_data_commitment_v1(c: Cid) -> Result<Commitment, &'static str> {
 /// by adding:
 /// - serialization type of raw
 /// - hashing type of Filecoin sealed hashing function v1 (0xfc2)
-pub fn replica_commitment_v1_to_cid(comm_r: Commitment) -> Cid {
+pub fn replica_commitment_v1_to_cid(comm_r: &Commitment) -> Cid {
     commitment_to_cid(comm_r, FilecoinMultihashCode::SealedV1)
 }
 
 /// cid_to_replica_commitment_v1 extracts the raw replica commitment from a CID
 /// assuming that it has the correct hashing function and
 /// serialization types
-pub fn cid_to_replica_commitment_v1(c: Cid) -> Result<Commitment, &'static str> {
+pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
     let (comm_r, hash) = cid_to_commitment(c)?;
 
     if hash != FilecoinMultihashCode::SealedV1 {
@@ -108,13 +108,13 @@ pub fn cid_to_replica_commitment_v1(c: Cid) -> Result<Commitment, &'static str> 
 /// piece_commitment_v1_to_cid converts a comm_p to a CID
 /// -- it is just a helper function that is equivalent to
 /// data_commitment_v1_to_cid.
-pub fn piece_commitment_v1_to_cid(comm_p: Commitment) -> Cid {
+pub fn piece_commitment_v1_to_cid(comm_p: &Commitment) -> Cid {
     data_commitment_v1_to_cid(comm_p)
 }
 
 /// cid_to_piece_commitment_v1 converts a CID to a comm_p
 /// -- it is just a helper function that is equivalent to
 /// cid_to_data_commitment_v1.
-pub fn cid_to_piece_commitment_v1(c: Cid) -> Result<Commitment, &'static str> {
+pub fn cid_to_piece_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
     cid_to_data_commitment_v1(c)
 }

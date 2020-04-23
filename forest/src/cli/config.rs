@@ -10,6 +10,7 @@ use utils::get_home_dir;
 pub struct Config {
     pub network: Libp2pConfig,
     pub data_dir: String,
+    pub genesis_file: Option<String>,
 }
 
 impl Default for Config {
@@ -17,6 +18,7 @@ impl Default for Config {
         Self {
             network: Libp2pConfig::default(),
             data_dir: get_home_dir() + "/.forest",
+            genesis_file: None,
         }
     }
 }

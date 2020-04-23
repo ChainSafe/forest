@@ -5,17 +5,21 @@ use self::cli::cli;
 mod cli;
 mod logger;
 use async_std::task;
+use chain::ChainStore;
 use chain_sync::ChainSyncer;
+use cid::Cid;
 use db::RocksDb;
+use forest_car::load_car;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{info, trace};
 use std::cell::RefCell;
+use std::fs::File;
+use std::io::BufReader;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use utils::write_to_file;
-
 // Blocks current thread until ctrl-c is received
 fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
@@ -65,6 +69,30 @@ fn main() {
         }
     };
 
+    // Initialize database
+    let mut db = RocksDb::new(config.data_dir + "/db");
+    db.open().unwrap();
+
+    // Read Genesis file
+    let genesis_buffer: Option<BufReader<File>> = match &config.genesis_file {
+        Some(path) => {
+            let file = File::open(path).expect("Could not open genesis file");
+            Some(BufReader::new(file))
+        }
+        None => None,
+    };
+    let genesis_cid = match genesis_buffer {
+        Some(buf) => {
+            // Load genesis state into the database and get the Cid
+            let genesis_cid: Vec<Cid> = load_car(&db, buf).unwrap();
+            if genesis_cid.len() != 1 {
+                panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
+            }
+            Some(genesis_cid[0].clone())
+        }
+        None => None,
+    };
+
     // Start libp2p service
     let p2p_service = Libp2pService::new(&config.network, net_keypair);
     let network_rx = p2p_service.network_receiver();
@@ -75,11 +103,9 @@ fn main() {
         p2p_service.run().await;
     });
     let sync_thread = task::spawn(async {
-        // Initialize database
-        let mut db = RocksDb::new(config.data_dir + "/db");
-        db.open().unwrap();
-
-        let chain_syncer = ChainSyncer::new(Arc::new(db), network_send, network_rx).unwrap();
+        let chain_store = ChainStore::new(Arc::new(db));
+        let chain_syncer =
+            ChainSyncer::new(chain_store, network_send, network_rx, genesis_cid).unwrap();
         chain_syncer.start().await.unwrap();
     });
 
