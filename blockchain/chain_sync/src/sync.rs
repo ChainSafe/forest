@@ -543,6 +543,10 @@ where
                     "Bls aggregate signature was invalid".to_owned(),
                 ));
             }
+        } else {
+            return Err(Error::Validation(
+                "No bls signature included in the block header".to_owned(),
+            ));
         }
         // check msgs for validity
         fn check_msg<M, ST>(
