@@ -22,3 +22,4 @@ cid = { package = "forest_cid", path = "../ipld/cid" }
 forest_car = { path = "../ipld/car" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore" }
+chain = { path = "../blockchain/chain" }

@@ -85,6 +85,8 @@ impl DrandBeacon {
             round - 1,
         ))
     }
+
+    
 }
 
 #[cfg(test)]

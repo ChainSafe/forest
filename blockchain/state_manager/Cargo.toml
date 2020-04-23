@@ -7,10 +7,12 @@ edition = "2018"
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address/" }
 actor = { path = "../../vm/actor/" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
 db = { path = "../../node/db/" }
 encoding = { package = "forest_encoding", path = "../../encoding/" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
-vm = { path = "../../vm" }
+default_runtime = { path = "../../vm/default_runtime/" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
 forest_blocks = { path = "../../blockchain/blocks" }
 thiserror = "1.0"

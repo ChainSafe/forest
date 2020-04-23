@@ -191,7 +191,7 @@ impl State {
     }
 
     /// Gets claim from claims map by address
-    pub(super) fn get_claim<BS: BlockStore>(
+    pub fn get_claim<BS: BlockStore>(
         &self,
         store: &BS,
         a: &Address,
