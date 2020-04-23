@@ -585,7 +585,7 @@ where
         self.check_blk_msgs(block.clone(), &parent_tipset)?;
 
         // TODO use computed state_root instead of parent_tipset.parent_state()
-        let wrk_addr = self
+        let work_addr = self
             .state_manager
             .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())?;
         // block signature check
