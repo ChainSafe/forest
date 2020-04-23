@@ -617,7 +617,7 @@ where
             .state_manager
             .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())?;
         // block signature check
-        header.check_block_signature(&wrk_addr)?;
+        header.check_block_signature(&work_addr)?;
 
         let slash = self
             .state_manager
