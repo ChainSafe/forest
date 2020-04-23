@@ -14,3 +14,4 @@ vm = { path = "../../vm" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
 forest_blocks = { path = "../../blockchain/blocks" }
 thiserror = "1.0"
+cid = { package = "forest_cid", path = "../../ipld/cid" }

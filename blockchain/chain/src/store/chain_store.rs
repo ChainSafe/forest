@@ -230,10 +230,10 @@ where
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
 
-        for header in ts.blocks() {
-            let (bls_messages, secp_messages) = self.messages(header)?;
+        for header in ts.into_blocks() {
+            let (bls_messages, secp_messages) = self.messages(&header)?;
             blocks.push(Block {
-                header: header.clone(),
+                header,
                 bls_messages,
                 secp_messages,
             });
