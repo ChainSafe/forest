@@ -4,14 +4,15 @@
 mod errors;
 
 pub use self::errors::*;
-use actor::{miner, ActorState};
+use actor::{miner, power, ActorState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use blockstore::BlockStore;
+use cid::Cid;
+use default_runtime::resolve_to_key_addr;
 use encoding::de::DeserializeOwned;
-use forest_blocks::Tipset;
+use num_bigint::BigUint;
 use state_tree::{HamtStateTree, StateTree};
 use std::sync::Arc;
-use vm::SectorSize;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub struct StateManager<DB> {
@@ -27,12 +28,12 @@ where
         Self { bs }
     }
     /// Loads actor state from IPLD Store
-    fn load_actor_state<D>(&self, addr: &Address, ts: &Tipset) -> Result<D, Error>
+    fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
     where
         D: DeserializeOwned,
     {
         let actor = self
-            .get_actor(addr, ts)?
+            .get_actor(addr, state_cid)?
             .ok_or_else(|| Error::ActorNotFound(addr.to_string()))?;
         let act: D = self
             .bs
@@ -41,23 +42,45 @@ where
             .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }
-    /// Returns the epoch at which the miner was slashed at
-    pub fn miner_slashed(&self, _addr: &Address, _ts: &Tipset) -> Result<u64, Error> {
-        // TODO update to use power actor if needed
-        todo!()
-    }
-    /// Returns the amount of space in each sector committed to the network by this miner
-    pub fn miner_sector_size(&self, addr: &Address, ts: &Tipset) -> Result<SectorSize, Error> {
-        let act: miner::State = self.load_actor_state(addr, ts)?;
-        // * Switch back to retrieving from Cid if/when changed in actors
-        // let info: miner::MinerInfo = self.bs.get(&act.info)?.ok_or_else(|| {
-        //     Error::State("Could not retrieve miner info from IPLD store".to_owned())
-        // })?;
-        Ok(act.info.sector_size)
-    }
-    pub fn get_actor(&self, addr: &Address, ts: &Tipset) -> Result<Option<ActorState>, Error> {
-        let state = HamtStateTree::new_from_root(self.bs.as_ref(), ts.parent_state())
-            .map_err(Error::State)?;
+    fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
+        let state =
+            HamtStateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
+    }
+    /// Returns true if miner has been slashed or is considered invalid
+    pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
+        let ms: miner::State = self.load_actor_state(addr, state_cid)?;
+        if ms.post_state.has_failed_post() {
+            return Ok(true);
+        }
+
+        let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
+        match ps.get_claim(self.bs.as_ref(), addr)? {
+            Some(_) => Ok(false),
+            None => Ok(true),
+        }
+    }
+    /// Returns raw work address of a miner
+    pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
+        let ms: miner::State = self.load_actor_state(addr, state_cid)?;
+
+        let state =
+            HamtStateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        // Note: miner::State info likely to be changed to CID
+        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
+            .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
+        Ok(addr)
+    }
+    /// Returns specified actor's claimed power and total network power as a tuple
+    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigUint, BigUint), Error> {
+        let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
+
+        if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {
+            Ok((claim.power, ps.total_network_power))
+        } else {
+            Err(Error::State(
+                "Failed to retrieve claimed power from actor state".to_owned(),
+            ))
+        }
     }
 }

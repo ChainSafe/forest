@@ -7,9 +7,9 @@ mod gas_syscalls;
 use self::gas_block_store::GasBlockStore;
 use self::gas_syscalls::GasSyscalls;
 use actor::{
-    self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
-    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
-    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
+    self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
+    MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
+    POWER_ACTOR_CODE_ID, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
 };
 use address::{Address, Protocol};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -155,39 +155,6 @@ where
         })?;
 
         Ok(())
-    }
-    fn resolve_to_key_addr(&self, addr: &Address) -> Result<Address, ActorError> {
-        if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
-            return Ok(addr.clone());
-        }
-        let act = self.get_actor(&addr)?;
-        if act.code != *ACCOUNT_ACTOR_CODE_ID {
-            return Err(self.abort(
-                ExitCode::SysErrInternal,
-                format!("address {:?} was not for an account actor", addr),
-            ));
-        }
-        let actor_state: actor::account::State = self
-            .store
-            .get(&act.state)
-            // TODO this needs to be a fatal error
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    format!(
-                        "Could not get actor state in resolve_to_key_addr: {:?}",
-                        e.to_string()
-                    ),
-                )
-            })?
-            .ok_or_else(|| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    "Actor state not found in resolve_to_key_addr",
-                )
-            })?;
-
-        Ok(actor_state.address)
     }
 }
 
@@ -378,7 +345,7 @@ where
         ActorError::new(exit_code, msg.as_ref().to_owned())
     }
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
-        let oa = self.resolve_to_key_addr(&self.origin)?;
+        let oa = resolve_to_key_addr(self.state, &self.store, &self.origin)?;
         let mut b = to_vec(&oa).map_err(|e| {
             self.abort(
                 ExitCode::ErrSerialization,
@@ -545,4 +512,52 @@ fn transfer<ST: StateTree>(
     state.set_actor(to, t)?;
 
     Ok(())
+}
+
+/// Returns public address of the specified actor address
+pub fn resolve_to_key_addr<'st, 'bs, ST, BS>(
+    st: &'st ST,
+    store: &'bs BS,
+    addr: &Address,
+) -> Result<Address, ActorError>
+where
+    ST: StateTree,
+    BS: BlockStore,
+{
+    if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
+        return Ok(addr.clone());
+    }
+
+    let act = st
+        .get_actor(&addr)
+        .map_err(|e| ActorError::new(ExitCode::SysErrInternal, e))?
+        .ok_or_else(|| {
+            ActorError::new(
+                ExitCode::SysErrInternal,
+                format!("Failed to retrieve actor: {}", addr),
+            )
+        })?;
+
+    if act.code != *ACCOUNT_ACTOR_CODE_ID {
+        return Err(ActorError::new_fatal(format!(
+            "Address was not found for an account actor: {}",
+            addr
+        )));
+    }
+    let acc_st: account::State = store
+        .get(&act.state)
+        .map_err(|e| {
+            ActorError::new_fatal(format!(
+                "Failed to get account actor state for: {}, e: {}",
+                addr, e
+            ))
+        })?
+        .ok_or_else(|| {
+            ActorError::new_fatal(format!(
+                "Address was not found for an account actor: {}",
+                addr
+            ))
+        })?;
+
+    Ok(acc_st.address)
 }

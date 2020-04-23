@@ -596,7 +596,6 @@ where
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     fn validate(&self, block: &Block) -> Result<(), Error> {
-        // get header from full block
         let header = block.header();
 
         // check if block has been signed
@@ -613,23 +612,32 @@ where
         // check messages to ensure valid state transitions
         self.check_blk_msgs(block.clone(), &parent_tipset)?;
 
+        // TODO use computed state_root instead of parent_tipset.parent_state()
+        let work_addr = self
+            .state_manager
+            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())?;
         // block signature check
-        // TODO need to pass in raw miner address; temp using header miner address
-        // see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L611
-        header.check_block_signature(header.miner_address())?;
+        header.check_block_signature(&work_addr)?;
 
-        // TODO: incomplete, still need to retrieve power in order to ensure ticket is the winner
-        let _slash = self
+        let slash = self
             .state_manager
-            .miner_slashed(header.miner_address(), &parent_tipset)?;
-        let _sector_size = self
-            .state_manager
-            .miner_sector_size(header.miner_address(), &parent_tipset)?;
+            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())?;
+        if slash {
+            return Err(Error::Validation(
+                "Received block was from slashed or invalid miner".to_owned(),
+            ));
+        }
 
-        // TODO winner_check
-        // TODO miner_check
+        let (c_pow, net_pow) = self
+            .state_manager
+            .get_power(&parent_tipset.parent_state(), header.miner_address())?;
+        // ticket winner check
+        if !header.is_ticket_winner(c_pow, net_pow) {
+            return Err(Error::Validation(
+                "Miner created a block but was not a winner".to_owned(),
+            ));
+        }
         // TODO verify_ticket_vrf
-        // TODO verify_election_proof_check
 
         Ok(())
     }
