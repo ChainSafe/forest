@@ -1,5 +1,8 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 pub use crate::common::{GroupPacket as ProtoGroup, GroupRequest, Identity as ProtoIdentity};
-use crate::identity::{ Identity};
+use crate::identity::Identity;
 
 use bls_signatures::{PublicKey, Serialize};
 use std::convert::TryFrom;
@@ -42,7 +45,7 @@ impl TryFrom<ProtoGroup> for Group {
             .map(|k| PublicKey::from_bytes(&k))
             .collect::<std::result::Result<_, _>>()
             .unwrap();
-        
+
         Ok(Self {
             threshold,
             genesis_time,

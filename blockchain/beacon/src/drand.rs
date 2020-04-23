@@ -1,19 +1,23 @@
-pub use crate::api::*;
-pub use crate::api_grpc::PublicClient;
-pub use crate::common::{GroupPacket as ProtoGroup, GroupRequest, Identity as ProtoIdentity};
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+use super::api::*;
+use super::api_grpc::PublicClient;
+use super::beacon_entries::BeaconEntry;
+use super::common::{GroupPacket as ProtoGroup, GroupRequest, Identity as ProtoIdentity};
+use super::group::Group;
+
 use grpc::ClientStub;
 use grpc::RequestOptions;
 
-use crate::group::Group;
-use httpbis::ClientTlsOption;
 use std::convert::TryFrom;
 use std::error;
 use std::sync::Arc;
-use tls_api::*;
-use tls_api_openssl::*;
+use tls_api_openssl::TlsConnector;
+
 struct DrandPeer {
     addr: String,
-    tls: bool
+    tls: bool,
 }
 pub struct DrandBeacon {
     client: PublicClient,
@@ -39,7 +43,7 @@ impl DrandBeacon {
 
         // construct grpc client
         let client = grpc::ClientBuilder::new("drand-test1.nikkolasg.xyz", 5001)
-            .tls::<tls_api_openssl::TlsConnector>()
+            .tls::<TlsConnector>()
             .build()
             .unwrap();
         let client = PublicClient::with_client(Arc::new(client));
@@ -61,34 +65,42 @@ impl DrandBeacon {
             interval: group.period as u64,
             drand_gen_time: group.genesis_time,
             fil_round_time: interval,
-            fil_gen_time: genesis_ts
+            fil_gen_time: genesis_ts,
         })
+    }
+
+    pub async fn entry(&self, round: u64) -> Result<BeaconEntry, String> {
+        todo!()
     }
 }
 
 #[cfg(test)]
 mod test {
+    pub use crate::api_grpc::PublicClient;
+    pub use crate::common::GroupRequest;
+    use crate::group::Group;
+    use async_std::prelude::*;
+    use grpc::ClientStub;
+    use httpbis::ClientTlsOption;
+    use std::convert::TryFrom;
+    use std::sync::Arc;
     use tls_api::*;
     use tls_api_openssl::*;
-    use httpbis::ClientTlsOption;
-    use std::sync::Arc;
-    pub use crate::api_grpc::PublicClient;
-    use grpc::ClientStub;
-    pub use crate::common::{GroupRequest};
-    use async_std::prelude::*;
-    use crate::group::Group;
-    use std::convert::TryFrom;
 
     #[async_std::test]
     async fn t1() {
         let client = grpc::ClientBuilder::new("drand-test1.nikkolasg.xyz", 5001)
-        .tls::<tls_api_openssl::TlsConnector>()
-        .build()
-        .unwrap();
+            .tls::<tls_api_openssl::TlsConnector>()
+            .build()
+            .unwrap();
         let client = PublicClient::with_client(Arc::new(client));
 
         let req = GroupRequest::new();
-        let resp = client.group(grpc::RequestOptions::new(), req).drop_metadata().await.unwrap();
+        let resp = client
+            .group(grpc::RequestOptions::new(), req)
+            .drop_metadata()
+            .await
+            .unwrap();
 
         let group: Group = Group::try_from(resp).unwrap();
         println!("{:?}", group);

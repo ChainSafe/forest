@@ -26,7 +26,7 @@ use protobuf::ProtobufEnum as ProtobufEnum_imported_for_functions;
 /// of protobuf runtime.
 // const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_2_14_0;
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Empty {
     // special fields
     pub unknown_fields: ::protobuf::UnknownFields,
@@ -50,13 +50,21 @@ impl ::protobuf::Message for Empty {
         true
     }
 
-    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+    fn merge_from(
+        &mut self,
+        is: &mut ::protobuf::CodedInputStream<'_>,
+    ) -> ::protobuf::ProtobufResult<()> {
         while !is.eof()? {
             let (field_number, wire_type) = is.read_tag_unpack()?;
             match field_number {
                 _ => {
-                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
-                },
+                    ::protobuf::rt::read_unknown_or_skip_group(
+                        field_number,
+                        wire_type,
+                        is,
+                        self.mut_unknown_fields(),
+                    )?;
+                }
             };
         }
         ::std::result::Result::Ok(())
@@ -71,7 +79,10 @@ impl ::protobuf::Message for Empty {
         my_size
     }
 
-    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+    fn write_to_with_cached_sizes(
+        &self,
+        os: &mut ::protobuf::CodedOutputStream<'_>,
+    ) -> ::protobuf::ProtobufResult<()> {
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -107,14 +118,15 @@ impl ::protobuf::Message for Empty {
     }
 
     fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
-        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy::INIT;
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> =
+            ::protobuf::lazy::Lazy::INIT;
         unsafe {
             descriptor.get(|| {
                 let fields = ::std::vec::Vec::new();
                 ::protobuf::reflect::MessageDescriptor::new_pb_name::<Empty>(
                     "Empty",
                     fields,
-                    file_descriptor_proto()
+                    file_descriptor_proto(),
                 )
             })
         }
@@ -122,9 +134,7 @@ impl ::protobuf::Message for Empty {
 
     fn default_instance() -> &'static Empty {
         static mut instance: ::protobuf::lazy::Lazy<Empty> = ::protobuf::lazy::Lazy::INIT;
-        unsafe {
-            instance.get(Empty::new)
-        }
+        unsafe { instance.get(Empty::new) }
     }
 }
 
@@ -146,7 +156,7 @@ impl ::protobuf::reflect::ProtobufValue for Empty {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Identity {
     // message fields
     pub address: ::std::string::String,
@@ -169,7 +179,6 @@ impl Identity {
     }
 
     // string address = 1;
-
 
     pub fn get_address(&self) -> &str {
         &self.address
@@ -196,7 +205,6 @@ impl Identity {
 
     // bytes key = 2;
 
-
     pub fn get_key(&self) -> &[u8] {
         &self.key
     }
@@ -222,7 +230,6 @@ impl Identity {
 
     // bool tls = 3;
 
-
     pub fn get_tls(&self) -> bool {
         self.tls
     }
@@ -241,26 +248,40 @@ impl ::protobuf::Message for Identity {
         true
     }
 
-    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+    fn merge_from(
+        &mut self,
+        is: &mut ::protobuf::CodedInputStream<'_>,
+    ) -> ::protobuf::ProtobufResult<()> {
         while !is.eof()? {
             let (field_number, wire_type) = is.read_tag_unpack()?;
             match field_number {
                 1 => {
-                    ::protobuf::rt::read_singular_proto3_string_into(wire_type, is, &mut self.address)?;
-                },
+                    ::protobuf::rt::read_singular_proto3_string_into(
+                        wire_type,
+                        is,
+                        &mut self.address,
+                    )?;
+                }
                 2 => {
                     ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.key)?;
-                },
+                }
                 3 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
-                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(
+                            wire_type,
+                        ));
                     }
                     let tmp = is.read_bool()?;
                     self.tls = tmp;
-                },
+                }
                 _ => {
-                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
-                },
+                    ::protobuf::rt::read_unknown_or_skip_group(
+                        field_number,
+                        wire_type,
+                        is,
+                        self.mut_unknown_fields(),
+                    )?;
+                }
             };
         }
         ::std::result::Result::Ok(())
@@ -284,7 +305,10 @@ impl ::protobuf::Message for Identity {
         my_size
     }
 
-    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+    fn write_to_with_cached_sizes(
+        &self,
+        os: &mut ::protobuf::CodedOutputStream<'_>,
+    ) -> ::protobuf::ProtobufResult<()> {
         if !self.address.is_empty() {
             os.write_string(1, &self.address)?;
         }
@@ -329,29 +353,39 @@ impl ::protobuf::Message for Identity {
     }
 
     fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
-        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy::INIT;
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> =
+            ::protobuf::lazy::Lazy::INIT;
         unsafe {
             descriptor.get(|| {
                 let mut fields = ::std::vec::Vec::new();
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeString>(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
+                    _,
+                    ::protobuf::types::ProtobufTypeString,
+                >(
                     "address",
-                    |m: &Identity| { &m.address },
-                    |m: &mut Identity| { &mut m.address },
+                    |m: &Identity| &m.address,
+                    |m: &mut Identity| &mut m.address,
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
+                    _,
+                    ::protobuf::types::ProtobufTypeBytes,
+                >(
                     "key",
-                    |m: &Identity| { &m.key },
-                    |m: &mut Identity| { &mut m.key },
+                    |m: &Identity| &m.key,
+                    |m: &mut Identity| &mut m.key,
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBool>(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
+                    _,
+                    ::protobuf::types::ProtobufTypeBool,
+                >(
                     "tls",
-                    |m: &Identity| { &m.tls },
-                    |m: &mut Identity| { &mut m.tls },
+                    |m: &Identity| &m.tls,
+                    |m: &mut Identity| &mut m.tls,
                 ));
                 ::protobuf::reflect::MessageDescriptor::new_pb_name::<Identity>(
                     "Identity",
                     fields,
-                    file_descriptor_proto()
+                    file_descriptor_proto(),
                 )
             })
         }
@@ -359,9 +393,7 @@ impl ::protobuf::Message for Identity {
 
     fn default_instance() -> &'static Identity {
         static mut instance: ::protobuf::lazy::Lazy<Identity> = ::protobuf::lazy::Lazy::INIT;
-        unsafe {
-            instance.get(Identity::new)
-        }
+        unsafe { instance.get(Identity::new) }
     }
 }
 
@@ -386,7 +418,7 @@ impl ::protobuf::reflect::ProtobufValue for Identity {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct GroupPacket {
     // message fields
     pub nodes: ::protobuf::RepeatedField<Identity>,
@@ -414,7 +446,6 @@ impl GroupPacket {
 
     // repeated .drand.Identity nodes = 1;
 
-
     pub fn get_nodes(&self) -> &[Identity] {
         &self.nodes
     }
@@ -439,7 +470,6 @@ impl GroupPacket {
 
     // uint32 threshold = 2;
 
-
     pub fn get_threshold(&self) -> u32 {
         self.threshold
     }
@@ -453,7 +483,6 @@ impl GroupPacket {
     }
 
     // uint32 period = 3;
-
 
     pub fn get_period(&self) -> u32 {
         self.period
@@ -469,7 +498,6 @@ impl GroupPacket {
 
     // uint64 genesis_time = 4;
 
-
     pub fn get_genesis_time(&self) -> u64 {
         self.genesis_time
     }
@@ -484,7 +512,6 @@ impl GroupPacket {
 
     // uint64 transition_time = 5;
 
-
     pub fn get_transition_time(&self) -> u64 {
         self.transition_time
     }
@@ -498,7 +525,6 @@ impl GroupPacket {
     }
 
     // bytes genesis_seed = 6;
-
 
     pub fn get_genesis_seed(&self) -> &[u8] {
         &self.genesis_seed
@@ -524,7 +550,6 @@ impl GroupPacket {
     }
 
     // repeated bytes dist_key = 7;
-
 
     pub fn get_dist_key(&self) -> &[::std::vec::Vec<u8>] {
         &self.dist_key
@@ -555,54 +580,74 @@ impl ::protobuf::Message for GroupPacket {
             if !v.is_initialized() {
                 return false;
             }
-        };
+        }
         true
     }
 
-    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+    fn merge_from(
+        &mut self,
+        is: &mut ::protobuf::CodedInputStream<'_>,
+    ) -> ::protobuf::ProtobufResult<()> {
         while !is.eof()? {
             let (field_number, wire_type) = is.read_tag_unpack()?;
             match field_number {
                 1 => {
                     ::protobuf::rt::read_repeated_message_into(wire_type, is, &mut self.nodes)?;
-                },
+                }
                 2 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
-                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(
+                            wire_type,
+                        ));
                     }
                     let tmp = is.read_uint32()?;
                     self.threshold = tmp;
-                },
+                }
                 3 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
-                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(
+                            wire_type,
+                        ));
                     }
                     let tmp = is.read_uint32()?;
                     self.period = tmp;
-                },
+                }
                 4 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
-                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(
+                            wire_type,
+                        ));
                     }
                     let tmp = is.read_uint64()?;
                     self.genesis_time = tmp;
-                },
+                }
                 5 => {
                     if wire_type != ::protobuf::wire_format::WireTypeVarint {
-                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(
+                            wire_type,
+                        ));
                     }
                     let tmp = is.read_uint64()?;
                     self.transition_time = tmp;
-                },
+                }
                 6 => {
-                    ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.genesis_seed)?;
-                },
+                    ::protobuf::rt::read_singular_proto3_bytes_into(
+                        wire_type,
+                        is,
+                        &mut self.genesis_seed,
+                    )?;
+                }
                 7 => {
                     ::protobuf::rt::read_repeated_bytes_into(wire_type, is, &mut self.dist_key)?;
-                },
+                }
                 _ => {
-                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
-                },
+                    ::protobuf::rt::read_unknown_or_skip_group(
+                        field_number,
+                        wire_type,
+                        is,
+                        self.mut_unknown_fields(),
+                    )?;
+                }
             };
         }
         ::std::result::Result::Ok(())
@@ -615,36 +660,52 @@ impl ::protobuf::Message for GroupPacket {
         for value in &self.nodes {
             let len = value.compute_size();
             my_size += 1 + ::protobuf::rt::compute_raw_varint32_size(len) + len;
-        };
+        }
         if self.threshold != 0 {
-            my_size += ::protobuf::rt::value_size(2, self.threshold, ::protobuf::wire_format::WireTypeVarint);
+            my_size += ::protobuf::rt::value_size(
+                2,
+                self.threshold,
+                ::protobuf::wire_format::WireTypeVarint,
+            );
         }
         if self.period != 0 {
-            my_size += ::protobuf::rt::value_size(3, self.period, ::protobuf::wire_format::WireTypeVarint);
+            my_size +=
+                ::protobuf::rt::value_size(3, self.period, ::protobuf::wire_format::WireTypeVarint);
         }
         if self.genesis_time != 0 {
-            my_size += ::protobuf::rt::value_size(4, self.genesis_time, ::protobuf::wire_format::WireTypeVarint);
+            my_size += ::protobuf::rt::value_size(
+                4,
+                self.genesis_time,
+                ::protobuf::wire_format::WireTypeVarint,
+            );
         }
         if self.transition_time != 0 {
-            my_size += ::protobuf::rt::value_size(5, self.transition_time, ::protobuf::wire_format::WireTypeVarint);
+            my_size += ::protobuf::rt::value_size(
+                5,
+                self.transition_time,
+                ::protobuf::wire_format::WireTypeVarint,
+            );
         }
         if !self.genesis_seed.is_empty() {
             my_size += ::protobuf::rt::bytes_size(6, &self.genesis_seed);
         }
         for value in &self.dist_key {
             my_size += ::protobuf::rt::bytes_size(7, &value);
-        };
+        }
         my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
         self.cached_size.set(my_size);
         my_size
     }
 
-    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+    fn write_to_with_cached_sizes(
+        &self,
+        os: &mut ::protobuf::CodedOutputStream<'_>,
+    ) -> ::protobuf::ProtobufResult<()> {
         for v in &self.nodes {
             os.write_tag(1, ::protobuf::wire_format::WireTypeLengthDelimited)?;
             os.write_raw_varint32(v.get_cached_size())?;
             v.write_to_with_cached_sizes(os)?;
-        };
+        }
         if self.threshold != 0 {
             os.write_uint32(2, self.threshold)?;
         }
@@ -662,7 +723,7 @@ impl ::protobuf::Message for GroupPacket {
         }
         for v in &self.dist_key {
             os.write_bytes(7, &v)?;
-        };
+        }
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -698,49 +759,75 @@ impl ::protobuf::Message for GroupPacket {
     }
 
     fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
-        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy::INIT;
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> =
+            ::protobuf::lazy::Lazy::INIT;
         unsafe {
             descriptor.get(|| {
                 let mut fields = ::std::vec::Vec::new();
-                fields.push(::protobuf::reflect::accessor::make_repeated_field_accessor::<_, ::protobuf::types::ProtobufTypeMessage<Identity>>(
-                    "nodes",
-                    |m: &GroupPacket| { &m.nodes },
-                    |m: &mut GroupPacket| { &mut m.nodes },
-                ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeUint32>(
+                fields.push(
+                    ::protobuf::reflect::accessor::make_repeated_field_accessor::<
+                        _,
+                        ::protobuf::types::ProtobufTypeMessage<Identity>,
+                    >(
+                        "nodes",
+                        |m: &GroupPacket| &m.nodes,
+                        |m: &mut GroupPacket| &mut m.nodes,
+                    ),
+                );
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
+                    _,
+                    ::protobuf::types::ProtobufTypeUint32,
+                >(
                     "threshold",
-                    |m: &GroupPacket| { &m.threshold },
-                    |m: &mut GroupPacket| { &mut m.threshold },
+                    |m: &GroupPacket| &m.threshold,
+                    |m: &mut GroupPacket| &mut m.threshold,
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeUint32>(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
+                    _,
+                    ::protobuf::types::ProtobufTypeUint32,
+                >(
                     "period",
-                    |m: &GroupPacket| { &m.period },
-                    |m: &mut GroupPacket| { &mut m.period },
+                    |m: &GroupPacket| &m.period,
+                    |m: &mut GroupPacket| &mut m.period,
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeUint64>(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
+                    _,
+                    ::protobuf::types::ProtobufTypeUint64,
+                >(
                     "genesis_time",
-                    |m: &GroupPacket| { &m.genesis_time },
-                    |m: &mut GroupPacket| { &mut m.genesis_time },
+                    |m: &GroupPacket| &m.genesis_time,
+                    |m: &mut GroupPacket| &mut m.genesis_time,
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeUint64>(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
+                    _,
+                    ::protobuf::types::ProtobufTypeUint64,
+                >(
                     "transition_time",
-                    |m: &GroupPacket| { &m.transition_time },
-                    |m: &mut GroupPacket| { &mut m.transition_time },
+                    |m: &GroupPacket| &m.transition_time,
+                    |m: &mut GroupPacket| &mut m.transition_time,
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<
+                    _,
+                    ::protobuf::types::ProtobufTypeBytes,
+                >(
                     "genesis_seed",
-                    |m: &GroupPacket| { &m.genesis_seed },
-                    |m: &mut GroupPacket| { &mut m.genesis_seed },
+                    |m: &GroupPacket| &m.genesis_seed,
+                    |m: &mut GroupPacket| &mut m.genesis_seed,
                 ));
-                fields.push(::protobuf::reflect::accessor::make_repeated_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
-                    "dist_key",
-                    |m: &GroupPacket| { &m.dist_key },
-                    |m: &mut GroupPacket| { &mut m.dist_key },
-                ));
+                fields.push(
+                    ::protobuf::reflect::accessor::make_repeated_field_accessor::<
+                        _,
+                        ::protobuf::types::ProtobufTypeBytes,
+                    >(
+                        "dist_key",
+                        |m: &GroupPacket| &m.dist_key,
+                        |m: &mut GroupPacket| &mut m.dist_key,
+                    ),
+                );
                 ::protobuf::reflect::MessageDescriptor::new_pb_name::<GroupPacket>(
                     "GroupPacket",
                     fields,
-                    file_descriptor_proto()
+                    file_descriptor_proto(),
                 )
             })
         }
@@ -748,9 +835,7 @@ impl ::protobuf::Message for GroupPacket {
 
     fn default_instance() -> &'static GroupPacket {
         static mut instance: ::protobuf::lazy::Lazy<GroupPacket> = ::protobuf::lazy::Lazy::INIT;
-        unsafe {
-            instance.get(GroupPacket::new)
-        }
+        unsafe { instance.get(GroupPacket::new) }
     }
 }
 
@@ -779,7 +864,7 @@ impl ::protobuf::reflect::ProtobufValue for GroupPacket {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct GroupRequest {
     // special fields
     pub unknown_fields: ::protobuf::UnknownFields,
@@ -803,13 +888,21 @@ impl ::protobuf::Message for GroupRequest {
         true
     }
 
-    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+    fn merge_from(
+        &mut self,
+        is: &mut ::protobuf::CodedInputStream<'_>,
+    ) -> ::protobuf::ProtobufResult<()> {
         while !is.eof()? {
             let (field_number, wire_type) = is.read_tag_unpack()?;
             match field_number {
                 _ => {
-                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
-                },
+                    ::protobuf::rt::read_unknown_or_skip_group(
+                        field_number,
+                        wire_type,
+                        is,
+                        self.mut_unknown_fields(),
+                    )?;
+                }
             };
         }
         ::std::result::Result::Ok(())
@@ -824,7 +917,10 @@ impl ::protobuf::Message for GroupRequest {
         my_size
     }
 
-    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::ProtobufResult<()> {
+    fn write_to_with_cached_sizes(
+        &self,
+        os: &mut ::protobuf::CodedOutputStream<'_>,
+    ) -> ::protobuf::ProtobufResult<()> {
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -860,14 +956,15 @@ impl ::protobuf::Message for GroupRequest {
     }
 
     fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
-        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy::INIT;
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> =
+            ::protobuf::lazy::Lazy::INIT;
         unsafe {
             descriptor.get(|| {
                 let fields = ::std::vec::Vec::new();
                 ::protobuf::reflect::MessageDescriptor::new_pb_name::<GroupRequest>(
                     "GroupRequest",
                     fields,
-                    file_descriptor_proto()
+                    file_descriptor_proto(),
                 )
             })
         }
@@ -875,9 +972,7 @@ impl ::protobuf::Message for GroupRequest {
 
     fn default_instance() -> &'static GroupRequest {
         static mut instance: ::protobuf::lazy::Lazy<GroupRequest> = ::protobuf::lazy::Lazy::INIT;
-        unsafe {
-            instance.get(GroupRequest::new)
-        }
+        unsafe { instance.get(GroupRequest::new) }
     }
 }
 
@@ -912,16 +1007,14 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \x07distKey\"\x0e\n\x0cGroupRequestB\x07Z\x05drandb\x06proto3\
 ";
 
-static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy::INIT;
+static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<
+    ::protobuf::descriptor::FileDescriptorProto,
+> = ::protobuf::lazy::Lazy::INIT;
 
 fn parse_descriptor_proto() -> ::protobuf::descriptor::FileDescriptorProto {
     ::protobuf::parse_from_bytes(file_descriptor_proto_data).unwrap()
 }
 
 pub fn file_descriptor_proto() -> &'static ::protobuf::descriptor::FileDescriptorProto {
-    unsafe {
-        file_descriptor_proto_lazy.get(|| {
-            parse_descriptor_proto()
-        })
-    }
+    unsafe { file_descriptor_proto_lazy.get(|| parse_descriptor_proto()) }
 }

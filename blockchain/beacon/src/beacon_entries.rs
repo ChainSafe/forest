@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use encoding::{
     de::{self, Deserializer},
     ser::{self, Serializer},
@@ -11,6 +14,7 @@ pub struct BeaconEntry {
     data: Vec<u8>,
     prev_round: u64,
 }
+
 impl BeaconEntry {
     pub fn new(round: u64, data: Vec<u8>, prev_round: u64) -> Self {
         Self {
