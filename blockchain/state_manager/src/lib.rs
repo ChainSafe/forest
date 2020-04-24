@@ -5,7 +5,7 @@ mod errors;
 
 pub use self::errors::*;
 use actor::{miner, power, ActorState, STORAGE_POWER_ACTOR_ADDR};
-use address::Address;
+use address::{Address, Protocol};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use cid::Cid;
@@ -105,5 +105,18 @@ where
         buf_store.flush(&state_root)?;
 
         Ok((state_root, rect_root))
+    }
+
+    /// Returns a bls public key from provided address
+    pub fn get_bls_public_key(&self, addr: &Address, state_cid: &Cid) -> Result<Vec<u8>, Error> {
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let kaddr = resolve_to_key_addr(&state, self.bs.as_ref(), addr)
+            .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
+        if kaddr.protocol() != Protocol::BLS {
+            return Err("Address must be BLS address to load bls public key"
+                .to_owned()
+                .into());
+        }
+        Ok(kaddr.payload().to_vec())
     }
 }
