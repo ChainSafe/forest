@@ -1,4 +1,8 @@
-# 🌲 Forest 
+<p align="center">
+  <img width="380" height="269" src="./.github/forest_logo.png">
+</p>
+
+
 ![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?event=push&branch=master)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
