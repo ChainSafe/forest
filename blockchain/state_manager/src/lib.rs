@@ -5,7 +5,7 @@ mod errors;
 
 pub use self::errors::*;
 use actor::{miner, power, ActorState, STORAGE_POWER_ACTOR_ADDR};
-use address::Address;
+use address::{Address, Protocol};
 use blockstore::BlockStore;
 use cid::Cid;
 use default_runtime::resolve_to_key_addr;
@@ -82,5 +82,18 @@ where
                 "Failed to retrieve claimed power from actor state".to_owned(),
             ))
         }
+    }
+    /// Returns a bls public key from provided address
+    pub fn get_bls_public_key(&self, addr: &Address, state_cid: &Cid) -> Result<Vec<u8>, Error> {
+        let state =
+            HamtStateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let kaddr = resolve_to_key_addr(&state, self.bs.as_ref(), addr)
+            .map_err(|e| Error::Other(format!("Failed to resolve key address, error: {}", e)))?;
+        if kaddr.protocol() != Protocol::BLS {
+            return Err(Error::Other(
+                "Address must be BLS address to load bls public key".to_owned(),
+            ));
+        }
+        Ok(kaddr.payload().to_vec())
     }
 }

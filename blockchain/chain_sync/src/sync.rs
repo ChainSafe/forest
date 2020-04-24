@@ -17,6 +17,7 @@ use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
+use crypto::verify_bls_aggregate;
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES};
 use ipld_blockstore::BlockStore;
@@ -31,6 +32,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use vm::TokenAmount;
+
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
 pub enum SyncState {
@@ -514,12 +516,38 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    fn check_blk_msgs(&self, block: Block, _tip: &Tipset) -> Result<(), Error> {
-        // TODO retrieve bls public keys for verify_bls_aggregate
-        // for _m in block.bls_msgs() {
-        // }
-        // TODO verify_bls_aggregate
-
+    fn check_block_msgs(&self, block: Block, tip: &Tipset) -> Result<(), Error> {
+        let mut pub_keys = Vec::new();
+        let mut cids = Vec::new();
+        for m in block.bls_msgs() {
+            let pk = self
+                .state_manager
+                .get_bls_public_key(m.from(), tip.parent_state())?;
+            pub_keys.push(pk);
+            cids.push(m.cid()?.to_bytes());
+        }
+        if let Some(sig) = block.header().bls_aggregate() {
+            if !verify_bls_aggregate(
+                cids.iter()
+                    .map(|x| x.as_slice())
+                    .collect::<Vec<&[u8]>>()
+                    .as_slice(),
+                pub_keys
+                    .iter()
+                    .map(|x| x.as_slice())
+                    .collect::<Vec<&[u8]>>()
+                    .as_slice(),
+                &sig,
+            ) {
+                return Err(Error::Validation(
+                    "Bls aggregate signature was invalid".to_owned(),
+                ));
+            }
+        } else {
+            return Err(Error::Validation(
+                "No bls signature included in the block header".to_owned(),
+            ));
+        }
         // check msgs for validity
         fn check_msg<M, ST>(
             msg: &M,
@@ -610,7 +638,7 @@ where
         header.validate_timestamps(&base_tipset)?;
 
         // check messages to ensure valid state transitions
-        self.check_blk_msgs(block.clone(), &parent_tipset)?;
+        self.check_block_msgs(block.clone(), &parent_tipset)?;
 
         // TODO use computed state_root instead of parent_tipset.parent_state()
         let work_addr = self
