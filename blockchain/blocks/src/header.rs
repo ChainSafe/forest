@@ -17,9 +17,13 @@ use num_bigint::{
     BigUint,
 };
 use serde::Deserialize;
+use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
+// TODO should probably have a central place for constants
+const SHA_256_BITS: usize = 256;
+const BLOCKS_PER_EPOCH: u64 = 5;
 
 /// Header of a block
 ///
@@ -300,6 +304,31 @@ impl BlockHeader {
         }
 
         Ok(())
+    }
+    /// Returns true if (h(vrfout) * totalPower) < (e * sectorSize * 2^256)
+    pub fn is_ticket_winner(&self, mpow: BigUint, net_pow: BigUint) -> bool {
+        /*
+        Need to check that
+        (h(vrfout) + 1) / (max(h) + 1) <= e * myPower / totalPower
+        max(h) == 2^256-1
+        which in terms of integer math means:
+        (h(vrfout) + 1) * totalPower <= e * myPower * 2^256
+        in 2^256 space, it is equivalent to:
+        h(vrfout) * totalPower < e * myPower * 2^256
+        */
+
+        // TODO switch ticket for election_proof
+        let h = sha2::Sha256::digest(self.ticket.vrfproof.bytes());
+        let mut lhs = BigUint::from_bytes_le(&h);
+        lhs *= net_pow;
+
+        // rhs = sectorSize * 2^256
+        // rhs = sectorSize << 256
+        let mut rhs = mpow << SHA_256_BITS;
+        rhs *= BigUint::from(BLOCKS_PER_EPOCH);
+
+        // h(vrfout) * totalPower < e * sectorSize * 2^256
+        lhs < rhs
     }
 }
 
