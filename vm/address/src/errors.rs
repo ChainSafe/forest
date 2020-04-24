@@ -3,6 +3,7 @@
 
 use super::{BLS_PUB_LEN, PAYLOAD_HASH_LEN};
 use data_encoding::DecodeError;
+use encoding::{CodecProtocol, Error as EncodingError};
 use leb128::read::Error as Leb128Error;
 use std::{io, num};
 use thiserror::Error;
@@ -42,5 +43,14 @@ impl From<io::Error> for Error {
 impl From<Leb128Error> for Error {
     fn from(_: Leb128Error) -> Error {
         Error::InvalidPayload
+    }
+}
+
+impl From<Error> for EncodingError {
+    fn from(err: Error) -> EncodingError {
+        EncodingError::Marshalling {
+            description: err.to_string(),
+            protocol: CodecProtocol::Cbor,
+        }
     }
 }

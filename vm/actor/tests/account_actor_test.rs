@@ -19,9 +19,9 @@ macro_rules! account_tests {
                 let bs = MemoryDB::default();
                 let receiver = Address::new_id(100);
                 let mut rt = MockRuntime::new(&bs, receiver.clone());
-                rt.caller = SYSTEM_ACTOR_addr;
+                rt.caller = *SYSTEM_ACTOR_ADDR;
                 rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
-                rt.expect_validate_caller_addr(&vec![SYSTEM_ACTOR_addr]);
+                rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
 
                 if exit_code.is_success() {
                     rt

@@ -46,7 +46,7 @@ fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
     let decoded = Address::from_str(expected).unwrap();
     assert_eq!(protocol, decoded.protocol());
 
-    assert_eq!(addr.payload(), decoded.payload());
+    assert_eq!(addr.payload_bytes(), decoded.payload_bytes());
     assert_eq!(addr.protocol(), decoded.protocol());
 
     // Test encoding and decoding from bytes

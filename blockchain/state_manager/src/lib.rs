@@ -94,6 +94,6 @@ where
                 "Address must be BLS address to load bls public key".to_owned(),
             ));
         }
-        Ok(kaddr.payload().to_vec())
+        Ok(kaddr.payload_bytes())
     }
 }

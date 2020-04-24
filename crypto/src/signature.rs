@@ -114,7 +114,7 @@ impl Signature {
 
     /// Returns `String` error if a bls signature is invalid
     pub(crate) fn verify_bls_sig(&self, data: &[u8], addr: &Address) -> Result<(), String> {
-        let pub_k = addr.payload();
+        let pub_k = addr.payload_bytes();
 
         // hash data to be verified
         let hashed = bls_hash(data);

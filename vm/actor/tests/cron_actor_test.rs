@@ -15,8 +15,8 @@ use vm::Serialized;
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let receiver = Address::new_id(100);
-    let mut rt = MockRuntime::new(bs, receiver.clone());
-    rt.caller = SYSTEM_ACTOR_addr;
+    let mut rt = MockRuntime::new(bs, receiver);
+    rt.caller = *SYSTEM_ACTOR_ADDR;
     rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
     return rt;
 }
@@ -143,7 +143,7 @@ fn epoch_tick_with_entries() {
 }
 
 fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>, params: &ConstructorParams) {
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_addr]);
+    rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
     let ret = rt
         .call(
             &*CRON_ACTOR_CODE_ID,
@@ -156,7 +156,7 @@ fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>, params: &C
 }
 
 fn epoch_tick_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_addr]);
+    rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
     let ret = rt
         .call(&*CRON_ACTOR_CODE_ID, 2, &Serialized::default())
         .unwrap();
