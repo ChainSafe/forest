@@ -52,23 +52,23 @@ fn tipset_bundle_to_full_tipset() {
         .build()
         .unwrap();
     let ua = UnsignedMessage::builder()
-        .to(Address::new_id(0).unwrap())
-        .from(Address::new_id(0).unwrap())
+        .to(Address::new_id(0))
+        .from(Address::new_id(0))
         .build()
         .unwrap();
     let ub = UnsignedMessage::builder()
-        .to(Address::new_id(1).unwrap())
-        .from(Address::new_id(1).unwrap())
+        .to(Address::new_id(1))
+        .from(Address::new_id(1))
         .build()
         .unwrap();
     let uc = UnsignedMessage::builder()
-        .to(Address::new_id(2).unwrap())
-        .from(Address::new_id(2).unwrap())
+        .to(Address::new_id(2))
+        .from(Address::new_id(2))
         .build()
         .unwrap();
     let ud = UnsignedMessage::builder()
-        .to(Address::new_id(3).unwrap())
-        .from(Address::new_id(3).unwrap())
+        .to(Address::new_id(3))
+        .from(Address::new_id(3))
         .build()
         .unwrap();
     let sa = SignedMessage::new(&ua, &DummySigner).unwrap();

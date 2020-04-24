@@ -196,7 +196,7 @@ fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
 
     let key = recover(&message, &sig, &rec_id)?;
     let ret = key.serialize();
-    let addr = Address::new_secp256k1(&ret)?;
+    let addr = Address::new_secp256k1(&ret);
     Ok(addr)
 }
 
@@ -224,7 +224,7 @@ mod tests {
         );
 
         let pk = sk.public_key();
-        let addr = Address::new_bls(pk.as_bytes()).unwrap();
+        let addr = Address::new_bls(&pk.as_bytes()).unwrap();
 
         Signature::new_bls(signature_bytes.clone())
             .verify(&msg, &addr)

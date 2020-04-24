@@ -43,7 +43,7 @@ pub fn build_node(port: u64) -> (Multiaddr, TestSwarm) {
     let mut swarm = Swarm::new(transport, behaviour, peer_id);
 
     let mut addr: Multiaddr = Protocol::Memory(port).into();
-    Swarm::listen_on(&mut swarm, addr.clone()).unwrap();
+    Swarm::listen_on(&mut swarm, addr).unwrap();
 
     addr = addr.with(libp2p::core::multiaddr::Protocol::P2p(
         public_key.into_peer_id().into(),

@@ -15,7 +15,7 @@ fn peer_manager_update() {
     let db = Arc::new(MemoryDB::default());
     let mut chain_store = ChainStore::new(db);
     let dummy_header = BlockHeader::builder()
-        .miner_address(Address::new_id(1000).unwrap())
+        .miner_address(Address::new_id(1000))
         .messages(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
         .message_receipts(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
         .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))

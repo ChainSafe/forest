@@ -41,7 +41,7 @@ impl State {
         map.set(addr.to_bytes().into(), id)?;
         self.address_map = map.flush()?;
 
-        Ok(Address::new_id(id).expect("Id Address should be created without Error"))
+        Ok(Address::new_id(id))
     }
 
     /// ResolveAddress resolves an address to an ID-address, if possible.
@@ -56,7 +56,7 @@ impl State {
         addr: &Address,
     ) -> Result<Address, String> {
         if addr.protocol() == Protocol::ID {
-            return Ok(addr.clone());
+            return Ok(*addr);
         }
 
         let map: Hamt<BytesKey, _> =
@@ -66,7 +66,7 @@ impl State {
             .get(&addr.to_bytes())?
             .ok_or_else(|| "Address not found".to_owned())?;
 
-        Ok(Address::new_id(actor_id).map_err(|e| e.to_string())?)
+        Ok(Address::new_id(actor_id))
     }
 }
 

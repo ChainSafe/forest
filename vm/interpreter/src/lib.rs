@@ -259,7 +259,7 @@ where
             gas_cost,
             &msg,
             self.epoch,
-            msg.from().clone(),
+            *msg.from(),
             msg.sequence(),
             0,
         );

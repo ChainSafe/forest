@@ -143,7 +143,7 @@ impl Actor {
 
         let (owner, worker) = request_miner_control_addrs(rt, &maddr)?;
 
-        rt.validate_immediate_caller_is([owner.clone(), worker].iter())?;
+        rt.validate_immediate_caller_is([owner, worker].iter())?;
 
         let cur_epoch = rt.curr_epoch();
         let withdrawable_reward =
