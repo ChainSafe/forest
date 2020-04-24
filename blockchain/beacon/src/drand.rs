@@ -7,23 +7,32 @@ use super::beacon_entries::BeaconEntry;
 use super::common::{GroupPacket as ProtoGroup, GroupRequest, Identity as ProtoIdentity};
 use super::group::Group;
 
+use bls_signatures::{PublicKey, Serialize, Signature};
+use byteorder::{BigEndian, WriteBytesExt};
 use grpc::ClientStub;
 use grpc::RequestOptions;
-
 use std::convert::TryFrom;
 use std::error;
 use std::sync::Arc;
 use tls_api_openssl::TlsConnector;
 
-struct DrandPeer {
-    addr: String,
-    tls: bool,
+// struct DrandPeer {
+//     addr: String,
+//     tls: bool,
+// }
+#[derive(Clone, Debug)]
+pub struct DistPublic {
+    pub coefficients: [Vec<u8>; 3]
+}
+impl DistPublic {
+    pub fn key(&self) -> PublicKey {
+        PublicKey::from_bytes(&self.coefficients[0]).unwrap()
+    }
 }
 pub struct DrandBeacon {
     client: PublicClient,
     // peers: Vec<DrandPeer>,
-
-    // pubkey
+    pub_key: DistPublic,
     interval: u64,
 
     drand_gen_time: u64,
@@ -33,7 +42,11 @@ pub struct DrandBeacon {
 }
 
 impl DrandBeacon {
-    pub async fn new(genesis_ts: u64, interval: u64) -> Result<Self, Box<dyn error::Error>> {
+    pub async fn new(
+        pub_key: DistPublic,
+        genesis_ts: u64,
+        interval: u64,
+    ) -> Result<Self, Box<dyn error::Error>> {
         if genesis_ts == 0 {
             panic!("what are you doing this cant be zero")
         }
@@ -55,9 +68,9 @@ impl DrandBeacon {
             .await?;
         let group: Group = Group::try_from(group_resp)?;
         // TODO: Compare pubkeys with one in config
-
+        
         Ok(Self {
-            //pubkey
+            pub_key,
             client,
             interval: group.period as u64,
             drand_gen_time: group.genesis_time,
@@ -78,6 +91,9 @@ impl DrandBeacon {
             .drop_metadata()
             .await?;
 
+        println!("Round {}: Sig: {:#?}", round, Signature::from_bytes(&resp.signature).unwrap());
+        println!("Round {}: Prev Sig: {:#?}", round, Signature::from_bytes(&resp.previous_signature).unwrap());
+        
         Ok(BeaconEntry::new(
             resp.round,
             resp.signature,
@@ -86,21 +102,39 @@ impl DrandBeacon {
         ))
     }
 
-    
+    pub fn verify_entry(&self, curr: BeaconEntry, prev: BeaconEntry) -> bool {
+        // TODO: Handle Genesis
+
+        //Hash the messages
+        let mut msg: Vec<u8> = Vec::with_capacity(112);
+        msg.write_u64::<BigEndian>(prev.round()).unwrap();
+        msg.extend_from_slice(prev.data());
+        msg.write_u64::<BigEndian>(curr.round()).unwrap();
+        // the message
+        let digest = bls_signatures::hash(&msg);
+        // let digest = sha2::Sha256::digest(&msg);
+
+        //verify messages
+
+        //signature
+        let sig = Signature::from_bytes(curr.data()).unwrap();
+        println!("Signature: {:#?}", sig);
+        bls_signatures::verify(&sig, &[digest], &[self.pub_key.key()])
+        // TODO: Cache this
+    }
+
 }
 
 #[cfg(test)]
 mod test {
-    pub use crate::api_grpc::PublicClient;
-    pub use crate::common::GroupRequest;
+    use crate::api_grpc::PublicClient;
+    use crate::common::GroupRequest;
     use crate::group::Group;
-    use async_std::prelude::*;
     use grpc::ClientStub;
-    use httpbis::ClientTlsOption;
     use std::convert::TryFrom;
     use std::sync::Arc;
-    use tls_api::*;
-    use tls_api_openssl::*;
+    use super::*;
+    use bls_signatures::PublicKey;
 
     #[async_std::test]
     async fn t1() {
@@ -119,5 +153,48 @@ mod test {
 
         let group: Group = Group::try_from(resp).unwrap();
         println!("{:?}", group);
+    }
+
+    #[async_std::test]
+    async fn f2() {
+        let x = [ 
+            hex::decode("a2a34cf9a6be2f66b5385caa520364f994ae7dbac08371ffaca575dfb3e04c8e149b32dc78f077322c613a151dc07440").unwrap(),
+            hex::decode("b0c5baca062191f13099229c9a229a9946204f74fc28baa212745243553ab1f50b581b2086e24374ceb40fe34bd23ca2").unwrap(),
+            hex::decode("a9c6449cf647e0a0ffaf1e01277e2821213c80310165990daf77610208abfa0ce56c7e40995e26aff3873c624362ca78").unwrap(),
+        ];
+        let dist_pub = DistPublic {
+            coefficients: x
+        };
+        let beacon = DrandBeacon::new(dist_pub, 1, 25).await.unwrap();
+
+
+        // let e1 = beacon.entry(1).await.unwrap();
+        let e2 = beacon.entry(2).await.unwrap();
+        let e3 = beacon.entry(3).await.unwrap();
+
+        println!("Verify e1, e2: {}", beacon.verify_entry(e2, e3))
+    }
+
+    #[async_std::test]
+    async fn f4() {
+        
+    }
+
+    #[test]
+    fn f3() {
+        let x = [ 
+            "a2a34cf9a6be2f66b5385caa520364f994ae7dbac08371ffaca575dfb3e04c8e149b32dc78f077322c613a151dc07440",
+            "b0c5baca062191f13099229c9a229a9946204f74fc28baa212745243553ab1f50b581b2086e24374ceb40fe34bd23ca2",
+            "a9c6449cf647e0a0ffaf1e01277e2821213c80310165990daf77610208abfa0ce56c7e40995e26aff3873c624362ca78",
+        ];
+ 
+        let mut v = Vec::new();
+        v.extend_from_slice(&hex::decode(x[0]).unwrap());
+        // v.extend_from_slice(&hex::decode(x[1]).unwrap());
+        // v.extend_from_slice(&hex::decode(x[2]).unwrap());
+        println!("Sigze: {}", v.len());
+
+        let k = PublicKey::from_bytes(&v);
+        println!("{:?}", k)
     }
 }

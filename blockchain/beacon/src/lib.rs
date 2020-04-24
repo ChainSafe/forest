@@ -10,3 +10,4 @@ mod group;
 mod identity;
 
 pub use beacon_entries::*;
+pub use drand::*;
