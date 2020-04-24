@@ -10,6 +10,9 @@ pub enum Error {
     /// Error orginating from state
     #[error("{0}")]
     State(String),
+    /// Error from VM execution
+    #[error("{0}")]
+    VM(String),
     /// Actor for given address not found
     #[error("Actor for address: {0} does not exist")]
     ActorNotFound(String),

@@ -252,4 +252,12 @@ impl FullTipset {
         let tip: Tipset = Tipset::new(headers)?;
         Ok(tip)
     }
+    /// Returns the state root for the tipset parent.
+    pub fn parent_state(&self) -> &Cid {
+        self.blocks[0].header().state_root()
+    }
+    /// Returns epoch of the tipset
+    pub fn epoch(&self) -> ChainEpoch {
+        self.blocks[0].header().epoch()
+    }
 }

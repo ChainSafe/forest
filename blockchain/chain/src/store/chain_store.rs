@@ -12,7 +12,7 @@ use log::{info, warn};
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::Zero;
-use state_tree::{HamtStateTree, StateTree};
+use state_tree::StateTree;
 use std::sync::Arc;
 
 const GENESIS_KEY: &str = "gen_block";
@@ -263,7 +263,7 @@ where
         }
 
         let mut tpow = BigUint::zero();
-        let state = HamtStateTree::new_from_root(self.db.as_ref(), ts.parent_state())?;
+        let state = StateTree::new_from_root(self.db.as_ref(), ts.parent_state())?;
         if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
             if let Some(state) = self
                 .db

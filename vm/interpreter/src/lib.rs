@@ -2,42 +2,54 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::{ACCOUNT_ACTOR_CODE_ID, REWARD_ACTOR_ADDR};
-use address::Address;
-use blocks::Tipset;
+use blocks::FullTipset;
+use cid::Cid;
 use clock::ChainEpoch;
 use default_runtime::{internal_send, DefaultRuntime};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
-use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use runtime::Syscalls;
-use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized, StateTree};
+use state_tree::StateTree;
+use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'a, ST, DB, SYS> {
-    state: ST,
-    store: &'a DB,
+pub struct VM<'db, DB, SYS> {
+    state: StateTree<'db, DB>,
+    // TODO revisit handling buffered store specifically in VM
+    store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
     // TODO: missing fields
 }
 
-impl<'a, ST, DB, SYS> VM<'a, ST, DB, SYS>
+impl<'db, DB, SYS> VM<'db, DB, SYS>
 where
-    ST: StateTree,
     DB: BlockStore,
     SYS: Syscalls + Copy,
 {
-    pub fn new(state: ST, store: &'a DB, epoch: ChainEpoch, syscalls: SYS) -> Self {
-        VM {
+    pub fn new(
+        root: &Cid,
+        store: &'db DB,
+        epoch: ChainEpoch,
+        syscalls: SYS,
+    ) -> Result<Self, String> {
+        let state = StateTree::new_from_root(store, root)?;
+        Ok(VM {
             state,
             store,
             epoch,
             syscalls,
-        }
+        })
+    }
+
+    /// Flush stores in VM and return state root.
+    pub fn flush(&mut self) -> Result<Cid, String> {
+        self.state.flush()
     }
 
     /// Returns ChainEpoch
@@ -49,20 +61,17 @@ where
     /// Returns the receipts from the transactions.
     pub fn apply_tip_set_messages(
         &mut self,
-        _tipset: &Tipset,
-        msgs: &TipSetMessages,
-    ) -> Result<Vec<ApplyRet>, String> {
+        tipset: &FullTipset,
+    ) -> Result<Vec<MessageReceipt>, String> {
         let mut receipts = Vec::new();
 
-        for block in &msgs.blocks {
-            // TODO: verifiy ordering of message execution
-
-            for msg in &block.bls_messages {
-                receipts.push(self.apply_message(msg)?);
+        for block in tipset.blocks() {
+            for msg in block.bls_msgs() {
+                receipts.push(self.apply_message(msg)?.msg_receipt);
             }
 
-            for msg in &block.secp_messages {
-                receipts.push(self.apply_message(msg.message())?);
+            for msg in block.secp_msgs() {
+                receipts.push(self.apply_message(msg.message())?.msg_receipt);
             }
         }
 
@@ -77,7 +86,7 @@ where
                 MessageReceipt {
                     return_data: ret_data,
                     exit_code: err.exit_code(),
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 BigUint::zero(),
                 Some(err),
@@ -88,7 +97,7 @@ where
             MessageReceipt {
                 return_data: ret_data,
                 exit_code: ExitCode::Ok,
-                gas_used: BigUint::zero(),
+                gas_used: 0,
             },
             BigUint::zero(),
             Some(ActorError::new(ExitCode::Ok, "Ok error".to_owned())),
@@ -109,7 +118,7 @@ where
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrOutOfGas,
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 msg.gas_price() * msg_gas_cost,
                 Some(ActorError::new(
@@ -127,7 +136,7 @@ where
                     MessageReceipt {
                         return_data: Serialized::default(),
                         exit_code: ExitCode::SysErrSenderInvalid,
-                        gas_used: BigUint::zero(),
+                        gas_used: 0,
                     },
                     msg.gas_price() * msg_gas_cost,
                     Some(ActorError::new(
@@ -143,7 +152,7 @@ where
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderInvalid,
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 miner_penalty_amount,
                 Some(ActorError::new(
@@ -158,7 +167,7 @@ where
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderStateInvalid,
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 miner_penalty_amount,
                 Some(ActorError::new(
@@ -176,7 +185,7 @@ where
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderStateInvalid,
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 miner_penalty_amount,
                 Some(ActorError::new(
@@ -236,7 +245,7 @@ where
             MessageReceipt {
                 return_data: ret_data,
                 exit_code: ExitCode::Ok,
-                gas_used: BigUint::from(gas_used),
+                gas_used: gas_used,
             },
             BigUint::zero(),
             None,
@@ -249,7 +258,7 @@ where
         gas_cost: i64,
     ) -> (
         Serialized,
-        DefaultRuntime<'_, 'm, '_, ST, DB, SYS>,
+        DefaultRuntime<'db, 'm, '_, DB, SYS>,
         Option<ActorError>,
     ) {
         let mut rt = DefaultRuntime::new(
@@ -304,17 +313,4 @@ fn check_message(msg: &UnsignedMessage) -> Result<(), String> {
     }
 
     Ok(())
-}
-/// Represents the messages from one block in a tipset.
-pub struct BlockMessages {
-    bls_messages: Vec<UnsignedMessage>,
-    secp_messages: Vec<SignedMessage>,
-    _miner: Address,      // The block miner's actor address
-    _post_proof: Vec<u8>, // The miner's Election PoSt proof output
-}
-
-/// Represents the messages from a tipset, grouped by block.
-pub struct TipSetMessages {
-    blocks: Vec<BlockMessages>,
-    _epoch: ChainEpoch,
 }

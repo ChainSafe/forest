@@ -22,23 +22,24 @@ use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigUint;
 use runtime::{ActorCode, Runtime, Syscalls};
+use state_tree::StateTree;
 use std::cell::RefCell;
 use std::rc::Rc;
 use vm::{
     price_list_by_epoch, ActorError, ActorState, ExitCode, GasTracker, MethodNum, PriceList,
-    Randomness, Serialized, StateTree, TokenAmount, METHOD_SEND,
+    Randomness, Serialized, TokenAmount, METHOD_SEND,
 };
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
+pub struct DefaultRuntime<'db, 'msg, 'st, BS, SYS>
 where
     SYS: Copy,
 {
-    state: &'c mut ST,
-    store: GasBlockStore<'a, BS>,
+    state: &'st mut StateTree<'db, BS>,
+    store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<SYS>,
     gas_tracker: Rc<RefCell<GasTracker>>,
-    message: &'b UnsignedMessage,
+    message: &'msg UnsignedMessage,
     epoch: ChainEpoch,
     origin: Address,
     origin_nonce: u64,
@@ -46,20 +47,19 @@ where
     price_list: PriceList,
 }
 
-impl<'a, 'b, 'c, ST, BS, SYS> DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
+impl<'db, 'msg, 'st, BS, SYS> DefaultRuntime<'db, 'msg, 'st, BS, SYS>
 where
-    ST: StateTree,
     BS: BlockStore,
     SYS: Syscalls + Copy,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        state: &'c mut ST,
-        store: &'a BS,
+        state: &'st mut StateTree<'db, BS>,
+        store: &'db BS,
         syscalls: SYS,
         gas_used: i64,
-        message: &'b UnsignedMessage,
+        message: &'msg UnsignedMessage,
         epoch: ChainEpoch,
         origin: Address,
         origin_nonce: u64,
@@ -191,9 +191,8 @@ where
     }
 }
 
-impl<ST, BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, ST, BS, SYS>
+impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, BS, SYS>
 where
-    ST: StateTree,
     BS: BlockStore,
     SYS: Syscalls + Copy,
 {
@@ -204,9 +203,9 @@ where
         self.epoch
     }
     fn validate_immediate_caller_accept_any(&self) {}
-    fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_is<'db, I>(&self, addresses: I) -> Result<(), ActorError>
     where
-        I: IntoIterator<Item = &'a Address>,
+        I: IntoIterator<Item = &'db Address>,
     {
         let imm = self.resolve_address(self.message().from())?;
 
@@ -220,9 +219,9 @@ where
         Ok(())
     }
 
-    fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_type<'db, I>(&self, types: I) -> Result<(), ActorError>
     where
-        I: IntoIterator<Item = &'a Cid>,
+        I: IntoIterator<Item = &'db Cid>,
     {
         let caller_cid = self.get_actor_code_cid(self.message().to())?;
         if types.into_iter().any(|c| *c == caller_cid) {
@@ -364,7 +363,7 @@ where
                 self.origin_nonce,
                 self.num_actors_created,
             );
-            internal_send::<ST, BS, SYS>(&mut parent, &msg, 0)
+            internal_send::<BS, SYS>(&mut parent, &msg, 0)
         };
         if send_res.is_err() {
             self.state
@@ -446,13 +445,12 @@ where
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn internal_send<ST, BS, SYS>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, ST, BS, SYS>,
+pub fn internal_send<BS, SYS>(
+    runtime: &mut DefaultRuntime<'_, '_, '_, BS, SYS>,
     msg: &UnsignedMessage,
     _gas_cost: i64,
 ) -> Result<Serialized, ActorError>
 where
-    ST: StateTree,
     BS: BlockStore,
     SYS: Syscalls + Copy,
 {
@@ -518,8 +516,8 @@ where
 }
 
 /// Transfers funds from one Actor to another Actor
-fn transfer<ST: StateTree>(
-    state: &mut ST,
+fn transfer<BS: BlockStore>(
+    state: &mut StateTree<BS>,
     from: &Address,
     to: &Address,
     value: &TokenAmount,

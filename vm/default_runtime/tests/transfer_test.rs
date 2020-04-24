@@ -10,15 +10,13 @@ use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
 use runtime::DefaultSyscalls;
-use state_tree::HamtStateTree;
-use vm::ActorState;
-use vm::Serialized;
-use vm::StateTree;
+use state_tree::StateTree;
+use vm::{ActorState, Serialized};
 
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
-    let mut state = HamtStateTree::new(&store);
+    let mut state = StateTree::new(&store);
 
     let e_cid = Hamt::<String, _>::new_with_bit_width(&store, 5)
         .flush()

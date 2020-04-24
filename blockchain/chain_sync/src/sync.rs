@@ -25,7 +25,7 @@ use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use state_manager::StateManager;
-use state_tree::{HamtStateTree, StateTree};
+use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -531,14 +531,13 @@ where
         // TODO verify_bls_aggregate
 
         // check msgs for validity
-        fn check_msg<M, ST>(
+        fn check_msg<M, DB: BlockStore>(
             msg: &M,
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
-            tree: &ST,
+            tree: &StateTree<DB>,
         ) -> Result<(), Error>
         where
             M: Message,
-            ST: StateTree,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
@@ -582,7 +581,7 @@ where
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         // TODO retrieve tipset state and load state tree
         // temporary
-        let tree = HamtStateTree::new(self.chain_store.db.as_ref());
+        let tree = StateTree::new(self.chain_store.db.as_ref());
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;

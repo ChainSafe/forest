@@ -7,9 +7,15 @@ pub use self::errors::*;
 use actor::{miner, ActorState};
 use address::Address;
 use blockstore::BlockStore;
+use blockstore::BufferedBlockStore;
+use cid::Cid;
 use encoding::de::DeserializeOwned;
-use forest_blocks::Tipset;
-use state_tree::{HamtStateTree, StateTree};
+use forest_blocks::{FullTipset, Tipset};
+use interpreter::VM;
+use ipld_amt::Amt;
+use runtime::DefaultSyscalls;
+use state_tree::StateTree;
+use std::error::Error as StdError;
 use std::sync::Arc;
 use vm::SectorSize;
 
@@ -56,8 +62,27 @@ where
         Ok(act.info.sector_size)
     }
     pub fn get_actor(&self, addr: &Address, ts: &Tipset) -> Result<Option<ActorState>, Error> {
-        let state = HamtStateTree::new_from_root(self.bs.as_ref(), ts.parent_state())
-            .map_err(Error::State)?;
+        let state =
+            StateTree::new_from_root(self.bs.as_ref(), ts.parent_state()).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
+    }
+
+    pub fn apply_blocks(&self, ts: &FullTipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
+        let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
+        // TODO possibly switch out syscalls to be saved at state manager level
+        let mut vm = VM::new(ts.parent_state(), &buf_store, ts.epoch(), DefaultSyscalls)?;
+
+        // Apply tipset messages
+        let receipts = vm.apply_tip_set_messages(ts).map_err(|e| Error::VM(e))?;
+
+        // Construct receipt root from receipts
+        let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
+
+        // Flush changes to blockstore
+        let state_root = vm.flush()?;
+        // Persist changes connected to root
+        buf_store.flush(&state_root)?;
+
+        Ok((state_root, rect_root))
     }
 }

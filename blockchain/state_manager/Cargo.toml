@@ -15,3 +15,6 @@ blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
 forest_blocks = { path = "../../blockchain/blocks" }
 thiserror = "1.0"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
+interpreter = { path = "../../vm/interpreter/" }
+runtime = { path = "../../vm/runtime/" }
+ipld_amt = { path = "../../ipld/amt/" }

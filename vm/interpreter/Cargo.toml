@@ -20,4 +20,5 @@ cid = { package = "forest_cid", path = "../../ipld/cid" }
 crypto = { path = "../../crypto" } 
 num-traits = "0.2.11"
 default_runtime = { path = "../default_runtime" }
+state_tree = { path = "../state_tree" }
 log = "0.4.8"

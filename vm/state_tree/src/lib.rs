@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub use vm::StateTree;
-
 use actor::{init, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
 use cid::{multihash::Blake2b256, Cid};
@@ -15,14 +13,14 @@ use vm::ActorState;
 const TREE_BIT_WIDTH: u8 = 5;
 
 /// State tree implementation using hamt
-pub struct HamtStateTree<'db, S> {
+pub struct StateTree<'db, S> {
     hamt: Hamt<'db, BytesKey, S>,
 
-    // TODO switch cache lock from using sync mutex when usage switches to async
+    // TODO switch to using state change cache: https://github.com/ChainSafe/forest/issues/373
     actor_cache: RwLock<FnvHashMap<Address, ActorState>>,
 }
 
-impl<'db, S> HamtStateTree<'db, S>
+impl<'db, S> StateTree<'db, S>
 where
     S: BlockStore,
 {
@@ -48,13 +46,9 @@ where
     pub fn store(&self) -> &S {
         self.hamt.store()
     }
-}
 
-impl<S> StateTree for HamtStateTree<'_, S>
-where
-    S: BlockStore,
-{
-    fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, String> {
+    /// Get actor state from an address. Will be resolved to ID address.
+    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, String> {
         let addr = self.lookup_id(addr)?;
 
         // Check cache for actor state
@@ -73,7 +67,8 @@ where
         Ok(act)
     }
 
-    fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String> {
+    /// Set actor state for an address. Will set state at ID address.
+    pub fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String> {
         let addr = self.lookup_id(addr)?;
 
         // Set actor state in cache
@@ -92,7 +87,8 @@ where
         Ok(())
     }
 
-    fn lookup_id(&self, addr: &Address) -> Result<Address, String> {
+    /// Get an ID address from any Address
+    pub fn lookup_id(&self, addr: &Address) -> Result<Address, String> {
         if addr.protocol() == Protocol::ID {
             return Ok(addr.clone());
         }
@@ -111,7 +107,8 @@ where
         Ok(state.resolve_address(self.store(), addr)?)
     }
 
-    fn delete_actor(&mut self, addr: &Address) -> Result<(), String> {
+    /// Delete actor for an address. Will resolve to ID address to delete.
+    pub fn delete_actor(&mut self, addr: &Address) -> Result<(), String> {
         let addr = self.lookup_id(addr)?;
 
         // Remove value from cache
@@ -124,7 +121,8 @@ where
         Ok(())
     }
 
-    fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), String>
+    /// Mutate and set actor state for an Address.
+    pub fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), String>
     where
         F: FnOnce(&mut ActorState) -> Result<(), String>,
     {
@@ -139,7 +137,8 @@ where
         self.set_actor(addr, act)
     }
 
-    fn register_new_address(
+    /// Register a new address through the init actor.
+    pub fn register_new_address(
         &mut self,
         addr: &Address,
         actor: ActorState,
@@ -175,24 +174,30 @@ where
         Ok(new_addr)
     }
 
-    fn snapshot(&mut self) -> Result<Cid, String> {
-        // TODO add metrics to this
+    // TODO update snapshotting to not flush tree: https://github.com/ChainSafe/forest/issues/373
+    /// Persist changes to store and return Cid to revert state to.
+    pub fn snapshot(&mut self) -> Result<Cid, String> {
+        self.flush()
+    }
+
+    /// Revert to Cid returned from `snapshot`
+    pub fn revert_to_snapshot(&mut self, cid: &Cid) -> Result<(), String> {
+        // Update Hamt root to snapshot Cid
+        self.hamt.set_root(cid).map_err(|e| e.to_string())?;
+
+        self.actor_cache = Default::default();
+        Ok(())
+    }
+
+    /// Flush state tree and return Cid root.
+    pub fn flush(&mut self) -> Result<Cid, String> {
         for (addr, act) in self.actor_cache.read().iter() {
             // Set each value from cache into hamt
-            // TODO this shouldn't be necessary, revisit
             self.hamt
                 .set(addr.to_bytes().into(), act.clone())
                 .map_err(|e| e.to_string())?;
         }
 
         self.hamt.flush().map_err(|e| e.to_string())
-    }
-
-    fn revert_to_snapshot(&mut self, cid: &Cid) -> Result<(), String> {
-        // Update Hamt root to snapshot Cid
-        self.hamt.set_root(cid).map_err(|e| e.to_string())?;
-
-        self.actor_cache = Default::default();
-        Ok(())
     }
 }
