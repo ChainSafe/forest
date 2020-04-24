@@ -9,6 +9,7 @@ use std::u64;
 
 /// Protocol defines the addressing protocol used to derive data to an address
 #[derive(PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash)]
+#[repr(u8)]
 pub enum Protocol {
     /// ID protocol addressing
     ID = 0,

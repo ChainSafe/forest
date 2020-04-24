@@ -102,9 +102,14 @@ impl Address {
         Protocol::from(self.payload)
     }
 
+    /// Returns protocol for Address
+    pub fn payload(&self) -> &Payload {
+        &self.payload
+    }
+
     /// Returns data payload of Address
     pub fn payload_bytes(&self) -> Vec<u8> {
-        self.payload.to_bytes()
+        self.payload.to_raw_bytes()
     }
 
     /// Returns network configuration of Address
@@ -120,9 +125,7 @@ impl Address {
 
     /// Returns encoded bytes of Address
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bz: Vec<u8> = self.payload_bytes();
-        bz.insert(0, self.protocol() as u8);
-        bz
+        self.payload.to_bytes()
     }
 }
 
