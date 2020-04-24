@@ -88,7 +88,7 @@ where
         let state =
             HamtStateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         let kaddr = resolve_to_key_addr(&state, self.bs.as_ref(), addr)
-            .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
+            .map_err(|e| Error::Other(format!("Failed to resolve key address, error: {}", e)))?;
         if kaddr.protocol() != Protocol::BLS {
             return Err(Error::Other(
                 "Address must be BLS address to load bls public key".to_owned(),
