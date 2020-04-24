@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{ACCOUNT_ACTOR_CODE_ID, REWARD_ACTOR_ADDR};
+use actor::{
+    cron, reward, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+};
 use blocks::FullTipset;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -14,6 +16,8 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 use runtime::Syscalls;
 use state_tree::StateTree;
+use std::collections::HashSet;
+use std::error::Error as StdError;
 use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
@@ -62,23 +66,108 @@ where
     pub fn apply_tip_set_messages(
         &mut self,
         tipset: &FullTipset,
-    ) -> Result<Vec<MessageReceipt>, String> {
+    ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
+        let mut processed = HashSet::<Cid>::default();
 
         for block in tipset.blocks() {
+            let mut penalty = BigUint::zero();
+            let mut gas_reward = BigUint::zero();
+
+            let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
+                let cid = msg.cid()?;
+                // Ensure no duplicate processing of a message
+                if processed.contains(&cid) {
+                    return Ok(());
+                }
+                let ret = self.apply_message(msg)?;
+
+                // Update totals
+                gas_reward += msg.gas_price() * ret.msg_receipt.gas_used;
+                penalty += ret.penalty;
+                receipts.push(ret.msg_receipt);
+
+                // Add callback here if needed in future
+
+                // Add processed Cid to set of processed messages
+                processed.insert(cid);
+                Ok(())
+            };
+
             for msg in block.bls_msgs() {
-                receipts.push(self.apply_message(msg)?.msg_receipt);
+                process_msg(msg)?;
+            }
+            for msg in block.secp_msgs() {
+                process_msg(msg.message())?;
             }
 
-            for msg in block.secp_msgs() {
-                receipts.push(self.apply_message(msg.message())?.msg_receipt);
+            // Generate reward transaction for the miner of the block
+            let params = Serialized::serialize(reward::AwardBlockRewardParams {
+                miner: block.header().miner_address().clone(),
+                penalty,
+                gas_reward,
+                // TODO revisit this if/when removed from go clients
+                ticket_count: 1,
+            })?;
+
+            // TODO change this just just one get and update sequence in memory after interop
+            let sys_act = self
+                .state
+                .get_actor(&*SYSTEM_ACTOR_ADDR)?
+                .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+            let rew_msg = UnsignedMessage::builder()
+                .from(SYSTEM_ACTOR_ADDR.clone())
+                .to(REWARD_ACTOR_ADDR.clone())
+                .sequence(sys_act.sequence)
+                .value(BigUint::zero())
+                .gas_price(BigUint::zero())
+                .gas_limit(1 << 30)
+                .method_num(reward::Method::AwardBlockReward as u64)
+                .params(params)
+                .build()?;
+
+            // TODO revisit this ApplyRet structure, doesn't match go logic 1:1 and can be cleaner
+            let ret = self.apply_implicit_message(&rew_msg);
+            if let Some(err) = ret.act_error {
+                return Err(format!(
+                    "failed to apply reward message for miner {}: {}",
+                    block.header().miner_address(),
+                    err
+                )
+                .into());
             }
+
+            // Add callback here for reward message if needed
         }
 
+        // TODO same as above, unnecessary state retrieval
+        let sys_act = self
+            .state
+            .get_actor(&*SYSTEM_ACTOR_ADDR)?
+            .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+        let cron_msg = UnsignedMessage::builder()
+            .to(SYSTEM_ACTOR_ADDR.clone())
+            .from(CRON_ACTOR_ADDR.clone())
+            .sequence(sys_act.sequence)
+            .value(BigUint::zero())
+            .gas_price(BigUint::zero())
+            .gas_limit(1 << 30)
+            .method_num(cron::Method::EpochTick as u64)
+            .params(Serialized::default())
+            .build()?;
+
+        let ret = self.apply_implicit_message(&cron_msg);
+        if let Some(err) = ret.act_error {
+            return Err(format!("failed to apply block cron message: {}", err).into());
+        }
+
+        // Add callback here for cron message if needed
         Ok(receipts)
     }
 
-    fn _apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+    fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         let (ret_data, _, act_err) = self.send(msg, 0);
 
         if let Some(err) = act_err {
@@ -100,7 +189,7 @@ where
                 gas_used: 0,
             },
             BigUint::zero(),
-            Some(ActorError::new(ExitCode::Ok, "Ok error".to_owned())),
+            None,
         )
     }
 
@@ -245,7 +334,7 @@ where
             MessageReceipt {
                 return_data: ret_data,
                 exit_code: ExitCode::Ok,
-                gas_used: gas_used,
+                gas_used,
             },
             BigUint::zero(),
             None,

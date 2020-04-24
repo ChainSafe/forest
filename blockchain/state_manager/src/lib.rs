@@ -73,7 +73,7 @@ where
         let mut vm = VM::new(ts.parent_state(), &buf_store, ts.epoch(), DefaultSyscalls)?;
 
         // Apply tipset messages
-        let receipts = vm.apply_tip_set_messages(ts).map_err(|e| Error::VM(e))?;
+        let receipts = vm.apply_tip_set_messages(ts)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
