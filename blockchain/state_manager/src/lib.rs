@@ -88,6 +88,8 @@ where
         }
     }
 
+    /// Performs the state transition for the tipset and applies all unique messages in all blocks.
+    /// This function returns the state root and receipt root of the transition.
     pub fn apply_blocks(&self, ts: &FullTipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level

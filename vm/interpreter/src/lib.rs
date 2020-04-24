@@ -148,8 +148,8 @@ where
             .ok_or_else(|| "Failed to query system actor".to_string())?;
 
         let cron_msg = UnsignedMessage::builder()
-            .to(SYSTEM_ACTOR_ADDR.clone())
-            .from(CRON_ACTOR_ADDR.clone())
+            .from(SYSTEM_ACTOR_ADDR.clone())
+            .to(CRON_ACTOR_ADDR.clone())
             .sequence(sys_act.sequence)
             .value(BigUint::zero())
             .gas_price(BigUint::zero())
