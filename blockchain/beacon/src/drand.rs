@@ -4,7 +4,7 @@
 use super::api::PublicRandRequest;
 use super::api_grpc::PublicClient;
 use super::beacon_entries::BeaconEntry;
-use super::common::{GroupPacket as ProtoGroup, GroupRequest, Identity as ProtoIdentity};
+use super::common::{ GroupRequest};
 use super::group::Group;
 
 use bls_signatures::{PublicKey, Serialize, Signature};
@@ -16,6 +16,7 @@ use std::error;
 use std::sync::Arc;
 use tls_api_openssl::TlsConnector;
 
+use sha2::Digest;
 // struct DrandPeer {
 //     addr: String,
 //     tls: bool,
@@ -91,9 +92,6 @@ impl DrandBeacon {
             .drop_metadata()
             .await?;
 
-        println!("Round {}: Sig: {:#?}", round, Signature::from_bytes(&resp.signature).unwrap());
-        println!("Round {}: Prev Sig: {:#?}", round, Signature::from_bytes(&resp.previous_signature).unwrap());
-        
         Ok(BeaconEntry::new(
             resp.round,
             resp.signature,
@@ -111,14 +109,13 @@ impl DrandBeacon {
         msg.extend_from_slice(prev.data());
         msg.write_u64::<BigEndian>(curr.round()).unwrap();
         // the message
-        let digest = bls_signatures::hash(&msg);
-        // let digest = sha2::Sha256::digest(&msg);
+        let digest = sha2::Sha256::digest(&msg);
+        let digest = bls_signatures::hash(&digest);
 
         //verify messages
 
         //signature
         let sig = Signature::from_bytes(curr.data()).unwrap();
-        println!("Signature: {:#?}", sig);
         bls_signatures::verify(&sig, &[digest], &[self.pub_key.key()])
         // TODO: Cache this
     }
@@ -172,7 +169,7 @@ mod test {
         let e2 = beacon.entry(2).await.unwrap();
         let e3 = beacon.entry(3).await.unwrap();
 
-        println!("Verify e1, e2: {}", beacon.verify_entry(e2, e3))
+        println!("Verify e1, e2: {}", beacon.verify_entry(e3, e2))
     }
 
     #[async_std::test]
