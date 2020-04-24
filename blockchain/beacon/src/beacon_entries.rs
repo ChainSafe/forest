@@ -4,10 +4,10 @@
 use encoding::{
     de::{self, Deserializer},
     ser::{self, Serializer},
-    Cbor, Error as EncodingError,
 };
 use serde::Deserialize;
 
+/// The result from getting an entry from Drand.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BeaconEntry {
     round: u64,
@@ -23,12 +23,15 @@ impl BeaconEntry {
             prev_round,
         }
     }
+    /// Returns the current round number
     pub fn round(&self) -> u64 {
         self.round
     }
+    /// The signature of message H(prev_round, prev_round.data, round).
     pub fn data(&self) -> &[u8] {
         &self.data
     }
+    /// Returns the previous round number
     pub fn prev_round(&self) -> u64 {
         self.prev_round
     }

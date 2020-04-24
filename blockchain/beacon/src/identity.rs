@@ -4,6 +4,8 @@
 pub use crate::common::Identity as ProtoIdentity;
 use bls_signatures::{PublicKey, Serialize};
 use std::convert::TryFrom;
+
+/// Information about the participants in the Drand network
 #[derive(Debug, Clone)]
 pub struct Identity {
     pub address: String,

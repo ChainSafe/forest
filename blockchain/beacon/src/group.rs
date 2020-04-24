@@ -6,14 +6,23 @@ use crate::identity::Identity;
 
 use bls_signatures::{PublicKey, Serialize};
 use std::convert::TryFrom;
+
+/// The result of calling the Group API call to a Drand node.
+/// This is the the working Group of the Drand network.
 #[derive(Debug, Clone)]
 pub struct Group {
+    /// Number of signatures
     pub threshold: u32,
+    /// Time between Drand entries
     pub period: u32,
+    /// Nodes on the Drand Network
     pub nodes: Vec<Identity>,
+    /// Public keys of signers
     pub public_key: Vec<PublicKey>,
     pub transition_time: u64,
+    /// Genesis time of Drand network
     pub genesis_time: u64,
+    /// Genesis seed of the Drand network
     pub genesis_seed: Vec<u8>,
 }
 
@@ -60,5 +69,5 @@ impl TryFrom<ProtoGroup> for Group {
 
 fn minimum_threshold(n: u32) -> u32 {
     //	return int(math.Floor(float64(n)/2.0) + 1)
-    return ((n as f64 / 2.0).floor() + 1.0) as u32;
+   ((n as f64 / 2.0).floor() + 1.0) as u32
 }
