@@ -151,7 +151,7 @@ impl Signature {
         }
     }
 }
-
+/// Aggregates and verifies bls signatures collectively
 pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &Signature) -> bool {
     // If the number of public keys and data does not match, then return false
     if data.len() != pub_keys.len() {
