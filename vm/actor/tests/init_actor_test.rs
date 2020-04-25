@@ -19,7 +19,7 @@ use common::*;
 use ipld_blockstore::BlockStore;
 //use ipld_hamt::Hamt;
 use address::Address;
-use vm::{ActorError, ExitCode, Serialized};
+use vm::{ActorError, ExitCode, Serialized, TokenAmount};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let receiver = Address::new_id(1000).unwrap();
@@ -93,6 +93,7 @@ fn create_2_payment_channels() {
     //Set caller
     rt.caller = anne;
     rt.caller_type = ACCOUNT_ACTOR_CODE_ID.clone();
+  
 
     // Change balances not sure how to do i saw the send function, but idk if thats all i need
 
@@ -107,18 +108,22 @@ fn create_2_payment_channels() {
 
         let expected_id_addr_1 = Address::new_id(100 + n).unwrap();
 
-        let v = rt.create_actor(PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr_1);
+        rt.expect_create_actor( PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr_1.clone() );
+
+        //let v = rt.create_actor(PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr_1);
 
         let fake_params = ConstructorParams {
             network_name: String::from("fake_param"),
         };
 
         // expect anne creating a payment channel to trigger a send to the payment channels constructor
+        let balance = TokenAmount::new(vec![1,0,0]);
+                
         rt.expect_send(
             expected_id_addr_1.clone(),
             1,
             Serialized::serialize(&fake_params).unwrap(),
-            0u8.into(),
+            balance,
             Serialized::default(),
             ExitCode::Ok,
         );
@@ -164,6 +169,7 @@ fn create_storage_miner() {
     rt.new_actor_addr = Some(uniq_addr_1.clone());
 
     let expected_id_addr_1 = Address::new_id(100).unwrap();
+    rt.expect_create_actor(POWER_ACTOR_CODE_ID.clone(), expected_id_addr_1.clone() );
 
     // Add expect create actor
 
@@ -230,6 +236,8 @@ fn create_multisig_actor() {
 
     // Next id
     let expected_id_addr_1 = Address::new_id(100).unwrap();
+    rt.expect_create_actor( MULTISIG_ACTOR_CODE_ID.clone(), expected_id_addr_1.clone() );
+
     // call expect create actor
     //Go Code : rt.ExpectCreateActor(builtin.MultisigActorCodeID, expectedIdAddr)
 
@@ -275,6 +283,8 @@ fn sending_constructor_failure() {
 
     // Create the next id address
     let expected_id_addr_1 = Address::new_id(100).unwrap();
+    rt.expect_create_actor(POWER_ACTOR_CODE_ID.clone(), expected_id_addr_1.clone() );
+
 
     // call expect create actor
     //Go Code : rt.ExpectCreateActor(builtin.MultisigActorCodeID, expectedIdAddr)
