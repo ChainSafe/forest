@@ -86,7 +86,7 @@ fn abort_cant_call_exec() {
 #[test]
 fn create_2_payment_channels() {
     let bs = MemoryDB::default();
-    let mut rt : MockRuntime<MemoryDB> = construct_runtime(&bs);
+    let mut rt: MockRuntime<MemoryDB> = construct_runtime(&bs);
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001).unwrap();
 
@@ -107,8 +107,7 @@ fn create_2_payment_channels() {
 
         let expected_id_addr_1 = Address::new_id(100 + n).unwrap();
 
-        let v = rt.create_actor(PAYCH_ACTOR_CODE_ID.clone(),  expected_id_addr_1);
-
+        let v = rt.create_actor(PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr_1);
 
         let fake_params = ConstructorParams {
             network_name: String::from("fake_param"),
