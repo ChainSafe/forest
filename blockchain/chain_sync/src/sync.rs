@@ -26,7 +26,7 @@ use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use state_manager::StateManager;
-use state_tree::{HamtStateTree, StateTree};
+use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -186,7 +186,7 @@ where
                     )
                     .await
                 {
-                    if self.inform_new_head(&fts).await.is_err() {
+                    if self.inform_new_head(source.clone(), &fts).await.is_err() {
                         warn!("Failed to sync with provided tipset",);
                     };
                 } else {
@@ -353,7 +353,7 @@ where
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    pub async fn inform_new_head(&mut self, fts: &FullTipset) -> Result<(), Error> {
+    pub async fn inform_new_head(&mut self, peer: PeerId, fts: &FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
         if fts.blocks().is_empty() {
             return Err(Error::NoBlocks);
@@ -374,29 +374,39 @@ where
         let target_weight = fts.blocks()[0].header().weight();
 
         if target_weight.gt(&best_weight) {
-            // initial sync
-            if self.get_state() == &SyncState::Init {
-                if let Some(best_target) = self.select_sync_target(fts.tipset()?.clone()).await {
-                    self.sync(&best_target).await?;
-                    return Ok(());
-                }
-            }
-            self.schedule_tipset(Arc::new(fts.tipset()?)).await?;
+            self.set_peer_head(peer, Arc::new(fts.to_tipset()?)).await?;
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
     }
-    /// Retrieves the heaviest tipset in the sync queue; considered best target head
-    async fn select_sync_target(&mut self, ts: Tipset) -> Option<Arc<Tipset>> {
-        let mut heads = Vec::new();
-        heads.push(ts);
 
-        // sort tipsets by epoch
-        heads.sort_by_key(|header| (header.epoch()));
+    async fn set_peer_head(&mut self, peer: PeerId, ts: Arc<Tipset>) -> Result<(), Error> {
+        self.peer_manager
+            .add_peer(peer, Some(Arc::clone(&ts)))
+            .await;
+
+        // Only update target on initial sync
+        if self.get_state() == &SyncState::Init {
+            if let Some(best_target) = self.select_sync_target().await {
+                // TODO revisit this if using for full node, shouldn't start syncing on first update
+                self.sync(&best_target).await?;
+                return Ok(());
+            }
+        }
+        self.schedule_tipset(ts).await?;
+
+        Ok(())
+    }
+
+    /// Retrieves the heaviest tipset in the sync queue; considered best target head
+    async fn select_sync_target(&mut self) -> Option<Arc<Tipset>> {
+        // Retrieve all peer heads from peer manager
+        let mut heads = self.peer_manager.get_peer_heads().await;
+        heads.sort_by_key(|h| h.epoch());
 
         // insert tipsets into sync queue
         for tip in heads {
-            self.sync_queue.insert(Arc::new(tip));
+            self.sync_queue.insert(tip);
         }
 
         if self.sync_queue.buckets().len() > 1 {
@@ -549,14 +559,13 @@ where
             ));
         }
         // check msgs for validity
-        fn check_msg<M, ST>(
+        fn check_msg<M, DB: BlockStore>(
             msg: &M,
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
-            tree: &ST,
+            tree: &StateTree<DB>,
         ) -> Result<(), Error>
         where
             M: Message,
-            ST: StateTree,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
@@ -600,7 +609,7 @@ where
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         // TODO retrieve tipset state and load state tree
         // temporary
-        let tree = HamtStateTree::new(self.chain_store.db.as_ref());
+        let tree = StateTree::new(self.chain_store.db.as_ref());
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
@@ -631,11 +640,10 @@ where
             return Err(Error::Validation("Signature is nil in header".to_owned()));
         }
 
-        let base_tipset = self.load_fts(&TipSetKeys::new(header.parents().cids.clone()))?;
-        let parent_tipset = base_tipset.tipset()?;
+        let parent_tipset = self.chain_store.tipset_from_keys(header.parents())?;
 
         // time stamp checks
-        header.validate_timestamps(&base_tipset)?;
+        header.validate_timestamps(&parent_tipset)?;
 
         // check messages to ensure valid state transitions
         self.check_block_msgs(block.clone(), &parent_tipset)?;
@@ -671,7 +679,7 @@ where
     }
     /// validates tipsets and adds header data to tipset tracker
     fn validate_tipsets(&mut self, fts: FullTipset) -> Result<(), Error> {
-        if fts.tipset()? == self.genesis {
+        if fts.to_tipset()? == self.genesis {
             return Ok(());
         }
 
@@ -940,37 +948,11 @@ mod tests {
         let to = construct_tipset(1, 10);
 
         task::block_on(async move {
-            cs.peer_manager.add_peer(source.clone()).await;
+            cs.peer_manager.add_peer(source.clone(), None).await;
             assert_eq!(cs.peer_manager.len().await, 1);
 
             let return_set = cs.sync_headers_reverse(head, &to).await;
             assert_eq!(return_set.unwrap().len(), 4);
-        });
-    }
-
-    #[test]
-    fn select_target_test() {
-        let ts_1 = construct_tipset(1, 5);
-        let ts_2 = construct_tipset(2, 10);
-        let ts_3 = construct_tipset(3, 7);
-
-        let db = Arc::new(MemoryDB::default());
-        let mut chain_store = ChainStore::new(db);
-        let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header).unwrap();
-
-        let mut cs = chain_syncer_setup(chain_store);
-
-        task::spawn(async move {
-            assert_eq!(
-                cs.select_sync_target(ts_1.clone()).await.unwrap(),
-                Arc::new(ts_1)
-            );
-            assert_eq!(
-                cs.select_sync_target(ts_2.clone()).await.unwrap(),
-                Arc::new(ts_2.clone())
-            );
-            assert_eq!(cs.select_sync_target(ts_3).await.unwrap(), Arc::new(ts_2));
         });
     }
 

@@ -49,7 +49,8 @@ impl NetworkHandler {
                     Some(event) => {
                         // Update peer on this thread before sending hello
                         if let NetworkEvent::Hello { source, .. } = &event {
-                            peer_manager.add_peer(source.clone()).await;
+                            // TODO should probably add peer with their tipset/ not handled seperately
+                            peer_manager.add_peer(source.clone(), None).await;
                         }
 
                         // TODO revisit, doing this to avoid blocking this thread but can handle better

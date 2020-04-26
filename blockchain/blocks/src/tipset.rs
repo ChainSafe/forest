@@ -157,6 +157,10 @@ impl Tipset {
     pub fn blocks(&self) -> &[BlockHeader] {
         &self.blocks
     }
+    /// Returns all blocks in tipset
+    pub fn into_blocks(self) -> Vec<BlockHeader> {
+        self.blocks
+    }
     /// Returns the smallest ticket of all blocks in the tipset
     pub fn min_ticket(&self) -> Result<Ticket, Error> {
         if self.blocks.is_empty() {
@@ -218,12 +222,28 @@ impl FullTipset {
     pub fn new(blks: Vec<Block>) -> Self {
         Self { blocks: blks }
     }
-    /// Returns all blocks in a full tipset
+    /// Returns reference to all blocks in a full tipset
     pub fn blocks(&self) -> &[Block] {
         &self.blocks
     }
+    /// Returns all blocks in a full tipset
+    pub fn into_blocks(self) -> Vec<Block> {
+        self.blocks
+    }
+    // TODO: conversions from full to regular tipset should not return a result
+    // and should be validated on creation instead
     /// Returns a Tipset
-    pub fn tipset(&self) -> Result<Tipset, Error> {
+    pub fn into_tipset(self) -> Result<Tipset, Error> {
+        let mut headers = Vec::new();
+
+        for block in self.into_blocks() {
+            headers.push(block.header)
+        }
+        let tip: Tipset = Tipset::new(headers)?;
+        Ok(tip)
+    }
+    /// Returns a Tipset
+    pub fn to_tipset(&self) -> Result<Tipset, Error> {
         let mut headers = Vec::new();
 
         for block in self.blocks() {
@@ -231,5 +251,13 @@ impl FullTipset {
         }
         let tip: Tipset = Tipset::new(headers)?;
         Ok(tip)
+    }
+    /// Returns the state root for the tipset parent.
+    pub fn parent_state(&self) -> &Cid {
+        self.blocks[0].header().state_root()
+    }
+    /// Returns epoch of the tipset
+    pub fn epoch(&self) -> ChainEpoch {
+        self.blocks[0].header().epoch()
     }
 }

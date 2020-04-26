@@ -12,7 +12,6 @@ mod method;
 mod piece;
 mod randomness;
 mod sector;
-mod state_tree;
 mod token;
 
 pub use self::actor_state::*;
@@ -26,5 +25,4 @@ pub use self::method::*;
 pub use self::piece::*;
 pub use self::randomness::*;
 pub use self::sector::*;
-pub use self::state_tree::StateTree;
 pub use self::token::*;

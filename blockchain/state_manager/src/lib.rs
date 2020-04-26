@@ -7,11 +7,17 @@ pub use self::errors::*;
 use actor::{miner, power, ActorState, STORAGE_POWER_ACTOR_ADDR};
 use address::{Address, Protocol};
 use blockstore::BlockStore;
+use blockstore::BufferedBlockStore;
 use cid::Cid;
 use default_runtime::resolve_to_key_addr;
 use encoding::de::DeserializeOwned;
+use forest_blocks::FullTipset;
+use interpreter::VM;
+use ipld_amt::Amt;
 use num_bigint::BigUint;
-use state_tree::{HamtStateTree, StateTree};
+use runtime::DefaultSyscalls;
+use state_tree::StateTree;
+use std::error::Error as StdError;
 use std::sync::Arc;
 
 /// Intermediary for retrieving state objects and updating actor states
@@ -43,8 +49,7 @@ where
         Ok(act)
     }
     fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state =
-            HamtStateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
     }
     /// Returns true if miner has been slashed or is considered invalid
@@ -64,8 +69,7 @@ where
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
-        let state =
-            HamtStateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         // Note: miner::State info likely to be changed to CID
         let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
@@ -83,16 +87,37 @@ where
             ))
         }
     }
+
+    /// Performs the state transition for the tipset and applies all unique messages in all blocks.
+    /// This function returns the state root and receipt root of the transition.
+    pub fn apply_blocks(&self, ts: &FullTipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
+        let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
+        // TODO possibly switch out syscalls to be saved at state manager level
+        let mut vm = VM::new(ts.parent_state(), &buf_store, ts.epoch(), DefaultSyscalls)?;
+
+        // Apply tipset messages
+        let receipts = vm.apply_tip_set_messages(ts)?;
+
+        // Construct receipt root from receipts
+        let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
+
+        // Flush changes to blockstore
+        let state_root = vm.flush()?;
+        // Persist changes connected to root
+        buf_store.flush(&state_root)?;
+
+        Ok((state_root, rect_root))
+    }
+
     /// Returns a bls public key from provided address
     pub fn get_bls_public_key(&self, addr: &Address, state_cid: &Cid) -> Result<Vec<u8>, Error> {
-        let state =
-            HamtStateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         let kaddr = resolve_to_key_addr(&state, self.bs.as_ref(), addr)
-            .map_err(|e| Error::Other(format!("Failed to resolve key address, error: {}", e)))?;
+            .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
         if kaddr.protocol() != Protocol::BLS {
-            return Err(Error::Other(
-                "Address must be BLS address to load bls public key".to_owned(),
-            ));
+            return Err("Address must be BLS address to load bls public key"
+                .to_owned()
+                .into());
         }
         Ok(kaddr.payload().to_vec())
     }
