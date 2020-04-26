@@ -64,7 +64,7 @@ where
     let raw_cid_bz = cid.to_bytes();
     let raw_bz = cache
         .get(cid)
-        .ok_or("Invalid link in flushing buffered store".to_owned())?;
+        .ok_or_else(|| "Invalid link in flushing buffered store".to_owned())?;
 
     // If root exists in base store already, can skip
     if base.exists(&raw_cid_bz)? {
@@ -97,7 +97,7 @@ where
             }
         }
         Ipld::Map(map) => {
-            for (_, v) in map {
+            for v in map.values() {
                 for_each_link(v, cb)?
             }
         }
