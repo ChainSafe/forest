@@ -102,12 +102,13 @@ impl Address {
         Protocol::from(self.payload)
     }
 
-    /// Returns protocol for Address
+    /// Returns the `Payload` object from the address, where the respective protocol data is kept
+    /// in an enum separated by protocol
     pub fn payload(&self) -> &Payload {
         &self.payload
     }
 
-    /// Returns data payload of Address
+    /// Returns the raw bytes data payload of the Address
     pub fn payload_bytes(&self) -> Vec<u8> {
         self.payload.to_raw_bytes()
     }
