@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
-/// This type is not threadsafe and can only be used in syncronous contexts.
+/// This type is not threadsafe and can only be used in synchronous contexts.
 #[derive(Debug)]
 pub struct BufferedBlockStore<'bs, BS> {
     base: &'bs BS,
@@ -19,7 +19,7 @@ pub struct BufferedBlockStore<'bs, BS> {
 
 impl<'bs, BS> BufferedBlockStore<'bs, BS>
 where
-    BS: BlockStore + Store,
+    BS: BlockStore,
 {
     pub fn new(base: &'bs BS) -> Self {
         Self {
@@ -42,7 +42,7 @@ where
 
 impl<BS> BlockStore for BufferedBlockStore<'_, BS>
 where
-    BS: BlockStore + Store,
+    BS: BlockStore,
 {
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
         if let Some(data) = self.write.borrow().get(cid) {
