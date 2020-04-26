@@ -8,7 +8,5 @@ edition = "2018"
 cid = { package = "forest_cid", path = "../cid" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-
-[dev-dependencies]
 forest_ipld = { path = "../" }
 commcid = { path = "../../utils/commcid" }
