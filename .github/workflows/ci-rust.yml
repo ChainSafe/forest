@@ -15,14 +15,19 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - name: Pull serialization vectors
-        run: git submodule update --init
+      # TODO revisit this, workaround for now
+      - name: Install OpenCL
+        run: sudo apt install ocl-icd-opencl-dev	
 
-      - name: Build CI docker image
-        run: docker build -t forest/rust:latest -f ./Dockerfile-ci .
+      - name: Toolchain setup
+        uses: actions-rs/toolchain@v1
+        with:	
+          profile: minimal	
+          toolchain: stable	
+          override: true	
 
-      - name: Test all
-        run: docker run forest/rust cargo test --all-features
+      - name: Cargo test all
+        run: make test-all
 
   fmt:
     name: rustfmt
