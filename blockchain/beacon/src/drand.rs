@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![allow(dead_code)]
+use super::beacon_entries::BeaconEntry;
 use super::drand_api::api::PublicRandRequest;
 use super::drand_api::api_grpc::PublicClient;
-use super::beacon_entries::BeaconEntry;
 use super::drand_api::common::GroupRequest;
 use super::group::Group;
 

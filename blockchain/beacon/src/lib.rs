@@ -3,9 +3,9 @@
 
 mod beacon_entries;
 mod drand;
+mod drand_api;
 mod group;
 mod identity;
-mod drand_api;
 
 pub use beacon_entries::*;
 pub use drand::*;
