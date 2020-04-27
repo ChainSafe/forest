@@ -69,5 +69,5 @@ impl TryFrom<ProtoGroup> for Group {
 
 fn minimum_threshold(n: u32) -> u32 {
     //	return int(math.Floor(float64(n)/2.0) + 1)
-   ((n as f64 / 2.0).floor() + 1.0) as u32
+    ((n as f64 / 2.0).floor() + 1.0) as u32
 }

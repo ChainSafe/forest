@@ -1,13 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+use protoc_rust_grpc::Codegen;
 fn main() {
-    protoc_rust_grpc::run(protoc_rust_grpc::Args {
-        out_dir: "src",
-        includes: &["proto", "proto/api-common-protos"],
-        input: &["proto/api.proto", "proto/common.proto"],
-        rust_protobuf: true, // also generate protobuf messages, not just services
-        ..Default::default()
-    })
-    .expect("protoc-rust-grpc");
+    Codegen::new()
+        .includes(&["proto", "proto/api-common-protos"])
+        .out_dir("src")
+        .inputs(&["proto/api.proto", "proto/common.proto"])
+        .rust_protobuf(true)
+        .run()
+        .expect("protoc-rust-grpc");
 }

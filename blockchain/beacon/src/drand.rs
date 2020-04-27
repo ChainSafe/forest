@@ -103,7 +103,7 @@ impl DrandBeacon {
     ) -> Result<bool, Box<dyn error::Error>> {
         // TODO: Handle Genesis better
         if prev.round() == 0 {
-            return Ok(true)
+            return Ok(true);
         }
         //Hash the messages
         let mut msg: Vec<u8> = Vec::with_capacity(112);
