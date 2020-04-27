@@ -18,7 +18,7 @@ fn get_set_cache() {
     let act_a = ActorState::new(empty_cid(), empty_cid(), Default::default(), 2);
     let addr = Address::new_id(1).unwrap();
     let store = db::MemoryDB::default();
-    let mut tree = HamtStateTree::new(&store);
+    let mut tree = StateTree::new(&store);
 
     // test address not in cache
     assert_eq!(tree.get_actor(&addr).unwrap(), None);
@@ -35,7 +35,7 @@ fn get_set_cache() {
 #[test]
 fn delete_actor() {
     let store = db::MemoryDB::default();
-    let mut tree = HamtStateTree::new(&store);
+    let mut tree = StateTree::new(&store);
 
     let addr = Address::new_id(3).unwrap();
     let act_s = ActorState::new(empty_cid(), empty_cid(), Default::default(), 1);
@@ -48,7 +48,7 @@ fn delete_actor() {
 #[test]
 fn get_set_non_id() {
     let store = db::MemoryDB::default();
-    let mut tree = HamtStateTree::new(&store);
+    let mut tree = StateTree::new(&store);
 
     // Empty hamt Cid used for testing
     let e_cid = Hamt::<String, _>::new_with_bit_width(&store, 5)

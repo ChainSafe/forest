@@ -1,43 +1,59 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{ACCOUNT_ACTOR_CODE_ID, REWARD_ACTOR_ADDR};
-use address::Address;
-use blocks::Tipset;
+use actor::{
+    cron, reward, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+};
+use blocks::FullTipset;
+use cid::Cid;
 use clock::ChainEpoch;
 use default_runtime::{internal_send, DefaultRuntime};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
-use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use runtime::Syscalls;
-use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized, StateTree};
+use state_tree::StateTree;
+use std::collections::HashSet;
+use std::error::Error as StdError;
+use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'a, ST, DB, SYS> {
-    state: ST,
-    store: &'a DB,
+pub struct VM<'db, DB, SYS> {
+    state: StateTree<'db, DB>,
+    // TODO revisit handling buffered store specifically in VM
+    store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
     // TODO: missing fields
 }
 
-impl<'a, ST, DB, SYS> VM<'a, ST, DB, SYS>
+impl<'db, DB, SYS> VM<'db, DB, SYS>
 where
-    ST: StateTree,
     DB: BlockStore,
     SYS: Syscalls + Copy,
 {
-    pub fn new(state: ST, store: &'a DB, epoch: ChainEpoch, syscalls: SYS) -> Self {
-        VM {
+    pub fn new(
+        root: &Cid,
+        store: &'db DB,
+        epoch: ChainEpoch,
+        syscalls: SYS,
+    ) -> Result<Self, String> {
+        let state = StateTree::new_from_root(store, root)?;
+        Ok(VM {
             state,
             store,
             epoch,
             syscalls,
-        }
+        })
+    }
+
+    /// Flush stores in VM and return state root.
+    pub fn flush(&mut self) -> Result<Cid, String> {
+        self.state.flush()
     }
 
     /// Returns ChainEpoch
@@ -49,27 +65,109 @@ where
     /// Returns the receipts from the transactions.
     pub fn apply_tip_set_messages(
         &mut self,
-        _tipset: &Tipset,
-        msgs: &TipSetMessages,
-    ) -> Result<Vec<ApplyRet>, String> {
+        tipset: &FullTipset,
+    ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
+        let mut processed = HashSet::<Cid>::default();
 
-        for block in &msgs.blocks {
-            // TODO: verifiy ordering of message execution
+        for block in tipset.blocks() {
+            let mut penalty = BigUint::zero();
+            let mut gas_reward = BigUint::zero();
 
-            for msg in &block.bls_messages {
-                receipts.push(self.apply_message(msg)?);
+            let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
+                let cid = msg.cid()?;
+                // Ensure no duplicate processing of a message
+                if processed.contains(&cid) {
+                    return Ok(());
+                }
+                let ret = self.apply_message(msg)?;
+
+                // Update totals
+                gas_reward += msg.gas_price() * ret.msg_receipt.gas_used;
+                penalty += ret.penalty;
+                receipts.push(ret.msg_receipt);
+
+                // Add callback here if needed in future
+
+                // Add processed Cid to set of processed messages
+                processed.insert(cid);
+                Ok(())
+            };
+
+            for msg in block.bls_msgs() {
+                process_msg(msg)?;
+            }
+            for msg in block.secp_msgs() {
+                process_msg(msg.message())?;
             }
 
-            for msg in &block.secp_messages {
-                receipts.push(self.apply_message(msg.message())?);
+            // Generate reward transaction for the miner of the block
+            let params = Serialized::serialize(reward::AwardBlockRewardParams {
+                miner: block.header().miner_address().clone(),
+                penalty,
+                gas_reward,
+                // TODO revisit this if/when removed from go clients
+                ticket_count: 1,
+            })?;
+
+            // TODO change this just just one get and update sequence in memory after interop
+            let sys_act = self
+                .state
+                .get_actor(&*SYSTEM_ACTOR_ADDR)?
+                .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+            let rew_msg = UnsignedMessage::builder()
+                .from(SYSTEM_ACTOR_ADDR.clone())
+                .to(REWARD_ACTOR_ADDR.clone())
+                .sequence(sys_act.sequence)
+                .value(BigUint::zero())
+                .gas_price(BigUint::zero())
+                .gas_limit(1 << 30)
+                .method_num(reward::Method::AwardBlockReward as u64)
+                .params(params)
+                .build()?;
+
+            // TODO revisit this ApplyRet structure, doesn't match go logic 1:1 and can be cleaner
+            let ret = self.apply_implicit_message(&rew_msg);
+            if let Some(err) = ret.act_error {
+                return Err(format!(
+                    "failed to apply reward message for miner {}: {}",
+                    block.header().miner_address(),
+                    err
+                )
+                .into());
             }
+
+            // Add callback here for reward message if needed
         }
 
+        // TODO same as above, unnecessary state retrieval
+        let sys_act = self
+            .state
+            .get_actor(&*SYSTEM_ACTOR_ADDR)?
+            .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+        let cron_msg = UnsignedMessage::builder()
+            .from(SYSTEM_ACTOR_ADDR.clone())
+            .to(CRON_ACTOR_ADDR.clone())
+            .sequence(sys_act.sequence)
+            .value(BigUint::zero())
+            .gas_price(BigUint::zero())
+            .gas_limit(1 << 30)
+            .method_num(cron::Method::EpochTick as u64)
+            .params(Serialized::default())
+            .build()?;
+
+        let ret = self.apply_implicit_message(&cron_msg);
+        if let Some(err) = ret.act_error {
+            return Err(format!("failed to apply block cron message: {}", err).into());
+        }
+
+        // Add callback here for cron message if needed
         Ok(receipts)
     }
 
-    fn _apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+    fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         let (ret_data, _, act_err) = self.send(msg, 0);
 
         if let Some(err) = act_err {
@@ -77,7 +175,7 @@ where
                 MessageReceipt {
                     return_data: ret_data,
                     exit_code: err.exit_code(),
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 BigUint::zero(),
                 Some(err),
@@ -88,10 +186,10 @@ where
             MessageReceipt {
                 return_data: ret_data,
                 exit_code: ExitCode::Ok,
-                gas_used: BigUint::zero(),
+                gas_used: 0,
             },
             BigUint::zero(),
-            Some(ActorError::new(ExitCode::Ok, "Ok error".to_owned())),
+            None,
         )
     }
 
@@ -109,7 +207,7 @@ where
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrOutOfGas,
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 msg.gas_price() * msg_gas_cost,
                 Some(ActorError::new(
@@ -127,7 +225,7 @@ where
                     MessageReceipt {
                         return_data: Serialized::default(),
                         exit_code: ExitCode::SysErrSenderInvalid,
-                        gas_used: BigUint::zero(),
+                        gas_used: 0,
                     },
                     msg.gas_price() * msg_gas_cost,
                     Some(ActorError::new(
@@ -143,7 +241,7 @@ where
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderInvalid,
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 miner_penalty_amount,
                 Some(ActorError::new(
@@ -158,7 +256,7 @@ where
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderStateInvalid,
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 miner_penalty_amount,
                 Some(ActorError::new(
@@ -176,7 +274,7 @@ where
                 MessageReceipt {
                     return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderStateInvalid,
-                    gas_used: BigUint::zero(),
+                    gas_used: 0,
                 },
                 miner_penalty_amount,
                 Some(ActorError::new(
@@ -236,7 +334,7 @@ where
             MessageReceipt {
                 return_data: ret_data,
                 exit_code: ExitCode::Ok,
-                gas_used: BigUint::from(gas_used),
+                gas_used,
             },
             BigUint::zero(),
             None,
@@ -249,7 +347,7 @@ where
         gas_cost: i64,
     ) -> (
         Serialized,
-        DefaultRuntime<'_, 'm, '_, ST, DB, SYS>,
+        DefaultRuntime<'db, 'm, '_, DB, SYS>,
         Option<ActorError>,
     ) {
         let mut rt = DefaultRuntime::new(
@@ -304,17 +402,4 @@ fn check_message(msg: &UnsignedMessage) -> Result<(), String> {
     }
 
     Ok(())
-}
-/// Represents the messages from one block in a tipset.
-pub struct BlockMessages {
-    bls_messages: Vec<UnsignedMessage>,
-    secp_messages: Vec<SignedMessage>,
-    _miner: Address,      // The block miner's actor address
-    _post_proof: Vec<u8>, // The miner's Election PoSt proof output
-}
-
-/// Represents the messages from a tipset, grouped by block.
-pub struct TipSetMessages {
-    blocks: Vec<BlockMessages>,
-    _epoch: ChainEpoch,
 }

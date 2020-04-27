@@ -6,8 +6,8 @@ mod memory;
 mod rocks;
 
 pub use errors::Error;
-pub use memory::*;
-pub use rocks::*;
+pub use memory::MemoryDB;
+pub use rocks::RocksDb;
 
 pub trait DatabaseService {
     fn open(&mut self) -> Result<(), Error> {

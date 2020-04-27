@@ -9,6 +9,7 @@ address = { package = "forest_address", path = "../address" }
 actor = { path = "../actor" }
 message = { package = "forest_message", path = "../message" }
 runtime = { path = "../runtime" }
+state_tree = { path = "../state_tree" }
 clock = { path = "../../node/clock" }
 vm = { path = "../" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
