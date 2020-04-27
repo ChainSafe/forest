@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub use crate::common::Identity as ProtoIdentity;
+use super::drand_api::common::Identity as ProtoIdentity;
 use bls_signatures::{PublicKey, Serialize};
 use std::convert::TryFrom;
 

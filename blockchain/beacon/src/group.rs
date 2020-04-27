@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub use crate::common::{GroupPacket as ProtoGroup, GroupRequest, Identity as ProtoIdentity};
+pub use super::drand_api::common::{GroupPacket as ProtoGroup, GroupRequest, Identity as ProtoIdentity};
 use crate::identity::Identity;
 
 use bls_signatures::{PublicKey, Serialize};
