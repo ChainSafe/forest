@@ -43,7 +43,7 @@ where
     }
 }
 
-// Recursively traverses cache through Cid links.
+/// Recursively traverses cache through Cid links.
 fn write_recursive<BS>(
     base: &BS,
     cache: &HashMap<Cid, Vec<u8>>,
@@ -84,7 +84,7 @@ where
     Ok(())
 }
 
-// Recursively explores Ipld for links and calls a function with a reference to the Cid.
+/// Recursively explores Ipld for links and calls a function with a reference to the Cid.
 fn for_each_link<F>(ipld: &Ipld, cb: &F) -> Result<(), Box<dyn StdError>>
 where
     F: Fn(&Cid) -> Result<(), Box<dyn StdError>>,
