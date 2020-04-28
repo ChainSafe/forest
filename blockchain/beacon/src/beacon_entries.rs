@@ -42,7 +42,7 @@ impl ser::Serialize for BeaconEntry {
         where
             S: Serializer,
     {
-        (&self.round, &self.data, &self.prev_round).serialize(serializer)
+        (&self.round, &self.data).serialize(serializer)
     }
 }
 
@@ -56,7 +56,7 @@ impl<'de> de::Deserialize<'de> for BeaconEntry {
         Ok(Self {
             round,
             data,
-            prev_round,
+            round: round - 1,
         })
     }
 }
