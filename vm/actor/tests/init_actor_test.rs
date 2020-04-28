@@ -92,17 +92,17 @@ fn create_2_payment_channels() {
 
     // TODO : Change balances not sure how to do i saw the send function, but idk if thats all i need
 
-    // Go test does 2 payment channel tests
     for n in 0..2 {
-        //let pay_channel = String::from("paych") + n.to_string();
         let pay_channel_string = format!("paych_{}", n);
         let paych = pay_channel_string.as_bytes();
+
+        rt.balance = TokenAmount::from(100u8);
+        rt.value_received = TokenAmount::from(100u8);
 
         let unique_address = Address::new_actor(paych);
         rt.new_actor_addr = Some(Address::new_actor(paych).unwrap());
 
         let expected_id_addr = Address::new_id(100 + n).unwrap();
-
         rt.expect_create_actor(PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
         let fake_params = ConstructorParams {
@@ -110,7 +110,7 @@ fn create_2_payment_channels() {
         };
 
         // expect anne creating a payment channel to trigger a send to the payment channels constructor
-        let balance = TokenAmount::new(vec![1, 0, 0]);
+        let balance = TokenAmount::from(100u8);
 
         rt.expect_send(
             expected_id_addr.clone(),
