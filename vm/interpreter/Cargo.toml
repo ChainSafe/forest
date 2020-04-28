@@ -19,6 +19,10 @@ forest_encoding = { path = "../../encoding" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 crypto = { path = "../../crypto" } 
 num-traits = "0.2.11"
-default_runtime = { path = "../default_runtime" }
+byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }
 log = "0.4.8"
+db = { path = "../../node/db" }
+
+[dev-dependencies]
+ipld_hamt = { path = "../../ipld/hamt" }

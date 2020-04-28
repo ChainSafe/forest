@@ -6,6 +6,7 @@ mod actor_code;
 pub use self::actor_code::*;
 
 use address::Address;
+use blocks::BlockHeader;
 use cid::Cid;
 use clock::ChainEpoch;
 use commcid::data_commitment_v1_to_cid;
@@ -128,11 +129,6 @@ pub trait MessageInfo {
     fn value_received(&self) -> TokenAmount;
 }
 
-/// Default syscalls information
-#[derive(Copy, Clone, Debug)]
-pub struct DefaultSyscalls;
-impl Syscalls for DefaultSyscalls {}
-
 /// Pure functions implemented as primitives by the runtime.
 pub trait Syscalls {
     /// Verifies that a signature is valid for an address and plaintext.
@@ -146,6 +142,7 @@ pub trait Syscalls {
             .verify(plaintext, signer)
             .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))
     }
+    fn verify_block_signature(&self, bh: &BlockHeader) -> Result<(), ActorError>;
     /// Hashes input data using blake2b with 256 bit output.
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], ActorError> {
         Ok(blake2b_256(data))
@@ -209,14 +206,11 @@ pub trait Syscalls {
     /// Returns nil and an error if the headers don't prove a fault.
     fn verify_consensus_fault(
         &self,
-        _h1: &[u8],
-        _h2: &[u8],
-        _extra: &[u8],
+        h1: &[u8],
+        h2: &[u8],
+        extra: &[u8],
         _earliest: ChainEpoch,
-    ) -> Result<ConsensusFault, ActorError> {
-        // TODO
-        todo!()
-    }
+    ) -> Result<ConsensusFault, ActorError>;
 }
 
 /// Result of checking two headers for a consensus fault.

@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::{internal_send, DefaultRuntime};
 use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
-use default_runtime::{internal_send, DefaultRuntime};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;

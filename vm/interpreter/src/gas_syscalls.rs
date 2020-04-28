@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use blocks::BlockHeader;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
@@ -84,6 +85,9 @@ where
             .unwrap();
         self.syscalls
             .verify_consensus_fault(h1, h2, extra, earliest)
+    }
+    fn verify_block_signature(&self, _bh: &BlockHeader) -> Result<(), ActorError> {
+        todo!()
     }
 }
 

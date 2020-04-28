@@ -1,11 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod gas_block_store;
-mod gas_syscalls;
-
-use self::gas_block_store::GasBlockStore;
-use self::gas_syscalls::GasSyscalls;
+use super::gas_block_store::GasBlockStore;
+use super::gas_syscalls::GasSyscalls;
 use actor::{
     self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
     MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
