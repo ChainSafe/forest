@@ -71,10 +71,6 @@ impl Actor {
             ));
         }
 
-        // Compute a re-org-stable address.
-        // This address exists for use by messages coming from outside the system, in order to
-        // stably address the newly created actor even if a chain re-org causes it to end up with
-        // a different ID.
         let robust_address = rt.new_actor_address()?;
 
         // Allocate an ID for this actor.
@@ -90,6 +86,7 @@ impl Actor {
         rt.create_actor(&params.code_cid, &id_address)?;
 
         // Invoke constructor
+
         rt.send(
             &id_address,
             METHOD_CONSTRUCTOR,

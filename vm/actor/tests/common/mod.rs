@@ -28,6 +28,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub id_addresses: HashMap<Address, Address>,
     pub actor_code_cids: HashMap<Address, Cid>,
     pub new_actor_addr: Option<Address>,
+    pub message: UnsignedMessage,
 
     // TODO: syscalls: syscaller
 
@@ -79,6 +80,18 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             id_addresses: HashMap::new(),
             actor_code_cids: HashMap::new(),
             new_actor_addr: None,
+
+            message: UnsignedMessage::builder()
+                .to(Address::new_id(100).unwrap())
+                .from(Address::new_id(100).unwrap())
+                .sequence(0) // optional
+                .value(TokenAmount::from(0u8)) // optional
+                .method_num(MethodNum::default()) // optional
+                .params(Serialized::default()) // optional
+                .gas_limit(0) // optional
+                .gas_price(TokenAmount::from(0u8)) // optional
+                .build()
+                .unwrap(),
 
             state: None,
             balance: 0u8.into(),
@@ -231,12 +244,26 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             exit_code,
         })
     }
+
+    #[allow(dead_code)]
+    pub fn expect_create_actor(&mut self, code_id: Cid, address: Address) {
+        let a = ExpectCreateActor { code_id, address };
+        self.expect_create_actor = Some(a);
+    }
+
+    #[allow(dead_code)]
+    pub fn set_caller(&mut self, code_id: Cid, address: Address) {
+        self.caller = address.clone();
+        self.caller_type = code_id.clone();
+        self.actor_code_cids
+            .insert(address.clone(), code_id.clone());
+    }
 }
 
 impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
+    // Cuasing a test to fail have to implement to pass. Ask about the
     fn message(&self) -> &UnsignedMessage {
-        self.require_in_call();
-        todo!();
+        &self.message
     }
 
     fn curr_epoch(&self) -> ChainEpoch {
@@ -399,7 +426,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         params: &Serialized,
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError> {
-        self.require_in_call();
+        //self.require_in_call();
         if self.in_transaction {
             return Err(self.abort(
                 ExitCode::SysErrorIllegalActor,
