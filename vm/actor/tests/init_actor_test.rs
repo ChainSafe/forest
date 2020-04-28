@@ -1,11 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// Has all of the common things needed to test inlcuding MockRuntime
 mod common;
-//use runtime::Runtime;
-use db::MemoryDB;
-//use crate::{builtin::singleton::FIRST_NON_SINGLETON_ADDR};
 
 use actor::{
     init::{ConstructorParams, ExecParams, ExecReturn, State},
@@ -13,13 +9,11 @@ use actor::{
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
     STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
-
-//use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use address::Address;
 use cid::{multihash::Identity, Cid, Codec};
 use common::*;
+use db::MemoryDB;
 use ipld_blockstore::BlockStore;
-//use ipld_hamt::Hamt;
-use address::Address;
 use message::UnsignedMessage;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
@@ -374,15 +368,9 @@ fn exec_and_verify<BS: BlockStore>(
     rt.message = UnsignedMessage::builder()
         .to(rt.receiver.clone())
         .from(rt.caller.clone())
-        .sequence(0) // optional
-        .value(TokenAmount::from(0u8)) // optional
-        .method_num(2) // optional
-        .params(Serialized::serialize(&exec_params).unwrap()) // optional
-        .gas_limit(0) // optional
-        .gas_price(TokenAmount::from(0u8)) // optional
+        .value(rt.value_received.clone())
         .build()
         .unwrap();
-    rt.expect_create_actor = None;
 
     println!("Passed second part");
 
@@ -391,7 +379,7 @@ fn exec_and_verify<BS: BlockStore>(
         2,
         &Serialized::serialize(&exec_params).unwrap(),
     );
-    println!("{:?}", rt.expect_sends);
+    println!("{:?}", ret);
 
     rt.verify();
     ret

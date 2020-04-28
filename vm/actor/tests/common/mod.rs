@@ -412,6 +412,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         self.in_transaction = true;
         let ret = f(&mut read_only, &self);
         self.state = Some(self.put(&read_only).unwrap());
+        self.in_transaction = false;
         Ok(ret)
     }
 
