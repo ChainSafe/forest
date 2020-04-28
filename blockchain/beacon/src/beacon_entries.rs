@@ -51,12 +51,12 @@ impl<'de> de::Deserialize<'de> for BeaconEntry {
         where
             D: Deserializer<'de>,
     {
-        let (round, data, prev_round) = Deserialize::deserialize(deserializer)?;
+        let (round, data) = Deserialize::deserialize(deserializer)?;
 
         Ok(Self {
             round,
             data,
-            round: round - 1,
+            prev_round: round - 1,
         })
     }
 }
