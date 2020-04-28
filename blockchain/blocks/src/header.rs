@@ -26,6 +26,34 @@ use beacon::BeaconEntry;
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
 
+pub struct PoStProof {
+    registered_proof: u64,
+    proof_bytes: Vec<u8>,
+}
+impl ser::Serialize for PoStProof {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        (self.registered_proof, &self.proof_bytes).serialize(serializer)
+    }
+}
+impl<'de> de::Deserialize<'de> for PoStProof {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        let (registered_proof, proof_bytes) = Deserialize::deserialize(deserializer)?;
+
+        let post_proof = PoStProof {
+            registered_proof,
+            proof_bytes,
+        };
+
+        Ok(post_proof)
+    }
+}
+
 /// Header of a block
 ///
 /// Usage:
