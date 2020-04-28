@@ -10,7 +10,7 @@ use actor::{
     STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
 use address::Address;
-use cid::{multihash::Identity, Cid, Codec};
+use cid::Cid;
 use common::*;
 use db::MemoryDB;
 use ipld_blockstore::BlockStore;
@@ -34,50 +34,11 @@ fn abort_cant_call_exec() {
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001).unwrap();
 
-    //Set caller
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne);
 
-    rt.new_actor_addr = Some(Address::new_id(1001).unwrap());
-    rt.actor_code_cids.insert(
-        Address::new_id(1001).unwrap(),
-        ACCOUNT_ACTOR_CODE_ID.clone(),
-    );
-
-    let error = exec_and_verify(
-        &mut rt,
-        POWER_ACTOR_CODE_ID.clone(),
-        &ConstructorParams {
-            network_name: String::new(),
-        },
-    )
-    .unwrap_err();
-
-    let error_exit_code = error.exit_code();
-    assert_eq!(
-        error_exit_code,
-        ExitCode::ErrForbidden,
-        "Error code returned is not ErrForbidden"
-    );
-
-    // Didnt see a undef cid like in the go implmentation. If there is replace the not_a_actor token. Need to ask about thi
-    // Can porbbaly get rid of this
-    // GO implementation has a undef actor so when this test runs it should return illegal actor
-    let undef_cid = Cid::new_v1(Codec::Raw, Identity::digest(b"fil/1/notaactor"));
-    let error = exec_and_verify(
-        &mut rt,
-        undef_cid,
-        &ConstructorParams {
-            network_name: String::new(),
-        },
-    )
-    .expect_err("Exec should have failed");
-
-    let error_exit_code = error.exit_code();
-    assert_eq!(
-        error_exit_code,
-        ExitCode::SysErrorIllegalActor,
-        "Error code returned is not SysErrorIllegalActor"
-    );
+    let err = exec_and_verify(&mut rt, POWER_ACTOR_CODE_ID.clone(), &"")
+        .expect_err("Exec should have failed");
+    assert_eq!(err.exit_code(), ExitCode::ErrForbidden);
 }
 
 #[test]
@@ -87,10 +48,7 @@ fn create_2_payment_channels() {
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001).unwrap();
 
-    // Set caller
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne);
-
-    // TODO : Change balances not sure how to do i saw the send function, but idk if thats all i need
 
     for n in 0..2 {
         let pay_channel_string = format!("paych_{}", n);
