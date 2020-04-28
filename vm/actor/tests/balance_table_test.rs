@@ -8,7 +8,7 @@ use vm::TokenAmount;
 // Ported test from specs-actors
 #[test]
 fn add_create() {
-    let addr = Address::new_id(100).unwrap();
+    let addr = Address::new_id(100);
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
@@ -24,8 +24,8 @@ fn add_create() {
 // Ported test from specs-actors
 #[test]
 fn total() {
-    let addr1 = Address::new_id(100).unwrap();
-    let addr2 = Address::new_id(101).unwrap();
+    let addr1 = Address::new_id(100);
+    let addr2 = Address::new_id(101);
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
@@ -68,7 +68,7 @@ fn total() {
 
 #[test]
 fn balance_subtracts() {
-    let addr = Address::new_id(100).unwrap();
+    let addr = Address::new_id(100);
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
@@ -98,7 +98,7 @@ fn balance_subtracts() {
 
 #[test]
 fn remove() {
-    let addr = Address::new_id(100).unwrap();
+    let addr = Address::new_id(100);
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 

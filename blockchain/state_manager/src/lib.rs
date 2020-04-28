@@ -119,6 +119,6 @@ where
                 .to_owned()
                 .into());
         }
-        Ok(kaddr.payload().to_vec())
+        Ok(kaddr.payload_bytes())
     }
 }

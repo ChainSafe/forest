@@ -11,16 +11,16 @@ use std::str::FromStr;
 #[test]
 fn bytes() {
     let data = &[0, 3, 2, 2, 4, 3, 2, 1, 3, 2, 1, 1, 3, 5, 7, 2, 4, 2, 1, 4];
-    let new_addr = Address::new_secp256k1(data).unwrap();
+    let new_addr = Address::new_secp256k1(data);
     let encoded_bz = new_addr.to_bytes();
 
     // Assert decoded address equals the original address and a new one with the same data
-    let decoded_addr = Address::from_bytes(encoded_bz).unwrap();
+    let decoded_addr = Address::from_bytes(&encoded_bz).unwrap();
     assert!(decoded_addr == new_addr);
-    assert!(decoded_addr == Address::new_secp256k1(data).unwrap());
+    assert!(decoded_addr == Address::new_secp256k1(data));
 
     // Assert different types don't match
-    assert!(decoded_addr != Address::new_actor(data).unwrap());
+    assert!(decoded_addr != Address::new_actor(data));
 }
 
 #[test]
@@ -46,11 +46,11 @@ fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
     let decoded = Address::from_str(expected).unwrap();
     assert_eq!(protocol, decoded.protocol());
 
-    assert_eq!(addr.payload(), decoded.payload());
+    assert_eq!(addr.payload_bytes(), decoded.payload_bytes());
     assert_eq!(addr.protocol(), decoded.protocol());
 
     // Test encoding and decoding from bytes
-    let from_bytes = Address::from_bytes(decoded.to_bytes()).unwrap();
+    let from_bytes = Address::from_bytes(&decoded.to_bytes()).unwrap();
     assert!(decoded == from_bytes);
 }
 
@@ -114,7 +114,7 @@ fn secp256k1_address() {
     ];
 
     for t in test_vectors.iter() {
-        let addr = Address::new_secp256k1(t.input).unwrap();
+        let addr = Address::new_secp256k1(t.input);
         test_address(addr, Protocol::Secp256k1, t.expected);
     }
 }
@@ -160,7 +160,7 @@ fn actor_address() {
     ];
 
     for t in test_vectors.iter() {
-        let addr = Address::new_actor(t.input).unwrap();
+        let addr = Address::new_actor(t.input);
         test_address(addr, Protocol::Actor, t.expected);
     }
 }
@@ -206,7 +206,7 @@ fn bls_address() {
     ];
 
     for t in test_vectors.iter() {
-        let addr = Address::new_bls(t.input.to_vec()).unwrap();
+        let addr = Address::new_bls(t.input).unwrap();
         test_address(addr, Protocol::BLS, t.expected);
     }
 }
@@ -257,7 +257,7 @@ fn id_address() {
     ];
 
     for t in test_vectors.iter() {
-        let addr = Address::new_id(t.input).unwrap();
+        let addr = Address::new_id(t.input);
         test_address(addr, Protocol::ID, t.expected);
     }
 }
@@ -384,7 +384,7 @@ fn invalid_byte_addresses() {
     ];
 
     for t in test_vectors.iter() {
-        let res = Address::from_bytes(t.input.clone());
+        let res = Address::from_bytes(&t.input);
         match res {
             Err(e) => assert_eq!(e, t.expected),
             _ => assert!(false, "Addresses should have errored"),
@@ -515,12 +515,12 @@ fn address_hashmap() {
 
     // insert and validate value set
     let mut hm: HashMap<Address, u8> = HashMap::new();
-    let h1 = Address::new_id(1).unwrap();
+    let h1 = Address::new_id(1);
     hm.insert(h1.clone(), 1);
     assert_eq!(hm.get(&h1).unwrap(), &1);
 
     // insert other value
-    let h2 = Address::new_id(2).unwrap();
+    let h2 = Address::new_id(2);
     assert!(hm.get(&h2).is_none());
     hm.insert(h2.clone(), 2);
     assert_eq!(hm.get(&h2).unwrap(), &2);

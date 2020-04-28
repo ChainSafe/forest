@@ -16,7 +16,7 @@ fn empty_cid() -> Cid {
 fn get_set_cache() {
     let act_s = ActorState::new(empty_cid(), empty_cid(), Default::default(), 1);
     let act_a = ActorState::new(empty_cid(), empty_cid(), Default::default(), 2);
-    let addr = Address::new_id(1).unwrap();
+    let addr = Address::new_id(1);
     let store = db::MemoryDB::default();
     let mut tree = StateTree::new(&store);
 
@@ -37,7 +37,7 @@ fn delete_actor() {
     let store = db::MemoryDB::default();
     let mut tree = StateTree::new(&store);
 
-    let addr = Address::new_id(3).unwrap();
+    let addr = Address::new_id(3);
     let act_s = ActorState::new(empty_cid(), empty_cid(), Default::default(), 1);
     tree.set_actor(&addr, act_s.clone()).unwrap();
     assert_eq!(tree.get_actor(&addr).unwrap(), Some(act_s));
@@ -87,13 +87,13 @@ fn get_set_non_id() {
     );
 
     // Register new address
-    let addr = Address::new_secp256k1(&[0, 2]).unwrap();
+    let addr = Address::new_secp256k1(&[0, 2]);
     let secp_state = ActorState::new(e_cid.clone(), e_cid.clone(), Default::default(), 0);
     let assigned_addr = tree
         .register_new_address(&addr, secp_state.clone())
         .unwrap();
 
-    assert_eq!(assigned_addr, Address::new_id(100).unwrap());
+    assert_eq!(assigned_addr, Address::new_id(100));
 
     // Test resolution of Secp address
     assert_eq!(tree.get_actor(&addr).unwrap(), Some(secp_state));

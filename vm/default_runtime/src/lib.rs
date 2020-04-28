@@ -137,7 +137,7 @@ where
 
     /// Update the state Cid of the Message receiver
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
-        let to_addr = self.message().to().clone();
+        let to_addr = *self.message().to();
         let mut actor = self.get_actor(&to_addr)?;
 
         if &actor.state != old_h {
@@ -303,7 +303,7 @@ where
     ) -> Result<Serialized, ActorError> {
         let msg = UnsignedMessage::builder()
             .to(to.clone())
-            .from(self.message.from().clone())
+            .from(*self.message.from())
             .method_num(method)
             .value(value.clone())
             .gas_limit(self.gas_available() as u64)
@@ -326,7 +326,7 @@ where
                 self.gas_used(),
                 &msg,
                 epoch,
-                self.origin.clone(),
+                self.origin,
                 self.origin_nonce,
                 self.num_actors_created,
             );
@@ -367,12 +367,7 @@ where
                     ),
                 )
             })?;
-        let addr = Address::new_actor(&b).map_err(|e| {
-            self.abort(
-                ExitCode::ErrSerialization,
-                format!("Create new actor address: {}", e.to_string()),
-            )
-        })?;
+        let addr = Address::new_actor(&b);
         self.num_actors_created += 1;
         Ok(addr)
     }
@@ -523,7 +518,7 @@ where
     S: BlockStore,
 {
     if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
-        return Ok(addr.clone());
+        return Ok(*addr);
     }
 
     let act = st

@@ -104,7 +104,7 @@ impl Actor {
 
         validate_pledge_account(rt, &nominal)?;
         let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
-        rt.validate_immediate_caller_is(&[owner_addr.clone(), worker_addr])?;
+        rt.validate_immediate_caller_is(&[owner_addr, worker_addr])?;
 
         if params.requested < TokenAmount::zero() {
             return Err(rt.abort(
@@ -234,7 +234,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        let from = rt.message().from().clone();
+        let from = *rt.message().from();
         rt.transaction(|st: &mut State, rt| {
             let power = consensus_power_for_weight(&params.weight);
             let pledge = pledge_for_weight(&params.weight, &st.total_network_power);
@@ -257,7 +257,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = rt.message().from().clone();
+        let miner_addr = *rt.message().from();
 
         rt.transaction(|st: &mut State, rt| {
             let power = consensus_power_for_weights(&params.weights);
@@ -290,7 +290,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        let from = rt.message().from().clone();
+        let from = *rt.message().from();
         rt.transaction(|st: &mut State, rt| {
             let power = consensus_power_for_weights(&params.weights);
             st.subtract_from_claim(rt.store(), &from, &power, &params.pledge)
@@ -312,7 +312,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        let from = rt.message().from().clone();
+        let from = *rt.message().from();
         rt.transaction(|st: &mut State, rt| {
             let power = consensus_power_for_weights(&params.weights);
             st.add_to_claim(rt.store(), &from, &power, &params.pledge)
@@ -333,8 +333,8 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let from = rt.message().from().clone();
-        let msg = rt.message().from().clone();
+        let from = *rt.message().from();
+        let msg = *rt.message().from();
         rt.transaction(|st: &mut State, rt| {
             let prev_power = consensus_power_for_weight(&params.prev_weight);
             st.subtract_from_claim(rt.store(), &msg, &prev_power, &params.prev_pledge)
@@ -362,7 +362,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = rt.message().from().clone();
+        let miner_addr = *rt.message().from();
         rt.transaction(
             |st: &mut State, rt| match st.has_detected_fault(rt.store(), &miner_addr) {
                 Ok(false) => Ok(()),
@@ -390,7 +390,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = rt.message().from().clone();
+        let miner_addr = *rt.message().from();
         let claim: Option<Claim> =
             rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
                 let faulty = st
@@ -445,7 +445,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = rt.message().from().clone();
+        let miner_addr = *rt.message().from();
         let miner_event = CronEvent {
             miner_addr,
             callback_payload: params.payload.clone(),
@@ -486,7 +486,7 @@ impl Actor {
                 )
             })?;
 
-        let reporter = rt.message().from().clone();
+        let reporter = *rt.message().from();
         let reward = rt.transaction(|st: &mut State, rt| {
             let claim = Self::get_claim_or_abort(st, rt.store(), &fault.target)?;
             let curr_balance = st

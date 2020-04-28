@@ -19,8 +19,8 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///
 /// // Use the builder pattern to generate a message
 /// let message = UnsignedMessage::builder()
-///     .to(Address::new_id(0).unwrap())
-///     .from(Address::new_id(1).unwrap())
+///     .to(Address::new_id(0))
+///     .from(Address::new_id(1))
 ///     .sequence(0) // optional
 ///     .value(TokenAmount::from(0u8)) // optional
 ///     .method_num(MethodNum::default()) // optional
@@ -33,8 +33,8 @@ use vm::{MethodNum, Serialized, TokenAmount};
 /// // Commands can be chained, or built seperately
 /// let mut message_builder = UnsignedMessage::builder();
 /// message_builder.sequence(1);
-/// message_builder.from(Address::new_id(0).unwrap());
-/// message_builder.to(Address::new_id(1).unwrap());
+/// message_builder.from(Address::new_id(0));
+/// message_builder.to(Address::new_id(1));
 /// let msg = message_builder.build().unwrap();
 /// assert_eq!(msg.sequence(), 1);
 /// ```

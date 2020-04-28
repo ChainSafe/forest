@@ -603,7 +603,7 @@ where
                 }
             };
             // update hash map with updated state
-            msg_meta_data.insert(msg.from().clone(), updated_state);
+            msg_meta_data.insert(*msg.from(), updated_state);
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
@@ -905,7 +905,7 @@ mod tests {
 
     fn dummy_header() -> BlockHeader {
         BlockHeader::builder()
-            .miner_address(Address::new_id(1000).unwrap())
+            .miner_address(Address::new_id(1000))
             .messages(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
             .message_receipts(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
             .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
