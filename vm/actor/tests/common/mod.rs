@@ -255,8 +255,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn set_caller(&mut self, code_id: Cid, address: Address) {
         self.caller = address.clone();
         self.caller_type = code_id.clone();
-        self.actor_code_cids
-            .insert(address.clone(), code_id.clone());
+        self.actor_code_cids.insert(address, code_id);
     }
 }
 

@@ -15,6 +15,7 @@ use common::*;
 use db::MemoryDB;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
+use serde::Serialize;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
@@ -86,7 +87,7 @@ fn create_2_payment_channels() {
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001).unwrap();
 
-    //Set caller
+    // Set caller
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne);
 
     // TODO : Change balances not sure how to do i saw the send function, but idk if thats all i need
@@ -97,12 +98,12 @@ fn create_2_payment_channels() {
         let pay_channel_string = format!("paych_{}", n);
         let paych = pay_channel_string.as_bytes();
 
-        let uniq_addr_1 = Address::new_actor(paych);
+        let unique_address = Address::new_actor(paych);
         rt.new_actor_addr = Some(Address::new_actor(paych).unwrap());
 
-        let expected_id_addr_1 = Address::new_id(100 + n).unwrap();
+        let expected_id_addr = Address::new_id(100 + n).unwrap();
 
-        rt.expect_create_actor(PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr_1.clone());
+        rt.expect_create_actor(PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
         let fake_params = ConstructorParams {
             network_name: String::from("fake_param"),
@@ -112,7 +113,7 @@ fn create_2_payment_channels() {
         let balance = TokenAmount::new(vec![1, 0, 0]);
 
         rt.expect_send(
-            expected_id_addr_1.clone(),
+            expected_id_addr.clone(),
             METHOD_CONSTRUCTOR,
             Serialized::serialize(&fake_params).unwrap(),
             balance,
@@ -123,24 +124,21 @@ fn create_2_payment_channels() {
         let exec_ret = exec_and_verify(&mut rt, PAYCH_ACTOR_CODE_ID.clone(), &fake_params).unwrap();
         let exec_ret: ExecReturn = Serialized::deserialize(&exec_ret).unwrap();
         assert_eq!(
-            uniq_addr_1,
+            unique_address,
             Ok(exec_ret.robust_address),
             "Robust Address does not match"
         );
         assert_eq!(
-            expected_id_addr_1, exec_ret.id_address,
+            expected_id_addr, exec_ret.id_address,
             "Id address does not match"
         );
 
         let state: State = rt.get_state().unwrap();
         let returned_address = state
-            .resolve_address(rt.store, &uniq_addr_1.unwrap())
+            .resolve_address(rt.store, &unique_address.unwrap())
             .expect("Address should have been found");
 
-        assert_eq!(
-            returned_address, expected_id_addr_1,
-            "Wrong Address returned"
-        );
+        assert_eq!(returned_address, expected_id_addr, "Wrong Address returned");
     }
 }
 
@@ -150,24 +148,24 @@ fn create_storage_miner() {
     let mut rt: MockRuntime<MemoryDB> = construct_runtime(&bs);
     construct_and_verify(&mut rt);
 
-    // // only the storage power actor can create a miner
+    // only the storage power actor can create a miner
     rt.set_caller(
         POWER_ACTOR_CODE_ID.clone(),
         STORAGE_POWER_ACTOR_ADDR.clone(),
     );
 
-    let uniq_addr_1 = Address::new_actor(b"miner").unwrap();
-    rt.new_actor_addr = Some(uniq_addr_1.clone());
+    let unique_address = Address::new_actor(b"miner").unwrap();
+    rt.new_actor_addr = Some(unique_address.clone());
 
-    let expected_id_addr_1 = Address::new_id(100).unwrap();
-    rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr_1.clone());
+    let expected_id_addr = Address::new_id(100).unwrap();
+    rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
     let fake_params = ConstructorParams {
         network_name: String::from("fake_param"),
     };
 
     rt.expect_send(
-        expected_id_addr_1.clone(),
+        expected_id_addr.clone(),
         METHOD_CONSTRUCTOR,
         Serialized::serialize(&fake_params).unwrap(),
         0u8.into(),
@@ -178,32 +176,21 @@ fn create_storage_miner() {
     let exec_ret = exec_and_verify(&mut rt, MINER_ACTOR_CODE_ID.clone(), &fake_params).unwrap();
 
     let exec_ret: ExecReturn = Serialized::deserialize(&exec_ret).unwrap();
-    assert_eq!(
-        uniq_addr_1, exec_ret.robust_address,
-        "Robust address does not match"
-    );
-    assert_eq!(
-        expected_id_addr_1, exec_ret.id_address,
-        "Id address does not match"
-    );
+    assert_eq!(unique_address, exec_ret.robust_address);
+    assert_eq!(expected_id_addr, exec_ret.id_address);
 
     // Address should be resolved
     let state: State = rt.get_state().unwrap();
     let returned_address = state
-        .resolve_address(rt.store, &uniq_addr_1)
+        .resolve_address(rt.store, &unique_address)
         .expect("Address should have been found");
-    assert_eq!(returned_address, uniq_addr_1, "Wrong Address returned");
+    assert_eq!(expected_id_addr, returned_address);
 
     // Should return error since the address of flurbo is unknown
     let unknown_addr = Address::new_actor(b"flurbo").unwrap();
-    let returned_address = state
+    state
         .resolve_address(rt.store, &unknown_addr)
         .expect_err("Address should have not been found");
-    // Address not found error is returned as string
-    assert_eq!(
-        returned_address, "Address not found",
-        "Wrong Address returned"
-    );
 }
 
 #[test]
@@ -217,19 +204,19 @@ fn create_multisig_actor() {
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), some_acc_actor);
 
     //Assign addresses
-    let uniq_addr_1 = Address::new_actor(b"multisig").unwrap();
-    rt.new_actor_addr = Some(uniq_addr_1.clone());
+    let unique_address = Address::new_actor(b"multisig").unwrap();
+    rt.new_actor_addr = Some(unique_address.clone());
 
     // Next id
-    let expected_id_addr_1 = Address::new_id(100).unwrap();
-    rt.expect_create_actor(MULTISIG_ACTOR_CODE_ID.clone(), expected_id_addr_1.clone());
+    let expected_id_addr = Address::new_id(100).unwrap();
+    rt.expect_create_actor(MULTISIG_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
     let fake_params = ConstructorParams {
         network_name: String::from("fake_param"),
     };
     // Expect a send to the multisig actor constructor
     rt.expect_send(
-        expected_id_addr_1.clone(),
+        expected_id_addr.clone(),
         METHOD_CONSTRUCTOR,
         Serialized::serialize(&fake_params).unwrap(),
         0u8.into(),
@@ -241,11 +228,11 @@ fn create_multisig_actor() {
     let exec_ret = exec_and_verify(&mut rt, MULTISIG_ACTOR_CODE_ID.clone(), &fake_params).unwrap();
     let exec_ret: ExecReturn = Serialized::deserialize(&exec_ret).unwrap();
     assert_eq!(
-        uniq_addr_1, exec_ret.robust_address,
+        unique_address, exec_ret.robust_address,
         "Robust address does not macth"
     );
     assert_eq!(
-        expected_id_addr_1, exec_ret.id_address,
+        expected_id_addr, exec_ret.id_address,
         "Id address does not match"
     );
 }
@@ -263,20 +250,20 @@ fn sending_constructor_failure() {
     );
 
     //Assign new address for the storage actor miner
-    let uniq_addr_1 = Address::new_actor(b"miner").unwrap();
-    rt.new_actor_addr = Some(uniq_addr_1.clone());
+    let unique_address = Address::new_actor(b"miner").unwrap();
+    rt.new_actor_addr = Some(unique_address.clone());
 
     // Create the next id address
-    let expected_id_addr_1 = Address::new_id(100).unwrap();
+    let expected_id_addr = Address::new_id(100).unwrap();
 
-    //rt.actor_code_cids.insert(expected_id_addr_1.clone(), POWER_ACTOR_CODE_ID.clone() );
-    rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr_1.clone());
+    //rt.actor_code_cids.insert(expected_id_addr.clone(), POWER_ACTOR_CODE_ID.clone() );
+    rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
     let fake_params = ConstructorParams {
         network_name: String::from("fake_param"),
     };
     rt.expect_send(
-        expected_id_addr_1.clone(),
+        expected_id_addr.clone(),
         METHOD_CONSTRUCTOR,
         Serialized::serialize(&fake_params).unwrap(),
         0u8.into(),
@@ -297,7 +284,7 @@ fn sending_constructor_failure() {
     // The send command from earlier should have failed. So you shouldnt be able to see the address
     let state: State = rt.get_state().unwrap();
     let returned_address = state
-        .resolve_address(rt.store, &uniq_addr_1)
+        .resolve_address(rt.store, &unique_address)
         .expect_err("Address resolution should have failed");
     // Error is returned as string. Doing it in the lazy way for this PR
     assert_eq!(
@@ -334,15 +321,18 @@ fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
     assert_eq!("mock".to_string(), state_data.network_name);
 }
 
-fn exec_and_verify<BS: BlockStore>(
+fn exec_and_verify<BS: BlockStore, S: Serialize>(
     rt: &mut MockRuntime<'_, BS>,
     code_id: Cid,
-    params: &ConstructorParams,
-) -> Result<Serialized, ActorError> {
+    params: &S,
+) -> Result<Serialized, ActorError>
+where
+    S: Serialize,
+{
     rt.expect_validate_caller_any();
     let exec_params = ExecParams {
         code_cid: code_id,
-        constructor_params: Serialized::serialize(&params).unwrap(),
+        constructor_params: Serialized::serialize(params).unwrap(),
     };
 
     rt.message = UnsignedMessage::builder()
