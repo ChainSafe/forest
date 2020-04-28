@@ -35,8 +35,6 @@ fn abort_cant_call_exec() {
 
     //Set caller
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne);
-    //rt.caller = anne;
-    //rt.caller_type = ACCOUNT_ACTOR_CODE_ID.clone();
 
     rt.new_actor_addr = Some(Address::new_id(1001).unwrap());
     rt.actor_code_cids.insert(
@@ -44,46 +42,41 @@ fn abort_cant_call_exec() {
         ACCOUNT_ACTOR_CODE_ID.clone(),
     );
 
-    // TODO : Implement Message and then uncoment
-    match exec_and_verify(
+    let error = exec_and_verify(
         &mut rt,
         POWER_ACTOR_CODE_ID.clone(),
         &ConstructorParams {
             network_name: String::new(),
         },
-    ) {
-        Err(error) => {
-            let error_exit_code = error.exit_code();
-            assert_eq!(
-                error_exit_code,
-                ExitCode::ErrForbidden,
-                "Error code returned is not ErrForbidden"
-            );
-        }
-        Ok(_) => assert_eq!(true, false, "Failed to fail"),
-    }
+    )
+    .unwrap_err();
+
+    let error_exit_code = error.exit_code();
+    assert_eq!(
+        error_exit_code,
+        ExitCode::ErrForbidden,
+        "Error code returned is not ErrForbidden"
+    );
 
     // Didnt see a undef cid like in the go implmentation. If there is replace the not_a_actor token. Need to ask about thi
     // Can porbbaly get rid of this
     // GO implementation has a undef actor so when this test runs it should return illegal actor
     let undef_cid = Cid::new_v1(Codec::Raw, Identity::digest(b"fil/1/notaactor"));
-    match exec_and_verify(
+    let error = exec_and_verify(
         &mut rt,
         undef_cid,
         &ConstructorParams {
             network_name: String::new(),
         },
-    ) {
-        Err(error) => {
-            let error_exit_code = error.exit_code();
-            assert_eq!(
-                error_exit_code,
-                ExitCode::SysErrorIllegalActor,
-                "Error code returned is not SysErrorIllegalActor"
-            );
-        }
-        Ok(_) => assert_eq!(true, false, "Failed to Fail"),
-    }
+    )
+    .expect_err("Exec should have failed");
+
+    let error_exit_code = error.exit_code();
+    assert_eq!(
+        error_exit_code,
+        ExitCode::SysErrorIllegalActor,
+        "Error code returned is not SysErrorIllegalActor"
+    );
 }
 
 #[test]
@@ -98,7 +91,7 @@ fn create_2_payment_channels() {
 
     // TODO : Change balances not sure how to do i saw the send function, but idk if thats all i need
 
-    //// Go test does 2 payment channel tests
+    // Go test does 2 payment channel tests
     for n in 0..2 {
         //let pay_channel = String::from("paych") + n.to_string();
         let pay_channel_string = format!("paych_{}", n);
@@ -140,18 +133,15 @@ fn create_2_payment_channels() {
         );
 
         let state: State = rt.get_state().unwrap();
-        match state.resolve_address(rt.store, &uniq_addr_1.unwrap()) {
-            Ok(returned_address) => {
-                assert_eq!(
-                    returned_address, expected_id_addr_1,
-                    "Wrong Address returned"
-                );
-            }
-            Err(_) => assert_eq!(true, false, "Address should have been found"),
-        }
-    }
+        let returned_address = state
+            .resolve_address(rt.store, &uniq_addr_1.unwrap())
+            .expect("Address should have been found");
 
-    assert_eq!(true, true);
+        assert_eq!(
+            returned_address, expected_id_addr_1,
+            "Wrong Address returned"
+        );
+    }
 }
 
 #[test]
@@ -199,27 +189,23 @@ fn create_storage_miner() {
 
     // Address should be resolved
     let state: State = rt.get_state().unwrap();
-    match state.resolve_address(rt.store, &uniq_addr_1) {
-        Ok(returned_address) => {
-            assert_eq!(returned_address, uniq_addr_1, "Wrong Address returned");
-        }
-        Err(_) => assert_eq!(true, false, "Address should have been found"),
-    }
+    let returned_address = state
+        .resolve_address(rt.store, &uniq_addr_1)
+        .expect("Address should have been found");
+    assert_eq!(returned_address, uniq_addr_1, "Wrong Address returned");
 
     // Should return error since the address of flurbo is unknown
     let unknown_addr = Address::new_actor(b"flurbo").unwrap();
-    match state.resolve_address(rt.store, &unknown_addr) {
-        Err(returned_address) => {
-            // Address not found error is returned as string
-            assert_eq!(
-                returned_address, "Address not found",
-                "Wrong Address returned"
-            );
-        }
-        Ok(_) => assert_eq!(true, false, "Address should have not been found"),
-    }
-    assert_eq!(true, true);
+    let returned_address = state
+        .resolve_address(rt.store, &unknown_addr)
+        .expect_err("Address should have not been found");
+    // Address not found error is returned as string
+    assert_eq!(
+        returned_address, "Address not found",
+        "Wrong Address returned"
+    );
 }
+
 #[test]
 fn create_multisig_actor() {
     let bs = MemoryDB::default();
@@ -299,30 +285,25 @@ fn sending_constructor_failure() {
     );
 
     // Only thr storage power actor can create a storage miner. Init actor creating it should result in failure
-    match exec_and_verify(&mut rt, MINER_ACTOR_CODE_ID.clone(), &fake_params) {
-        Err(error) => {
-            let error_exit_code = error.exit_code();
-            assert_eq!(
-                error_exit_code,
-                ExitCode::ErrIllegalState,
-                "Exit Code that is returned is not ErrIllegalState"
-            );
-        }
-        Ok(_) => assert_eq!(true, false, "Failed to fail"),
-    }
+    let error = exec_and_verify(&mut rt, MINER_ACTOR_CODE_ID.clone(), &fake_params)
+        .expect_err("sending constructor should have failed");
+    let error_exit_code = error.exit_code();
+    assert_eq!(
+        error_exit_code,
+        ExitCode::ErrIllegalState,
+        "Exit Code that is returned is not ErrIllegalState"
+    );
 
     // The send command from earlier should have failed. So you shouldnt be able to see the address
     let state: State = rt.get_state().unwrap();
-    match state.resolve_address(rt.store, &uniq_addr_1) {
-        Err(returned_address) => {
-            // Error is returned as string. Doing it in the lazy way for this PR
-            assert_eq!(
-                returned_address, "Address not found",
-                "Addresses should have not been found"
-            );
-        }
-        Ok(_) => assert_eq!(true, false, "Failed to fail address resolution"),
-    }
+    let returned_address = state
+        .resolve_address(rt.store, &uniq_addr_1)
+        .expect_err("Address resolution should have failed");
+    // Error is returned as string. Doing it in the lazy way for this PR
+    assert_eq!(
+        returned_address, "Address not found",
+        "Addresses should have not been found"
+    );
 }
 
 fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
@@ -363,7 +344,6 @@ fn exec_and_verify<BS: BlockStore>(
         code_cid: code_id,
         constructor_params: Serialized::serialize(&params).unwrap(),
     };
-    println!("Passed first part");
 
     rt.message = UnsignedMessage::builder()
         .to(rt.receiver.clone())
@@ -371,8 +351,6 @@ fn exec_and_verify<BS: BlockStore>(
         .value(rt.value_received.clone())
         .build()
         .unwrap();
-
-    println!("Passed second part");
 
     let ret = rt.call(
         &*INIT_ACTOR_CODE_ID,
