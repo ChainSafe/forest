@@ -1,0 +1,11 @@
+[package]
+name = "beacon"
+version = "0.1.0"
+authors = ["Eric Tu <tu.eric@hotmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+encoding = { package = "forest_encoding", path = "../../encoding" }
+serde = { version = "1.0", features = ["derive"] }

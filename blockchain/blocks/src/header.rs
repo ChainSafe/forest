@@ -21,6 +21,7 @@ use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
+use beacon::BeaconEntry;
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
@@ -67,6 +68,10 @@ pub struct BlockHeader {
     /// There may be multiple rounds in an epoch.
     #[builder(default)]
     epoch: ChainEpoch,
+
+    #[builder(default)]
+    beacon_entries: Vec<BeaconEntry>,
+
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
     #[builder(default)]
@@ -130,6 +135,7 @@ impl ser::Serialize for BlockHeader {
             &self.miner_address,
             &self.ticket,
             &self.epost_verify,
+            &self.beacon_entries,
             &self.parents,
             BigUintSer(&self.weight),
             &self.epoch,
@@ -154,6 +160,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             miner_address,
             ticket,
             epost_verify,
+            beacon_entries,
             parents,
             BigUintDe(weight),
             epoch,
@@ -170,6 +177,7 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             .parents(parents)
             .weight(weight)
             .epoch(epoch)
+            .beacon_entries(beacon_entries)
             .miner_address(miner_address)
             .messages(messages)
             .message_receipts(message_receipts)
@@ -215,6 +223,10 @@ impl BlockHeader {
     /// Getter for BlockHeader epoch
     pub fn epoch(&self) -> ChainEpoch {
         self.epoch
+    }
+    /// Getter for Drand BeaconEntry
+    pub fn beacon_entries(&self) -> &[BeaconEntry] {
+        &self.beacon_entries
     }
     /// Getter for BlockHeader miner_address
     pub fn miner_address(&self) -> &Address {
