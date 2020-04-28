@@ -18,12 +18,12 @@ impl Signer for DummySigner {
 
 #[test]
 fn unsigned_message_builder() {
-    let to_addr = Address::new_id(1).unwrap();
-    let from_addr = Address::new_id(2).unwrap();
+    let to_addr = Address::new_id(1);
+    let from_addr = Address::new_id(2);
     // Able to build with chaining just to and from fields
     let message = UnsignedMessage::builder()
-        .to(to_addr.clone())
-        .from(from_addr.clone())
+        .to(to_addr)
+        .from(from_addr)
         .sequence(0)
         .value(TokenAmount::from(0u8))
         .method_num(MethodNum::default())
@@ -32,8 +32,8 @@ fn unsigned_message_builder() {
         .gas_price(TokenAmount::from(0u8))
         .build()
         .unwrap();
-    assert_eq!(message.from(), &from_addr.clone());
-    assert_eq!(message.to(), &to_addr.clone());
+    assert_eq!(message.from(), &from_addr);
+    assert_eq!(message.to(), &to_addr);
     assert_eq!(message.sequence(), 0);
     assert_eq!(message.method_num(), MethodNum::default());
     assert_eq!(message.params(), &Serialized::default());
@@ -41,24 +41,24 @@ fn unsigned_message_builder() {
     assert_eq!(message.gas_price(), &TokenAmount::from(0u8));
     assert_eq!(message.gas_limit(), 0);
     let mut mb = UnsignedMessage::builder();
-    mb.to(to_addr.clone());
-    mb.from(from_addr.clone());
+    mb.to(to_addr);
+    mb.from(from_addr);
     {
         // Test scoped modification still applies to builder
         mb.sequence(1);
     }
     // test unwrapping
     let u_msg = mb.build().unwrap();
-    assert_eq!(u_msg.from(), &from_addr.clone());
-    assert_eq!(u_msg.to(), &to_addr.clone());
+    assert_eq!(u_msg.from(), &from_addr);
+    assert_eq!(u_msg.to(), &to_addr);
     assert_eq!(u_msg.sequence(), 1);
 }
 
 #[test]
 fn generate_signed_message() {
     let unsigned_msg = UnsignedMessage::builder()
-        .to(Address::new_id(1).unwrap())
-        .from(Address::new_id(2).unwrap())
+        .to(Address::new_id(1))
+        .from(Address::new_id(2))
         .build()
         .unwrap();
 

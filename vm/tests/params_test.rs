@@ -34,7 +34,7 @@ fn serialized_deserialize() {
 #[test]
 fn cbor_params() {
     // Test cbor encodable objects can be added and removed from parameters
-    let addr = Address::new_id(1).unwrap();
+    let addr = Address::new_id(1);
     let params = Serialized::serialize(&addr).unwrap();
     assert_eq!(from_slice::<Address>(&params).unwrap(), addr);
 }

@@ -10,7 +10,7 @@ fn basic_add() {
     let store = db::MemoryDB::default();
     let mut mm = Multimap::new(&store);
 
-    let addr = Address::new_id(100).unwrap();
+    let addr = Address::new_id(100);
     assert_eq!(mm.get::<u64>(&addr.to_bytes()), Ok(None));
 
     mm.add(addr.to_bytes().into(), 8).unwrap();
@@ -26,7 +26,7 @@ fn for_each() {
     let store = db::MemoryDB::default();
     let mut mm = Multimap::new(&store);
 
-    let addr = Address::new_id(100).unwrap();
+    let addr = Address::new_id(100);
     assert_eq!(mm.get::<u64>(&addr.to_bytes()), Ok(None));
 
     mm.add(addr.to_bytes().into(), 8).unwrap();
@@ -49,8 +49,8 @@ fn remove_all() {
     let store = db::MemoryDB::default();
     let mut mm = Multimap::new(&store);
 
-    let addr1 = Address::new_id(100).unwrap();
-    let addr2 = Address::new_id(101).unwrap();
+    let addr1 = Address::new_id(100);
+    let addr2 = Address::new_id(101);
 
     mm.add(addr1.to_bytes().into(), 8).unwrap();
     mm.add(addr1.to_bytes().into(), 88).unwrap();

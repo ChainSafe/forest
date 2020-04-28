@@ -39,7 +39,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .messages(Cid::new_from_cbor(&[], Identity)) // required
 ///     .message_receipts(Cid::new_from_cbor(&[], Identity)) // required
 ///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
-///     .miner_address(Address::new_id(0).unwrap()) // optional
+///     .miner_address(Address::new_id(0)) // optional
 ///     .bls_aggregate(None) // optional
 ///     .parents(TipSetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional

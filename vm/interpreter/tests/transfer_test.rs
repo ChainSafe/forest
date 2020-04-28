@@ -38,8 +38,8 @@ fn transfer_test() {
     );
     state.set_actor(&INIT_ACTOR_ADDR, act_s.clone()).unwrap();
 
-    let actor_addr_1 = Address::new_id(100).unwrap();
-    let actor_addr_2 = Address::new_id(200).unwrap();
+    let actor_addr_1 = Address::new_id(100);
+    let actor_addr_2 = Address::new_id(200);
 
     let actor_state_cid_1 = state
         .store()

@@ -4,17 +4,20 @@
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::fmt;
+use std::hash::Hash;
+use std::u64;
 
 /// Protocol defines the addressing protocol used to derive data to an address
 #[derive(PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash)]
+#[repr(u8)]
 pub enum Protocol {
-    // ID protocol addressing
+    /// ID protocol addressing
     ID = 0,
-    // SECP256K1 key addressing
+    /// SECP256K1 key addressing
     Secp256k1 = 1,
-    // Actor protocol addressing
+    /// Actor protocol addressing
     Actor = 2,
-    // BLS key addressing
+    /// BLS key addressing
     BLS = 3,
 }
 

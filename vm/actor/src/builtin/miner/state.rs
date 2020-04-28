@@ -551,8 +551,8 @@ mod tests {
     #[test]
     fn miner_info_serialize() {
         let info = MinerInfo {
-            owner: Address::new_id(2).unwrap(),
-            worker: Address::new_id(3).unwrap(),
+            owner: Address::new_id(2),
+            worker: Address::new_id(3),
             pending_worker_key: None,
             peer_id: PeerId::random().into_bytes(),
             sector_size: SectorSize::_2KiB,

@@ -305,7 +305,7 @@ mod tests {
             .messages(Cid::new_from_cbor(&[], Identity))
             .message_receipts(Cid::new_from_cbor(&[], Identity))
             .state_root(Cid::new_from_cbor(&[], Identity))
-            .miner_address(Address::new_id(0).unwrap())
+            .miner_address(Address::new_id(0))
             .build_and_validate()
             .unwrap();
 
