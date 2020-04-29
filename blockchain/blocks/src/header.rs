@@ -9,52 +9,22 @@ use clock::ChainEpoch;
 use crypto::{Signature, VRFProof};
 use derive_builder::Builder;
 use encoding::{
-    de::{self, Deserializer},
-    ser::{self, Serializer},
+    de::{Deserialize, Deserializer},
+    ser::{Serialize, Serializer},
     Cbor, Error as EncodingError,
 };
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
     BigUint,
 };
-use serde::Deserialize;
 use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
+use vm::PoStProof;
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
-
-/// Proof of spacetime proof
-#[derive(Eq, PartialEq, Debug, Clone, Default)]
-pub struct PostProof {
-    registered_proof: u64,
-    proof_bytes: Vec<u8>,
-}
-impl ser::Serialize for PostProof {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (self.registered_proof, &self.proof_bytes).serialize(serializer)
-    }
-}
-impl<'de> de::Deserialize<'de> for PostProof {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (registered_proof, proof_bytes) = Deserialize::deserialize(deserializer)?;
-
-        let post_proof = PostProof {
-            registered_proof,
-            proof_bytes,
-        };
-
-        Ok(post_proof)
-    }
-}
 
 /// Header of a block
 ///
@@ -104,7 +74,7 @@ pub struct BlockHeader {
     beacon_entries: Vec<BeaconEntry>,
 
     #[builder(default)]
-    win_post_proof: Vec<PostProof>,
+    win_post_proof: Vec<PoStProof>,
 
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
@@ -160,7 +130,7 @@ impl Cbor for BlockHeader {
     }
 }
 
-impl ser::Serialize for BlockHeader {
+impl Serialize for BlockHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -186,7 +156,7 @@ impl ser::Serialize for BlockHeader {
     }
 }
 
-impl<'de> de::Deserialize<'de> for BlockHeader {
+impl<'de> Deserialize<'de> for BlockHeader {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
         D: Deserializer<'de>,
@@ -266,7 +236,7 @@ impl BlockHeader {
         &self.beacon_entries
     }
     /// Getter for window PoSt proof
-    pub fn win_post_proof(&self) -> &Vec<PostProof> {
+    pub fn win_post_proof(&self) -> &[PoStProof] {
         &self.win_post_proof
     }
     /// Getter for BlockHeader miner_address
