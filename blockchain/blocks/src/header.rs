@@ -103,7 +103,7 @@ pub struct BlockHeader {
     beacon_entries: Vec<BeaconEntry>,
 
     #[builder(default)]
-    win_post_proof: PostProof,
+    win_post_proof: Vec<PostProof>,
 
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
@@ -266,7 +266,7 @@ impl BlockHeader {
         &self.beacon_entries
     }
     /// Getter for window PoSt proof
-    pub fn win_post_proof(&self) -> &PostProof {
+    pub fn win_post_proof(&self) -> &Vec<PostProof> {
         &self.win_post_proof
     }
     /// Getter for BlockHeader miner_address
