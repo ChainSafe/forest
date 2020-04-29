@@ -12,5 +12,5 @@ fn load_into_blockstore() {
     let buf_reader = BufReader::new(file);
     let mut bs = MemoryDB::default();
 
-    load_car(&mut bs, buf_reader).unwrap();
+    let _ = load_car(&mut bs, buf_reader).unwrap();
 }
