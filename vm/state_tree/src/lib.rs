@@ -72,7 +72,7 @@ where
         let addr = self.lookup_id(addr)?;
 
         // Set actor state in cache
-        if let Some(act) = self.actor_cache.write().insert(addr.clone(), actor.clone()) {
+        if let Some(act) = self.actor_cache.write().insert(addr, actor.clone()) {
             if act == actor {
                 // New value is same as cached, no need to set in hamt
                 return Ok(());
@@ -90,7 +90,7 @@ where
     /// Get an ID address from any Address
     pub fn lookup_id(&self, addr: &Address) -> Result<Address, String> {
         if addr.protocol() == Protocol::ID {
-            return Ok(addr.clone());
+            return Ok(*addr);
         }
 
         let init_act = self

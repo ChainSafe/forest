@@ -228,7 +228,7 @@ impl Actor {
         }
 
         // All deals should have the same provider so get worker once
-        let provider_raw = params.deals[0].proposal.provider.clone();
+        let provider_raw = params.deals[0].proposal.provider;
         let provider = rt.resolve_address(&provider_raw)?;
 
         let mut new_deal_ids: Vec<DealID> = Vec::new();
@@ -251,8 +251,8 @@ impl Actor {
 
                 let client = rt.resolve_address(&deal.proposal.client)?;
                 // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
-                deal.proposal.provider = provider.clone();
-                deal.proposal.client = client.clone();
+                deal.proposal.provider = provider;
+                deal.proposal.client = client;
 
                 // Before any operations that check the balance tables for funds, execute all deferred
                 // deal state updates.
@@ -318,7 +318,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = rt.message().from().clone();
+        let miner_addr = *rt.message().from();
         let mut total_deal_space_time = BigInt::zero();
         let mut deal_weight = BigInt::zero();
 
@@ -397,7 +397,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = rt.message().from().clone();
+        let miner_addr = *rt.message().from();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             let prop = Amt::load(&st.proposals, rt.store())
@@ -642,12 +642,12 @@ where
     if code_id != *MINER_ACTOR_CODE_ID {
         // Ordinary account-style actor entry; funds recipient is just the entry address itself.
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        return Ok((nominal.clone(), nominal));
+        return Ok((nominal, nominal));
     }
 
     // Storage miner actor entry; implied funds recipient is the associated owner address.
     let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
-    rt.validate_immediate_caller_is([owner_addr.clone(), worker_addr].iter())?;
+    rt.validate_immediate_caller_is([owner_addr, worker_addr].iter())?;
     Ok((nominal, owner_addr))
 }
 

@@ -127,7 +127,7 @@ mod tests {
             _earliest: ChainEpoch,
         ) -> Result<ConsensusFault, ActorError> {
             Ok(ConsensusFault {
-                target: Address::new_id(0).unwrap(),
+                target: Address::new_id(0),
                 epoch: 0,
                 fault_type: ConsensusFaultType::DoubleForkMining,
             })

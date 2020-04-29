@@ -17,18 +17,18 @@ macro_rules! account_tests {
                 let (addr, exit_code) = $value;
 
                 let bs = MemoryDB::default();
-                let receiver = Address::new_id(100).unwrap();
+                let receiver = Address::new_id(100);
                 let mut rt = MockRuntime::new(&bs, receiver.clone());
-                rt.caller = SYSTEM_ACTOR_ADDR.clone();
+                rt.caller = *SYSTEM_ACTOR_ADDR;
                 rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
-                rt.expect_validate_caller_addr(&vec![SYSTEM_ACTOR_ADDR.clone()]);
+                rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
 
                 if exit_code.is_success() {
                     rt
                     .call(
                         &*ACCOUNT_ACTOR_CODE_ID,
                         1,
-                        &Serialized::serialize(addr.clone()).unwrap(),
+                        &Serialized::serialize(addr).unwrap(),
                     )
                     .unwrap();
 
@@ -47,7 +47,7 @@ macro_rules! account_tests {
                     let res = rt.call(
                         &*ACCOUNT_ACTOR_CODE_ID,
                         1,
-                        &Serialized::serialize(addr.clone()).unwrap(),
+                        &Serialized::serialize(addr).unwrap(),
                     ).map_err(|e| e.exit_code());
                     assert_eq!(res, Err(exit_code))
                 }
@@ -59,19 +59,19 @@ macro_rules! account_tests {
 
 account_tests! {
     happy_construct_secp256k1_address: (
-        Address::new_secp256k1(&[1, 2, 3]).unwrap(),
+        Address::new_secp256k1(&[1, 2, 3]),
         ExitCode::Ok
     ),
     happy_construct_bls_address: (
-        Address::new_bls(vec![1; address::BLS_PUB_LEN]).unwrap(),
+        Address::new_bls(&[1; address::BLS_PUB_LEN]).unwrap(),
         ExitCode::Ok
     ),
     fail_construct_id_address: (
-        Address::new_id(1).unwrap(),
+        Address::new_id(1),
         ExitCode::ErrIllegalArgument
     ),
     fail_construct_actor_address: (
-        Address::new_actor(&[1, 2, 3]).unwrap(),
+        Address::new_actor(&[1, 2, 3]),
         ExitCode::ErrIllegalArgument
     ),
 }

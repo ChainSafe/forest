@@ -103,7 +103,7 @@ where
 
             // Generate reward transaction for the miner of the block
             let params = Serialized::serialize(reward::AwardBlockRewardParams {
-                miner: block.header().miner_address().clone(),
+                miner: *block.header().miner_address(),
                 penalty,
                 gas_reward,
                 // TODO revisit this if/when removed from go clients
@@ -357,7 +357,7 @@ where
             gas_cost,
             &msg,
             self.epoch,
-            msg.from().clone(),
+            *msg.from(),
             msg.sequence(),
             0,
         );

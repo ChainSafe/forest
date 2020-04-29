@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
+beacon = { path = "../beacon" }
 crypto = { path = "../../crypto" }
 message = { package = "forest_message", path = "../../vm/message" }
 clock = { path = "../../node/clock" }
@@ -17,7 +18,7 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 sha2 = { version = "0.8", default-features = false }
 thiserror = "1.0"
 vm = { path = "../../vm" }
-beacon = { path = "../beacon" }
+
 [dev-dependencies]
 base64 = "0.12.0"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }

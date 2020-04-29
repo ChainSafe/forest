@@ -114,7 +114,7 @@ impl Signature {
 
     /// Returns `String` error if a bls signature is invalid
     pub(crate) fn verify_bls_sig(&self, data: &[u8], addr: &Address) -> Result<(), String> {
-        let pub_k = addr.payload();
+        let pub_k = addr.payload_bytes();
 
         // hash data to be verified
         let hashed = bls_hash(data);
@@ -196,7 +196,7 @@ fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
 
     let key = recover(&message, &sig, &rec_id)?;
     let ret = key.serialize();
-    let addr = Address::new_secp256k1(&ret)?;
+    let addr = Address::new_secp256k1(&ret);
     Ok(addr)
 }
 
@@ -224,7 +224,7 @@ mod tests {
         );
 
         let pk = sk.public_key();
-        let addr = Address::new_bls(pk.as_bytes()).unwrap();
+        let addr = Address::new_bls(&pk.as_bytes()).unwrap();
 
         Signature::new_bls(signature_bytes.clone())
             .verify(&msg, &addr)
