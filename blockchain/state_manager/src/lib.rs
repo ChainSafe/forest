@@ -95,7 +95,7 @@ where
             ts.parent_state(),
             &buf_store,
             ts.epoch(),
-            DefaultSyscalls::new(self.bs.as_ref()),
+            DefaultSyscalls::new(&buf_store),
         )?;
 
         // Apply tipset messages

@@ -471,7 +471,7 @@ impl Actor {
     {
         let curr_epoch = rt.curr_epoch();
         let earliest = curr_epoch - CONSENSUS_FAULT_REPORTING_WINDOW;
-        let fault = match rt
+        let fault = rt
             .syscalls()
             .verify_consensus_fault(
                 params.block_header_1.bytes(),
@@ -482,18 +482,15 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalArgument,
-                    format!("fault not verified: {}", e.msg()),
+                    format!("fault not verified: {}", e),
                 )
-            })? {
-            Some(fault) => fault,
-            None => {
-                return Err(ActorError::new(
-                    ExitCode::ErrPlaceholder,
-                    "no consensus fault detected".to_owned(),
-                ))
-            }
-        };
-
+            })?
+            .ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    "fault not verified".to_owned(),
+                )
+            })?;
         let reporter = *rt.message().from();
         let reward = rt.transaction(|st: &mut State, rt| {
             let claim = Self::get_claim_or_abort(st, rt.store(), &fault.target)?;
