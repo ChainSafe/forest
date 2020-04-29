@@ -1,26 +1,27 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EPostProof, Error, Ticket, TipSetKeys, Tipset};
+use super::{Error, Ticket, TipSetKeys, Tipset};
 use address::Address;
+use beacon::BeaconEntry;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::Signature;
+use crypto::{Signature, VRFProof};
 use derive_builder::Builder;
 use encoding::{
-    de::{self, Deserializer},
-    ser::{self, Serializer},
+    de::{Deserialize, Deserializer},
+    ser::{Serialize, Serializer},
     Cbor, Error as EncodingError,
 };
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
     BigUint,
 };
-use serde::Deserialize;
 use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
+use vm::PoStProof;
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
@@ -67,6 +68,14 @@ pub struct BlockHeader {
     /// There may be multiple rounds in an epoch.
     #[builder(default)]
     epoch: ChainEpoch,
+
+    /// Values from Drand
+    #[builder(default)]
+    beacon_entries: Vec<BeaconEntry>,
+
+    #[builder(default)]
+    win_post_proof: Vec<PoStProof>,
+
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
     #[builder(default)]
@@ -92,7 +101,7 @@ pub struct BlockHeader {
     signature: Option<Signature>,
 
     #[builder(default)]
-    epost_verify: EPostProof,
+    election_proof: Option<VRFProof>,
 
     // CONSENSUS
     /// timestamp, in seconds since the Unix epoch, at which this block was created
@@ -121,7 +130,7 @@ impl Cbor for BlockHeader {
     }
 }
 
-impl ser::Serialize for BlockHeader {
+impl Serialize for BlockHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -129,7 +138,9 @@ impl ser::Serialize for BlockHeader {
         (
             &self.miner_address,
             &self.ticket,
-            &self.epost_verify,
+            &self.election_proof,
+            &self.beacon_entries,
+            &self.win_post_proof,
             &self.parents,
             BigUintSer(&self.weight),
             &self.epoch,
@@ -145,7 +156,7 @@ impl ser::Serialize for BlockHeader {
     }
 }
 
-impl<'de> de::Deserialize<'de> for BlockHeader {
+impl<'de> Deserialize<'de> for BlockHeader {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
         D: Deserializer<'de>,
@@ -153,7 +164,9 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
         let (
             miner_address,
             ticket,
-            epost_verify,
+            election_proof,
+            beacon_entries,
+            win_post_proof,
             parents,
             BigUintDe(weight),
             epoch,
@@ -170,13 +183,15 @@ impl<'de> de::Deserialize<'de> for BlockHeader {
             .parents(parents)
             .weight(weight)
             .epoch(epoch)
+            .beacon_entries(beacon_entries)
+            .win_post_proof(win_post_proof)
             .miner_address(miner_address)
             .messages(messages)
             .message_receipts(message_receipts)
             .state_root(state_root)
             .fork_signal(fork_signal)
             .signature(signature)
-            .epost_verify(epost_verify)
+            .election_proof(election_proof)
             .timestamp(timestamp)
             .ticket(ticket)
             .bls_aggregate(bls_aggregate)
@@ -216,6 +231,14 @@ impl BlockHeader {
     pub fn epoch(&self) -> ChainEpoch {
         self.epoch
     }
+    /// Getter for Drand BeaconEntry
+    pub fn beacon_entries(&self) -> &[BeaconEntry] {
+        &self.beacon_entries
+    }
+    /// Getter for window PoSt proof
+    pub fn win_post_proof(&self) -> &[PoStProof] {
+        &self.win_post_proof
+    }
     /// Getter for BlockHeader miner_address
     pub fn miner_address(&self) -> &Address {
         &self.miner_address
@@ -254,8 +277,8 @@ impl BlockHeader {
         self.fork_signal
     }
     /// Getter for BlockHeader epost_verify
-    pub fn epost_verify(&self) -> &EPostProof {
-        &self.epost_verify
+    pub fn election_proof(&self) -> &Option<VRFProof> {
+        &self.election_proof
     }
     /// Getter for BlockHeader signature
     pub fn signature(&self) -> &Option<Signature> {
@@ -360,8 +383,8 @@ mod tests {
 
     #[test]
     fn symmetric_header_encoding() {
-        // This test vector is the genesis header for testnet/3 config
-        let bz = hex::decode("8D4200008158207672662070726F6F66303030303030307672662070726F6F66303030303030308380581C692067756573732074686973206973206B696E64612072616E646F6D80804000D82A5827000171A0E420205B05D256933F3E29756306949643F34A0B644E475BF2BB9DAA81507C31B048A2D82A5827000171A0E4022001CD927FDCCD7938FABA323E32E70C44541B8A83F5DC941D90866565EF5AF14AD82A5827000171A0E402208D6F0E09E0453685B8816895CD56A7EE2FCE600026EE23AC445D78F020C1CA40F61A5E8BE968F600").unwrap();
+        // This test vector is the genesis header for interopnet config
+        let bz = hex::decode("8f4200008158207672662070726f6f66303030303030307672662070726f6f6630303030303030f68182005820000000000000000000000000000000000000000000000000000000000000000080804000d82a5827000171a0e402209fcfcbb98dcbf141cd7f1977fcd1b5da2198ebdcc96a61288562dbc3ee8e8ff0d82a5827000171a0e4022001cd927fdccd7938faba323e32e70c44541b8a83f5dc941d90866565ef5af14ad82a5827000171a0e402208d6f0e09e0453685b8816895cd56a7ee2fce600026ee23ac445d78f020c1ca40f61a5ea37bdcf600").unwrap();
         let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
         assert_eq!(hex::encode(header.marshal_cbor().unwrap()), hex::encode(bz));
     }
