@@ -3,7 +3,7 @@
 
 use super::{Error, Ticket, TipSetKeys, Tipset};
 use address::Address;
-use beacon::BeaconEntry;
+use beacon::{DrandBeacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{Signature, VRFProof};
@@ -353,6 +353,29 @@ impl BlockHeader {
         // h(vrfout) * totalPower < e * sectorSize * 2^256
         lhs < rhs
     }
+
+     pub async fn validate_block_drand (&self, beacon: DrandBeacon, prev_entry: BeaconEntry) -> Result<(), Error> {
+         let max_round = beacon.max_beacon_round_for_epoch(self.epoch, &prev_entry);
+         if max_round == prev_entry.round() {
+             if self.beacon_entries.len() != 0 {
+                 return Err(Error::Validation(format!("expected not to have any beacon entries in this block, got: {:?}", self.beacon_entries.len())));
+             }
+             return Ok(());
+         }
+
+         let last = self.beacon_entries.last().unwrap();
+         if last.round() != max_round {
+             return Err(Error::Validation(format!("expected final beacon entry in block to be at round {}, got: {}", max_round, last.round())));
+         }
+         self.beacon_entries.iter().try_fold((true, &prev_entry), |prev, curr| -> Result<(bool, &BeaconEntry), Error>{
+             let valid = beacon.verify_entry(curr, &prev.1).map_err(|e| Error::Validation(e.to_string()))?;
+             if !valid {
+                 return Err(Error::Validation(format!("beacon entry was invalid: curr:{:?}, prev: {:?}", curr, prev.1)));
+             }
+             Ok((valid, curr))
+         })?;
+         Ok(())
+     }
 }
 
 /// human-readable string representation of a block CID

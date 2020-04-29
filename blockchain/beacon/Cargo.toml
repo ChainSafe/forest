@@ -8,7 +8,7 @@ edition = "2018"
 grpc = { version = "0.7.0"}
 grpc-protobuf = { version = "0.7.0"}
 protobuf = "2.14.0"
-
+clock = { path = "../../node/clock" }
 httpbis =  "0.8.0"
 tls-api = "0.3.2"
 tls-api-openssl = "0.3.2"
