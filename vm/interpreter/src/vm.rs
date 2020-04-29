@@ -34,7 +34,7 @@ pub struct VM<'db, DB, SYS> {
 impl<'db, DB, SYS> VM<'db, DB, SYS>
 where
     DB: BlockStore,
-    SYS: Syscalls + Copy,
+    SYS: Syscalls,
 {
     pub fn new(
         root: &Cid,
@@ -103,7 +103,7 @@ where
 
             // Generate reward transaction for the miner of the block
             let params = Serialized::serialize(reward::AwardBlockRewardParams {
-                miner: block.header().miner_address().clone(),
+                miner: *block.header().miner_address(),
                 penalty,
                 gas_reward,
                 // TODO revisit this if/when removed from go clients
@@ -347,17 +347,17 @@ where
         gas_cost: i64,
     ) -> (
         Serialized,
-        DefaultRuntime<'db, 'm, '_, DB, SYS>,
+        DefaultRuntime<'db, 'm, '_, '_, DB, SYS>,
         Option<ActorError>,
     ) {
         let mut rt = DefaultRuntime::new(
             &mut self.state,
             self.store,
-            self.syscalls,
+            &self.syscalls,
             gas_cost,
             &msg,
             self.epoch,
-            msg.from().clone(),
+            *msg.from(),
             msg.sequence(),
             0,
         );

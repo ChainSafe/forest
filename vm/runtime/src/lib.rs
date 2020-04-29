@@ -142,6 +142,7 @@ pub trait Syscalls {
             .verify(plaintext, signer)
             .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))
     }
+    /// Verifies signatures of a block header
     fn verify_block_signature(&self, bh: &BlockHeader) -> Result<(), ActorError>;
     /// Hashes input data using blake2b with 256 bit output.
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], ActorError> {
@@ -210,7 +211,7 @@ pub trait Syscalls {
         h2: &[u8],
         extra: &[u8],
         _earliest: ChainEpoch,
-    ) -> Result<ConsensusFault, ActorError>;
+    ) -> Result<Option<ConsensusFault>, ActorError>;
 }
 
 /// Result of checking two headers for a consensus fault.

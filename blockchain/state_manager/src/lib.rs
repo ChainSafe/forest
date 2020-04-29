@@ -91,7 +91,12 @@ where
     pub fn apply_blocks(&self, ts: &FullTipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
-        let mut vm = VM::new(ts.parent_state(), &buf_store, ts.epoch(), DefaultSyscalls)?;
+        let mut vm = VM::new(
+            ts.parent_state(),
+            &buf_store,
+            ts.epoch(),
+            DefaultSyscalls::new(self.bs.as_ref()),
+        )?;
 
         // Apply tipset messages
         let receipts = vm.apply_tip_set_messages(ts)?;

@@ -1,15 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{internal_send, DefaultRuntime};
 use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
+use interpreter::{internal_send, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
-use runtime::DefaultSyscalls;
 use state_tree::StateTree;
 use vm::{ActorState, Serialized};
 
@@ -92,10 +91,12 @@ fn transfer_test() {
         .build()
         .unwrap();
 
+    let default_syscalls = DefaultSyscalls::new(&store);
+
     let mut runtime = DefaultRuntime::new(
         &mut state,
         &store,
-        DefaultSyscalls,
+        &default_syscalls,
         0,
         &message,
         0,

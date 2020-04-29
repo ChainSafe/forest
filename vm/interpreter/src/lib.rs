@@ -5,8 +5,8 @@ mod default_runtime;
 mod default_syscalls;
 mod gas_block_store;
 mod gas_syscalls;
-mod virtual_machine;
+mod vm;
 
-pub use default_runtime::*;
-pub use default_syscalls::DefaultSyscalls;
-pub use virtual_machine::*;
+pub use self::default_runtime::*;
+pub use self::default_syscalls::DefaultSyscalls;
+pub use self::vm::*;

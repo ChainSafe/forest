@@ -15,15 +15,15 @@ use vm::{
 };
 
 /// Syscall wrapper to charge gas on syscalls
-pub(crate) struct GasSyscalls<S: Copy> {
+pub(crate) struct GasSyscalls<'sys, S> {
     pub price_list: PriceList,
     pub gas: Rc<RefCell<GasTracker>>,
-    pub syscalls: S,
+    pub syscalls: &'sys S,
 }
 
-impl<S> Syscalls for GasSyscalls<S>
+impl<'sys, S> Syscalls for GasSyscalls<'sys, S>
 where
-    S: Syscalls + Copy,
+    S: Syscalls,
 {
     fn verify_signature(
         &self,
@@ -78,13 +78,14 @@ where
         h2: &[u8],
         extra: &[u8],
         earliest: ChainEpoch,
-    ) -> Result<ConsensusFault, ActorError> {
+    ) -> Result<Option<ConsensusFault>, ActorError> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_consensus_fault())
             .unwrap();
-        self.syscalls
-            .verify_consensus_fault(h1, h2, extra, earliest)
+        Ok(self
+            .syscalls
+            .verify_consensus_fault(h1, h2, extra, earliest)?)
     }
     fn verify_block_signature(&self, _bh: &BlockHeader) -> Result<(), ActorError> {
         todo!()
@@ -129,12 +130,15 @@ mod tests {
             _h2: &[u8],
             _extra: &[u8],
             _earliest: ChainEpoch,
-        ) -> Result<ConsensusFault, ActorError> {
-            Ok(ConsensusFault {
+        ) -> Result<Option<ConsensusFault>, ActorError> {
+            Ok(Some(ConsensusFault {
                 target: Address::new_id(0),
                 epoch: 0,
                 fault_type: ConsensusFaultType::DoubleForkMining,
-            })
+            }))
+        }
+        fn verify_block_signature(&self, _bh: &BlockHeader) -> Result<(), ActorError> {
+            todo!()
         }
     }
 
@@ -154,7 +158,7 @@ mod tests {
                 ..Default::default()
             },
             gas: Rc::new(RefCell::new(GasTracker::new(20, 0))),
-            syscalls: TestSyscalls,
+            syscalls: &TestSyscalls,
         };
 
         assert_eq!(gsys.gas.borrow().gas_used(), 0);
