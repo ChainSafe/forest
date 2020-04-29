@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{
-    de::{self, Deserializer},
-    ser::{self, Serializer},
-    serde_bytes,
+    de::{Deserialize, Deserializer},
+    ser::{Serialize, Serializer},
+    BytesDe, BytesSer,
 };
-use serde::Deserialize;
 
 /// The result from getting an entry from Drand.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -38,25 +37,25 @@ impl BeaconEntry {
     }
 }
 
-impl ser::Serialize for BeaconEntry {
+impl Serialize for BeaconEntry {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        (&self.round, serde_bytes::Bytes::new(&self.data)).serialize(serializer)
+        (&self.round, BytesSer(&self.data)).serialize(serializer)
     }
 }
 
-impl<'de> de::Deserialize<'de> for BeaconEntry {
+impl<'de> Deserialize<'de> for BeaconEntry {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
         D: Deserializer<'de>,
     {
-        let (round, data): (u64, serde_bytes::ByteBuf) = Deserialize::deserialize(deserializer)?;
+        let (round, data): (u64, BytesDe) = Deserialize::deserialize(deserializer)?;
         let prev_round = if round == 0 { 0 } else { round - 1 };
         Ok(Self {
             round,
-            data: data.into_vec(),
+            data: data.0,
             prev_round,
         })
     }
