@@ -1,8 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EPostProof, Error, Ticket, TipSetKeys, Tipset};
+use super::{Error, Ticket, TipSetKeys, Tipset};
 use address::Address;
+use beacon::BeaconEntry;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{Signature, VRFProof};
@@ -21,7 +22,6 @@ use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
-use beacon::BeaconEntry;
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
@@ -34,16 +34,16 @@ pub struct PostProof {
 }
 impl ser::Serialize for PostProof {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         (self.registered_proof, &self.proof_bytes).serialize(serializer)
     }
 }
 impl<'de> de::Deserialize<'de> for PostProof {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let (registered_proof, proof_bytes) = Deserialize::deserialize(deserializer)?;
 
@@ -132,7 +132,6 @@ pub struct BlockHeader {
 
     #[builder(default)]
     election_proof: Option<VRFProof>,
-
 
     // CONSENSUS
     /// timestamp, in seconds since the Unix epoch, at which this block was created

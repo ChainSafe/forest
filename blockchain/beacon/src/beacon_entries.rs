@@ -4,7 +4,7 @@
 use encoding::{
     de::{self, Deserializer},
     ser::{self, Serializer},
-    serde_bytes
+    serde_bytes,
 };
 use serde::Deserialize;
 
@@ -40,8 +40,8 @@ impl BeaconEntry {
 
 impl ser::Serialize for BeaconEntry {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         (&self.round, serde_bytes::Bytes::new(&self.data)).serialize(serializer)
     }
@@ -49,11 +49,11 @@ impl ser::Serialize for BeaconEntry {
 
 impl<'de> de::Deserialize<'de> for BeaconEntry {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let (round, data): (u64, serde_bytes::ByteBuf) = Deserialize::deserialize(deserializer)?;
-        let prev_round = if round == 0 {0} else {round-1};
+        let prev_round = if round == 0 { 0 } else { round - 1 };
         Ok(Self {
             round,
             data: data.into_vec(),
