@@ -2,6 +2,7 @@
 members = [
     "forest",
     "blockchain",
+    "blockchain/beacon",
     "blockchain/blocks",
     "blockchain/chain",
     "blockchain/state_manager",
