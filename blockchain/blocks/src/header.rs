@@ -26,6 +26,7 @@ use beacon::BeaconEntry;
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
 
+/// Proof of spacetime proof
 #[derive(Eq, PartialEq, Debug, Clone, Default)]
 pub struct PostProof {
     registered_proof: u64,
