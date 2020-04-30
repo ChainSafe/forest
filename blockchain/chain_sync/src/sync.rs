@@ -58,7 +58,7 @@ pub struct ChainSyncer<DB> {
     state: SyncState,
 
     /// manages retrieving and updates state objects
-    state_manager: StateManager<DB>,
+    pub state_manager: StateManager<DB>,
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
@@ -66,7 +66,7 @@ pub struct ChainSyncer<DB> {
     next_sync_target: SyncBucket,
 
     /// access and store tipsets / blocks / messages
-    chain_store: ChainStore<DB>,
+    pub chain_store: ChainStore<DB>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -99,46 +99,8 @@ where
         mut chain_store: ChainStore<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
-        genesis_cid: Option<Cid>,
+        genesis: Tipset,
     ) -> Result<Self, Error> {
-        let genesis = match genesis_cid {
-            Some(genesis_cid) => {
-                let genesis_block: BlockHeader =
-                    chain_store.db.get(&genesis_cid)
-                    .map_err(|e| Error::Other(e.to_string()))?
-                    .ok_or_else(|| Error::Other("Could not find genesis block despite being loaded using a genesis file".to_owned()))?;
-
-                let store_genesis = chain_store.genesis()?;
-
-                if store_genesis.is_some() && store_genesis.unwrap() == genesis_block {
-                    debug!("Genesis from config matches Genesis from store");
-                    Tipset::new(vec![genesis_block])?
-                } else {
-                    debug!("Initialize ChainSyncer with new genesis from config");
-                    chain_store.set_genesis(genesis_block.clone())?;
-                    let tipset = Tipset::new(vec![genesis_block])?;
-                    chain_store.set_heaviest_tipset(Arc::new(tipset.clone()))?;
-                    tipset
-                }
-            }
-            None => {
-                debug!("No specified genesis in config. Attempting to load from store");
-                match chain_store.genesis()? {
-                    Some(store_genesis) => Tipset::new(vec![store_genesis])?,
-                    None => {
-                        return Err(Error::Other(
-                            "No genesis provided by config or blockstore".to_owned(),
-                        ))
-                    }
-                }
-            }
-        };
-
-        info!(
-            "Initializing ChainSyncer with genesis: {:?}",
-            genesis.key().cids[0]
-        );
-
         let state_manager = StateManager::new(chain_store.db.clone());
 
         // Split incoming channel to handle blocksync requests

@@ -5,14 +5,18 @@ use self::cli::cli;
 mod cli;
 mod logger;
 use async_std::task;
+use blocks::BlockHeader;
+use blocks::Tipset;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use cid::Cid;
 use db::RocksDb;
 use forest_car::load_car;
 use forest_libp2p::{get_keypair, Libp2pService};
+use ipld_blockstore::BlockStore;
 use libp2p::identity::{ed25519, Keypair};
-use log::{info, trace};
+use log::{debug, info, trace};
+use state_manager::StateManager;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::BufReader;
@@ -20,6 +24,7 @@ use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use utils::write_to_file;
+
 // Blocks current thread until ctrl-c is received
 fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
@@ -48,7 +53,7 @@ fn main() {
     info!("Starting Forest");
 
     // Capture CLI inputs
-    let config = cli().expect("CLI error");
+    let mut config = cli().expect("CLI error");
 
     let net_keypair = match get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair")) {
         Some(kp) => kp,
@@ -72,40 +77,39 @@ fn main() {
     // Initialize database
     let mut db = RocksDb::new(config.data_dir + "/db");
     db.open().unwrap();
+    let db = Arc::new(db);
+    let mut chain_store = ChainStore::new(Arc::clone(&db));
 
     // Read Genesis file
-    let genesis_buffer: Option<BufReader<File>> = match &config.genesis_file {
-        Some(path) => {
-            let file = File::open(path).expect("Could not open genesis file");
-            Some(BufReader::new(file))
-        }
-        None => None,
-    };
-    let genesis_cid = match genesis_buffer {
-        Some(buf) => {
-            // Load genesis state into the database and get the Cid
-            let genesis_cid: Vec<Cid> = load_car(&db, buf).unwrap();
-            if genesis_cid.len() != 1 {
-                panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
-            }
-            Some(genesis_cid[0].clone())
-        }
-        None => None,
-    };
+    let genesis = initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
 
-    // Start libp2p service
+    // Libp2p service setup
+    // TODO need to set network name
+    // config.network.set_network_name(&network_name);
     let p2p_service = Libp2pService::new(&config.network, net_keypair);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
+
+    // Initialize ChainSyncer
+    let chain_syncer = ChainSyncer::new(chain_store, network_send, network_rx, genesis).unwrap();
+    let genesis = chain_syncer
+        .chain_store
+        .genesis()
+        .unwrap()
+        .expect("Genesis should be set in constructor");
+    let network_name = chain_syncer
+        .state_manager
+        .get_network_name(genesis.state_root())
+        .expect(
+            "Genesis not initialized properly, failed to retrieve network name. \
+            Requires either a previously initialized genesis or with genesis config option set",
+        );
 
     // Start services
     let p2p_thread = task::spawn(async {
         p2p_service.run().await;
     });
     let sync_thread = task::spawn(async {
-        let chain_store = ChainStore::new(Arc::new(db));
-        let chain_syncer =
-            ChainSyncer::new(chain_store, network_send, network_rx, genesis_cid).unwrap();
         chain_syncer.start().await.unwrap();
     });
 
@@ -117,4 +121,52 @@ fn main() {
     drop(sync_thread);
 
     info!("Forest finish shutdown");
+}
+
+fn initialize_genesis<DB>(
+    genesis_fp: &Option<String>,
+    chain_store: &mut ChainStore<DB>,
+) -> Result<Tipset, Box<dyn std::error::Error>>
+where
+    DB: BlockStore,
+{
+    let genesis = match genesis_fp {
+        Some(path) => {
+            let file = File::open(path).expect("Could not open genesis file");
+            let reader = BufReader::new(file);
+            // Load genesis state into the database and get the Cid
+            let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader).unwrap();
+            if genesis_cids.len() != 1 {
+                panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
+            }
+
+            let genesis_block: BlockHeader =
+                chain_store.db.get(&genesis_cids[0])?.ok_or_else(|| {
+                    "Could not find genesis block despite being loaded using a genesis file"
+                        .to_owned()
+                })?;
+
+            let store_genesis = chain_store.genesis()?;
+
+            if store_genesis.is_some() && store_genesis.unwrap() == genesis_block {
+                debug!("Genesis from config matches Genesis from store");
+                genesis_block
+            } else {
+                debug!("Initialize ChainSyncer with new genesis from config");
+                chain_store.set_genesis(genesis_block.clone())?;
+                chain_store
+                    .set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))?;
+                genesis_block
+            }
+        }
+        None => {
+            debug!("No specified genesis in config. Attempting to load from store");
+            chain_store
+                .genesis()?
+                .ok_or_else(|| "No genesis provided by config or blockstore".to_owned())?
+        }
+    };
+
+    info!("Initialized genesis: {}", genesis);
+    Ok(Tipset::new(vec![genesis])?)
 }
