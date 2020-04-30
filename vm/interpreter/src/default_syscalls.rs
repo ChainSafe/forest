@@ -117,15 +117,21 @@ where
                 })
             }
         };
-        // (4) expensive final checks
 
-        // check blocks are properly signed by their respective miner
-        // note we do not need to check extra's: it is a parent to block b
-        // which itself is signed, so it was willingly included by the miner
-        self.verify_block_signature(&bh_1)?;
-        self.verify_block_signature(&bh_2)?;
+        // (3) return if no consensus fault by now
+        if cf.is_none() {
+            Ok(cf)
+        } else {
+            // (4) expensive final checks
 
-        Ok(cf)
+            // check blocks are properly signed by their respective miner
+            // note we do not need to check extra's: it is a parent to block b
+            // which itself is signed, so it was willingly included by the miner
+            self.verify_block_signature(&bh_1)?;
+            self.verify_block_signature(&bh_2)?;
+
+            Ok(cf)
+        }
     }
 }
 
