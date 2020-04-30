@@ -473,7 +473,7 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ExitCode::SysErrorIllegalArgument,
-                    format!("failed to compute unsealed sector CID: {}", e.msg()),
+                    format!("failed to compute unsealed sector CID: {}", e),
                 )
             })?;
 
@@ -610,7 +610,7 @@ where
         .map_err(|e| {
             ActorError::new(
                 ExitCode::ErrIllegalArgument,
-                format!("signature proposal invalid: {}", e.msg()),
+                format!("signature proposal invalid: {}", e),
             )
         })?;
 

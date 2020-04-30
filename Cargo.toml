@@ -14,7 +14,6 @@ members = [
     "vm/runtime",
     "vm/state_tree",
     "vm/interpreter",
-    "vm/default_runtime",
     "node",
     "node/clock",
     "crypto",

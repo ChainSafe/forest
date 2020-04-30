@@ -115,7 +115,7 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalArgument,
-                    format!("voucher signature invalid: {}", e.msg()),
+                    format!("voucher signature invalid: {}", e),
                 )
             })?;
 
@@ -128,7 +128,10 @@ impl Actor {
         }
 
         if !sv.secret_pre_image.is_empty() {
-            let hashed_secret: &[u8] = &rt.syscalls().hash_blake2b(&params.secret)?;
+            let hashed_secret: &[u8] = &rt
+                .syscalls()
+                .hash_blake2b(&params.secret)
+                .map_err(|e| *e.downcast::<ActorError>().unwrap())?;
             if hashed_secret != sv.secret_pre_image.as_slice() {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
