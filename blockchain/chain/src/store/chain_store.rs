@@ -47,7 +47,7 @@ where
     pub fn new(db: Arc<DB>) -> Self {
         let heaviest = get_heaviest_tipset(db.as_ref())
             .unwrap_or(None)
-            .map(|ts| Arc::new(ts));
+            .map(Arc::new);
         Self {
             db,
             tip_index: TipIndex::new(),

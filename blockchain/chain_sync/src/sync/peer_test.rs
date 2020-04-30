@@ -29,7 +29,6 @@ fn peer_manager_update() {
     chain_store.set_genesis(dummy_header.clone()).unwrap();
 
     let genesis_ts = Tipset::new(vec![dummy_header]).unwrap();
-
     let cs = ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap();
 
     let peer_manager = Arc::clone(&cs.peer_manager);
