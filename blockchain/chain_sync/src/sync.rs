@@ -887,7 +887,8 @@ mod tests {
         task::block_on(async {
             event_sender
                 .send(NetworkEvent::RPCResponse {
-                    req_id: 0,
+                    // TODO update this, only matching first index of requestId
+                    req_id: 1,
                     response: rpc_response,
                 })
                 .await;
