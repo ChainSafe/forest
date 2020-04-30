@@ -69,4 +69,4 @@ license:
 docs:
 	cargo doc --no-deps --all-features
 
-.PHONY: clean clean-all lint build release test license test-all test-vectors run-vectors pull-serialization-tests
+.PHONY: clean clean-all lint build release test license test-all test-vectors run-vectors pull-serialization-tests install docs
