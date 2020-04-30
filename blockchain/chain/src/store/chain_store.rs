@@ -147,20 +147,7 @@ where
 
     /// Returns Tipset from key-value store from provided cids
     pub fn tipset_from_keys(&self, tsk: &TipSetKeys) -> Result<Tipset, Error> {
-        let mut block_headers = Vec::new();
-        for c in tsk.cids() {
-            let raw_header = self.db.read(c.key())?;
-            if let Some(x) = raw_header {
-                // decode raw header into BlockHeader
-                let bh = BlockHeader::unmarshal_cbor(&x)?;
-                block_headers.push(bh);
-            } else {
-                return Err(Error::NotFound("Key for header"));
-            }
-        }
-        // construct new Tipset to return
-        let ts = Tipset::new(block_headers)?;
-        Ok(ts)
+        tipset_from_keys(self.db.as_ref(), tsk)
     }
 
     /// Returns a tuple of cids for both Unsigned and Signed messages
