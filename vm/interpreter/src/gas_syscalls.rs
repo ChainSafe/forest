@@ -7,29 +7,27 @@ use clock::ChainEpoch;
 use crypto::Signature;
 use runtime::{ConsensusFault, Syscalls};
 use std::cell::RefCell;
+use std::error::Error as StdError;
 use std::rc::Rc;
-use vm::{
-    ActorError, GasTracker, PieceInfo, PriceList, RegisteredProof, SealVerifyInfo,
-    WindowPoStVerifyInfo,
-};
+use vm::{GasTracker, PieceInfo, PriceList, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 
 /// Syscall wrapper to charge gas on syscalls
-pub(crate) struct GasSyscalls<S: Copy> {
+pub(crate) struct GasSyscalls<'sys, S> {
     pub price_list: PriceList,
     pub gas: Rc<RefCell<GasTracker>>,
-    pub syscalls: S,
+    pub syscalls: &'sys S,
 }
 
-impl<S> Syscalls for GasSyscalls<S>
+impl<'sys, S> Syscalls for GasSyscalls<'sys, S>
 where
-    S: Syscalls + Copy,
+    S: Syscalls,
 {
     fn verify_signature(
         &self,
         signature: &Signature,
         signer: &Address,
         plaintext: &[u8],
-    ) -> Result<(), ActorError> {
+    ) -> Result<(), Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(
@@ -39,7 +37,7 @@ where
             .unwrap();
         self.syscalls.verify_signature(signature, signer, plaintext)
     }
-    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], ActorError> {
+    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_hashing(data.len()))
@@ -50,21 +48,21 @@ where
         &self,
         reg: RegisteredProof,
         pieces: &[PieceInfo],
-    ) -> Result<Cid, ActorError> {
+    ) -> Result<Cid, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_compute_unsealed_sector_cid(reg, pieces))
             .unwrap();
         self.syscalls.compute_unsealed_sector_cid(reg, pieces)
     }
-    fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), ActorError> {
+    fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_seal(vi))
             .unwrap();
         self.syscalls.verify_seal(vi)
     }
-    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), ActorError> {
+    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_post(vi))
@@ -77,13 +75,14 @@ where
         h2: &[u8],
         extra: &[u8],
         earliest: ChainEpoch,
-    ) -> Result<ConsensusFault, ActorError> {
+    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_consensus_fault())
             .unwrap();
-        self.syscalls
-            .verify_consensus_fault(h1, h2, extra, earliest)
+        Ok(self
+            .syscalls
+            .verify_consensus_fault(h1, h2, extra, earliest)?)
     }
 }
 
@@ -100,23 +99,23 @@ mod tests {
             _signature: &Signature,
             _signer: &Address,
             _plaintext: &[u8],
-        ) -> Result<(), ActorError> {
+        ) -> Result<(), Box<dyn StdError>> {
             Ok(())
         }
-        fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], ActorError> {
+        fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
             Ok([0u8; 32])
         }
         fn compute_unsealed_sector_cid(
             &self,
             _reg: RegisteredProof,
             _pieces: &[PieceInfo],
-        ) -> Result<Cid, ActorError> {
+        ) -> Result<Cid, Box<dyn StdError>> {
             Ok(Default::default())
         }
-        fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), ActorError> {
+        fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
             Ok(Default::default())
         }
-        fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), ActorError> {
+        fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
             Ok(Default::default())
         }
         fn verify_consensus_fault(
@@ -125,12 +124,12 @@ mod tests {
             _h2: &[u8],
             _extra: &[u8],
             _earliest: ChainEpoch,
-        ) -> Result<ConsensusFault, ActorError> {
-            Ok(ConsensusFault {
+        ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
+            Ok(Some(ConsensusFault {
                 target: Address::new_id(0),
                 epoch: 0,
                 fault_type: ConsensusFaultType::DoubleForkMining,
-            })
+            }))
         }
     }
 
@@ -150,7 +149,7 @@ mod tests {
                 ..Default::default()
             },
             gas: Rc::new(RefCell::new(GasTracker::new(20, 0))),
-            syscalls: TestSyscalls,
+            syscalls: &TestSyscalls,
         };
 
         assert_eq!(gsys.gas.borrow().gas_used(), 0);

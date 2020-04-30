@@ -482,10 +482,15 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalArgument,
-                    format!("fault not verified: {}", e.msg()),
+                    format!("fault not verified: {}", e),
+                )
+            })?
+            .ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    "fault not verified".to_owned(),
                 )
             })?;
-
         let reporter = *rt.message().from();
         let reward = rt.transaction(|st: &mut State, rt| {
             let claim = Self::get_claim_or_abort(st, rt.store(), &fault.target)?;

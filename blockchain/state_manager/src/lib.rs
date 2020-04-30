@@ -9,13 +9,11 @@ use address::{Address, Protocol};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use cid::Cid;
-use default_runtime::resolve_to_key_addr;
 use encoding::de::DeserializeOwned;
 use forest_blocks::FullTipset;
-use interpreter::VM;
+use interpreter::{resolve_to_key_addr, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use num_bigint::BigUint;
-use runtime::DefaultSyscalls;
 use state_tree::StateTree;
 use std::error::Error as StdError;
 use std::sync::Arc;
@@ -93,7 +91,12 @@ where
     pub fn apply_blocks(&self, ts: &FullTipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
-        let mut vm = VM::new(ts.parent_state(), &buf_store, ts.epoch(), DefaultSyscalls)?;
+        let mut vm = VM::new(
+            ts.parent_state(),
+            &buf_store,
+            ts.epoch(),
+            DefaultSyscalls::new(&buf_store),
+        )?;
 
         // Apply tipset messages
         let receipts = vm.apply_tip_set_messages(ts)?;

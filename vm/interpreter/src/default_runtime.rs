@@ -1,11 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod gas_block_store;
-mod gas_syscalls;
-
-use self::gas_block_store::GasBlockStore;
-use self::gas_syscalls::GasSyscalls;
+use super::gas_block_store::GasBlockStore;
+use super::gas_syscalls::GasSyscalls;
 use actor::{
     self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
     MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
@@ -31,13 +28,10 @@ use vm::{
 };
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, BS, SYS>
-where
-    SYS: Copy,
-{
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
-    syscalls: GasSyscalls<SYS>,
+    syscalls: GasSyscalls<'sys, SYS>,
     gas_tracker: Rc<RefCell<GasTracker>>,
     message: &'msg UnsignedMessage,
     epoch: ChainEpoch,
@@ -47,17 +41,17 @@ where
     price_list: PriceList,
 }
 
-impl<'db, 'msg, 'st, BS, SYS> DefaultRuntime<'db, 'msg, 'st, BS, SYS>
+impl<'db, 'msg, 'st, 'sys, BS, SYS> DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS>
 where
     BS: BlockStore,
-    SYS: Syscalls + Copy,
+    SYS: Syscalls,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: &'st mut StateTree<'db, BS>,
         store: &'db BS,
-        syscalls: SYS,
+        syscalls: &'sys SYS,
         gas_used: i64,
         message: &'msg UnsignedMessage,
         epoch: ChainEpoch,
@@ -158,10 +152,10 @@ where
     }
 }
 
-impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, BS, SYS>
+impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, BS, SYS>
 where
     BS: BlockStore,
-    SYS: Syscalls + Copy,
+    SYS: Syscalls,
 {
     fn message(&self) -> &UnsignedMessage {
         &self.message
@@ -408,13 +402,13 @@ where
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
 pub fn internal_send<BS, SYS>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, BS, SYS>,
+    runtime: &mut DefaultRuntime<'_, '_, '_, '_, BS, SYS>,
     msg: &UnsignedMessage,
     _gas_cost: i64,
 ) -> Result<Serialized, ActorError>
 where
     BS: BlockStore,
-    SYS: Syscalls + Copy,
+    SYS: Syscalls,
 {
     runtime.charge_gas(
         runtime
