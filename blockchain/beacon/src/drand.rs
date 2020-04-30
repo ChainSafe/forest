@@ -10,6 +10,7 @@ use super::group::Group;
 
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
+use clock::ChainEpoch;
 use grpc::ClientStub;
 use grpc::RequestOptions;
 use sha2::Digest;
@@ -17,7 +18,6 @@ use std::convert::TryFrom;
 use std::error;
 use std::sync::Arc;
 use tls_api_openssl::TlsConnector;
-use clock::ChainEpoch;
 
 #[derive(Clone, Debug)]
 /// Coeffiencients of the publicly available drand keys.
@@ -122,7 +122,11 @@ impl DrandBeacon {
         // TODO: Return because right now Drand's BLS is different from ours
         Ok(true)
     }
-    pub fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, _prev_entry: &BeaconEntry) -> u64 {
+    pub fn max_beacon_round_for_epoch(
+        &self,
+        fil_epoch: ChainEpoch,
+        _prev_entry: &BeaconEntry,
+    ) -> u64 {
         // TODO: sometimes the genesis time for filecoin is zero and this goes negative
         let latest_ts = fil_epoch * self.fil_round_time + self.fil_gen_time - self.fil_round_time;
         // TODO: self.interval has to be converted to seconds. Dont know what it is right now

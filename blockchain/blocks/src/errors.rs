@@ -19,7 +19,6 @@ pub enum Error {
     /// Error in validating arbitrary data
     #[error("Error validating data: {0}")]
     Validation(String),
-
 }
 
 impl From<TimeErr> for Error {
