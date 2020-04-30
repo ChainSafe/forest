@@ -58,7 +58,7 @@ pub struct ChainSyncer<DB> {
     state: SyncState,
 
     /// manages retrieving and updates state objects
-    pub state_manager: StateManager<DB>,
+    state_manager: StateManager<DB>,
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
@@ -66,7 +66,7 @@ pub struct ChainSyncer<DB> {
     next_sync_target: SyncBucket,
 
     /// access and store tipsets / blocks / messages
-    pub chain_store: ChainStore<DB>,
+    chain_store: ChainStore<DB>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -843,7 +843,7 @@ mod tests {
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
-    fn chain_sync_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
+    fn chain_syncer_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
         let mut chain_store = ChainStore::new(db);
 
         let (local_sender, _test_receiver) = channel(20);
@@ -858,16 +858,6 @@ mod tests {
             event_sender,
         )
     }
-
-    // fn chain_syncer_setup<DB>(chain_store: ChainStore<DB>) -> ChainSyncer<DB>
-    // where
-    //     DB: BlockStore,
-    // {
-    //     let (local_sender, _test_receiver) = channel(20);
-    //     let (_event_sender, event_receiver) = channel(20);
-
-    //     ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap()
-    // }
 
     fn send_blocksync_response(event_sender: Sender<NetworkEvent>) {
         let rpc_response = construct_blocksync_response();
@@ -897,13 +887,13 @@ mod tests {
 
         // Test just makes sure that the chain syncer can be created without using a live database or
         // p2p network (local channels to simulate network messages and responses)
-        let _chain_syncer = chain_sync_setup(db);
+        let _chain_syncer = chain_syncer_setup(db);
     }
 
     #[test]
     fn sync_headers_reverse_given_tipsets_test() {
         let db = Arc::new(MemoryDB::default());
-        let (mut cs, event_sender) = chain_sync_setup(db);
+        let (mut cs, event_sender) = chain_syncer_setup(db);
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
         // send blocksync response to channel
@@ -926,7 +916,7 @@ mod tests {
     #[test]
     fn compute_msg_data_given_msgs_test() {
         let db = Arc::new(MemoryDB::default());
-        let (cs, _) = chain_sync_setup(db);
+        let (cs, _) = chain_syncer_setup(db);
 
         let (bls, secp) = construct_messages();
 
