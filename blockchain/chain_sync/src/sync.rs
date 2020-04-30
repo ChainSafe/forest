@@ -13,7 +13,7 @@ use amt::Amt;
 use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
-use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
+use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
@@ -96,7 +96,7 @@ where
     DB: BlockStore,
 {
     pub fn new(
-        mut chain_store: ChainStore<DB>,
+        chain_store: ChainStore<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
@@ -836,21 +836,38 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std::sync::Sender;
     use blocks::BlockHeader;
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
-    fn chain_syncer_setup<DB>(chain_store: ChainStore<DB>) -> ChainSyncer<DB>
-    where
-        DB: BlockStore,
-    {
-        let (local_sender, _test_receiver) = channel(20);
-        let (_event_sender, event_receiver) = channel(20);
+    fn chain_sync_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
+        let mut chain_store = ChainStore::new(db);
 
-        ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap()
+        let (local_sender, _test_receiver) = channel(20);
+        let (event_sender, event_receiver) = channel(20);
+
+        let gen = dummy_header();
+        chain_store.set_genesis(gen.clone()).unwrap();
+
+        let genesis_ts = Tipset::new(vec![gen]).unwrap();
+        (
+            ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap(),
+            event_sender,
+        )
     }
+
+    // fn chain_syncer_setup<DB>(chain_store: ChainStore<DB>) -> ChainSyncer<DB>
+    // where
+    //     DB: BlockStore,
+    // {
+    //     let (local_sender, _test_receiver) = channel(20);
+    //     let (_event_sender, event_receiver) = channel(20);
+
+    //     ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap()
+    // }
 
     fn send_blocksync_response(event_sender: Sender<NetworkEvent>) {
         let rpc_response = construct_blocksync_response();
@@ -877,28 +894,16 @@ mod tests {
     #[test]
     fn chainsync_constructor() {
         let db = Arc::new(MemoryDB::default());
-        let mut chain_store = ChainStore::new(db);
-        let (local_sender, _test_receiver) = channel(20);
-        let (_event_sender, event_receiver) = channel(20);
 
-        let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header).unwrap();
         // Test just makes sure that the chain syncer can be created without using a live database or
         // p2p network (local channels to simulate network messages and responses)
-        let _chain_syncer =
-            ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap();
+        let _chain_syncer = chain_sync_setup(db);
     }
 
     #[test]
     fn sync_headers_reverse_given_tipsets_test() {
         let db = Arc::new(MemoryDB::default());
-        let mut chain_store = ChainStore::new(db);
-        let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header).unwrap();
-
-        let (local_sender, _test_receiver) = channel(20);
-        let (event_sender, event_receiver) = channel(20);
-        let mut cs = ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap();
+        let (mut cs, event_sender) = chain_sync_setup(db);
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
         // send blocksync response to channel
@@ -920,14 +925,10 @@ mod tests {
 
     #[test]
     fn compute_msg_data_given_msgs_test() {
-        let (bls, secp) = construct_messages();
-
         let db = Arc::new(MemoryDB::default());
-        let mut chain_store = ChainStore::new(db);
-        let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header).unwrap();
+        let (cs, _) = chain_sync_setup(db);
 
-        let cs = chain_syncer_setup(chain_store);
+        let (bls, secp) = construct_messages();
 
         let expected_root =
             Cid::from_raw_cid("bafy2bzaced5inutkibck2wagtnggbvjpbr65ghdncivs3gpagx67s3xs3i5wa")

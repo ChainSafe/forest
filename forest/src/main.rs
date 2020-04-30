@@ -1,52 +1,19 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use self::cli::cli;
 mod cli;
 mod logger;
+
+use self::cli::{block_until_sigint, cli, initialize_genesis};
 use async_std::task;
-use blocks::BlockHeader;
-use blocks::Tipset;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
-use cid::Cid;
 use db::RocksDb;
-use forest_car::load_car;
 use forest_libp2p::{get_keypair, Libp2pService};
-use ipld_blockstore::BlockStore;
 use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace};
-use state_manager::StateManager;
-use std::cell::RefCell;
-use std::fs::File;
-use std::io::BufReader;
-use std::process;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use log::{info, trace};
 use std::sync::Arc;
 use utils::write_to_file;
-
-// Blocks current thread until ctrl-c is received
-fn block_until_sigint() {
-    let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
-    let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
-
-    let running = Arc::new(AtomicUsize::new(0));
-    ctrlc::set_handler(move || {
-        let prev = running.fetch_add(1, Ordering::SeqCst);
-        if prev == 0 {
-            println!("Got interrupt, shutting down...");
-            // Send sig int in channel to blocking task
-            if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
-                ctrlc_send.send(()).expect("Error sending ctrl-c message");
-            }
-        } else {
-            process::exit(0);
-        }
-    })
-    .expect("Error setting Ctrl-C handler");
-
-    task::block_on(ctrlc_oneshot).unwrap();
-}
 
 fn main() {
     logger::setup_logger();
@@ -81,29 +48,17 @@ fn main() {
     let mut chain_store = ChainStore::new(Arc::clone(&db));
 
     // Read Genesis file
-    let genesis = initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
+    let (genesis, network_name) =
+        initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
 
     // Libp2p service setup
-    // TODO need to set network name
-    // config.network.set_network_name(&network_name);
+    config.network.set_network_name(&network_name);
     let p2p_service = Libp2pService::new(&config.network, net_keypair);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
     // Initialize ChainSyncer
     let chain_syncer = ChainSyncer::new(chain_store, network_send, network_rx, genesis).unwrap();
-    let genesis = chain_syncer
-        .chain_store
-        .genesis()
-        .unwrap()
-        .expect("Genesis should be set in constructor");
-    let network_name = chain_syncer
-        .state_manager
-        .get_network_name(genesis.state_root())
-        .expect(
-            "Genesis not initialized properly, failed to retrieve network name. \
-            Requires either a previously initialized genesis or with genesis config option set",
-        );
 
     // Start services
     let p2p_thread = task::spawn(async {
@@ -121,52 +76,4 @@ fn main() {
     drop(sync_thread);
 
     info!("Forest finish shutdown");
-}
-
-fn initialize_genesis<DB>(
-    genesis_fp: &Option<String>,
-    chain_store: &mut ChainStore<DB>,
-) -> Result<Tipset, Box<dyn std::error::Error>>
-where
-    DB: BlockStore,
-{
-    let genesis = match genesis_fp {
-        Some(path) => {
-            let file = File::open(path).expect("Could not open genesis file");
-            let reader = BufReader::new(file);
-            // Load genesis state into the database and get the Cid
-            let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader).unwrap();
-            if genesis_cids.len() != 1 {
-                panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
-            }
-
-            let genesis_block: BlockHeader =
-                chain_store.db.get(&genesis_cids[0])?.ok_or_else(|| {
-                    "Could not find genesis block despite being loaded using a genesis file"
-                        .to_owned()
-                })?;
-
-            let store_genesis = chain_store.genesis()?;
-
-            if store_genesis.is_some() && store_genesis.unwrap() == genesis_block {
-                debug!("Genesis from config matches Genesis from store");
-                genesis_block
-            } else {
-                debug!("Initialize ChainSyncer with new genesis from config");
-                chain_store.set_genesis(genesis_block.clone())?;
-                chain_store
-                    .set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))?;
-                genesis_block
-            }
-        }
-        None => {
-            debug!("No specified genesis in config. Attempting to load from store");
-            chain_store
-                .genesis()?
-                .ok_or_else(|| "No genesis provided by config or blockstore".to_owned())?
-        }
-    };
-
-    info!("Initialized genesis: {}", genesis);
-    Ok(Tipset::new(vec![genesis])?)
 }
