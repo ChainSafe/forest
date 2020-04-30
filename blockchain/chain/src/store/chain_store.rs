@@ -45,10 +45,13 @@ where
 {
     /// constructor
     pub fn new(db: Arc<DB>) -> Self {
+        let heaviest = get_heaviest_tipset(db.as_ref())
+            .unwrap_or(None)
+            .map(|ts| Arc::new(ts));
         Self {
             db,
             tip_index: TipIndex::new(),
-            heaviest: None,
+            heaviest,
         }
     }
 
