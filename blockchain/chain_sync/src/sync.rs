@@ -19,12 +19,15 @@ use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use crypto::verify_bls_aggregate;
 use encoding::{Cbor, Error as EncodingError};
-use forest_libp2p::{BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES};
+use forest_libp2p::{
+    hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
+};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
+use num_traits::Zero;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::cmp::min;
@@ -136,27 +139,44 @@ where
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
         while let Some(event) = self.network.receiver.next().await {
-            if let NetworkEvent::Hello { source, message } = &event {
-                info!(
-                    "Message inbound, heaviest tipset cid: {:?}",
-                    message.heaviest_tip_set
-                );
-                if let Ok(fts) = self
-                    .fetch_tipset(
-                        source.clone(),
-                        &TipSetKeys::new(message.heaviest_tip_set.clone()),
-                    )
-                    .await
-                {
-                    if self.inform_new_head(source.clone(), &fts).await.is_err() {
-                        warn!("Failed to sync with provided tipset",);
-                    };
-                } else {
-                    warn!(
-                        "Failed to fetch full tipset from peer: {} from storage or network",
-                        source,
+            match event {
+                NetworkEvent::Hello { source, message } => {
+                    info!(
+                        "Message inbound, heaviest tipset cid: {:?}",
+                        message.heaviest_tip_set
                     );
+                    if let Ok(fts) = self
+                        .fetch_tipset(
+                            source.clone(),
+                            &TipSetKeys::new(message.heaviest_tip_set.clone()),
+                        )
+                        .await
+                    {
+                        if self.inform_new_head(source.clone(), &fts).await.is_err() {
+                            warn!("Failed to sync with provided tipset",);
+                        };
+                    } else {
+                        warn!(
+                            "Failed to fetch full tipset from peer: {} from storage or network",
+                            source,
+                        );
+                    }
                 }
+                NetworkEvent::PeerDialed { peer_id } => {
+                    let heaviest = self.chain_store.heaviest_tipset().unwrap();
+                    self.network
+                        .hello_request(
+                            peer_id,
+                            HelloMessage {
+                                heaviest_tip_set: heaviest.cids().to_vec(),
+                                heaviest_tipset_height: heaviest.epoch(),
+                                heaviest_tipset_weight: heaviest.weight().clone(),
+                                genesis_hash: self.genesis.blocks()[0].cid().clone(),
+                            },
+                        )
+                        .await
+                }
+                _ => (),
             }
         }
         Ok(())
@@ -178,7 +198,7 @@ where
         }
 
         // Get heaviest tipset from storage to sync toward
-        let heaviest = self.chain_store.heaviest_tipset();
+        let heaviest = self.chain_store.heaviest_tipset().unwrap();
 
         info!("Starting block sync...");
 
@@ -331,9 +351,11 @@ where
         }
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let heaviest_tipset = self.chain_store.heaviest_tipset();
-        let best_weight = heaviest_tipset.blocks()[0].weight();
-        let target_weight = fts.blocks()[0].header().weight();
+        let best_weight = match self.chain_store.heaviest_tipset() {
+            Some(ts) => ts.weight().clone(),
+            None => Zero::zero(),
+        };
+        let target_weight = fts.weight();
 
         if target_weight.gt(&best_weight) {
             self.set_peer_head(peer, Arc::new(fts.to_tipset()?)).await?;
