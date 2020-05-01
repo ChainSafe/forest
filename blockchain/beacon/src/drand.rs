@@ -19,16 +19,18 @@ use std::sync::Arc;
 use tls_api_openssl::TlsConnector;
 
 #[derive(Clone, Debug)]
-/// Coeffiencients of the publicly available drand keys.
+/// Coeffiencients of the publicly available Drand keys.
 /// This is shared by all participants on the Drand network.
 pub struct DistPublic {
-    pub coefficients: [Vec<u8>; 3],
+    pub coefficients: [Vec<u8>; 4],
 }
+
 impl DistPublic {
     pub fn key(&self) -> PublicKey {
         PublicKey::from_bytes(&self.coefficients[0]).unwrap()
     }
 }
+
 pub struct DrandBeacon {
     client: PublicClient,
     pub_key: DistPublic,
@@ -51,7 +53,8 @@ impl DrandBeacon {
             panic!("what are you doing this cant be zero")
         }
         // construct grpc client
-        let client = grpc::ClientBuilder::new("drand-test1.nikkolasg.xyz", 5001)
+        // TODO: Allow to randomize between different drand servers
+        let client = grpc::ClientBuilder::new("nicolas.drand.fil-test.net", 443)
             .tls::<TlsConnector>()
             .build()
             .unwrap();
@@ -88,11 +91,7 @@ impl DrandBeacon {
             .drop_metadata()
             .await?;
 
-        Ok(BeaconEntry::new(
-            resp.round,
-            resp.signature,
-            resp.previous_round,
-        ))
+        Ok(BeaconEntry::new(resp.round, resp.signature, resp.round - 1))
     }
 
     /// Verify a new beacon entry against the most recent one before it.
@@ -107,27 +106,25 @@ impl DrandBeacon {
         }
         //Hash the messages
         let mut msg: Vec<u8> = Vec::with_capacity(112);
-        msg.write_u64::<BigEndian>(prev.round())?;
         msg.extend_from_slice(prev.data());
         msg.write_u64::<BigEndian>(curr.round())?;
-        // H(prev_round | prev sig | curr_round)
+        // H(prev sig | curr_round)
         let digest = sha2::Sha256::digest(&msg);
         // Hash to G2
         let digest = bls_signatures::hash(&digest);
         // Signature
         let sig = Signature::from_bytes(curr.data())?;
-        let _sig_match = bls_signatures::verify(&sig, &[digest], &[self.pub_key.key()]);
+        let sig_match = bls_signatures::verify(&sig, &[digest], &[self.pub_key.key()]);
         // TODO: Cache this result
-        // TODO: Return because right now Drand's BLS is different from ours
-        Ok(true)
+        Ok(sig_match)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::api_grpc::PublicClient;
-    use crate::common::GroupRequest;
+    use crate::drand_api::api_grpc::PublicClient;
+    use crate::drand_api::common::GroupRequest;
     use crate::group::Group;
     use bls_signatures::PublicKey;
     use grpc::ClientStub;
@@ -136,9 +133,10 @@ mod test {
 
     async fn new_beacon() -> DrandBeacon {
         let coeffs = [
-            hex::decode("a2a34cf9a6be2f66b5385caa520364f994ae7dbac08371ffaca575dfb3e04c8e149b32dc78f077322c613a151dc07440").unwrap(),
-            hex::decode("b0c5baca062191f13099229c9a229a9946204f74fc28baa212745243553ab1f50b581b2086e24374ceb40fe34bd23ca2").unwrap(),
-            hex::decode("a9c6449cf647e0a0ffaf1e01277e2821213c80310165990daf77610208abfa0ce56c7e40995e26aff3873c624362ca78").unwrap(),
+            hex::decode("82c279cce744450e68de98ee08f9698a01dd38f8e3be3c53f2b840fb9d09ad62a0b6b87981e179e1b14bc9a2d284c985").unwrap(),
+            hex::decode("82d51308ad346c686f81b8094551597d7b963295cbf313401a93df9baf52d5ae98a87745bee70839a4d6e65c342bd15b").unwrap(),
+            hex::decode("94eebfd53f4ba6a3b8304236400a12e73885e5a781509a5c8d41d2e8b476923d8ea6052649b3c17282f596217f96c5de").unwrap(),
+            hex::decode("8dc4231e42b4edf39e86ef1579401692480647918275da767d3e558c520d6375ad953530610fd27daf110187877a65d0").unwrap(),
         ];
         let dist_pub = DistPublic {
             coefficients: coeffs,
@@ -148,7 +146,7 @@ mod test {
 
     #[async_std::test]
     async fn construct_drand_beacon() {
-        new_beacon();
+        new_beacon().await;
     }
 
     #[async_std::test]
@@ -158,5 +156,14 @@ mod test {
         let e2 = beacon.entry(2).await.unwrap();
         let e3 = beacon.entry(3).await.unwrap();
         assert!(beacon.verify_entry(e3, e2).unwrap());
+    }
+
+    #[async_std::test]
+    async fn ask_and_verify_beacon_entry_fail() {
+        let beacon = new_beacon().await;
+
+        let e2 = beacon.entry(2).await.unwrap();
+        let e3 = beacon.entry(3).await.unwrap();
+        assert!(beacon.verify_entry(e2, e3).unwrap());
     }
 }

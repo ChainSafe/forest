@@ -187,7 +187,6 @@ pub struct PublicRandResponse {
     // message fields
     pub round: u64,
     pub signature: ::std::vec::Vec<u8>,
-    pub previous_round: u64,
     pub previous_signature: ::std::vec::Vec<u8>,
     pub randomness: ::std::vec::Vec<u8>,
     // special fields
@@ -247,22 +246,7 @@ impl PublicRandResponse {
         ::std::mem::replace(&mut self.signature, ::std::vec::Vec::new())
     }
 
-    // uint64 previous_round = 3;
-
-
-    pub fn get_previous_round(&self) -> u64 {
-        self.previous_round
-    }
-    pub fn clear_previous_round(&mut self) {
-        self.previous_round = 0;
-    }
-
-    // Param is passed by value, moved
-    pub fn set_previous_round(&mut self, v: u64) {
-        self.previous_round = v;
-    }
-
-    // bytes previous_signature = 4;
+    // bytes previous_signature = 3;
 
 
     pub fn get_previous_signature(&self) -> &[u8] {
@@ -288,7 +272,7 @@ impl PublicRandResponse {
         ::std::mem::replace(&mut self.previous_signature, ::std::vec::Vec::new())
     }
 
-    // bytes randomness = 5;
+    // bytes randomness = 4;
 
 
     pub fn get_randomness(&self) -> &[u8] {
@@ -335,16 +319,9 @@ impl ::protobuf::Message for PublicRandResponse {
                     ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.signature)?;
                 },
                 3 => {
-                    if wire_type != ::protobuf::wire_format::WireTypeVarint {
-                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
-                    }
-                    let tmp = is.read_uint64()?;
-                    self.previous_round = tmp;
-                },
-                4 => {
                     ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.previous_signature)?;
                 },
-                5 => {
+                4 => {
                     ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.randomness)?;
                 },
                 _ => {
@@ -365,14 +342,11 @@ impl ::protobuf::Message for PublicRandResponse {
         if !self.signature.is_empty() {
             my_size += ::protobuf::rt::bytes_size(2, &self.signature);
         }
-        if self.previous_round != 0 {
-            my_size += ::protobuf::rt::value_size(3, self.previous_round, ::protobuf::wire_format::WireTypeVarint);
-        }
         if !self.previous_signature.is_empty() {
-            my_size += ::protobuf::rt::bytes_size(4, &self.previous_signature);
+            my_size += ::protobuf::rt::bytes_size(3, &self.previous_signature);
         }
         if !self.randomness.is_empty() {
-            my_size += ::protobuf::rt::bytes_size(5, &self.randomness);
+            my_size += ::protobuf::rt::bytes_size(4, &self.randomness);
         }
         my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
         self.cached_size.set(my_size);
@@ -386,14 +360,11 @@ impl ::protobuf::Message for PublicRandResponse {
         if !self.signature.is_empty() {
             os.write_bytes(2, &self.signature)?;
         }
-        if self.previous_round != 0 {
-            os.write_uint64(3, self.previous_round)?;
-        }
         if !self.previous_signature.is_empty() {
-            os.write_bytes(4, &self.previous_signature)?;
+            os.write_bytes(3, &self.previous_signature)?;
         }
         if !self.randomness.is_empty() {
-            os.write_bytes(5, &self.randomness)?;
+            os.write_bytes(4, &self.randomness)?;
         }
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
@@ -444,11 +415,6 @@ impl ::protobuf::Message for PublicRandResponse {
                     |m: &PublicRandResponse| { &m.signature },
                     |m: &mut PublicRandResponse| { &mut m.signature },
                 ));
-                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeUint64>(
-                    "previous_round",
-                    |m: &PublicRandResponse| { &m.previous_round },
-                    |m: &mut PublicRandResponse| { &mut m.previous_round },
-                ));
                 fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
                     "previous_signature",
                     |m: &PublicRandResponse| { &m.previous_signature },
@@ -480,7 +446,6 @@ impl ::protobuf::Clear for PublicRandResponse {
     fn clear(&mut self) {
         self.round = 0;
         self.signature.clear();
-        self.previous_round = 0;
         self.previous_signature.clear();
         self.randomness.clear();
         self.unknown_fields.clear();
@@ -1911,34 +1876,33 @@ impl ::protobuf::reflect::ProtobufValue for Node {
 static file_descriptor_proto_data: &'static [u8] = b"\
     \n\tapi.proto\x12\x05drand\x1a\x1cgoogle/api/annotations.proto\x1a\x0cco\
     mmon.proto\")\n\x11PublicRandRequest\x12\x14\n\x05round\x18\x01\x20\x01(\
-    \x04R\x05round\"\xbe\x01\n\x12PublicRandResponse\x12\x14\n\x05round\x18\
+    \x04R\x05round\"\x97\x01\n\x12PublicRandResponse\x12\x14\n\x05round\x18\
     \x01\x20\x01(\x04R\x05round\x12\x1c\n\tsignature\x18\x02\x20\x01(\x0cR\t\
-    signature\x12%\n\x0eprevious_round\x18\x03\x20\x01(\x04R\rpreviousRound\
-    \x12-\n\x12previous_signature\x18\x04\x20\x01(\x0cR\x11previousSignature\
-    \x12\x1e\n\nrandomness\x18\x05\x20\x01(\x0cR\nrandomness\"<\n\x12Private\
-    RandRequest\x12&\n\x07request\x18\x02\x20\x01(\x0b2\x0c.drand.ECIESR\x07\
-    request\"?\n\x13PrivateRandResponse\x12(\n\x08response\x18\x01\x20\x01(\
-    \x0b2\x0c.drand.ECIESR\x08response\"[\n\x05ECIES\x12\x1c\n\tephemeral\
-    \x18\x01\x20\x01(\x0cR\tephemeral\x12\x1e\n\nciphertext\x18\x02\x20\x01(\
-    \x0cR\nciphertext\x12\x14\n\x05nonce\x18\x03\x20\x01(\x0cR\x05nonce\"\
-    \x10\n\x0eDistKeyRequest\"#\n\x0fDistKeyResponse\x12\x10\n\x03key\x18\
-    \x02\x20\x01(\x0cR\x03key\"\r\n\x0bHomeRequest\"&\n\x0cHomeResponse\x12\
-    \x16\n\x06status\x18\x01\x20\x01(\tR\x06status\"D\n\x04Node\x12\x18\n\
-    \x07address\x18\x01\x20\x01(\tR\x07address\x12\x10\n\x03key\x18\x02\x20\
-    \x01(\tR\x03key\x12\x10\n\x03TLS\x18\x03\x20\x01(\x08R\x03TLS2\xbb\x04\n\
-    \x06Public\x12m\n\nPublicRand\x12\x18.drand.PublicRandRequest\x1a\x19.dr\
-    and.PublicRandResponse\"*\x82\xd3\xe4\x93\x02$\x12\x0b/api/publicZ\x15\
-    \x12\x13/api/public/{round}\x12\x83\x01\n\x10PublicRandStream\x12\x18.dr\
-    and.PublicRandRequest\x1a\x19.drand.PublicRandResponse\"8\x82\xd3\xe4\
-    \x93\x022\x12\x12/api/public/streamZ\x1c\x12\x1a/api/public/stream/{roun\
-    d}0\x01\x12]\n\x0bPrivateRand\x12\x19.drand.PrivateRandRequest\x1a\x1a.d\
-    rand.PrivateRandResponse\"\x17\x82\xd3\xe4\x93\x02\x11\"\x0c/api/private\
-    :\x01*\x12I\n\x05Group\x12\x13.drand.GroupRequest\x1a\x12.drand.GroupPac\
-    ket\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/api/info/group\x12S\n\x07DistK\
-    ey\x12\x15.drand.DistKeyRequest\x1a\x16.drand.DistKeyResponse\"\x19\x82\
-    \xd3\xe4\x93\x02\x13\x12\x11/api/info/distkey\x12=\n\x04Home\x12\x12.dra\
-    nd.HomeRequest\x1a\x13.drand.HomeResponse\"\x0c\x82\xd3\xe4\x93\x02\x06\
-    \x12\x04/apiB\x07Z\x05drandb\x06proto3\
+    signature\x12-\n\x12previous_signature\x18\x03\x20\x01(\x0cR\x11previous\
+    Signature\x12\x1e\n\nrandomness\x18\x04\x20\x01(\x0cR\nrandomness\"<\n\
+    \x12PrivateRandRequest\x12&\n\x07request\x18\x02\x20\x01(\x0b2\x0c.drand\
+    .ECIESR\x07request\"?\n\x13PrivateRandResponse\x12(\n\x08response\x18\
+    \x01\x20\x01(\x0b2\x0c.drand.ECIESR\x08response\"[\n\x05ECIES\x12\x1c\n\
+    \tephemeral\x18\x01\x20\x01(\x0cR\tephemeral\x12\x1e\n\nciphertext\x18\
+    \x02\x20\x01(\x0cR\nciphertext\x12\x14\n\x05nonce\x18\x03\x20\x01(\x0cR\
+    \x05nonce\"\x10\n\x0eDistKeyRequest\"#\n\x0fDistKeyResponse\x12\x10\n\
+    \x03key\x18\x02\x20\x01(\x0cR\x03key\"\r\n\x0bHomeRequest\"&\n\x0cHomeRe\
+    sponse\x12\x16\n\x06status\x18\x01\x20\x01(\tR\x06status\"D\n\x04Node\
+    \x12\x18\n\x07address\x18\x01\x20\x01(\tR\x07address\x12\x10\n\x03key\
+    \x18\x02\x20\x01(\tR\x03key\x12\x10\n\x03TLS\x18\x03\x20\x01(\x08R\x03TL\
+    S2\xbb\x04\n\x06Public\x12m\n\nPublicRand\x12\x18.drand.PublicRandReques\
+    t\x1a\x19.drand.PublicRandResponse\"*\x82\xd3\xe4\x93\x02$\x12\x0b/api/p\
+    ublicZ\x15\x12\x13/api/public/{round}\x12\x83\x01\n\x10PublicRandStream\
+    \x12\x18.drand.PublicRandRequest\x1a\x19.drand.PublicRandResponse\"8\x82\
+    \xd3\xe4\x93\x022\x12\x12/api/public/streamZ\x1c\x12\x1a/api/public/stre\
+    am/{round}0\x01\x12]\n\x0bPrivateRand\x12\x19.drand.PrivateRandRequest\
+    \x1a\x1a.drand.PrivateRandResponse\"\x17\x82\xd3\xe4\x93\x02\x11\"\x0c/a\
+    pi/private:\x01*\x12I\n\x05Group\x12\x13.drand.GroupRequest\x1a\x12.dran\
+    d.GroupPacket\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/api/info/group\x12S\
+    \n\x07DistKey\x12\x15.drand.DistKeyRequest\x1a\x16.drand.DistKeyResponse\
+    \"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/api/info/distkey\x12=\n\x04Home\
+    \x12\x12.drand.HomeRequest\x1a\x13.drand.HomeResponse\"\x0c\x82\xd3\xe4\
+    \x93\x02\x06\x12\x04/apiB\x07Z\x05drandb\x06proto3\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy::INIT;
