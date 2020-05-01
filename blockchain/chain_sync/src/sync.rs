@@ -145,21 +145,21 @@ where
                         "Message inbound, heaviest tipset cid: {:?}",
                         message.heaviest_tip_set
                     );
-                    if let Ok(fts) = self
+                    match self
                         .fetch_tipset(
                             source.clone(),
                             &TipSetKeys::new(message.heaviest_tip_set.clone()),
                         )
                         .await
                     {
-                        if self.inform_new_head(source.clone(), &fts).await.is_err() {
-                            warn!("Failed to sync with provided tipset",);
-                        };
-                    } else {
-                        warn!(
-                            "Failed to fetch full tipset from peer: {} from storage or network",
-                            source,
-                        );
+                        Ok(fts) => {
+                            if self.inform_new_head(source.clone(), &fts).await.is_err() {
+                                warn!("Failed to sync with provided tipset",);
+                            };
+                        }
+                        Err(e) => {
+                            warn!("Failed to fetch full tipset from peer ({}): {}", source, e);
+                        }
                     }
                 }
                 NetworkEvent::PeerDialed { peer_id } => {
