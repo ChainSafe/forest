@@ -41,7 +41,7 @@ forest
 
 ### Config
 
-To run the node with custom config and bootnodes, the `--config` or `-c` flag can be used to specify a toml file with the options. The main configurations options include but are not limited to:
+To run the node with custom config and bootnodes, the `--config` or `-c` flag can be used to specify a TOML file with the options. The main configurations options include but are not limited to:
 
 ```toml
 data_dir = "<directory for all chain and networking data>"
