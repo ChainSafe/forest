@@ -8,7 +8,7 @@ use cid::Cid;
 use forest_car::load_car;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
-// use state_manager::StateManager;
+use state_manager::StateManager;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::include_bytes;
@@ -38,17 +38,16 @@ where
 
     info!("Initialized genesis: {}", genesis);
 
-    // TODO reenable this when go impls genesis fixed
-    // // This is just a workaround to get the network name before the sync process starts to use in
-    // // the pubsub topics, hopefully can be removed in future.
-    // let sm = StateManager::new(chain_store.db.clone());
-    // let network_name = sm.get_network_name(genesis.state_root()).expect(
-    //     "Genesis not initialized properly, failed to retrieve network name. \
-    //         Requires either a previously initialized genesis or with genesis config option set",
-    // );
+    // This is just a workaround to get the network name before the sync process starts to use in
+    // the pubsub topics, hopefully can be removed in future.
+    let sm = StateManager::new(chain_store.db.clone());
+    let network_name = sm.get_network_name(genesis.state_root()).expect(
+        "Genesis not initialized properly, failed to retrieve network name. \
+            Requires either a previously initialized genesis or with genesis config option set",
+    );
 
-    // Ok((Tipset::new(vec![genesis])?, network_name))
-    Ok((Tipset::new(vec![genesis])?, "interop".to_owned()))
+    Ok((Tipset::new(vec![genesis])?, network_name))
+    // Ok((Tipset::new(vec![genesis])?, "interop".to_owned()))
 }
 
 fn process_car<R, BS>(
