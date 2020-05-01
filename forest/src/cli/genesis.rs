@@ -15,6 +15,8 @@ use std::include_bytes;
 use std::io::BufReader;
 use std::sync::Arc;
 
+/// Uses an optional file path or the default genesis to parse the genesis and determine if
+/// chain store has existing data for the given genesis.
 pub fn initialize_genesis<BS>(
     genesis_fp: &Option<String>,
     chain_store: &mut ChainStore<BS>,
@@ -47,7 +49,6 @@ where
     );
 
     Ok((Tipset::new(vec![genesis])?, network_name))
-    // Ok((Tipset::new(vec![genesis])?, "interop".to_owned()))
 }
 
 fn process_car<R, BS>(

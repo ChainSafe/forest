@@ -57,7 +57,7 @@ pub(super) fn cli() -> Result<Config, io::Error> {
     Ok(cfg)
 }
 
-// Blocks current thread until ctrl-c is received
+/// Blocks current thread until ctrl-c is received
 pub(super) fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
     let ctrlc_send_c = RefCell::new(Some(ctrlc_send));

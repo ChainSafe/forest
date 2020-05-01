@@ -14,6 +14,7 @@ pub struct Libp2pConfig {
 }
 
 impl Libp2pConfig {
+    /// Sets the pubsub topics to the network name provided
     pub fn set_network_name(&mut self, s: &str) {
         self.pubsub_topics = vec![
             Topic::new(format!("/fil/blocks/{}", s)),
