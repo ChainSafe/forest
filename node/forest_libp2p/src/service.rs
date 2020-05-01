@@ -41,6 +41,9 @@ pub enum NetworkEvent {
         source: PeerId,
         message: HelloMessage,
     },
+    PeerDialed {
+        peer_id: PeerId,
+    },
 }
 
 /// Events into this Service
@@ -116,11 +119,9 @@ impl Libp2pService {
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
                             debug!("Peer dialed, {:?}", peer_id);
-                            // TODO send non-default Hello Message
-                            swarm_stream.get_mut().send_rpc(
-                                peer_id,
-                                RPCEvent::Request(0, RPCRequest::Hello(HelloMessage::default())),
-                            );
+                            self.network_sender_out.send(NetworkEvent::PeerDialed{
+                                peer_id
+                            }).await;
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
                             debug!("Peer disconnected, {:?}", peer_id);

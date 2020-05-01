@@ -13,11 +13,20 @@ pub struct Libp2pConfig {
     pub pubsub_topics: Vec<Topic>,
 }
 
+impl Libp2pConfig {
+    /// Sets the pubsub topics to the network name provided
+    pub fn set_network_name(&mut self, s: &str) {
+        self.pubsub_topics = vec![
+            Topic::new(format!("/fil/blocks/{}", s)),
+            Topic::new(format!("/fil/msgs/{}", s)),
+        ]
+    }
+}
+
 impl Default for Libp2pConfig {
     fn default() -> Self {
         Libp2pConfig {
             listening_multiaddr: "/ip4/0.0.0.0/tcp/0".to_owned(),
-            // TODO check to ensure topics are accurate
             pubsub_topics: vec![
                 Topic::new("/fil/blocks/interop".to_owned()),
                 Topic::new("/fil/msgs/interop".to_owned()),

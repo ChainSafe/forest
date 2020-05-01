@@ -13,18 +13,21 @@ use amt::Amt;
 use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
-use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
+use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use crypto::verify_bls_aggregate;
 use encoding::{Cbor, Error as EncodingError};
-use forest_libp2p::{BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES};
+use forest_libp2p::{
+    hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
+};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
+use num_traits::Zero;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::cmp::min;
@@ -96,49 +99,11 @@ where
     DB: BlockStore,
 {
     pub fn new(
-        mut chain_store: ChainStore<DB>,
+        chain_store: ChainStore<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
-        genesis_cid: Option<Cid>,
+        genesis: Tipset,
     ) -> Result<Self, Error> {
-        let genesis = match genesis_cid {
-            Some(genesis_cid) => {
-                let genesis_block: BlockHeader =
-                    chain_store.db.get(&genesis_cid)
-                    .map_err(|e| Error::Other(e.to_string()))?
-                    .ok_or_else(|| Error::Other("Could not find genesis block despite being loaded using a genesis file".to_owned()))?;
-
-                let store_genesis = chain_store.genesis()?;
-
-                if store_genesis.is_some() && store_genesis.unwrap() == genesis_block {
-                    debug!("Genesis from config matches Genesis from store");
-                    Tipset::new(vec![genesis_block])?
-                } else {
-                    debug!("Initialize ChainSyncer with new genesis from config");
-                    chain_store.set_genesis(genesis_block.clone())?;
-                    let tipset = Tipset::new(vec![genesis_block])?;
-                    chain_store.set_heaviest_tipset(Arc::new(tipset.clone()))?;
-                    tipset
-                }
-            }
-            None => {
-                debug!("No specified genesis in config. Attempting to load from store");
-                match chain_store.genesis()? {
-                    Some(store_genesis) => Tipset::new(vec![store_genesis])?,
-                    None => {
-                        return Err(Error::Other(
-                            "No genesis provided by config or blockstore".to_owned(),
-                        ))
-                    }
-                }
-            }
-        };
-
-        info!(
-            "Initializing ChainSyncer with genesis: {:?}",
-            genesis.key().cids[0]
-        );
-
         let state_manager = StateManager::new(chain_store.db.clone());
 
         // Split incoming channel to handle blocksync requests
@@ -174,27 +139,44 @@ where
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
         while let Some(event) = self.network.receiver.next().await {
-            if let NetworkEvent::Hello { source, message } = &event {
-                info!(
-                    "Message inbound, heaviest tipset cid: {:?}",
-                    message.heaviest_tip_set
-                );
-                if let Ok(fts) = self
-                    .fetch_tipset(
-                        source.clone(),
-                        &TipSetKeys::new(message.heaviest_tip_set.clone()),
-                    )
-                    .await
-                {
-                    if self.inform_new_head(source.clone(), &fts).await.is_err() {
-                        warn!("Failed to sync with provided tipset",);
-                    };
-                } else {
-                    warn!(
-                        "Failed to fetch full tipset from peer: {} from storage or network",
-                        source,
+            match event {
+                NetworkEvent::Hello { source, message } => {
+                    info!(
+                        "Message inbound, heaviest tipset cid: {:?}",
+                        message.heaviest_tip_set
                     );
+                    match self
+                        .fetch_tipset(
+                            source.clone(),
+                            &TipSetKeys::new(message.heaviest_tip_set.clone()),
+                        )
+                        .await
+                    {
+                        Ok(fts) => {
+                            if self.inform_new_head(source.clone(), &fts).await.is_err() {
+                                warn!("Failed to sync with provided tipset",);
+                            };
+                        }
+                        Err(e) => {
+                            warn!("Failed to fetch full tipset from peer ({}): {}", source, e);
+                        }
+                    }
                 }
+                NetworkEvent::PeerDialed { peer_id } => {
+                    let heaviest = self.chain_store.heaviest_tipset().unwrap();
+                    self.network
+                        .hello_request(
+                            peer_id,
+                            HelloMessage {
+                                heaviest_tip_set: heaviest.cids().to_vec(),
+                                heaviest_tipset_height: heaviest.epoch(),
+                                heaviest_tipset_weight: heaviest.weight().clone(),
+                                genesis_hash: self.genesis.blocks()[0].cid().clone(),
+                            },
+                        )
+                        .await
+                }
+                _ => (),
             }
         }
         Ok(())
@@ -216,7 +198,7 @@ where
         }
 
         // Get heaviest tipset from storage to sync toward
-        let heaviest = self.chain_store.heaviest_tipset();
+        let heaviest = self.chain_store.heaviest_tipset().unwrap();
 
         info!("Starting block sync...");
 
@@ -369,9 +351,11 @@ where
         }
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let heaviest_tipset = self.chain_store.heaviest_tipset();
-        let best_weight = heaviest_tipset.blocks()[0].weight();
-        let target_weight = fts.blocks()[0].header().weight();
+        let best_weight = match self.chain_store.heaviest_tipset() {
+            Some(ts) => ts.weight().clone(),
+            None => Zero::zero(),
+        };
+        let target_weight = fts.weight();
 
         if target_weight.gt(&best_weight) {
             self.set_peer_head(peer, Arc::new(fts.to_tipset()?)).await?;
@@ -874,20 +858,27 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std::sync::Sender;
     use blocks::BlockHeader;
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
-    fn chain_syncer_setup<DB>(chain_store: ChainStore<DB>) -> ChainSyncer<DB>
-    where
-        DB: BlockStore,
-    {
-        let (local_sender, _test_receiver) = channel(20);
-        let (_event_sender, event_receiver) = channel(20);
+    fn chain_syncer_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
+        let mut chain_store = ChainStore::new(db);
 
-        ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap()
+        let (local_sender, _test_receiver) = channel(20);
+        let (event_sender, event_receiver) = channel(20);
+
+        let gen = dummy_header();
+        chain_store.set_genesis(gen.clone()).unwrap();
+
+        let genesis_ts = Tipset::new(vec![gen]).unwrap();
+        (
+            ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap(),
+            event_sender,
+        )
     }
 
     fn send_blocksync_response(event_sender: Sender<NetworkEvent>) {
@@ -896,7 +887,8 @@ mod tests {
         task::block_on(async {
             event_sender
                 .send(NetworkEvent::RPCResponse {
-                    req_id: 0,
+                    // TODO update this, only matching first index of requestId
+                    req_id: 1,
                     response: rpc_response,
                 })
                 .await;
@@ -915,28 +907,16 @@ mod tests {
     #[test]
     fn chainsync_constructor() {
         let db = Arc::new(MemoryDB::default());
-        let mut chain_store = ChainStore::new(db);
-        let (local_sender, _test_receiver) = channel(20);
-        let (_event_sender, event_receiver) = channel(20);
 
-        let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header).unwrap();
         // Test just makes sure that the chain syncer can be created without using a live database or
         // p2p network (local channels to simulate network messages and responses)
-        let _chain_syncer =
-            ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap();
+        let _chain_syncer = chain_syncer_setup(db);
     }
 
     #[test]
     fn sync_headers_reverse_given_tipsets_test() {
         let db = Arc::new(MemoryDB::default());
-        let mut chain_store = ChainStore::new(db);
-        let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header).unwrap();
-
-        let (local_sender, _test_receiver) = channel(20);
-        let (event_sender, event_receiver) = channel(20);
-        let mut cs = ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap();
+        let (mut cs, event_sender) = chain_syncer_setup(db);
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
         // send blocksync response to channel
@@ -958,17 +938,13 @@ mod tests {
 
     #[test]
     fn compute_msg_data_given_msgs_test() {
+        let db = Arc::new(MemoryDB::default());
+        let (cs, _) = chain_syncer_setup(db);
+
         let (bls, secp) = construct_messages();
 
-        let db = Arc::new(MemoryDB::default());
-        let mut chain_store = ChainStore::new(db);
-        let gen_header = dummy_header();
-        chain_store.set_genesis(gen_header).unwrap();
-
-        let cs = chain_syncer_setup(chain_store);
-
         let expected_root =
-            Cid::from_raw_cid("bafy2bzaced5inutkibck2wagtnggbvjpbr65ghdncivs3gpagx67s3xs3i5wa")
+            Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
         let root = cs.compute_msg_data(&[bls], &[secp]).unwrap();
