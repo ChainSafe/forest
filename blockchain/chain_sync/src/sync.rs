@@ -944,7 +944,7 @@ mod tests {
         let (bls, secp) = construct_messages();
 
         let expected_root =
-            Cid::from_raw_cid("bafy2bzaced5inutkibck2wagtnggbvjpbr65ghdncivs3gpagx67s3xs3i5wa")
+            Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
         let root = cs.compute_msg_data(&[bls], &[secp]).unwrap();
