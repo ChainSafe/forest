@@ -164,6 +164,6 @@ mod test {
 
         let e2 = beacon.entry(2).await.unwrap();
         let e3 = beacon.entry(3).await.unwrap();
-        assert!(beacon.verify_entry(e2, e3).unwrap());
+        assert_ne!(beacon.verify_entry(e2, e3).unwrap());
     }
 }
