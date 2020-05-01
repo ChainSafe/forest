@@ -41,7 +41,13 @@ forest
 
 ### Config
 
-To run the node with custom config and bootnodes, the `--config` or `-c` flag can be used to specify a TOML file with the options. The main configurations options include but are not limited to:
+Run the node with custom config and bootnodes
+
+```bash
+forest --config /path/to/your_config.toml
+```
+
+Example of config options available:
 
 ```toml
 data_dir = "<directory for all chain and networking data>"
