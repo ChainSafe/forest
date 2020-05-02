@@ -12,4 +12,4 @@ thiserror = "1.0"
 [dependencies.cid]
 package = "forest_cid"
 path = "../ipld/cid"
-features = ["serde_derive"]
+features = ["cbor"]

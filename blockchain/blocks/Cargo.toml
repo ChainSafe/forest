@@ -10,7 +10,7 @@ beacon = { package = "beacon", path = "../beacon" }
 crypto = { path = "../../crypto" }
 message = { package = "forest_message", path = "../../vm/message" }
 clock = { path = "../../node/clock" }
-cid = { package = "forest_cid", path = "../../ipld/cid", features = ["serde_derive"] }
+cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor"] }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 encoding = { package = "forest_encoding", path = "../../encoding" }

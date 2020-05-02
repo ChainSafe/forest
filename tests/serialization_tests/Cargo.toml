@@ -9,7 +9,7 @@ serde_tests = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-cid = { package = "forest_cid", path = "../../ipld/cid", features = ["serde_derive"] }
+cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor"] }
 crypto = { path = "../../crypto" }
 base64 = "0.12.0"
 

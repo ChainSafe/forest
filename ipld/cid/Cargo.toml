@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [package.metadata.docs.rs]
-features = ["serde_derive"]
+features = ["cbor"]
 
 [dependencies]
 multihash = "0.10.0"
@@ -17,4 +17,4 @@ serde_bytes = { version = "0.11.3", optional = true }
 thiserror = "1.0"
 
 [features]
-serde_derive = ["serde", "serde_bytes", "serde_cbor"]
+cbor = ["serde", "serde_bytes", "serde_cbor"]
