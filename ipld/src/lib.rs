@@ -3,8 +3,10 @@
 
 mod de;
 mod error;
-pub mod json;
 mod ser;
+
+#[cfg(feature = "json")]
+pub mod json;
 
 pub use self::error::Error;
 

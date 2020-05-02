@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![cfg(feature = "json")]
+
 use forest_ipld::{
     json::{self, IpldJson, IpldJsonRef},
     Ipld,
@@ -123,4 +125,3 @@ fn link_edge_case() {
     let IpldJson(ipld_d) = from_str(test_json).unwrap();
     assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");
 }
-

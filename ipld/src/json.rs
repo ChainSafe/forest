@@ -62,13 +62,13 @@ impl TryFrom<&Ipld> for JsonValue {
             Ipld::Bytes(bz) => json!({ "/": { "base64": base64::encode(bz) } }),
             Ipld::Link(cid) => json!({ "/": cid.to_string() }),
             Ipld::List(list) => JsonValue::Array(
-                list.into_iter()
+                list.iter()
                     .map(JsonValue::try_from)
                     .collect::<Result<_, _>>()?,
             ),
             Ipld::Map(map) => {
                 let mut new = Map::new();
-                for (k, v) in map.into_iter() {
+                for (k, v) in map.iter() {
                     new.insert(k.to_string(), JsonValue::try_from(v)?);
                 }
                 JsonValue::Object(new)
