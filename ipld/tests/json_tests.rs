@@ -6,7 +6,7 @@ use forest_ipld::{
     Ipld,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, to_string, Value};
+use serde_json::{from_str, to_string};
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
 
@@ -74,31 +74,32 @@ fn deserialize_json_symmetric() {
     assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");
 }
 
-// #[derive(Serialize, Deserialize, Clone)]
-// struct TestStruct {
-//     name: String,
-//     details: Cid,
-// }
+#[test]
+fn annotating_struct_json() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct TestStruct {
+        #[serde(with = "json")]
+        one: Ipld,
+        other: String,
+    }
+    let test_json = r#"
+            {
+                "one": [{ "/": "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n" }, null, 8],
+                "other": "Some data"
+            }
+        "#;
+    let expected = TestStruct {
+        one: Ipld::List(vec![
+            Ipld::Link(
+                "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"
+                    .parse()
+                    .unwrap(),
+            ),
+            Ipld::Null,
+            Ipld::Integer(8),
+        ]),
+        other: "Some data".to_owned(),
+    };
 
-// #[test]
-// fn encode_new_type() {
-//     let details = Cid::new_from_cbor(&[1, 2, 3], Blake2b256);
-//     let name = "Test".to_string();
-//     let t_struct = TestStruct {
-//         name: name.clone(),
-//         details: details.clone(),
-//     };
-//     let struct_encoded = to_vec(&t_struct).unwrap();
-
-//     // Test to make sure struct can be encoded and decoded without IPLD
-//     let struct_decoded: TestStruct = from_slice(&struct_encoded).unwrap();
-//     assert_eq!(&struct_decoded.name, &name);
-//     assert_eq!(&struct_decoded.details, &details.clone());
-
-//     // Test ipld decoding
-//     let ipld_decoded: Ipld = from_slice(&struct_encoded).unwrap();
-//     let mut e_map = BTreeMap::<String, Ipld>::new();
-//     e_map.insert("details".to_string(), Ipld::Link(details));
-//     e_map.insert("name".to_string(), Ipld::String(name));
-//     assert_eq!(&ipld_decoded, &Ipld::Map(e_map));
-// }
+    assert_eq!(from_str::<TestStruct>(test_json).unwrap(), expected);
+}
