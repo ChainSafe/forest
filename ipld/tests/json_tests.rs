@@ -103,3 +103,24 @@ fn annotating_struct_json() {
 
     assert_eq!(from_str::<TestStruct>(test_json).unwrap(), expected);
 }
+
+#[test]
+fn link_edge_case() {
+    // Test ported from go-ipld-prime (making sure edge case is handled)
+    let test_json = r#"{"/":{"/":"QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"}}"#;
+    let expected = Ipld::Map(BTreeMap::from_iter(
+        [(
+            "/".to_owned(),
+            Ipld::Link(
+                "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"
+                    .parse()
+                    .unwrap(),
+            ),
+        )]
+        .to_vec(),
+    ));
+
+    let IpldJson(ipld_d) = from_str(test_json).unwrap();
+    assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");
+}
+
