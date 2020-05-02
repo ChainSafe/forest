@@ -3,6 +3,7 @@
 
 mod de;
 mod error;
+pub mod json;
 mod ser;
 
 pub use self::error::Error;
