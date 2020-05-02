@@ -31,6 +31,9 @@ const CBOR_TAG_CID: u64 = 42;
 #[cfg(feature = "cbor")]
 const MULTIBASE_IDENTITY: u8 = 0;
 
+#[cfg(feature = "json")]
+pub mod json;
+
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Prefix {
