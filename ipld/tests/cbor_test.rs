@@ -1,9 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{multihash::Blake2b256, Cid};
+use cid::{
+    multihash::{Blake2b256, Identity},
+    Cid,
+};
 use encoding::{from_slice, to_vec};
-use forest_ipld::{ipld, Ipld};
+use forest_ipld::{ipld, to_ipld, Ipld};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -33,4 +36,29 @@ fn encode_new_type() {
         &ipld_decoded,
         &ipld!({"details": Link(details), "name": "Test"})
     );
+}
+
+#[test]
+fn cid_conversions_ipld() {
+    let cid = Cid::new_from_cbor(&[1, 2, 3], Blake2b256);
+    let m_s = TestStruct {
+        name: "s".to_owned(),
+        details: cid.clone(),
+    };
+    assert_eq!(
+        to_ipld(&m_s).unwrap(),
+        ipld!({"name": "s", "details": Link(cid.clone()) })
+    );
+    let serialized = to_vec(&cid).unwrap();
+    let ipld = ipld!(Link(cid.clone()));
+    let ipld2 = to_ipld(&cid).unwrap();
+    assert_eq!(ipld, ipld2);
+    assert_eq!(to_vec(&ipld).unwrap(), serialized);
+    assert_eq!(to_ipld(&cid).unwrap(), Ipld::Link(cid));
+
+    // Test with identity hash (different length prefix for cbor)
+    let cid = Cid::new_from_cbor(&[1, 2], Identity);
+    let ipld = ipld!(Link(cid.clone()));
+    let ipld2 = to_ipld(&cid).unwrap();
+    assert_eq!(ipld, ipld2);
 }
