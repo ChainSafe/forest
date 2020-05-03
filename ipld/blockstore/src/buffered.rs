@@ -185,8 +185,7 @@ mod tests {
     use super::*;
     use cid::multihash::{Blake2b256, Identity};
     use commcid::{commitment_to_cid, FilecoinMultihashCode};
-    use forest_ipld::Ipld;
-    use std::collections::BTreeMap;
+    use forest_ipld::{ipld, Ipld};
 
     #[test]
     fn basic_buffered_store() {
@@ -212,14 +211,15 @@ mod tests {
         let identity_cid = buf_store.put(&0u8, Identity).unwrap();
 
         // Create map to insert into store
-        let mut map: BTreeMap<String, Ipld> = Default::default();
-        map.insert("array".to_owned(), Ipld::Link(arr_cid.clone()));
         let sealed_comm_cid = commitment_to_cid(&[7u8; 32], FilecoinMultihashCode::SealedV1);
-        map.insert("sealed".to_owned(), Ipld::Link(sealed_comm_cid.clone()));
         let unsealed_comm_cid = commitment_to_cid(&[5u8; 32], FilecoinMultihashCode::UnsealedV1);
-        map.insert("unsealed".to_owned(), Ipld::Link(unsealed_comm_cid.clone()));
-        map.insert("identity".to_owned(), Ipld::Link(identity_cid.clone()));
-        map.insert("value".to_owned(), Ipld::String(str_val.to_owned()));
+        let map = ipld!({
+            "array": Link(arr_cid.clone()),
+            "sealed": Link(sealed_comm_cid.clone()),
+            "unsealed": Link(unsealed_comm_cid.clone()),
+            "identity": Link(identity_cid.clone()),
+            "value": str_val,
+        });
         let map_cid = buf_store.put(&map, Blake2b256).unwrap();
 
         let root_cid = buf_store.put(&(map_cid.clone(), 1u8), Blake2b256).unwrap();
@@ -238,10 +238,10 @@ mod tests {
             mem.get::<(String, u8)>(&arr_cid).unwrap(),
             Some((str_val.to_owned(), value))
         );
-        assert_eq!(mem.get::<Ipld>(&map_cid).unwrap(), Some(Ipld::Map(map)));
+        assert_eq!(mem.get::<Ipld>(&map_cid).unwrap(), Some(map));
         assert_eq!(
             mem.get::<Ipld>(&root_cid).unwrap(),
-            Some(Ipld::List(vec![Ipld::Link(map_cid), Ipld::Integer(1)]))
+            Some(ipld!([Link(map_cid), 1]))
         );
         assert_eq!(buf_store.get::<u8>(&identity_cid).unwrap(), None);
         assert_eq!(buf_store.get::<Ipld>(&unsealed_comm_cid).unwrap(), None);
