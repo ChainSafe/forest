@@ -8,6 +8,9 @@ mod ser;
 #[cfg(feature = "json")]
 pub mod json;
 
+#[macro_use]
+mod macros;
+
 pub use self::error::Error;
 
 use cid::Cid;

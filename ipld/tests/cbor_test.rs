@@ -3,9 +3,8 @@
 
 use cid::{multihash::Blake2b256, Cid};
 use encoding::{from_slice, to_vec};
-use forest_ipld::Ipld;
+use forest_ipld::{ipld, Ipld};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct TestStruct {
@@ -30,8 +29,8 @@ fn encode_new_type() {
 
     // Test ipld decoding
     let ipld_decoded: Ipld = from_slice(&struct_encoded).unwrap();
-    let mut e_map = BTreeMap::<String, Ipld>::new();
-    e_map.insert("details".to_string(), Ipld::Link(details));
-    e_map.insert("name".to_string(), Ipld::String(name));
-    assert_eq!(&ipld_decoded, &Ipld::Map(e_map));
+    assert_eq!(
+        &ipld_decoded,
+        &ipld!({"details": Link(details), "name": "Test"})
+    );
 }
