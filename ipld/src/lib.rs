@@ -113,7 +113,10 @@ pub fn from_ipld<T>(value: &Ipld) -> Result<T, String>
 where
     T: DeserializeOwned,
 {
-    // TODO find a way to convert without going through byte buffer
+    // TODO update to not go through byte buffer to convert
+    // There is a good amount of overhead for this (having to implement serde::Deserializer)
+    // for Ipld, but possible. The benefit isn't worth changing yet since if the value is not
+    // passed by reference as needed by HAMT, then the values will have to be cloned.
     let buf = to_vec(value).map_err(|e| e.to_string())?;
     from_slice(buf.as_slice()).map_err(|e| e.to_string())
 }
