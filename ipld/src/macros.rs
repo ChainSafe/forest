@@ -13,8 +13,8 @@
 /// let value = ipld!({
 ///     "code": 200,
 ///     "success": true,
-///     "link": "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse::<Cid>().unwrap(),
-///     "bytes": vec![0x1, 0xfa, 0x8b],
+///     "link": Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap()),
+///     "bytes": Bytes(vec![0x1, 0xfa, 0x8b]),
 ///     "payload": {
 ///         "features": [
 ///             "serde",
