@@ -213,8 +213,6 @@ fn sending_constructor_failure() {
 
     // Create the next id address
     let expected_id_addr = Address::new_id(100).unwrap();
-
-    //rt.actor_code_cids.insert(expected_id_addr.clone(), POWER_ACTOR_CODE_ID.clone() );
     rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
     let fake_params = ConstructorParams {
@@ -229,22 +227,23 @@ fn sending_constructor_failure() {
         ExitCode::ErrIllegalState.clone(),
     );
 
-    // Only thr storage power actor can create a storage miner. Init actor creating it should result in failure
     let error = exec_and_verify(&mut rt, MINER_ACTOR_CODE_ID.clone(), &fake_params)
         .expect_err("sending constructor should have failed");
+
     let error_exit_code = error.exit_code();
+
     assert_eq!(
         error_exit_code,
         ExitCode::ErrIllegalState,
         "Exit Code that is returned is not ErrIllegalState"
     );
 
-    // The send command from earlier should have failed. So you shouldnt be able to see the address
     let state: State = rt.get_state().unwrap();
+
     let returned_address = state
         .resolve_address(rt.store, &unique_address)
         .expect_err("Address resolution should have failed");
-    // Error is returned as string. Doing it in the lazy way for this PR
+
     assert_eq!(
         returned_address, "Address not found",
         "Addresses should have not been found"
@@ -300,12 +299,23 @@ where
         .build()
         .unwrap();
 
+    //Get the previous state so if call fails u can revert
+    let prev_state = rt.state.clone();
+
     let ret = rt.call(
         &*INIT_ACTOR_CODE_ID,
         2,
         &Serialized::serialize(&exec_params).unwrap(),
     );
-    println!("{:?}", ret);
+
+    // Revert state if call fails
+    let ret = match ret {
+        Ok(v) => Ok(v),
+        Err(e) => {
+            rt.state = prev_state;
+            Err(e)
+        }
+    };
 
     rt.verify();
     ret

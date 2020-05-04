@@ -426,7 +426,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         params: &Serialized,
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError> {
-        //self.require_in_call();
+        self.require_in_call();
         if self.in_transaction {
             return Err(self.abort(
                 ExitCode::SysErrorIllegalActor,
@@ -458,7 +458,16 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         }
         self.balance -= value;
 
-        return Ok(expected_msg.send_return);
+        match expected_msg.exit_code {
+            ExitCode::Ok => return Ok(expected_msg.send_return),
+            x => {
+                return Err(ActorError {
+                    fatal: false,
+                    exit_code: x,
+                    msg: "Expected message Fail".to_string(),
+                });
+            }
+        }
     }
 
     fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {

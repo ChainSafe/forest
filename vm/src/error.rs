@@ -11,11 +11,11 @@ use crate::ExitCode;
 #[error("ActorError(fatal: {fatal}, exit_code: {exit_code:?}, msg: {msg})")]
 pub struct ActorError {
     /// Is this a fatal error.
-    fatal: bool,
+    pub fatal: bool,
     /// The exit code for this invocation, must not be `0`.
-    exit_code: ExitCode,
+    pub exit_code: ExitCode,
     /// Message for debugging purposes,
-    msg: String,
+    pub msg: String,
 }
 
 impl ActorError {

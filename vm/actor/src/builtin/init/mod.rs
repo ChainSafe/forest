@@ -87,18 +87,22 @@ impl Actor {
 
         // Invoke constructor
 
-        rt.send(
-            &id_address,
-            METHOD_CONSTRUCTOR,
-            &params.constructor_params,
-            &rt.message().value().clone(),
-        )
-        .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))?;
+        let v = rt
+            .send(
+                &id_address,
+                1,
+                &params.constructor_params,
+                &rt.message().value().clone(),
+            )
+            .map_err(|err| rt.abort(err.exit_code(), "constructor failed"));
 
-        Ok(ExecReturn {
-            id_address,
-            robust_address,
-        })
+        match v {
+            Ok(_) => Ok(ExecReturn {
+                id_address,
+                robust_address,
+            }),
+            Err(e) => Err(e),
+        }
     }
 }
 
