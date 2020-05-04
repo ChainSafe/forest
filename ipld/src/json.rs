@@ -1,11 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Ipld;
+use super::{ipld, Ipld};
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{json, Map, Number, Value as JsonValue};
 use std::collections::BTreeMap;
-use std::convert::{TryFrom, TryInto};
+use std::fmt;
+
+const BYTES_JSON_KEY: &str = "bytes";
 
 /// Wrapper for serializing and deserializing a Ipld from JSON.
 #[derive(Deserialize, Serialize)]
@@ -17,124 +18,180 @@ pub struct IpldJson(#[serde(with = "self")] pub Ipld);
 #[serde(transparent)]
 pub struct IpldJsonRef<'a>(#[serde(with = "self")] pub &'a Ipld);
 
-// TODO serialize and deserialize should not have to go through a Json value buffer
-// (unnecessary clones and copies) but the efficiency for JSON shouldn't matter too much
-
 pub fn serialize<S>(ipld: &Ipld, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    JsonValue::try_from(ipld)
-        .map_err(ser::Error::custom)?
-        .serialize(serializer)
+    match &ipld {
+        Ipld::Null => serializer.serialize_none(),
+        Ipld::Bool(bool) => serializer.serialize_bool(*bool),
+        Ipld::Integer(i128) => serializer.serialize_i128(*i128),
+        Ipld::Float(f64) => serializer.serialize_f64(*f64),
+        Ipld::String(string) => serializer.serialize_str(&string),
+        Ipld::Bytes(bytes) => serialize(
+            &ipld!({ "/": { BYTES_JSON_KEY: base64::encode(bytes) } }),
+            serializer,
+        ),
+        Ipld::List(list) => {
+            let wrapped = list.iter().map(|ipld| IpldJsonRef(ipld));
+            serializer.collect_seq(wrapped)
+        }
+        Ipld::Map(map) => {
+            let wrapped = map.iter().map(|(key, ipld)| (key, IpldJsonRef(ipld)));
+            serializer.collect_map(wrapped)
+        }
+        Ipld::Link(cid) => serialize(&ipld!({ "/": cid.to_string() }), serializer),
+    }
 }
 
 pub fn deserialize<'de, D>(deserializer: D) -> Result<Ipld, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(JsonValue::deserialize(deserializer)?
-        .try_into()
-        .map_err(de::Error::custom)?)
+    deserializer.deserialize_any(JSONVisitor)
 }
 
-impl TryFrom<&Ipld> for JsonValue {
-    type Error = &'static str;
+/// Json visitor for generating IPLD from JSON
+struct JSONVisitor;
+impl<'de> de::Visitor<'de> for JSONVisitor {
+    type Value = Ipld;
 
-    fn try_from(ipld: &Ipld) -> Result<Self, Self::Error> {
-        let val = match ipld {
-            Ipld::Null => JsonValue::Null,
-            Ipld::Bool(b) => JsonValue::Bool(*b),
-            Ipld::Integer(i) => {
-                let i = *i;
-                if i < 0 {
-                    let c = i64::try_from(i).map_err(|_| "Invalid precision for json number")?;
-                    JsonValue::Number(c.into())
-                } else {
-                    let c = u64::try_from(i).map_err(|_| "Invalid precision for json number")?;
-                    JsonValue::Number(c.into())
-                }
-            }
-            Ipld::Float(f) => JsonValue::Number(
-                Number::from_f64(*f).ok_or("Float does not have finite precision")?,
-            ),
-            Ipld::String(s) => JsonValue::String(s.clone()),
-            Ipld::Bytes(bz) => json!({ "/": { "base64": base64::encode(bz) } }),
-            Ipld::Link(cid) => json!({ "/": cid.to_string() }),
-            Ipld::List(list) => JsonValue::Array(
-                list.iter()
-                    .map(JsonValue::try_from)
-                    .collect::<Result<_, _>>()?,
-            ),
-            Ipld::Map(map) => {
-                let mut new = Map::new();
-                for (k, v) in map.iter() {
-                    new.insert(k.to_string(), JsonValue::try_from(v)?);
-                }
-                JsonValue::Object(new)
-            }
-        };
-        Ok(val)
+    fn expecting(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.write_str("any valid JSON value")
     }
-}
 
-impl TryFrom<JsonValue> for Ipld {
-    type Error = &'static str;
+    #[inline]
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_string(String::from(value))
+    }
 
-    fn try_from(json: JsonValue) -> Result<Self, Self::Error> {
-        let val = match json {
-            JsonValue::Null => Ipld::Null,
-            JsonValue::Bool(b) => Ipld::Bool(b),
-            JsonValue::Number(n) => {
-                if let Some(v) = n.as_u64() {
-                    Ipld::Integer(v.into())
-                } else if let Some(v) = n.as_i64() {
-                    Ipld::Integer(v.into())
-                } else if let Some(v) = n.as_f64() {
-                    Ipld::Float(v)
-                } else {
-                    // Json number can only be one of those three types
-                    unreachable!()
-                }
-            }
-            JsonValue::String(s) => Ipld::String(s),
-            JsonValue::Array(values) => Ipld::List(
-                values
-                    .into_iter()
-                    .map(Ipld::try_from)
-                    .collect::<Result<_, _>>()?,
-            ),
-            JsonValue::Object(map) => {
-                // Check for escaped values (Bytes and Cids)
-                if map.len() == 1 {
-                    if let Some(v) = map.get("/") {
-                        match v {
-                            JsonValue::String(s) => {
-                                // Json block is a Cid
-                                return Ok(Ipld::Link(
-                                    s.parse().map_err(|_| "Failed not parse cid string")?,
-                                ));
-                            }
-                            JsonValue::Object(obj) => {
-                                // Are other bytes encoding types supported?
-                                if let Some(JsonValue::String(bz)) = obj.get("base64") {
-                                    return Ok(Ipld::Bytes(
-                                        base64::decode(bz)
-                                            .map_err(|_| "Failed to parse base64 bytes")?,
-                                    ));
-                                }
-                            }
-                            _ => (),
+    #[inline]
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Ipld::String(value))
+    }
+    #[inline]
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_byte_buf(v.to_owned())
+    }
+
+    #[inline]
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Ipld::Bytes(v))
+    }
+
+    #[inline]
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Ipld::Integer(v.into()))
+    }
+
+    #[inline]
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Ipld::Integer(v.into()))
+    }
+
+    #[inline]
+    fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Ipld::Integer(v))
+    }
+
+    #[inline]
+    fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Ipld::Bool(v))
+    }
+
+    #[inline]
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_unit()
+    }
+
+    #[inline]
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Ipld::Null)
+    }
+
+    #[inline]
+    fn visit_seq<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
+    where
+        V: de::SeqAccess<'de>,
+    {
+        let mut vec = Vec::new();
+
+        while let Some(IpldJson(elem)) = visitor.next_element()? {
+            vec.push(elem);
+        }
+
+        Ok(Ipld::List(vec))
+    }
+
+    #[inline]
+    fn visit_map<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
+    where
+        V: de::MapAccess<'de>,
+    {
+        let mut map = BTreeMap::new();
+
+        while let Some((key, IpldJson(value))) = visitor.next_entry()? {
+            map.insert(key, value);
+        }
+
+        if map.len() == 1 {
+            if let Some(v) = map.get("/") {
+                match v {
+                    Ipld::String(s) => {
+                        // Json block is a Cid
+                        return Ok(Ipld::Link(s.parse().map_err(|e| de::Error::custom(e))?));
+                    }
+                    Ipld::Map(obj) => {
+                        // Are other bytes encoding types supported?
+                        if let Some(Ipld::String(bz)) = obj.get(BYTES_JSON_KEY) {
+                            return Ok(Ipld::Bytes(
+                                base64::decode(bz).map_err(|e| de::Error::custom(e.to_string()))?,
+                            ));
                         }
                     }
+                    _ => (),
                 }
-                let mut new = BTreeMap::new();
-                for (k, v) in map.into_iter() {
-                    new.insert(k, Ipld::try_from(v)?);
-                }
-                Ipld::Map(new)
             }
-        };
-        Ok(val)
+        }
+
+        Ok(Ipld::Map(map))
+    }
+
+    #[inline]
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Ipld::Float(v))
     }
 }
