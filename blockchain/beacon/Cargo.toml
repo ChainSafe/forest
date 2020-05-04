@@ -5,8 +5,8 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-grpc = { version = "0.7.0"}
-grpc-protobuf = { version = "0.7.0"}
+grpc = { version = "0.7.1"}
+grpc-protobuf = { version = "0.7.1"}
 protobuf = "2.14.0"
 
 httpbis =  "0.8.0"
@@ -27,4 +27,4 @@ groupy = "0.3.0"
 async-std = {version = "1.5.0", features = ["attributes"]}
 
 [build-dependencies]
-protoc-rust-grpc = { version = "0.7.0"}
+protoc-rust-grpc = { version = "0.7.1"}

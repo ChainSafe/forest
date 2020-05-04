@@ -104,8 +104,9 @@ impl DrandBeacon {
         if prev.round() == 0 {
             return Ok(true);
         }
+
         //Hash the messages
-        let mut msg: Vec<u8> = Vec::with_capacity(112);
+        let mut msg: Vec<u8> = Vec::with_capacity(104);
         msg.extend_from_slice(prev.data());
         msg.write_u64::<BigEndian>(curr.round())?;
         // H(prev sig | curr_round)
@@ -132,6 +133,7 @@ mod test {
     use std::sync::Arc;
 
     async fn new_beacon() -> DrandBeacon {
+        // Current public parameters, subject to change.
         let coeffs = [
             hex::decode("82c279cce744450e68de98ee08f9698a01dd38f8e3be3c53f2b840fb9d09ad62a0b6b87981e179e1b14bc9a2d284c985").unwrap(),
             hex::decode("82d51308ad346c686f81b8094551597d7b963295cbf313401a93df9baf52d5ae98a87745bee70839a4d6e65c342bd15b").unwrap(),
