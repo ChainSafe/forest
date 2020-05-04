@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0, MIT
 use protoc_rust_grpc::Codegen;
 fn main() {
     Codegen::new()

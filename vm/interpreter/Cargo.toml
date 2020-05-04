@@ -10,7 +10,6 @@ actor = { path = "../actor" }
 message = { package = "forest_message", path = "../message" }
 runtime = { path = "../runtime" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
-chain = { path = "../../blockchain/chain" }
 clock = { path = "../../node/clock" }
 vm = { path = "../" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
@@ -19,6 +18,10 @@ forest_encoding = { path = "../../encoding" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 crypto = { path = "../../crypto" } 
 num-traits = "0.2.11"
-default_runtime = { path = "../default_runtime" }
+byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }
 log = "0.4.8"
+db = { path = "../../node/db" }
+
+[dev-dependencies]
+ipld_hamt = { path = "../../ipld/hamt" }

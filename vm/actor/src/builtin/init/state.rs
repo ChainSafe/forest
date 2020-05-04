@@ -12,9 +12,9 @@ use vm::ActorID;
 
 /// State is reponsible for creating
 pub struct State {
-    address_map: Cid,
-    next_id: ActorID,
-    network_name: String,
+    pub address_map: Cid,
+    pub next_id: ActorID,
+    pub network_name: String,
 }
 
 impl State {

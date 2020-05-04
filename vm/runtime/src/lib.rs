@@ -15,6 +15,7 @@ use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use std::convert::TryFrom;
+use std::error::Error as StdError;
 use vm::{
     zero_piece_commitment, ActorError, ExitCode, MethodNum, PaddedPieceSize, PieceInfo, Randomness,
     RegisteredProof, SealVerifyInfo, Serialized, TokenAmount, WindowPoStVerifyInfo,
@@ -128,11 +129,6 @@ pub trait MessageInfo {
     fn value_received(&self) -> TokenAmount;
 }
 
-/// Default syscalls information
-#[derive(Copy, Clone, Debug)]
-pub struct DefaultSyscalls;
-impl Syscalls for DefaultSyscalls {}
-
 /// Pure functions implemented as primitives by the runtime.
 pub trait Syscalls {
     /// Verifies that a signature is valid for an address and plaintext.
@@ -141,13 +137,11 @@ pub trait Syscalls {
         signature: &Signature,
         signer: &Address,
         plaintext: &[u8],
-    ) -> Result<(), ActorError> {
-        signature
-            .verify(plaintext, signer)
-            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))
+    ) -> Result<(), Box<dyn StdError>> {
+        Ok(signature.verify(plaintext, signer)?)
     }
     /// Hashes input data using blake2b with 256 bit output.
-    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], ActorError> {
+    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
         Ok(blake2b_256(data))
     }
     /// Computes an unsealed sector CID (CommD) from its constituent piece CIDs (CommPs) and sizes.
@@ -155,7 +149,7 @@ pub trait Syscalls {
         &self,
         proof_type: RegisteredProof,
         pieces: &[PieceInfo],
-    ) -> Result<Cid, ActorError> {
+    ) -> Result<Cid, Box<dyn StdError>> {
         let sum: u64 = pieces.iter().map(|p| p.size.0).sum();
 
         let ssize = proof_type.sector_size() as u64;
@@ -188,12 +182,12 @@ pub trait Syscalls {
         Ok(data_commitment_v1_to_cid(&comm_d))
     }
     /// Verifies a sector seal proof.
-    fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), ActorError> {
+    fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
         // TODO
         todo!()
     }
     /// Verifies a proof of spacetime.
-    fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), ActorError> {
+    fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
         // TODO
         todo!()
     }
@@ -209,14 +203,11 @@ pub trait Syscalls {
     /// Returns nil and an error if the headers don't prove a fault.
     fn verify_consensus_fault(
         &self,
-        _h1: &[u8],
-        _h2: &[u8],
-        _extra: &[u8],
+        h1: &[u8],
+        h2: &[u8],
+        extra: &[u8],
         _earliest: ChainEpoch,
-    ) -> Result<ConsensusFault, ActorError> {
-        // TODO
-        todo!()
-    }
+    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>>;
 }
 
 /// Result of checking two headers for a consensus fault.

@@ -5,8 +5,8 @@ use clock::ChainEpoch;
 use forest_cid::Cid;
 use forest_encoding::{de::Deserializer, ser::Serializer};
 use num_bigint::{
-    bigint_ser::{BigIntDe, BigIntSer},
-    BigInt,
+    biguint_ser::{BigUintDe, BigUintSer},
+    BigUint,
 };
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 pub struct HelloMessage {
     pub heaviest_tip_set: Vec<Cid>,
     pub heaviest_tipset_height: ChainEpoch,
-    pub heaviest_tipset_weight: BigInt,
+    pub heaviest_tipset_weight: BigUint,
     pub genesis_hash: Cid,
 }
 
@@ -27,7 +27,7 @@ impl Serialize for HelloMessage {
         (
             &self.heaviest_tip_set,
             &self.heaviest_tipset_height,
-            BigIntSer(&self.heaviest_tipset_weight),
+            BigUintSer(&self.heaviest_tipset_weight),
             &self.genesis_hash,
         )
             .serialize(serializer)
@@ -42,7 +42,7 @@ impl<'de> Deserialize<'de> for HelloMessage {
         let (
             heaviest_tip_set,
             heaviest_tipset_height,
-            BigIntDe(heaviest_tipset_weight),
+            BigUintDe(heaviest_tipset_weight),
             genesis_hash,
         ) = Deserialize::deserialize(deserializer)?;
 

@@ -13,7 +13,7 @@ use libp2p::ping::{
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
-use log::debug;
+use log::{debug, warn};
 use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
@@ -139,7 +139,7 @@ impl NetworkBehaviourEventProcess<RPCMessage> for ForestBehaviour {
                         RPCEvent::Response(req_id, response),
                     ));
                 }
-                RPCEvent::Error(req_id, err) => debug!("RPC Error {:?}, {:?}", err, req_id),
+                RPCEvent::Error(req_id, err) => warn!("RPC Error {:?}, {:?}", err, req_id),
             },
         }
     }
