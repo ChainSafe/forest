@@ -15,7 +15,7 @@
 //!
 //! The format can be expressed as the following [BNF](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form) grammar.
 //!
-//! ```compile_fail
+//! ```text
 //!     <encoding>  ::= <header> <blocks>
 //!       <header>  ::= <version> <bit>
 //!      <version>  ::= "00"

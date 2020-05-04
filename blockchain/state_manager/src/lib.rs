@@ -4,7 +4,7 @@
 mod errors;
 
 pub use self::errors::*;
-use actor::{miner, power, ActorState, STORAGE_POWER_ACTOR_ADDR};
+use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR};
 use address::{Address, Protocol};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
@@ -49,6 +49,11 @@ where
     fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
         let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
+    }
+    /// Returns the network name from the init actor state
+    pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
+        let state: init::State = self.load_actor_state(&*INIT_ACTOR_ADDR, st)?;
+        Ok(state.network_name)
     }
     /// Returns true if miner has been slashed or is considered invalid
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {

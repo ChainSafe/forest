@@ -8,6 +8,7 @@ use async_std::sync::{Receiver, Sender};
 use blocks::{FullTipset, TipSetKeys, Tipset};
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
+    hello::HelloMessage,
     rpc::{RPCEvent, RPCRequest, RPCResponse, RequestId},
     NetworkEvent, NetworkMessage,
 };
@@ -43,7 +44,7 @@ impl SyncNetworkContext {
             network_send,
             rpc_receiver,
             receiver,
-            request_id: 0,
+            request_id: 1,
         }
     }
 
@@ -109,6 +110,14 @@ impl SyncNetworkContext {
         } else {
             Err("Invalid response type")
         }
+    }
+
+    /// Send a hello request to the network (does not await response)
+    pub async fn hello_request(&mut self, peer_id: PeerId, request: HelloMessage) {
+        trace!("Sending Hello Message {:?}", request);
+        // TODO update to await response when we want to handle the latency
+        self.send_rpc_event(peer_id, RPCEvent::Request(0, RPCRequest::Hello(request)))
+            .await;
     }
 
     /// Send any RPC request to the network and await the response

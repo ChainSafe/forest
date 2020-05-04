@@ -13,7 +13,12 @@ use std::time::Duration;
 #[test]
 fn peer_manager_update() {
     let db = Arc::new(MemoryDB::default());
+
     let mut chain_store = ChainStore::new(db);
+
+    let (local_sender, _test_receiver) = channel(20);
+    let (event_sender, event_receiver) = channel(20);
+
     let dummy_header = BlockHeader::builder()
         .miner_address(Address::new_id(1000))
         .messages(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
@@ -21,11 +26,11 @@ fn peer_manager_update() {
         .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
         .build()
         .unwrap();
-    chain_store.set_genesis(dummy_header).unwrap();
-    let (local_sender, _test_receiver) = channel(20);
-    let (event_sender, event_receiver) = channel(20);
+    chain_store.set_genesis(dummy_header.clone()).unwrap();
 
-    let cs = ChainSyncer::new(chain_store, local_sender, event_receiver, None).unwrap();
+    let genesis_ts = Tipset::new(vec![dummy_header]).unwrap();
+    let cs = ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap();
+
     let peer_manager = Arc::clone(&cs.peer_manager);
 
     task::spawn(async {
