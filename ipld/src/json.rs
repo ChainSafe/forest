@@ -169,12 +169,12 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
             if let Some(v) = map.get("/") {
                 match v {
                     Ipld::String(s) => {
-                        // Json block is a Cid
+                        // { "/": ".." } Json block is a Cid
                         return Ok(Ipld::Link(s.parse().map_err(de::Error::custom)?));
                     }
                     Ipld::Map(obj) => {
-                        // Are other bytes encoding types supported?
                         if let Some(Ipld::String(s)) = obj.get(BYTES_JSON_KEY) {
+                            // { "/": { "bytes": "<multibase>" } } Json block are bytes encoded
                             let (_, bz) = multibase::decode(s)
                                 .map_err(|e| de::Error::custom(e.to_string()))?;
                             return Ok(Ipld::Bytes(bz));
