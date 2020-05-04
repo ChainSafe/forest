@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ipld, Ipld};
+use multibase::Base;
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -29,7 +30,7 @@ where
         Ipld::Float(f64) => serializer.serialize_f64(*f64),
         Ipld::String(string) => serializer.serialize_str(&string),
         Ipld::Bytes(bytes) => serialize(
-            &ipld!({ "/": { BYTES_JSON_KEY: base64::encode(bytes) } }),
+            &ipld!({ "/": { BYTES_JSON_KEY: multibase::encode(Base::Base64, bytes) } }),
             serializer,
         ),
         Ipld::List(list) => {
@@ -173,10 +174,10 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
                     }
                     Ipld::Map(obj) => {
                         // Are other bytes encoding types supported?
-                        if let Some(Ipld::String(bz)) = obj.get(BYTES_JSON_KEY) {
-                            return Ok(Ipld::Bytes(
-                                base64::decode(bz).map_err(|e| de::Error::custom(e.to_string()))?,
-                            ));
+                        if let Some(Ipld::String(s)) = obj.get(BYTES_JSON_KEY) {
+                            let (_, bz) = multibase::decode(s)
+                                .map_err(|e| de::Error::custom(e.to_string()))?;
+                            return Ok(Ipld::Bytes(bz));
                         }
                     }
                     _ => (),
