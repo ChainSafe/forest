@@ -200,6 +200,7 @@ pub trait Syscalls {
         )? {
             return Err(format!("Invalid proof detected: {:?}", vi.on_chain.proof).into());
         }
+
         Ok(())
     }
     /// Verifies a proof of spacetime.
