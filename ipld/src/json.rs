@@ -3,7 +3,7 @@
 
 use super::{ipld, Ipld};
 use multibase::Base;
-use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -170,7 +170,7 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
                 match v {
                     Ipld::String(s) => {
                         // Json block is a Cid
-                        return Ok(Ipld::Link(s.parse().map_err(|e| de::Error::custom(e))?));
+                        return Ok(Ipld::Link(s.parse().map_err(de::Error::custom)?));
                     }
                     Ipld::Map(obj) => {
                         // Are other bytes encoding types supported?

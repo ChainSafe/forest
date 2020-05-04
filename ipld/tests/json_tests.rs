@@ -46,7 +46,7 @@ fn deserialize_json_symmetric() {
 
     // Assert deserializing into expected Ipld
     let IpldJson(ipld_d) = from_str(test_json).unwrap();
-    // assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");
+    assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");
 
     // Symmetric tests
     let ser_json = to_string(&IpldJsonRef(&expected)).unwrap();
