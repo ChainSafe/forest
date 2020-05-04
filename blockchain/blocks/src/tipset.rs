@@ -260,4 +260,8 @@ impl FullTipset {
     pub fn epoch(&self) -> ChainEpoch {
         self.blocks[0].header().epoch()
     }
+    /// Returns the tipset's calculated weight
+    pub fn weight(&self) -> &BigUint {
+        &self.blocks[0].header().weight()
+    }
 }

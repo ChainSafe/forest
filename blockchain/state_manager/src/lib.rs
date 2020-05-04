@@ -4,18 +4,16 @@
 mod errors;
 
 pub use self::errors::*;
-use actor::{miner, power, ActorState, STORAGE_POWER_ACTOR_ADDR};
+use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR};
 use address::{Address, Protocol};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use cid::Cid;
-use default_runtime::resolve_to_key_addr;
 use encoding::de::DeserializeOwned;
 use forest_blocks::FullTipset;
-use interpreter::VM;
+use interpreter::{resolve_to_key_addr, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use num_bigint::BigUint;
-use runtime::DefaultSyscalls;
 use state_tree::StateTree;
 use std::error::Error as StdError;
 use std::sync::Arc;
@@ -51,6 +49,11 @@ where
     fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
         let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
+    }
+    /// Returns the network name from the init actor state
+    pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
+        let state: init::State = self.load_actor_state(&*INIT_ACTOR_ADDR, st)?;
+        Ok(state.network_name)
     }
     /// Returns true if miner has been slashed or is considered invalid
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
@@ -93,7 +96,12 @@ where
     pub fn apply_blocks(&self, ts: &FullTipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
-        let mut vm = VM::new(ts.parent_state(), &buf_store, ts.epoch(), DefaultSyscalls)?;
+        let mut vm = VM::new(
+            ts.parent_state(),
+            &buf_store,
+            ts.epoch(),
+            DefaultSyscalls::new(&buf_store),
+        )?;
 
         // Apply tipset messages
         let receipts = vm.apply_tip_set_messages(ts)?;

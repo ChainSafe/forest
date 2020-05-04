@@ -39,9 +39,48 @@ make install
 forest
 ```
 
-### Testing
+### Config
+
+Run the node with custom config and bootnodes
+
+```bash
+forest --config /path/to/your_config.toml
 ```
-cargo test
+
+Example of config options available:
+
+```toml
+data_dir = "<directory for all chain and networking data>"
+genesis_file = "<relative file path of genesis car file>"
+
+[network]
+listening_multiaddr = "<multiaddress>"
+bootstrap_peers = ["<multiaddress>"]
+```
+
+Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347"`
+
+### Logging
+
+The Forest logger uses [Rust's log filtering options](https://doc.rust-lang.org/1.1.0/log/index.html#filtering-results) with the `RUST_LOG` environment variable.  
+For example:
+
+```bash
+RUST_LOG="debug,forest_libp2p::service=info" forest
+```
+
+Will show all debug logs by default, but the `forest_libp2p::service` logs will be limited to `info`
+
+### Testing
+```bash
+# To run base tests
+cargo test # add --release flag for longer compilation but faster execution
+
+# To pull serialization vectors submodule and run serialization tests
+make test-vectors
+
+# To run all tests and all features enabled
+make test-all
 ```
 
 ### Documentation

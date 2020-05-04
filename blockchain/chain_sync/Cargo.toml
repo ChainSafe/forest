@@ -25,8 +25,8 @@ async-std = { version = "1.4.0", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 futures = "0.3.2"
 lru = "0.4.3"
-forest_car = { path = "../../ipld/car" }
 thiserror = "1.0"
+num-traits = "0.2"
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
