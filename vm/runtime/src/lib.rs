@@ -8,9 +8,10 @@ pub use self::actor_code::*;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use commcid::data_commitment_v1_to_cid;
+use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
-use filecoin_proofs_api::seal::compute_comm_d;
+use filecoin_proofs_api::seal::{compute_comm_d, verify_seal};
+use filecoin_proofs_api::SectorId;
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
@@ -182,9 +183,24 @@ pub trait Syscalls {
         Ok(data_commitment_v1_to_cid(&comm_d))
     }
     /// Verifies a sector seal proof.
-    fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        // TODO
-        todo!()
+    fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        let commd = cid_to_data_commitment_v1(&vi.unsealed_cid)?;
+        let commr = cid_to_replica_commitment_v1(&vi.on_chain.sealed_cid)?;
+        let miner_addr = Address::new_id(vi.sector_id.miner);
+        let prover_id = <[u8; 32]>::try_from(miner_addr.payload_bytes().as_slice())?;
+        if !verify_seal(
+            vi.on_chain.registered_proof.into(),
+            commr,
+            commd,
+            prover_id,
+            SectorId::from(vi.sector_id.number),
+            vi.randomness,
+            vi.interactive_randomness,
+            &vi.on_chain.proof,
+        )? {
+            return Err(format!("Invalid proof detected: {:?}", vi.on_chain.proof).into());
+        }
+        Ok(())
     }
     /// Verifies a proof of spacetime.
     fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
