@@ -10,8 +10,8 @@ use cid::Cid;
 use clock::ChainEpoch;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
-use filecoin_proofs_api::seal::{compute_comm_d, verify_seal};
-use filecoin_proofs_api::SectorId;
+use filecoin_proofs_api::seal::{compute_comm_d, verify_seal as proofs_verify_seal};
+use filecoin_proofs_api::{ProverId, SectorId};
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
@@ -187,8 +187,10 @@ pub trait Syscalls {
         let commd = cid_to_data_commitment_v1(&vi.unsealed_cid)?;
         let commr = cid_to_replica_commitment_v1(&vi.on_chain.sealed_cid)?;
         let miner_addr = Address::new_id(vi.sector_id.miner);
-        let prover_id = <[u8; 32]>::try_from(miner_addr.payload_bytes().as_slice())?;
-        if !verify_seal(
+        let mut prover_id = ProverId::default();
+        prover_id.copy_from_slice(&miner_addr.payload_bytes());
+
+        if !proofs_verify_seal(
             vi.on_chain.registered_proof.into(),
             commr,
             commd,
@@ -198,7 +200,11 @@ pub trait Syscalls {
             vi.interactive_randomness,
             &vi.on_chain.proof,
         )? {
-            return Err(format!("Invalid proof detected: {:?}", vi.on_chain.proof).into());
+            return Err(format!(
+                "Invalid proof detected: {:?}",
+                base64::encode(&vi.on_chain.proof)
+            )
+            .into());
         }
 
         Ok(())
