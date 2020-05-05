@@ -37,7 +37,7 @@ fn template_header(
         .parents(TipSetKeys {
             cids: vec![cids[0].clone()],
         })
-        .miner_address(Address::new_secp256k1(&ticket_p).unwrap())
+        .miner_address(Address::new_secp256k1(&ticket_p))
         .timestamp(timestamp)
         .ticket(Ticket {
             vrfproof: VRFProof::new(ticket_p),
@@ -169,8 +169,8 @@ impl Signer for DummySigner {
 /// Returns a tuple of unsigned and signed messages used for testing
 pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
     let bls_messages = UnsignedMessage::builder()
-        .to(Address::new_id(1).unwrap())
-        .from(Address::new_id(2).unwrap())
+        .to(Address::new_id(1))
+        .from(Address::new_id(2))
         .build()
         .unwrap();
 

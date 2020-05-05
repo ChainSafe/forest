@@ -8,7 +8,7 @@ use forest_cid::{multihash::Identity, Cid};
 use forest_libp2p::hello::{HelloMessage, HelloResponse};
 use forest_libp2p::rpc::{RPCEvent, RPCMessage, RPCRequest, RPCResponse};
 use futures::future;
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 
 fn empty_cid() -> Cid {
     Cid::new_from_cbor(&[], Identity)
@@ -20,7 +20,7 @@ fn test_empty_rpc() {
 
     let rpc_request = RPCRequest::Hello(HelloMessage {
         heaviest_tip_set: vec![empty_cid()],
-        heaviest_tipset_weight: BigInt::from(1),
+        heaviest_tipset_weight: BigUint::from(1u8),
         heaviest_tipset_height: 2,
         genesis_hash: empty_cid(),
     });

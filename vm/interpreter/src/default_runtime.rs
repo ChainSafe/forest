@@ -1,15 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod gas_block_store;
-mod gas_syscalls;
-
-use self::gas_block_store::GasBlockStore;
-use self::gas_syscalls::GasSyscalls;
+use super::gas_block_store::GasBlockStore;
+use super::gas_syscalls::GasSyscalls;
 use actor::{
-    self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
-    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
-    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
+    self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
+    MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
+    POWER_ACTOR_CODE_ID, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
 };
 use address::{Address, Protocol};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -22,23 +19,21 @@ use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigUint;
 use runtime::{ActorCode, Runtime, Syscalls};
+use state_tree::StateTree;
 use std::cell::RefCell;
 use std::rc::Rc;
 use vm::{
     price_list_by_epoch, ActorError, ActorState, ExitCode, GasTracker, MethodNum, PriceList,
-    Randomness, Serialized, StateTree, TokenAmount, METHOD_SEND,
+    Randomness, Serialized, TokenAmount, METHOD_SEND,
 };
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
-where
-    SYS: Copy,
-{
-    state: &'c mut ST,
-    store: GasBlockStore<'a, BS>,
-    syscalls: GasSyscalls<SYS>,
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS> {
+    state: &'st mut StateTree<'db, BS>,
+    store: GasBlockStore<'db, BS>,
+    syscalls: GasSyscalls<'sys, SYS>,
     gas_tracker: Rc<RefCell<GasTracker>>,
-    message: &'b UnsignedMessage,
+    message: &'msg UnsignedMessage,
     epoch: ChainEpoch,
     origin: Address,
     origin_nonce: u64,
@@ -46,20 +41,19 @@ where
     price_list: PriceList,
 }
 
-impl<'a, 'b, 'c, ST, BS, SYS> DefaultRuntime<'a, 'b, 'c, ST, BS, SYS>
+impl<'db, 'msg, 'st, 'sys, BS, SYS> DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS>
 where
-    ST: StateTree,
     BS: BlockStore,
-    SYS: Syscalls + Copy,
+    SYS: Syscalls,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        state: &'c mut ST,
-        store: &'a BS,
-        syscalls: SYS,
+        state: &'st mut StateTree<'db, BS>,
+        store: &'db BS,
+        syscalls: &'sys SYS,
         gas_used: i64,
-        message: &'b UnsignedMessage,
+        message: &'msg UnsignedMessage,
         epoch: ChainEpoch,
         origin: Address,
         origin_nonce: u64,
@@ -137,7 +131,7 @@ where
 
     /// Update the state Cid of the Message receiver
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
-        let to_addr = self.message().to().clone();
+        let to_addr = *self.message().to();
         let mut actor = self.get_actor(&to_addr)?;
 
         if &actor.state != old_h {
@@ -156,46 +150,12 @@ where
 
         Ok(())
     }
-    fn resolve_to_key_addr(&self, addr: &Address) -> Result<Address, ActorError> {
-        if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
-            return Ok(addr.clone());
-        }
-        let act = self.get_actor(&addr)?;
-        if act.code != *ACCOUNT_ACTOR_CODE_ID {
-            return Err(self.abort(
-                ExitCode::SysErrInternal,
-                format!("address {:?} was not for an account actor", addr),
-            ));
-        }
-        let actor_state: actor::account::State = self
-            .store
-            .get(&act.state)
-            // TODO this needs to be a fatal error
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    format!(
-                        "Could not get actor state in resolve_to_key_addr: {:?}",
-                        e.to_string()
-                    ),
-                )
-            })?
-            .ok_or_else(|| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    "Actor state not found in resolve_to_key_addr",
-                )
-            })?;
-
-        Ok(actor_state.address)
-    }
 }
 
-impl<ST, BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, ST, BS, SYS>
+impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, BS, SYS>
 where
-    ST: StateTree,
     BS: BlockStore,
-    SYS: Syscalls + Copy,
+    SYS: Syscalls,
 {
     fn message(&self) -> &UnsignedMessage {
         &self.message
@@ -204,9 +164,9 @@ where
         self.epoch
     }
     fn validate_immediate_caller_accept_any(&self) {}
-    fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_is<'db, I>(&self, addresses: I) -> Result<(), ActorError>
     where
-        I: IntoIterator<Item = &'a Address>,
+        I: IntoIterator<Item = &'db Address>,
     {
         let imm = self.resolve_address(self.message().from())?;
 
@@ -220,9 +180,9 @@ where
         Ok(())
     }
 
-    fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_type<'db, I>(&self, types: I) -> Result<(), ActorError>
     where
-        I: IntoIterator<Item = &'a Cid>,
+        I: IntoIterator<Item = &'db Cid>,
     {
         let caller_cid = self.get_actor_code_cid(self.message().to())?;
         if types.into_iter().any(|c| *c == caller_cid) {
@@ -337,7 +297,7 @@ where
     ) -> Result<Serialized, ActorError> {
         let msg = UnsignedMessage::builder()
             .to(to.clone())
-            .from(self.message.from().clone())
+            .from(*self.message.from())
             .method_num(method)
             .value(value.clone())
             .gas_limit(self.gas_available() as u64)
@@ -360,11 +320,11 @@ where
                 self.gas_used(),
                 &msg,
                 epoch,
-                self.origin.clone(),
+                self.origin,
                 self.origin_nonce,
                 self.num_actors_created,
             );
-            internal_send::<ST, BS, SYS>(&mut parent, &msg, 0)
+            internal_send::<BS, SYS>(&mut parent, &msg, 0)
         };
         if send_res.is_err() {
             self.state
@@ -378,7 +338,7 @@ where
         ActorError::new(exit_code, msg.as_ref().to_owned())
     }
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
-        let oa = self.resolve_to_key_addr(&self.origin)?;
+        let oa = resolve_to_key_addr(self.state, &self.store, &self.origin)?;
         let mut b = to_vec(&oa).map_err(|e| {
             self.abort(
                 ExitCode::ErrSerialization,
@@ -401,12 +361,7 @@ where
                     ),
                 )
             })?;
-        let addr = Address::new_actor(&b).map_err(|e| {
-            self.abort(
-                ExitCode::ErrSerialization,
-                format!("Create new actor address: {}", e.to_string()),
-            )
-        })?;
+        let addr = Address::new_actor(&b);
         self.num_actors_created += 1;
         Ok(addr)
     }
@@ -446,15 +401,14 @@ where
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn internal_send<ST, BS, SYS>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, ST, BS, SYS>,
+pub fn internal_send<BS, SYS>(
+    runtime: &mut DefaultRuntime<'_, '_, '_, '_, BS, SYS>,
     msg: &UnsignedMessage,
     _gas_cost: i64,
 ) -> Result<Serialized, ActorError>
 where
-    ST: StateTree,
     BS: BlockStore,
-    SYS: Syscalls + Copy,
+    SYS: Syscalls,
 {
     runtime.charge_gas(
         runtime
@@ -518,8 +472,8 @@ where
 }
 
 /// Transfers funds from one Actor to another Actor
-fn transfer<ST: StateTree>(
-    state: &mut ST,
+fn transfer<BS: BlockStore>(
+    state: &mut StateTree<BS>,
     from: &Address,
     to: &Address,
     value: &TokenAmount,
@@ -545,4 +499,52 @@ fn transfer<ST: StateTree>(
     state.set_actor(to, t)?;
 
     Ok(())
+}
+
+/// Returns public address of the specified actor address
+pub fn resolve_to_key_addr<'st, 'bs, BS, S>(
+    st: &'st StateTree<'bs, S>,
+    store: &'bs BS,
+    addr: &Address,
+) -> Result<Address, ActorError>
+where
+    BS: BlockStore,
+    S: BlockStore,
+{
+    if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
+        return Ok(*addr);
+    }
+
+    let act = st
+        .get_actor(&addr)
+        .map_err(|e| ActorError::new(ExitCode::SysErrInternal, e))?
+        .ok_or_else(|| {
+            ActorError::new(
+                ExitCode::SysErrInternal,
+                format!("Failed to retrieve actor: {}", addr),
+            )
+        })?;
+
+    if act.code != *ACCOUNT_ACTOR_CODE_ID {
+        return Err(ActorError::new_fatal(format!(
+            "Address was not found for an account actor: {}",
+            addr
+        )));
+    }
+    let acc_st: account::State = store
+        .get(&act.state)
+        .map_err(|e| {
+            ActorError::new_fatal(format!(
+                "Failed to get account actor state for: {}, e: {}",
+                addr, e
+            ))
+        })?
+        .ok_or_else(|| {
+            ActorError::new_fatal(format!(
+                "Address was not found for an account actor: {}",
+                addr
+            ))
+        })?;
+
+    Ok(acc_st.address)
 }

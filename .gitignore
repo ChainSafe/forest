@@ -6,3 +6,4 @@ config*.toml
 .DS_STORE
 .vscode
 /test_dir*
+/devnet.car

@@ -5,20 +5,17 @@ use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
-use default_runtime::{internal_send, DefaultRuntime};
+use interpreter::{internal_send, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
-use runtime::DefaultSyscalls;
-use state_tree::HamtStateTree;
-use vm::ActorState;
-use vm::Serialized;
-use vm::StateTree;
+use state_tree::StateTree;
+use vm::{ActorState, Serialized};
 
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
-    let mut state = HamtStateTree::new(&store);
+    let mut state = StateTree::new(&store);
 
     let e_cid = Hamt::<String, _>::new_with_bit_width(&store, 5)
         .flush()
@@ -40,8 +37,8 @@ fn transfer_test() {
     );
     state.set_actor(&INIT_ACTOR_ADDR, act_s.clone()).unwrap();
 
-    let actor_addr_1 = Address::new_id(100).unwrap();
-    let actor_addr_2 = Address::new_id(200).unwrap();
+    let actor_addr_1 = Address::new_id(100);
+    let actor_addr_2 = Address::new_id(200);
 
     let actor_state_cid_1 = state
         .store()
@@ -94,10 +91,12 @@ fn transfer_test() {
         .build()
         .unwrap();
 
+    let default_syscalls = DefaultSyscalls::new(&store);
+
     let mut runtime = DefaultRuntime::new(
         &mut state,
         &store,
-        DefaultSyscalls,
+        &default_syscalls,
         0,
         &message,
         0,

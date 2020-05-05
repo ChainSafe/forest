@@ -17,14 +17,14 @@ jobs:
 
       # TODO revisit this, workaround for now
       - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev
+        run: sudo apt install ocl-icd-opencl-dev	
 
       - name: Toolchain setup
         uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        with:	
+          profile: minimal	
+          toolchain: stable	
+          override: true	
 
       - name: Cargo test all
         run: make test-all
@@ -57,9 +57,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-
-      - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev
 
       - name: Cache cargo registry
         uses: actions/cache@v1
@@ -108,9 +105,6 @@ jobs:
       - uses: actions/checkout@master
       - name: Install Rust
         run: rustup update beta && rustup default beta
-
-      - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features

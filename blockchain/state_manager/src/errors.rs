@@ -10,6 +10,9 @@ pub enum Error {
     /// Error orginating from state
     #[error("{0}")]
     State(String),
+    /// Error from VM execution
+    #[error("{0}")]
+    VM(String),
     /// Actor for given address not found
     #[error("Actor for address: {0} does not exist")]
     ActorNotFound(String),
@@ -19,4 +22,13 @@ pub enum Error {
     /// Error originating from key-value store
     #[error(transparent)]
     DB(#[from] DbErr),
+    /// Other state manager error
+    #[error("{0}")]
+    Other(String),
+}
+
+impl From<String> for Error {
+    fn from(e: String) -> Self {
+        Error::Other(e)
+    }
 }

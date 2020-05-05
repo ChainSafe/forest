@@ -13,19 +13,23 @@ use amt::Amt;
 use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
-use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
+use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
+use crypto::verify_bls_aggregate;
 use encoding::{Cbor, Error as EncodingError};
-use forest_libp2p::{BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES};
+use forest_libp2p::{
+    hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
+};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
+use num_traits::Zero;
 use state_manager::StateManager;
-use state_tree::{HamtStateTree, StateTree};
+use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -95,21 +99,12 @@ where
     DB: BlockStore,
 {
     pub fn new(
-        db: Arc<DB>,
+        chain_store: ChainStore<DB>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
+        genesis: Tipset,
     ) -> Result<Self, Error> {
-        let chain_store = ChainStore::new(db.clone());
-        let genesis = match chain_store.genesis()? {
-            Some(gen) => Tipset::new(vec![gen])?,
-            None => {
-                // TODO change default logic for genesis or setup better initialization
-                warn!("No genesis found in data storage, using a default");
-                Tipset::new(vec![BlockHeader::default()])?
-            }
-        };
-
-        let state_manager = StateManager::new(db);
+        let state_manager = StateManager::new(chain_store.db.clone());
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
@@ -144,27 +139,44 @@ where
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
         while let Some(event) = self.network.receiver.next().await {
-            if let NetworkEvent::Hello { source, message } = &event {
-                info!(
-                    "Message inbound, heaviest tipset cid: {:?}",
-                    message.heaviest_tip_set
-                );
-                if let Ok(fts) = self
-                    .fetch_tipset(
-                        source.clone(),
-                        &TipSetKeys::new(message.heaviest_tip_set.clone()),
-                    )
-                    .await
-                {
-                    if self.inform_new_head(&fts).await.is_err() {
-                        warn!("Failed to sync with provided tipset",);
-                    };
-                } else {
-                    warn!(
-                        "Failed to fetch full tipset from peer: {} from storage or network",
-                        source,
+            match event {
+                NetworkEvent::Hello { source, message } => {
+                    info!(
+                        "Message inbound, heaviest tipset cid: {:?}",
+                        message.heaviest_tip_set
                     );
+                    match self
+                        .fetch_tipset(
+                            source.clone(),
+                            &TipSetKeys::new(message.heaviest_tip_set.clone()),
+                        )
+                        .await
+                    {
+                        Ok(fts) => {
+                            if self.inform_new_head(source.clone(), &fts).await.is_err() {
+                                warn!("Failed to sync with provided tipset",);
+                            };
+                        }
+                        Err(e) => {
+                            warn!("Failed to fetch full tipset from peer ({}): {}", source, e);
+                        }
+                    }
                 }
+                NetworkEvent::PeerDialed { peer_id } => {
+                    let heaviest = self.chain_store.heaviest_tipset().unwrap();
+                    self.network
+                        .hello_request(
+                            peer_id,
+                            HelloMessage {
+                                heaviest_tip_set: heaviest.cids().to_vec(),
+                                heaviest_tipset_height: heaviest.epoch(),
+                                heaviest_tipset_weight: heaviest.weight().clone(),
+                                genesis_hash: self.genesis.blocks()[0].cid().clone(),
+                            },
+                        )
+                        .await
+                }
+                _ => (),
             }
         }
         Ok(())
@@ -186,7 +198,7 @@ where
         }
 
         // Get heaviest tipset from storage to sync toward
-        let heaviest = self.chain_store.heaviest_tipset();
+        let heaviest = self.chain_store.heaviest_tipset().unwrap();
 
         info!("Starting block sync...");
 
@@ -323,7 +335,7 @@ where
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    pub async fn inform_new_head(&mut self, fts: &FullTipset) -> Result<(), Error> {
+    pub async fn inform_new_head(&mut self, peer: PeerId, fts: &FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
         if fts.blocks().is_empty() {
             return Err(Error::NoBlocks);
@@ -339,34 +351,46 @@ where
         }
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let heaviest_tipset = self.chain_store.heaviest_tipset();
-        let best_weight = heaviest_tipset.blocks()[0].weight();
-        let target_weight = fts.blocks()[0].header().weight();
+        let best_weight = match self.chain_store.heaviest_tipset() {
+            Some(ts) => ts.weight().clone(),
+            None => Zero::zero(),
+        };
+        let target_weight = fts.weight();
 
         if target_weight.gt(&best_weight) {
-            // initial sync
-            if self.get_state() == &SyncState::Init {
-                if let Some(best_target) = self.select_sync_target(fts.tipset()?.clone()).await {
-                    self.sync(&best_target).await?;
-                    return Ok(());
-                }
-            }
-            self.schedule_tipset(Arc::new(fts.tipset()?)).await?;
+            self.set_peer_head(peer, Arc::new(fts.to_tipset()?)).await?;
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
     }
-    /// Retrieves the heaviest tipset in the sync queue; considered best target head
-    async fn select_sync_target(&mut self, ts: Tipset) -> Option<Arc<Tipset>> {
-        let mut heads = Vec::new();
-        heads.push(ts);
 
-        // sort tipsets by epoch
-        heads.sort_by_key(|header| (header.epoch()));
+    async fn set_peer_head(&mut self, peer: PeerId, ts: Arc<Tipset>) -> Result<(), Error> {
+        self.peer_manager
+            .add_peer(peer, Some(Arc::clone(&ts)))
+            .await;
+
+        // Only update target on initial sync
+        if self.get_state() == &SyncState::Init {
+            if let Some(best_target) = self.select_sync_target().await {
+                // TODO revisit this if using for full node, shouldn't start syncing on first update
+                self.sync(&best_target).await?;
+                return Ok(());
+            }
+        }
+        self.schedule_tipset(ts).await?;
+
+        Ok(())
+    }
+
+    /// Retrieves the heaviest tipset in the sync queue; considered best target head
+    async fn select_sync_target(&mut self) -> Option<Arc<Tipset>> {
+        // Retrieve all peer heads from peer manager
+        let mut heads = self.peer_manager.get_peer_heads().await;
+        heads.sort_by_key(|h| h.epoch());
 
         // insert tipsets into sync queue
         for tip in heads {
-            self.sync_queue.insert(Arc::new(tip));
+            self.sync_queue.insert(tip);
         }
 
         if self.sync_queue.buckets().len() > 1 {
@@ -486,21 +510,46 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    fn check_blk_msgs(&self, block: Block, _tip: &Tipset) -> Result<(), Error> {
-        // TODO retrieve bls public keys for verify_bls_aggregate
-        // for _m in block.bls_msgs() {
-        // }
-        // TODO verify_bls_aggregate
-
+    fn check_block_msgs(&self, block: Block, tip: &Tipset) -> Result<(), Error> {
+        let mut pub_keys = Vec::new();
+        let mut cids = Vec::new();
+        for m in block.bls_msgs() {
+            let pk = self
+                .state_manager
+                .get_bls_public_key(m.from(), tip.parent_state())?;
+            pub_keys.push(pk);
+            cids.push(m.cid()?.to_bytes());
+        }
+        if let Some(sig) = block.header().bls_aggregate() {
+            if !verify_bls_aggregate(
+                cids.iter()
+                    .map(|x| x.as_slice())
+                    .collect::<Vec<&[u8]>>()
+                    .as_slice(),
+                pub_keys
+                    .iter()
+                    .map(|x| x.as_slice())
+                    .collect::<Vec<&[u8]>>()
+                    .as_slice(),
+                &sig,
+            ) {
+                return Err(Error::Validation(
+                    "Bls aggregate signature was invalid".to_owned(),
+                ));
+            }
+        } else {
+            return Err(Error::Validation(
+                "No bls signature included in the block header".to_owned(),
+            ));
+        }
         // check msgs for validity
-        fn check_msg<M, ST>(
+        fn check_msg<M, DB: BlockStore>(
             msg: &M,
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
-            tree: &ST,
+            tree: &StateTree<DB>,
         ) -> Result<(), Error>
         where
             M: Message,
-            ST: StateTree,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
@@ -538,13 +587,13 @@ where
                 }
             };
             // update hash map with updated state
-            msg_meta_data.insert(msg.from().clone(), updated_state);
+            msg_meta_data.insert(*msg.from(), updated_state);
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         // TODO retrieve tipset state and load state tree
         // temporary
-        let tree = HamtStateTree::new(self.chain_store.db.as_ref());
+        let tree = StateTree::new(self.chain_store.db.as_ref());
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
@@ -568,7 +617,6 @@ where
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     fn validate(&self, block: &Block) -> Result<(), Error> {
-        // get header from full block
         let header = block.header();
 
         // check if block has been signed
@@ -576,38 +624,46 @@ where
             return Err(Error::Validation("Signature is nil in header".to_owned()));
         }
 
-        let base_tipset = self.load_fts(&TipSetKeys::new(header.parents().cids.clone()))?;
-        let parent_tipset = base_tipset.tipset()?;
+        let parent_tipset = self.chain_store.tipset_from_keys(header.parents())?;
 
         // time stamp checks
-        header.validate_timestamps(&base_tipset)?;
+        header.validate_timestamps(&parent_tipset)?;
 
         // check messages to ensure valid state transitions
-        self.check_blk_msgs(block.clone(), &parent_tipset)?;
+        self.check_block_msgs(block.clone(), &parent_tipset)?;
 
+        // TODO use computed state_root instead of parent_tipset.parent_state()
+        let work_addr = self
+            .state_manager
+            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())?;
         // block signature check
-        // TODO need to pass in raw miner address; temp using header miner address
-        // see https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L611
-        header.check_block_signature(header.miner_address())?;
+        header.check_block_signature(&work_addr)?;
 
-        // TODO: incomplete, still need to retrieve power in order to ensure ticket is the winner
-        let _slash = self
+        let slash = self
             .state_manager
-            .miner_slashed(header.miner_address(), &parent_tipset)?;
-        let _sector_size = self
-            .state_manager
-            .miner_sector_size(header.miner_address(), &parent_tipset)?;
+            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())?;
+        if slash {
+            return Err(Error::Validation(
+                "Received block was from slashed or invalid miner".to_owned(),
+            ));
+        }
 
-        // TODO winner_check
-        // TODO miner_check
+        let (c_pow, net_pow) = self
+            .state_manager
+            .get_power(&parent_tipset.parent_state(), header.miner_address())?;
+        // ticket winner check
+        if !header.is_ticket_winner(c_pow, net_pow) {
+            return Err(Error::Validation(
+                "Miner created a block but was not a winner".to_owned(),
+            ));
+        }
         // TODO verify_ticket_vrf
-        // TODO verify_election_proof_check
 
         Ok(())
     }
     /// validates tipsets and adds header data to tipset tracker
     fn validate_tipsets(&mut self, fts: FullTipset) -> Result<(), Error> {
-        if fts.tipset()? == self.genesis {
+        if fts.to_tipset()? == self.genesis {
             return Ok(());
         }
 
@@ -802,19 +858,27 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std::sync::Sender;
+    use blocks::BlockHeader;
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
-    fn chain_syncer_setup<Db>(db: Arc<Db>) -> ChainSyncer<Db>
-    where
-        Db: BlockStore,
-    {
-        let (local_sender, _test_receiver) = channel(20);
-        let (_event_sender, event_receiver) = channel(20);
+    fn chain_syncer_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
+        let mut chain_store = ChainStore::new(db);
 
-        ChainSyncer::new(db, local_sender, event_receiver).unwrap()
+        let (local_sender, _test_receiver) = channel(20);
+        let (event_sender, event_receiver) = channel(20);
+
+        let gen = dummy_header();
+        chain_store.set_genesis(gen.clone()).unwrap();
+
+        let genesis_ts = Tipset::new(vec![gen]).unwrap();
+        (
+            ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap(),
+            event_sender,
+        )
     }
 
     fn send_blocksync_response(event_sender: Sender<NetworkEvent>) {
@@ -823,30 +887,36 @@ mod tests {
         task::block_on(async {
             event_sender
                 .send(NetworkEvent::RPCResponse {
-                    req_id: 0,
+                    // TODO update this, only matching first index of requestId
+                    req_id: 1,
                     response: rpc_response,
                 })
                 .await;
         });
     }
 
+    fn dummy_header() -> BlockHeader {
+        BlockHeader::builder()
+            .miner_address(Address::new_id(1000))
+            .messages(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+            .message_receipts(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+            .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+            .build()
+            .unwrap()
+    }
     #[test]
     fn chainsync_constructor() {
-        let db = MemoryDB::default();
-        let (local_sender, _test_receiver) = channel(20);
-        let (_event_sender, event_receiver) = channel(20);
+        let db = Arc::new(MemoryDB::default());
 
         // Test just makes sure that the chain syncer can be created without using a live database or
         // p2p network (local channels to simulate network messages and responses)
-        let _chain_syncer = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+        let _chain_syncer = chain_syncer_setup(db);
     }
 
     #[test]
     fn sync_headers_reverse_given_tipsets_test() {
-        let db = MemoryDB::default();
-        let (local_sender, _test_receiver) = channel(20);
-        let (event_sender, event_receiver) = channel(20);
-        let mut cs = ChainSyncer::new(Arc::new(db), local_sender, event_receiver).unwrap();
+        let db = Arc::new(MemoryDB::default());
+        let (mut cs, event_sender) = chain_syncer_setup(db);
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
         // send blocksync response to channel
@@ -858,7 +928,7 @@ mod tests {
         let to = construct_tipset(1, 10);
 
         task::block_on(async move {
-            cs.peer_manager.add_peer(source.clone()).await;
+            cs.peer_manager.add_peer(source.clone(), None).await;
             assert_eq!(cs.peer_manager.len().await, 1);
 
             let return_set = cs.sync_headers_reverse(head, &to).await;
@@ -867,36 +937,14 @@ mod tests {
     }
 
     #[test]
-    fn select_target_test() {
-        let ts_1 = construct_tipset(1, 5);
-        let ts_2 = construct_tipset(2, 10);
-        let ts_3 = construct_tipset(3, 7);
-
-        let db = MemoryDB::default();
-        let mut cs = chain_syncer_setup(Arc::new(db));
-
-        task::spawn(async move {
-            assert_eq!(
-                cs.select_sync_target(ts_1.clone()).await.unwrap(),
-                Arc::new(ts_1)
-            );
-            assert_eq!(
-                cs.select_sync_target(ts_2.clone()).await.unwrap(),
-                Arc::new(ts_2.clone())
-            );
-            assert_eq!(cs.select_sync_target(ts_3).await.unwrap(), Arc::new(ts_2));
-        });
-    }
-
-    #[test]
     fn compute_msg_data_given_msgs_test() {
+        let db = Arc::new(MemoryDB::default());
+        let (cs, _) = chain_syncer_setup(db);
+
         let (bls, secp) = construct_messages();
 
-        let db = MemoryDB::default();
-        let cs = chain_syncer_setup(Arc::new(db));
-
         let expected_root =
-            Cid::from_raw_cid("bafy2bzaced5inutkibck2wagtnggbvjpbr65ghdncivs3gpagx67s3xs3i5wa")
+            Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
         let root = cs.compute_msg_data(&[bls], &[secp]).unwrap();

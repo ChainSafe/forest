@@ -19,28 +19,31 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///
 /// // Use the builder pattern to generate a message
 /// let message = UnsignedMessage::builder()
-///     .to(Address::new_id(0).unwrap())
-///     .from(Address::new_id(1).unwrap())
+///     .to(Address::new_id(0))
+///     .from(Address::new_id(1))
 ///     .sequence(0) // optional
 ///     .value(TokenAmount::from(0u8)) // optional
 ///     .method_num(MethodNum::default()) // optional
 ///     .params(Serialized::default()) // optional
 ///     .gas_limit(0) // optional
 ///     .gas_price(TokenAmount::from(0u8)) // optional
+///     .version(0) // optional
 ///     .build()
 ///     .unwrap();
 ///
 /// // Commands can be chained, or built seperately
 /// let mut message_builder = UnsignedMessage::builder();
 /// message_builder.sequence(1);
-/// message_builder.from(Address::new_id(0).unwrap());
-/// message_builder.to(Address::new_id(1).unwrap());
+/// message_builder.from(Address::new_id(0));
+/// message_builder.to(Address::new_id(1));
 /// let msg = message_builder.build().unwrap();
 /// assert_eq!(msg.sequence(), 1);
 /// ```
 #[derive(PartialEq, Clone, Debug, Builder)]
 #[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
+    #[builder(default)]
+    version: i64,
     from: Address,
     to: Address,
     #[builder(default)]
@@ -69,6 +72,7 @@ impl ser::Serialize for UnsignedMessage {
         S: ser::Serializer,
     {
         (
+            &self.version,
             &self.to,
             &self.from,
             &self.sequence,
@@ -88,6 +92,7 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
         D: de::Deserializer<'de>,
     {
         let (
+            version,
             to,
             from,
             sequence,
@@ -98,6 +103,7 @@ impl<'de> de::Deserialize<'de> for UnsignedMessage {
             params,
         ) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
+            version,
             to,
             from,
             sequence,

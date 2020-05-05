@@ -86,7 +86,7 @@ impl Actor {
     {
         let st: State = rt.state()?;
 
-        rt.validate_immediate_caller_is([st.from.clone(), st.to.clone()].iter())?;
+        rt.validate_immediate_caller_is([st.from, st.to].iter())?;
         let signer = if rt.message().from() == &st.from {
             st.to
         } else {
@@ -115,7 +115,7 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalArgument,
-                    format!("voucher signature invalid: {}", e.msg()),
+                    format!("voucher signature invalid: {}", e),
                 )
             })?;
 
@@ -128,7 +128,10 @@ impl Actor {
         }
 
         if !sv.secret_pre_image.is_empty() {
-            let hashed_secret: &[u8] = &rt.syscalls().hash_blake2b(&params.secret)?;
+            let hashed_secret: &[u8] = &rt
+                .syscalls()
+                .hash_blake2b(&params.secret)
+                .map_err(|e| *e.downcast::<ActorError>().unwrap())?;
             if hashed_secret != sv.secret_pre_image.as_slice() {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
@@ -253,7 +256,7 @@ impl Actor {
     {
         let epoch = rt.curr_epoch();
         let st: State = rt.state()?;
-        rt.validate_immediate_caller_is([st.from.clone(), st.to].iter())?;
+        rt.validate_immediate_caller_is([st.from, st.to].iter())?;
 
         rt.transaction(|st: &mut State, _| {
             if st.settling_at != 0 {
@@ -278,7 +281,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let st: State = rt.state()?;
-        rt.validate_immediate_caller_is(&[st.from.clone(), st.to.clone()])?;
+        rt.validate_immediate_caller_is(&[st.from, st.to])?;
 
         if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {
             return Err(rt.abort(

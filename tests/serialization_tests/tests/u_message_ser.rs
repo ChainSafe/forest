@@ -69,6 +69,7 @@ fn encode_assert_cbor(message: &UnsignedMessage, expected: &str) {
 }
 
 #[test]
+#[ignore]
 fn unsigned_message_cbor_vectors() {
     let mut file = File::open("../serialization-vectors/unsigned_messages.json").unwrap();
     let mut string = String::new();

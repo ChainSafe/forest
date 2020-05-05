@@ -83,7 +83,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let caller_addr: Address = rt.message().from().clone();
+        let caller_addr: Address = *rt.message().from();
 
         let st: State = rt.state()?;
         Self::validate_signer(rt, &st, &caller_addr)?;
@@ -129,7 +129,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let caller_addr: Address = rt.message().from().clone();
+        let caller_addr: Address = *rt.message().from();
 
         // Validate signer
         let st = rt.state()?;
@@ -145,7 +145,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let caller_addr: Address = rt.message().from().clone();
+        let caller_addr: Address = *rt.message().from();
 
         let st: State = rt.state()?;
         Self::validate_signer(rt, &st, &caller_addr)?;
@@ -309,7 +309,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let from = rt.message().from().clone();
+        let from = *rt.message().from();
         let curr_bal = rt.current_balance()?;
         let curr_epoch = rt.curr_epoch();
         // Approval transaction

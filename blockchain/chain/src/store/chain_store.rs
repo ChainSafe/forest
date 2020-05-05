@@ -12,7 +12,7 @@ use log::{info, warn};
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::Zero;
-use state_tree::{HamtStateTree, StateTree};
+use state_tree::StateTree;
 use std::sync::Arc;
 
 const GENESIS_KEY: &str = "gen_block";
@@ -33,7 +33,7 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
-    heaviest: Arc<Tipset>,
+    heaviest: Option<Arc<Tipset>>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     tip_index: TipIndex,
@@ -45,8 +45,9 @@ where
 {
     /// constructor
     pub fn new(db: Arc<DB>) -> Self {
-        // TODO pull heaviest tipset from data storage
-        let heaviest = Arc::new(Tipset::new(vec![BlockHeader::default()]).unwrap());
+        let heaviest = get_heaviest_tipset(db.as_ref())
+            .unwrap_or(None)
+            .map(Arc::new);
         Self {
             db,
             tip_index: TipIndex::new(),
@@ -55,9 +56,9 @@ where
     }
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
-    fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        self.heaviest = ts;
+        self.heaviest = Some(ts);
         Ok(())
     }
 
@@ -115,18 +116,14 @@ where
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    fn _load_heaviest_tipset(&mut self) -> Result<(), Error> {
-        let keys: Vec<Cid> = match self.db.read(HEAD_KEY)? {
-            Some(bz) => from_slice(&bz)?,
-            None => {
-                warn!("No previous chain state found");
-                return Err(Error::Other("No chain state found".to_owned()));
-            }
-        };
+    pub fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
+        let heaviest_ts = get_heaviest_tipset(self.db.as_ref())?.ok_or_else(|| {
+            warn!("No previous chain state found");
+            Error::Other("No chain state found".to_owned())
+        })?;
 
-        let heaviest_ts = self.tipset_from_keys(&TipSetKeys::new(keys))?;
         // set as heaviest tipset
-        self.heaviest = Arc::new(heaviest_ts);
+        self.heaviest = Some(Arc::new(heaviest_ts));
         Ok(())
     }
 
@@ -139,7 +136,7 @@ where
     }
 
     /// Returns heaviest tipset from blockstore
-    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
+    pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         self.heaviest.clone()
     }
 
@@ -150,20 +147,7 @@ where
 
     /// Returns Tipset from key-value store from provided cids
     pub fn tipset_from_keys(&self, tsk: &TipSetKeys) -> Result<Tipset, Error> {
-        let mut block_headers = Vec::new();
-        for c in tsk.cids() {
-            let raw_header = self.db.read(c.key())?;
-            if let Some(x) = raw_header {
-                // decode raw header into BlockHeader
-                let bh = BlockHeader::unmarshal_cbor(&x)?;
-                block_headers.push(bh);
-            } else {
-                return Err(Error::NotFound("Key for header"));
-            }
-        }
-        // construct new Tipset to return
-        let ts = Tipset::new(block_headers)?;
-        Ok(ts)
+        tipset_from_keys(self.db.as_ref(), tsk)
     }
 
     /// Returns a tuple of cids for both Unsigned and Signed messages
@@ -230,10 +214,10 @@ where
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
 
-        for header in ts.blocks() {
-            let (bls_messages, secp_messages) = self.messages(header)?;
+        for header in ts.into_blocks() {
+            let (bls_messages, secp_messages) = self.messages(&header)?;
             blocks.push(Block {
-                header: header.clone(),
+                header,
                 bls_messages,
                 secp_messages,
             });
@@ -243,16 +227,21 @@ where
     }
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
-        let new_weight = self.weight(ts)?;
-        let curr_weight = self.weight(&self.heaviest)?;
-
-        if new_weight > curr_weight {
-            println!("just make sure not here");
-            // TODO potentially need to deal with re-orgs here
-            info!("New heaviest tipset");
-            self.set_heaviest_tipset(Arc::new(ts.clone()))?;
+        match &self.heaviest {
+            Some(heaviest) => {
+                let new_weight = self.weight(ts)?;
+                let curr_weight = self.weight(&heaviest)?;
+                if new_weight > curr_weight {
+                    // TODO potentially need to deal with re-orgs here
+                    info!("New heaviest tipset");
+                    self.set_heaviest_tipset(Arc::new(ts.clone()))?;
+                }
+            }
+            None => {
+                info!("set heaviest tipset");
+                self.set_heaviest_tipset(Arc::new(ts.clone()))?;
+            }
         }
-
         Ok(())
     }
 
@@ -263,7 +252,7 @@ where
         }
 
         let mut tpow = BigUint::zero();
-        let state = HamtStateTree::new_from_root(self.db.as_ref(), ts.parent_state())?;
+        let state = StateTree::new_from_root(self.db.as_ref(), ts.parent_state())?;
         if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
             if let Some(state) = self
                 .db
@@ -288,6 +277,40 @@ where
     }
 }
 
+fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
+where
+    DB: BlockStore,
+{
+    match db.read(HEAD_KEY)? {
+        Some(bz) => {
+            let keys: Vec<Cid> = from_slice(&bz)?;
+            Ok(Some(tipset_from_keys(db, &TipSetKeys::new(keys))?))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Returns Tipset from key-value store from provided cids
+fn tipset_from_keys<DB>(db: &DB, tsk: &TipSetKeys) -> Result<Tipset, Error>
+where
+    DB: BlockStore,
+{
+    let mut block_headers = Vec::new();
+    for c in tsk.cids() {
+        let raw_header = db.read(c.key())?;
+        if let Some(x) = raw_header {
+            // decode raw header into BlockHeader
+            let bh = BlockHeader::unmarshal_cbor(&x)?;
+            block_headers.push(bh);
+        } else {
+            return Err(Error::NotFound("Key for header"));
+        }
+    }
+    // construct new Tipset to return
+    let ts = Tipset::new(block_headers)?;
+    Ok(ts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,7 +328,7 @@ mod tests {
             .messages(Cid::new_from_cbor(&[], Identity))
             .message_receipts(Cid::new_from_cbor(&[], Identity))
             .state_root(Cid::new_from_cbor(&[], Identity))
-            .miner_address(Address::new_id(0).unwrap())
+            .miner_address(Address::new_id(0))
             .build_and_validate()
             .unwrap();
 

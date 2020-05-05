@@ -1,8 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod zero;
+
 use cid::Cid;
+use commcid::cid_to_piece_commitment_v1;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::convert::TryFrom;
+pub use zero::zero_piece_commitment;
 
 /// Size of a piece in bytes
 #[derive(PartialEq, Debug, Eq, Clone, Copy)]
@@ -78,6 +83,23 @@ impl<'de> Deserialize<'de> for PieceInfo {
     {
         let (size, cid) = Deserialize::deserialize(deserializer)?;
         Ok(Self { size, cid })
+    }
+}
+
+impl TryFrom<&PieceInfo> for filecoin_proofs_api::PieceInfo {
+    type Error = &'static str;
+
+    fn try_from(p: &PieceInfo) -> Result<Self, Self::Error> {
+        Ok(Self {
+            commitment: cid_to_piece_commitment_v1(&p.cid)?,
+            size: p.size.unpadded().into(),
+        })
+    }
+}
+
+impl From<UnpaddedPieceSize> for filecoin_proofs_api::UnpaddedBytesAmount {
+    fn from(p: UnpaddedPieceSize) -> Self {
+        Self(p.0)
     }
 }
 

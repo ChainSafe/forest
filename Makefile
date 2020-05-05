@@ -1,5 +1,8 @@
 SER_TESTS = "tests/serialization_tests"
 
+install:
+	cargo install --path forest --force
+
 clean-all:
 	cargo clean
 
@@ -35,14 +38,11 @@ lint: license clean
 	cargo fmt --all
 	cargo clippy -- -D warnings
 
-install:
-	cargo install --path forest --force
-
 build:
-	cargo build
+	cargo build --bin forest
 
 release:
-	cargo build --release
+	cargo build --release --bin forest
 
 # Git submodule test vectors
 pull-serialization-tests:
@@ -69,4 +69,4 @@ license:
 docs:
 	cargo doc --no-deps --all-features
 
-.PHONY: clean clean-all lint build release test license test-all test-vectors run-vectors pull-serialization-tests
+.PHONY: clean clean-all lint build release test license test-all test-vectors run-vectors pull-serialization-tests install docs

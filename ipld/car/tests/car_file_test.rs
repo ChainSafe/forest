@@ -8,9 +8,9 @@ use std::io::BufReader;
 
 #[test]
 fn load_into_blockstore() {
-    let file = File::open("tests/devnet.car").unwrap();
+    let file = File::open("tests/test.car").unwrap();
     let buf_reader = BufReader::new(file);
     let mut bs = MemoryDB::default();
 
-    load_car(&mut bs, buf_reader).unwrap();
+    let _ = load_car(&mut bs, buf_reader).unwrap();
 }

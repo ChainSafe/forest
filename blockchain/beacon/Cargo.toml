@@ -1,0 +1,8 @@
+[package]
+name = "beacon"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+encoding = { package = "forest_encoding", path = "../../encoding" }

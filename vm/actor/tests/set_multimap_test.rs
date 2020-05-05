@@ -9,7 +9,7 @@ fn put_remove() {
     let store = db::MemoryDB::default();
     let mut smm = SetMultimap::new(&store);
 
-    let addr = Address::new_id(100).unwrap();
+    let addr = Address::new_id(100);
     assert_eq!(smm.get(&addr), Ok(None));
 
     smm.put(&addr, 8).unwrap();
@@ -29,7 +29,7 @@ fn for_each() {
     let store = db::MemoryDB::default();
     let mut smm = SetMultimap::new(&store);
 
-    let addr = Address::new_id(100).unwrap();
+    let addr = Address::new_id(100);
     assert_eq!(smm.get(&addr), Ok(None));
 
     smm.put(&addr, 8).unwrap();
