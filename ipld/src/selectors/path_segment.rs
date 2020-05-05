@@ -4,9 +4,9 @@
 /// Represents either a key in a map or an index in a list.
 #[derive(Clone, Debug)]
 pub enum PathSegment {
-    // rename s if serialized
+    /// Key in a map
     String(String),
-    // rename i if serialized
+    /// Index in a list
     Int(usize),
 }
 
