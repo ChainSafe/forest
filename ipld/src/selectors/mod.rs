@@ -9,9 +9,20 @@ pub use path_segment::PathSegment;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// Selectors are expressions that identify and select a subset of data from an IPLD DAG.
+/// Selectors are themselves IPLD and can be serialized and deserialized as such.
+// TODO usage docs when API solidified
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-// #[serde(untagged)] // Maybe want this, depending on spec?
 pub enum Selector {
+    /// Matcher marks a node to be included in the "result" set.
+    /// (All nodes traversed by a selector are in the "covered" set (which is a.k.a.
+    /// "the merkle proof"); the "result" set is a subset of the "covered" set.)
+    ///
+    /// In libraries using selectors, the "result" set is typically provided to
+    /// some user-specified callback.
+    ///
+    /// A selector tree with only "explore*"-type selectors and no Matcher selectors
+    /// is valid; it will just generate a "covered" set of nodes and no "result" set.
     #[serde(rename = ".", with = "empty_map")]
     Matcher,
 
@@ -41,7 +52,7 @@ pub enum Selector {
     #[serde(rename = "i")]
     ExploreIndex {
         #[serde(rename = "i")]
-        index: usize, // TODO revisit this type, should be this I think tho
+        index: usize,
         #[serde(rename = ">")]
         next: Box<Selector>,
     },
@@ -113,15 +124,6 @@ pub enum Selector {
     #[serde(rename = "|")]
     ExploreUnion(Vec<Selector>),
 
-    //* No conditional explore impl exists, ignore for now
-
-    // #[serde(rename = "&")]
-    // ExploreConditional {
-    //     #[serde(rename = "&")]
-    //     condition: Option<Condition>,
-    //     #[serde(rename = ">")]
-    //     next: Box<Selector>,
-    // },
     /// ExploreRecursiveEdge is a special sentinel value which is used to mark
     /// the end of a sequence started by an ExploreRecursive selector: the recursion
     /// goes back to the initial state of the earlier ExploreRecursive selector,
@@ -132,6 +134,14 @@ pub enum Selector {
     /// An ExploreRecursiveEdge without an enclosing ExploreRecursive is an error.
     #[serde(rename = "@", with = "empty_map")]
     ExploreRecursiveEdge,
+    //* No conditional explore impl exists, ignore for now
+    // #[serde(rename = "&")]
+    // ExploreConditional {
+    //     #[serde(rename = "&")]
+    //     condition: Option<Condition>,
+    //     #[serde(rename = ">")]
+    //     next: Box<Selector>,
+    // },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Copy)]
