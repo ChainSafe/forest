@@ -3,6 +3,7 @@
 
 mod de;
 mod error;
+pub mod selectors;
 mod ser;
 
 pub use self::error::Error;
