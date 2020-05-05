@@ -242,7 +242,8 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             value,
             send_return,
             exit_code,
-        })
+        });
+        ()
     }
 
     #[allow(dead_code)]
