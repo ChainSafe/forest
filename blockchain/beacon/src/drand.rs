@@ -124,13 +124,6 @@ impl DrandBeacon {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::drand_api::api_grpc::PublicClient;
-    use crate::drand_api::common::GroupRequest;
-    use crate::group::Group;
-    use bls_signatures::PublicKey;
-    use grpc::ClientStub;
-    use std::convert::TryFrom;
-    use std::sync::Arc;
 
     async fn new_beacon() -> DrandBeacon {
         // Current public parameters, subject to change.
