@@ -27,19 +27,6 @@ impl TipsetKeys {
         Self { cids }
     }
 
-    /// checks whether the set contains exactly the same CIDs as another.
-    pub fn equals(&self, key: &TipsetKeys) -> bool {
-        if self.cids.len() != key.cids.len() {
-            return false;
-        }
-        for i in 0..key.cids.len() {
-            if self.cids[i] != key.cids[i] {
-                return false;
-            }
-        }
-        true
-    }
-
     /// Returns tipset header cids
     pub fn cids(&self) -> &[Cid] {
         &self.cids
@@ -101,7 +88,7 @@ impl Tipset {
             // Skip redundant check
 
             verify(
-                header.parents().equals(first_header.parents()),
+                header.parents() == first_header.parents(),
                 "parent cids are not equal",
             )?;
             verify(
