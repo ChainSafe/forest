@@ -19,7 +19,7 @@ use serde::Serialize;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
-    let receiver = Address::new_id(1000).unwrap();
+    let receiver = Address::new_id(1000);
     let mut rt = MockRuntime::new(bs, receiver.clone());
     rt.caller = SYSTEM_ACTOR_ADDR.clone();
     rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
@@ -32,7 +32,7 @@ fn abort_cant_call_exec() {
     let bs = MemoryDB::default();
     let mut rt = construct_runtime(&bs);
     construct_and_verify(&mut rt);
-    let anne = Address::new_id(1001).unwrap();
+    let anne = Address::new_id(1001);
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne);
 
@@ -46,7 +46,7 @@ fn create_2_payment_channels() {
     let bs = MemoryDB::default();
     let mut rt: MockRuntime<MemoryDB> = construct_runtime(&bs);
     construct_and_verify(&mut rt);
-    let anne = Address::new_id(1001).unwrap();
+    let anne = Address::new_id(1001);
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne);
 
@@ -58,9 +58,9 @@ fn create_2_payment_channels() {
         rt.value_received = TokenAmount::from(100u8);
 
         let unique_address = Address::new_actor(paych);
-        rt.new_actor_addr = Some(Address::new_actor(paych).unwrap());
+        rt.new_actor_addr = Some(Address::new_actor(paych));
 
-        let expected_id_addr = Address::new_id(100 + n).unwrap();
+        let expected_id_addr = Address::new_id(100 + n);
         rt.expect_create_actor(PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
         let fake_params = ConstructorParams {
@@ -82,8 +82,7 @@ fn create_2_payment_channels() {
         let exec_ret = exec_and_verify(&mut rt, PAYCH_ACTOR_CODE_ID.clone(), &fake_params).unwrap();
         let exec_ret: ExecReturn = Serialized::deserialize(&exec_ret).unwrap();
         assert_eq!(
-            unique_address,
-            Ok(exec_ret.robust_address),
+            unique_address, exec_ret.robust_address,
             "Robust Address does not match"
         );
         assert_eq!(
@@ -93,7 +92,7 @@ fn create_2_payment_channels() {
 
         let state: State = rt.get_state().unwrap();
         let returned_address = state
-            .resolve_address(rt.store, &unique_address.unwrap())
+            .resolve_address(rt.store, &unique_address)
             .expect("Address should have been found");
 
         assert_eq!(returned_address, expected_id_addr, "Wrong Address returned");
@@ -112,10 +111,10 @@ fn create_storage_miner() {
         STORAGE_POWER_ACTOR_ADDR.clone(),
     );
 
-    let unique_address = Address::new_actor(b"miner").unwrap();
+    let unique_address = Address::new_actor(b"miner");
     rt.new_actor_addr = Some(unique_address.clone());
 
-    let expected_id_addr = Address::new_id(100).unwrap();
+    let expected_id_addr = Address::new_id(100);
     rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
     let fake_params = ConstructorParams {
@@ -145,7 +144,7 @@ fn create_storage_miner() {
     assert_eq!(expected_id_addr, returned_address);
 
     // Should return error since the address of flurbo is unknown
-    let unknown_addr = Address::new_actor(b"flurbo").unwrap();
+    let unknown_addr = Address::new_actor(b"flurbo");
     state
         .resolve_address(rt.store, &unknown_addr)
         .expect_err("Address should have not been found");
@@ -158,15 +157,15 @@ fn create_multisig_actor() {
     construct_and_verify(&mut rt);
 
     // Actor creating multisig actor
-    let some_acc_actor = Address::new_id(1234).unwrap();
+    let some_acc_actor = Address::new_id(1234);
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), some_acc_actor);
 
     //Assign addresses
-    let unique_address = Address::new_actor(b"multisig").unwrap();
+    let unique_address = Address::new_actor(b"multisig");
     rt.new_actor_addr = Some(unique_address.clone());
 
     // Next id
-    let expected_id_addr = Address::new_id(100).unwrap();
+    let expected_id_addr = Address::new_id(100);
     rt.expect_create_actor(MULTISIG_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
     let fake_params = ConstructorParams {
@@ -208,11 +207,11 @@ fn sending_constructor_failure() {
     );
 
     //Assign new address for the storage actor miner
-    let unique_address = Address::new_actor(b"miner").unwrap();
+    let unique_address = Address::new_actor(b"miner");
     rt.new_actor_addr = Some(unique_address.clone());
 
     // Create the next id address
-    let expected_id_addr = Address::new_id(100).unwrap();
+    let expected_id_addr = Address::new_id(100);
     rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
 
     let fake_params = ConstructorParams {

@@ -70,7 +70,11 @@ impl Actor {
                 ),
             ));
         }
-
+        
+        // Compute a re-org-stable address.
+        // This address exists for use by messages coming from outside the system, in order to
+        // stably address the newly created actor even if a chain re-org causes it to end up with
+        // a different ID.
         let robust_address = rt.new_actor_address()?;
 
         // Allocate an ID for this actor.
@@ -87,22 +91,17 @@ impl Actor {
 
         // Invoke constructor
 
-        let v = rt
-            .send(
-                &id_address,
-                1,
-                &params.constructor_params,
-                &rt.message().value().clone(),
-            )
-            .map_err(|err| rt.abort(err.exit_code(), "constructor failed"));
-
-        match v {
-            Ok(_) => Ok(ExecReturn {
-                id_address,
-                robust_address,
-            }),
-            Err(e) => Err(e),
-        }
+        rt.send(
+            &id_address,
+            1,
+            &params.constructor_params,
+            &rt.message().value().clone(),
+        )
+        .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))
+        .map(|_| ExecReturn {
+            id_address,
+            robust_address,
+        })
     }
 }
 

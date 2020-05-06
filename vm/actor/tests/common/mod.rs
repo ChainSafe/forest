@@ -82,16 +82,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             new_actor_addr: None,
 
             message: UnsignedMessage::builder()
-                .to(Address::new_id(100).unwrap())
-                .from(Address::new_id(100).unwrap())
-                .sequence(0) // optional
-                .value(TokenAmount::from(0u8)) // optional
-                .method_num(MethodNum::default()) // optional
-                .params(Serialized::default()) // optional
-                .gas_limit(0) // optional
-                .gas_price(TokenAmount::from(0u8)) // optional
-                .build()
-                .unwrap(),
+            .to(Address::new_id(100))
+            .from(Address::new_id(100))
+            .build()
+            .unwrap(),
 
             state: None,
             balance: 0u8.into(),
@@ -242,8 +236,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             value,
             send_return,
             exit_code,
-        });
-        ()
+        })
     }
 
     #[allow(dead_code)]
@@ -261,8 +254,8 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
 }
 
 impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
-    // Cuasing a test to fail have to implement to pass. Ask about the
     fn message(&self) -> &UnsignedMessage {
+        self.require_in_call();
         &self.message
     }
 
