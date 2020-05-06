@@ -17,19 +17,22 @@ use std::convert::TryInto;
 use std::fmt;
 use std::io::Cursor;
 
-#[cfg(feature = "serde_derive")]
+#[cfg(feature = "cbor")]
 use serde::{de, ser};
-#[cfg(feature = "serde_derive")]
+#[cfg(feature = "cbor")]
 use serde_cbor::tags::Tagged;
-#[cfg(feature = "serde_derive")]
+#[cfg(feature = "cbor")]
 use std::convert::TryFrom;
 
-#[cfg(feature = "serde_derive")]
+#[cfg(feature = "cbor")]
 const CBOR_TAG_CID: u64 = 42;
 /// multibase identity prefix
 /// https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#link-format
-#[cfg(feature = "serde_derive")]
+#[cfg(feature = "cbor")]
 const MULTIBASE_IDENTITY: u8 = 0;
+
+#[cfg(feature = "json")]
+pub mod json;
 
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -53,7 +56,7 @@ impl Default for Cid {
     }
 }
 
-#[cfg(feature = "serde_derive")]
+#[cfg(feature = "cbor")]
 impl ser::Serialize for Cid {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -75,7 +78,7 @@ impl ser::Serialize for Cid {
     }
 }
 
-#[cfg(feature = "serde_derive")]
+#[cfg(feature = "cbor")]
 impl<'de> de::Deserialize<'de> for Cid {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
