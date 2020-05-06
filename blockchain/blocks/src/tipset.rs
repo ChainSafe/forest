@@ -163,24 +163,16 @@ impl Tipset {
         self.blocks
     }
     /// Returns the smallest ticket of all blocks in the tipset
-    pub fn min_ticket(&self) -> Result<Ticket, Error> {
-        if self.blocks.is_empty() {
-            return Err(Error::NoBlocks);
-        }
-        Ok(self.blocks[0].ticket().clone())
+    pub fn min_ticket(&self) -> Ticket {
+        self.blocks[0].ticket().clone()
     }
     /// Returns the smallest timestamp of all blocks in the tipset
-    pub fn min_timestamp(&self) -> Result<u64, Error> {
-        if self.blocks.is_empty() {
-            return Err(Error::NoBlocks);
-        }
-        let mut min = self.blocks[0].timestamp();
-        for i in 1..self.blocks.len() {
-            if self.blocks[i].timestamp() < min {
-                min = self.blocks[i].timestamp()
-            }
-        }
-        Ok(min)
+    pub fn min_timestamp(&self) -> u64 {
+        self.blocks
+            .iter()
+            .map(|block| block.timestamp())
+            .min()
+            .unwrap()
     }
     /// Returns the number of blocks in the tipset
     pub fn len(&self) -> usize {

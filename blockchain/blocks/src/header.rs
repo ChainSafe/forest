@@ -318,8 +318,7 @@ impl BlockHeader {
         const FIXED_BLOCK_DELAY: u64 = 45;
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
-            < base_tipset.min_timestamp()?
-                + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch())
+            < base_tipset.min_timestamp() + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch())
         {
             return Err(Error::Validation(
                 "Header was generated too soon".to_string(),
