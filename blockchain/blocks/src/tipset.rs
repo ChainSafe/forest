@@ -75,6 +75,7 @@ pub struct Tipset {
     key: TipsetKeys,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
@@ -184,10 +185,6 @@ impl Tipset {
     /// Returns the number of blocks in the tipset
     pub fn len(&self) -> usize {
         self.blocks.len()
-    }
-    /// Returns true if no blocks present in tipset
-    pub fn is_empty(&self) -> bool {
-        self.blocks.is_empty()
     }
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKeys {

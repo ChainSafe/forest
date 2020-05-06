@@ -70,7 +70,8 @@ where
             tipset_receipts_root: header.message_receipts().clone(),
             tipset: ts,
         };
-        Ok(self.tip_index.put(&meta)?)
+        self.tip_index.put(&meta);
+        Ok(())
     }
 
     /// Writes genesis to blockstore
@@ -247,10 +248,6 @@ where
 
     /// Returns the weight of provided tipset
     fn weight(&self, ts: &Tipset) -> Result<BigUint, String> {
-        if ts.is_empty() {
-            return Ok(BigUint::zero());
-        }
-
         let mut tpow = BigUint::zero();
         let state = StateTree::new_from_root(self.db.as_ref(), ts.parent_state())?;
         if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {

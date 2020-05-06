@@ -53,10 +53,7 @@ impl TipIndex {
     /// Adds an entry to TipIndex's metadata
     /// After this call the input TipsetMetadata can be looked up by the TipsetKey of
     /// the tipset, or the tipset's epoch
-    pub fn put(&mut self, meta: &TipSetMetadata) -> Result<(), Error> {
-        if meta.tipset.is_empty() {
-            return Err(Error::NoBlocks);
-        }
+    pub fn put(&mut self, meta: &TipsetMetadata) {
         // retrieve parent cids to be used as hash map key
         let parent_key = meta.tipset.parents();
         // retrieve epoch to be used as hash map key
@@ -65,7 +62,6 @@ impl TipIndex {
         self.metadata.insert(parent_key.hash_key(), meta.clone());
         // insert value by epoch_key into hash map
         self.metadata.insert(epoch_key.hash_key(), meta.clone());
-        Ok(())
     }
     /// Returns the tipset given by hashed key
     fn get(&self, key: u64) -> Result<TipsetMetadata, Error> {
