@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_ipld::selectors::{RecursionLimit, Selector};
+use forest_ipld::selector::{RecursionLimit, Selector};
 use serde_json::{from_str, to_string};
 use std::collections::BTreeMap;
 
