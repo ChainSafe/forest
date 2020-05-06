@@ -82,10 +82,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             new_actor_addr: None,
 
             message: UnsignedMessage::builder()
-            .to(Address::new_id(100))
-            .from(Address::new_id(100))
-            .build()
-            .unwrap(),
+                .to(Address::new_id(100))
+                .from(Address::new_id(100))
+                .build()
+                .unwrap(),
 
             state: None,
             balance: 0u8.into(),
