@@ -255,7 +255,7 @@ where
             Pointer::Values(vals) => {
                 // Update, if the key already exists.
                 if let Some(i) = vals.iter().position(|p| p.key() == &key) {
-                    std::mem::replace(&mut vals[i].1, value);
+                    vals[i].1 = value;
                     return Ok(());
                 }
 
