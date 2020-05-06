@@ -5,7 +5,7 @@ use super::network_handler::RPCReceiver;
 use async_std::future;
 use async_std::prelude::*;
 use async_std::sync::{Receiver, Sender};
-use blocks::{FullTipset, TipSetKeys, Tipset};
+use blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
     hello::HelloMessage,
@@ -52,7 +52,7 @@ impl SyncNetworkContext {
     pub async fn blocksync_headers(
         &mut self,
         peer_id: PeerId,
-        tsk: &TipSetKeys,
+        tsk: &TipsetKeys,
         count: u64,
     ) -> Result<Vec<Tipset>, String> {
         let bs_res = self
@@ -75,7 +75,7 @@ impl SyncNetworkContext {
     pub async fn blocksync_fts(
         &mut self,
         peer_id: PeerId,
-        tsk: &TipSetKeys,
+        tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
         let bs_res = self
             .blocksync_request(

@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, TipIndex, TipSetMetadata};
+use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
-use blocks::{Block, BlockHeader, FullTipset, TipSetKeys, Tipset, TxMeta};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use ipld_amt::Amt;
@@ -65,7 +65,7 @@ where
     /// Sets tip_index tracker
     pub fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
         let ts: Tipset = Tipset::new(vec![header.clone()])?;
-        let meta = TipSetMetadata {
+        let meta = TipsetMetadata {
             tipset_state_root: header.state_root().clone(),
             tipset_receipts_root: header.message_receipts().clone(),
             tipset: ts,
@@ -146,7 +146,7 @@ where
     }
 
     /// Returns Tipset from key-value store from provided cids
-    pub fn tipset_from_keys(&self, tsk: &TipSetKeys) -> Result<Tipset, Error> {
+    pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
         tipset_from_keys(self.db.as_ref(), tsk)
     }
 
@@ -284,14 +284,14 @@ where
     match db.read(HEAD_KEY)? {
         Some(bz) => {
             let keys: Vec<Cid> = from_slice(&bz)?;
-            Ok(Some(tipset_from_keys(db, &TipSetKeys::new(keys))?))
+            Ok(Some(tipset_from_keys(db, &TipsetKeys::new(keys))?))
         }
         None => Ok(None),
     }
 }
 
 /// Returns Tipset from key-value store from provided cids
-fn tipset_from_keys<DB>(db: &DB, tsk: &TipSetKeys) -> Result<Tipset, Error>
+fn tipset_from_keys<DB>(db: &DB, tsk: &TipsetKeys) -> Result<Tipset, Error>
 where
     DB: BlockStore,
 {

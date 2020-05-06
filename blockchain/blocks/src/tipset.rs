@@ -14,21 +14,21 @@ use encoding::{
 use num_bigint::BigUint;
 use serde::Deserialize;
 
-/// A set of CIDs forming a unique key for a TipSet.
+/// A set of CIDs forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Ord, PartialOrd)]
-pub struct TipSetKeys {
+pub struct TipsetKeys {
     pub cids: Vec<Cid>,
 }
 
-impl TipSetKeys {
+impl TipsetKeys {
     pub fn new(cids: Vec<Cid>) -> Self {
         Self { cids }
     }
 
     /// checks whether the set contains exactly the same CIDs as another.
-    pub fn equals(&self, key: &TipSetKeys) -> bool {
+    pub fn equals(&self, key: &TipsetKeys) -> bool {
         if self.cids.len() != key.cids.len() {
             return false;
         }
@@ -46,7 +46,7 @@ impl TipSetKeys {
     }
 }
 
-impl ser::Serialize for TipSetKeys {
+impl ser::Serialize for TipsetKeys {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -55,28 +55,28 @@ impl ser::Serialize for TipSetKeys {
     }
 }
 
-impl<'de> de::Deserialize<'de> for TipSetKeys {
+impl<'de> de::Deserialize<'de> for TipsetKeys {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let cids: Vec<Cid> = Deserialize::deserialize(deserializer)?;
-        Ok(TipSetKeys { cids })
+        Ok(TipsetKeys { cids })
     }
 }
 
-impl Cbor for TipSetKeys {}
+impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
 #[derive(Clone, PartialEq, Debug, PartialOrd, Ord, Eq)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
-    key: TipSetKeys,
+    key: TipsetKeys,
 }
 
 impl Tipset {
-    /// Builds a new TipSet from a collection of blocks.
+    /// Builds a new Tipset from a collection of blocks.
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
     /// specify identical epoch, parents, weight, height, state root, receipt root;
     /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
@@ -143,7 +143,7 @@ impl Tipset {
         // and the distinct keys
         Ok(Self {
             blocks: sorted_headers,
-            key: TipSetKeys {
+            key: TipsetKeys {
                 // interim until CID check is in place
                 cids,
             },
@@ -190,7 +190,7 @@ impl Tipset {
         self.blocks.is_empty()
     }
     /// Returns a key for the tipset.
-    pub fn key(&self) -> &TipSetKeys {
+    pub fn key(&self) -> &TipsetKeys {
         &self.key
     }
     /// Returns slice of Cids for the current tipset
@@ -198,8 +198,8 @@ impl Tipset {
         &self.key.cids()
     }
     /// Returns the CIDs of the parents of the blocks in the tipset
-    pub fn parents(&self) -> &TipSetKeys {
         &self.blocks[0].parents()
+    pub fn parents(&self) -> &TipsetKeys {
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -211,7 +211,7 @@ impl Tipset {
     }
 }
 
-/// FullTipSet is an expanded version of the TipSet that contains all the blocks and messages
+/// FullTipset is an expanded version of the Tipset that contains all the blocks and messages
 #[derive(Debug, PartialEq, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,

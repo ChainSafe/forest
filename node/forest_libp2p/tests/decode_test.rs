@@ -4,7 +4,7 @@
 use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::blocksync::{BlockSyncResponse, TipSetBundle};
+use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
 use forest_message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -87,7 +87,7 @@ fn tipset_bundle_to_full_tipset() {
         bls_messages: vec![uc.clone(), ud.clone()],
     };
 
-    let mut tsb = TipSetBundle {
+    let mut tsb = TipsetBundle {
         blocks: vec![h0, h1],
         secp_msgs: vec![sa, sb, sc, sd],
         secp_msg_includes: vec![vec![0, 1, 3], vec![1, 2, 0]],

@@ -51,7 +51,7 @@ impl<'de> Deserialize<'de> for BlockSyncRequest {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockSyncResponse {
     /// The tipsets requested
-    pub chain: Vec<TipSetBundle>,
+    pub chain: Vec<TipsetBundle>,
     /// Error code
     pub status: u64,
     /// Status message indicating failure reason
@@ -98,7 +98,7 @@ impl<'de> Deserialize<'de> for BlockSyncResponse {
 
 /// Contains the blocks and messages in a particular tipset
 #[derive(Clone, Debug, PartialEq)]
-pub struct TipSetBundle {
+pub struct TipsetBundle {
     /// The blocks in the tipset
     pub blocks: Vec<BlockHeader>,
 
@@ -113,16 +113,17 @@ pub struct TipSetBundle {
     pub secp_msg_includes: Vec<Vec<u64>>,
 }
 
-impl TryFrom<TipSetBundle> for FullTipset {
+impl TryFrom<TipsetBundle> for FullTipset {
     type Error = &'static str;
 
-    fn try_from(tsb: TipSetBundle) -> Result<FullTipset, Self::Error> {
+    fn try_from(tsb: TipsetBundle) -> Result<FullTipset, Self::Error> {
         let mut blocks: Vec<Block> = Vec::with_capacity(tsb.blocks.len());
 
+        // TODO: we may already want to check this on construction of the bundle
         if tsb.blocks.len() != tsb.bls_msg_includes.len()
             || tsb.blocks.len() != tsb.secp_msg_includes.len()
         {
-            return Err("Invalid formed TipSet bundle, lengths of includes does not match blocks");
+            return Err("Invalid formed Tipset bundle, lengths of includes does not match blocks");
         }
 
         fn values_from_indexes<T: Clone>(
@@ -157,7 +158,7 @@ impl TryFrom<TipSetBundle> for FullTipset {
     }
 }
 
-impl ser::Serialize for TipSetBundle {
+impl ser::Serialize for TipsetBundle {
     fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
     where
         S: Serializer,
@@ -173,14 +174,14 @@ impl ser::Serialize for TipSetBundle {
     }
 }
 
-impl<'de> de::Deserialize<'de> for TipSetBundle {
+impl<'de> de::Deserialize<'de> for TipsetBundle {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let (blocks, bls_msgs, bls_msg_includes, secp_msgs, secp_msg_includes) =
             Deserialize::deserialize(deserializer)?;
-        Ok(TipSetBundle {
+        Ok(TipsetBundle {
             blocks,
             bls_msgs,
             bls_msg_includes,
