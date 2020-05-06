@@ -22,12 +22,17 @@ impl Signer for DummySigner {
 
 #[test]
 fn convert_single_tipset_bundle() {
-    let bundle = TipSetBundle {
-        blocks: Vec::new(),
+    let block = Block {
+        header: BlockHeader::builder().build().unwrap(),
+        bls_messages: Vec::new(),
+        secp_messages: Vec::new(),
+    };
+    let bundle = TipsetBundle {
+        blocks: vec![block.header.clone()],
         bls_msgs: Vec::new(),
-        bls_msg_includes: Vec::new(),
+        bls_msg_includes: vec![Vec::new()],
         secp_msgs: Vec::new(),
-        secp_msg_includes: Vec::new(),
+        secp_msg_includes: vec![Vec::new()],
     };
 
     let res = BlockSyncResponse {
@@ -38,7 +43,7 @@ fn convert_single_tipset_bundle() {
     .into_result()
     .unwrap();
 
-    assert_eq!(res, [FullTipset::new(vec![])]);
+    assert_eq!(res, [FullTipset::new(vec![block])]);
 }
 
 #[test]

@@ -218,9 +218,10 @@ pub struct FullTipset {
 }
 
 impl FullTipset {
-    /// constructor
-    pub fn new(blks: Vec<Block>) -> Self {
-        Self { blocks: blks }
+    /// constructor, panics when the given vector is empty
+    pub fn new(blocks: Vec<Block>) -> Self {
+        assert!(!blocks.is_empty());
+        Self { blocks }
     }
     /// Returns reference to all blocks in a full tipset
     pub fn blocks(&self) -> &[Block] {
