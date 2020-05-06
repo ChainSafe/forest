@@ -145,9 +145,14 @@ impl Tipset {
             },
         })
     }
+    /// Returns the first block of the tipset
+    fn first_block(&self) -> &BlockHeader {
+        // `Tipset::new` guarantees that `blocks` isn't empty
+        &self.blocks.first().unwrap()
+    }
     /// Returns epoch of the tipset
     pub fn epoch(&self) -> ChainEpoch {
-        self.blocks[0].epoch()
+        self.first_block().epoch()
     }
     /// Returns all blocks in tipset
     pub fn blocks(&self) -> &[BlockHeader] {
@@ -159,7 +164,7 @@ impl Tipset {
     }
     /// Returns the smallest ticket of all blocks in the tipset
     pub fn min_ticket(&self) -> Ticket {
-        self.blocks[0].ticket().clone()
+        self.first_block().ticket().clone()
     }
     /// Returns the smallest timestamp of all blocks in the tipset
     pub fn min_timestamp(&self) -> u64 {
@@ -183,15 +188,15 @@ impl Tipset {
     }
     /// Returns the CIDs of the parents of the blocks in the tipset
     pub fn parents(&self) -> &TipsetKeys {
-        self.blocks[0].parents()
+        self.first_block().parents()
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
-        self.blocks[0].state_root()
+        self.first_block().state_root()
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
-        self.blocks[0].weight()
+        self.first_block().weight()
     }
 }
 
@@ -206,6 +211,11 @@ impl FullTipset {
     pub fn new(blocks: Vec<Block>) -> Self {
         assert!(!blocks.is_empty());
         Self { blocks }
+    }
+    /// Returns the first block of the tipset
+    fn first_block(&self) -> &Block {
+        // `FullTipset::new` guarantees that `blocks` isn't empty
+        &self.blocks.first().unwrap()
     }
     /// Returns reference to all blocks in a full tipset
     pub fn blocks(&self) -> &[Block] {
@@ -229,14 +239,14 @@ impl FullTipset {
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
-        self.blocks[0].header().state_root()
+        self.first_block().header().state_root()
     }
     /// Returns epoch of the tipset
     pub fn epoch(&self) -> ChainEpoch {
-        self.blocks[0].header().epoch()
+        self.first_block().header().epoch()
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
-        self.blocks[0].header().weight()
+        self.first_block().header().weight()
     }
 }
