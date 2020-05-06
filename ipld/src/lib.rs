@@ -25,7 +25,7 @@ use std::collections::BTreeMap;
 pub enum Ipld {
     /// Represents a null value.
     ///
-    /// ```
+    /// ```no_run
     /// # use forest_ipld::ipld;
     /// let v = ipld!(null);
     /// ```
@@ -33,7 +33,7 @@ pub enum Ipld {
 
     /// Represents a boolean value.
     ///
-    /// ```
+    /// ```no_run
     /// # use forest_ipld::ipld;
     /// let v = ipld!(true);
     /// ```
@@ -41,7 +41,7 @@ pub enum Ipld {
 
     /// Represents a signed integer value.
     ///
-    /// ```
+    /// ```no_run
     /// # use forest_ipld::ipld;
     /// let v = ipld!(28);
     /// ```
@@ -49,7 +49,7 @@ pub enum Ipld {
 
     /// Represents a floating point value.
     ///
-    /// ```
+    /// ```no_run
     /// # use forest_ipld::ipld;
     /// let v = ipld!(8.5);
     /// ```
@@ -57,7 +57,7 @@ pub enum Ipld {
 
     /// Represents a String.
     ///
-    /// ```
+    /// ```no_run
     /// # use forest_ipld::ipld;
     /// let v = ipld!("string");
     /// ```
@@ -65,7 +65,7 @@ pub enum Ipld {
 
     /// Represents Bytes.
     ///
-    /// ```
+    /// ```no_run
     /// # use forest_ipld::ipld;
     /// let v = ipld!(Bytes(vec![0x98, 0x8, 0x2a, 0xff]));
     /// ```
@@ -73,7 +73,7 @@ pub enum Ipld {
 
     /// Represents List of IPLD objects.
     ///
-    /// ```
+    /// ```no_run
     /// # use forest_ipld::ipld;
     /// let v = ipld!([1, "string", null]);
     /// ```
@@ -81,7 +81,7 @@ pub enum Ipld {
 
     /// Represents a map of strings to Ipld objects.
     ///
-    /// ```
+    /// ```no_run
     /// # use forest_ipld::ipld;
     /// let v = ipld!({"key": "value", "bool": true});
     /// ```
