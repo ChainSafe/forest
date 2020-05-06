@@ -13,3 +13,6 @@ thiserror = "1.0"
 package = "forest_cid"
 path = "../ipld/cid"
 features = ["serde_derive"]
+
+[dev-dependencies]
+serde_json = "1.0"
