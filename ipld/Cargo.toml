@@ -4,15 +4,23 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
+[package.metadata.docs.rs]
+features = ["json"]
+
 [dependencies]
 encoding = { package = "forest_encoding", path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
+serde_json = { version = "1.0", optional = true }
+multibase = { version = "0.8.0", optional = true }
 
 [dependencies.cid]
 package = "forest_cid"
 path = "../ipld/cid"
-features = ["serde_derive"]
+features = ["cbor"]
+
+[features]
+json = ["serde_json", "multibase"]
 
 [dev-dependencies]
 serde_json = "1.0"

@@ -3,14 +3,17 @@
 
 #![cfg(feature = "serde_tests")]
 
-use cid::Cid;
+use cid::{
+    json::{self, CidJson},
+    Cid,
+};
 use crypto::VRFProof;
 use encoding::{from_slice, to_vec};
 use forest_blocks::{BlockHeader, EPostProof, EPostTicket, Ticket, TipSetKeys};
 use hex::encode;
 use num_traits::FromPrimitive;
 use serde::Deserialize;
-use serialization_tests::{CidVector, SignatureVector};
+use serialization_tests::SignatureVector;
 use std::fs::File;
 use std::io::prelude::*;
 use vm::PoStProof;
@@ -86,26 +89,28 @@ impl From<EPoStProofVector> for EPostProof {
     }
 }
 
-#[derive(Debug, Deserialize)]
+// TODO update vectors when serialization vectors submodule updated
+
+#[derive(Deserialize)]
 struct BlockVector {
     #[serde(alias = "Miner")]
     miner: String,
     #[serde(alias = "Ticket")]
     ticket: TicketVector,
     #[serde(alias = "EPostProof")]
-    e_post: EPoStProofVector,
+    _e_post: EPoStProofVector,
     #[serde(alias = "Parents")]
-    parents: Vec<CidVector>,
+    parents: Vec<CidJson>,
     #[serde(alias = "ParentWeight")]
     parent_weight: String,
     #[serde(alias = "Height")]
     epoch: u64,
-    #[serde(alias = "ParentStateRoot")]
-    state_root: CidVector,
-    #[serde(alias = "ParentMessageReceipts")]
-    message_receipts: CidVector,
-    #[serde(alias = "Messages")]
-    messages: CidVector,
+    #[serde(alias = "ParentStateRoot", with = "json")]
+    state_root: Cid,
+    #[serde(alias = "ParentMessageReceipts", with = "json")]
+    message_receipts: Cid,
+    #[serde(alias = "Messages", with = "json")]
+    messages: Cid,
     #[serde(alias = "BLSAggregate")]
     bls_agg: SignatureVector,
     #[serde(alias = "Timestamp")]
@@ -120,7 +125,7 @@ impl From<BlockVector> for BlockHeader {
     fn from(v: BlockVector) -> BlockHeader {
         BlockHeader::builder()
             .parents(TipSetKeys::new(
-                v.parents.into_iter().map(|c| Cid::from(c)).collect(),
+                v.parents.into_iter().map(|c| c.0).collect(),
             ))
             .weight(v.parent_weight.parse().unwrap())
             .epoch(v.epoch)

@@ -296,7 +296,7 @@ where
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError> {
         let msg = UnsignedMessage::builder()
-            .to(to.clone())
+            .to(*to)
             .from(*self.message.from())
             .method_num(method)
             .value(value.clone())
