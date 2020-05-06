@@ -83,64 +83,59 @@ impl Tipset {
     /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
     pub fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
         // check header is non-empty
-        if headers.is_empty() {
-            return Err(Error::NoBlocks);
-        }
+        let (first_header, other_headers) = match headers.split_first() {
+            Some(x) => x,
+            None => return Err(Error::NoBlocks),
+        };
 
-        let mut sorted_headers = Vec::new();
-        let mut cids = Vec::new();
+        let verify = |predicate: bool, message: &'static str| {
+            if predicate {
+                Ok(())
+            } else {
+                Err(Error::InvalidTipset(message.to_string()))
+            }
+        };
 
         // loop through headers and validate conditions against 0th header
-        for i in 0..headers.len() {
-            if i > 0 {
-                // Skip redundant check
-                // check parent cids are equal
-                if !headers[i].parents().equals(headers[0].parents()) {
-                    return Err(Error::InvalidTipSet(
-                        "parent cids are not equal".to_string(),
-                    ));
-                }
-                // check weights are equal
-                if headers[i].weight() != headers[0].weight() {
-                    return Err(Error::InvalidTipSet("weights are not equal".to_string()));
-                }
-                // check state_roots are equal
-                if headers[i].state_root() != headers[0].state_root() {
-                    return Err(Error::InvalidTipSet(
-                        "state_roots are not equal".to_string(),
-                    ));
-                }
-                // check epochs are equal
-                if headers[i].epoch() != headers[0].epoch() {
-                    return Err(Error::InvalidTipSet("epochs are not equal".to_string()));
-                }
-                // check message_receipts are equal
-                if headers[i].message_receipts() != headers[0].message_receipts() {
-                    return Err(Error::InvalidTipSet(
-                        "message_receipts are not equal".to_string(),
-                    ));
-                }
-                // check miner_addresses are distinct
-                if headers[i].miner_address() == headers[0].miner_address() {
-                    return Err(Error::InvalidTipSet(
-                        "miner_addresses are not distinct".to_string(),
-                    ));
-                }
-            }
-            // push headers into vec for sorting
-            sorted_headers.push(headers[i].clone());
-            // push header cid into vec for unique check (can be changed to hashset later)
-            cids.push(headers[i].cid().clone());
+        for header in other_headers {
+            // Skip redundant check
+
+            verify(
+                header.parents().equals(first_header.parents()),
+                "parent cids are not equal",
+            )?;
+            verify(
+                header.weight() == first_header.weight(),
+                "weights are not equal",
+            )?;
+            verify(
+                header.state_root() == first_header.state_root(),
+                "state_roots are not equal",
+            )?;
+            verify(
+                header.epoch() == first_header.epoch(),
+                "epochs are not equal",
+            )?;
+            verify(
+                header.message_receipts() == first_header.message_receipts(),
+                "message_receipts are not equal",
+            )?;
+            verify(
+                header.miner_address() != first_header.miner_address(),
+                "miner_addresses are not distinct",
+            )?;
         }
+
+        // TODO Have a check the ensures CIDs are distinct
+        let cids = headers.iter().map(BlockHeader::cid).cloned().collect();
 
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
+        let mut sorted_headers = headers;
         sorted_headers
             .sort_by_key(|header| (header.ticket().vrfproof.clone(), header.cid().to_bytes()));
 
-        // TODO Have a check the ensures CIDs are distinct
-
-        // return tipset where sorted headers have smallest ticket size is in the 0th index
+        // return tipset where sorted headers have smallest ticket size in the 0th index
         // and the distinct keys
         Ok(Self {
             blocks: sorted_headers,
@@ -184,11 +179,11 @@ impl Tipset {
     }
     /// Returns slice of Cids for the current tipset
     pub fn cids(&self) -> &[Cid] {
-        &self.key.cids()
+        self.key.cids()
     }
     /// Returns the CIDs of the parents of the blocks in the tipset
-        &self.blocks[0].parents()
     pub fn parents(&self) -> &TipsetKeys {
+        self.blocks[0].parents()
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -196,7 +191,7 @@ impl Tipset {
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
-        &self.blocks[0].weight()
+        self.blocks[0].weight()
     }
 }
 
@@ -224,23 +219,13 @@ impl FullTipset {
     // and should be validated on creation instead
     /// Returns a Tipset
     pub fn into_tipset(self) -> Result<Tipset, Error> {
-        let mut headers = Vec::new();
-
-        for block in self.into_blocks() {
-            headers.push(block.header)
-        }
-        let tip: Tipset = Tipset::new(headers)?;
-        Ok(tip)
+        let headers = self.blocks.into_iter().map(|block| block.header).collect();
+        Tipset::new(headers)
     }
     /// Returns a Tipset
     pub fn to_tipset(&self) -> Result<Tipset, Error> {
-        let mut headers = Vec::new();
-
-        for block in self.blocks() {
-            headers.push(block.header().clone())
-        }
-        let tip: Tipset = Tipset::new(headers)?;
-        Ok(tip)
+        let headers = self.blocks.iter().map(Block::header).cloned().collect();
+        Tipset::new(headers)
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -252,6 +237,6 @@ impl FullTipset {
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
-        &self.blocks[0].header().weight()
+        self.blocks[0].header().weight()
     }
 }
