@@ -329,7 +329,7 @@ where
                 secp_messages,
             });
         }
-        Ok(FullTipset::new(blocks))
+        Ok(FullTipset::new(blocks)?)
     }
 
     /// informs the syncer about a new potential tipset
@@ -506,7 +506,7 @@ where
             blocks.push(full_block);
         }
         // construct FullTipset
-        let fts = FullTipset::new(blocks);
+        let fts = FullTipset::new(blocks)?;
         Ok(fts)
     }
     // Block message validation checks

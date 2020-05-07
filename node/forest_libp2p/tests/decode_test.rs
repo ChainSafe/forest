@@ -43,17 +43,19 @@ fn convert_single_tipset_bundle() {
     .into_result()
     .unwrap();
 
-    assert_eq!(res, [FullTipset::new(vec![block])]);
+    assert_eq!(res, [FullTipset::new(vec![block]).unwrap()]);
 }
 
 #[test]
 fn tipset_bundle_to_full_tipset() {
     let h0 = BlockHeader::builder()
         .weight(BigUint::from(1u32))
+        .miner_address(Address::new_id(0))
         .build()
         .unwrap();
     let h1 = BlockHeader::builder()
-        .weight(BigUint::from(2u32))
+        .weight(BigUint::from(1u32))
+        .miner_address(Address::new_id(1))
         .build()
         .unwrap();
     let ua = UnsignedMessage::builder()
@@ -102,7 +104,7 @@ fn tipset_bundle_to_full_tipset() {
 
     assert_eq!(
         FullTipset::try_from(tsb.clone()).unwrap(),
-        FullTipset::new(vec![b0, b1])
+        FullTipset::new(vec![b0, b1]).unwrap()
     );
 
     // Invalidate tipset bundle by having invalid index

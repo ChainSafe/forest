@@ -69,44 +69,7 @@ impl Tipset {
     /// specify identical epoch, parents, weight, height, state root, receipt root;
     /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
     pub fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
-        // check header is non-empty
-        let (first_header, other_headers) = headers.split_first().ok_or(Error::NoBlocks)?;
-
-        let verify = |predicate: bool, message: &'static str| {
-            if predicate {
-                Ok(())
-            } else {
-                Err(Error::InvalidTipset(message.to_string()))
-            }
-        };
-
-        // loop through headers and validate conditions against 0th header
-        for header in other_headers {
-            verify(
-                header.parents() == first_header.parents(),
-                "parent cids are not equal",
-            )?;
-            verify(
-                header.weight() == first_header.weight(),
-                "weights are not equal",
-            )?;
-            verify(
-                header.state_root() == first_header.state_root(),
-                "state_roots are not equal",
-            )?;
-            verify(
-                header.epoch() == first_header.epoch(),
-                "epochs are not equal",
-            )?;
-            verify(
-                header.message_receipts() == first_header.message_receipts(),
-                "message_receipts are not equal",
-            )?;
-            verify(
-                header.miner_address() != first_header.miner_address(),
-                "miner_addresses are not distinct",
-            )?;
-        }
+        verify_blocks(&headers)?;
 
         // TODO Have a check the ensures CIDs are distinct
         let cids = headers.iter().map(BlockHeader::cid).cloned().collect();
@@ -189,10 +152,10 @@ pub struct FullTipset {
 }
 
 impl FullTipset {
-    /// constructor, panics when the given vector is empty
-    pub fn new(blocks: Vec<Block>) -> Self {
-        assert!(!blocks.is_empty());
-        Self { blocks }
+    /// constructor
+    pub fn new(blocks: Vec<Block>) -> Result<Self, Error> {
+        verify_blocks(blocks.iter().map(Block::header))?;
+        Ok(Self { blocks })
     }
     /// Returns the first block of the tipset
     fn first_block(&self) -> &Block {
@@ -231,4 +194,49 @@ impl FullTipset {
     pub fn weight(&self) -> &BigUint {
         self.first_block().header().weight()
     }
+}
+
+fn verify_blocks<'a, I>(headers: I) -> Result<(), Error>
+where
+    I: IntoIterator<Item = &'a BlockHeader>,
+{
+    let mut headers = headers.into_iter();
+    let first_header = headers.next().ok_or(Error::NoBlocks)?;
+
+    let verify = |predicate: bool, message: &'static str| {
+        if predicate {
+            Ok(())
+        } else {
+            Err(Error::InvalidTipset(message.to_string()))
+        }
+    };
+
+    for header in headers {
+        verify(
+            header.parents() == first_header.parents(),
+            "parent cids are not equal",
+        )?;
+        verify(
+            header.weight() == first_header.weight(),
+            "weights are not equal",
+        )?;
+        verify(
+            header.state_root() == first_header.state_root(),
+            "state_roots are not equal",
+        )?;
+        verify(
+            header.epoch() == first_header.epoch(),
+            "epochs are not equal",
+        )?;
+        verify(
+            header.message_receipts() == first_header.message_receipts(),
+            "message_receipts are not equal",
+        )?;
+        verify(
+            header.miner_address() != first_header.miner_address(),
+            "miner_addresses are not distinct",
+        )?;
+    }
+
+    Ok(())
 }

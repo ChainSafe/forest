@@ -142,7 +142,7 @@ pub fn construct_full_tipset() -> FullTipset {
         bls_messages: vec![bls_messages],
     });
 
-    FullTipset::new(blocks)
+    FullTipset::new(blocks).unwrap()
 }
 
 /// Returns TipsetMetadata used for testing

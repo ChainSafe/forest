@@ -224,7 +224,8 @@ where
             });
         }
 
-        Ok(FullTipset::new(blocks))
+        // the given tipset has already been verified, so this cannot fail
+        Ok(FullTipset::new(blocks).unwrap())
     }
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
