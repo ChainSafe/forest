@@ -99,7 +99,7 @@ impl Store for RocksDb {
 
         let mut batch = WriteBatch::default();
         for (k, v) in keys.iter().zip(values.iter()) {
-            batch.put(k, v)?;
+            batch.put(k, v);
         }
         Ok(self.db()?.write(batch)?)
     }
