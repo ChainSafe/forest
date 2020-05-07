@@ -70,10 +70,7 @@ impl Tipset {
     /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
     pub fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
         // check header is non-empty
-        let (first_header, other_headers) = match headers.split_first() {
-            Some(x) => x,
-            None => return Err(Error::NoBlocks),
-        };
+        let (first_header, other_headers) = headers.split_first().ok_or(Error::NoBlocks)?;
 
         let verify = |predicate: bool, message: &'static str| {
             if predicate {
@@ -85,8 +82,6 @@ impl Tipset {
 
         // loop through headers and validate conditions against 0th header
         for header in other_headers {
-            // Skip redundant check
-
             verify(
                 header.parents() == first_header.parents(),
                 "parent cids are not equal",
@@ -135,7 +130,7 @@ impl Tipset {
     /// Returns the first block of the tipset
     fn first_block(&self) -> &BlockHeader {
         // `Tipset::new` guarantees that `blocks` isn't empty
-        &self.blocks.first().unwrap()
+        self.blocks.first().unwrap()
     }
     /// Returns epoch of the tipset
     pub fn epoch(&self) -> ChainEpoch {
@@ -202,7 +197,7 @@ impl FullTipset {
     /// Returns the first block of the tipset
     fn first_block(&self) -> &Block {
         // `FullTipset::new` guarantees that `blocks` isn't empty
-        &self.blocks.first().unwrap()
+        self.blocks.first().unwrap()
     }
     /// Returns reference to all blocks in a full tipset
     pub fn blocks(&self) -> &[Block] {
