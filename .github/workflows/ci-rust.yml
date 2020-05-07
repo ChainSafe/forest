@@ -60,25 +60,6 @@ jobs:
       - name: Install OpenCL
         run: sudo apt install ocl-icd-opencl-dev	
 
-      - name: Cache cargo registry
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-v0-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-cargo-registry-v0-
-      - name: Cache cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-v0-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-cargo-index-v0-
-      - name: Cache target dir
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-v0-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-cargo-build-target-v0-
-
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
