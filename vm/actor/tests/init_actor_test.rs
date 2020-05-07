@@ -311,11 +311,11 @@ where
         &Serialized::serialize(&exec_params).unwrap(),
     );
 
-    // Revert state if call 
-    if ret.is_err(){
+    // Revert state if call
+    if ret.is_err() {
         rt.state = prev_state;
     }
-    
+
     rt.verify();
     ret
 }
