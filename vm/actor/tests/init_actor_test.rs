@@ -20,12 +20,13 @@ use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let receiver = Address::new_id(1000);
-    let mut rt = MockRuntime::new(bs, receiver.clone());
-    rt.message = UnsignedMessage::builder()
+
+    let message = UnsignedMessage::builder()
         .to(receiver.clone())
         .from(SYSTEM_ACTOR_ADDR.clone())
         .build()
         .unwrap();
+    let mut rt = MockRuntime::new(bs, message);
     rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
     return rt;
 }
@@ -59,7 +60,13 @@ fn create_2_payment_channels() {
         let paych = pay_channel_string.as_bytes();
 
         rt.balance = TokenAmount::from(100u8);
-        rt.value_received = TokenAmount::from(100u8);
+
+        rt.message = UnsignedMessage::builder()
+            .to(rt.message.to().clone())
+            .from(rt.message.from().clone())
+            .value(TokenAmount::from(100u8))
+            .build()
+            .unwrap();
 
         let unique_address = Address::new_actor(paych);
         rt.new_actor_addr = Some(Address::new_actor(paych));
@@ -298,7 +305,7 @@ where
     rt.message = UnsignedMessage::builder()
         .to(rt.message.to().clone())
         .from(rt.message.from().clone())
-        .value(rt.value_received.clone())
+        .value(rt.message.value().clone())
         .build()
         .unwrap();
 

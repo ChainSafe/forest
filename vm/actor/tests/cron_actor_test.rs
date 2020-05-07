@@ -15,12 +15,13 @@ use vm::{ExitCode, Serialized};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let receiver = Address::new_id(100);
-    let mut rt = MockRuntime::new(bs, receiver);
-    rt.message = UnsignedMessage::builder()
+
+    let message = UnsignedMessage::builder()
         .from(SYSTEM_ACTOR_ADDR.clone())
         .to(receiver.clone())
         .build()
         .unwrap();
+    let mut rt = MockRuntime::new(bs, message);
     rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
     return rt;
 }

@@ -22,7 +22,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub epoch: ChainEpoch,
     pub caller_type: Cid,
     pub miner: Address,
-    pub value_received: TokenAmount,
+    //pub value_received: TokenAmount,
     pub id_addresses: HashMap<Address, Address>,
     pub actor_code_cids: HashMap<Address, Cid>,
     pub new_actor_addr: Option<Address>,
@@ -65,24 +65,24 @@ pub struct ExpectedMessage {
 }
 
 impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
-    pub fn new(bs: &'a BS, receiver: Address) -> Self {
+    pub fn new(bs: &'a BS, message: UnsignedMessage) -> Self {
         Self {
             epoch: 0,
             caller_type: Cid::default(),
 
             miner: Address::default(),
-            value_received: 0u8.into(),
 
             id_addresses: HashMap::new(),
             actor_code_cids: HashMap::new(),
             new_actor_addr: None,
 
-            message: UnsignedMessage::builder()
-                .to(receiver.clone())
-                .from(Address::default())
-                .build()
-                .unwrap(),
-
+            message: message,
+            // UnsignedMessage::builder()
+            //     .to(receiver.clone())
+            //     .from(Address::default())
+            //     .value(0u8.into())
+            //     .build()
+            //     .unwrap(),
             state: None,
             balance: 0u8.into(),
 
@@ -246,6 +246,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         self.message = UnsignedMessage::builder()
             .to(self.message.to().clone())
             .from(address.clone())
+            .value(self.message.value().clone())
             .build()
             .unwrap();
         self.caller_type = code_id.clone();
