@@ -15,7 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      # TODO revisit this, workaround for now
       - name: Install OpenCL
         run: sudo apt install ocl-icd-opencl-dev	
 
@@ -108,6 +107,9 @@ jobs:
       - uses: actions/checkout@master
       - name: Install Rust
         run: rustup update beta && rustup default beta
+
+      - name: Install OpenCL
+        run: sudo apt install ocl-icd-opencl-dev	
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features
