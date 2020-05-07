@@ -302,13 +302,6 @@ where
         constructor_params: Serialized::serialize(params).unwrap(),
     };
 
-    rt.message = UnsignedMessage::builder()
-        .to(rt.message.to().clone())
-        .from(rt.message.from().clone())
-        .value(rt.message.value().clone())
-        .build()
-        .unwrap();
-
     //Get the previous state so if call fails u can revert
     let prev_state = rt.state.clone();
 
@@ -318,15 +311,11 @@ where
         &Serialized::serialize(&exec_params).unwrap(),
     );
 
-    // Revert state if call fails
-    let ret = match ret {
-        Ok(v) => Ok(v),
-        Err(e) => {
-            rt.state = prev_state;
-            Err(e)
-        }
-    };
-
+    // Revert state if call 
+    if ret.is_err(){
+        rt.state = prev_state;
+    }
+    
     rt.verify();
     ret
 }

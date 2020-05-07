@@ -90,7 +90,6 @@ impl Actor {
         rt.create_actor(&params.code_cid, &id_address)?;
 
         // Invoke constructor
-
         rt.send(
             &id_address,
             METHOD_CONSTRUCTOR,

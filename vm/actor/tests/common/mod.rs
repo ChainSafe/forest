@@ -77,12 +77,6 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             new_actor_addr: None,
 
             message: message,
-            // UnsignedMessage::builder()
-            //     .to(receiver.clone())
-            //     .from(Address::default())
-            //     .value(0u8.into())
-            //     .build()
-            //     .unwrap(),
             state: None,
             balance: 0u8.into(),
 
