@@ -12,7 +12,7 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{de::DeserializeOwned, Cbor};
 use ipld_blockstore::BlockStore;
-use message::UnsignedMessage;
+use message::{Message, UnsignedMessage};
 use runtime::{ActorCode, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
@@ -20,8 +20,6 @@ use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 pub struct MockRuntime<'a, BS: BlockStore> {
     pub epoch: ChainEpoch,
-    pub receiver: Address,
-    pub caller: Address,
     pub caller_type: Cid,
     pub miner: Address,
     pub value_received: TokenAmount,
@@ -70,8 +68,6 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn new(bs: &'a BS, receiver: Address) -> Self {
         Self {
             epoch: 0,
-            receiver: receiver,
-            caller: Address::default(),
             caller_type: Cid::default(),
 
             miner: Address::default(),
@@ -82,8 +78,8 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             new_actor_addr: None,
 
             message: UnsignedMessage::builder()
-                .to(Address::new_id(100))
-                .from(Address::new_id(100))
+                .to(receiver.clone())
+                .from(Address::default())
                 .build()
                 .unwrap(),
 
@@ -247,7 +243,11 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
 
     #[allow(dead_code)]
     pub fn set_caller(&mut self, code_id: Cid, address: Address) {
-        self.caller = address.clone();
+        self.message = UnsignedMessage::builder()
+            .to(self.message.to().clone())
+            .from(address.clone())
+            .build()
+            .unwrap();
         self.caller_type = code_id.clone();
         self.actor_code_cids.insert(address, code_id);
     }
@@ -295,7 +295,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         );
 
         for expected in &addrs {
-            if &self.caller == expected {
+            if self.message().from() == expected {
                 *self.expect_validate_caller_addr.borrow_mut() = None;
                 return Ok(());
             }
@@ -305,7 +305,8 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
             ExitCode::ErrForbidden,
             format!(
                 "caller address {:?} forbidden, allowed: {:?}",
-                self.caller, &addrs
+                self.message().from(),
+                &addrs
             ),
         ));
     }
@@ -439,7 +440,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
         let expected_msg = self.expect_sends.pop_front().unwrap();
 
-        assert!(&expected_msg.to == to && expected_msg.method == method && &expected_msg.params == params && &expected_msg.value == value, "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, &self.expect_sends[0]);
+        assert!(&expected_msg.to == to && expected_msg.method == method && &expected_msg.params == params && &expected_msg.value == value, "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, self.expect_sends[0]);
 
         if value > &self.balance {
             return Err(self.abort(
@@ -455,11 +456,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         match expected_msg.exit_code {
             ExitCode::Ok => return Ok(expected_msg.send_return),
             x => {
-                return Err(ActorError {
-                    fatal: false,
-                    exit_code: x,
-                    msg: "Expected message Fail".to_string(),
-                });
+                return Err(ActorError::new(x, "Expected message Fail".to_string()));
             }
         }
     }

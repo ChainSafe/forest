@@ -14,14 +14,18 @@ use cid::Cid;
 use common::*;
 use db::MemoryDB;
 use ipld_blockstore::BlockStore;
-use message::UnsignedMessage;
+use message::{Message, UnsignedMessage};
 use serde::Serialize;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let receiver = Address::new_id(1000);
     let mut rt = MockRuntime::new(bs, receiver.clone());
-    rt.caller = SYSTEM_ACTOR_ADDR.clone();
+    rt.message = UnsignedMessage::builder()
+        .to(receiver.clone())
+        .from(SYSTEM_ACTOR_ADDR.clone())
+        .build()
+        .unwrap();
     rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
     return rt;
 }
@@ -292,8 +296,8 @@ where
     };
 
     rt.message = UnsignedMessage::builder()
-        .to(rt.receiver.clone())
-        .from(rt.caller.clone())
+        .to(rt.message.to().clone())
+        .from(rt.message.from().clone())
         .value(rt.value_received.clone())
         .build()
         .unwrap();
