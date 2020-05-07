@@ -117,8 +117,8 @@ where
                 .ok_or_else(|| "Failed to query system actor".to_string())?;
 
             let rew_msg = UnsignedMessage::builder()
-                .from(SYSTEM_ACTOR_ADDR.clone())
-                .to(REWARD_ACTOR_ADDR.clone())
+                .from(*SYSTEM_ACTOR_ADDR)
+                .to(*REWARD_ACTOR_ADDR)
                 .sequence(sys_act.sequence)
                 .value(BigUint::zero())
                 .gas_price(BigUint::zero())
@@ -148,8 +148,8 @@ where
             .ok_or_else(|| "Failed to query system actor".to_string())?;
 
         let cron_msg = UnsignedMessage::builder()
-            .from(SYSTEM_ACTOR_ADDR.clone())
-            .to(CRON_ACTOR_ADDR.clone())
+            .from(*SYSTEM_ACTOR_ADDR)
+            .to(*CRON_ACTOR_ADDR)
             .sequence(sys_act.sequence)
             .value(BigUint::zero())
             .gas_price(BigUint::zero())

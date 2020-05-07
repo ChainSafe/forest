@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "serde_derive")]
+#![cfg(feature = "cbor")]
 
 use forest_cid::Cid;
 use multihash::Blake2b256;

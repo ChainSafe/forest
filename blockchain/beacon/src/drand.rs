@@ -51,7 +51,7 @@ impl DrandBeacon {
         interval: u64,
     ) -> Result<Self, Box<dyn error::Error>> {
         if genesis_ts == 0 {
-            panic!("what are you doing this cant be zero")
+            panic!("Genesis timestamp cannot be 0")
         }
         // construct grpc client
         // TODO: Allow to randomize between different drand servers
@@ -106,7 +106,7 @@ impl DrandBeacon {
             return Ok(true);
         }
 
-        //Hash the messages
+        // Hash the messages
         let mut msg: Vec<u8> = Vec::with_capacity(104);
         msg.extend_from_slice(prev.data());
         msg.write_u64::<BigEndian>(curr.round())?;
@@ -135,13 +135,6 @@ impl DrandBeacon {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::drand_api::api_grpc::PublicClient;
-    use crate::drand_api::common::GroupRequest;
-    use crate::group::Group;
-    use bls_signatures::PublicKey;
-    use grpc::ClientStub;
-    use std::convert::TryFrom;
-    use std::sync::Arc;
 
     async fn new_beacon() -> DrandBeacon {
         // Current public parameters, subject to change.

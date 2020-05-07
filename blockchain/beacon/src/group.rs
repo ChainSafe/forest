@@ -39,7 +39,7 @@ impl TryFrom<ProtoGroup> for Group {
             .map_err(|e| e.to_string())?;
         let n = identities.len();
         let threshold = proto_group.threshold;
-        if threshold < minimum_threshold(n as u32) {
+        if threshold < minimum_threshold(n) {
             return Err("invaliud threshold".to_owned());
         }
         let genesis_time = proto_group.genesis_time;
@@ -69,7 +69,8 @@ impl TryFrom<ProtoGroup> for Group {
     }
 }
 
-fn minimum_threshold(n: u32) -> u32 {
+#[inline]
+fn minimum_threshold(n: usize) -> u32 {
     //	return int(math.Floor(float64(n)/2.0) + 1)
     ((n as f64 / 2.0).floor() + 1.0) as u32
 }
