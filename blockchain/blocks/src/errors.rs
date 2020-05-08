@@ -9,7 +9,7 @@ use thiserror::Error;
 pub enum Error {
     /// Tipset contains invalid data, as described by the string parameter.
     #[error("Invalid tipset: {0}")]
-    InvalidTipSet(String),
+    InvalidTipset(String),
     /// The given tipset has no blocks
     #[error("No blocks for tipset")]
     NoBlocks,
