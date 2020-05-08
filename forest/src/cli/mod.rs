@@ -44,9 +44,7 @@ impl CLI {
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
         }
-        // TODO in future parse all flags and append to a configuraiton object
-        //(where to find these flags, should be easy to do with structops)
-        // Retrun defaults
+        // (where to find these flags, should be easy to do with structops)
 
         Ok(cfg)
     }
