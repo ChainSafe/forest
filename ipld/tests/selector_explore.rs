@@ -41,7 +41,8 @@ fn test_equal(s1: &Option<Selector>, s2: &Option<Selector>) -> bool {
     {
         s1 == s2 && l1 == l2 && st1 == st2
     } else {
-        s1 == s2
+        let b = s1 == s2;
+        b
     }
 }
 
@@ -63,8 +64,10 @@ fn selector_explore_tests() {
         let result = process_vector(tv.initial_selector, tv.explore);
         assert!(
             test_equal(&result, &tv.result_selector),
-            "{}",
-            tv.description.unwrap_or("Unnamed test case".to_owned())
+            "({}) Failed:\nExpected: {:?}\nFound: {:?}",
+            tv.description.unwrap_or("Unnamed test case".to_owned()),
+            tv.result_selector,
+            result
         );
     }
 }

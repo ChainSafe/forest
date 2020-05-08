@@ -213,7 +213,7 @@ impl Selector {
             }
             ExploreRecursiveEdge => {
                 // Should never be called on this variant
-                panic!("Traversed explore recursive edge node with no parent")
+                Some(vec![])
             }
             ExploreUnion(selectors) => {
                 let mut segs = Vec::new();
@@ -238,7 +238,10 @@ impl Selector {
     pub fn explore(self, ipld: &Ipld, p: &PathSegment) -> Option<Selector> {
         use Selector::*;
         match self {
-            ExploreAll { next } => Some(*next),
+            ExploreAll { next } => {
+
+                Some(*next)
+            }
             ExploreFields { mut fields } => match ipld {
                 Ipld::Map(m) => match p {
                     // Check if field exists on ipld, then explore selector
@@ -312,7 +315,6 @@ impl Selector {
                         stop_at,
                     });
                 }
-
                 match limit {
                     RecursionLimit::Depth(depth) => {
                         if depth < 2 {
@@ -334,7 +336,6 @@ impl Selector {
                     }),
                 }
             }
-            ExploreRecursiveEdge => unreachable!("Travelled Explore Recursive Edge Node "),
             ExploreUnion(selectors) => {
                 let mut replace_selectors = Vec::with_capacity(selectors.len());
                 for s in selectors {
@@ -348,9 +349,10 @@ impl Selector {
                 if replace_selectors.len() == 1 {
                     return Some(replace_selectors.pop().unwrap());
                 }
-
                 Some(ExploreUnion(replace_selectors))
             }
+            // Go impl panics here, but panic on exploring malformed selector seems bad
+            ExploreRecursiveEdge => None,
             // Matcher is terminal selector
             Matcher => None,
         }

@@ -444,5 +444,68 @@
             }
         ],
         "result_selector": null
+    },
+    {
+        "description": "ExploreRecursive with nested recursion",
+        "initial_selector": {
+            "R": {
+                "l": {
+                    "depth": 2
+                },
+                ":>": {
+                    "a": {
+                        ">": {
+                            "R": {
+                                "l": {
+                                    "depth": 2
+                                },
+                                ":>": {
+                                    "a": {
+                                        ">": {
+                                            "@": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": null,
+                "path_segment": 0
+            },
+            {
+                "ipld": null,
+                "path_segment": 0
+            }
+        ],
+        "result_selector": {
+            "R": {
+                "l": {
+                    "depth": 2
+                },
+                ":>": {
+                    "a": {
+                        ">": {
+                            "R": {
+                                "l": {
+                                    "depth": 2
+                                },
+                                ":>": {
+                                    "a": {
+                                        ">": {
+                                            "@": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 ]
