@@ -8,53 +8,46 @@ pub use self::config::Config;
 pub(super) use self::genesis::initialize_genesis;
 
 use async_std::task;
-use clap::{App, Arg};
 use std::cell::RefCell;
 use std::io;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use structopt::StructOpt;
 use utils::{read_file_to_string, read_toml};
 
-pub(super) fn cli() -> Result<Config, io::Error> {
-    let app = App::new("Forest")
-        .version("0.0.1")
-        .author("ChainSafe Systems <info@chainsafe.io>")
-        .about("Filecoin implementation in Rust.")
-        /*
-         * Flags
-         */
-        .arg(
-            Arg::with_name("config")
-                .long("config")
-                .short("c")
-                .takes_value(true)
-                .help("A toml file containing relevant configurations."),
-        )
-        .arg(
-            Arg::with_name("genesis")
-                .long("genesis")
-                .takes_value(true)
-                .help("The genesis CAR file"),
-        )
-        .get_matches();
+#[derive(Debug, StructOpt)]
+#[structopt(
+    name = "Forest",
+    version = "0.0.1",
+    about = "Filecoin implementation in Rust",
+    author = "ChainSafe Systems <info@chainsafe.io>"
+)]
+pub struct CLI {
+    #[structopt(short, long, help = "A toml file containing relevant configurations.")]
+    pub config: Option<String>,
+    #[structopt(short, long, help = "The genesis CAR file")]
+    pub genesis: Option<String>,
+}
 
-    let mut cfg = match app.value_of("config") {
-        Some(config_file) => {
-            // Read from config file
-            let toml = read_file_to_string(config_file)?;
-            // Parse and return the configuration file
-            read_toml(&toml)?
+impl CLI {
+    pub fn get_config(&self) -> Result<Config, io::Error> {
+        let mut cfg: Config = match &self.config {
+            Some(config_file) => {
+                // Read from config file
+                let toml = read_file_to_string(&*config_file)?;
+                // Parse and return the configuration file
+                read_toml(&toml)?
+            }
+            None => Config::default(),
+        };
+        if let Some(genesis_file) = &self.genesis {
+            cfg.genesis_file = Some(genesis_file.to_owned());
         }
-        None => Config::default(),
-    };
-    if let Some(genesis_file) = app.value_of("genesis") {
-        cfg.genesis_file = Some(genesis_file.to_owned());
-    }
-    // TODO in future parse all flags and append to a configuraiton object
-    // Retrun defaults
+        // (where to find these flags, should be easy to do with structops)
 
-    Ok(cfg)
+        Ok(cfg)
+    }
 }
 
 /// Blocks current thread until ctrl-c is received
