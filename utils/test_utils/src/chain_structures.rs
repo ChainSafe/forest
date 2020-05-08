@@ -5,13 +5,13 @@
 
 use address::Address;
 use blocks::{
-    Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, TipSetKeys, Tipset, TxMeta,
+    Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta,
 };
-use chain::TipSetMetadata;
+use chain::TipsetMetadata;
 use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
-use forest_libp2p::blocksync::{BlockSyncResponse, TipSetBundle};
+use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
 use forest_libp2p::rpc::RPCResponse;
 
 use message::{SignedMessage, UnsignedMessage};
@@ -34,7 +34,7 @@ fn template_header(
 ) -> BlockHeader {
     let cids = construct_keys();
     BlockHeader::builder()
-        .parents(TipSetKeys {
+        .parents(TipsetKeys {
             cids: vec![cids[0].clone()],
         })
         .miner_address(Address::new_secp256k1(&ticket_p))
@@ -142,15 +142,15 @@ pub fn construct_full_tipset() -> FullTipset {
         bls_messages: vec![bls_messages],
     });
 
-    FullTipset::new(blocks)
+    FullTipset::new(blocks).unwrap()
 }
 
-/// Returns TipSetMetadata used for testing
-pub fn construct_tipset_metadata() -> TipSetMetadata {
+/// Returns TipsetMetadata used for testing
+pub fn construct_tipset_metadata() -> TipsetMetadata {
     const EPOCH: u64 = 1;
     const WEIGHT: u64 = 10;
     let tip_set = construct_tipset(EPOCH, WEIGHT);
-    TipSetMetadata {
+    TipsetMetadata {
         tipset_state_root: tip_set.blocks()[0].state_root().clone(),
         tipset_receipts_root: tip_set.blocks()[0].message_receipts().clone(),
         tipset: tip_set,
@@ -179,12 +179,12 @@ pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
 }
 
 /// Returns a TipsetBundle used for testing
-pub fn construct_tipset_bundle(epoch: u64, weight: u64) -> TipSetBundle {
+pub fn construct_tipset_bundle(epoch: u64, weight: u64) -> TipsetBundle {
     let headers = construct_header(epoch, weight);
     let (bls, secp) = construct_messages();
     let includes: Vec<Vec<u64>> = (0..headers.len()).map(|_| vec![]).collect();
 
-    TipSetBundle {
+    TipsetBundle {
         blocks: headers,
         bls_msgs: vec![bls],
         secp_msgs: vec![secp],
