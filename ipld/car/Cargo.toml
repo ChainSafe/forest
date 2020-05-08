@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 unsigned-varint = "0.3.1"
-cid = { package = "forest_cid", path = "../cid", features = ["serde_derive"] }
+cid = { package = "forest_cid", path = "../cid", features = ["cbor"] }
 forest_encoding = { path = "../../encoding" }
 blockstore = { package = "ipld_blockstore", path = "../blockstore" }
 serde = { version = "1.0", features = ["derive"] }

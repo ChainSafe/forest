@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 vm = { path = "../../vm" }
-blocks = { package = "forest_blocks", path = "../../blockchain/blocks/" }
 crypto = { path = "../../crypto" }
 address = { package = "forest_address", path = "../address" }
 message = { package = "forest_message", path = "../message" }
@@ -15,4 +14,9 @@ ipld_blockstore = { path = "../../ipld/blockstore" }
 clock = { path = "../../node/clock" }
 forest_encoding = { path = "../../encoding" }
 commcid = { path = "../../utils/commcid" }
-filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "b00d2e26c68e49b81e434739336383304b293395" }
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "0e1c7cb464707c7a7ad82b0f8303f000f6f3fc8a" }
+base64 = "0.12.0"
+
+[dev-dependencies]
+interpreter = { path = "../interpreter/"}
+db = { path = "../../node/db/" }

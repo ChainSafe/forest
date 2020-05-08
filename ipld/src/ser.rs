@@ -12,7 +12,10 @@
 use std::collections::BTreeMap;
 
 use super::{to_ipld, Error, Ipld};
+use cid::Cid;
+use encoding::to_vec;
 use serde::{self, Serialize};
+use std::convert::TryFrom;
 
 impl serde::Serialize for Ipld {
     #[inline]
@@ -146,12 +149,37 @@ impl serde::Serializer for Serializer {
     #[inline]
     fn serialize_newtype_struct<T: ?Sized>(
         self,
-        _name: &'static str,
+        name: &'static str,
         ipld: &T,
     ) -> Result<Ipld, Error>
     where
         T: Serialize,
     {
+        // TODO revisit this, necessary workaround to allow Cids to be converted to Ipld
+        // but is not very clean to use and requires the bytes buffer. The reason this is
+        // necessary is because Cids serialize through newtype_struct.
+        if name == "\0cbor_tag" {
+            let bz = to_vec(&ipld)?;
+            let mut sl = &bz[..];
+
+            if bz.len() < 3 {
+                return Err(Error::Encoding("Invalid tag for Ipld".to_owned()));
+            }
+
+            // Index past the cbor and multibase prefix for Cid deserialization
+            match sl[0] {
+                0x40..=0x57 => sl = &sl[2..],
+                0x58 => sl = &sl[3..],  // extra u8
+                0x59 => sl = &sl[4..],  // extra u16
+                0x5a => sl = &sl[6..],  // extra u32
+                0x5b => sl = &sl[10..], // extra u64
+                _ => return Err(Error::Encoding("Invalid cbor tag".to_owned())),
+            }
+
+            return Ok(Ipld::Link(
+                Cid::try_from(sl).map_err(|e| Error::Encoding(e.to_string()))?,
+            ));
+        }
         ipld.serialize(self)
     }
 
