@@ -33,9 +33,10 @@ pub struct CLI {
 impl CLI {
     pub fn get_config(&self) -> Result<Config, io::Error> {
         let mut cfg: Config = match &self.config {
-            Some(config_file) => read_file_to_string(&*config_file)
-                .map(|toml| read_toml(&toml).unwrap_or_default())
-                .unwrap_or_default(),
+            Some(config_file) => {
+                let toml = read_file_to_string(&*config_file)?;
+                read_toml(&toml)?
+            }
             None => Config::default(),
         };
         if let Some(genesis_file) = &self.genesis {
