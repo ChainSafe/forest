@@ -297,5 +297,152 @@
             }
         ],
         "result_selector": null
+    },
+    {
+        "description": "ExploreRecursive hit max",
+        "initial_selector": {
+            "R": {
+                "l": {
+                    "depth": 2
+                },
+                ":>": {
+                    "a": {
+                        ">": {
+                            "f": {
+                                "f>": {
+                                    "Parents": {
+                                        "@": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": null,
+                "path_segment": 0
+            },
+            {
+                "ipld": {
+                    "Parents": null
+                },
+                "path_segment": "Parents"
+            },
+            {
+                "ipld": null,
+                "path_segment": 0
+            },
+            {
+                "ipld": {
+                    "Parents": null
+                },
+                "path_segment": "Parents"
+            }
+        ],
+        "result_selector": null
+    },
+    {
+        "description": "ExploreRecursive valid (current position not captured in test)",
+        "initial_selector": {
+            "R": {
+                "l": {
+                    "depth": 5
+                },
+                ":>": {
+                    "a": {
+                        ">": {
+                            "f": {
+                                "f>": {
+                                    "Parents": {
+                                        "@": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": null,
+                "path_segment": 0
+            },
+            {
+                "ipld": {
+                    "Parents": null
+                },
+                "path_segment": "Parents"
+            }
+        ],
+        "result_selector": {
+            "R": {
+                "l": {
+                    "depth": 4
+                },
+                ":>": {
+                    "a": {
+                        ">": {
+                            "f": {
+                                "f>": {
+                                    "Parents": {
+                                        "@": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
+        "description": "ExploreRecursive reset to correct selector",
+        "initial_selector": {
+            "R": {
+                "l": {
+                    "depth": 5
+                },
+                ":>": {
+                    "a": {
+                        ">": {
+                            "f": {
+                                "f>": {
+                                    "Parents": {
+                                        "@": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": null,
+                "path_segment": 0
+            },
+            {
+                "ipld": {
+                    "Parents": null
+                },
+                "path_segment": "Parents"
+            },
+            {
+                "ipld": null,
+                "path_segment": 0
+            },
+            {
+                "ipld": {
+                    "Parents": null
+                },
+                "path_segment": "Not the correct field"
+            }
+        ],
+        "result_selector": null
     }
 ]

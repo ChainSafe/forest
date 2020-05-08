@@ -110,7 +110,6 @@ pub enum Selector {
         stop_at: Option<Condition>,
         #[serde(skip_deserializing)]
         /// Used to index current
-        // TODO determine if this can be a reference to a selector
         current: Option<Box<Selector>>,
     },
 
@@ -270,9 +269,7 @@ impl Selector {
                 Ipld::List(l) => {
                     let i = p.to_index()?;
 
-                    if i != index {
-                        None
-                    } else if i >= l.len() {
+                    if i != index || i >= l.len() {
                         None
                     } else {
                         // Path segment matches selector index
@@ -286,9 +283,7 @@ impl Selector {
                     Ipld::List(l) => {
                         let i = p.to_index()?;
                         // Check to make sure index is within list bounds
-                        if i < start || i >= end {
-                            None
-                        } else if i >= l.len() {
+                        if i < start || i >= end || i >= l.len() {
                             None
                         } else {
                             // Path segment is within the selector range
