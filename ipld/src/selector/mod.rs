@@ -238,10 +238,7 @@ impl Selector {
     pub fn explore(self, ipld: &Ipld, p: &PathSegment) -> Option<Selector> {
         use Selector::*;
         match self {
-            ExploreAll { next } => {
-
-                Some(*next)
-            }
+            ExploreAll { next } => Some(*next),
             ExploreFields { mut fields } => match ipld {
                 Ipld::Map(m) => match p {
                     // Check if field exists on ipld, then explore selector
@@ -383,7 +380,7 @@ fn replace_recursive_edge(
     use Selector::*;
 
     match next_sel {
-        ExploreRecursiveEdge { .. } => replace,
+        ExploreRecursiveEdge => replace,
         ExploreUnion(selectors) => {
             let mut replace_selectors = Vec::with_capacity(selectors.len());
             for s in selectors {

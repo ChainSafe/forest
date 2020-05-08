@@ -404,7 +404,7 @@
         "initial_selector": {
             "R": {
                 "l": {
-                    "depth": 5
+                    "none": {}
                 },
                 ":>": {
                     "a": {
@@ -446,66 +446,76 @@
         "result_selector": null
     },
     {
-        "description": "ExploreRecursive with nested recursion",
+        "description": "ExploreUnion no matches",
         "initial_selector": {
-            "R": {
-                "l": {
-                    "depth": 2
-                },
-                ":>": {
-                    "a": {
+            "|": [
+                {
+                    "r": {
+                        "^": 0,
+                        "$": 3,
                         ">": {
-                            "R": {
-                                "l": {
-                                    "depth": 2
-                                },
-                                ":>": {
-                                    "a": {
-                                        ">": {
-                                            "@": {}
-                                        }
-                                    }
-                                }
+                            "@": {}
+                        }
+                    }
+                },
+                {
+                    "f": {
+                        "f>": {
+                            "5": {
+                                ".": {}
                             }
                         }
                     }
                 }
-            }
+            ]
         },
         "explore": [
             {
                 "ipld": null,
-                "path_segment": 0
-            },
-            {
-                "ipld": null,
-                "path_segment": 0
+                "path_segment": 4
             }
         ],
-        "result_selector": {
-            "R": {
-                "l": {
-                    "depth": 2
-                },
-                ":>": {
-                    "a": {
+        "result_selector": null
+    },
+    {
+        "description": "ExploreUnion match",
+        "initial_selector": {
+            "|": [
+                {
+                    "r": {
+                        "^": 0,
+                        "$": 3,
                         ">": {
-                            "R": {
-                                "l": {
-                                    "depth": 2
-                                },
-                                ":>": {
-                                    "a": {
-                                        ">": {
-                                            "@": {}
-                                        }
-                                    }
-                                }
+                            "@": {}
+                        }
+                    }
+                },
+                {
+                    "f": {
+                        "f>": {
+                            "5": {
+                                ".": {}
                             }
                         }
                     }
                 }
+            ]
+        },
+        "explore": [
+            {
+                "ipld": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                ],
+                "path_segment": 5
             }
+        ],
+        "result_selector": {
+            ".": {}
         }
     }
 ]
