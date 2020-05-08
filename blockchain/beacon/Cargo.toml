@@ -19,7 +19,7 @@ sha2 = { version = "0.8", default-features = false }
 byteorder = "1.3.4"
 
 [dev-dependencies]
-async-std = { version = "1.5.0", features = ["attributes"] }
+async-std = { version = "1.4.0", features = ["attributes"] }
 hex = "0.4.2"
 
 [build-dependencies]
