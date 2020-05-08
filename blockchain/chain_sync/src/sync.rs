@@ -13,7 +13,7 @@ use amt::Amt;
 use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
-use blocks::{Block, FullTipset, TipSetKeys, Tipset, TxMeta};
+use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
@@ -148,7 +148,7 @@ where
                     match self
                         .fetch_tipset(
                             source.clone(),
-                            &TipSetKeys::new(message.heaviest_tip_set.clone()),
+                            &TipsetKeys::new(message.heaviest_tip_set.clone()),
                         )
                         .await
                     {
@@ -329,7 +329,7 @@ where
                 secp_messages,
             });
         }
-        Ok(FullTipset::new(blocks))
+        Ok(FullTipset::new(blocks)?)
     }
 
     /// informs the syncer about a new potential tipset
@@ -473,12 +473,12 @@ where
 
         Ok(meta_root)
     }
-    /// Returns FullTipset from store if TipSetKeys exist in key-value store otherwise requests FullTipset
+    /// Returns FullTipset from store if TipsetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
     async fn fetch_tipset(
         &mut self,
         peer_id: PeerId,
-        tsk: &TipSetKeys,
+        tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
         let fts = match self.load_fts(tsk) {
             Ok(fts) => fts,
@@ -488,9 +488,9 @@ where
         Ok(fts)
     }
     /// Returns a reconstructed FullTipset from store if keys exist
-    fn load_fts(&self, keys: &TipSetKeys) -> Result<FullTipset, Error> {
+    fn load_fts(&self, keys: &TipsetKeys) -> Result<FullTipset, Error> {
         let mut blocks = Vec::new();
-        // retrieve tipset from store based on passed in TipSetKeys
+        // retrieve tipset from store based on passed in TipsetKeys
         let ts = self.chain_store.tipset_from_keys(keys)?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
@@ -506,7 +506,7 @@ where
             blocks.push(full_block);
         }
         // construct FullTipset
-        let fts = FullTipset::new(blocks);
+        let fts = FullTipset::new(blocks)?;
         Ok(fts)
     }
     // Block message validation checks
@@ -782,7 +782,7 @@ where
     /// checks to see if tipset is included in bad clocks cache
     fn validate_tipset_against_cache(
         &mut self,
-        ts: &TipSetKeys,
+        ts: &TipsetKeys,
         accepted_blocks: &[Cid],
     ) -> Result<(), Error> {
         for cid in ts.cids() {
