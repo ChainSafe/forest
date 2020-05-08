@@ -34,7 +34,9 @@ impl CLI {
     pub fn get_config(&self) -> Result<Config, io::Error> {
         let mut cfg: Config = match &self.config {
             Some(config_file) => {
+                // Read from config file
                 let toml = read_file_to_string(&*config_file)?;
+                // Parse and return the configuration file
                 read_toml(&toml)?
             }
             None => Config::default(),
