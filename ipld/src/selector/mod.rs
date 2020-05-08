@@ -268,7 +268,6 @@ impl Selector {
             ExploreIndex { index, next } => match ipld {
                 Ipld::List(l) => {
                     let i = p.to_index()?;
-
                     if i != index || i >= l.len() {
                         None
                     } else {
@@ -315,10 +314,12 @@ impl Selector {
                 match limit {
                     RecursionLimit::Depth(depth) => {
                         if depth < 2 {
+                            // Replaces recursive edge with None on last iteration
+                            // TODO revisit, shouldn't need to replace, would be better to just
+                            // return none when edge is hit on final depth
                             return replace_recursive_edge(next, None).map(|s| *s);
                         }
                         Some(ExploreRecursive {
-                            // TODO revisit clone
                             current: replace_recursive_edge(next, Some(sequence.clone())),
                             sequence,
                             limit: RecursionLimit::Depth(depth - 1),
@@ -337,6 +338,7 @@ impl Selector {
                 let mut replace_selectors = Vec::with_capacity(selectors.len());
                 for s in selectors {
                     if let Some(new) = s.explore(ipld, p) {
+                        // Push all explorable selectors in union
                         replace_selectors.push(new)
                     }
                 }
