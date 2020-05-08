@@ -15,8 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev	
+      - name: Install apt packages
+        run: sudo apt install ocl-icd-opencl-dev gcc-multilib
 
       - name: Install Protoc
         uses: arduino/setup-protoc@master
