@@ -1,0 +1,301 @@
+[
+    {
+        "description": "ExploreAll basic test",
+        "initial_selector": {
+            "a": {
+                ">": {
+                    ".": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": null,
+                "path_segment": 0
+            }
+        ],
+        "result_selector": {
+            ".": {}
+        }
+    },
+    {
+        "description": "ExploreFields path match",
+        "initial_selector": {
+            "f": {
+                "f>": {
+                    "one": {
+                        ".": {}
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": {
+                    "one": "some data"
+                },
+                "path_segment": "one"
+            }
+        ],
+        "result_selector": {
+            ".": {}
+        }
+    },
+    {
+        "description": "ExploreFields path not matching",
+        "initial_selector": {
+            "f": {
+                "f>": {
+                    "one": {
+                        ".": {}
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": {
+                    "0": {}
+                },
+                "path_segment": 0
+            }
+        ],
+        "result_selector": null
+    },
+    {
+        "description": "ExploreFields path from integer",
+        "initial_selector": {
+            "f": {
+                "f>": {
+                    "0": {
+                        ".": {}
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": {
+                    "0": null
+                },
+                "path_segment": 0
+            }
+        ],
+        "result_selector": {
+            ".": {}
+        }
+    },
+    {
+        "description": "ExploreFields invalid IPLD kind",
+        "initial_selector": {
+            "f": {
+                "f>": {
+                    "0": {
+                        ".": {}
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": "Not a map or list",
+                "path_segment": 0
+            }
+        ],
+        "result_selector": null
+    },
+    {
+        "description": "ExploreFields exploring index on a list",
+        "initial_selector": {
+            "f": {
+                "f>": {
+                    "0": {
+                        ".": {}
+                    }
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": [
+                    null
+                ],
+                "path_segment": 0
+            }
+        ],
+        "result_selector": {
+            ".": {}
+        }
+    },
+    {
+        "description": "ExploreIndex basic check",
+        "initial_selector": {
+            "i": {
+                "i": 2,
+                ">": {
+                    ".": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": [
+                    0,
+                    1,
+                    2
+                ],
+                "path_segment": 2
+            }
+        ],
+        "result_selector": {
+            ".": {}
+        }
+    },
+    {
+        "description": "ExploreIndex invalid IPLD kind",
+        "initial_selector": {
+            "i": {
+                "i": 2,
+                ">": {
+                    "@": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": "not a list",
+                "path_segment": 0
+            }
+        ],
+        "result_selector": null
+    },
+    {
+        "description": "ExploreIndex invalid index",
+        "initial_selector": {
+            "i": {
+                "i": 2,
+                ">": {
+                    ".": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": [
+                    0,
+                    1,
+                    2
+                ],
+                "path_segment": 1
+            }
+        ],
+        "result_selector": null
+    },
+    {
+        "description": "ExploreRange out of range index",
+        "initial_selector": {
+            "r": {
+                "^": 3,
+                "$": 4,
+                ">": {
+                    "@": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": [
+                    0,
+                    1,
+                    2,
+                    3
+                ],
+                "path_segment": 2
+            }
+        ],
+        "result_selector": null
+    },
+    {
+        "description": "ExploreRange invalid IPLD type",
+        "initial_selector": {
+            "r": {
+                "^": 1,
+                "$": 4,
+                ">": {
+                    "@": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": {},
+                "path_segment": 2
+            }
+        ],
+        "result_selector": null
+    },
+    {
+        "description": "ExploreRange non integer index",
+        "initial_selector": {
+            "r": {
+                "^": 1,
+                "$": 4,
+                ">": {
+                    "@": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": [],
+                "path_segment": "not parseable"
+            }
+        ],
+        "result_selector": null
+    },
+    {
+        "description": "ExploreRange valid index",
+        "initial_selector": {
+            "r": {
+                "^": 3,
+                "$": 4,
+                ">": {
+                    "@": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": [
+                    0,
+                    1,
+                    2,
+                    3
+                ],
+                "path_segment": 3
+            }
+        ],
+        "result_selector": {
+            "@": {}
+        }
+    },
+    {
+        "description": "ExploreRange ipld list too short",
+        "initial_selector": {
+            "r": {
+                "^": 3,
+                "$": 4,
+                ">": {
+                    "@": {}
+                }
+            }
+        },
+        "explore": [
+            {
+                "ipld": [],
+                "path_segment": 3
+            }
+        ],
+        "result_selector": null
+    }
+]

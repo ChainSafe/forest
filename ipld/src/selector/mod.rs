@@ -236,9 +236,129 @@ impl Selector {
     }
 
     /// Processes and returns resultant selector node
-    pub fn explore(self, _ipld: &Ipld, _p: &PathSegment) -> Option<Selector> {
-        // TODO
-        todo!()
+    pub fn explore(self, ipld: &Ipld, p: &PathSegment) -> Option<Selector> {
+        use Selector::*;
+        match self {
+            ExploreAll { next } => Some(*next),
+            ExploreFields { mut fields } => match ipld {
+                Ipld::Map(m) => match p {
+                    // Check if field exists on ipld, then explore selector
+                    PathSegment::String(s) => {
+                        m.get(s)?;
+                        fields.remove(s)
+                    }
+                    PathSegment::Int(i) => {
+                        let key = format!("{}", i);
+                        m.get(&key)?;
+                        fields.remove(&key)
+                    }
+                },
+                // Using ExploreFields for list is supported feature in go impl
+                Ipld::List(l) => {
+                    // Check to make sure index is within bounds
+                    if p.to_index()? >= l.len() {
+                        return None;
+                    }
+                    match p {
+                        PathSegment::String(s) => fields.remove(s),
+                        PathSegment::Int(i) => fields.remove(&format!("{}", i)),
+                    }
+                }
+                _ => None,
+            },
+            ExploreIndex { index, next } => match ipld {
+                Ipld::List(l) => {
+                    let i = p.to_index()?;
+
+                    if i != index {
+                        None
+                    } else if i >= l.len() {
+                        None
+                    } else {
+                        // Path segment matches selector index
+                        Some(*next)
+                    }
+                }
+                _ => None,
+            },
+            ExploreRange { start, end, next } => {
+                match ipld {
+                    Ipld::List(l) => {
+                        let i = p.to_index()?;
+                        // Check to make sure index is within list bounds
+                        if i < start || i >= end {
+                            None
+                        } else if i >= l.len() {
+                            None
+                        } else {
+                            // Path segment is within the selector range
+                            Some(*next)
+                        }
+                    }
+                    _ => None,
+                }
+            }
+            ExploreRecursive {
+                current,
+                sequence,
+                limit,
+                stop_at,
+            } => {
+                let next = match current {
+                    Some(s) => s.explore(ipld, p)?,
+                    None => sequence.clone().explore(ipld, p)?,
+                };
+
+                if !has_recursive_edge(&next) {
+                    return Some(ExploreRecursive {
+                        sequence,
+                        current: Some(next.into()),
+                        limit,
+                        stop_at,
+                    });
+                }
+
+                match limit {
+                    RecursionLimit::Depth(depth) => {
+                        if depth < 2 {
+                            return replace_recursive_edge(next, None).map(|s| *s);
+                        }
+                        Some(ExploreRecursive {
+                            // TODO revisit clone
+                            current: replace_recursive_edge(next, Some(sequence.clone())),
+                            sequence,
+                            limit: RecursionLimit::Depth(depth - 1),
+                            stop_at,
+                        })
+                    }
+                    RecursionLimit::None => Some(ExploreRecursive {
+                        current: replace_recursive_edge(next, Some(sequence.clone())),
+                        sequence,
+                        limit,
+                        stop_at,
+                    }),
+                }
+            }
+            ExploreRecursiveEdge => unreachable!("Travelled Explore Recursive Edge Node "),
+            ExploreUnion(selectors) => {
+                let mut replace_selectors = Vec::with_capacity(selectors.len());
+                for s in selectors {
+                    if let Some(new) = s.explore(ipld, p) {
+                        replace_selectors.push(new)
+                    }
+                }
+                if replace_selectors.is_empty() {
+                    return None;
+                }
+                if replace_selectors.len() == 1 {
+                    return Some(replace_selectors.pop().unwrap());
+                }
+
+                Some(ExploreUnion(replace_selectors))
+            }
+            // Matcher is terminal selector
+            Matcher => None,
+        }
     }
 
     /// Returns true if matcher, false otherwise
@@ -256,5 +376,51 @@ impl Selector {
             }
             _ => false,
         }
+    }
+}
+
+fn replace_recursive_edge(
+    next_sel: Selector,
+    replace: Option<Box<Selector>>,
+) -> Option<Box<Selector>> {
+    use Selector::*;
+
+    match next_sel {
+        ExploreRecursiveEdge { .. } => replace,
+        ExploreUnion(selectors) => {
+            let mut replace_selectors = Vec::with_capacity(selectors.len());
+            for s in selectors {
+                if let Some(new) = replace_recursive_edge(s, replace.clone()) {
+                    replace_selectors.push(*new)
+                }
+            }
+            if replace_selectors.is_empty() {
+                return None;
+            }
+            if replace_selectors.len() == 1 {
+                return Some(Box::new(replace_selectors.pop().unwrap()));
+            }
+
+            Some(Box::new(ExploreUnion(replace_selectors)))
+        }
+        _ => Some(Box::new(next_sel)),
+    }
+}
+
+fn has_recursive_edge(next_sel: &Selector) -> bool {
+    use Selector::*;
+
+    match next_sel {
+        ExploreRecursiveEdge { .. } => true,
+        ExploreUnion(selectors) => {
+            for s in selectors {
+                // Check if union includes recursive edge
+                if has_recursive_edge(s) {
+                    return true;
+                }
+            }
+            false
+        }
+        _ => false,
     }
 }
