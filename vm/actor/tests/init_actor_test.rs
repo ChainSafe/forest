@@ -4,7 +4,7 @@
 mod common;
 
 use actor::{
-    init::{ConstructorParams, ExecParams, ExecReturn, State},
+    init::{ConstructorParams, ExecParams, ExecReturn, State, Method},
     Multimap, ACCOUNT_ACTOR_CODE_ID, FIRST_NON_SINGLETON_ADDR, INIT_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
     STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
@@ -267,7 +267,7 @@ fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
     let ret = rt
         .call(
             &*INIT_ACTOR_CODE_ID,
-            1,
+            METHOD_CONSTRUCTOR,
             &Serialized::serialize(&params).unwrap(),
         )
         .unwrap();
@@ -306,7 +306,7 @@ where
 
     let ret = rt.call(
         &*INIT_ACTOR_CODE_ID,
-        2,
+        Method::Exec as u64,
         &Serialized::serialize(&exec_params).unwrap(),
     );
 

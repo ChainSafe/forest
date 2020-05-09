@@ -16,8 +16,8 @@ use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let message = UnsignedMessage::builder()
-        .to(REWARD_ACTOR_ADDR.clone())
-        .from(SYSTEM_ACTOR_ADDR.clone())
+        .to(*REWARD_ACTOR_ADDR)
+        .from(*SYSTEM_ACTOR_ADDR)
         .build()
         .unwrap();
     let mut rt = MockRuntime::new(bs, message);
@@ -26,7 +26,7 @@ fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
 }
 
 #[test]
-fn test_award_block_reward() {
+fn test_balance_less_than_reward() {
     let bs = MemoryDB::default();
     let mut rt = construct_runtime(&bs);
     construct_and_verify(&mut rt);
@@ -34,7 +34,7 @@ fn test_award_block_reward() {
     let miner = Address::new_id(1000);
     let gas_reward = TokenAmount::from(10u8);
 
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
 
     let params = AwardBlockRewardParams {
         miner: miner,
@@ -43,21 +43,14 @@ fn test_award_block_reward() {
         ticket_count: 0,
     };
 
-    let prev_state = rt.state.clone();
-
-    let call_result = rt.call(
+    //Expect call to fail because actor doesnt have enough tokens to reward
+    rt. expect_call_fail(
         &*REWARD_ACTOR_CODE_ID,
         Method::AwardBlockReward as u64,
         &Serialized::serialize(&params).unwrap(),
+        ExitCode::ErrInsufficientFunds
     );
-
-    // Expecting insufficdent funds, revert state
-    assert_eq!(
-        ExitCode::ErrInsufficientFunds,
-        call_result.unwrap_err().exit_code()
-    );
-    rt.state = prev_state;
-
+    
     rt.verify()
 }
 

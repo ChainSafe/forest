@@ -111,6 +111,8 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     fn _get<T: DeserializeOwned>(&self, cid: Cid) -> Result<T, ActorError> {
         Ok(self.store.get(&cid).unwrap().unwrap())
     }
+
+    #[allow(dead_code)]
     pub fn get_state<T: DeserializeOwned>(&self) -> Result<T, ActorError> {
         let data: T = self
             .store
@@ -128,6 +130,26 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn expect_validate_caller_any(&self) {
         self.expect_validate_caller_any.set(true);
     }
+
+    #[allow(dead_code)]
+    pub fn expect_call_fail(
+        &mut self,
+        to_code: &Cid,
+        method_num: MethodNum,
+        params: &Serialized,
+        expected_code : ExitCode
+    ) {
+        // will record previous state, execute call. Will expect a certain exit code. Will throw assertion fail if exit code does not match
+        //  if exit code matches will revert state
+        let prev_state = self.state.clone();
+
+        let call_result = self.call(to_code, method_num, params);
+
+        assert_eq!(expected_code, call_result.unwrap_err().exit_code());
+
+        self.state  = prev_state;
+    }
+
     pub fn call(
         &mut self,
         to_code: &Cid,
