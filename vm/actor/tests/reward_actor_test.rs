@@ -44,13 +44,13 @@ fn test_balance_less_than_reward() {
     };
 
     //Expect call to fail because actor doesnt have enough tokens to reward
-    rt. expect_call_fail(
+    rt.expect_call_fail(
         &*REWARD_ACTOR_CODE_ID,
         Method::AwardBlockReward as u64,
         &Serialized::serialize(&params).unwrap(),
-        ExitCode::ErrInsufficientFunds
+        ExitCode::ErrInsufficientFunds,
     );
-    
+
     rt.verify()
 }
 

@@ -137,7 +137,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         to_code: &Cid,
         method_num: MethodNum,
         params: &Serialized,
-        expected_code : ExitCode
+        expected_code: ExitCode,
     ) {
         // will record previous state, execute call. Will expect a certain exit code. Will throw assertion fail if exit code does not match
         //  if exit code matches will revert state
@@ -147,7 +147,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
 
         assert_eq!(expected_code, call_result.unwrap_err().exit_code());
 
-        self.state  = prev_state;
+        self.state = prev_state;
     }
 
     pub fn call(
