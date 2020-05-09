@@ -7,6 +7,7 @@ use actor::{account::State, ACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACT
 use address::Address;
 use common::*;
 use db::MemoryDB;
+use message::UnsignedMessage;
 use vm::{ExitCode, Serialized};
 
 macro_rules! account_tests {
@@ -18,8 +19,8 @@ macro_rules! account_tests {
 
                 let bs = MemoryDB::default();
                 let receiver = Address::new_id(100);
-                let mut rt = MockRuntime::new(&bs, receiver.clone());
-                rt.caller = *SYSTEM_ACTOR_ADDR;
+                let message =  UnsignedMessage::builder().to(receiver.clone()).from(SYSTEM_ACTOR_ADDR.clone()).build().unwrap();
+                let mut rt = MockRuntime::new(&bs, message);
                 rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
                 rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
 

@@ -10,7 +10,6 @@ utils = { path = "../node/utils" }
 db = { path = "../node/db" }
 libp2p = "0.16.2"
 futures = "0.3.1"
-clap = "2.33.0"
 log = "0.4.8"
 async-log = "2.0.0"
 async-std = { version = "1.5.0", features = ["attributes"] }
@@ -24,3 +23,4 @@ forest_car = { path = "../ipld/car" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore" }
 chain = { path = "../blockchain/chain" }
+structopt = { version = "0.3"}

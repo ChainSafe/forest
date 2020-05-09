@@ -4,7 +4,7 @@
 use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::blocksync::{BlockSyncResponse, TipSetBundle};
+use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
 use forest_message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::convert::TryFrom;
@@ -22,12 +22,17 @@ impl Signer for DummySigner {
 
 #[test]
 fn convert_single_tipset_bundle() {
-    let bundle = TipSetBundle {
-        blocks: Vec::new(),
+    let block = Block {
+        header: BlockHeader::builder().build().unwrap(),
+        bls_messages: Vec::new(),
+        secp_messages: Vec::new(),
+    };
+    let bundle = TipsetBundle {
+        blocks: vec![block.header.clone()],
         bls_msgs: Vec::new(),
-        bls_msg_includes: Vec::new(),
+        bls_msg_includes: vec![Vec::new()],
         secp_msgs: Vec::new(),
-        secp_msg_includes: Vec::new(),
+        secp_msg_includes: vec![Vec::new()],
     };
 
     let res = BlockSyncResponse {
@@ -38,17 +43,19 @@ fn convert_single_tipset_bundle() {
     .into_result()
     .unwrap();
 
-    assert_eq!(res, [FullTipset::new(vec![])]);
+    assert_eq!(res, [FullTipset::new(vec![block]).unwrap()]);
 }
 
 #[test]
 fn tipset_bundle_to_full_tipset() {
     let h0 = BlockHeader::builder()
         .weight(BigUint::from(1u32))
+        .miner_address(Address::new_id(0))
         .build()
         .unwrap();
     let h1 = BlockHeader::builder()
-        .weight(BigUint::from(2u32))
+        .weight(BigUint::from(1u32))
+        .miner_address(Address::new_id(1))
         .build()
         .unwrap();
     let ua = UnsignedMessage::builder()
@@ -87,7 +94,7 @@ fn tipset_bundle_to_full_tipset() {
         bls_messages: vec![uc.clone(), ud.clone()],
     };
 
-    let mut tsb = TipSetBundle {
+    let mut tsb = TipsetBundle {
         blocks: vec![h0, h1],
         secp_msgs: vec![sa, sb, sc, sd],
         secp_msg_includes: vec![vec![0, 1, 3], vec![1, 2, 0]],
@@ -97,7 +104,7 @@ fn tipset_bundle_to_full_tipset() {
 
     assert_eq!(
         FullTipset::try_from(tsb.clone()).unwrap(),
-        FullTipset::new(vec![b0, b1])
+        FullTipset::new(vec![b0, b1]).unwrap()
     );
 
     // Invalidate tipset bundle by having invalid index
