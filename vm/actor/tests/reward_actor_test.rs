@@ -13,7 +13,6 @@ use db::MemoryDB;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
-//use std::cell::{Cell, RefCell};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let message = UnsignedMessage::builder()
