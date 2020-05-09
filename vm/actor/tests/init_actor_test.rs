@@ -20,7 +20,6 @@ use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let receiver = Address::new_id(1000);
-
     let message = UnsignedMessage::builder()
         .to(receiver.clone())
         .from(SYSTEM_ACTOR_ADDR.clone())

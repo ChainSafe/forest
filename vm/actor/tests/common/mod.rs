@@ -161,10 +161,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
                 actor::paych::Actor.invoke_method(self, method_num, params)
             }
             x if x == &*MULTISIG_ACTOR_CODE_ID => {
-                actor::cron::Actor.invoke_method(self, method_num, params)
+                actor::multisig::Actor.invoke_method(self, method_num, params)
             }
             x if x == &*REWARD_ACTOR_CODE_ID => {
-                actor::cron::Actor.invoke_method(self, method_num, params)
+                actor::reward::Actor.invoke_method(self, method_num, params)
             }
             _ => Err(ActorError::new(
                 ExitCode::SysErrForbidden,
@@ -273,6 +273,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         I: IntoIterator<Item = &'a Address>,
     {
         self.require_in_call();
+        println!("IN this func fam");
 
         let addrs: Vec<Address> = addresses.into_iter().cloned().collect();
 

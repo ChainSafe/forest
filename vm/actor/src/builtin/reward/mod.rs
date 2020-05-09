@@ -37,6 +37,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        println!("IN constructor");
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
         let empty_root = Multimap::new(rt.store()).root().map_err(|e| {
@@ -59,6 +60,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        println!("In award)block_reward");
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
         let balance = rt.current_balance()?;
         if balance < params.gas_reward {
@@ -139,6 +141,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        println!("In withdraw reward");
         let maddr = rt.resolve_address(&miner_in)?;
 
         let (owner, worker) = request_miner_control_addrs(rt, &maddr)?;
