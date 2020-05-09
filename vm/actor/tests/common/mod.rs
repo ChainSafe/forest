@@ -273,7 +273,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         I: IntoIterator<Item = &'a Address>,
     {
         self.require_in_call();
-        
+
         let addrs: Vec<Address> = addresses.into_iter().cloned().collect();
 
         self.check_argument(addrs.len() > 0, "addrs must be non-empty".to_owned())?;
