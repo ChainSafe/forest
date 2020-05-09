@@ -67,6 +67,9 @@ test-all: pull-serialization-tests
 test-all-verbose: pull-serialization-tests
 	cargo test --verbose --all-features
 
+test-all-verbose-no-run: pull-serialization-tests
+	cargo test --verbose --all-features --no-run
+
 # Checks if all headers are present and adds if not
 license:
 	./scripts/add_license.sh

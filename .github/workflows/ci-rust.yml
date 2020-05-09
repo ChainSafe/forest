@@ -19,7 +19,7 @@ jobs:
         run: sudo apt update
 
       - name: Install apt packages
-        run: sudo apt install ocl-icd-opencl-dev gcc-multilib
+        run: sudo apt install ocl-icd-opencl-dev
 
       - name: Install Protoc
         uses: arduino/setup-protoc@master
@@ -31,7 +31,10 @@ jobs:
         with:	
           profile: minimal	
           toolchain: stable	
-          override: true	
+          override: true
+
+      - name: Cargo Build Tests
+        run: make test-all-verbose-no-run
 
       - name: Cargo test all
         run: make test-all-verbose
