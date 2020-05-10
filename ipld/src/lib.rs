@@ -106,6 +106,22 @@ pub enum Ipld {
     Link(Cid),
 }
 
+impl Ipld {
+    pub(crate) fn lookup_segment<'a: 'b, 'b>(&'a self, segment: &PathSegment) -> Option<&'b Self> {
+        match self {
+            Self::Map(map) => match segment {
+                PathSegment::String(s) => map.get(s),
+                PathSegment::Int(i) => {
+                    let key = i.to_string();
+                    map.get(&key)
+                }
+            },
+            Self::List(list) => list.get(segment.to_index()?),
+            _ => None,
+        }
+    }
+}
+
 impl Cbor for Ipld {}
 
 /// Convert any object into an IPLD object

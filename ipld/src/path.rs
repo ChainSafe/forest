@@ -26,7 +26,7 @@ use std::fmt;
 /// path.extend(&"other/path".into());
 /// assert_eq!(path.to_string(), "some/path/1/2/other/path");
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Path {
     segments: Vec<PathSegment>,
 }
