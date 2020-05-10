@@ -3,7 +3,7 @@
 
 use cid::Cid;
 use forest_ipld::selector::{Progress, Selector, VisitReason};
-use forest_ipld::{Error, Ipld};
+use forest_ipld::Ipld;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -78,27 +78,18 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
         .walk_all(
             &tv.ipld,
             None,
-            |prog: &Progress<()>, ipld, reason| -> Result<(), Error> {
+            |prog: &Progress<()>, ipld, reason| -> Result<(), String> {
                 let mut idx = index.lock().unwrap();
                 let exp = &expect[*idx];
                 if !check_ipld(ipld, &exp.node) {
-                    return Err(Error::Custom(format!(
-                        "{:?} does not match {:?}",
-                        ipld, exp.node
-                    )));
+                    return Err(format!("{:?} does not match {:?}", ipld, exp.node));
                 }
                 if !check_matched(reason, exp.matched) {
-                    return Err(Error::Custom(format!(
-                        "{:?} does not match {:?}",
-                        reason, exp.matched
-                    )));
+                    return Err(format!("{:?} does not match {:?}", reason, exp.matched));
                 }
                 let current_path = prog.path().to_string();
                 if current_path != exp.path {
-                    return Err(Error::Custom(format!(
-                        "{:?} does not match {:?}",
-                        current_path, exp.path
-                    )));
+                    return Err(format!("{:?} does not match {:?}", current_path, exp.path));
                 }
                 *idx += 1;
                 Ok(())

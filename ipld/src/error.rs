@@ -18,12 +18,6 @@ pub enum Error {
     Custom(String),
 }
 
-impl Error {
-    pub fn new(msg: String) -> Self {
-        Self::Custom(msg)
-    }
-}
-
 impl From<Box<dyn error::Error>> for Error {
     fn from(err: Box<dyn error::Error>) -> Self {
         Self::Custom(err.to_string())

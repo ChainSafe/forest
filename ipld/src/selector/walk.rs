@@ -8,14 +8,19 @@ use async_trait::async_trait;
 use cid::Cid;
 
 /// Defines result type for traversal functions. Always returns a boxed error;
-type Result<T> = std::result::Result<T, Error>;
+type WalkResult<T> = Result<T, Error>;
 
 impl Selector {
     /// Walks all nodes visited (not just matched nodes) and executes callback with progress and
     /// Ipld node. An optional link loader/ resolver is passed in to be able to traverse links.
-    pub async fn walk_all<F, L>(self, ipld: &Ipld, resolver: Option<L>, callback: F) -> Result<()>
+    pub async fn walk_all<F, L>(
+        self,
+        ipld: &Ipld,
+        resolver: Option<L>,
+        callback: F,
+    ) -> WalkResult<()>
     where
-        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<()> + Sync,
+        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
         L: LinkResolver + Sync + Send + Clone,
     {
         Progress {
@@ -33,12 +38,12 @@ impl Selector {
         ipld: &Ipld,
         resolver: Option<L>,
         callback: F,
-    ) -> Result<()>
+    ) -> WalkResult<()>
     where
-        F: Fn(&Progress<L>, &Ipld) -> Result<()> + Sync,
+        F: Fn(&Progress<L>, &Ipld) -> Result<(), String> + Sync,
         L: LinkResolver + Sync + Send + Clone,
     {
-        self.walk_all(ipld, resolver, |prog, ipld, reason| -> Result<()> {
+        self.walk_all(ipld, resolver, |prog, ipld, reason| -> Result<(), String> {
             if let VisitReason::SelectionMatch = reason {
                 return callback(prog, ipld);
             }
@@ -61,7 +66,7 @@ pub enum VisitReason {
 pub trait LinkResolver {
     #[allow(unused_variables)]
     /// Resolves a Cid link into it's respective Ipld node, if it exists.
-    async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>> {
+    async fn load_link(&self, link: &Cid) -> WalkResult<Option<Ipld>> {
         Err("load_link not implemented on the LinkResolver".into())
     }
 }
@@ -85,15 +90,16 @@ where
     L: LinkResolver + Sync + Send + Clone,
 {
     #[async_recursion]
-    async fn walk_all<F>(&mut self, ipld: &Ipld, selector: Selector, callback: &F) -> Result<()>
+    async fn walk_all<F>(&mut self, ipld: &Ipld, selector: Selector, callback: &F) -> WalkResult<()>
     where
-        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<()> + Sync,
+        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
-        if selector.decide() {
-            callback(self, ipld, VisitReason::SelectionMatch)?;
+        let reason = if selector.decide() {
+            VisitReason::SelectionMatch
         } else {
-            callback(self, ipld, VisitReason::SelectionCandidate)?;
-        }
+            VisitReason::SelectionCandidate
+        };
+        callback(self, ipld, reason).map_err(Error::Custom)?;
 
         // If Ipld is list or map, continue traversal, otherwise return
         match ipld {
@@ -146,9 +152,9 @@ where
         callback: &F,
         ps: PathSegment,
         v: &Ipld,
-    ) -> Result<()>
+    ) -> WalkResult<()>
     where
-        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<()> + Sync,
+        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
         if let Some(next_selector) = selector.explore(ipld, &ps) {
             self.path.append(ps);
