@@ -108,21 +108,8 @@ where
                         Some(ipld) => ipld,
                         None => continue,
                     };
-                    if let Some(next_selector) = selector.clone().explore(ipld, &ps) {
-                        self.path.append(ps);
-                        // If node is a link, try to load and traverse
-                        if let Ipld::Link(cid) = v {
-                            // TODO determine if we need to store last block info
-                            if let Some(resolver) = &self.resolver {
-                                match resolver.load_link(cid).await? {
-                                    Some(v) => self.walk_all(&v, next_selector, callback).await?,
-                                    None => return Ok(()),
-                                }
-                            }
-                        } else {
-                            self.walk_all(v, next_selector, callback).await?
-                        }
-                    }
+                    self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                        .await?
                 }
                 Ok(())
             }
@@ -131,47 +118,15 @@ where
                     Ipld::Map(m) => {
                         for (k, v) in m.iter() {
                             let ps: PathSegment = PathSegment::from(k.as_ref());
-                            if let Some(next_selector) = selector.clone().explore(ipld, &ps) {
-                                self.path.append(ps);
-
-                                // If node is a link, try to load and traverse
-                                if let Ipld::Link(cid) = v {
-                                    // TODO determine if we need to store last block info
-                                    if let Some(resolver) = &self.resolver {
-                                        match resolver.load_link(cid).await? {
-                                            Some(v) => {
-                                                self.walk_all(&v, next_selector, callback).await?
-                                            }
-                                            None => return Ok(()),
-                                        }
-                                    }
-                                } else {
-                                    self.walk_all(v, next_selector, callback).await?
-                                }
-                            }
+                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                                .await?
                         }
                     }
                     Ipld::List(list) => {
                         for (i, v) in list.iter().enumerate() {
                             let ps: PathSegment = i.into();
-                            if let Some(next_selector) = selector.clone().explore(ipld, &ps) {
-                                self.path.append(ps);
-
-                                // If node is a link, try to load and traverse
-                                if let Ipld::Link(cid) = v {
-                                    // TODO determine if we need to store last block info
-                                    if let Some(resolver) = &self.resolver {
-                                        match resolver.load_link(cid).await? {
-                                            Some(v) => {
-                                                self.walk_all(&v, next_selector, callback).await?
-                                            }
-                                            None => return Ok(()),
-                                        }
-                                    }
-                                } else {
-                                    self.walk_all(v, next_selector, callback).await?
-                                }
-                            }
+                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                                .await?
                         }
                     }
                     _ => unreachable!(),
@@ -180,5 +135,37 @@ where
                 Ok(())
             }
         }
+    }
+
+    /// Utility function just to reduce duplicate logic. Can't do with a closure because
+    /// async closures are currently unstable: https://github.com/rust-lang/rust/issues/62290
+    async fn traverse_node<F>(
+        &mut self,
+        ipld: &Ipld,
+        selector: Selector,
+        callback: &F,
+        ps: PathSegment,
+        v: &Ipld,
+    ) -> Result<()>
+    where
+        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<()> + Sync,
+    {
+        if let Some(next_selector) = selector.explore(ipld, &ps) {
+            self.path.append(ps);
+
+            // If node is a link, try to load and traverse
+            if let Ipld::Link(cid) = v {
+                // TODO determine if we need to store last block info
+                if let Some(resolver) = &self.resolver {
+                    match resolver.load_link(cid).await? {
+                        Some(v) => self.walk_all(&v, next_selector, callback).await?,
+                        None => return Ok(()),
+                    }
+                }
+            } else {
+                self.walk_all(v, next_selector, callback).await?
+            }
+        }
+        Ok(())
     }
 }
