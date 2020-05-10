@@ -14,5 +14,48 @@
                 "matched": true
             }
         ]
+    },
+    {
+        "description": "Traverse selecting fields",
+        "ipld": {
+            "foo": true,
+            "bar": false,
+            "some_other": {}
+        },
+        "selector": {
+            "f": {
+                "f>": {
+                    "foo": {
+                        ".": {}
+                    },
+                    "bar": {
+                        ".": {}
+                    }
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            },
+            {
+                "path": "foo",
+                "node": {
+                    "bool": true
+                },
+                "matched": true
+            },
+            {
+                "path": "bar",
+                "node": {
+                    "bool": false
+                },
+                "matched": true
+            }
+        ]
     }
 ]

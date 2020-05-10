@@ -16,6 +16,7 @@ multibase = { version = "0.8.0", optional = true }
 async-trait = "0.1"
 async-recursion = "0.3.1"
 async-std = { version = "1.5.0", features = ["attributes"] }
+linked-hash-map = { version = "0.5.3", features = ["serde_impl"] }
 
 [dependencies.cid]
 package = "forest_cid"

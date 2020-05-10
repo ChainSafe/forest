@@ -73,7 +73,10 @@ fn check_matched(reason: VisitReason, matched: bool) -> bool {
 async fn process_vector(tv: TestVector) -> Result<(), String> {
     let index = Arc::new(Mutex::new(0));
     let expect = tv.expect_visit.clone();
-    let description = tv.description.clone();
+    let description = tv
+        .description
+        .clone()
+        .unwrap_or("unnamed test case".to_owned());
     tv.selector
         .walk_all(
             &tv.ipld,
@@ -96,13 +99,16 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
             },
         )
         .await
-        .map_err(|e| {
-            format!(
-                "({}) failed, reason: {}",
-                description.unwrap_or("unnamed test case".to_owned()),
-                e.to_string()
-            )
-        })
+        .map_err(|e| format!("({}) failed, reason: {}", description, e.to_string()))?;
+
+    if expect.len() != *index.lock().unwrap() {
+        Err(format!(
+            "{}: Did not traverse all expected nodes",
+            description
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 #[async_std::test]

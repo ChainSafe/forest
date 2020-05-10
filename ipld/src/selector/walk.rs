@@ -73,7 +73,11 @@ pub trait LinkResolver {
 
 impl LinkResolver for () {}
 
-pub struct Progress<L = ()> {
+#[derive(Clone, Debug)]
+pub struct Progress<L = ()>
+where
+    L: Clone,
+{
     resolver: Option<L>,
     path: Path,
 }
@@ -114,7 +118,8 @@ where
                         Some(ipld) => ipld,
                         None => continue,
                     };
-                    self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                    self.clone()
+                        .traverse_node(ipld, selector.clone(), callback, ps, v)
                         .await?
                 }
                 Ok(())
@@ -124,14 +129,16 @@ where
                     Ipld::Map(m) => {
                         for (k, v) in m.iter() {
                             let ps: PathSegment = PathSegment::from(k.as_ref());
-                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                            self.clone()
+                                .traverse_node(ipld, selector.clone(), callback, ps, v)
                                 .await?
                         }
                     }
                     Ipld::List(list) => {
                         for (i, v) in list.iter().enumerate() {
                             let ps: PathSegment = i.into();
-                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                            self.clone()
+                                .traverse_node(ipld, selector.clone(), callback, ps, v)
                                 .await?
                         }
                     }
