@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 /// Represents either a key in a map or an index in a list.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PathSegment {
     /// Key in a map
     String(String),
@@ -34,6 +34,26 @@ impl From<usize> for PathSegment {
 impl From<String> for PathSegment {
     fn from(s: String) -> Self {
         Self::String(s)
+    }
+}
+
+impl From<&str> for PathSegment {
+    fn from(s: &str) -> Self {
+        // Try to parse as usize to avoid heap allocations.
+        // (Int and String segments are handled the same in traversals)
+        match s.parse::<usize>() {
+            Ok(u) => PathSegment::Int(u),
+            Err(_) => PathSegment::String(s.to_owned()),
+        }
+    }
+}
+
+impl fmt::Display for PathSegment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PathSegment::String(s) => write!(f, "{}", s),
+            PathSegment::Int(i) => write!(f, "{}", i),
+        }
     }
 }
 
@@ -71,5 +91,17 @@ impl<'de> de::Deserialize<'de> for PathSegment {
             }
         }
         deserializer.deserialize_any(PathSegmentVisitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn path_segment_from_string() {
+        let seg: PathSegment = "12".into();
+        assert_eq!(seg, PathSegment::Int(12));
+        assert_eq!(seg.to_string(), "12");
     }
 }

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod empty_map;
-mod path_segment;
+mod walk;
+pub use walk::{LinkResolver, Progress};
 
-use super::Ipld;
-pub use path_segment::PathSegment;
+use super::{Ipld, PathSegment};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::SubAssign;
