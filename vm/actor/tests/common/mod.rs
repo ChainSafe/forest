@@ -131,25 +131,6 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         self.expect_validate_caller_any.set(true);
     }
 
-    #[allow(dead_code)]
-    pub fn expect_call_fail(
-        &mut self,
-        to_code: &Cid,
-        method_num: MethodNum,
-        params: &Serialized,
-        expected_code: ExitCode,
-    ) {
-        // will record previous state, execute call. Will expect a certain exit code. Will throw assertion fail if exit code does not match
-        //  if exit code matches will revert state
-        let prev_state = self.state.clone();
-
-        let call_result = self.call(to_code, method_num, params);
-
-        assert_eq!(expected_code, call_result.unwrap_err().exit_code());
-
-        self.state = prev_state;
-    }
-
     pub fn call(
         &mut self,
         to_code: &Cid,
@@ -157,6 +138,8 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         params: &Serialized,
     ) -> Result<Serialized, ActorError> {
         self.in_call = true;
+        let prev_state = self.state.clone();
+
         let res = match to_code {
             x if x == &*SYSTEM_ACTOR_CODE_ID => {
                 actor::system::Actor.invoke_method(self, method_num, params)
@@ -193,6 +176,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
                 "invalid method id".to_owned(),
             )),
         };
+
+        if res.is_err() {
+            self.state = prev_state;
+        }
         self.in_call = false;
         return res;
     }

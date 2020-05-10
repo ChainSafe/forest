@@ -301,19 +301,11 @@ where
         constructor_params: Serialized::serialize(params).unwrap(),
     };
 
-    //Get the previous state so if call fails u can revert
-    let prev_state = rt.state.clone();
-
     let ret = rt.call(
         &*INIT_ACTOR_CODE_ID,
         Method::Exec as u64,
         &Serialized::serialize(&exec_params).unwrap(),
     );
-
-    // Revert state if call
-    if ret.is_err() {
-        rt.state = prev_state;
-    }
 
     rt.verify();
     ret

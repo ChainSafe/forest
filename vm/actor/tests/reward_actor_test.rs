@@ -26,7 +26,7 @@ fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
 }
 
 #[test]
-fn test_balance_less_than_reward() {
+fn balance_less_than_reward() {
     let bs = MemoryDB::default();
     let mut rt = construct_runtime(&bs);
     construct_and_verify(&mut rt);
@@ -44,11 +44,15 @@ fn test_balance_less_than_reward() {
     };
 
     //Expect call to fail because actor doesnt have enough tokens to reward
-    rt.expect_call_fail(
+    let call_result = rt.call(
         &*REWARD_ACTOR_CODE_ID,
         Method::AwardBlockReward as u64,
         &Serialized::serialize(&params).unwrap(),
+    );
+
+    assert_eq!(
         ExitCode::ErrInsufficientFunds,
+        call_result.unwrap_err().exit_code()
     );
 
     rt.verify()
