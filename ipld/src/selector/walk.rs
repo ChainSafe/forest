@@ -49,6 +49,7 @@ impl Selector {
 }
 
 /// Provides reason for callback in traversal for `walk_all`.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VisitReason {
     /// Ipld node visited was a specific match.
     SelectionMatch,
@@ -65,9 +66,18 @@ pub trait LinkResolver {
     }
 }
 
-pub struct Progress<L> {
+impl LinkResolver for () {}
+
+pub struct Progress<L = ()> {
     resolver: Option<L>,
     path: Path,
+}
+
+impl Progress {
+    /// Returns the path of the current progress
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
 }
 
 impl<L> Progress<L>
@@ -171,12 +181,4 @@ where
             }
         }
     }
-
-    // #[async_recursion]
-    // async fn walk_iterate_all<F>(&mut self, ipld: &Ipld, selector: Selector, callback: &F) -> Result<()>
-    // where
-    //     F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<()> + Sync,
-    // {
-    //     todo!()
-    // }
 }

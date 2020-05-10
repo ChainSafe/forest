@@ -3,7 +3,7 @@
 
 mod empty_map;
 mod walk;
-pub use walk::{LinkResolver, Progress};
+pub use walk::{LinkResolver, Progress, VisitReason};
 
 use super::{Ipld, PathSegment};
 use serde::{Deserialize, Serialize};

@@ -1,0 +1,18 @@
+[
+    {
+        "description": "Walk matching simple node",
+        "ipld": "basic test",
+        "selector": {
+            ".": {}
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "string": "basic test"
+                },
+                "matched": true
+            }
+        ]
+    }
+]
