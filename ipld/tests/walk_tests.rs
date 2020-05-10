@@ -100,11 +100,14 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
         )
         .await
         .map_err(|e| format!("({}) failed, reason: {}", description, e.to_string()))?;
+    let current_idx = *index.lock().unwrap();
 
-    if expect.len() != *index.lock().unwrap() {
+    if expect.len() != current_idx {
         Err(format!(
-            "{}: Did not traverse all expected nodes",
-            description
+            "{}: Did not traverse all expected nodes (expected: {}) (current: {})",
+            description,
+            expect.len(),
+            current_idx
         ))
     } else {
         Ok(())
