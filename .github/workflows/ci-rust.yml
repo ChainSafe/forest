@@ -11,28 +11,39 @@ on:
 jobs:
   test:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-16.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
-      - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev	
+      - name: Update apt repositories
+        run: sudo apt update
+
+      - name: Install apt packages
+        run: sudo apt install ocl-icd-opencl-dev
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@master
+        with:
+          version: '3.9.1'
 
       - name: Toolchain setup
         uses: actions-rs/toolchain@v1
         with:	
           profile: minimal	
           toolchain: stable	
-          override: true	
+          override: true
+
+      - name: Cargo Build Tests
+        run: make test-all-verbose-no-run
 
       - name: Cargo test all
-        run: make test-all
+        run: make test-all-verbose
 
   fmt:
     name: rustfmt
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-16.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Toolchain setup
         uses: actions-rs/toolchain@v1
@@ -53,12 +64,19 @@ jobs:
 
   clippy:
     name: clippy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-16.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
 
       - name: Install OpenCL
         run: sudo apt install ocl-icd-opencl-dev	
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@master
+        with:
+          version: '3.9.1'
 
       - uses: actions-rs/toolchain@v1
         with:

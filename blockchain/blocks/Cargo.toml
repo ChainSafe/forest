@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
-beacon = { package = "beacon", path = "../beacon" }
+beacon = { path = "../beacon" }
 crypto = { path = "../../crypto" }
 message = { package = "forest_message", path = "../../vm/message" }
 clock = { path = "../../node/clock" }

@@ -8,6 +8,8 @@ use super::Ipld;
 pub use path_segment::PathSegment;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::ops::SubAssign;
+use Selector::*;
 
 /// Selectors are expressions that identify and select a subset of data from an IPLD DAG.
 /// Selectors are themselves IPLD and can be serialized and deserialized as such.
@@ -110,7 +112,6 @@ pub enum Selector {
         stop_at: Option<Condition>,
         #[serde(skip_deserializing)]
         /// Used to index current
-        // TODO determine if this can be a reference to a selector
         current: Option<Box<Selector>>,
     },
 
@@ -152,6 +153,14 @@ pub enum RecursionLimit {
     Depth(u64),
 }
 
+impl SubAssign<u64> for RecursionLimit {
+    fn sub_assign(&mut self, other: u64) {
+        if let RecursionLimit::Depth(v) = self {
+            *v -= other;
+        }
+    }
+}
+
 /// Condition is expresses a predicate with a boolean result.
 ///
 /// Condition clauses are used several places:
@@ -186,7 +195,6 @@ pub enum Condition {
 impl Selector {
     /// Returns a vector of all sectors of interest, `None` variant is synonymous with all.
     pub fn interests(&self) -> Option<Vec<PathSegment>> {
-        use Selector::*;
         match self {
             ExploreAll { .. } => None,
             ExploreFields { fields } => {
@@ -214,7 +222,7 @@ impl Selector {
             }
             ExploreRecursiveEdge => {
                 // Should never be called on this variant
-                panic!("Traversed explore recursive edge node with no parent")
+                Some(vec![])
             }
             ExploreUnion(selectors) => {
                 let mut segs = Vec::new();
@@ -236,14 +244,116 @@ impl Selector {
     }
 
     /// Processes and returns resultant selector node
-    pub fn explore(self, _ipld: &Ipld, _p: &PathSegment) -> Option<Selector> {
-        // TODO
-        todo!()
+    pub fn explore(self, ipld: &Ipld, p: &PathSegment) -> Option<Selector> {
+        match self {
+            ExploreAll { next } => Some(*next),
+            ExploreFields { mut fields } => match ipld {
+                Ipld::Map(m) => match p {
+                    // Check if field exists on ipld, then explore selector
+                    PathSegment::String(s) => {
+                        m.get(s)?;
+                        fields.remove(s)
+                    }
+                    PathSegment::Int(i) => {
+                        let key = i.to_string();
+                        m.get(&key)?;
+                        fields.remove(&key)
+                    }
+                },
+                // Using ExploreFields for list is supported feature in go impl
+                Ipld::List(l) => {
+                    // Check to make sure index is within bounds
+                    if p.to_index()? >= l.len() {
+                        return None;
+                    }
+                    match p {
+                        PathSegment::String(s) => fields.remove(s),
+                        PathSegment::Int(i) => fields.remove(&i.to_string()),
+                    }
+                }
+                _ => None,
+            },
+            ExploreIndex { index, next } => match ipld {
+                Ipld::List(l) => {
+                    let i = p.to_index()?;
+                    if i != index || i >= l.len() {
+                        None
+                    } else {
+                        // Path segment matches selector index
+                        Some(*next)
+                    }
+                }
+                _ => None,
+            },
+            ExploreRange { start, end, next } => {
+                match ipld {
+                    Ipld::List(l) => {
+                        let i = p.to_index()?;
+                        // Check to make sure index is within list bounds
+                        if i < start || i >= end || i >= l.len() {
+                            None
+                        } else {
+                            // Path segment is within the selector range
+                            Some(*next)
+                        }
+                    }
+                    _ => None,
+                }
+            }
+            ExploreRecursive {
+                current,
+                sequence,
+                mut limit,
+                stop_at,
+            } => {
+                let next = current
+                    .unwrap_or_else(|| sequence.clone())
+                    .explore(ipld, p)?;
+
+                if !has_recursive_edge(&next) {
+                    return Some(ExploreRecursive {
+                        sequence,
+                        current: Some(next.into()),
+                        limit,
+                        stop_at,
+                    });
+                }
+
+                if let RecursionLimit::Depth(depth) = limit {
+                    if depth < 2 {
+                        // Replaces recursive edge with None on last iteration
+                        // TODO revisit, shouldn't need to replace, would be better to just
+                        // return none when edge is hit on final depth
+                        return replace_recursive_edge(next, None);
+                    }
+                    limit -= 1;
+                }
+
+                Some(ExploreRecursive {
+                    current: replace_recursive_edge(next, Some(*sequence.clone())).map(Box::new),
+                    sequence,
+                    limit,
+                    stop_at,
+                })
+            }
+            ExploreUnion(selectors) => {
+                // Push all valid explored selectors to new vector
+                let replace_selectors: Vec<_> = selectors
+                    .into_iter()
+                    .filter_map(|s| s.explore(ipld, p))
+                    .collect();
+
+                Selector::from_selectors(replace_selectors)
+            }
+            // Go impl panics here, but panic on exploring malformed selector seems bad
+            ExploreRecursiveEdge => None,
+            // Matcher is terminal selector
+            Matcher => None,
+        }
     }
 
     /// Returns true if matcher, false otherwise
     pub fn decide(&self) -> bool {
-        use Selector::*;
         match self {
             Matcher => true,
             ExploreUnion(selectors) => {
@@ -254,7 +364,47 @@ impl Selector {
                 }
                 false
             }
+            ExploreRecursive {
+                current, sequence, ..
+            } => {
+                if let Some(curr) = current {
+                    curr.decide()
+                } else {
+                    sequence.decide()
+                }
+            }
             _ => false,
         }
+    }
+
+    fn from_selectors(mut vec: Vec<Self>) -> Option<Self> {
+        match vec.len() {
+            0 | 1 => vec.pop(),
+            _ => Some(ExploreUnion(vec)),
+        }
+    }
+}
+
+fn replace_recursive_edge(next_sel: Selector, replace: Option<Selector>) -> Option<Selector> {
+    match next_sel {
+        ExploreRecursiveEdge => replace,
+        ExploreUnion(selectors) => {
+            // Push all valid explored selectors to new vector
+            let replace_selectors: Vec<_> = selectors
+                .into_iter()
+                .filter_map(|s| replace_recursive_edge(s, replace.clone()))
+                .collect();
+
+            Selector::from_selectors(replace_selectors)
+        }
+        _ => Some(next_sel),
+    }
+}
+
+fn has_recursive_edge(next_sel: &Selector) -> bool {
+    match next_sel {
+        ExploreRecursiveEdge { .. } => true,
+        ExploreUnion(selectors) => selectors.iter().any(has_recursive_edge),
+        _ => false,
     }
 }

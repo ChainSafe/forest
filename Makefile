@@ -62,6 +62,14 @@ test:
 test-all: pull-serialization-tests
 	cargo test --all-features
 
+# This will run all tests will all features enabled, which will exclude some tests with
+# specific features disabled with verbose compiler output
+test-all-verbose: pull-serialization-tests
+	cargo test --verbose --all-features
+
+test-all-verbose-no-run: pull-serialization-tests
+	cargo test --verbose --all-features --no-run
+
 # Checks if all headers are present and adds if not
 license:
 	./scripts/add_license.sh
