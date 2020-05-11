@@ -42,7 +42,7 @@ pub struct Prefix {
 }
 
 /// Representation of a IPLD CID.
-#[derive(Eq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Cid {
     pub version: Version,
     pub codec: Codec,
@@ -199,18 +199,6 @@ impl Cid {
     /// Returns cid in bytes to be stored in datastore
     pub fn key(&self) -> Vec<u8> {
         self.to_bytes()
-    }
-}
-
-impl std::hash::Hash for Cid {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.to_bytes().hash(state);
-    }
-}
-
-impl PartialEq for Cid {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_bytes() == other.to_bytes()
     }
 }
 
