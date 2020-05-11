@@ -17,7 +17,7 @@ use serde::Deserialize;
 /// A set of CIDs forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct TipsetKeys {
     pub cids: Vec<Cid>,
 }
@@ -56,7 +56,7 @@ impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug, PartialOrd, Ord, Eq)]
+#[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipsetKeys,

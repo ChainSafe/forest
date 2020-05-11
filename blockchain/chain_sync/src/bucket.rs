@@ -6,7 +6,7 @@ use num_bigint::BigUint;
 use std::sync::Arc;
 
 /// SyncBucket defines a bucket of tipsets to sync
-#[derive(Clone, Default, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct SyncBucket {
     tips: Vec<Arc<Tipset>>,
 }
