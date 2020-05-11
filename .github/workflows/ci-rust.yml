@@ -103,12 +103,20 @@ jobs:
     needs: [clippy, test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+
       - name: Install Rust
         run: rustup update beta && rustup default beta
 
       - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev	
+        run: sudo apt install ocl-icd-opencl-dev
+      
+      - name: Install Protoc
+        uses: arduino/setup-protoc@master
+        with:
+          version: '3.9.1'
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features
