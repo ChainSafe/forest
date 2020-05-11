@@ -14,6 +14,8 @@ pub enum Error {
     Encoding(String),
     #[error("{0}")]
     Other(&'static str),
+    #[error("Failed to traverse link: {0}")]
+    Link(String),
     #[error("{0}")]
     Custom(String),
 }

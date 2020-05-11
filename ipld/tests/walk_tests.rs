@@ -1,9 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::Cid;
-use forest_ipld::selector::{Progress, Selector, VisitReason};
+#![cfg(feature = "json")]
+
+use async_trait::async_trait;
+use cid::{multihash::Blake2b256, Cid};
+use db::MemoryDB;
+use forest_ipld::json::{self, IpldJson};
+use forest_ipld::selector::{LinkResolver, Selector, VisitReason};
 use forest_ipld::Ipld;
+use ipld_blockstore::BlockStore;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -41,9 +47,11 @@ struct ExpectVisit {
 #[derive(Deserialize)]
 struct TestVector {
     description: Option<String>,
+    #[serde(with = "json")]
     ipld: Ipld,
     selector: Selector,
     expect_visit: Vec<ExpectVisit>,
+    cbor_ipld_storage: Option<Vec<IpldJson>>,
 }
 
 fn check_ipld(ipld: &Ipld, value: &IpldValue) -> bool {
@@ -70,7 +78,27 @@ fn check_matched(reason: VisitReason, matched: bool) -> bool {
     }
 }
 
+#[derive(Clone)]
+struct TestLinkResolver(Arc<MemoryDB>);
+
+#[async_trait]
+impl LinkResolver for TestLinkResolver {
+    async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>, String> {
+        // println!("querying");
+        self.0.get(link).map_err(|e| e.to_string())
+    }
+}
+
 async fn process_vector(tv: TestVector) -> Result<(), String> {
+    let storage = MemoryDB::default();
+    if let Some(ipld_storage) = tv.cbor_ipld_storage {
+        for IpldJson(i) in ipld_storage {
+            let c = storage.put(&i, Blake2b256).unwrap();
+            // TODO remove after tests built
+            println!("{}", c);
+        }
+    }
+
     let index = Arc::new(Mutex::new(0));
     let expect = tv.expect_visit.clone();
     let description = tv
@@ -80,19 +108,28 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     tv.selector
         .walk_all(
             &tv.ipld,
-            None,
-            |prog: &Progress<()>, ipld, reason| -> Result<(), String> {
+            Some(TestLinkResolver(Arc::new(storage))),
+            |prog, ipld, reason| -> Result<(), String> {
                 let mut idx = index.lock().unwrap();
                 let exp = &expect[*idx];
-                if !check_ipld(ipld, &exp.node) {
-                    return Err(format!("{:?} does not match {:?}", ipld, exp.node));
-                }
-                if !check_matched(reason, exp.matched) {
-                    return Err(format!("{:?} does not match {:?}", reason, exp.matched));
-                }
                 let current_path = prog.path().to_string();
                 if current_path != exp.path {
-                    return Err(format!("{:?} does not match {:?}", current_path, exp.path));
+                    return Err(format!(
+                        "{:?} at (idx: {}) does not match {:?}",
+                        current_path, *idx, exp.path
+                    ));
+                }
+                if !check_ipld(ipld, &exp.node) {
+                    return Err(format!(
+                        "{:?} at (idx: {}) does not match {:?}",
+                        ipld, *idx, exp.node
+                    ));
+                }
+                if !check_matched(reason, exp.matched) {
+                    return Err(format!(
+                        "{:?} at (idx: {}) does not match {:?}",
+                        reason, *idx, exp.matched
+                    ));
                 }
                 *idx += 1;
                 Ok(())
@@ -114,13 +151,26 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     }
 }
 
-#[async_std::test]
-async fn selector_explore_tests() {
-    let file = File::open("./tests/selector_walk.json").unwrap();
+async fn process_file(file: &str) -> Result<(), String> {
+    let file = File::open(file).unwrap();
     let reader = BufReader::new(file);
     let vectors: Vec<TestVector> =
         serde_json::from_reader(reader).expect("Test vector deserialization failed");
     for tv in vectors.into_iter() {
-        process_vector(tv).await.unwrap()
+        process_vector(tv).await?
     }
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn selector_explore_tests() {
+    process_file("./tests/selector_walk.json").await.unwrap();
+}
+
+#[async_std::test]
+async fn selector_explore_links_tests() {
+    process_file("./tests/selector_walk_links.json")
+        .await
+        .unwrap();
 }

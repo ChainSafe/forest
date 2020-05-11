@@ -1,0 +1,83 @@
+[
+    {
+        "description": "Traverse across nodes using union of explore recursive and matcher",
+        "ipld": {
+            "bar": false,
+            "foo": true,
+            "nested": {
+                "alink": {
+                    "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                },
+                "nonlink": "zoo"
+            }
+        },
+        "selector": {
+            "R": {
+                "l": {
+                    "depth": 3
+                },
+                ":>": {
+                    "|": [
+                        {
+                            "a": {
+                                ">": {
+                                    "@": {}
+                                }
+                            }
+                        },
+                        {
+                            ".": {}
+                        }
+                    ]
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "map": null
+                },
+                "matched": true
+            },
+            {
+                "path": "bar",
+                "node": {
+                    "bool": false
+                },
+                "matched": true
+            },
+            {
+                "path": "foo",
+                "node": {
+                    "bool": true
+                },
+                "matched": true
+            },
+            {
+                "path": "nested",
+                "node": {
+                    "map": null
+                },
+                "matched": true
+            },
+            {
+                "path": "nested/alink",
+                "node": {
+                    "string": "alpha"
+                },
+                "matched": true
+            },
+            {
+                "path": "nested/nonlink",
+                "node": {
+                    "string": "zoo"
+                },
+                "matched": true
+            }
+        ],
+        "cbor_ipld_storage": [
+            "alpha"
+        ]
+    }
+]

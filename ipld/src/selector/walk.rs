@@ -66,7 +66,7 @@ pub enum VisitReason {
 pub trait LinkResolver {
     #[allow(unused_variables)]
     /// Resolves a Cid link into it's respective Ipld node, if it exists.
-    async fn load_link(&self, link: &Cid) -> WalkResult<Option<Ipld>> {
+    async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>, String> {
         Err("load_link not implemented on the LinkResolver".into())
     }
 }
@@ -82,17 +82,15 @@ where
     path: Path,
 }
 
-impl Progress {
-    /// Returns the path of the current progress
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-}
-
 impl<L> Progress<L>
 where
     L: LinkResolver + Sync + Send + Clone,
 {
+    /// Returns the path of the current progress
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
     #[async_recursion]
     async fn walk_all<F>(&mut self, ipld: &Ipld, selector: Selector, callback: &F) -> WalkResult<()>
     where
@@ -170,7 +168,7 @@ where
             if let Ipld::Link(cid) = v {
                 // TODO determine if we need to store last block info
                 if let Some(resolver) = &self.resolver {
-                    match resolver.load_link(cid).await? {
+                    match resolver.load_link(cid).await.map_err(Error::Link)? {
                         Some(v) => self.walk_all(&v, next_selector, callback).await?,
                         None => return Ok(()),
                     }
