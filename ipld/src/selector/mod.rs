@@ -6,7 +6,7 @@ mod walk;
 pub use walk::{LinkResolver, Progress, VisitReason};
 
 use super::{Ipld, PathSegment};
-use linked_hash_map::LinkedHashMap;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::ops::SubAssign;
 use Selector::*;
@@ -47,7 +47,7 @@ pub enum Selector {
     #[serde(rename = "f")]
     ExploreFields {
         #[serde(rename = "f>")]
-        fields: LinkedHashMap<String, Selector>,
+        fields: IndexMap<String, Selector>,
     },
 
     /// ExploreIndex traverses a specific index in a list, and applies a next

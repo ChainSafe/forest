@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_ipld::selector::{RecursionLimit, Selector};
-use linked_hash_map::LinkedHashMap;
+use indexmap::IndexMap;
 use serde_json::{from_str, to_string};
 
 // For readability of tests
@@ -55,7 +55,7 @@ fn gen_explore_fields() {
         }
     }
     "#;
-    let mut fields = LinkedHashMap::new();
+    let mut fields = IndexMap::new();
     fields.insert("one".to_owned(), Matcher);
     fields.insert("two".to_owned(), ExploreRecursiveEdge);
     let expected = ExploreFields { fields };
