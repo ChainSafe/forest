@@ -111,6 +111,8 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     fn _get<T: DeserializeOwned>(&self, cid: Cid) -> Result<T, ActorError> {
         Ok(self.store.get(&cid).unwrap().unwrap())
     }
+
+    #[allow(dead_code)]
     pub fn get_state<T: DeserializeOwned>(&self) -> Result<T, ActorError> {
         let data: T = self
             .store
@@ -128,6 +130,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn expect_validate_caller_any(&self) {
         self.expect_validate_caller_any.set(true);
     }
+
     pub fn call(
         &mut self,
         to_code: &Cid,
@@ -135,6 +138,8 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         params: &Serialized,
     ) -> Result<Serialized, ActorError> {
         self.in_call = true;
+        let prev_state = self.state.clone();
+
         let res = match to_code {
             x if x == &*SYSTEM_ACTOR_CODE_ID => {
                 actor::system::Actor.invoke_method(self, method_num, params)
@@ -161,16 +166,20 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
                 actor::paych::Actor.invoke_method(self, method_num, params)
             }
             x if x == &*MULTISIG_ACTOR_CODE_ID => {
-                actor::cron::Actor.invoke_method(self, method_num, params)
+                actor::multisig::Actor.invoke_method(self, method_num, params)
             }
             x if x == &*REWARD_ACTOR_CODE_ID => {
-                actor::cron::Actor.invoke_method(self, method_num, params)
+                actor::reward::Actor.invoke_method(self, method_num, params)
             }
             _ => Err(ActorError::new(
                 ExitCode::SysErrForbidden,
                 "invalid method id".to_owned(),
             )),
         };
+
+        if res.is_err() {
+            self.state = prev_state;
+        }
         self.in_call = false;
         return res;
     }
