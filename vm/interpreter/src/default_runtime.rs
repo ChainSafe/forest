@@ -455,10 +455,10 @@ where
                     actor::paych::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *MULTISIG_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
+                    actor::multisig::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 x if x == *REWARD_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
+                    actor::reward::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 _ => Err(ActorError::new(
                     ExitCode::SysErrorIllegalActor,
