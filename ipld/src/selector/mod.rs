@@ -13,7 +13,6 @@ use Selector::*;
 
 /// Selectors are expressions that identify and select a subset of data from an IPLD DAG.
 /// Selectors are themselves IPLD and can be serialized and deserialized as such.
-// TODO usage docs when API solidified
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Selector {
     /// Matcher marks a node to be included in the "result" set.
@@ -43,6 +42,8 @@ pub enum Selector {
     /// Note that a concept of exploring a whole path (e.g. "foo/bar/baz") can be
     /// represented as a set of three nexted ExploreFields selectors, each
     /// specifying one field.
+    ///
+    /// Fields insertion order is maintained and traversed using that order.
     #[serde(rename = "f")]
     ExploreFields {
         #[serde(rename = "f>")]

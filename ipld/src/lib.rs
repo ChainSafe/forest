@@ -107,14 +107,11 @@ pub enum Ipld {
 }
 
 impl Ipld {
-    pub(crate) fn lookup_segment<'a: 'b, 'b>(&'a self, segment: &PathSegment) -> Option<&'b Self> {
+    pub(crate) fn lookup_segment(&self, segment: &PathSegment) -> Option<&Self> {
         match self {
             Self::Map(map) => match segment {
                 PathSegment::String(s) => map.get(s),
-                PathSegment::Int(i) => {
-                    let key = i.to_string();
-                    map.get(&key)
-                }
+                PathSegment::Int(i) => map.get(&i.to_string()),
             },
             Self::List(list) => list.get(segment.to_index()?),
             _ => None,

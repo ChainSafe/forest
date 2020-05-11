@@ -15,8 +15,9 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::{Arc, Mutex};
 
+/// Type to ignore the specifics of a list or map for JSON tests
 #[derive(Deserialize, Debug, Clone)]
-pub enum IpldValue {
+enum IpldValue {
     #[serde(rename = "null")]
     Null,
     #[serde(rename = "bool")]
@@ -89,23 +90,27 @@ impl LinkResolver for TestLinkResolver {
 }
 
 async fn process_vector(tv: TestVector) -> Result<(), String> {
-    let storage = MemoryDB::default();
-    if let Some(ipld_storage) = tv.cbor_ipld_storage {
+    // Setup resolver with any ipld nodes to store
+    let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
+        let storage = MemoryDB::default();
         for IpldJson(i) in ipld_storage {
-            let c = storage.put(&i, Blake2b256).unwrap();
+            storage.put(&i, Blake2b256).unwrap();
         }
-    }
+        TestLinkResolver(Arc::new(storage))
+    });
 
+    // Index to ensure that the callback can check against the expectations
     let index = Arc::new(Mutex::new(0));
     let expect = tv.expect_visit.clone();
     let description = tv
         .description
         .clone()
         .unwrap_or("unnamed test case".to_owned());
+
     tv.selector
         .walk_all(
             &tv.ipld,
-            Some(TestLinkResolver(Arc::new(storage))),
+            resolver,
             |prog, ipld, reason| -> Result<(), String> {
                 let mut idx = index.lock().unwrap();
                 let exp = &expect[*idx];
@@ -134,8 +139,9 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
         )
         .await
         .map_err(|e| format!("({}) failed, reason: {}", description, e.to_string()))?;
-    let current_idx = *index.lock().unwrap();
 
+    // Ensure all expected traversals were checked
+    let current_idx = *index.lock().unwrap();
     if expect.len() != current_idx {
         Err(format!(
             "{}: Did not traverse all expected nodes (expected: {}) (current: {})",

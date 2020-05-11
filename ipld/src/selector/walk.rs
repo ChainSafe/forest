@@ -7,9 +7,6 @@ use async_recursion::async_recursion;
 use async_trait::async_trait;
 use cid::Cid;
 
-/// Defines result type for traversal functions. Always returns a boxed error;
-type WalkResult<T> = Result<T, Error>;
-
 impl Selector {
     /// Walks all nodes visited (not just matched nodes) and executes callback with progress and
     /// Ipld node. An optional link loader/ resolver is passed in to be able to traverse links.
@@ -18,7 +15,7 @@ impl Selector {
         ipld: &Ipld,
         resolver: Option<L>,
         callback: F,
-    ) -> WalkResult<()>
+    ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
         L: LinkResolver + Sync + Send + Clone,
@@ -38,7 +35,7 @@ impl Selector {
         ipld: &Ipld,
         resolver: Option<L>,
         callback: F,
-    ) -> WalkResult<()>
+    ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld) -> Result<(), String> + Sync,
         L: LinkResolver + Sync + Send + Clone,
@@ -92,7 +89,12 @@ where
     }
 
     #[async_recursion]
-    async fn walk_all<F>(&mut self, ipld: &Ipld, selector: Selector, callback: &F) -> WalkResult<()>
+    async fn walk_all<F>(
+        &mut self,
+        ipld: &Ipld,
+        selector: Selector,
+        callback: &F,
+    ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
@@ -157,7 +159,7 @@ where
         callback: &F,
         ps: PathSegment,
         v: &Ipld,
-    ) -> WalkResult<()>
+    ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
@@ -166,7 +168,7 @@ where
 
             // If node is a link, try to load and traverse
             if let Ipld::Link(cid) = v {
-                // TODO determine if we need to store last block info
+                // TODO store last block info here if needed in future
                 if let Some(resolver) = &self.resolver {
                     match resolver.load_link(cid).await.map_err(Error::Link)? {
                         Some(v) => self.walk_all(&v, next_selector, callback).await?,
@@ -178,5 +180,24 @@ where
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ipld;
+
+    #[async_std::test]
+    async fn basic_walk() {
+        let selector = Selector::Matcher;
+
+        selector
+            .walk_matching::<_, ()>(&ipld!("Some IPLD data!"), None, |_progress, ipld| {
+                assert_eq!(ipld, &ipld!("Some IPLD data!"));
+                Ok(())
+            })
+            .await
+            .unwrap();
     }
 }
