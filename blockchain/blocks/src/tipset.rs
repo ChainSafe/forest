@@ -181,9 +181,9 @@ impl FullTipset {
     // TODO: conversions from full to regular tipset should not return a result
     // and should be validated on creation instead
     /// Returns a Tipset
-    pub fn to_tipset(&self) -> Result<Tipset, Error> {
+    pub fn to_tipset(&self) -> Tipset {
         let headers = self.blocks.iter().map(Block::header).cloned().collect();
-        Tipset::new(headers)
+        Tipset::new(headers).unwrap()
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
