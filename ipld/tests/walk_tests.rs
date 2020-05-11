@@ -84,7 +84,6 @@ struct TestLinkResolver(Arc<MemoryDB>);
 #[async_trait]
 impl LinkResolver for TestLinkResolver {
     async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>, String> {
-        // println!("querying");
         self.0.get(link).map_err(|e| e.to_string())
     }
 }
@@ -94,8 +93,6 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     if let Some(ipld_storage) = tv.cbor_ipld_storage {
         for IpldJson(i) in ipld_storage {
             let c = storage.put(&i, Blake2b256).unwrap();
-            // TODO remove after tests built
-            println!("{}", c);
         }
     }
 
