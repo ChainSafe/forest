@@ -62,6 +62,14 @@ pub struct Tipset {
     key: TipsetKeys,
 }
 
+impl From<FullTipset> for Tipset {
+    fn from(full_tipset: FullTipset) -> Self {
+        Tipset::new(
+            full_tipset.blocks.into_iter().map(|block| block.header).collect()
+        ).unwrap()
+    }
+}
+
 #[allow(clippy::len_without_is_empty)]
 impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
@@ -172,11 +180,6 @@ impl FullTipset {
     }
     // TODO: conversions from full to regular tipset should not return a result
     // and should be validated on creation instead
-    /// Returns a Tipset
-    pub fn into_tipset(self) -> Result<Tipset, Error> {
-        let headers = self.blocks.into_iter().map(|block| block.header).collect();
-        Tipset::new(headers)
-    }
     /// Returns a Tipset
     pub fn to_tipset(&self) -> Result<Tipset, Error> {
         let headers = self.blocks.iter().map(Block::header).cloned().collect();
