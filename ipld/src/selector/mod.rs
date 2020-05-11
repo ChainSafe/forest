@@ -364,6 +364,15 @@ impl Selector {
                 }
                 false
             }
+            ExploreRecursive {
+                current, sequence, ..
+            } => {
+                if let Some(curr) = current {
+                    curr.decide()
+                } else {
+                    sequence.decide()
+                }
+            }
             _ => false,
         }
     }
