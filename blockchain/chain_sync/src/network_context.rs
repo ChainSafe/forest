@@ -67,9 +67,7 @@ impl SyncNetworkContext {
             .await?;
 
         let ts = bs_res.into_result()?;
-        Ok(ts.iter()
-            .map(|fts| fts.to_tipset())
-            .collect())
+        Ok(ts.iter().map(|fts| fts.to_tipset()).collect())
     }
     /// Send a blocksync request for full tipsets (includes messages)
     pub async fn blocksync_fts(

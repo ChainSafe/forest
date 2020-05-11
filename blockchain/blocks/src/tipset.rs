@@ -65,8 +65,13 @@ pub struct Tipset {
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
         Tipset::new(
-            full_tipset.blocks.into_iter().map(|block| block.header).collect()
-        ).unwrap()
+            full_tipset
+                .blocks
+                .into_iter()
+                .map(|block| block.header)
+                .collect(),
+        )
+        .unwrap()
     }
 }
 
