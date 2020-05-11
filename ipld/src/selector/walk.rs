@@ -10,7 +10,7 @@ use cid::Cid;
 impl Selector {
     /// Walks all nodes visited (not just matched nodes) and executes callback with progress and
     /// Ipld node. An optional link loader/ resolver is passed in to be able to traverse links.
-    pub async fn walk_all<F, L>(
+    pub async fn walk_all<L, F>(
         self,
         ipld: &Ipld,
         resolver: Option<L>,
@@ -30,7 +30,7 @@ impl Selector {
 
     /// Walks a graph of Ipld nodes, executing the callback only on the nodes "matched".
     /// If a resolver is passed in, links will be able to be traversed.
-    pub async fn walk_matching<F, L>(
+    pub async fn walk_matching<L, F>(
         self,
         ipld: &Ipld,
         resolver: Option<L>,
@@ -193,7 +193,7 @@ mod tests {
         let selector = Selector::Matcher;
 
         selector
-            .walk_matching::<_, ()>(&ipld!("Some IPLD data!"), None, |_progress, ipld| {
+            .walk_matching::<(), _>(&ipld!("Some IPLD data!"), None, |_progress, ipld| {
                 assert_eq!(ipld, &ipld!("Some IPLD data!"));
                 Ok(())
             })
