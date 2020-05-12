@@ -101,11 +101,18 @@ where
         // Resolve any links transparently before traversing
         if let Ipld::Link(cid) = ipld {
             if let Some(resolver) = &self.resolver {
-                match resolver.load_link(cid).await.map_err(Error::Link)? {
-                    Some(v) => return self.walk_all(&v, selector, callback).await,
-                    None => return Ok(()),
+                let mut node = resolver.load_link(cid).await.map_err(Error::Link)?;
+                while let Some(Ipld::Link(c)) = node {
+                    node = resolver.load_link(&c).await.map_err(Error::Link)?;
+                }
+
+                if let Some(n) = node {
+                    return self.walk_all(&n, selector, callback).await;
                 }
             }
+
+            // Link did not resolve to anything, stop traversal
+            return Ok(());
         }
 
         let reason = if selector.decide() {
