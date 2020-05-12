@@ -173,21 +173,18 @@ pub struct FullTipset {
 
 impl FullTipset {
     /// constructor
-    pub fn new(blocks: Vec<Block>) -> Result<Self, Error> {
+    pub fn new(mut blocks: Vec<Block>) -> Result<Self, Error> {
         verify_blocks(blocks.iter().map(Block::header))?;
 
         // sort blocks on creation to allow for more seamless conversions between FullTipset
         // and Tipset
-        let mut sorted_blocks = blocks;
-        sorted_blocks.sort_by_key(|block| {
+        blocks.sort_by_key(|block| {
             (
                 block.header.ticket().vrfproof.clone(),
                 block.header.cid().to_bytes(),
             )
         });
-        Ok(Self {
-            blocks: sorted_blocks,
-        })
+        Ok(Self { blocks })
     }
     /// Returns the first block of the tipset
     fn first_block(&self) -> &Block {
