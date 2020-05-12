@@ -5,7 +5,7 @@ use num_bigint::biguint_ser::{BigUintDe,BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub struct VerifierParams  {
-    pub miner: Address,
+    pub address: Address,
     pub allowance : Datacap
 }
 

@@ -45,4 +45,40 @@ impl Actor {
         rt.create(&st)?;
         Ok(())
     }
+
+    pub fn add_verifier<BS, RT>(rt: &mut RT,params:AddVerifierParams) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        let state : State = rt.state()?;;
+        rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
+
+        rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt|{
+            st.put_verified(rt.store(),params.address,params.allowance)?;
+            Ok(())
+        })?
+        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
+
+        Ok(())
+        
+    }
+
+    pub fn delete_verifier<BS, RT>(rt: &mut RT,params:AddVerifierParams) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        let state : State = rt.state()?;;
+        rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
+
+        rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt|{
+            st.delete_verifier(rt.store(),params.address)?;
+            Ok(())
+        })?
+        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
+
+        Ok(())
+        
+    }
 }
