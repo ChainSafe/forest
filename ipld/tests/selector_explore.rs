@@ -1,14 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_ipld::selector::{PathSegment, Selector};
-use forest_ipld::Ipld;
+#![cfg(feature = "json")]
+
+use forest_ipld::selector::Selector;
+use forest_ipld::{json, Ipld, PathSegment};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
 
 #[derive(Deserialize)]
 struct ExploreParams {
+    #[serde(with = "json")]
     ipld: Ipld,
     path_segment: PathSegment,
 }

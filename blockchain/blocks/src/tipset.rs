@@ -62,6 +62,26 @@ pub struct Tipset {
     key: TipsetKeys,
 }
 
+impl From<FullTipset> for Tipset {
+    fn from(full_tipset: FullTipset) -> Self {
+        let block_headers: Vec<BlockHeader> = full_tipset
+            .blocks
+            .into_iter()
+            .map(|block| block.header)
+            .collect();
+        let cids = block_headers
+            .iter()
+            .map(BlockHeader::cid)
+            .cloned()
+            .collect();
+
+        Tipset {
+            blocks: block_headers,
+            key: TipsetKeys { cids },
+        }
+    }
+}
+
 #[allow(clippy::len_without_is_empty)]
 impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
@@ -153,8 +173,17 @@ pub struct FullTipset {
 
 impl FullTipset {
     /// constructor
-    pub fn new(blocks: Vec<Block>) -> Result<Self, Error> {
+    pub fn new(mut blocks: Vec<Block>) -> Result<Self, Error> {
         verify_blocks(blocks.iter().map(Block::header))?;
+
+        // sort blocks on creation to allow for more seamless conversions between FullTipset
+        // and Tipset
+        blocks.sort_by_key(|block| {
+            (
+                block.header.ticket().vrfproof.clone(),
+                block.header.cid().to_bytes(),
+            )
+        });
         Ok(Self { blocks })
     }
     /// Returns the first block of the tipset
@@ -170,17 +199,20 @@ impl FullTipset {
     pub fn into_blocks(self) -> Vec<Block> {
         self.blocks
     }
-    // TODO: conversions from full to regular tipset should not return a result
-    // and should be validated on creation instead
     /// Returns a Tipset
-    pub fn into_tipset(self) -> Result<Tipset, Error> {
-        let headers = self.blocks.into_iter().map(|block| block.header).collect();
-        Tipset::new(headers)
-    }
-    /// Returns a Tipset
-    pub fn to_tipset(&self) -> Result<Tipset, Error> {
-        let headers = self.blocks.iter().map(Block::header).cloned().collect();
-        Tipset::new(headers)
+    pub fn to_tipset(&self) -> Tipset {
+        let block_headers: Vec<BlockHeader> =
+            self.blocks.iter().map(Block::header).cloned().collect();
+        let cids = block_headers
+            .iter()
+            .map(BlockHeader::cid)
+            .cloned()
+            .collect();
+
+        Tipset {
+            blocks: block_headers,
+            key: TipsetKeys { cids },
+        }
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
