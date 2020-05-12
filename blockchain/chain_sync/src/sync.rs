@@ -358,7 +358,7 @@ where
         let target_weight = fts.weight();
 
         if target_weight.gt(&best_weight) {
-            self.set_peer_head(peer, Arc::new(fts.to_tipset()?)).await?;
+            self.set_peer_head(peer, Arc::new(fts.to_tipset())).await?;
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
@@ -663,7 +663,7 @@ where
     }
     /// validates tipsets and adds header data to tipset tracker
     async fn validate_tipsets(&mut self, fts: FullTipset) -> Result<(), Error> {
-        if fts.to_tipset()? == self.genesis {
+        if fts.to_tipset() == self.genesis {
             return Ok(());
         }
 
