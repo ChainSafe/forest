@@ -94,8 +94,7 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
         let storage = MemoryDB::default();
         for IpldJson(i) in ipld_storage {
-            let c = storage.put(&i, Blake2b256).unwrap();
-            println!("{}", c);
+            storage.put(&i, Blake2b256).unwrap();
         }
         TestLinkResolver(storage)
     });
