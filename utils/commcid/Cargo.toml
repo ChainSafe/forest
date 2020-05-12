@@ -8,8 +8,7 @@ edition = "2018"
 num-traits = "0.2"
 num-derive = "0.3"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "b00d2e26c68e49b81e434739336383304b293395" }
-neptune = "=0.5.4"
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "0e1c7cb464707c7a7ad82b0f8303f000f6f3fc8a" }
 
 [dev-dependencies]
 rand = "0.7.3"

@@ -11,13 +11,15 @@ on:
 jobs:
   test:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-16.04
     steps:
       - uses: actions/checkout@v2
 
-      # TODO revisit this, workaround for now
-      - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev	
+      - name: Update apt repositories
+        run: sudo apt update
+
+      - name: Install apt packages
+        run: sudo apt install ocl-icd-opencl-dev
 
       - name: Install Protoc
         uses: arduino/setup-protoc@master
@@ -29,14 +31,17 @@ jobs:
         with:	
           profile: minimal	
           toolchain: stable	
-          override: true	
+          override: true
+
+      - name: Cargo Build Tests
+        run: make test-all-verbose-no-run
 
       - name: Cargo test all
-        run: make test-all
+        run: make test-all-verbose
 
   fmt:
     name: rustfmt
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-16.04
     steps:
       - uses: actions/checkout@v2
 
@@ -59,30 +64,14 @@ jobs:
 
   clippy:
     name: clippy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-16.04
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
 
-      - name: Cache cargo registry
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-v0-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-cargo-registry-v0-
-      - name: Cache cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-v0-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-cargo-index-v0-
-      - name: Cache target dir
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-v0-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-cargo-build-target-v0-
+      - name: Install OpenCL
+        run: sudo apt install ocl-icd-opencl-dev	
 
       - name: Install Protoc
         uses: arduino/setup-protoc@master
@@ -117,6 +106,9 @@ jobs:
       - uses: actions/checkout@master
       - name: Install Rust
         run: rustup update beta && rustup default beta
+
+      - name: Install OpenCL
+        run: sudo apt install ocl-icd-opencl-dev	
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features

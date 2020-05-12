@@ -71,7 +71,10 @@ where
 
     let store_genesis = chain_store.genesis()?;
 
-    if store_genesis.is_some() && store_genesis.unwrap() == genesis_block {
+    if store_genesis
+        .map(|store| store == genesis_block)
+        .unwrap_or_default()
+    {
         debug!("Genesis from config matches Genesis from store");
         Ok(genesis_block)
     } else {

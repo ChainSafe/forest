@@ -120,6 +120,7 @@ impl DrandBeacon {
         // TODO: Cache this result
         Ok(sig_match)
     }
+
     pub fn max_beacon_round_for_epoch(
         &self,
         fil_epoch: ChainEpoch,
@@ -128,7 +129,7 @@ impl DrandBeacon {
         // TODO: sometimes the genesis time for filecoin is zero and this goes negative
         let latest_ts = fil_epoch * self.fil_round_time + self.fil_gen_time - self.fil_round_time;
         // TODO: self.interval has to be converted to seconds. Dont know what it is right now
-        return (latest_ts - self.drand_gen_time) / self.interval;
+        (latest_ts - self.drand_gen_time) / self.interval
     }
 }
 
@@ -170,6 +171,7 @@ mod test {
 
         let e2 = beacon.entry(2).await.unwrap();
         let e3 = beacon.entry(3).await.unwrap();
-        assert_ne!(beacon.verify_entry(e2, e3).unwrap());
+
+        assert!(!beacon.verify_entry(e2, e3).unwrap());
     }
 }
