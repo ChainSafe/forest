@@ -1,12 +1,12 @@
-use crate::{StoragePower, HAMT_BIT_WIDTH};
+use crate::{HAMT_BIT_WIDTH};
 use address::Address;
 use cid::Cid;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{Serialized, TokenAmount};
+
 use ipld_blockstore::BlockStore;
 use encoding::Cbor;
 use ipld_hamt::{Hamt,BytesKey};
-use num_bigint::biguint_ser::{BigUintSer,BigUintDe};
+
 use crate::builtin::verifreg::types::Datacap;
 
 
@@ -75,7 +75,7 @@ impl State
 
     fn get<BS: BlockStore>( storage : &mut Cid,store: &BS,verified_addr : Address) ->Result<Option<Datacap>, String>
     {
-        let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
+        let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
         map.get(&verified_addr.to_bytes()).map_err(|e|e.to_string())
     }
 

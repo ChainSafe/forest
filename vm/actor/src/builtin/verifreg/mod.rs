@@ -2,13 +2,12 @@ pub mod state;
 pub mod types;
 pub use self::types::*;
 pub use self::state::State;
-use address::{Address, Protocol};
+use address::{Address};
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
-use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
-use crate::{StoragePower, HAMT_BIT_WIDTH,SYSTEM_ACTOR_ADDR};
+use runtime::{Runtime};
+use vm::{ActorError, ExitCode, METHOD_CONSTRUCTOR};
+use crate::{HAMT_BIT_WIDTH,SYSTEM_ACTOR_ADDR};
 use ipld_hamt::Hamt;
 
 /// Account actor methods available
@@ -51,7 +50,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let state : State = rt.state()?;;
+        let state : State = rt.state()?;
         rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
 
         rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt|{
@@ -69,7 +68,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let state : State = rt.state()?;;
+        let state : State = rt.state()?;
         rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
 
         rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt|{

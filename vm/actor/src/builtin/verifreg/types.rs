@@ -34,7 +34,7 @@ impl<'de> Deserialize<'de> for Datacap
     where
         D: Deserializer<'de>,
     {
-        let (BigUintDe(datacap)) = Deserialize::deserialize(deserializer)?;
+        let BigUintDe(datacap) = Deserialize::deserialize(deserializer)?;
         Ok(Self(datacap))
     }
 }
