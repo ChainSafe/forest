@@ -266,7 +266,7 @@ where
                                 b.secp_msg_includes,
                             )?;
                             // validate tipset and messages
-                            self.validate_tipsets(fts)?;
+                            self.validate_tipsets(fts).await?;
                             // store messages
                             self.chain_store.put_messages(&b.bls_msgs)?;
                             self.chain_store.put_messages(&b.secp_msgs)?;
@@ -277,7 +277,7 @@ where
                 }
             };
             // full tipset found in storage; validate and continue
-            self.validate_tipsets(fts)?;
+            self.validate_tipsets(fts).await?;
             i -= 1;
             continue;
         }
@@ -358,7 +358,7 @@ where
         let target_weight = fts.weight();
 
         if target_weight.gt(&best_weight) {
-            self.set_peer_head(peer, Arc::new(fts.to_tipset())).await?;
+            self.set_peer_head(peer, Arc::new(fts.to_tipset()?)).await?;
         }
         // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
         Ok(())
@@ -616,7 +616,7 @@ where
     }
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-    fn validate(&self, block: &Block) -> Result<(), Error> {
+    async fn validate(&self, block: &Block) -> Result<(), Error> {
         let header = block.header();
 
         // check if block has been signed
@@ -662,13 +662,13 @@ where
         Ok(())
     }
     /// validates tipsets and adds header data to tipset tracker
-    fn validate_tipsets(&mut self, fts: FullTipset) -> Result<(), Error> {
-        if fts.to_tipset() == self.genesis {
+    async fn validate_tipsets(&mut self, fts: FullTipset) -> Result<(), Error> {
+        if fts.to_tipset()? == self.genesis {
             return Ok(());
         }
 
         for b in fts.blocks() {
-            if let Err(e) = self.validate(b) {
+            if let Err(e) = self.validate(b).await {
                 self.bad_blocks.put(b.cid().clone(), e.to_string());
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
