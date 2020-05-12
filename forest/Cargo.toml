@@ -24,3 +24,5 @@ blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore" }
 chain = { path = "../blockchain/chain" }
 structopt = { version = "0.3"}
+beacon = { path = "../blockchain/beacon" }
+hex = "0.4.2"

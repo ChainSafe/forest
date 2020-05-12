@@ -13,6 +13,7 @@ use amt::Amt;
 use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
+use beacon::{DrandBeacon};
 use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
@@ -60,6 +61,9 @@ pub struct ChainSyncer<DB> {
     /// Syncing state of chain sync
     state: SyncState,
 
+    /// Drand randomness beacon
+    beacon: DrandBeacon,
+
     /// manages retrieving and updates state objects
     state_manager: StateManager<DB>,
 
@@ -100,6 +104,7 @@ where
 {
     pub fn new(
         chain_store: ChainStore<DB>,
+        beacon: DrandBeacon,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
@@ -118,6 +123,7 @@ where
 
         Ok(Self {
             state: SyncState::Init,
+            beacon,
             state_manager,
             chain_store,
             network,
