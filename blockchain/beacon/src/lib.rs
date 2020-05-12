@@ -13,8 +13,8 @@ pub use drand::*;
 use clock::ChainEpoch;
 use std::error::Error;
 
-pub async fn beacon_entries_for_block(
-    beacon: &DrandBeacon,
+pub async fn beacon_entries_for_block<B: Beacon>(
+    beacon: B,
     round: ChainEpoch,
     prev: &BeaconEntry,
 ) -> Result<Vec<BeaconEntry>, Box<dyn Error>> {

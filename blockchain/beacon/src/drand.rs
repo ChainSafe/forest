@@ -8,6 +8,7 @@ use super::drand_api::api_grpc::PublicClient;
 use super::drand_api::common::GroupRequest;
 use super::group::Group;
 
+use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
 use clock::ChainEpoch;
@@ -32,6 +33,28 @@ impl DistPublic {
     }
 }
 
+#[async_trait]
+pub trait Beacon
+where
+    Self: Sized,
+{
+    async fn new(
+        pub_key: DistPublic,
+        genesis_ts: u64,
+        interval: u64,
+    ) -> Result<Self, Box<dyn error::Error>>;
+
+    fn verify_entry(
+        &self,
+        curr: &BeaconEntry,
+        prev: &BeaconEntry,
+    ) -> Result<bool, Box<dyn error::Error>>;
+
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>>;
+
+    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, _prev_entry: &BeaconEntry) -> u64;
+}
+
 pub struct DrandBeacon {
     client: PublicClient,
     pub_key: DistPublic,
@@ -43,9 +66,10 @@ pub struct DrandBeacon {
 
 /// This struct allows you to talk to a Drand node over GRPC.
 /// Use this to source randomness and to verify Drand beacon entries.
-impl DrandBeacon {
+#[async_trait]
+impl Beacon for DrandBeacon {
     /// Construct a new DrandBeacon.
-    pub async fn new(
+    async fn new(
         pub_key: DistPublic,
         genesis_ts: u64,
         interval: u64,
@@ -80,23 +104,8 @@ impl DrandBeacon {
         })
     }
 
-    /// Returns a BeaconEntry given a round. It fetches the BeaconEntry from a Drand node over GRPC
-    /// In the future, we will cache values, and support streaming.
-    pub async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>> {
-        // TODO: Cache values into a database
-        let mut req = PublicRandRequest::new();
-        req.round = round;
-        let resp = self
-            .client
-            .public_rand(grpc::RequestOptions::new(), req)
-            .drop_metadata()
-            .await?;
-
-        Ok(BeaconEntry::new(resp.round, resp.signature, resp.round - 1))
-    }
-
     /// Verify a new beacon entry against the most recent one before it.
-    pub fn verify_entry(
+    fn verify_entry(
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
@@ -121,11 +130,22 @@ impl DrandBeacon {
         Ok(sig_match)
     }
 
-    pub fn max_beacon_round_for_epoch(
-        &self,
-        fil_epoch: ChainEpoch,
-        _prev_entry: &BeaconEntry,
-    ) -> u64 {
+    /// Returns a BeaconEntry given a round. It fetches the BeaconEntry from a Drand node over GRPC
+    /// In the future, we will cache values, and support streaming.
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>> {
+        // TODO: Cache values into a database
+        let mut req = PublicRandRequest::new();
+        req.round = round;
+        let resp = self
+            .client
+            .public_rand(grpc::RequestOptions::new(), req)
+            .drop_metadata()
+            .await?;
+
+        Ok(BeaconEntry::new(resp.round, resp.signature, resp.round - 1))
+    }
+
+    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, _prev_entry: &BeaconEntry) -> u64 {
         // TODO: sometimes the genesis time for filecoin is zero and this goes negative
         let latest_ts = fil_epoch * self.fil_round_time + self.fil_gen_time - self.fil_round_time;
         // TODO: self.interval has to be converted to seconds. Dont know what it is right now
