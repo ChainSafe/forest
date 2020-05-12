@@ -168,7 +168,17 @@ impl FullTipset {
     /// constructor
     pub fn new(blocks: Vec<Block>) -> Result<Self, Error> {
         verify_blocks(blocks.iter().map(Block::header))?;
-        Ok(Self { blocks })
+
+        let mut sorted_blocks = blocks;
+        sorted_blocks.sort_by_key(|block| {
+            (
+                block.header.ticket().vrfproof.clone(),
+                block.header.cid().to_bytes(),
+            )
+        });
+        Ok(Self {
+            blocks: sorted_blocks,
+        })
     }
     /// Returns the first block of the tipset
     fn first_block(&self) -> &Block {
