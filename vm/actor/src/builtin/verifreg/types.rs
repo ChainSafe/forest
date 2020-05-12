@@ -4,6 +4,7 @@ use num_bigint::biguint_ser::{BigUintDe,BigUintSer};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct VerifierParams  {
     pub address: Address,
     pub allowance : Datacap
@@ -13,7 +14,21 @@ pub struct VerifierParams  {
 pub type AddVerifierParams = VerifierParams;
 pub type AddVerifierClientParams = VerifierParams;
 
-pub struct Datacap(StoragePower);
+pub const MINIMUM_VERIFIED_SIZE : u32 = 1<<20;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Datacap(pub StoragePower);
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BytesParams
+{
+    pub address : Address,
+    pub deal_size : Datacap
+}
+
+pub type UseBytesParams = BytesParams;
+pub type RestoreBytesParams = BytesParams;
+
 
 impl Serialize for Datacap
 {
