@@ -20,7 +20,7 @@ indexmap = { version = "1.3.2", features = ["serde-1"] }
 [dependencies.cid]
 package = "forest_cid"
 path = "../ipld/cid"
-features = ["cbor"]
+features = ["cbor", "json"]
 
 [features]
 json = ["serde_json", "multibase"]

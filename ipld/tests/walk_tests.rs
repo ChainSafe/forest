@@ -4,7 +4,7 @@
 #![cfg(feature = "json")]
 
 use async_trait::async_trait;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{json as cidjson, multihash::Blake2b256, Cid};
 use db::MemoryDB;
 use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LinkResolver, Selector, VisitReason};
@@ -34,7 +34,7 @@ enum IpldValue {
     List,
     #[serde(rename = "map")]
     Map,
-    #[serde(rename = "link")]
+    #[serde(rename = "link", with = "cidjson")]
     Link(Cid),
 }
 
@@ -94,7 +94,8 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
         let storage = MemoryDB::default();
         for IpldJson(i) in ipld_storage {
-            storage.put(&i, Blake2b256).unwrap();
+            let c = storage.put(&i, Blake2b256).unwrap();
+            println!("{}", c);
         }
         TestLinkResolver(Arc::new(storage))
     });

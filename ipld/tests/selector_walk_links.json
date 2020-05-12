@@ -239,5 +239,47 @@
                 }
             ]
         ]
+    },
+    {
+        "description": "Traverse link ipld node -> Ipld link -> data edge case",
+        "ipld": {
+            "/": "bafy2bzacedn6qybtc4g674facvcp4xcdep6lu6d25psgdjqxczyaqyrqrivra"
+        },
+        "selector": {
+            "R": {
+                "l": {
+                    "none": {}
+                },
+                ":>": {
+                    "|": [
+                        {
+                            "a": {
+                                ">": {
+                                    "@": {}
+                                }
+                            }
+                        },
+                        {
+                            ".": {}
+                        }
+                    ]
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "string": "data"
+                },
+                "matched": true
+            }
+        ],
+        "cbor_ipld_storage": [
+            {
+                "/": "bafy2bzacebyul4gz7d3zk7kuw2r4qz72lzsa3wed3qtwubfssg3gv3yg4b56e"
+            },
+            "data"
+        ]
     }
 ]

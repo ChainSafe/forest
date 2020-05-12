@@ -98,6 +98,16 @@ where
     where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
+        // Resolve any links transparently before traversing
+        if let Ipld::Link(cid) = ipld {
+            if let Some(resolver) = &self.resolver {
+                match resolver.load_link(cid).await.map_err(Error::Link)? {
+                    Some(v) => return self.walk_all(&v, selector, callback).await,
+                    None => return Ok(()),
+                }
+            }
+        }
+
         let reason = if selector.decide() {
             VisitReason::SelectionMatch
         } else {
@@ -165,19 +175,7 @@ where
     {
         if let Some(next_selector) = selector.explore(ipld, &ps) {
             self.path.append(ps);
-
-            // If node is a link, try to load and traverse
-            if let Ipld::Link(cid) = v {
-                // TODO store last block info here if needed in future
-                if let Some(resolver) = &self.resolver {
-                    match resolver.load_link(cid).await.map_err(Error::Link)? {
-                        Some(v) => self.walk_all(&v, next_selector, callback).await?,
-                        None => return Ok(()),
-                    }
-                }
-            } else {
-                self.walk_all(v, next_selector, callback).await?
-            }
+            self.walk_all(v, next_selector, callback).await?
         }
         Ok(())
     }
