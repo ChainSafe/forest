@@ -654,6 +654,9 @@ where
             ));
         }
 
+        let prev_beacon = self.chain_store.latest_beacon_entry(&self.chain_store.tipset_from_keys(header.parents())?)?;
+        header.validate_block_drand(&self.beacon, prev_beacon).await?;
+
         let (c_pow, net_pow) = self
             .state_manager
             .get_power(&parent_tipset.parent_state(), header.miner_address())?;
