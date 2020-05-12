@@ -19,7 +19,7 @@ use std::fmt;
 /// let mut path: Path = "some/path/1".into();
 ///
 /// // Can append segments to the path
-/// path.append(2.into());
+/// path.push(2.into());
 /// assert_eq!(path.to_string(), "some/path/1/2");
 ///
 /// // Or combine paths
@@ -46,8 +46,8 @@ impl Path {
         &self.segments
     }
 
-    /// Appends a `PathSegment` to the end of the `Path`.
-    pub fn append(&mut self, seg: PathSegment) {
+    /// Pushes a `PathSegment` to the end of the `Path`.
+    pub fn push(&mut self, seg: PathSegment) {
         self.segments.push(seg)
     }
 }

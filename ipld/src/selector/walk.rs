@@ -9,7 +9,7 @@ use cid::Cid;
 
 impl Selector {
     /// Walks all nodes visited (not just matched nodes) and executes callback with progress and
-    /// Ipld node. An optional link loader/ resolver is passed in to be able to traverse links.
+    /// Ipld node. An optional link loader/resolver is passed in to be able to traverse links.
     pub async fn walk_all<L, F>(
         self,
         ipld: &Ipld,
@@ -41,10 +41,10 @@ impl Selector {
         L: LinkResolver + Sync + Send + Clone,
     {
         self.walk_all(ipld, resolver, |prog, ipld, reason| -> Result<(), String> {
-            if let VisitReason::SelectionMatch = reason {
-                return callback(prog, ipld);
+            match reason {
+                VisitReason::SelectionMatch => callback(prog, ipld),
+                VisitReason::SelectionCandidate => Ok(()),
             }
-            Ok(())
         })
         .await
     }
@@ -71,10 +71,7 @@ pub trait LinkResolver {
 impl LinkResolver for () {}
 
 #[derive(Clone, Debug)]
-pub struct Progress<L = ()>
-where
-    L: Clone,
-{
+pub struct Progress<L = ()> {
     resolver: Option<L>,
     path: Path,
 }
@@ -137,7 +134,7 @@ where
                     };
                     self.clone()
                         .traverse_node(ipld, selector.clone(), callback, ps, v)
-                        .await?
+                        .await?;
                 }
                 Ok(())
             }
@@ -145,18 +142,18 @@ where
                 match ipld {
                     Ipld::Map(m) => {
                         for (k, v) in m.iter() {
-                            let ps: PathSegment = PathSegment::from(k.as_ref());
+                            let ps = PathSegment::from(k.as_ref());
                             self.clone()
                                 .traverse_node(ipld, selector.clone(), callback, ps, v)
-                                .await?
+                                .await?;
                         }
                     }
                     Ipld::List(list) => {
                         for (i, v) in list.iter().enumerate() {
-                            let ps: PathSegment = i.into();
+                            let ps = PathSegment::from(i);
                             self.clone()
                                 .traverse_node(ipld, selector.clone(), callback, ps, v)
-                                .await?
+                                .await?;
                         }
                     }
                     _ => unreachable!(),
@@ -181,8 +178,8 @@ where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
         if let Some(next_selector) = selector.explore(ipld, &ps) {
-            self.path.append(ps);
-            self.walk_all(v, next_selector, callback).await?
+            self.path.push(ps);
+            self.walk_all(v, next_selector, callback).await?;
         }
         Ok(())
     }
