@@ -60,8 +60,6 @@ fn main() {
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
-
-
     // Start services
     let p2p_thread = task::spawn(async {
         p2p_service.run().await;
@@ -76,10 +74,19 @@ fn main() {
         let dist_pub = DistPublic {
             coefficients: coeffs,
         };
-        let beacon = DrandBeacon::new(dist_pub, genesis.blocks()[0].timestamp(), 1).await.unwrap();
+        let beacon = DrandBeacon::new(dist_pub, genesis.blocks()[0].timestamp(), 1)
+            .await
+            .unwrap();
 
         // Initialize ChainSyncer
-        let chain_syncer = ChainSyncer::new(chain_store, beacon, network_send, network_rx, genesis).unwrap();
+        let chain_syncer = ChainSyncer::new(
+            chain_store,
+            Arc::new(beacon),
+            network_send,
+            network_rx,
+            genesis,
+        )
+        .unwrap();
         chain_syncer.start().await.unwrap();
     });
 

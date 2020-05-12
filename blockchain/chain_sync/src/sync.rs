@@ -13,7 +13,7 @@ use amt::Amt;
 use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
-use beacon::{DrandBeacon};
+use beacon::Beacon;
 use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
@@ -57,12 +57,12 @@ pub enum SyncState {
     Follow,
 }
 
-pub struct ChainSyncer<DB> {
+pub struct ChainSyncer<DB, TBeacon> {
     /// Syncing state of chain sync
     state: SyncState,
 
     /// Drand randomness beacon
-    beacon: DrandBeacon,
+    beacon: Arc<TBeacon>,
 
     /// manages retrieving and updates state objects
     state_manager: StateManager<DB>,
@@ -98,13 +98,14 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<DB> ChainSyncer<DB>
+impl<DB, TBeacon> ChainSyncer<DB, TBeacon>
 where
     DB: BlockStore,
+    TBeacon: Beacon,
 {
     pub fn new(
         chain_store: ChainStore<DB>,
-        beacon: DrandBeacon,
+        beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
@@ -135,12 +136,7 @@ where
             next_sync_target: SyncBucket::default(),
         })
     }
-}
 
-impl<DB> ChainSyncer<DB>
-where
-    DB: BlockStore,
-{
     pub async fn start(mut self) -> Result<(), Error> {
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
@@ -654,8 +650,12 @@ where
             ));
         }
 
-        let prev_beacon = self.chain_store.latest_beacon_entry(&self.chain_store.tipset_from_keys(header.parents())?)?;
-        header.validate_block_drand(&self.beacon, prev_beacon).await?;
+        let prev_beacon = self
+            .chain_store
+            .latest_beacon_entry(&self.chain_store.tipset_from_keys(header.parents())?)?;
+        header
+            .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
+            .await?;
 
         let (c_pow, net_pow) = self
             .state_manager

@@ -3,7 +3,7 @@
 
 use super::{Error, Ticket, Tipset, TipsetKeys};
 use address::Address;
-use beacon::{BeaconEntry, DrandBeacon};
+use beacon::{Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{Signature, VRFProof};
@@ -20,6 +20,7 @@ use num_bigint::{
 use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use vm::PoStProof;
 // TODO should probably have a central place for constants
@@ -353,9 +354,9 @@ impl BlockHeader {
         lhs < rhs
     }
 
-    pub async fn validate_block_drand(
+    pub async fn validate_block_drand<B: Beacon>(
         &self,
-        beacon: &DrandBeacon,
+        beacon: Arc<B>,
         prev_entry: BeaconEntry,
     ) -> Result<(), Error> {
         let max_round = beacon.max_beacon_round_for_epoch(self.epoch, &prev_entry);

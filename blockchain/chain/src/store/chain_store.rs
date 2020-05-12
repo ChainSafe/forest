@@ -3,7 +3,7 @@
 
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
-use beacon::{BeaconEntry};
+use beacon::BeaconEntry;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
@@ -143,14 +143,18 @@ where
         for _ in 1..20 {
             let cbe = ts.blocks()[0].beacon_entries();
             if !cbe.is_empty() {
-                return Ok(cbe[cbe.len()-1].clone())
+                return Ok(cbe[cbe.len() - 1].clone());
             }
             if cur.epoch() == 0 {
-                return Err(Error::Other("made it back to genesis block without finding beacon entry".to_owned()))
+                return Err(Error::Other(
+                    "made it back to genesis block without finding beacon entry".to_owned(),
+                ));
             }
             cur = self.tipset_from_keys(cur.parents())?;
         }
-        Err(Error::Other("Found no beacon entries in the 20 blocks prior to the given tipset".to_owned()))
+        Err(Error::Other(
+            "Found no beacon entries in the 20 blocks prior to the given tipset".to_owned(),
+        ))
     }
 
     /// Returns heaviest tipset from blockstore

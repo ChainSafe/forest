@@ -38,18 +38,15 @@ pub trait Beacon
 where
     Self: Sized,
 {
-    async fn new(
-        pub_key: DistPublic,
-        genesis_ts: u64,
-        interval: u64,
-    ) -> Result<Self, Box<dyn error::Error>>;
-
+    /// Verify a new beacon entry against the most recent one before it.
     fn verify_entry(
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
     ) -> Result<bool, Box<dyn error::Error>>;
 
+    /// Returns a BeaconEntry given a round. It fetches the BeaconEntry from a Drand node over GRPC
+    /// In the future, we will cache values, and support streaming.
     async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>>;
 
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, _prev_entry: &BeaconEntry) -> u64;
@@ -64,12 +61,9 @@ pub struct DrandBeacon {
     fil_round_time: u64,
 }
 
-/// This struct allows you to talk to a Drand node over GRPC.
-/// Use this to source randomness and to verify Drand beacon entries.
-#[async_trait]
-impl Beacon for DrandBeacon {
+impl DrandBeacon {
     /// Construct a new DrandBeacon.
-    async fn new(
+    pub async fn new(
         pub_key: DistPublic,
         genesis_ts: u64,
         interval: u64,
@@ -103,8 +97,11 @@ impl Beacon for DrandBeacon {
             fil_gen_time: genesis_ts,
         })
     }
-
-    /// Verify a new beacon entry against the most recent one before it.
+}
+/// This struct allows you to talk to a Drand node over GRPC.
+/// Use this to source randomness and to verify Drand beacon entries.
+#[async_trait]
+impl Beacon for DrandBeacon {
     fn verify_entry(
         &self,
         curr: &BeaconEntry,
@@ -130,8 +127,6 @@ impl Beacon for DrandBeacon {
         Ok(sig_match)
     }
 
-    /// Returns a BeaconEntry given a round. It fetches the BeaconEntry from a Drand node over GRPC
-    /// In the future, we will cache values, and support streaming.
     async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>> {
         // TODO: Cache values into a database
         let mut req = PublicRandRequest::new();
