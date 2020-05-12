@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, Ticket, TipSetKeys, Tipset};
+use super::{Error, Ticket, Tipset, TipsetKeys};
 use address::Address;
 use beacon::BeaconEntry;
 use cid::{multihash::Blake2b256, Cid};
@@ -30,7 +30,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///
 /// Usage:
 /// ```
-/// use forest_blocks::{BlockHeader, TipSetKeys, Ticket};
+/// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
 /// use address::Address;
 /// use cid::{Cid, multihash::Identity};
 /// use num_bigint::BigUint;
@@ -42,7 +42,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0)) // optional
 ///     .bls_aggregate(None) // optional
-///     .parents(TipSetKeys::default()) // optional
+///     .parents(TipsetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(0) // optional
 ///     .timestamp(0) // optional
@@ -58,7 +58,7 @@ pub struct BlockHeader {
     /// but can be several in the case where there were multiple winning ticket-
     /// holders for an epoch
     #[builder(default)]
-    parents: TipSetKeys,
+    parents: TipsetKeys,
 
     /// weight is the aggregate chain weight of the parent set
     #[builder(default)]
@@ -220,7 +220,7 @@ impl BlockHeader {
         BlockHeaderBuilder::default()
     }
     /// Getter for BlockHeader parents
-    pub fn parents(&self) -> &TipSetKeys {
+    pub fn parents(&self) -> &TipsetKeys {
         &self.parents
     }
     /// Getter for BlockHeader weight
@@ -318,8 +318,7 @@ impl BlockHeader {
         const FIXED_BLOCK_DELAY: u64 = 45;
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
-            < base_tipset.min_timestamp()?
-                + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch())
+            < base_tipset.min_timestamp() + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch())
         {
             return Err(Error::Validation(
                 "Header was generated too soon".to_string(),

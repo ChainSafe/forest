@@ -4,7 +4,7 @@
 mod cli;
 mod logger;
 
-use self::cli::{block_until_sigint, cli, initialize_genesis};
+use self::cli::{block_until_sigint, initialize_genesis};
 use async_std::task;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
@@ -13,6 +13,7 @@ use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{info, trace};
 use std::sync::Arc;
+use structopt::StructOpt;
 use utils::write_to_file;
 
 fn main() {
@@ -20,7 +21,8 @@ fn main() {
     info!("Starting Forest");
 
     // Capture CLI inputs
-    let mut config = cli().expect("CLI error");
+    let cli = cli::CLI::from_args();
+    let mut config = cli.get_config().expect("CLI error");
 
     let net_keypair = match get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair")) {
         Some(kp) => kp,

@@ -9,7 +9,7 @@ use cid::{
 };
 use crypto::VRFProof;
 use encoding::{from_slice, to_vec};
-use forest_blocks::{BlockHeader, EPostProof, EPostTicket, Ticket, TipSetKeys};
+use forest_blocks::{BlockHeader, EPostProof, EPostTicket, Ticket, TipsetKeys};
 use hex::encode;
 use num_traits::FromPrimitive;
 use serde::Deserialize;
@@ -124,7 +124,7 @@ struct BlockVector {
 impl From<BlockVector> for BlockHeader {
     fn from(v: BlockVector) -> BlockHeader {
         BlockHeader::builder()
-            .parents(TipSetKeys::new(
+            .parents(TipsetKeys::new(
                 v.parents.into_iter().map(|c| c.0).collect(),
             ))
             .weight(v.parent_weight.parse().unwrap())
