@@ -64,8 +64,11 @@ pub struct Tipset {
 
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
-        let block_headers: Vec<BlockHeader> =
-            full_tipset.blocks.into_iter().map(|block| block.header).collect();
+        let block_headers: Vec<BlockHeader> = full_tipset
+            .blocks
+            .into_iter()
+            .map(|block| block.header)
+            .collect();
         let cids = block_headers
             .iter()
             .map(BlockHeader::cid)
