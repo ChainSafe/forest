@@ -31,13 +31,15 @@ rustc >= 1.40.0
 ## Usage
 ```bash
 # Clone repository
-git clone https://github.com/chainsafe/forest
+git clone --recursive https://github.com/chainsafe/forest
 cd forest
 
 # Install binary to $HOME/.cargo/bin and run node
 make install
 forest
 ```
+
+> protoc is also required to build, if not already installed follow [instructions here](http://google.github.io/proto-lens/installing-protoc.html)
 
 ### Config
 
