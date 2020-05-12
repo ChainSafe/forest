@@ -50,6 +50,11 @@ impl Path {
     pub fn push(&mut self, seg: PathSegment) {
         self.segments.push(seg)
     }
+
+    /// Pops a `PathSegment` from the end of the path.
+    pub fn pop(&mut self) -> Option<PathSegment> {
+        self.segments.pop()
+    }
 }
 
 impl From<&str> for Path {

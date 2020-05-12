@@ -70,7 +70,7 @@ pub trait LinkResolver {
 
 impl LinkResolver for () {}
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Progress<L = ()> {
     resolver: Option<L>,
     path: Path,
@@ -78,7 +78,7 @@ pub struct Progress<L = ()> {
 
 impl<L> Progress<L>
 where
-    L: LinkResolver + Sync + Send + Clone,
+    L: LinkResolver + Sync + Send,
 {
     /// Returns the path of the current progress
     pub fn path(&self) -> &Path {
@@ -132,8 +132,7 @@ where
                         Some(ipld) => ipld,
                         None => continue,
                     };
-                    self.clone()
-                        .traverse_node(ipld, selector.clone(), callback, ps, v)
+                    self.traverse_node(ipld, selector.clone(), callback, ps, v)
                         .await?;
                 }
                 Ok(())
@@ -143,16 +142,14 @@ where
                     Ipld::Map(m) => {
                         for (k, v) in m.iter() {
                             let ps = PathSegment::from(k.as_ref());
-                            self.clone()
-                                .traverse_node(ipld, selector.clone(), callback, ps, v)
+                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
                                 .await?;
                         }
                     }
                     Ipld::List(list) => {
                         for (i, v) in list.iter().enumerate() {
                             let ps = PathSegment::from(i);
-                            self.clone()
-                                .traverse_node(ipld, selector.clone(), callback, ps, v)
+                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
                                 .await?;
                         }
                     }
@@ -180,6 +177,7 @@ where
         if let Some(next_selector) = selector.explore(ipld, &ps) {
             self.path.push(ps);
             self.walk_all(v, next_selector, callback).await?;
+            self.path.pop();
         }
         Ok(())
     }

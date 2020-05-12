@@ -80,7 +80,7 @@ fn check_matched(reason: VisitReason, matched: bool) -> bool {
 }
 
 #[derive(Clone)]
-struct TestLinkResolver(Arc<MemoryDB>);
+struct TestLinkResolver(MemoryDB);
 
 #[async_trait]
 impl LinkResolver for TestLinkResolver {
@@ -97,7 +97,7 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
             let c = storage.put(&i, Blake2b256).unwrap();
             println!("{}", c);
         }
-        TestLinkResolver(Arc::new(storage))
+        TestLinkResolver(storage)
     });
 
     // Index to ensure that the callback can check against the expectations
