@@ -64,14 +64,18 @@ pub struct Tipset {
 
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
-        Tipset::new(
-            full_tipset
-                .blocks
-                .into_iter()
-                .map(|block| block.header)
-                .collect(),
-        )
-        .unwrap()
+        let block_headers: Vec<BlockHeader> =
+            full_tipset.blocks.into_iter().map(|block| block.header).collect();
+        let cids = block_headers
+            .iter()
+            .map(BlockHeader::cid)
+            .cloned()
+            .collect();
+
+        Tipset {
+            blocks: block_headers,
+            key: TipsetKeys { cids },
+        }
     }
 }
 
@@ -169,6 +173,8 @@ impl FullTipset {
     pub fn new(blocks: Vec<Block>) -> Result<Self, Error> {
         verify_blocks(blocks.iter().map(Block::header))?;
 
+        // sort blocks on creation to allow for more seamless conversions between FullTipset
+        // and Tipset
         let mut sorted_blocks = blocks;
         sorted_blocks.sort_by_key(|block| {
             (
@@ -193,12 +199,20 @@ impl FullTipset {
     pub fn into_blocks(self) -> Vec<Block> {
         self.blocks
     }
-    // TODO: conversions from full to regular tipset should not return a result
-    // and should be validated on creation instead
     /// Returns a Tipset
     pub fn to_tipset(&self) -> Tipset {
-        let headers = self.blocks.iter().map(Block::header).cloned().collect();
-        Tipset::new(headers).unwrap()
+        let block_headers: Vec<BlockHeader> =
+            self.blocks.iter().map(Block::header).cloned().collect();
+        let cids = block_headers
+            .iter()
+            .map(BlockHeader::cid)
+            .cloned()
+            .collect();
+
+        Tipset {
+            blocks: block_headers,
+            key: TipsetKeys { cids },
+        }
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
