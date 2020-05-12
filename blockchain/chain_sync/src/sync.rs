@@ -414,7 +414,7 @@ where
         // TODO check for related tipsets
 
         // if next_sync_target is from same chain as incoming tipset add it to be synced next
-        if !self.next_sync_target.is_empty() && self.next_sync_target.same_chain_as(&tipset) {
+        if self.next_sync_target.is_same_chain_as(&tipset) {
             self.next_sync_target.add(tipset);
         } else {
             // add incoming tipset to queue to by synced later
