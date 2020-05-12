@@ -1,0 +1,269 @@
+[
+    {
+        "description": "Walk matching simple node",
+        "ipld": "basic test",
+        "selector": {
+            ".": {}
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "string": "basic test"
+                },
+                "matched": true
+            }
+        ]
+    },
+    {
+        "description": "Matching on map",
+        "ipld": {
+            "foo": true,
+            "other": {}
+        },
+        "selector": {
+            ".": {}
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "map": null
+                },
+                "matched": true
+            }
+        ]
+    },
+    {
+        "description": "Traverse selecting fields",
+        "ipld": {
+            "bar": false,
+            "foo": true,
+            "some_other": {}
+        },
+        "selector": {
+            "f": {
+                "f>": {
+                    "foo": {
+                        ".": {}
+                    },
+                    "bar": {
+                        ".": {}
+                    }
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            },
+            {
+                "path": "foo",
+                "node": {
+                    "bool": true
+                },
+                "matched": true
+            },
+            {
+                "path": "bar",
+                "node": {
+                    "bool": false
+                },
+                "matched": true
+            }
+        ]
+    },
+    {
+        "description": "Traverse fields recursively",
+        "ipld": {
+            "nested": {
+                "n": 8
+            },
+            "foo": true,
+            "bar": 5
+        },
+        "selector": {
+            "f": {
+                "f>": {
+                    "foo": {
+                        ".": {}
+                    },
+                    "nested": {
+                        "f": {
+                            "f>": {
+                                "n": {
+                                    ".": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            },
+            {
+                "path": "foo",
+                "node": {
+                    "bool": true
+                },
+                "matched": true
+            },
+            {
+                "path": "nested",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            },
+            {
+                "path": "nested/n",
+                "node": {
+                    "integer": 8
+                },
+                "matched": true
+            }
+        ]
+    },
+    {
+        "description": "Explore index basic",
+        "ipld": [
+            "0",
+            "1",
+            "2"
+        ],
+        "selector": {
+            "i": {
+                "i": 1,
+                ">": {
+                    ".": {}
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "list": null
+                },
+                "matched": false
+            },
+            {
+                "path": "1",
+                "node": {
+                    "string": "1"
+                },
+                "matched": true
+            }
+        ]
+    },
+    {
+        "description": "Explore range",
+        "ipld": [
+            0,
+            null,
+            "s",
+            {}
+        ],
+        "selector": {
+            "r": {
+                "^": 1,
+                "$": 3,
+                ">": {
+                    ".": {}
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "list": null
+                },
+                "matched": false
+            },
+            {
+                "path": "1",
+                "node": {
+                    "null": null
+                },
+                "matched": true
+            },
+            {
+                "path": "2",
+                "node": {
+                    "string": "s"
+                },
+                "matched": true
+            }
+        ]
+    },
+    {
+        "description": "Explore range",
+        "ipld": [
+            {
+                "one": [
+                    {
+                        "two": [
+                            3
+                        ]
+                    }
+                ]
+            }
+        ],
+        "selector": {
+            "R": {
+                "l": {
+                    "depth": 4
+                },
+                ":>": {
+                    "a": {
+                        ">": {
+                            "@": {}
+                        }
+                    }
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "list": null
+                },
+                "matched": false
+            },
+            {
+                "path": "0",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            },
+            {
+                "path": "0/one",
+                "node": {
+                    "list": null
+                },
+                "matched": false
+            },
+            {
+                "path": "0/one/0",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            }
+        ]
+    }
+]

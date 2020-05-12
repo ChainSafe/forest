@@ -2,18 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod empty_map;
-mod path_segment;
+mod walk;
+pub use walk::{LinkResolver, Progress, VisitReason};
 
-use super::Ipld;
-pub use path_segment::PathSegment;
+use super::{Ipld, PathSegment};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::ops::SubAssign;
 use Selector::*;
 
 /// Selectors are expressions that identify and select a subset of data from an IPLD DAG.
 /// Selectors are themselves IPLD and can be serialized and deserialized as such.
-// TODO usage docs when API solidified
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Selector {
     /// Matcher marks a node to be included in the "result" set.
@@ -43,10 +42,12 @@ pub enum Selector {
     /// Note that a concept of exploring a whole path (e.g. "foo/bar/baz") can be
     /// represented as a set of three nexted ExploreFields selectors, each
     /// specifying one field.
+    ///
+    /// Fields insertion order is maintained and traversed using that order.
     #[serde(rename = "f")]
     ExploreFields {
         #[serde(rename = "f>")]
-        fields: BTreeMap<String, Selector>,
+        fields: IndexMap<String, Selector>,
     },
 
     /// ExploreIndex traverses a specific index in a list, and applies a next
