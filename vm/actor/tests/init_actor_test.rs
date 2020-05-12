@@ -4,7 +4,7 @@
 mod common;
 
 use actor::{
-    init::{ConstructorParams, ExecParams, ExecReturn, State},
+    init::{ConstructorParams, ExecParams, ExecReturn, Method, State},
     Multimap, ACCOUNT_ACTOR_CODE_ID, FIRST_NON_SINGLETON_ADDR, INIT_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
     STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
@@ -20,7 +20,6 @@ use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let receiver = Address::new_id(1000);
-
     let message = UnsignedMessage::builder()
         .to(receiver.clone())
         .from(SYSTEM_ACTOR_ADDR.clone())
@@ -268,7 +267,7 @@ fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
     let ret = rt
         .call(
             &*INIT_ACTOR_CODE_ID,
-            1,
+            METHOD_CONSTRUCTOR,
             &Serialized::serialize(&params).unwrap(),
         )
         .unwrap();
@@ -302,19 +301,11 @@ where
         constructor_params: Serialized::serialize(params).unwrap(),
     };
 
-    //Get the previous state so if call fails u can revert
-    let prev_state = rt.state.clone();
-
     let ret = rt.call(
         &*INIT_ACTOR_CODE_ID,
-        2,
+        Method::Exec as u64,
         &Serialized::serialize(&exec_params).unwrap(),
     );
-
-    // Revert state if call
-    if ret.is_err() {
-        rt.state = prev_state;
-    }
 
     rt.verify();
     ret
