@@ -113,7 +113,7 @@ impl SyncNetworkContext {
     }
 
     /// Send a hello request to the network (does not await response)
-    pub async fn hello_request(&mut self, peer_id: PeerId, request: HelloMessage) {
+    pub async fn hello_request(&self, peer_id: PeerId, request: HelloMessage) {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
         self.send_rpc_event(peer_id, RPCEvent::Request(0, RPCRequest::Hello(request)))
@@ -146,7 +146,7 @@ impl SyncNetworkContext {
     }
 
     /// Handles sending the base event to the network service
-    async fn send_rpc_event(&mut self, peer_id: PeerId, event: RPCEvent) {
+    async fn send_rpc_event(&self, peer_id: PeerId, event: RPCEvent) {
         self.network_send
             .send(NetworkMessage::RPC { peer_id, event })
             .await
