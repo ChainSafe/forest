@@ -6,9 +6,11 @@ mod drand;
 mod drand_api;
 mod group;
 mod identity;
+mod mock_beacon;
 
 pub use beacon_entries::*;
 pub use drand::*;
+pub use mock_beacon::*;
 
 use clock::ChainEpoch;
 use std::error::Error;

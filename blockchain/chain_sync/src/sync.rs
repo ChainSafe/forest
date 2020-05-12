@@ -868,13 +868,16 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 mod tests {
     use super::*;
     use async_std::sync::Sender;
+    use beacon::MockBeacon;
     use blocks::BlockHeader;
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
-    fn chain_syncer_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
+    fn chain_syncer_setup(
+        db: Arc<MemoryDB>,
+    ) -> (ChainSyncer<MemoryDB, MockBeacon>, Sender<NetworkEvent>) {
         let mut chain_store = ChainStore::new(db);
 
         let (local_sender, _test_receiver) = channel(20);
@@ -883,9 +886,18 @@ mod tests {
         let gen = dummy_header();
         chain_store.set_genesis(gen.clone()).unwrap();
 
+        let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+
         let genesis_ts = Tipset::new(vec![gen]).unwrap();
         (
-            ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap(),
+            ChainSyncer::new(
+                chain_store,
+                beacon,
+                local_sender,
+                event_receiver,
+                genesis_ts,
+            )
+            .unwrap(),
             event_sender,
         )
     }

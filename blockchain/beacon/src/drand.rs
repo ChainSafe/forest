@@ -137,7 +137,7 @@ impl Beacon for DrandBeacon {
             .drop_metadata()
             .await?;
 
-        Ok(BeaconEntry::new(resp.round, resp.signature, resp.round - 1))
+        Ok(BeaconEntry::new(resp.round, resp.signature))
     }
 
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, _prev_entry: &BeaconEntry) -> u64 {
