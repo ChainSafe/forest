@@ -28,8 +28,8 @@ impl State {
     pub fn put_verified<BS: BlockStore>(
         &mut self,
         store: &BS,
-        verified_addr: Address,
-        verifier_cap: Datacap,
+        verified_addr: &Address,
+        verifier_cap: &Datacap,
     ) -> Result<(), String> {
         Self::put(&mut self.verifiers, store, verified_addr, verifier_cap)
     }
@@ -37,7 +37,7 @@ impl State {
     pub fn get_verifier<BS: BlockStore>(
         &mut self,
         store: &BS,
-        address_get: Address,
+        address_get: &Address,
     ) -> Result<Option<Datacap>, String> {
         Self::get(&mut self.verifiers, store, address_get)
     }
@@ -45,7 +45,7 @@ impl State {
     pub fn delete_verifier<BS: BlockStore>(
         &mut self,
         store: &BS,
-        address: Address,
+        address: &Address,
     ) -> Result<(), String> {
         Self::delete(&mut self.verifiers, store, address)
     }
@@ -53,8 +53,8 @@ impl State {
     pub fn put_verified_client<BS: BlockStore>(
         &mut self,
         store: &BS,
-        verified_addr: Address,
-        verifier_cap: Datacap,
+        verified_addr: &Address,
+        verifier_cap: &Datacap,
     ) -> Result<(), String> {
         Self::put(
             &mut self.verified_clients,
@@ -67,7 +67,7 @@ impl State {
     pub fn get_verified_clients<BS: BlockStore>(
         &mut self,
         store: &BS,
-        address: Address,
+        address: &Address,
     ) -> Result<Option<Datacap>, String> {
         Self::get(&mut self.verified_clients, store, address)
     }
@@ -75,7 +75,7 @@ impl State {
     pub fn delete_verified_clients<BS: BlockStore>(
         &mut self,
         store: &BS,
-        address: Address,
+        address: &Address,
     ) -> Result<(), String> {
         Self::delete(&mut self.verified_clients, store, address)
     }
@@ -84,8 +84,8 @@ impl State {
     fn put<BS: BlockStore>(
         storage: &mut Cid,
         store: &BS,
-        verified_addr: Address,
-        verifier_cap: Datacap,
+        verified_addr: &Address,
+        verifier_cap: &Datacap,
     ) -> Result<(), String> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
@@ -97,7 +97,7 @@ impl State {
     fn get<BS: BlockStore>(
         storage: &mut Cid,
         store: &BS,
-        verified_addr: Address,
+        verified_addr: &Address,
     ) -> Result<Option<Datacap>, String> {
         let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
         map.get(&verified_addr.to_bytes())
@@ -107,7 +107,7 @@ impl State {
     fn delete<BS: BlockStore>(
         storage: &mut Cid,
         store: &BS,
-        verified_addr: Address,
+        verified_addr: &Address,
     ) -> Result<(), String> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
