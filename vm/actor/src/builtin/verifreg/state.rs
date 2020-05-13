@@ -91,7 +91,7 @@ impl State {
 
     //private helper functions
     fn put<BS: BlockStore>(
-        storage: &mut Cid,
+        storage: &Cid,
         store: &BS,
         verified_addr: &Address,
         verifier_cap: &Datacap,
@@ -104,7 +104,7 @@ impl State {
     }
 
     fn get<BS: BlockStore>(
-        storage: &mut Cid,
+        storage: &Cid,
         store: &BS,
         verified_addr: &Address,
     ) -> StateResult<Option<Datacap>> {
@@ -115,7 +115,7 @@ impl State {
     }
 
     fn delete<BS: BlockStore>(
-        storage: &mut Cid,
+        storage: &Cid,
         store: &BS,
         verified_addr: &Address,
     ) -> StateResult<Cid> {
