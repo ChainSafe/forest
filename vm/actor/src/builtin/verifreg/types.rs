@@ -3,6 +3,8 @@
 
 use crate::StoragePower;
 use address::Address;
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub const MINIMUM_VERIFIED_SIZE: u32 = 1 << 20;
 
@@ -15,8 +17,6 @@ pub struct VerifierParams {
 pub type AddVerifierParams = VerifierParams;
 pub type AddVerifierClientParams = VerifierParams;
 
-
-
 pub type Datacap = StoragePower;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -27,3 +27,41 @@ pub struct BytesParams {
 
 pub type UseBytesParams = BytesParams;
 pub type RestoreBytesParams = BytesParams;
+
+impl Serialize for VerifierParams {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (&self.address, BigUintSer(&self.allowance)).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for VerifierParams {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (address, BigUintDe(allowance)) = Deserialize::deserialize(deserializer)?;
+        Ok(Self { address, allowance })
+    }
+}
+
+impl Serialize for BytesParams {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (&self.address, BigUintSer(&self.deal_size)).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for BytesParams {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (address, BigUintDe(deal_size)) = Deserialize::deserialize(deserializer)?;
+        Ok(Self { address, deal_size })
+    }
+}

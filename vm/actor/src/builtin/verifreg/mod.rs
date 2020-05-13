@@ -13,9 +13,9 @@ use ipld_hamt::BytesKey;
 use ipld_hamt::Hamt;
 use message::Message;
 use num_derive::FromPrimitive;
-use num_traits::Zero;
-use runtime::Runtime;
-use vm::{ActorError, ExitCode, METHOD_CONSTRUCTOR};
+use num_traits::{FromPrimitive, Zero};
+use runtime::{ActorCode, Runtime};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 /// Account actor methods available
 #[derive(FromPrimitive)]
 #[repr(u64)]
@@ -142,7 +142,7 @@ impl Actor {
                     ),
                 ));
             }
-            let new_verifier_cap = verifier_cap - params.allowance;
+            let new_verifier_cap = verifier_cap - &params.allowance;
             st.put_verifier(rt.store(), &*verify_addr, &new_verifier_cap)
                 .map_err(|_| {
                     ActorError::new(
@@ -171,7 +171,7 @@ impl Actor {
                         format!("Illegal Argument{:}", params.address),
                     )
                 })?;
-            st.put_verifier_client(rt.store(), &params.address, &params.allowance)
+            st.put_verified_client(rt.store(), &params.address, &params.allowance)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -220,10 +220,16 @@ impl Actor {
                     )
                 })?;
 
-            if verifier_cap >= Zero::zero() {
-                panic!("new verifier cap should be greater than or equal to 0");
-            }
-            let new_verifier_cap = verifier_cap - params.deal_size.clone();
+            if &params.deal_size <= &verifier_cap {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!(
+                        "Deal size of {:} is greater than verifier_cap {:}",
+                        params.deal_size, verifier_cap
+                    ),
+                ));
+            };
+            let new_verifier_cap = &verifier_cap - &params.deal_size;
             if new_verifier_cap < MINIMUM_VERIFIED_SIZE.into() {
                 // Delete entry if remaining DataCap is less than MinVerifiedDealSize.
                 // Will be restored later if the deal did not get activated with a ProvenSector.
@@ -298,5 +304,46 @@ impl Actor {
         })??;
 
         Ok(())
+    }
+}
+
+impl ActorCode for Actor {
+    fn invoke_method<BS, RT>(
+        &self,
+        rt: &mut RT,
+        method: MethodNum,
+        params: &Serialized,
+    ) -> Result<Serialized, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        match FromPrimitive::from_u64(method) {
+            Some(Method::Constructor) => {
+                Self::constructor(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::AddVerifier) => {
+                Self::add_verifier(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::RemoveVerifier) => {
+                Self::remove_verifier(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::AddVerifiedClient) => {
+                Self::add_verified_client(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::UseBytes) => {
+                Self::use_bytes(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::RestoreBytes) => {
+                Self::restore_bytes(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned())),
+        }
     }
 }
