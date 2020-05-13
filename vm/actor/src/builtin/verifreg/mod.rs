@@ -102,7 +102,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        if params.allowance <= MINIMUM_VERIFIED_SIZE.into() {
+        if params.allowance <= *MINIMUM_VERIFIED_SIZE {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 format!(
@@ -194,7 +194,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
-        if params.deal_size < MINIMUM_VERIFIED_SIZE.into() {
+        if params.deal_size < *MINIMUM_VERIFIED_SIZE {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalState,
                 format!(
@@ -230,7 +230,7 @@ impl Actor {
                 ));
             };
             let new_verifier_cap = &verifier_cap - &params.deal_size;
-            if new_verifier_cap < MINIMUM_VERIFIED_SIZE.into() {
+            if new_verifier_cap < *MINIMUM_VERIFIED_SIZE {
                 // Delete entry if remaining DataCap is less than MinVerifiedDealSize.
                 // Will be restored later if the deal did not get activated with a ProvenSector.
                 st.delete_verified_client(rt.store(), &params.address)
@@ -239,8 +239,7 @@ impl Actor {
                             ExitCode::ErrIllegalState,
                             format!(
                                 "Failed to delete verified client{:} with bytes {:?}",
-                                params.clone().address,
-                                params.deal_size
+                                params.address, params.deal_size
                             ),
                         )
                     })
@@ -269,7 +268,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
-        if params.deal_size < MINIMUM_VERIFIED_SIZE.into() {
+        if params.deal_size < *MINIMUM_VERIFIED_SIZE {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 format!(
@@ -281,14 +280,14 @@ impl Actor {
 
         rt.transaction(|st: &mut State, rt| {
             let verifier_cap = st
-                .get_verifier_client(rt.store(), &params.address)
+                .get_verified_client(rt.store(), &params.address)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
                         format!("Failed to get Verifier {:?}", params.address.clone()),
                     )
                 })?
-                .unwrap_or_else(|| MINIMUM_VERIFIED_SIZE.into());
+                .unwrap_or_else(|| Zero::zero());
 
             let new_verifier_cap = verifier_cap + params.deal_size.clone();
             st.put_verified_client(rt.store(), &params.address, &new_verifier_cap)

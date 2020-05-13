@@ -4,10 +4,12 @@
 use crate::StoragePower;
 use address::Address;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-pub const MINIMUM_VERIFIED_SIZE: u32 = 1 << 20;
-
+lazy_static! {
+    pub static ref MINIMUM_VERIFIED_SIZE: StoragePower = StoragePower::from_i32(1 << 20).unwrap();// placeholder
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifierParams {
     pub address: Address,

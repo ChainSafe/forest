@@ -35,7 +35,8 @@ impl State {
         verified_addr: &Address,
         verifier_cap: &Datacap,
     ) -> StateResult<()> {
-        Self::put(&mut self.verifiers, store, verified_addr, verifier_cap)
+        self.verifiers = Self::put(&mut self.verifiers, store, verified_addr, verifier_cap)?;
+        Ok(())
     }
 
     pub fn get_verifier<BS: BlockStore>(
@@ -51,7 +52,8 @@ impl State {
         store: &BS,
         address: &Address,
     ) -> StateResult<()> {
-        Self::delete(&mut self.verifiers, store, address)
+        self.verifiers = Self::delete(&mut self.verifiers, store, address)?;
+        Ok(())
     }
 
     pub fn put_verified_client<BS: BlockStore>(
@@ -60,12 +62,14 @@ impl State {
         verified_addr: &Address,
         verifier_cap: &Datacap,
     ) -> StateResult<()> {
-        Self::put(
+        self.verified_clients = Self::put(
             &mut self.verified_clients,
             store,
             verified_addr,
             verifier_cap,
-        )
+        )?;
+
+        Ok(())
     }
 
     pub fn get_verified_client<BS: BlockStore>(
@@ -81,7 +85,8 @@ impl State {
         store: &BS,
         address: &Address,
     ) -> StateResult<()> {
-        Self::delete(&mut self.verified_clients, store, address)
+        self.verified_clients = Self::delete(&mut self.verified_clients, store, address)?;
+        Ok(())
     }
 
     //private helper functions
@@ -90,12 +95,12 @@ impl State {
         store: &BS,
         verified_addr: &Address,
         verifier_cap: &Datacap,
-    ) -> StateResult<()> {
+    ) -> StateResult<Cid> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
         map.set(verified_addr.to_bytes().into(), BigUintSer(&verifier_cap))?;
-        map.flush()?;
-        Ok(())
+        let root = map.flush()?;
+        Ok(root)
     }
 
     fn get<BS: BlockStore>(
@@ -113,12 +118,12 @@ impl State {
         storage: &mut Cid,
         store: &BS,
         verified_addr: &Address,
-    ) -> StateResult<()> {
+    ) -> StateResult<Cid> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
         map.delete(&verified_addr.to_bytes())?;
-        map.flush()?;
-        Ok(())
+        let root = map.flush()?;
+        Ok(root)
     }
 }
 
