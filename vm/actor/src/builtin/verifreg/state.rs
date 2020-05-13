@@ -6,6 +6,8 @@ use address::Address;
 use cid::Cid;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_bigint::BigUint;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Hamt};
@@ -93,7 +95,7 @@ impl State {
     ) -> StateResult<()> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
-        map.set(verified_addr.to_bytes().into(), &verifier_cap)?;
+        map.set(verified_addr.to_bytes().into(), BigUintSer(&verifier_cap))?;
         map.flush()?;
         Ok(())
     }
@@ -104,7 +106,9 @@ impl State {
         verified_addr: &Address,
     ) -> StateResult<Option<Datacap>> {
         let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
-        Ok(map.get(&verified_addr.to_bytes())?)
+        Ok(map.get::<_,BigUintDe>(&verified_addr.to_bytes())?.map(|s|s.0))
+
+       
     }
 
     fn delete<BS: BlockStore>(

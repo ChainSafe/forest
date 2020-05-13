@@ -103,11 +103,9 @@ impl Actor {
         RT: Runtime<BS>,
     {
         if params.allowance
-            <= Datacap::new(
-                MINIMUM_VERIFIED_SIZE
-                    .to_biguint()
-                    .expect("Could not convert size to big int"),
-            )
+            <= 
+                MINIMUM_VERIFIED_SIZE.into()
+            
         {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalState,
@@ -201,11 +199,10 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
         if params.deal_size
-            < Datacap::new(
+            < 
                 MINIMUM_VERIFIED_SIZE
-                    .to_biguint()
-                    .expect("Could not convert size to big int"),
-            )
+                    .into()
+            
         {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalState,
@@ -232,16 +229,15 @@ impl Actor {
                     )
                 })?;
 
-            if verifier_cap >= Datacap::new(Zero::zero()) {
+            if verifier_cap >= Zero::zero() {
                 panic!("new verifier cap should be greater than or equal to 0");
             }
             let new_verifier_cap = verifier_cap - params.deal_size.clone();
             if new_verifier_cap
-                < Datacap::new(
+                < 
                     MINIMUM_VERIFIED_SIZE
-                        .to_biguint()
-                        .expect("Could not convert size to big int"),
-                )
+                        .into()
+                
             {
                 // Delete entry if remaining DataCap is less than MinVerifiedDealSize.
                 // Will be restored later if the deal did not get activated with a ProvenSector.
@@ -282,11 +278,10 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
         if params.deal_size
-            < Datacap::new(
+            < 
                 MINIMUM_VERIFIED_SIZE
-                    .to_biguint()
-                    .expect("Could not convert size to big int"),
-            )
+                    .into()
+            
         {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalState,
@@ -307,11 +302,9 @@ impl Actor {
                     )
                 })?
                 .unwrap_or_else(|| {
-                    Datacap::new(
-                        MINIMUM_VERIFIED_SIZE
-                            .to_biguint()
-                            .expect("Could not convert size to big int"),
-                    )
+                   
+                        MINIMUM_VERIFIED_SIZE.into()
+                    
                 });
 
             let new_verifier_cap = verifier_cap + params.deal_size.clone();
