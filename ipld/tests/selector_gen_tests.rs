@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_ipld::selector::{RecursionLimit, Selector};
+use indexmap::IndexMap;
 use serde_json::{from_str, to_string};
-use std::collections::BTreeMap;
 
 // For readability of tests
 use Selector::*;
@@ -55,7 +55,7 @@ fn gen_explore_fields() {
         }
     }
     "#;
-    let mut fields = BTreeMap::new();
+    let mut fields = IndexMap::new();
     fields.insert("one".to_owned(), Matcher);
     fields.insert("two".to_owned(), ExploreRecursiveEdge);
     let expected = ExploreFields { fields };

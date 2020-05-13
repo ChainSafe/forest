@@ -1,0 +1,285 @@
+[
+    {
+        "description": "Traverse across nodes using union of explore recursive and matcher",
+        "ipld": {
+            "bar": false,
+            "foo": true,
+            "nested": {
+                "alink": {
+                    "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                },
+                "nonlink": "zoo"
+            }
+        },
+        "selector": {
+            "R": {
+                "l": {
+                    "depth": 3
+                },
+                ":>": {
+                    "|": [
+                        {
+                            "a": {
+                                ">": {
+                                    "@": {}
+                                }
+                            }
+                        },
+                        {
+                            ".": {}
+                        }
+                    ]
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "map": null
+                },
+                "matched": true
+            },
+            {
+                "path": "bar",
+                "node": {
+                    "bool": false
+                },
+                "matched": true
+            },
+            {
+                "path": "foo",
+                "node": {
+                    "bool": true
+                },
+                "matched": true
+            },
+            {
+                "path": "nested",
+                "node": {
+                    "map": null
+                },
+                "matched": true
+            },
+            {
+                "path": "nested/alink",
+                "node": {
+                    "string": "alpha"
+                },
+                "matched": true
+            },
+            {
+                "path": "nested/nonlink",
+                "node": {
+                    "string": "zoo"
+                },
+                "matched": true
+            }
+        ],
+        "cbor_ipld_storage": [
+            "alpha"
+        ]
+    },
+    {
+        "description": "Traverse multiple layers of links",
+        "ipld": {
+            "plain": "string value",
+            "linkedString": {
+                "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+            },
+            "linkedMap": {
+                "/": "bafy2bzaceb6vinwmaqcp2v6vefmzf2meq2lxaedjz575yefrwo3roi5aolrk2"
+            },
+            "linkedList": {
+                "/": "bafy2bzaceafbvbsgmvn4pscy44iof4ych35tsov6s256oxr4thmva5pt5pqgm"
+            }
+        },
+        "selector": {
+            "f": {
+                "f>": {
+                    "linkedList": {
+                        "a": {
+                            ">": {
+                                ".": {}
+                            }
+                        }
+                    },
+                    "linkedMap": {
+                        "R": {
+                            "l": {
+                                "depth": 3
+                            },
+                            ":>": {
+                                "f": {
+                                    "f>": {
+                                        "foo": {
+                                            ".": {}
+                                        },
+                                        "nested": {
+                                            "@": {}
+                                        },
+                                        "nonlink": {
+                                            ".": {}
+                                        },
+                                        "alink": {
+                                            ".": {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            },
+            {
+                "path": "linkedList",
+                "node": {
+                    "list": null
+                },
+                "matched": false
+            },
+            {
+                "path": "linkedList/0",
+                "node": {
+                    "string": "alpha"
+                },
+                "matched": true
+            },
+            {
+                "path": "linkedList/1",
+                "node": {
+                    "string": "alpha"
+                },
+                "matched": true
+            },
+            {
+                "path": "linkedList/2",
+                "node": {
+                    "string": "beta"
+                },
+                "matched": true
+            },
+            {
+                "path": "linkedList/3",
+                "node": {
+                    "string": "alpha"
+                },
+                "matched": true
+            },
+            {
+                "path": "linkedMap",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            },
+            {
+                "path": "linkedMap/foo",
+                "node": {
+                    "bool": true
+                },
+                "matched": true
+            },
+            {
+                "path": "linkedMap/nested",
+                "node": {
+                    "map": null
+                },
+                "matched": false
+            },
+            {
+                "path": "linkedMap/nested/nonlink",
+                "node": {
+                    "string": "zoo"
+                },
+                "matched": true
+            },
+            {
+                "path": "linkedMap/nested/alink",
+                "node": {
+                    "string": "alpha"
+                },
+                "matched": true
+            }
+        ],
+        "cbor_ipld_storage": [
+            "alpha",
+            "beta",
+            {
+                "bar": false,
+                "foo": true,
+                "nested": {
+                    "alink": {
+                        "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                    },
+                    "nonlink": "zoo"
+                }
+            },
+            [
+                {
+                    "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                },
+                {
+                    "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                },
+                {
+                    "/": "bafy2bzacea4ifsk7zpynrj4hutqozxvskoiz36deyld4lci4pvunc75m5uduo"
+                },
+                {
+                    "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                }
+            ]
+        ]
+    },
+    {
+        "description": "Traverse link ipld node -> Ipld link -> data edge case",
+        "ipld": {
+            "/": "bafy2bzacedn6qybtc4g674facvcp4xcdep6lu6d25psgdjqxczyaqyrqrivra"
+        },
+        "selector": {
+            "R": {
+                "l": {
+                    "none": {}
+                },
+                ":>": {
+                    "|": [
+                        {
+                            "a": {
+                                ">": {
+                                    "@": {}
+                                }
+                            }
+                        },
+                        {
+                            ".": {}
+                        }
+                    ]
+                }
+            }
+        },
+        "expect_visit": [
+            {
+                "path": "",
+                "node": {
+                    "string": "data"
+                },
+                "matched": true
+            }
+        ],
+        "cbor_ipld_storage": [
+            {
+                "/": "bafy2bzacebyul4gz7d3zk7kuw2r4qz72lzsa3wed3qtwubfssg3gv3yg4b56e"
+            },
+            "data"
+        ]
+    }
+]

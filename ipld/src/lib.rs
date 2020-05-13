@@ -3,6 +3,8 @@
 
 mod de;
 mod error;
+mod path;
+mod path_segment;
 pub mod selector;
 mod ser;
 
@@ -13,6 +15,8 @@ pub mod json;
 mod macros;
 
 pub use self::error::Error;
+pub use path::Path;
+pub use path_segment::PathSegment;
 
 use cid::Cid;
 use encoding::{from_slice, to_vec, Cbor};
@@ -100,6 +104,19 @@ pub enum Ipld {
     /// assert_eq!(v1, v2);
     /// ```
     Link(Cid),
+}
+
+impl Ipld {
+    pub(crate) fn lookup_segment(&self, segment: &PathSegment) -> Option<&Self> {
+        match self {
+            Self::Map(map) => match segment {
+                PathSegment::String(s) => map.get(s),
+                PathSegment::Int(i) => map.get(&i.to_string()),
+            },
+            Self::List(list) => list.get(segment.to_index()?),
+            _ => None,
+        }
+    }
 }
 
 impl Cbor for Ipld {}
