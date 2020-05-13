@@ -263,7 +263,7 @@ impl Actor {
 
     // Called by HandleInitTimeoutDeals from StorageMarketActor when a VerifiedDeal fails to init.
     // Restore allowable cap for the client, creating new entry if the client has been deleted.
-    pub fn restore_bytes<BS, RT>(rt: &mut RT, params: UseBytesParams) -> Result<(), ActorError>
+    pub fn restore_bytes<BS, RT>(rt: &mut RT, params: RestoreBytesParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -271,7 +271,7 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
         if params.deal_size < MINIMUM_VERIFIED_SIZE.into() {
             return Err(ActorError::new(
-                ExitCode::ErrIllegalState,
+                ExitCode::ErrIllegalArgument,
                 format!(
                     "Verified Dealsize {:} is below minimum in usedbytes",
                     params.deal_size
