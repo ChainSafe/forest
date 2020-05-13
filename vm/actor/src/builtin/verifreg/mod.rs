@@ -7,11 +7,11 @@ use address::Address;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::Message;
+use num_bigint::ToBigUint;
 use num_derive::FromPrimitive;
+use num_traits::Zero;
 use runtime::Runtime;
 use vm::{ActorError, ExitCode, METHOD_CONSTRUCTOR};
-use num_traits::{Zero};
-use num_bigint::ToBigUint; 
 /// Account actor methods available
 #[derive(FromPrimitive)]
 #[repr(u64)]
@@ -36,9 +36,9 @@ impl Actor {
         let empty_root = Hamt::<String, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
             .flush()
             .map_err(|e| {
-                rt.abort(
+                ActorError::new(
                     ExitCode::ErrIllegalState,
-                    format!("failed to create storage power state: {}", e),
+                    format!("Failed to create registry state {:}", e),
                 )
             })?;
         let st = State::new(empty_root, root_key);
@@ -54,11 +54,16 @@ impl Actor {
         let state: State = rt.state()?;
         rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
 
-        rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
-            st.put_verified(rt.store(), &params.address, &params.allowance)?;
+        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+            st.put_verifier(rt.store(), &params.address, &params.allowance)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to add verifier: {:}", e),
+                    )
+                })?;
             Ok(())
-        })?
-        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
+        })??;
 
         Ok(())
     }
@@ -71,11 +76,16 @@ impl Actor {
         let state: State = rt.state()?;
         rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
 
-        rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
-            st.delete_verifier(rt.store(), &params.address)?;
+        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+            st.delete_verifier(rt.store(), &params.address)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to add verifier: {:}", e),
+                    )
+                })?;
             Ok(())
-        })?
-        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
+        })??;
 
         Ok(())
     }
@@ -88,7 +98,13 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        if params.allowance <= Datacap::new(MINIMUM_VERIFIED_SIZE.to_biguint().expect("Could not convert size to big int")) {
+        if params.allowance
+            <= Datacap::new(
+                MINIMUM_VERIFIED_SIZE
+                    .to_biguint()
+                    .expect("Could not convert size to big int"),
+            )
+        {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalState,
                 format!(
@@ -99,6 +115,7 @@ impl Actor {
         }
 
         rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+            // Validate caller is one of the verifiers.
             let message: Box<&dyn Message> = Box::new(rt.message());
             let verify_addr = message.from();
 
@@ -117,6 +134,7 @@ impl Actor {
                     )
                 })?;
 
+            // Compute new verifier cap and update.
             if verifier_cap < params.allowance {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
@@ -127,18 +145,22 @@ impl Actor {
                 ));
             }
             let new_verifier_cap = verifier_cap - params.allowance.clone();
-            st.put_verified(rt.store(), &*verify_addr, &new_verifier_cap.clone())
+            st.put_verifier(rt.store(), &*verify_addr, &new_verifier_cap)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
                         format!(
                             "Failed to update new verifier cap {:?} for {:?}",
-                            new_verifier_cap.clone(),
-                            params.allowance
+                            new_verifier_cap, params.allowance
                         ),
                     )
                 })?;
-            st.get_verified_clients(rt.store(), &params.address)
+
+            // Write-once entry and does not get changed for simplicity.
+            // If parties neeed more allowance, they can get another VerifiedClient account.
+            // This is a one-time, upfront allocation.
+            // Returns error if VerifiedClient already exists
+            st.get_verified_client(rt.store(), &params.address)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -151,7 +173,7 @@ impl Actor {
                         format!("Illegal Argument{:}", params.address),
                     )
                 })?;
-            st.put_verified(rt.store(), &params.address, &params.allowance)
+            st.put_verifier(rt.store(), &params.address, &params.allowance)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -173,8 +195,14 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
-        if params.deal_size < Datacap::new(MINIMUM_VERIFIED_SIZE.to_biguint().expect("Could not convert size to big int")) {
+        rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
+        if params.deal_size
+            < Datacap::new(
+                MINIMUM_VERIFIED_SIZE
+                    .to_biguint()
+                    .expect("Could not convert size to big int"),
+            )
+        {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalState,
                 format!(
@@ -204,9 +232,16 @@ impl Actor {
                 panic!("new verifier cap should be greater than or equal to 0");
             }
             let new_verifier_cap = verifier_cap - params.deal_size.clone();
-            if new_verifier_cap < Datacap::new(MINIMUM_VERIFIED_SIZE.to_biguint().expect("Could not convert size to big int"))
+            if new_verifier_cap
+                < Datacap::new(
+                    MINIMUM_VERIFIED_SIZE
+                        .to_biguint()
+                        .expect("Could not convert size to big int"),
+                )
             {
-                st.delete_verified_clients(rt.store(), &params.address)
+                // Delete entry if remaining DataCap is less than MinVerifiedDealSize.
+                // Will be restored later if the deal did not get activated with a ProvenSector.
+                st.delete_verified_client(rt.store(), &params.address)
                     .map_err(|_| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
@@ -234,13 +269,21 @@ impl Actor {
         Ok(())
     }
 
+    // Called by HandleInitTimeoutDeals from StorageMarketActor when a VerifiedDeal fails to init.
+    // Restore allowable cap for the client, creating new entry if the client has been deleted.
     pub fn restore_bytes<BS, RT>(rt: &mut RT, params: UseBytesParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
-        if params.deal_size < Datacap::new(MINIMUM_VERIFIED_SIZE.to_biguint().expect("Could not convert size to big int")) {
+        rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
+        if params.deal_size
+            < Datacap::new(
+                MINIMUM_VERIFIED_SIZE
+                    .to_biguint()
+                    .expect("Could not convert size to big int"),
+            )
+        {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalState,
                 format!(
@@ -260,11 +303,15 @@ impl Actor {
                     )
                 })?
                 .unwrap_or_else(|| {
-                    Datacap::new(MINIMUM_VERIFIED_SIZE.to_biguint().expect("Could not convert size to big int"))
+                    Datacap::new(
+                        MINIMUM_VERIFIED_SIZE
+                            .to_biguint()
+                            .expect("Could not convert size to big int"),
+                    )
                 });
 
             let new_verifier_cap = verifier_cap + params.deal_size.clone();
-            st.put_verified_client(rt.store(), &params.address, &new_verifier_cap) 
+            st.put_verified_client(rt.store(), &params.address, &new_verifier_cap)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
