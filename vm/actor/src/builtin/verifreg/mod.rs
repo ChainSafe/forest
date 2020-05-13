@@ -9,13 +9,13 @@ use crate::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
 use crate::{HAMT_BIT_WIDTH, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
+use ipld_hamt::BytesKey;
 use ipld_hamt::Hamt;
 use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::Zero;
 use runtime::Runtime;
 use vm::{ActorError, ExitCode, METHOD_CONSTRUCTOR};
-use ipld_hamt::BytesKey;
 /// Account actor methods available
 #[derive(FromPrimitive)]
 #[repr(u64)]
