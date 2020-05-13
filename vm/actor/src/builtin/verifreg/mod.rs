@@ -167,7 +167,7 @@ impl Actor {
                 })?
                 .ok_or_else(|| {
                     ActorError::new(
-                        ExitCode::ErrNotFound,
+                        ExitCode::ErrIllegalArgument,
                         format!("Illegal Argument{:}", params.address),
                     )
                 })?;
