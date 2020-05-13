@@ -204,11 +204,10 @@ impl<'de> Deserialize<'de> for BlockHeader {
 
 impl Ord for BlockHeader {
     fn cmp(&self, other: &Self) -> Ordering {
-        match self.ticket().cmp(other.ticket()) {
+        self.ticket()
+            .cmp(other.ticket())
             // Only compare cid bytes when tickets are equal
-            Ordering::Equal => self.cid().to_bytes().cmp(&other.cid().to_bytes()),
-            order => order,
-        }
+            .then_with(|| self.cid().to_bytes().cmp(&other.cid().to_bytes()))
     }
 }
 
