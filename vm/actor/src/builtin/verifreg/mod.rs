@@ -174,7 +174,7 @@ impl Actor {
             st.put_verified_client(rt.store(), &params.address, &params.allowance)
                 .map_err(|_| {
                     ActorError::new(
-                        ExitCode::ErrIllegalState,
+                        ExitCode::ErrNotFound,
                         format!(
                             "Failed to add verified client {:?} with cap {:?}",
                             params.address, params.allowance
