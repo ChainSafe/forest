@@ -15,6 +15,7 @@ use num_derive::FromPrimitive;
 use num_traits::Zero;
 use runtime::Runtime;
 use vm::{ActorError, ExitCode, METHOD_CONSTRUCTOR};
+use ipld_hamt::BytesKey;
 /// Account actor methods available
 #[derive(FromPrimitive)]
 #[repr(u64)]
