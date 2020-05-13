@@ -37,7 +37,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
-        let empty_root = Hamt::<String, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
+        let empty_root = Hamt::<BytesKey, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
             .flush()
             .map_err(|e| {
                 ActorError::new(
