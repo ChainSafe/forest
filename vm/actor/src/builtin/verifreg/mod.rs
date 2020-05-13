@@ -36,7 +36,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
-        let empty_root = Hamt::<String, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
+        let empty_root = Hamt::<BytesKey, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
             .flush()
             .map_err(|e| {
                 ActorError::new(
@@ -71,7 +71,7 @@ impl Actor {
         Ok(())
     }
 
-    pub fn delete_verifier<BS, RT>(rt: &mut RT, params: AddVerifierParams) -> Result<(), ActorError>
+    pub fn remove_verifier<BS, RT>(rt: &mut RT, params: AddVerifierParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -111,7 +111,7 @@ impl Actor {
             ));
         }
 
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+        rt.transaction(|st: &mut State, rt| {
             // Validate caller is one of the verifiers.
             let message: Box<&dyn Message> = Box::new(rt.message());
             let verify_addr = message.from();
