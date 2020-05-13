@@ -343,7 +343,7 @@ impl ActorCode for Actor {
                 Self::restore_bytes(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned())),
+            None => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned())),
         }
     }
 }
