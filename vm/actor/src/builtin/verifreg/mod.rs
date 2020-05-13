@@ -281,7 +281,7 @@ impl Actor {
 
         rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
             let verifier_cap = st
-                .get_verifier(rt.store(), &params.address)
+                .get_verifier_client(rt.store(), &params.address)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
