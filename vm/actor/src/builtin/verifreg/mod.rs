@@ -118,7 +118,7 @@ impl Actor {
             ));
         }
 
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+        rt.transaction(|st: &mut State, rt| {
             // Validate caller is one of the verifiers.
             let message: Box<&dyn Message> = Box::new(rt.message());
             let verify_addr = message.from();
