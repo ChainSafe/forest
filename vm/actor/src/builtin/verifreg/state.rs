@@ -13,7 +13,6 @@ use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 
 use crate::builtin::verifreg::types::Datacap;
 
-#[derive(Default)]
 pub struct State {
     pub root_key: Address,
     pub verifiers: Cid,
