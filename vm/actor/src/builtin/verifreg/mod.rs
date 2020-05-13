@@ -16,6 +16,7 @@ use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+
 /// Account actor methods available
 #[derive(FromPrimitive)]
 #[repr(u64)]

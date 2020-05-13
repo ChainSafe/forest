@@ -95,7 +95,7 @@ impl State {
         store: &BS,
         verified_addr: &Address,
         verifier_cap: &Datacap,
-    ) -> StateResult<Cid> {
+    ) -> StateResult<()> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
         map.set(verified_addr.to_bytes().into(), BigUintSer(&verifier_cap))?;
@@ -118,7 +118,7 @@ impl State {
         storage: &Cid,
         store: &BS,
         verified_addr: &Address,
-    ) -> StateResult<Cid> {
+    ) -> StateResult<()> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
         map.delete(&verified_addr.to_bytes())?;
