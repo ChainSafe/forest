@@ -119,7 +119,7 @@ impl Actor {
             let verify_addr = message.from();
 
             let verifier_cap = st
-                .get_verifier(rt.store(), &*verify_addr)
+                .get_verifier(rt.store(), &verify_addr)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
