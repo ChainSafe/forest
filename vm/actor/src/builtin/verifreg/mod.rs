@@ -215,7 +215,7 @@ impl Actor {
                 })?
                 .ok_or_else(|| {
                     ActorError::new(
-                        ExitCode::ErrNotFound,
+                        ExitCode::ErrIllegalArgument,
                         format!("Invalid Verifier {:}", params.address),
                     )
                 })?;
