@@ -257,7 +257,7 @@ impl Actor {
 
     // Called by HandleInitTimeoutDeals from StorageMarketActor when a VerifiedDeal fails to init.
     // Restore allowable cap for the client, creating new entry if the client has been deleted.
-    pub fn restore_bytes<BS, RT>(rt: &mut RT, params: UseBytesParams) -> Result<(), ActorError>
+    pub fn restore_bytes<BS, RT>(rt: &mut RT, params: RestoreBytesParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
