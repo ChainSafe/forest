@@ -215,7 +215,7 @@ impl Actor {
                 })?
                 .ok_or_else(|| {
                     ActorError::new(
-                        ExitCode::ErrNotFound,
+                        ExitCode::ErrIllegalArgument,
                         format!("Invalid Verifier {:}", params.address),
                     )
                 })?;
@@ -279,7 +279,7 @@ impl Actor {
             ));
         }
 
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let verifier_cap = st
                 .get_verifier_client(rt.store(), &params.address)
                 .map_err(|_| {
