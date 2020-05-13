@@ -220,7 +220,7 @@ impl Actor {
                     )
                 })?;
 
-            if &params.deal_size <= &verifier_cap {
+            if params.deal_size <= verifier_cap {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!(
@@ -287,7 +287,7 @@ impl Actor {
                         format!("Failed to get Verifier {:?}", params.address.clone()),
                     )
                 })?
-                .unwrap_or_else(|| Zero::zero());
+                .unwrap_or_else(Zero::zero);
 
             let new_verifier_cap = verifier_cap + params.deal_size.clone();
             st.put_verified_client(rt.store(), &params.address, &new_verifier_cap)
