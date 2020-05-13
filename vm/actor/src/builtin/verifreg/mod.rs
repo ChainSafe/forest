@@ -1,3 +1,5 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 mod state;
 mod types;
 pub use self::state::State;
