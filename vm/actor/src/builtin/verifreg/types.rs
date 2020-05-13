@@ -4,6 +4,8 @@
 use crate::StoragePower;
 use address::Address;
 
+pub const MINIMUM_VERIFIED_SIZE: u32 = 1 << 20;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifierParams {
     pub address: Address,
@@ -13,7 +15,7 @@ pub struct VerifierParams {
 pub type AddVerifierParams = VerifierParams;
 pub type AddVerifierClientParams = VerifierParams;
 
-pub const MINIMUM_VERIFIED_SIZE: u32 = 1 << 20;
+
 
 pub type Datacap = StoragePower;
 

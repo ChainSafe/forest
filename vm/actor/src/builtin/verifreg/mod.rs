@@ -104,7 +104,7 @@ impl Actor {
     {
         if params.allowance <= MINIMUM_VERIFIED_SIZE.into() {
             return Err(ActorError::new(
-                ExitCode::ErrIllegalState,
+                ExitCode::ErrIllegalArgument,
                 format!(
                     "Allowance {:} below MinVerifiedDealSize for add verified client {:}",
                     params.allowance, params.address
@@ -142,7 +142,7 @@ impl Actor {
                     ),
                 ));
             }
-            let new_verifier_cap = verifier_cap - params.allowance.clone();
+            let new_verifier_cap = verifier_cap - params.allowance;
             st.put_verifier(rt.store(), &*verify_addr, &new_verifier_cap)
                 .map_err(|_| {
                     ActorError::new(
@@ -171,7 +171,7 @@ impl Actor {
                         format!("Illegal Argument{:}", params.address),
                     )
                 })?;
-            st.put_verifier(rt.store(), &params.address, &params.allowance)
+            st.put_verifier_client(rt.store(), &params.address, &params.allowance)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
