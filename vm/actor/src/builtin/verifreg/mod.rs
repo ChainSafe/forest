@@ -279,7 +279,7 @@ impl Actor {
             ));
         }
 
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let verifier_cap = st
                 .get_verifier(rt.store(), &params.address)
                 .map_err(|_| {
