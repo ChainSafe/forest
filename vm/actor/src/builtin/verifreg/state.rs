@@ -35,7 +35,7 @@ impl State {
         verified_addr: &Address,
         verifier_cap: &Datacap,
     ) -> StateResult<()> {
-        self.verifiers = Self::put(&mut self.verifiers, store, verified_addr, verifier_cap)?;
+        self.verifiers = Self::put(&self.verifiers, store, verified_addr, verifier_cap)?;
         Ok(())
     }
 
@@ -44,7 +44,7 @@ impl State {
         store: &BS,
         address_get: &Address,
     ) -> StateResult<Option<Datacap>> {
-        Self::get(&mut self.verifiers, store, address_get)
+        Self::get(&self.verifiers, store, address_get)
     }
 
     pub fn delete_verifier<BS: BlockStore>(
@@ -52,7 +52,7 @@ impl State {
         store: &BS,
         address: &Address,
     ) -> StateResult<()> {
-        self.verifiers = Self::delete(&mut self.verifiers, store, address)?;
+        self.verifiers = Self::delete(&self.verifiers, store, address)?;
         Ok(())
     }
 
@@ -62,12 +62,8 @@ impl State {
         verified_addr: &Address,
         verifier_cap: &Datacap,
     ) -> StateResult<()> {
-        self.verified_clients = Self::put(
-            &mut self.verified_clients,
-            store,
-            verified_addr,
-            verifier_cap,
-        )?;
+        self.verified_clients =
+            Self::put(&self.verified_clients, store, verified_addr, verifier_cap)?;
 
         Ok(())
     }
