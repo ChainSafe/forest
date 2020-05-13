@@ -13,15 +13,16 @@ use byteorder::{BigEndian, WriteBytesExt};
 use clock::ChainEpoch;
 use grpc::ClientStub;
 use grpc::RequestOptions;
+use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::convert::TryFrom;
 use std::error;
 use std::sync::Arc;
 use tls_api_openssl::TlsConnector;
 
-#[derive(Clone, Debug)]
 /// Coeffiencients of the publicly available Drand keys.
 /// This is shared by all participants on the Drand network.
+#[derive(Clone, Debug, SerdeSerialize, SerdeDeserialize)]
 pub struct DistPublic {
     pub coefficients: [Vec<u8>; 4],
 }

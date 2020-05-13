@@ -6,7 +6,7 @@ mod logger;
 
 use self::cli::{block_until_sigint, initialize_genesis};
 use async_std::task;
-use beacon::{DistPublic, DrandBeacon};
+use beacon::DrandBeacon;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
@@ -60,21 +60,16 @@ fn main() {
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
+    // Get Drand Coefficients
+    let coeff = config.drand_dist_public.clone();
+
     // Start services
     let p2p_thread = task::spawn(async {
         p2p_service.run().await;
     });
     let sync_thread = task::spawn(async {
-        let coeffs = [
-            hex::decode("82c279cce744450e68de98ee08f9698a01dd38f8e3be3c53f2b840fb9d09ad62a0b6b87981e179e1b14bc9a2d284c985").unwrap(),
-            hex::decode("82d51308ad346c686f81b8094551597d7b963295cbf313401a93df9baf52d5ae98a87745bee70839a4d6e65c342bd15b").unwrap(),
-            hex::decode("94eebfd53f4ba6a3b8304236400a12e73885e5a781509a5c8d41d2e8b476923d8ea6052649b3c17282f596217f96c5de").unwrap(),
-            hex::decode("8dc4231e42b4edf39e86ef1579401692480647918275da767d3e558c520d6375ad953530610fd27daf110187877a65d0").unwrap(),
-        ];
-        let dist_pub = DistPublic {
-            coefficients: coeffs,
-        };
-        let beacon = DrandBeacon::new(dist_pub, genesis.blocks()[0].timestamp(), 1)
+        // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
+        let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
             .await
             .unwrap();
 

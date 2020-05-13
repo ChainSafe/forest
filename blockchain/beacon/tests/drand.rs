@@ -1,4 +1,7 @@
-use beacon::{DistPublic, DrandBeacon};
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+use beacon::{Beacon, DistPublic, DrandBeacon};
 
 async fn new_beacon() -> DrandBeacon {
     // Current public parameters, subject to change.
@@ -27,7 +30,7 @@ async fn ask_and_verify_beacon_entry() {
 
     let e2 = beacon.entry(2).await.unwrap();
     let e3 = beacon.entry(3).await.unwrap();
-    assert!(beacon.verify_entry(e3, e2).unwrap());
+    assert!(beacon.verify_entry(&e3, &e2).unwrap());
 }
 
 #[ignore]
@@ -37,5 +40,5 @@ async fn ask_and_verify_beacon_entry_fail() {
 
     let e2 = beacon.entry(2).await.unwrap();
     let e3 = beacon.entry(3).await.unwrap();
-    assert!(!beacon.verify_entry(e2, e3).unwrap());
+    assert!(!beacon.verify_entry(&e2, &e3).unwrap());
 }

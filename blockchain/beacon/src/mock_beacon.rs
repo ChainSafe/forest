@@ -16,7 +16,6 @@ impl MockBeacon {
     pub fn new(interval: Duration) -> Self {
         MockBeacon { interval }
     }
-
     fn entry_for_index(index: u64) -> BeaconEntry {
         let mut buf: Vec<u8> = Vec::with_capacity(8);
         buf.write_u64::<BigEndian>(index).unwrap();
