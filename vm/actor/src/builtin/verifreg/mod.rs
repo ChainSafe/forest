@@ -72,7 +72,7 @@ impl Actor {
         Ok(())
     }
 
-    pub fn delete_verifier<BS, RT>(rt: &mut RT, params: AddVerifierParams) -> Result<(), ActorError>
+    pub fn remove_verifier<BS, RT>(rt: &mut RT, params: AddVerifierParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
