@@ -4,12 +4,6 @@
 use crate::StoragePower;
 use address::Address;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{
-    fmt,
-    ops::{Add, Sub},
-};
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifierParams {
     pub address: Address,
