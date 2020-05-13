@@ -265,7 +265,7 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
         if params.deal_size < MINIMUM_VERIFIED_SIZE.into() {
             return Err(ActorError::new(
-                ExitCode::ErrIllegalState,
+                ExitCode::ErrIllegalArgument,
                 format!(
                     "Verified Dealsize {:} is below minimum in usedbytes",
                     params.deal_size
