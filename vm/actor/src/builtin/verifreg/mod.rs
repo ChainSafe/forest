@@ -289,7 +289,7 @@ impl Actor {
                 })?
                 .unwrap_or_else(Zero::zero);
 
-            let new_verifier_cap = verifier_cap + params.deal_size.clone();
+            let new_verifier_cap = verifier_cap + &params.deal_size;
             st.put_verified_client(rt.store(), &params.address, &new_verifier_cap)
                 .map_err(|_| {
                     ActorError::new(
