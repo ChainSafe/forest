@@ -14,6 +14,9 @@ pub struct VerifierParams {
     pub allowance: Datacap,
 }
 
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 pub type AddVerifierParams = VerifierParams;
 pub type AddVerifierClientParams = VerifierParams;
 
