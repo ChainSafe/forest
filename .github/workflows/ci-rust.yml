@@ -34,10 +34,10 @@ jobs:
           override: true
 
       - name: Cargo Build Tests
-        run: make test-all-verbose-no-run
+        run: make test-all-no-run
 
       - name: Cargo test all
-        run: make test-all-verbose
+        run: make test-all
 
   fmt:
     name: rustfmt
