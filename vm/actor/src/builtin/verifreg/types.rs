@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::StoragePower;
 use address::Address;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
@@ -13,9 +16,6 @@ pub struct VerifierParams {
     pub address: Address,
     pub allowance: Datacap,
 }
-
-// Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0, MIT
 
 pub type AddVerifierParams = VerifierParams;
 pub type AddVerifierClientParams = VerifierParams;
