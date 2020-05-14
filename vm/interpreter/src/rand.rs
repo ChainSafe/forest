@@ -27,7 +27,7 @@ impl ChainRand {
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<Vec<u8>, Box<dyn Error>> {
+    ) -> Result<[u8; 32], Box<dyn Error>> {
         chain::get_randomness(db, &self.blks, pers, round, entropy)
     }
 }

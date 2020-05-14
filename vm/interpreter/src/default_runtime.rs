@@ -224,10 +224,8 @@ where
             .map_err(|e| {
                 ActorError::new_fatal(format!("could not get randomness: {}", e.to_string()))
             })?;
-        let mut array = [0; 32];
-        let bytes = &r[..r.len()];
-        array.copy_from_slice(bytes);
-        Ok(array)
+
+        Ok(r)
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {

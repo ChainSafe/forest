@@ -3,7 +3,7 @@
 
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
-use blake2b_simd::State;
+use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use byteorder::{BigEndian, WriteBytesExt};
 use cid::Cid;
@@ -285,7 +285,7 @@ where
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<Vec<u8>, Error> {
+    ) -> Result<[u8; 32], Error> {
         get_randomness(self.db.as_ref(), blocks, pers, round, entropy)
             .map_err(|e| Error::Other(e.to_string()))
     }
@@ -298,7 +298,7 @@ pub fn get_randomness<DB: BlockStore>(
     pers: DomainSeparationTag,
     round: ChainEpoch,
     entropy: &[u8],
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+) -> Result<[u8; 32], Box<dyn std::error::Error>> {
     let mut blks = blocks.clone();
     loop {
         let nts = tipset_from_keys(db, &blks)?;
@@ -316,14 +316,16 @@ fn draw_randomness(
     pers: DomainSeparationTag,
     round: ChainEpoch,
     entropy: &[u8],
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let mut state = State::new();
+) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    let mut state = Params::new().hash_length(32).to_state();
     state.write_i64::<BigEndian>(pers as i64)?;
     let vrf_digest = blake2b_256(rbase);
     state.write_all(&vrf_digest)?;
     state.write_i64::<BigEndian>(round as i64)?;
     state.write_all(entropy)?;
-    Ok(state.finalize().as_bytes().to_vec())
+    let mut ret = [0u8; 32];
+    ret.clone_from_slice(state.finalize().as_bytes());
+    Ok(ret)
 }
 
 fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
