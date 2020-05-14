@@ -23,9 +23,8 @@ use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use vm::{
-    zero_piece_commitment, ActorError, ExitCode, MethodNum, PaddedPieceSize, PieceInfo,
-    Randomness, RegisteredProof, SealVerifyInfo, SectorInfo, Serialized, TokenAmount,
-    WindowPoStVerifyInfo,
+    zero_piece_commitment, ActorError, ExitCode, MethodNum, PaddedPieceSize, PieceInfo, Randomness,
+    RegisteredProof, SealVerifyInfo, SectorInfo, Serialized, TokenAmount, WindowPoStVerifyInfo,
 };
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
@@ -216,36 +215,43 @@ pub trait Syscalls {
         Ok(())
     }
     /// Verifies a proof of spacetime.
-    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+    fn verify_post(&self, verify_info: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
         type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
-        
+
         //collect registered proofs
-        let registered_proofs = &vi
+        let registered_proofs = &verify_info
             .proofs
             .iter()
             .map(|p| p.registered_proof as u8)
             .collect::<Vec<_>>();
 
         //collect replicas
-        let replicas = vi
+        let replicas = verify_info
             .private_proof
             .iter()
-            .map::<ReplicaMapResult, _>(|p: &SectorInfo| {
-                let commr = cid_to_replica_commitment_v1(&p.sealed_cid)?;
-                let replica =
-                    PublicReplicaInfo::new(p.proof.registered_window_post_proof()?.into(), commr);
-                Ok((SectorId::from(p.sector_number), replica))
+            .map::<ReplicaMapResult, _>(|sector_info: &SectorInfo| {
+                let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
+                let replica = PublicReplicaInfo::new(
+                    sector_info.proof.registered_window_post_proof()?.into(),
+                    commr,
+                );
+                Ok((SectorId::from(sector_info.sector_number), replica))
             })
             .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
-        
+
         //construct prover id
         let mut prover_id = ProverId::default();
-        let prover_bytes = vi.prover.to_be_bytes();
+        let prover_bytes = verify_info.prover.to_be_bytes();
         prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
 
         //verify
-        if !verify_window_post(&vi.randomness, &registered_proofs, &replicas, prover_id)? {
-            return Err("Could not Verify Post".to_string().into())
+        if !verify_window_post(
+            &verify_info.randomness,
+            &registered_proofs,
+            &replicas,
+            prover_id,
+        )? {
+            return Err("Proof was invalid".to_string().into());
         }
 
         Ok(())
