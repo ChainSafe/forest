@@ -222,10 +222,7 @@ where
             .rand
             .get_randomness(&self.store, personalization, rand_epoch, entropy)
             .map_err(|e| {
-                self.abort(
-                    ExitCode::ErrPlaceholder,
-                    format!("could not get randomness: {}", e.to_string()),
-                )
+                ActorError::new_fatal(format!("could not get randomness: {}", e.to_string()))
             })?;
         let mut array = [0; 32];
         let bytes = &r[..r.len()];

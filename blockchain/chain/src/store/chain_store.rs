@@ -290,6 +290,8 @@ where
             .map_err(|e| Error::Other(e.to_string()))
     }
 }
+
+/// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch, Entropy
 pub fn get_randomness<DB: BlockStore>(
     db: &DB,
     blocks: &TipsetKeys,
@@ -308,6 +310,7 @@ pub fn get_randomness<DB: BlockStore>(
     }
 }
 
+/// Computes a pseudorandom 32 byte Vec
 fn draw_randomness(
     rbase: &[u8],
     pers: DomainSeparationTag,

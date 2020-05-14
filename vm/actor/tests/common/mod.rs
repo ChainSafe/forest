@@ -373,10 +373,11 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     }
 
     fn get_randomness(
+        &self,
         _personalization: DomainSeparationTag,
         _rand_epoch: ChainEpoch,
         _entropy: &[u8],
-    ) -> Randomness {
+    ) -> Result<Randomness, ActorError> {
         unimplemented!()
     }
 
