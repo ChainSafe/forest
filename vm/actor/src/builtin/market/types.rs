@@ -6,7 +6,8 @@ use address::Address;
 use clock::ChainEpoch;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{DealID, RegisteredProof, SectorSize, TokenAmount};
+use fil_types::{RegisteredProof, SectorSize};
+use vm::{DealID, TokenAmount};
 
 pub struct WithdrawBalanceParams {
     pub provider_or_client: Address,

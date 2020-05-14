@@ -8,7 +8,8 @@ use clock::ChainEpoch;
 use crypto::Signature;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{PaddedPieceSize, TokenAmount};
+use fil_types::PaddedPieceSize;
+use vm::TokenAmount;
 
 /// Note: Deal Collateral is only released and returned to clients and miners
 /// when the storage deal stops counting towards power. In the current iteration,

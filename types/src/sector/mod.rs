@@ -10,7 +10,7 @@ pub use self::post::*;
 pub use self::registered_proof::*;
 pub use self::seal::*;
 
-use crate::ActorID;
+use vm::ActorID;
 use ::serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;

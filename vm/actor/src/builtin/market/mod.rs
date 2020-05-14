@@ -27,9 +27,9 @@ use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
+use fil_types::PieceInfo;
 use vm::{
-    ActorError, ExitCode, MethodNum, PieceInfo, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
-    METHOD_SEND,
+    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
 
 /// Market actor methods available

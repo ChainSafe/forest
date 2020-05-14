@@ -3,7 +3,8 @@
 
 use clock::ChainEpoch;
 use num_traits::Zero;
-use vm::{PaddedPieceSize, TokenAmount};
+use fil_types::PaddedPieceSize;
+use vm::TokenAmount;
 
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {
     (0, 10000) // PARAM_FINISH
