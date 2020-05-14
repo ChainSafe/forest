@@ -88,7 +88,7 @@ impl Tipset {
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
     /// specify identical epoch, parents, weight, height, state root, receipt root;
     /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
-    pub fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
+    pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
         verify_blocks(&headers)?;
 
         // TODO Have a check the ensures CIDs are distinct
@@ -96,14 +96,12 @@ impl Tipset {
 
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
-        let mut sorted_headers = headers;
-        sorted_headers
-            .sort_by_key(|header| (header.ticket().vrfproof.clone(), header.cid().to_bytes()));
+        headers.sort();
 
         // return tipset where sorted headers have smallest ticket size in the 0th index
         // and the distinct keys
         Ok(Self {
-            blocks: sorted_headers,
+            blocks: headers,
             key: TipsetKeys {
                 // interim until CID check is in place
                 cids,
@@ -178,12 +176,7 @@ impl FullTipset {
 
         // sort blocks on creation to allow for more seamless conversions between FullTipset
         // and Tipset
-        blocks.sort_by_key(|block| {
-            (
-                block.header.ticket().vrfproof.clone(),
-                block.header.cid().to_bytes(),
-            )
-        });
+        blocks.sort_by(|block1, block2| block1.header().cmp(block2.header()));
         Ok(Self { blocks })
     }
     /// Returns the first block of the tipset
