@@ -200,7 +200,7 @@ fn add_non_provider_funds() {
                 Method::AddBalance as u64,
                 &Serialized::serialize(caller_addr.clone()).unwrap(),
             );
-            
+
             rt.verify();
 
             let state_data: State = rt.get_state().unwrap();
@@ -297,7 +297,10 @@ fn withdraw_non_provider() {
     );
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), client_addr.clone());
-    rt.expect_validate_caller_type(&[ACCOUNT_ACTOR_CODE_ID.clone(), MULTISIG_ACTOR_CODE_ID.clone()]);
+    rt.expect_validate_caller_type(&[
+        ACCOUNT_ACTOR_CODE_ID.clone(),
+        MULTISIG_ACTOR_CODE_ID.clone(),
+    ]);
 
     let withdraw_amount = TokenAmount::from(1u8);
 
@@ -344,7 +347,10 @@ fn client_withdraw_more_than_available() {
     add_participant_funds(&mut rt, client_addr.clone(), amount.clone());
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), client_addr.clone());
-    rt.expect_validate_caller_type(&[ACCOUNT_ACTOR_CODE_ID.clone(), MULTISIG_ACTOR_CODE_ID.clone()]);
+    rt.expect_validate_caller_type(&[
+        ACCOUNT_ACTOR_CODE_ID.clone(),
+        MULTISIG_ACTOR_CODE_ID.clone(),
+    ]);
 
     let withdraw_amount = TokenAmount::from(25u8);
 
@@ -493,7 +499,10 @@ fn add_participant_funds<BS: BlockStore>(
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), addr.clone());
 
-    rt.expect_validate_caller_type(& [ACCOUNT_ACTOR_CODE_ID.clone(), MULTISIG_ACTOR_CODE_ID.clone()]);
+    rt.expect_validate_caller_type(&[
+        ACCOUNT_ACTOR_CODE_ID.clone(),
+        MULTISIG_ACTOR_CODE_ID.clone(),
+    ]);
 
     let v = rt.call(
         &MARKET_ACTOR_CODE_ID.clone(),
