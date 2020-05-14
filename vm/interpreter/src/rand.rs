@@ -11,7 +11,6 @@ use std::error::Error;
 #[derive(Debug, Clone)]
 pub struct ChainRand {
     pub blks: TipsetKeys,
-    //    pub height: ChainEpoch,
 }
 
 impl ChainRand {

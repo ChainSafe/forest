@@ -218,9 +218,15 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = self.rand.get_randomness(&self.store, personalization, rand_epoch, entropy).map_err(|e| {
-            self.abort(ExitCode::ErrPlaceholder, format!("could not get randomness: {}", e.to_string()))
-        })?;
+        let r = self
+            .rand
+            .get_randomness(&self.store, personalization, rand_epoch, entropy)
+            .map_err(|e| {
+                self.abort(
+                    ExitCode::ErrPlaceholder,
+                    format!("could not get randomness: {}", e.to_string()),
+                )
+            })?;
         let mut array = [0; 32];
         let bytes = &r[..r.len()];
         array.copy_from_slice(bytes);
