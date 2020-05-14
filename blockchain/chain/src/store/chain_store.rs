@@ -3,9 +3,13 @@
 
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
+use blake2b_simd::State;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use byteorder::{BigEndian, WriteBytesExt};
 use cid::Cid;
-use encoding::{de::DeserializeOwned, from_slice, Cbor};
+use clock::ChainEpoch;
+use crypto::DomainSeparationTag;
+use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
@@ -13,6 +17,7 @@ use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use state_tree::StateTree;
+use std::io::Write;
 use std::sync::Arc;
 
 const GENESIS_KEY: &str = "gen_block";
@@ -273,6 +278,49 @@ where
         out += &value;
         Ok(out)
     }
+
+    pub fn get_randomness_block(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<Vec<u8>, Error> {
+        get_randomness(self.db.as_ref(), blocks, pers, round, entropy)
+            .map_err(|e| Error::Other(e.to_string()))
+    }
+}
+pub fn get_randomness<DB: BlockStore>(
+    db: &DB,
+    blocks: &TipsetKeys,
+    pers: DomainSeparationTag,
+    round: ChainEpoch,
+    entropy: &[u8],
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut blks = blocks.clone();
+    loop {
+        let nts = tipset_from_keys(db, &blks)?;
+        let mtb = nts.min_ticket_block();
+        if nts.epoch() <= round || mtb.epoch() == 0 {
+            return draw_randomness(mtb.ticket().vrfproof.bytes(), pers, round, entropy);
+        }
+        blks = mtb.parents().clone();
+    }
+}
+
+fn draw_randomness(
+    rbase: &[u8],
+    pers: DomainSeparationTag,
+    round: ChainEpoch,
+    entropy: &[u8],
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut state = State::new();
+    state.write_i64::<BigEndian>(pers as i64)?;
+    let vrf_digest = blake2b_256(rbase);
+    state.write_all(&vrf_digest)?;
+    state.write_i64::<BigEndian>(round as i64)?;
+    state.write_all(entropy)?;
+    Ok(state.finalize().as_bytes().to_vec())
 }
 
 fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>

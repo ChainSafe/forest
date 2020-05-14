@@ -129,6 +129,10 @@ impl Tipset {
     pub fn min_ticket(&self) -> Ticket {
         self.first_block().ticket().clone()
     }
+    /// Returns the block with the smallest ticket of all blocks in the tipset
+    pub fn min_ticket_block(&self) -> &BlockHeader {
+        &self.first_block()
+    }
     /// Returns the smallest timestamp of all blocks in the tipset
     pub fn min_timestamp(&self) -> u64 {
         self.blocks

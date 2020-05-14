@@ -3,6 +3,7 @@
 
 use super::gas_block_store::GasBlockStore;
 use super::gas_syscalls::GasSyscalls;
+use super::ChainRand;
 use actor::{
     self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
     MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
@@ -39,6 +40,7 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS> {
     origin_nonce: u64,
     num_actors_created: u64,
     price_list: PriceList,
+    rand: ChainRand,
 }
 
 impl<'db, 'msg, 'st, 'sys, BS, SYS> DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS>
@@ -58,6 +60,7 @@ where
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
+        rand: ChainRand,
     ) -> Self {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
@@ -85,6 +88,7 @@ where
             origin_nonce,
             num_actors_created,
             price_list,
+            rand,
         }
     }
 
@@ -209,11 +213,18 @@ where
         self.get_actor(&addr).map(|act| act.code)
     }
     fn get_randomness(
-        _personalization: DomainSeparationTag,
-        _rand_epoch: ChainEpoch,
-        _entropy: &[u8],
-    ) -> Randomness {
-        todo!()
+        &self,
+        personalization: DomainSeparationTag,
+        rand_epoch: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<Randomness, ActorError> {
+        let r = self.rand.get_randomness(&self.store, personalization, rand_epoch, entropy).map_err(|e| {
+            self.abort(ExitCode::ErrPlaceholder, format!("could not get randomness: {}", e.to_string()))
+        })?;
+        let mut array = [0; 32];
+        let bytes = &r[..r.len()];
+        array.copy_from_slice(bytes);
+        Ok(array)
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
@@ -323,6 +334,7 @@ where
                 self.origin,
                 self.origin_nonce,
                 self.num_actors_created,
+                self.rand.clone(),
             );
             internal_send::<BS, SYS>(&mut parent, &msg, 0)
         };

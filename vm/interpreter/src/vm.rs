@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::ChainRand;
 use super::{internal_send, DefaultRuntime};
 use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
@@ -19,7 +20,6 @@ use state_tree::StateTree;
 use std::collections::HashSet;
 use std::error::Error as StdError;
 use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized};
-
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'db, DB, SYS> {
@@ -28,6 +28,7 @@ pub struct VM<'db, DB, SYS> {
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
+    rand: ChainRand,
     // TODO: missing fields
 }
 
@@ -41,6 +42,7 @@ where
         store: &'db DB,
         epoch: ChainEpoch,
         syscalls: SYS,
+        rand: ChainRand,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
         Ok(VM {
@@ -48,6 +50,7 @@ where
             store,
             epoch,
             syscalls,
+            rand,
         })
     }
 
@@ -360,6 +363,7 @@ where
             *msg.from(),
             msg.sequence(),
             0,
+            self.rand.clone(),
         );
 
         let ser = match internal_send(&mut rt, msg, gas_cost) {
