@@ -10,18 +10,23 @@ use cid::Cid;
 use clock::ChainEpoch;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
-use filecoin_proofs_api::seal::{compute_comm_d, verify_seal as proofs_verify_seal};
+use filecoin_proofs_api::{
+    post::verify_window_post,
+    seal::{compute_comm_d, verify_seal as proofs_verify_seal},
+    PublicReplicaInfo,
+};
 use filecoin_proofs_api::{ProverId, SectorId};
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
+use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use vm::{
-    zero_piece_commitment, ActorError, ExitCode, MethodNum, PaddedPieceSize, PieceInfo, Randomness,
-    RegisteredProof, SealVerifyInfo, Serialized, TokenAmount, WindowPoStVerifyInfo,
+    zero_piece_commitment, ActorError, ExitCode, MethodNum, PaddedPieceSize, PieceInfo,
+    Randomness, RegisteredProof, SealVerifyInfo, SectorInfo, Serialized, TokenAmount,
+    WindowPoStVerifyInfo,
 };
-
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
 pub trait Runtime<BS: BlockStore> {
@@ -211,9 +216,39 @@ pub trait Syscalls {
         Ok(())
     }
     /// Verifies a proof of spacetime.
-    fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        // TODO
-        todo!()
+    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
+        
+        //collect registered proofs
+        let registered_proofs = &vi
+            .proofs
+            .iter()
+            .map(|p| p.registered_proof as u8)
+            .collect::<Vec<_>>();
+
+        //collect replicas
+        let replicas = vi
+            .private_proof
+            .iter()
+            .map::<ReplicaMapResult, _>(|p: &SectorInfo| {
+                let commr = cid_to_replica_commitment_v1(&p.sealed_cid)?;
+                let replica =
+                    PublicReplicaInfo::new(p.proof.registered_window_post_proof()?.into(), commr);
+                Ok((SectorId::from(p.sector_number), replica))
+            })
+            .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
+        
+        //construct prover id
+        let mut prover_id = ProverId::default();
+        let prover_bytes = vi.prover.to_be_bytes();
+        prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
+
+        //verify
+        if !verify_window_post(&vi.randomness, &registered_proofs, &replicas, prover_id)? {
+            return Err("Could not Verify Post".to_string().into())
+        }
+
+        Ok(())
     }
     /// Verifies that two block headers provide proof of a consensus fault:
     /// - both headers mined by the same actor
