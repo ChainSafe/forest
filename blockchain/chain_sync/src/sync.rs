@@ -22,6 +22,7 @@ use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
+
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
@@ -617,47 +618,48 @@ where
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     async fn validate(&self, block: &Block) -> Result<(), Error> {
-        let header = block.header();
+        let header = block.header().clone();
 
-        // check if block has been signed
         if header.signature().is_none() {
             return Err(Error::Validation("Signature is nil in header".to_owned()));
         }
 
         let parent_tipset = self.chain_store.tipset_from_keys(header.parents())?;
 
-        // time stamp checks
-        header.validate_timestamps(&parent_tipset)?;
-
-        // check messages to ensure valid state transitions
-        self.check_block_msgs(block.clone(), &parent_tipset)?;
-
-        // TODO use computed state_root instead of parent_tipset.parent_state()
         let work_addr = self
             .state_manager
-            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())?;
+            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())
+            .await?;
         // block signature check
         header.check_block_signature(&work_addr)?;
 
         let slash = self
             .state_manager
-            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())?;
+            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
+            .await?;
         if slash {
             return Err(Error::Validation(
                 "Received block was from slashed or invalid miner".to_owned(),
             ));
         }
 
+        // time stamp check
+        header.validate_timestamps(&parent_tipset)?;
+
+        // check messages to ensure valid state transitions
+        self.check_block_msgs(block.clone(), &parent_tipset)?;
+
+        // ticket winner check
         let (c_pow, net_pow) = self
             .state_manager
-            .get_power(&parent_tipset.parent_state(), header.miner_address())?;
+            .get_power(&parent_tipset.parent_state(), header.miner_address())
+            .await?;
         // ticket winner check
         if !header.is_ticket_winner(c_pow, net_pow) {
             return Err(Error::Validation(
                 "Miner created a block but was not a winner".to_owned(),
             ));
         }
-        // TODO verify_ticket_vrf
 
         Ok(())
     }
