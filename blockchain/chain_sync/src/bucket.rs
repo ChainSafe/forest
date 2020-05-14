@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::Tipset;
+use num_bigint::BigUint;
 use std::sync::Arc;
 
 /// SyncBucket defines a bucket of tipsets to sync
-#[derive(Clone, Default, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct SyncBucket {
     tips: Vec<Arc<Tipset>>,
 }
@@ -15,25 +16,20 @@ impl SyncBucket {
     fn new(tips: Vec<Arc<Tipset>>) -> SyncBucket {
         Self { tips }
     }
+    /// Returns the weight of the heaviest tipset
+    fn max_weight(&self) -> Option<&BigUint> {
+        self.tips.iter().map(|ts| ts.weight()).max()
+    }
     /// Returns the tipset with the max weight
     pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
-        if self.tips.is_empty() {
-            return None;
-        }
-
-        // return max value pointer
         self.tips.iter().max_by_key(|a| a.weight()).cloned()
     }
     /// Returns true if tipset is from same chain
-    pub fn same_chain_as(&mut self, ts: &Tipset) -> bool {
-        for t in self.tips.iter_mut() {
-            // TODO Confirm that comparing keys will be sufficient on full tipset impl
-            if ts.key() == t.key() || ts.key() == t.parents() || ts.parents() == t.key() {
-                return true;
-            }
-        }
-
-        false
+    pub fn is_same_chain_as(&self, ts: &Tipset) -> bool {
+        // TODO Confirm that comparing keys will be sufficient on full tipset impl
+        self.tips
+            .iter()
+            .any(|t| ts.key() == t.key() || ts.key() == t.parents() || ts.parents() == t.key())
     }
     /// Adds tipset to vector to be included in the bucket
     pub fn add(&mut self, ts: Arc<Tipset>) {
@@ -56,39 +52,35 @@ pub(crate) struct SyncBucketSet {
 impl SyncBucketSet {
     /// Inserts a tipset into a bucket
     pub(crate) fn insert(&mut self, tipset: Arc<Tipset>) {
-        for b in self.buckets.iter_mut() {
-            if b.same_chain_as(&tipset) {
-                b.add(tipset);
-                return;
-            }
+        if let Some(b) = self
+            .buckets
+            .iter_mut()
+            .find(|b| b.is_same_chain_as(&tipset))
+        {
+            b.add(tipset);
+        } else {
+            self.buckets.push(SyncBucket::new(vec![tipset]))
         }
-        self.buckets.push(SyncBucket::new(vec![tipset]))
     }
     /// Removes the SyncBucket with heaviest weighted Tipset from SyncBucketSet
     pub(crate) fn pop(&mut self) -> Option<SyncBucket> {
-        if let Some((i, _)) = self
+        let (i, _) = self
             .buckets()
             .iter()
             .enumerate()
-            .max_by_key(|(_, b)| b.heaviest_tipset())
-        {
-            let ts = self.buckets.remove(i);
-            Some(ts)
-        } else {
-            None
-        }
+            .map(|(i, b)| (i, b.max_weight()))
+            .max_by(|(_, w1), (_, w2)| w1.cmp(w2))?;
+        // we can't use `max_by_key` here because the weight is a reference,
+        // see https://github.com/rust-lang/rust/issues/34162
+
+        Some(self.buckets.swap_remove(i))
     }
     /// Returns heaviest tipset from bucket set
     pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
-        // Transform max values from each bucket into a Vec
-        let vals: Vec<Arc<Tipset>> = self
-            .buckets
+        self.buckets
             .iter()
-            .filter_map(|b| b.heaviest_tipset())
-            .collect();
-
-        // Return the heaviest tipset bucket
-        vals.iter().max_by_key(|b| b.weight()).cloned()
+            .filter_map(SyncBucket::heaviest_tipset)
+            .max_by(|ts1, ts2| ts1.weight().cmp(ts2.weight()))
     }
     /// Returns a vector of SyncBuckets
     pub(crate) fn buckets(&self) -> &[SyncBucket] {

@@ -202,15 +202,18 @@ impl<'de> Deserialize<'de> for BlockHeader {
     }
 }
 
-impl PartialOrd for BlockHeader {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.cached_bytes.partial_cmp(&other.cached_bytes)
+impl Ord for BlockHeader {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.ticket()
+            .cmp(other.ticket())
+            // Only compare cid bytes when tickets are equal
+            .then_with(|| self.cid().to_bytes().cmp(&other.cid().to_bytes()))
     }
 }
 
-impl Ord for BlockHeader {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.cached_bytes.cmp(&other.cached_bytes)
+impl PartialOrd for BlockHeader {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 

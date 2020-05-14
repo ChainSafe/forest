@@ -4,7 +4,7 @@
 use crate::Error;
 
 /// Cid protocol version
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum Version {
     V0,
     V1,

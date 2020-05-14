@@ -17,7 +17,7 @@ use serde::Deserialize;
 /// A set of CIDs forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct TipsetKeys {
     pub cids: Vec<Cid>,
 }
@@ -56,10 +56,30 @@ impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug, PartialOrd, Ord, Eq)]
+#[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipsetKeys,
+}
+
+impl From<FullTipset> for Tipset {
+    fn from(full_tipset: FullTipset) -> Self {
+        let block_headers: Vec<BlockHeader> = full_tipset
+            .blocks
+            .into_iter()
+            .map(|block| block.header)
+            .collect();
+        let cids = block_headers
+            .iter()
+            .map(BlockHeader::cid)
+            .cloned()
+            .collect();
+
+        Tipset {
+            blocks: block_headers,
+            key: TipsetKeys { cids },
+        }
+    }
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -68,7 +88,7 @@ impl Tipset {
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
     /// specify identical epoch, parents, weight, height, state root, receipt root;
     /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
-    pub fn new(headers: Vec<BlockHeader>) -> Result<Self, Error> {
+    pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
         verify_blocks(&headers)?;
 
         // TODO Have a check the ensures CIDs are distinct
@@ -76,14 +96,12 @@ impl Tipset {
 
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
-        let mut sorted_headers = headers;
-        sorted_headers
-            .sort_by_key(|header| (header.ticket().vrfproof.clone(), header.cid().to_bytes()));
+        headers.sort();
 
         // return tipset where sorted headers have smallest ticket size in the 0th index
         // and the distinct keys
         Ok(Self {
-            blocks: sorted_headers,
+            blocks: headers,
             key: TipsetKeys {
                 // interim until CID check is in place
                 cids,
@@ -153,8 +171,12 @@ pub struct FullTipset {
 
 impl FullTipset {
     /// constructor
-    pub fn new(blocks: Vec<Block>) -> Result<Self, Error> {
+    pub fn new(mut blocks: Vec<Block>) -> Result<Self, Error> {
         verify_blocks(blocks.iter().map(Block::header))?;
+
+        // sort blocks on creation to allow for more seamless conversions between FullTipset
+        // and Tipset
+        blocks.sort_by(|block1, block2| block1.header().cmp(block2.header()));
         Ok(Self { blocks })
     }
     /// Returns the first block of the tipset
@@ -170,17 +192,20 @@ impl FullTipset {
     pub fn into_blocks(self) -> Vec<Block> {
         self.blocks
     }
-    // TODO: conversions from full to regular tipset should not return a result
-    // and should be validated on creation instead
     /// Returns a Tipset
-    pub fn into_tipset(self) -> Result<Tipset, Error> {
-        let headers = self.blocks.into_iter().map(|block| block.header).collect();
-        Tipset::new(headers)
-    }
-    /// Returns a Tipset
-    pub fn to_tipset(&self) -> Result<Tipset, Error> {
-        let headers = self.blocks.iter().map(Block::header).cloned().collect();
-        Tipset::new(headers)
+    pub fn to_tipset(&self) -> Tipset {
+        let block_headers: Vec<BlockHeader> =
+            self.blocks.iter().map(Block::header).cloned().collect();
+        let cids = block_headers
+            .iter()
+            .map(BlockHeader::cid)
+            .cloned()
+            .collect();
+
+        Tipset {
+            blocks: block_headers,
+            key: TipsetKeys { cids },
+        }
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
