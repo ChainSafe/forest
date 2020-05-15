@@ -10,7 +10,6 @@ use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::Address;
 use amt::Amt;
-use async_std::prelude::*;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
 use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -18,11 +17,12 @@ use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use crypto::verify_bls_aggregate;
+use db::MemoryDB;
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
-
+use futures::stream::{FuturesUnordered, StreamExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
@@ -96,8 +96,8 @@ struct MsgMetaData {
 }
 
 impl<DB> ChainSyncer<DB>
-where
-    DB: BlockStore,
+    where
+        DB: BlockStore + Sync + Send + 'static,
 {
     pub fn new(
         chain_store: ChainStore<DB>,
@@ -133,8 +133,8 @@ where
 }
 
 impl<DB> ChainSyncer<DB>
-where
-    DB: BlockStore,
+    where
+        DB: BlockStore + Sync + Send + 'static,
 {
     pub async fn start(mut self) -> Result<(), Error> {
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
@@ -317,7 +317,7 @@ where
             }
 
             // validate message root from header matches message root
-            let sm_root = self.compute_msg_data(&bls_msgs, &secp_msgs)?;
+            let sm_root = Self::compute_msg_data(&bls_msgs, &secp_msgs)?;
             if header.messages() != &sm_root {
                 return Err(Error::InvalidRoots);
             }
@@ -437,7 +437,7 @@ where
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
-        let sm_root = self.compute_msg_data(block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = Self::compute_msg_data(block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -449,16 +449,16 @@ where
     }
     /// Returns message root CID from bls and secp message contained in the param Block
     fn compute_msg_data(
-        &self,
         bls_msgs: &[UnsignedMessage],
         secp_msgs: &[SignedMessage],
     ) -> Result<Cid, Error> {
+        let temp_store = MemoryDB::default();
         // collect bls and secp cids
         let bls_cids = cids_from_messages(bls_msgs)?;
         let secp_cids = cids_from_messages(secp_msgs)?;
         // generate Amt and batch set message values
-        let bls_root = Amt::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
-        let secp_root = Amt::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
+        let bls_root = Amt::new_from_slice(&temp_store, &bls_cids)?;
+        let secp_root = Amt::new_from_slice(&temp_store, &secp_cids)?;
 
         let meta = TxMeta {
             bls_message_root: bls_root,
@@ -466,9 +466,7 @@ where
         };
         // TODO this should be memoryDB for temp storage
         // store message roots and receive meta_root
-        let meta_root = self
-            .chain_store
-            .blockstore()
+        let meta_root = temp_store
             .put(&meta, Blake2b256)
             .map_err(|e| Error::Other(e.to_string()))?;
 
@@ -511,16 +509,12 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    fn check_block_msgs(&self, block: Block, tip: &Tipset) -> Result<(), Error> {
-        let mut pub_keys = Vec::new();
-        let mut cids = Vec::new();
-        for m in block.bls_msgs() {
-            let pk = self
-                .state_manager
-                .get_bls_public_key(m.from(), tip.parent_state())?;
-            pub_keys.push(pk);
-            cids.push(m.cid()?.to_bytes());
-        }
+    fn check_block_msgs(
+        db: Arc<DB>,
+        pub_keys: Vec<Vec<u8>>,
+        cids: Vec<Vec<u8>>,
+        block: Block,
+    ) -> Result<(), Error> {
         if let Some(sig) = block.header().bls_aggregate() {
             if !verify_bls_aggregate(
                 cids.iter()
@@ -549,8 +543,8 @@ where
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
             tree: &StateTree<DB>,
         ) -> Result<(), Error>
-        where
-            M: Message,
+            where
+                M: Message,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
@@ -594,7 +588,7 @@ where
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         // TODO retrieve tipset state and load state tree
         // temporary
-        let tree = StateTree::new(self.chain_store.db.as_ref());
+        let tree = StateTree::new(db.as_ref());
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
@@ -608,7 +602,7 @@ where
                 .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root
-        let sm_root = self.compute_msg_data(block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = Self::compute_msg_data(block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -618,48 +612,66 @@ where
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     async fn validate(&self, block: &Block) -> Result<(), Error> {
-        let header = block.header().clone();
+        let header = block.header();
 
+        // check if block has been signed
         if header.signature().is_none() {
             return Err(Error::Validation("Signature is nil in header".to_owned()));
         }
 
         let parent_tipset = self.chain_store.tipset_from_keys(header.parents())?;
 
+        // time stamp checks
+        header.validate_timestamps(&parent_tipset)?;
+
+        // check messages to ensure valid state transitions
+        let b = block.clone();
+
+
+        // Check Block Message and Signatures in them
+        let mut pub_keys = Vec::new();
+        let mut cids = Vec::new();
+        for m in block.bls_msgs() {
+            let pk = self.state_manager
+                .get_bls_public_key(m.from(), parent_tipset.parent_state())?;
+            pub_keys.push(pk);
+            cids.push(m.cid()?.to_bytes());
+        }
+        let db = Arc::clone(&self.chain_store.db);
+        let x = task::spawn_blocking (move || {
+            Self::check_block_msgs(db,  pub_keys, cids,b);
+        }).await;
+
+
+        // TODO use computed state_root instead of parent_tipset.parent_state()
         let work_addr = self
             .state_manager
-            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())
-            .await?;
+            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())?;
         // block signature check
-        header.check_block_signature(&work_addr)?;
+        let temp_header = header.clone();
+        let block_sig_task = task::spawn_blocking( move || {
+            temp_header.check_block_signature(&work_addr).map_err(|err| Error::Blockchain(err))
+        }).await;
 
         let slash = self
             .state_manager
-            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
-            .await?;
+            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())?;
         if slash {
             return Err(Error::Validation(
                 "Received block was from slashed or invalid miner".to_owned(),
             ));
         }
 
-        // time stamp check
-        header.validate_timestamps(&parent_tipset)?;
-
-        // check messages to ensure valid state transitions
-        self.check_block_msgs(block.clone(), &parent_tipset)?;
-
-        // ticket winner check
         let (c_pow, net_pow) = self
             .state_manager
-            .get_power(&parent_tipset.parent_state(), header.miner_address())
-            .await?;
+            .get_power(&parent_tipset.parent_state(), header.miner_address())?;
         // ticket winner check
         if !header.is_ticket_winner(c_pow, net_pow) {
             return Err(Error::Validation(
                 "Miner created a block but was not a winner".to_owned(),
             ));
         }
+        // TODO verify_ticket_vrf
 
         Ok(())
     }
@@ -949,7 +961,7 @@ mod tests {
             Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
-        let root = cs.compute_msg_data(&[bls], &[secp]).unwrap();
+        let root = ChainSyncer::<MemoryDB>::compute_msg_data(&[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
     }
 }
