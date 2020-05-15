@@ -142,8 +142,8 @@ where
         let mut cur = ts.clone();
         for _ in 1..20 {
             let cbe = ts.blocks()[0].beacon_entries();
-            if !cbe.is_empty() {
-                return Ok(cbe[cbe.len() - 1].clone());
+            if let Some(entry) = cbe.last() {
+                return Ok(entry.clone());
             }
             if cur.epoch() == 0 {
                 return Err(Error::Other(

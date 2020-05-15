@@ -49,7 +49,7 @@ where
     /// In the future, we will cache values, and support streaming.
     async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>>;
 
-    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, prev_entry: &BeaconEntry) -> u64;
+    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
 }
 
 pub struct DrandBeacon {
@@ -140,8 +140,7 @@ impl Beacon for DrandBeacon {
         Ok(BeaconEntry::new(resp.round, resp.signature))
     }
 
-    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, _prev_entry: &BeaconEntry) -> u64 {
-        // TODO: sometimes the genesis time for filecoin is zero and this goes negative
+    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64 {
         let latest_ts = fil_epoch * self.fil_round_time + self.fil_gen_time - self.fil_round_time;
         // TODO: self.interval has to be converted to seconds. Dont know what it is right now
         (latest_ts - self.drand_gen_time) / self.interval

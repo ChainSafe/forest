@@ -20,7 +20,7 @@ pub async fn beacon_entries_for_block<B: Beacon>(
     round: ChainEpoch,
     prev: &BeaconEntry,
 ) -> Result<Vec<BeaconEntry>, Box<dyn Error>> {
-    let max_round = beacon.max_beacon_round_for_epoch(round, prev);
+    let max_round = beacon.max_beacon_round_for_epoch(round);
     if max_round == prev.round() {
         return Ok(vec![]);
     }
