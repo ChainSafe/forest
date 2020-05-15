@@ -62,14 +62,13 @@ pub enum VisitReason {
 
 #[async_trait]
 pub trait LinkResolver {
-    #[allow(unused_variables)]
     /// Resolves a Cid link into it's respective Ipld node, if it exists.
     async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>, String>;
 }
 
 #[async_trait]
 impl LinkResolver for () {
-    #[allow(unused_variables)]
+    #[allow(unused_variables, clippy::trivially_copy_pass_by_ref)]
     async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>, String> {
         Err("load_link not implemented on the LinkResolver for default implementation".into())
     }
