@@ -32,6 +32,7 @@ clean:
 	@cargo clean -p forest_bigint
 	@cargo clean -p rleplus
 	@cargo clean -p commcid
+	@cargo clean -p fil_types
 	@echo "Done cleaning."
 
 lint: license clean

@@ -4,9 +4,10 @@
 use super::deal::ClientDealProposal;
 use address::Address;
 use clock::ChainEpoch;
+use fil_types::{RegisteredProof, SectorSize};
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{DealID, RegisteredProof, SectorSize, TokenAmount};
+use vm::{DealID, TokenAmount};
 
 pub struct WithdrawBalanceParams {
     pub provider_or_client: Address,

@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::PaddedPieceSize;
+use super::PaddedPieceSize;
 use filecoin_proofs_api::Commitment;
 
 const LEVELS: usize = 37;

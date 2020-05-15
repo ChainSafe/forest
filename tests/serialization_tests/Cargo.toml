@@ -17,6 +17,7 @@ cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor", "js
 serde_json = "1.0"
 hex = "0.4.2"
 vm = { path = "../../vm" }
+fil_types = { path = "../../types" }
 address = { package = "forest_address", path = "../../vm/address" }
 forest_message = { path = "../../vm/message" }
 encoding = { package = "forest_encoding", path = "../../encoding" }

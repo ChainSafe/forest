@@ -19,6 +19,7 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::to_vec;
+use fil_types::PieceInfo;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
@@ -28,8 +29,7 @@ use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use vm::{
-    ActorError, ExitCode, MethodNum, PieceInfo, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
-    METHOD_SEND,
+    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
 
 /// Market actor methods available
