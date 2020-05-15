@@ -49,7 +49,7 @@ pull-serialization-tests:
 	git submodule update --init
 
 run-vectors:
-	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "serde_tests"
+	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
 
 test-vectors: pull-serialization-tests run-vectors
 

@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "json")]
+#![cfg(feature = "submodule_tests")]
 
 use async_trait::async_trait;
 use cid::{multihash::Blake2b256, Cid};
@@ -221,12 +221,12 @@ async fn process_file(file: &str) -> Result<(), String> {
 
 #[async_std::test]
 async fn selector_explore_tests() {
-    process_file("./tests/selector_walk.json").await.unwrap();
+    process_file("./tests/ipld-traversal-vectors/selector_walk.json").await.unwrap();
 }
 
 #[async_std::test]
 async fn selector_explore_links_tests() {
-    process_file("./tests/selector_walk_links.json")
+    process_file("./tests/ipld-traversal-vectors/selector_walk_links.json")
         .await
         .unwrap();
 }
