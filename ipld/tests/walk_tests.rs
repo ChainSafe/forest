@@ -4,11 +4,11 @@
 #![cfg(feature = "json")]
 
 use async_trait::async_trait;
-use cid::{json as cidjson, multihash::Blake2b256, Cid};
+use cid::{multihash::Blake2b256, Cid};
 use db::MemoryDB;
 use forest_ipld::json::{self, IpldJson};
-use forest_ipld::selector::{LinkResolver, Selector, VisitReason};
-use forest_ipld::Ipld;
+use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
+use forest_ipld::{Ipld, Path};
 use ipld_blockstore::BlockStore;
 use serde::Deserialize;
 use std::fs::File;
@@ -34,15 +34,55 @@ enum IpldValue {
     List,
     #[serde(rename = "map")]
     Map,
-    #[serde(rename = "link", with = "cidjson")]
+    #[serde(rename = "link", with = "cid::json")]
     Link(Cid),
 }
 
 #[derive(Deserialize, Clone)]
 struct ExpectVisit {
-    path: String,
+    #[serde(with = "path_json")]
+    path: Path,
     node: IpldValue,
+    #[serde(with = "last_block_json", default)]
+    last_block: Option<LastBlockInfo>,
     matched: bool,
+}
+
+mod path_json {
+    use super::Path;
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Path, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Ok(Path::from(s.as_str()))
+    }
+}
+
+mod last_block_json {
+    use super::LastBlockInfo;
+    use super::Path;
+    use cid::Cid;
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<LastBlockInfo>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct LastBlockDe {
+            #[serde(with = "super::path_json")]
+            path: Path,
+            #[serde(with = "cid::json")]
+            link: Cid,
+        }
+        match Deserialize::deserialize(deserializer)? {
+            Some(LastBlockDe { path, link }) => Ok(Some(LastBlockInfo { path, link })),
+            None => Ok(None),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -114,8 +154,8 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
             |prog, ipld, reason| -> Result<(), String> {
                 let mut idx = index.lock().unwrap();
                 let exp = &expect[*idx];
-                let current_path = prog.path().to_string();
-                if current_path != exp.path {
+                let current_path = prog.path();
+                if current_path != &exp.path {
                     return Err(format!(
                         "{:?} at (idx: {}) does not match {:?}",
                         current_path, *idx, exp.path

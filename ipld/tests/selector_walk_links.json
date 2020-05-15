@@ -38,6 +38,7 @@
                 "node": {
                     "map": null
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -45,6 +46,7 @@
                 "node": {
                     "bool": false
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -52,6 +54,7 @@
                 "node": {
                     "bool": true
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -59,6 +62,7 @@
                 "node": {
                     "map": null
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -66,6 +70,7 @@
                 "node": {
                     "string": "alpha"
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -73,6 +78,7 @@
                 "node": {
                     "string": "zoo"
                 },
+                "last_block": null,
                 "matched": true
             }
         ],
@@ -138,6 +144,7 @@
                 "node": {
                     "map": null
                 },
+                "last_block": null,
                 "matched": false
             },
             {
@@ -145,6 +152,7 @@
                 "node": {
                     "list": null
                 },
+                "last_block": null,
                 "matched": false
             },
             {
@@ -152,6 +160,7 @@
                 "node": {
                     "string": "alpha"
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -159,6 +168,7 @@
                 "node": {
                     "string": "alpha"
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -166,6 +176,7 @@
                 "node": {
                     "string": "beta"
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -173,6 +184,7 @@
                 "node": {
                     "string": "alpha"
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -180,6 +192,7 @@
                 "node": {
                     "map": null
                 },
+                "last_block": null,
                 "matched": false
             },
             {
@@ -187,6 +200,7 @@
                 "node": {
                     "bool": true
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -194,6 +208,7 @@
                 "node": {
                     "map": null
                 },
+                "last_block": null,
                 "matched": false
             },
             {
@@ -201,6 +216,7 @@
                 "node": {
                     "string": "zoo"
                 },
+                "last_block": null,
                 "matched": true
             },
             {
@@ -208,6 +224,7 @@
                 "node": {
                     "string": "alpha"
                 },
+                "last_block": null,
                 "matched": true
             }
         ],
@@ -272,6 +289,7 @@
                 "node": {
                     "string": "data"
                 },
+                "last_block": null,
                 "matched": true
             }
         ],
