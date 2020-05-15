@@ -113,6 +113,7 @@ impl Actor {
             ));
         }
 
+        rt.validate_immediate_caller_accept_any();
         rt.transaction(|st: &mut State, rt| {
             // Validate caller is one of the verifiers.
             let message: Box<&dyn Message> = Box::new(rt.message());
