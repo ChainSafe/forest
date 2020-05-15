@@ -145,7 +145,7 @@ impl Actor {
                 ));
             }
             let new_verifier_cap = verifier_cap - &params.allowance;
-            st.put_verifier(rt.store(), &*verify_addr, &new_verifier_cap)
+            st.put_verifier(rt.store(), &verify_addr, &new_verifier_cap)
                 .map_err(|_| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
