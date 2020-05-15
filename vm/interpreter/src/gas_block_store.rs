@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::gas_tracker::{GasTracker, PriceList};
 use cid::{multihash::MultihashDigest, Cid};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
@@ -8,7 +9,6 @@ use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
 use std::error::Error as StdError;
 use std::rc::Rc;
-use vm::{GasTracker, PriceList};
 
 /// Blockstore wrapper to charge gas on reads and writes
 pub(crate) struct GasBlockStore<'bs, BS> {

@@ -6,6 +6,7 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{BytesDe, BytesSer};
+use fil_types::{RegisteredProof, SectorInfo, SectorNumber, SectorSize};
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
@@ -16,7 +17,7 @@ use rleplus::bitvec::prelude::{BitVec, Lsb0};
 use rleplus::{BitVecDe, BitVecSer};
 use runtime::Runtime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{DealID, RegisteredProof, SectorInfo, SectorNumber, SectorSize, TokenAmount};
+use vm::{DealID, TokenAmount};
 
 /// Miner actor state
 pub struct State {

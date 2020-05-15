@@ -13,6 +13,7 @@ use encoding::{
     ser::{Serialize, Serializer},
     Cbor, Error as EncodingError,
 };
+use fil_types::PoStProof;
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
     BigUint,
@@ -21,7 +22,6 @@ use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
-use vm::PoStProof;
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
