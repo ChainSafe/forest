@@ -49,7 +49,7 @@ where
     /// In the future, we will cache values, and support streaming.
     async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>>;
 
-    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, _prev_entry: &BeaconEntry) -> u64;
+    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch, prev_entry: &BeaconEntry) -> u64;
 }
 
 pub struct DrandBeacon {

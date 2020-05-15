@@ -366,18 +366,18 @@ impl BlockHeader {
             )));
         }
         self.beacon_entries.iter().try_fold(
-            (true, &prev_entry),
-            |prev, curr| -> Result<(bool, &BeaconEntry), Error> {
-                let valid = beacon
-                    .verify_entry(curr, &prev.1)
-                    .map_err(|e| Error::Validation(e.to_string()))?;
-                if !valid {
+            &prev_entry,
+            |prev, curr| -> Result<&BeaconEntry, Error> {
+                if !beacon
+                    .verify_entry(curr, &prev)
+                    .map_err(|e| Error::Validation(e.to_string()))?
+                {
                     return Err(Error::Validation(format!(
                         "beacon entry was invalid: curr:{:?}, prev: {:?}",
-                        curr, prev.1
+                        curr, prev
                     )));
                 }
-                Ok((valid, curr))
+                Ok(curr)
             },
         )?;
         Ok(())

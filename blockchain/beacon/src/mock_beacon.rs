@@ -3,7 +3,7 @@
 
 use crate::{Beacon, BeaconEntry};
 use async_trait::async_trait;
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 use encoding::blake2b_256;
 use std::error::Error;
 use std::time::Duration;
@@ -17,8 +17,8 @@ impl MockBeacon {
         MockBeacon { interval }
     }
     fn entry_for_index(index: u64) -> BeaconEntry {
-        let mut buf: Vec<u8> = Vec::with_capacity(8);
-        buf.write_u64::<BigEndian>(index).unwrap();
+        let mut buf = [0; 8];
+        BigEndian::write_u64(&mut buf, index);
         let rval = blake2b_256(&buf);
         BeaconEntry::new(index, rval.to_vec())
     }
