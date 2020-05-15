@@ -6,9 +6,9 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
+use fil_types::PaddedPieceSize;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use fil_types::PaddedPieceSize;
 use vm::TokenAmount;
 
 /// Note: Deal Collateral is only released and returned to clients and miners

@@ -3,8 +3,8 @@
 
 use crypto::VRFProof;
 use encoding::{BytesDe, BytesSer};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use fil_types::PoStProof;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source
 /// of randomness for proofs of storage and leader election.  It is generated
