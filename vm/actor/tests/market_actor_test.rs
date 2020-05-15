@@ -105,6 +105,7 @@ fn simple_construction() {
     assert_eq!(empty_map, state_data.escrow_table);
     assert_eq!(empty_map, state_data.locked_table);
     assert_eq!(empty_set, state_data.deal_ids_by_party);
+    assert_eq!( state_data.last_cron.is_none(), true );
 }
 
 //#[test]
@@ -133,7 +134,7 @@ fn add_provider_escrow_funds() {
                 &MARKET_ACTOR_CODE_ID.clone(),
                 Method::AddBalance as u64,
                 &Serialized::serialize(provider_addr.clone()).unwrap(),
-            );
+            ) ;
             rt.verify();
 
             let state_data: State = rt.get_state().unwrap();
@@ -199,7 +200,7 @@ fn add_non_provider_funds() {
                 &MARKET_ACTOR_CODE_ID.clone(),
                 Method::AddBalance as u64,
                 &Serialized::serialize(caller_addr.clone()).unwrap(),
-            );
+            ) ;
 
             rt.verify();
 

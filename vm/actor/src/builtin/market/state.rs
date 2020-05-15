@@ -14,6 +14,8 @@ use runtime::Runtime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{ActorError, ExitCode, TokenAmount};
 
+const DEAL_UPDATES_INTERVAL : ChainEpoch  = 100;
+
 /// Market actor state
 #[derive(Default)]
 pub struct State {
@@ -32,6 +34,7 @@ pub struct State {
     /// Metadata cached for efficient iteration over deals.
     /// SetMultimap<Address>
     pub deal_ids_by_party: Cid,
+    pub last_cron : OptionalEpoch
 }
 
 impl State {
@@ -43,6 +46,7 @@ impl State {
             locked_table: empty_map,
             next_id: 0,
             deal_ids_by_party: empty_mset,
+            last_cron : OptionalEpoch::default()
         }
     }
 
@@ -370,6 +374,17 @@ impl State {
 
         state.last_updated_epoch = OptionalEpoch(Some(epoch));
 
+        let next = epoch + DEAL_UPDATES_INTERVAL; 
+        let next = if next > deal.end_epoch {
+            deal.end_epoch
+        }
+        else{
+            next
+        };
+
+
+
+
         // Update states array
         let mut states = Amt::<DealState, _>::load(&self.states, store)
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
@@ -379,6 +394,7 @@ impl State {
         self.states = states
             .flush()
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+
         Ok(TokenAmount::zero())
     }
 
@@ -391,7 +407,6 @@ impl State {
     where
         BS: BlockStore,
     {
-        // let deal = self.must_get_deal(store, deal_id)?;
 
         let mut proposals = Amt::<DealState, _>::load(&self.proposals, store)
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
@@ -534,6 +549,10 @@ impl State {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// State utility functions
+////////////////////////////////////////////////////////////////////////////////
+
 fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAmount {
     assert!(
         epoch <= deal.end_epoch,
@@ -559,6 +578,7 @@ impl Serialize for State {
             &self.locked_table,
             &self.next_id,
             &self.deal_ids_by_party,
+            &self.last_cron
         )
             .serialize(serializer)
     }
@@ -569,7 +589,7 @@ impl<'de> Deserialize<'de> for State {
     where
         D: Deserializer<'de>,
     {
-        let (proposals, states, escrow_table, locked_table, next_id, deal_ids_by_party) =
+        let (proposals, states, escrow_table, locked_table, next_id, deal_ids_by_party, last_cron) =
             Deserialize::deserialize(deserializer)?;
         Ok(Self {
             proposals,
@@ -578,6 +598,7 @@ impl<'de> Deserialize<'de> for State {
             locked_table,
             next_id,
             deal_ids_by_party,
+            last_cron
         })
     }
 }

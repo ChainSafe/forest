@@ -5,6 +5,10 @@ use clock::ChainEpoch;
 use num_traits::Zero;
 use vm::{PaddedPieceSize, TokenAmount};
 
+
+// The maximum supply of Filecoin that will ever exist (in token units)
+const TOTAL_FILECOIN   : u32 = 2000000000;
+
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {
     (0, 10000) // PARAM_FINISH
 }
@@ -13,21 +17,21 @@ pub(super) fn deal_price_per_epoch_bounds(
     _size: PaddedPieceSize,
     _duration: ChainEpoch,
 ) -> (TokenAmount, TokenAmount) {
-    (TokenAmount::zero(), TokenAmount::from(1u32 << 20)) // PARAM_FINISH
+    (TokenAmount::zero(), TokenAmount::from(TOTAL_FILECOIN)) // PARAM_FINISH
 }
 
 pub(super) fn deal_provider_collateral_bounds(
     _piece_size: PaddedPieceSize,
     _duration: ChainEpoch,
 ) -> (TokenAmount, TokenAmount) {
-    (TokenAmount::zero(), TokenAmount::from(1u32 << 20)) // PARAM_FINISH
+    (TokenAmount::zero(), TokenAmount::from(TOTAL_FILECOIN)) // PARAM_FINISH
 }
 
 pub(super) fn deal_client_collateral_bounds(
     _piece_size: PaddedPieceSize,
     _duration: ChainEpoch,
 ) -> (TokenAmount, TokenAmount) {
-    (TokenAmount::zero(), TokenAmount::from(1u32 << 20)) // PARAM_FINISH
+    (TokenAmount::zero(), TokenAmount::from(TOTAL_FILECOIN)) // PARAM_FINISH
 }
 
 pub(super) fn collateral_penalty_for_deal_activation_missed(

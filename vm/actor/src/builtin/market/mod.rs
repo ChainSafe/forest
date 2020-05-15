@@ -13,7 +13,7 @@ pub use self::types::*;
 use crate::{
     make_map, request_miner_control_addrs, BalanceTable, DealID, DealWeight, OptionalEpoch,
     SetMultimap, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, MINER_ACTOR_CODE_ID,
-    SYSTEM_ACTOR_ADDR,
+    SYSTEM_ACTOR_ADDR,CRON_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -39,11 +39,12 @@ pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     AddBalance = 2,
     WithdrawBalance = 3,
-    HandleExpiredDeals = 4,
-    PublishStorageDeals = 5,
-    VerifyDealsOnSectorProveCommit = 6,
-    OnMinerSectorsTerminate = 7,
-    ComputeDataCommitment = 8,
+    //HandleExpiredDeals = 4,
+    PublishStorageDeals = 4,
+    VerifyDealsOnSectorProveCommit = 5,
+    OnMinerSectorsTerminate = 6,
+    ComputeDataCommitment = 7,
+    CronTick = 8
 }
 /// Market Actor
 pub struct Actor;
@@ -130,7 +131,6 @@ impl Actor {
             rt.transaction::<_, Result<TokenAmount, ActorError>, _>(|st: &mut State, rt| {
                 // Before any operations that check the balance tables for funds, execute all deferred
                 // deal state updates.
-                amount_slashed_total += st.update_pending_deal_states_for_party(rt, &nominal)?;
 
                 let min_balance = st.get_locked_balance(rt.store(), &nominal)?;
 
@@ -169,32 +169,7 @@ impl Actor {
         Ok(())
     }
 
-    fn handle_expired_deals<BS, RT>(
-        rt: &mut RT,
-        params: HandleExpiredDealsParams,
-    ) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-
-        let slashed = rt.transaction(|st: &mut State, rt| {
-            st.update_pending_deal_states(rt.store(), params.deal_ids, rt.curr_epoch())
-        })??;
-
-        // TODO: award some small portion of slashed to caller as incentive
-
-        rt.send(
-            &*BURNT_FUNDS_ACTOR_ADDR,
-            METHOD_SEND,
-            &Serialized::default(),
-            &slashed,
-        )?;
-        Ok(())
-    }
-
-    /// Publish a new set of storage deals (not yet included in a sector).
+     /// Publish a new set of storage deals (not yet included in a sector).
     fn publish_storage_deals<BS, RT>(
         rt: &mut RT,
         params: PublishStorageDealsParams,
@@ -479,6 +454,35 @@ impl Actor {
 
         Ok(commd)
     }
+    fn cron_tick<BS, RT>(
+        rt: &mut RT,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR))?;
+
+
+        let amount_slashed = TokenAmount::from(0u8);
+        let mut timed_out_verif_deals : Vec<DealProposal> = vec![];
+
+
+
+
+
+        for deal in timed_out_verif_deals {
+            let send_result = rt.send(to: &Address, method: MethodNum, params: &Serialized, TokenAmount::from(0u8));
+        }
+
+
+        rt.send(&BURNT_FUNDS_ACTOR_ADDR.clone() , METHOD_SEND, &Serialized::default(), &amount_slashed) ?;
+
+        Ok(())
+
+    }
+
+    
 }
 ////////////////////////////////////////////////////////////////////////////////
 // Checks
@@ -675,10 +679,7 @@ impl ActorCode for Actor {
                 Self::withdraw_balance(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            Some(Method::HandleExpiredDeals) => {
-                Self::handle_expired_deals(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
-            }
+            
             Some(Method::PublishStorageDeals) => {
                 let res = Self::publish_storage_deals(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
@@ -694,6 +695,10 @@ impl ActorCode for Actor {
             Some(Method::ComputeDataCommitment) => {
                 let res = Self::compute_data_commitment(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
+            }
+            Some(Method::CronTick) => {
+                Self::cron_tick(rt)?;
+                Ok(Serialized::default())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
