@@ -10,12 +10,12 @@ pub use self::post::*;
 pub use self::registered_proof::*;
 pub use self::seal::*;
 
-use crate::ActorID;
 use ::serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::fmt;
+use vm::ActorID;
 
 pub type SectorNumber = u64;
 

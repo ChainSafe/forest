@@ -5,6 +5,7 @@ mod default_runtime;
 mod default_syscalls;
 mod gas_block_store;
 mod gas_syscalls;
+mod gas_tracker;
 mod vm;
 
 pub use self::default_runtime::*;
