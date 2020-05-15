@@ -70,7 +70,12 @@
                 "node": {
                     "string": "alpha"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "nested/alink",
+                    "link": {
+                        "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                    }
+                },
                 "matched": true
             },
             {
@@ -78,7 +83,12 @@
                 "node": {
                     "string": "zoo"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "nested/alink",
+                    "link": {
+                        "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                    }
+                },
                 "matched": true
             }
         ],
@@ -152,7 +162,12 @@
                 "node": {
                     "list": null
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedList",
+                    "link": {
+                        "/": "bafy2bzaceafbvbsgmvn4pscy44iof4ych35tsov6s256oxr4thmva5pt5pqgm"
+                    }
+                },
                 "matched": false
             },
             {
@@ -160,7 +175,12 @@
                 "node": {
                     "string": "alpha"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedList/0",
+                    "link": {
+                        "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                    }
+                },
                 "matched": true
             },
             {
@@ -168,7 +188,12 @@
                 "node": {
                     "string": "alpha"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedList/1",
+                    "link": {
+                        "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                    }
+                },
                 "matched": true
             },
             {
@@ -176,7 +201,12 @@
                 "node": {
                     "string": "beta"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedList/2",
+                    "link": {
+                        "/": "bafy2bzacea4ifsk7zpynrj4hutqozxvskoiz36deyld4lci4pvunc75m5uduo"
+                    }
+                },
                 "matched": true
             },
             {
@@ -184,7 +214,12 @@
                 "node": {
                     "string": "alpha"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedList/3",
+                    "link": {
+                        "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                    }
+                },
                 "matched": true
             },
             {
@@ -192,7 +227,12 @@
                 "node": {
                     "map": null
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedMap",
+                    "link": {
+                        "/": "bafy2bzaceb6vinwmaqcp2v6vefmzf2meq2lxaedjz575yefrwo3roi5aolrk2"
+                    }
+                },
                 "matched": false
             },
             {
@@ -200,7 +240,12 @@
                 "node": {
                     "bool": true
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedMap",
+                    "link": {
+                        "/": "bafy2bzaceb6vinwmaqcp2v6vefmzf2meq2lxaedjz575yefrwo3roi5aolrk2"
+                    }
+                },
                 "matched": true
             },
             {
@@ -208,7 +253,12 @@
                 "node": {
                     "map": null
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedMap",
+                    "link": {
+                        "/": "bafy2bzaceb6vinwmaqcp2v6vefmzf2meq2lxaedjz575yefrwo3roi5aolrk2"
+                    }
+                },
                 "matched": false
             },
             {
@@ -216,7 +266,12 @@
                 "node": {
                     "string": "zoo"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedMap",
+                    "link": {
+                        "/": "bafy2bzaceb6vinwmaqcp2v6vefmzf2meq2lxaedjz575yefrwo3roi5aolrk2"
+                    }
+                },
                 "matched": true
             },
             {
@@ -224,7 +279,12 @@
                 "node": {
                     "string": "alpha"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "linkedMap/nested/alink",
+                    "link": {
+                        "/": "bafy2bzacebkgyfp5qx4hs3xuxz7oscfrmbbqpcsm7eopwuycprl7wmnaewhc6"
+                    }
+                },
                 "matched": true
             }
         ],
@@ -289,7 +349,12 @@
                 "node": {
                     "string": "data"
                 },
-                "last_block": null,
+                "last_block": {
+                    "path": "",
+                    "link": {
+                        "/": "bafy2bzacedn6qybtc4g674facvcp4xcdep6lu6d25psgdjqxczyaqyrqrivra"
+                    }
+                },
                 "matched": true
             }
         ],

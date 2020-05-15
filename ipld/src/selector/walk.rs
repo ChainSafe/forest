@@ -117,6 +117,10 @@ where
         // Resolve any links transparently before traversing
         if let Ipld::Link(cid) = ipld {
             if let Some(resolver) = &self.resolver {
+                self.last_block = Some(LastBlockInfo {
+                    path: self.path.clone(),
+                    link: cid.clone(),
+                });
                 let mut node = resolver.load_link(cid).await.map_err(Error::Link)?;
                 while let Some(Ipld::Link(c)) = node {
                     node = resolver.load_link(&c).await.map_err(Error::Link)?;

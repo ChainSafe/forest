@@ -154,23 +154,36 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
             |prog, ipld, reason| -> Result<(), String> {
                 let mut idx = index.lock().unwrap();
                 let exp = &expect[*idx];
-                let current_path = prog.path();
-                if current_path != &exp.path {
+                // Current path
+                if prog.path() != &exp.path {
                     return Err(format!(
                         "{:?} at (idx: {}) does not match {:?}",
-                        current_path, *idx, exp.path
+                        prog.path(),
+                        *idx,
+                        exp.path
                     ));
                 }
+                // Current Ipld node
                 if !check_ipld(ipld, &exp.node) {
                     return Err(format!(
                         "{:?} at (idx: {}) does not match {:?}",
                         ipld, *idx, exp.node
                     ));
                 }
+                // Match boolean against visit reason
                 if !check_matched(reason, exp.matched) {
                     return Err(format!(
                         "{:?} at (idx: {}) does not match {:?}",
                         reason, *idx, exp.matched
+                    ));
+                }
+                // Check last block information
+                if prog.last_block() != exp.last_block.as_ref() {
+                    return Err(format!(
+                        "{:?} at (idx: {}) does not match {:?}",
+                        prog.last_block(),
+                        *idx,
+                        exp.last_block
                     ));
                 }
                 *idx += 1;
