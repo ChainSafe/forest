@@ -5,10 +5,11 @@ use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::Cbor;
+use fil_types::SectorSize;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{SectorSize, Serialized, TokenAmount};
+use vm::{Serialized, TokenAmount};
 
 pub type SectorTermination = i64;
 

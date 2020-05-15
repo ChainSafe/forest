@@ -32,6 +32,7 @@ clean:
 	@cargo clean -p forest_bigint
 	@cargo clean -p rleplus
 	@cargo clean -p commcid
+	@cargo clean -p fil_types
 	@echo "Done cleaning."
 
 lint: license clean
@@ -67,8 +68,8 @@ test-all: pull-serialization-tests
 test-all-verbose: pull-serialization-tests
 	cargo test --verbose --all-features
 
-test-all-verbose-no-run: pull-serialization-tests
-	cargo test --verbose --all-features --no-run
+test-all-no-run: pull-serialization-tests
+	cargo test --all-features --no-run
 
 # Checks if all headers are present and adds if not
 license:

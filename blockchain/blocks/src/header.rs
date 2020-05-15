@@ -13,15 +13,16 @@ use encoding::{
     ser::{Serialize, Serializer},
     Cbor, Error as EncodingError,
 };
+use fil_types::PoStProof;
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
     BigUint,
 };
 use sha2::Digest;
+use std::cmp::Ordering;
 use std::fmt;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use vm::PoStProof;
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
@@ -199,6 +200,21 @@ impl<'de> Deserialize<'de> for BlockHeader {
             .unwrap();
 
         Ok(header)
+    }
+}
+
+impl Ord for BlockHeader {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.ticket()
+            .cmp(other.ticket())
+            // Only compare cid bytes when tickets are equal
+            .then_with(|| self.cid().to_bytes().cmp(&other.cid().to_bytes()))
+    }
+}
+
+impl PartialOrd for BlockHeader {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
