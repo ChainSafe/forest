@@ -693,6 +693,7 @@ where
 
         // TODO verify_ticket_vrf
 
+        // collect the errors from the async validations
         loop {
             match validations.next().await {
                 Some(result) => {
@@ -705,6 +706,7 @@ where
                 }
             }
         }
+        // combine vec of error strings and return Validation error with this resultant string
         if !error_vec.is_empty() {
             let error_string = error_vec.join(", ");
             return Err(Error::Validation(error_string.to_owned()));
