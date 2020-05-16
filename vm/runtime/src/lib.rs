@@ -219,15 +219,14 @@ pub trait Syscalls {
         type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
 
         // collect proof bytes
-        let registered_proofs = &verify_info
-            .proofs
-            .iter()
-            .map(|p| p.registered_proof as u8)
-            .collect::<Vec<_>>();
+        let proofs = &verify_info.proofs.iter().fold(Vec::new(), |mut proof, p| {
+            proof.extend_from_slice(&p.proof_bytes);
+            proof
+        });
 
         //collect replicas
         let replicas = verify_info
-            .private_proof
+            .challenge_sectors
             .iter()
             .map::<ReplicaMapResult, _>(|sector_info: &SectorInfo| {
                 let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
@@ -245,12 +244,7 @@ pub trait Syscalls {
         prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
 
         //verify
-        if !verify_window_post(
-            &verify_info.randomness,
-            &registered_proofs,
-            &replicas,
-            prover_id,
-        )? {
+        if !verify_window_post(&verify_info.randomness, &proofs, &replicas, prover_id)? {
             return Err("Proof was invalid".to_string().into());
         }
 
