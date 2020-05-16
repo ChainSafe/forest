@@ -11,14 +11,19 @@ use clock::ChainEpoch;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
-    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo,
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo, SectorInfo,
     WindowPoStVerifyInfo,
 };
-use filecoin_proofs_api::seal::{compute_comm_d, verify_seal as proofs_verify_seal};
+use filecoin_proofs_api::{
+    post::verify_window_post,
+    seal::{compute_comm_d, verify_seal as proofs_verify_seal},
+    PublicReplicaInfo,
+};
 use filecoin_proofs_api::{ProverId, SectorId};
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
+use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
@@ -212,9 +217,40 @@ pub trait Syscalls {
         Ok(())
     }
     /// Verifies a proof of spacetime.
-    fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        // TODO
-        todo!()
+    fn verify_post(&self, verify_info: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
+
+        // collect proof bytes
+        let proofs = &verify_info.proofs.iter().fold(Vec::new(), |mut proof, p| {
+            proof.extend_from_slice(&p.proof_bytes);
+            proof
+        });
+
+        // collect replicas
+        let replicas = verify_info
+            .challenged_sectors
+            .iter()
+            .map::<ReplicaMapResult, _>(|sector_info: &SectorInfo| {
+                let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
+                let replica = PublicReplicaInfo::new(
+                    sector_info.proof.registered_window_post_proof()?.into(),
+                    commr,
+                );
+                Ok((SectorId::from(sector_info.sector_number), replica))
+            })
+            .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
+
+        // construct prover id
+        let mut prover_id = ProverId::default();
+        let prover_bytes = verify_info.prover.to_be_bytes();
+        prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
+
+        // verify
+        if !verify_window_post(&verify_info.randomness, &proofs, &replicas, prover_id)? {
+            return Err("Proof was invalid".to_string().into());
+        }
+
+        Ok(())
     }
     /// Verifies that two block headers provide proof of a consensus fault:
     /// - both headers mined by the same actor
