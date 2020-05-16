@@ -96,8 +96,8 @@ struct MsgMetaData {
 }
 
 impl<DB> ChainSyncer<DB>
-    where
-        DB: BlockStore + Sync + Send + 'static,
+where
+    DB: BlockStore + Sync + Send + 'static,
 {
     pub fn new(
         chain_store: ChainStore<DB>,
@@ -133,8 +133,8 @@ impl<DB> ChainSyncer<DB>
 }
 
 impl<DB> ChainSyncer<DB>
-    where
-        DB: BlockStore + Sync + Send + 'static,
+where
+    DB: BlockStore + Sync + Send + 'static,
 {
     pub async fn start(mut self) -> Result<(), Error> {
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
@@ -543,8 +543,8 @@ impl<DB> ChainSyncer<DB>
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
             tree: &StateTree<DB>,
         ) -> Result<(), Error>
-            where
-                M: Message,
+        where
+            M: Message,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
@@ -644,11 +644,8 @@ impl<DB> ChainSyncer<DB>
             cids.push(m.cid()?.to_bytes());
         }
         let db = Arc::clone(&self.chain_store.db);
-        let x = task::spawn_blocking(move || {
-            Self::check_block_msgs(db, pub_keys, cids, b)
-        });
+        let x = task::spawn_blocking(move || Self::check_block_msgs(db, pub_keys, cids, b));
         validations.push(x);
-
 
         // TODO use computed state_root instead of parent_tipset.parent_state()
 
@@ -660,25 +657,24 @@ impl<DB> ChainSyncer<DB>
             Ok(work_addr) => {
                 let temp_header = header.clone();
                 let block_sig_task = task::spawn_blocking(move || {
-                    temp_header.check_block_signature(&work_addr).map_err(|err| Error::Blockchain(err))
+                    temp_header
+                        .check_block_signature(&work_addr)
+                        .map_err(|err| Error::Blockchain(err))
                 });
                 validations.push(block_sig_task)
             }
-            Err(err) => {
-                error_vec.push(err.to_string())
-            }
+            Err(err) => error_vec.push(err.to_string()),
         }
-
 
         let slash = self
             .state_manager
-            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state()).unwrap_or_else(|err| {
-            error_vec.push(err.to_string());
-            false
-        });
+            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
+            .unwrap_or_else(|err| {
+                error_vec.push(err.to_string());
+                false
+            });
         if slash {
-            error_vec.push(
-                "Received block was from slashed or invalid miner".to_owned())
+            error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
 
         let power_result = self
@@ -689,19 +685,13 @@ impl<DB> ChainSyncer<DB>
             Ok(pow_tuple) => {
                 let (c_pow, net_pow) = pow_tuple;
                 if !header.is_ticket_winner(c_pow, net_pow) {
-                    error_vec.push(
-                        "Miner created a block but was not a winner".to_owned()
-                    )
+                    error_vec.push("Miner created a block but was not a winner".to_owned())
                 }
             }
-            Err(err) => {
-                error_vec.push(err.to_string())
-            }
+            Err(err) => error_vec.push(err.to_string()),
         }
 
         // TODO verify_ticket_vrf
-
-
 
         loop {
             match validations.next().await {
