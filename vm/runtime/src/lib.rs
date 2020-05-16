@@ -218,7 +218,7 @@ pub trait Syscalls {
     fn verify_post(&self, verify_info: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
         type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
 
-        //collect registered proofs
+        // collect proof bytes
         let registered_proofs = &verify_info
             .proofs
             .iter()
