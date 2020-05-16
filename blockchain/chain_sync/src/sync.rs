@@ -612,66 +612,113 @@ impl<DB> ChainSyncer<DB>
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     async fn validate(&self, block: &Block) -> Result<(), Error> {
+        let mut error_vec: Vec<String> = Vec::new();
+        let mut validations = FuturesUnordered::new();
+
         let header = block.header();
 
         // check if block has been signed
         if header.signature().is_none() {
-            return Err(Error::Validation("Signature is nil in header".to_owned()));
+            error_vec.push("Signature is nil in header".to_owned());
         }
 
         let parent_tipset = self.chain_store.tipset_from_keys(header.parents())?;
 
         // time stamp checks
-        header.validate_timestamps(&parent_tipset)?;
+        let time_stamp_check = header.validate_timestamps(&parent_tipset);
+        if time_stamp_check.is_err() {
+            error_vec.push(time_stamp_check.err().unwrap().to_string());
+        }
 
         // check messages to ensure valid state transitions
         let b = block.clone();
-
 
         // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
-            let pk = self.state_manager
+            let pk = self
+                .state_manager
                 .get_bls_public_key(m.from(), parent_tipset.parent_state())?;
             pub_keys.push(pk);
             cids.push(m.cid()?.to_bytes());
         }
         let db = Arc::clone(&self.chain_store.db);
-        let x = task::spawn_blocking (move || {
-            Self::check_block_msgs(db,  pub_keys, cids,b);
-        }).await;
+        let x = task::spawn_blocking(move || {
+            Self::check_block_msgs(db, pub_keys, cids, b)
+        });
+        validations.push(x);
 
 
         // TODO use computed state_root instead of parent_tipset.parent_state()
-        let work_addr = self
-            .state_manager
-            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())?;
+
         // block signature check
-        let temp_header = header.clone();
-        let block_sig_task = task::spawn_blocking( move || {
-            temp_header.check_block_signature(&work_addr).map_err(|err| Error::Blockchain(err))
-        }).await;
+        let work_addr_result = self
+            .state_manager
+            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address());
+        match work_addr_result {
+            Ok(work_addr) => {
+                let temp_header = header.clone();
+                let block_sig_task = task::spawn_blocking(move || {
+                    temp_header.check_block_signature(&work_addr).map_err(|err| Error::Blockchain(err))
+                });
+                validations.push(block_sig_task)
+            }
+            Err(err) => {
+                error_vec.push(err.to_string())
+            }
+        }
+
 
         let slash = self
             .state_manager
-            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())?;
+            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state()).unwrap_or_else(|err| {
+            error_vec.push(err.to_string());
+            false
+        });
         if slash {
-            return Err(Error::Validation(
-                "Received block was from slashed or invalid miner".to_owned(),
-            ));
+            error_vec.push(
+                "Received block was from slashed or invalid miner".to_owned())
         }
 
-        let (c_pow, net_pow) = self
+        let power_result = self
             .state_manager
-            .get_power(&parent_tipset.parent_state(), header.miner_address())?;
+            .get_power(&parent_tipset.parent_state(), header.miner_address());
         // ticket winner check
-        if !header.is_ticket_winner(c_pow, net_pow) {
-            return Err(Error::Validation(
-                "Miner created a block but was not a winner".to_owned(),
-            ));
+        match power_result {
+            Ok(pow_tuple) => {
+                let (c_pow, net_pow) = pow_tuple;
+                if !header.is_ticket_winner(c_pow, net_pow) {
+                    error_vec.push(
+                        "Miner created a block but was not a winner".to_owned()
+                    )
+                }
+            }
+            Err(err) => {
+                error_vec.push(err.to_string())
+            }
         }
+
         // TODO verify_ticket_vrf
+
+
+
+        loop {
+            match validations.next().await {
+                Some(result) => {
+                    if result.is_err() {
+                        error_vec.push(result.err().unwrap().to_string());
+                    }
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+        if !error_vec.is_empty() {
+            let error_string = error_vec.join(", ");
+            return Err(Error::Validation(error_string.to_owned()));
+        }
 
         Ok(())
     }
