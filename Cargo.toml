@@ -29,4 +29,5 @@ members = [
     "utils/rleplus",
     "utils/test_utils",
     "utils/commcid",
+    "types",
 ]

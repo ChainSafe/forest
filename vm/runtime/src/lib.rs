@@ -10,6 +10,10 @@ use cid::Cid;
 use clock::ChainEpoch;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
+use fil_types::{
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo,
+    WindowPoStVerifyInfo,
+};
 use filecoin_proofs_api::seal::{compute_comm_d, verify_seal as proofs_verify_seal};
 use filecoin_proofs_api::{ProverId, SectorId};
 use forest_encoding::{blake2b_256, Cbor};
@@ -17,10 +21,7 @@ use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
-use vm::{
-    zero_piece_commitment, ActorError, ExitCode, MethodNum, PaddedPieceSize, PieceInfo, Randomness,
-    RegisteredProof, SealVerifyInfo, Serialized, TokenAmount, WindowPoStVerifyInfo,
-};
+use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.

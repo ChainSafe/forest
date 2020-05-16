@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::gas_tracker::price_list_by_epoch;
 use super::{internal_send, DefaultRuntime};
 use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
@@ -18,7 +19,7 @@ use runtime::Syscalls;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::error::Error as StdError;
-use vm::{price_list_by_epoch, ActorError, ExitCode, Serialized};
+use vm::{ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
