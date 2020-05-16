@@ -4,7 +4,7 @@
 mod price_list;
 
 pub use self::price_list::{price_list_by_epoch, PriceList};
-use crate::{ActorError, ExitCode};
+use vm::{ActorError, ExitCode};
 
 pub struct GasTracker {
     gas_available: i64,

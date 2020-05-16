@@ -3,9 +3,9 @@
 
 use cid::{multihash, Cid, Codec};
 use commcid::FilecoinMultihashCode;
+use fil_types::{RegisteredProof, SealVerifyInfo};
 use interpreter::DefaultSyscalls;
 use runtime::*;
-use vm::{RegisteredProof, SealVerifyInfo};
 
 #[test]
 fn verify_seal_test() {

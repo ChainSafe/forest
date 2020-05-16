@@ -10,6 +10,10 @@ use cid::Cid;
 use clock::ChainEpoch;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
+use fil_types::{
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo, SectorInfo,
+    WindowPoStVerifyInfo,
+};
 use filecoin_proofs_api::{
     post::verify_window_post,
     seal::{compute_comm_d, verify_seal as proofs_verify_seal},
@@ -22,10 +26,8 @@ use message::UnsignedMessage;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
-use vm::{
-    zero_piece_commitment, ActorError, ExitCode, MethodNum, PaddedPieceSize, PieceInfo, Randomness,
-    RegisteredProof, SealVerifyInfo, SectorInfo, Serialized, TokenAmount, WindowPoStVerifyInfo,
-};
+use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
+
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
 pub trait Runtime<BS: BlockStore> {

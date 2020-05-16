@@ -14,6 +14,7 @@ pub mod reward;
 mod shared;
 mod singletons;
 pub mod system;
+pub mod verifreg;
 
 pub use self::codes::*;
 pub(crate) use self::shared::*;
