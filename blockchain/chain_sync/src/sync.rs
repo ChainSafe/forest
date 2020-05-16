@@ -625,12 +625,10 @@ where
         let parent_tipset = self.chain_store.tipset_from_keys(header.parents())?;
 
         // time stamp checks
-        let time_stamp_check = header.validate_timestamps(&parent_tipset);
-        if time_stamp_check.is_err() {
-            error_vec.push(time_stamp_check.err().unwrap().to_string());
+        if let Err(err) = header.validate_timestamps(&parent_tipset) {
+            error_vec.push(err.to_string());
         }
 
-        // check messages to ensure valid state transitions
         let b = block.clone();
 
         // Check Block Message and Signatures in them
@@ -644,6 +642,7 @@ where
             cids.push(m.cid()?.to_bytes());
         }
         let db = Arc::clone(&self.chain_store.db);
+        // check messages to ensure valid state transitions
         let x = task::spawn_blocking(move || Self::check_block_msgs(db, pub_keys, cids, b));
         validations.push(x);
 
@@ -659,7 +658,7 @@ where
                 let block_sig_task = task::spawn_blocking(move || {
                     temp_header
                         .check_block_signature(&work_addr)
-                        .map_err(|err| Error::Blockchain(err))
+                        .map_err(Error::Blockchain)
                 });
                 validations.push(block_sig_task)
             }
@@ -694,22 +693,15 @@ where
         // TODO verify_ticket_vrf
 
         // collect the errors from the async validations
-        loop {
-            match validations.next().await {
-                Some(result) => {
-                    if result.is_err() {
-                        error_vec.push(result.err().unwrap().to_string());
-                    }
-                }
-                None => {
-                    break;
-                }
+        while let Some(result) = validations.next().await {
+            if result.is_err() {
+                error_vec.push(result.err().unwrap().to_string());
             }
         }
         // combine vec of error strings and return Validation error with this resultant string
         if !error_vec.is_empty() {
             let error_string = error_vec.join(", ");
-            return Err(Error::Validation(error_string.to_owned()));
+            return Err(Error::Validation(error_string));
         }
 
         Ok(())
