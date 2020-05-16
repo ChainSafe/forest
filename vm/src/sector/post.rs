@@ -39,7 +39,7 @@ pub struct WinningPoStVerifyInfo {
 pub struct WindowPoStVerifyInfo {
     pub randomness: PoStRandomness,
     pub proofs: Vec<PoStProof>,
-    pub challenge_sectors: Vec<SectorInfo>,
+    pub challenged_sectors: Vec<SectorInfo>,
     pub prover: ActorID,
 }
 

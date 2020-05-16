@@ -226,7 +226,7 @@ pub trait Syscalls {
 
         //collect replicas
         let replicas = verify_info
-            .challenge_sectors
+            .challenged_sectors
             .iter()
             .map::<ReplicaMapResult, _>(|sector_info: &SectorInfo| {
                 let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
