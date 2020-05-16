@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use clock::ChainEpoch;
+use fil_types::PaddedPieceSize;
 use num_traits::Zero;
-use vm::{PaddedPieceSize, TokenAmount};
+use vm::TokenAmount;
 
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {
     (0, 10000) // PARAM_FINISH

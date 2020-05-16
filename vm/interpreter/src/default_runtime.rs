@@ -3,6 +3,7 @@
 
 use super::gas_block_store::GasBlockStore;
 use super::gas_syscalls::GasSyscalls;
+use super::gas_tracker::{price_list_by_epoch, GasTracker, PriceList};
 use actor::{
     self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
     MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
@@ -23,8 +24,7 @@ use state_tree::StateTree;
 use std::cell::RefCell;
 use std::rc::Rc;
 use vm::{
-    price_list_by_epoch, ActorError, ActorState, ExitCode, GasTracker, MethodNum, PriceList,
-    Randomness, Serialized, TokenAmount, METHOD_SEND,
+    ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount, METHOD_SEND,
 };
 
 /// Implementation of the Runtime trait.
