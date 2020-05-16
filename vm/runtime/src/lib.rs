@@ -226,7 +226,7 @@ pub trait Syscalls {
             proof
         });
 
-        //collect replicas
+        // collect replicas
         let replicas = verify_info
             .challenged_sectors
             .iter()
@@ -240,12 +240,12 @@ pub trait Syscalls {
             })
             .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
 
-        //construct prover id
+        // construct prover id
         let mut prover_id = ProverId::default();
         let prover_bytes = verify_info.prover.to_be_bytes();
         prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
 
-        //verify
+        // verify
         if !verify_window_post(&verify_info.randomness, &proofs, &replicas, prover_id)? {
             return Err("Proof was invalid".to_string().into());
         }
