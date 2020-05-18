@@ -23,7 +23,10 @@ impl Signer for DummySigner {
 #[test]
 fn convert_single_tipset_bundle() {
     let block = Block {
-        header: BlockHeader::builder().build().unwrap(),
+        header: BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap(),
         bls_messages: Vec::new(),
         secp_messages: Vec::new(),
     };
