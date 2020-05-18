@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![cfg(feature = "rocksdb")]
+
 use super::errors::Error;
 use super::{DatabaseService, Store};
 use rocksdb::{Options, WriteBatch, DB};

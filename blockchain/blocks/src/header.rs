@@ -50,7 +50,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .build_and_validate()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Builder, Default, Eq)]
+#[derive(Clone, Debug, PartialEq, Builder, Eq)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -78,7 +78,6 @@ pub struct BlockHeader {
 
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
-    #[builder(default)]
     miner_address: Address,
 
     // STATE

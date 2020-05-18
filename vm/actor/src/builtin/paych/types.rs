@@ -128,7 +128,7 @@ impl<'de> Deserialize<'de> for SignedVoucher {
 }
 
 /// Modular Verification method
-#[derive(Default, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct ModVerifyParams {
     pub actor: Address,
     pub method: MethodNum,

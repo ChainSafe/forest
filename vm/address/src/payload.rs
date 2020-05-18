@@ -133,9 +133,3 @@ impl From<&Payload> for Protocol {
         }
     }
 }
-
-impl Default for Payload {
-    fn default() -> Self {
-        Payload::ID(u64::MAX)
-    }
-}
