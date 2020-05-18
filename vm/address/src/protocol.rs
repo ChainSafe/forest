@@ -21,12 +21,6 @@ pub enum Protocol {
     BLS = 3,
 }
 
-impl Default for Protocol {
-    fn default() -> Self {
-        Protocol::ID
-    }
-}
-
 impl Protocol {
     /// from_byte allows referencing back to Protocol from encoded byte
     pub(super) fn from_byte(b: u8) -> Option<Protocol> {
