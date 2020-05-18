@@ -1,5 +1,6 @@
 [package]
 name = "forest_encoding"
+description = "Filecoin encoding and decoding utilities for use in Forest"
 license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]

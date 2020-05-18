@@ -1,5 +1,6 @@
 [package]
 name = "forest_message"
+description = "Filecoin message types"
 license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
@@ -7,7 +8,7 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-vm = { path = "../../vm" }
+vm = { package = "forest_vm", path = "../../vm" }
 address = { package = "forest_address", path = "../address" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

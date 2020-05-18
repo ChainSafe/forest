@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-vm = { path = "../../vm" }
+vm = { package = "forest_vm", path = "../../vm" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 address = { package = "forest_address", path = "../address" }
 message = { package = "forest_message", path = "../message" }

@@ -1,5 +1,6 @@
 [package]
 name = "forest_bigint"
+description = "Bigint utilies for use in Forest"
 license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
