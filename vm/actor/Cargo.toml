@@ -22,7 +22,7 @@ ipld_amt = { path = "../../ipld/amt" }
 forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
 unsigned-varint = "0.3.2"
-crypto = { path = "../../crypto" }
+crypto = { package = "forest_crypto", path = "../../crypto" }
 rleplus = { path = "../../utils/rleplus" }
 fil_types = { path = "../../types" }
 

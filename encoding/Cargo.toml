@@ -1,8 +1,10 @@
 [package]
 name = "forest_encoding"
+license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 blake2b_simd = "0.5.9"

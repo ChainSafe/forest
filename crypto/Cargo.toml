@@ -1,8 +1,10 @@
 [package]
-name = "crypto"
+name = "forest_crypto"
+license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 address = { package = "forest_address", path = "../vm/address" }

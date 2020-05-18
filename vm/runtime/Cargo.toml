@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 vm = { path = "../../vm" }
-crypto = { path = "../../crypto" }
+crypto = { package = "forest_crypto", path = "../../crypto" }
 address = { package = "forest_address", path = "../address" }
 message = { package = "forest_message", path = "../message" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }

@@ -23,7 +23,7 @@ actor = { path = "../../vm/actor/" }
 
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
-crypto = { path = "../../crypto" }
+crypto = { package = "forest_crypto", path = "../../crypto" }
 multihash = "0.10.0"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
     "test_constructors"
