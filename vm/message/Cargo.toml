@@ -8,12 +8,12 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-vm = { package = "forest_vm", path = "../../vm" }
-address = { package = "forest_address", path = "../address" }
-cid = { package = "forest_cid", path = "../../ipld/cid" }
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-encoding = { package = "forest_encoding", path = "../../encoding" }
-crypto = { package = "forest_crypto", path = "../../crypto" }
+vm = { package = "forest_vm", version = "0.1" }
+address = { package = "forest_address", version = "0.1" }
+cid = { package = "forest_cid", version = "0.1" }
+num-bigint = { package = "forest_bigint", version = "0.1" }
+encoding = { package = "forest_encoding", version = "0.1" }
+crypto = { package = "forest_crypto", version = "0.1" }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 
