@@ -10,3 +10,6 @@ db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 forest_ipld = { path = "../" }
 commcid = { path = "../../utils/commcid" }
+
+[features]
+rocksdb = ["db/rocksdb"]
