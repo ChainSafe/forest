@@ -9,9 +9,10 @@ use std::ops::Deref;
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct OptionalEpoch(pub Option<ChainEpoch>);
 
-
 impl Default for OptionalEpoch {
-    fn default() -> Self {OptionalEpoch(None)}
+    fn default() -> Self {
+        OptionalEpoch(None)
+    }
 }
 
 impl Deref for OptionalEpoch {

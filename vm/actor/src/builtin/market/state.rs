@@ -14,7 +14,7 @@ use runtime::Runtime;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{ActorError, ExitCode, TokenAmount};
 
-const DEAL_UPDATES_INTERVAL : ChainEpoch  = 100;
+const DEAL_UPDATES_INTERVAL: ChainEpoch = 100;
 
 /// Market actor state
 #[derive(Default)]
@@ -34,7 +34,7 @@ pub struct State {
     /// Metadata cached for efficient iteration over deals.
     /// SetMultimap<Address>
     pub deal_ids_by_party: Cid,
-    pub last_cron : OptionalEpoch
+    pub last_cron: OptionalEpoch,
 }
 
 impl State {
@@ -46,7 +46,7 @@ impl State {
             locked_table: empty_map,
             next_id: 0,
             deal_ids_by_party: empty_mset,
-            last_cron : OptionalEpoch::default()
+            last_cron: OptionalEpoch::default(),
         }
     }
 
@@ -284,7 +284,7 @@ impl State {
         let mut amount_slashed_total = TokenAmount::zero();
 
         for deal in deal_ids {
-            amount_slashed_total += self.update_pending_deal_state(store, deal, epoch)?;
+            amount_slashed_total += self.update_pending_deal_state(store, deal, epoch)?.0;
         }
 
         Ok(amount_slashed_total)
@@ -295,7 +295,7 @@ impl State {
         store: &BS,
         deal_id: DealID,
         epoch: ChainEpoch,
-    ) -> Result<TokenAmount, ActorError>
+    ) -> Result<(TokenAmount, OptionalEpoch), ActorError>
     where
         BS: BlockStore,
     {
@@ -314,9 +314,13 @@ impl State {
 
         if state.sector_start_epoch.is_none() {
             if epoch > deal.start_epoch {
-                return self.process_deal_init_timed_out(store, deal_id, deal, state);
+                return Ok((
+                    self.process_deal_init_timed_out(store, deal_id, deal, state)
+                        .unwrap(),
+                    OptionalEpoch::default(),
+                ));
             }
-            return Ok(TokenAmount::zero());
+            return Ok((TokenAmount::zero(), OptionalEpoch(None)));
         }
 
         assert!(
@@ -364,26 +368,22 @@ impl State {
             self.slash_balance(store, &deal.provider, &slashed)?;
 
             self.delete_deal(store, deal_id, deal)?;
-            return Ok(slashed);
+            return Ok((slashed, OptionalEpoch(None)));
         }
 
         if epoch >= deal.end_epoch {
             self.process_deal_expired(store, deal_id, deal, state)?;
-            return Ok(TokenAmount::zero());
+            return Ok((TokenAmount::zero(), OptionalEpoch(None)));
         }
 
         state.last_updated_epoch = OptionalEpoch(Some(epoch));
 
-        let next = epoch + DEAL_UPDATES_INTERVAL; 
+        let next = epoch + DEAL_UPDATES_INTERVAL;
         let next = if next > deal.end_epoch {
-            deal.end_epoch
-        }
-        else{
-            next
+            deal.end_epoch as ChainEpoch
+        } else {
+            next as ChainEpoch
         };
-
-
-
 
         // Update states array
         let mut states = Amt::<DealState, _>::load(&self.states, store)
@@ -395,7 +395,7 @@ impl State {
             .flush()
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-        Ok(TokenAmount::zero())
+        Ok((TokenAmount::zero(), OptionalEpoch(Some(next))))
     }
 
     pub(super) fn delete_deal<BS>(
@@ -407,7 +407,6 @@ impl State {
     where
         BS: BlockStore,
     {
-
         let mut proposals = Amt::<DealState, _>::load(&self.proposals, store)
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
         proposals
@@ -578,7 +577,7 @@ impl Serialize for State {
             &self.locked_table,
             &self.next_id,
             &self.deal_ids_by_party,
-            &self.last_cron
+            &self.last_cron,
         )
             .serialize(serializer)
     }
@@ -598,7 +597,7 @@ impl<'de> Deserialize<'de> for State {
             locked_table,
             next_id,
             deal_ids_by_party,
-            last_cron
+            last_cron,
         })
     }
 }

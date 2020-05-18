@@ -5,9 +5,8 @@ use clock::ChainEpoch;
 use num_traits::Zero;
 use vm::{PaddedPieceSize, TokenAmount};
 
-
 // The maximum supply of Filecoin that will ever exist (in token units)
-const TOTAL_FILECOIN   : u32 = 2000000000;
+const TOTAL_FILECOIN: u32 = 2000000000;
 
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {
     (0, 10000) // PARAM_FINISH

@@ -22,6 +22,8 @@ use vm::{PaddedPieceSize, TokenAmount};
 pub struct DealProposal {
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
+    pub verified_deal: bool,
+
     pub client: Address,
     pub provider: Address,
 
@@ -76,6 +78,7 @@ impl<'de> Deserialize<'de> for DealProposal {
         let (
             piece_cid,
             piece_size,
+            verified_deal,
             client,
             provider,
             start_epoch,
@@ -87,6 +90,7 @@ impl<'de> Deserialize<'de> for DealProposal {
         Ok(Self {
             piece_cid,
             piece_size,
+            verified_deal,
             client,
             provider,
             start_epoch,

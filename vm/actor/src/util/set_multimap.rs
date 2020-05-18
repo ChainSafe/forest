@@ -46,6 +46,21 @@ where
         Ok(self.0.set(key.to_bytes().into(), &new_root)?)
     }
 
+    pub fn put_many(&mut self, key: &Address, value: &Vec<DealID>) -> Result<(), String> {
+        // Get construct amt from retrieved cid or create new
+        let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
+
+        for v in value {
+            set.put(u64_key(*v))?;
+        }
+
+        // Save and calculate new root
+        let new_root = set.root()?;
+
+        // Set hamt node to set new root
+        Ok(self.0.set(key.to_bytes().into(), &new_root)?)
+    }
+
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
     pub fn get(&self, key: &Address) -> Result<Option<Set<'a, BS>>, String> {
