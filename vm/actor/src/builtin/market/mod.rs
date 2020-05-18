@@ -11,9 +11,11 @@ use self::policy::*;
 pub use self::state::State;
 pub use self::types::*;
 use crate::{
-    make_map, request_miner_control_addrs, BalanceTable, DealID, DealWeight, OptionalEpoch,
-    SetMultimap, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, MINER_ACTOR_CODE_ID,
-    SYSTEM_ACTOR_ADDR,CRON_ACTOR_ADDR,
+    make_map, request_miner_control_addrs,
+    verifreg::{Method as VerifregMethod, RestoreBytesParams},
+    BalanceTable, DealID, DealWeight, OptionalEpoch, SetMultimap, BURNT_FUNDS_ACTOR_ADDR,
+    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
+    VERIFREG_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -27,6 +29,7 @@ use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
+use std::collections::HashMap;
 use vm::{
     ActorError, ExitCode, MethodNum, PieceInfo, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
     METHOD_SEND,
@@ -44,7 +47,7 @@ pub enum Method {
     VerifyDealsOnSectorProveCommit = 5,
     OnMinerSectorsTerminate = 6,
     ComputeDataCommitment = 7,
-    CronTick = 8
+    CronTick = 8,
 }
 /// Market Actor
 pub struct Actor;
@@ -169,7 +172,7 @@ impl Actor {
         Ok(())
     }
 
-     /// Publish a new set of storage deals (not yet included in a sector).
+    /// Publish a new set of storage deals (not yet included in a sector).
     fn publish_storage_deals<BS, RT>(
         rt: &mut RT,
         params: PublishStorageDealsParams,
@@ -454,35 +457,130 @@ impl Actor {
 
         Ok(commd)
     }
-    fn cron_tick<BS, RT>(
-        rt: &mut RT,
-    ) -> Result<(), ActorError>
+    fn cron_tick<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR))?;
 
+        let mut amount_slashed = TokenAmount::from(0u8);
+        let mut timed_out_verif_deals: Vec<DealProposal> = vec![];
 
-        let amount_slashed = TokenAmount::from(0u8);
-        let mut timed_out_verif_deals : Vec<DealProposal> = vec![];
+        let v = rt
+            .transaction::<_, Result<(), ActorError>, _>(|st: &mut State, rt| {
+                let mut dbe = SetMultimap::from_root(rt.store(), &st.deal_ids_by_party)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
+                let mut updates_needed: HashMap<ChainEpoch, Vec<DealID>> = HashMap::new();
 
+                let mut states: Amt<DealState, BS> = Amt::load(&st.states, rt.store())
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
+                let mut et = BalanceTable::from_root(rt.store(), &st.escrow_table)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
+                let mut lt = BalanceTable::from_root(rt.store(), &st.locked_table)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+
+                for i in st.last_cron.unwrap() + 1..rt.curr_epoch() {
+                    let loop_result = dbe.for_each(&Address::new_id(i), |deal_id| {
+                        let state_option = states.get(deal_id)?;
+                        if state_option.is_none() {
+                            return Ok(());
+                        }
+                        let mut state = state_option.unwrap();
+                        let mut deal = st.must_get_deal(rt.store(), deal_id).unwrap();
+
+                        if state.sector_start_epoch.is_none() {
+                            assert!(rt.curr_epoch() >= deal.start_epoch);
+                            let slashed = st
+                                .process_deal_init_timed_out(
+                                    rt.store(),
+                                    deal_id,
+                                    deal.clone(),
+                                    state,
+                                )
+                                .unwrap();
+                            amount_slashed += slashed;
+                            if deal.verified_deal {
+                                timed_out_verif_deals.push(deal);
+                            }
+                            return Ok(());
+                        }
+
+                        let slash_amount = TokenAmount::from(0u8);
+                        let next_epoch: OptionalEpoch = OptionalEpoch(None);
+
+                        amount_slashed += slash_amount;
+
+                        if next_epoch.is_some() {
+                            assert!(next_epoch.unwrap() > rt.curr_epoch());
+                            let v = rt.curr_epoch();
+                            state.last_updated_epoch = OptionalEpoch(Some(v));
+                            states.set(deal_id, state)?;
+                            let key = next_epoch.unwrap();
+                            if updates_needed.get(&key).is_none() {
+                                updates_needed
+                                    .get_mut(&key)
+                                    .get_or_insert(&mut vec![deal_id]);
+                            } else {
+                                updates_needed.get_mut(&key).unwrap().push(deal_id);
+                            }
+                        }
+
+                        Ok(())
+                    });
+
+                    if loop_result.is_err() {
+                        return Err(ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            "failed to iterate deals for epoch".to_string(),
+                        ));
+                    }
+
+                    dbe.remove_all(&Address::new_id(i));
+                }
+
+                for (epoch, deals) in updates_needed.iter().enumerate() {
+                    if dbe.put_many(&Address::new_id(*deals.0), deals.1).is_err() {
+                        return Err(ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            "failed to reinsert deal IDs into epoch set".to_string(),
+                        ));
+                    }
+                }
+
+                st.deal_ids_by_party = dbe.root().unwrap();
+                st.locked_table = lt.root().unwrap();
+                st.escrow_table = et.root().unwrap();
+                st.last_cron = OptionalEpoch(Some(rt.curr_epoch()));
+                Ok(())
+            })
+            .unwrap();
 
         for deal in timed_out_verif_deals {
-            let send_result = rt.send(to: &Address, method: MethodNum, params: &Serialized, TokenAmount::from(0u8));
+            let params = RestoreBytesParams {
+                address: deal.client,
+                deal_size: deal.storage_price_per_epoch,
+            };
+
+            let send_result = rt.send(
+                &VERIFREG_ACTOR_ADDR.clone(),
+                VerifregMethod::RestoreBytes as u64,
+                &Serialized::serialize(params).unwrap(),
+                &TokenAmount::from(0u8),
+            )?;
         }
 
-
-        rt.send(&BURNT_FUNDS_ACTOR_ADDR.clone() , METHOD_SEND, &Serialized::default(), &amount_slashed) ?;
-
+        rt.send(
+            &BURNT_FUNDS_ACTOR_ADDR.clone(),
+            METHOD_SEND,
+            &Serialized::default(),
+            &amount_slashed,
+        )?;
         Ok(())
-
     }
-
-    
 }
 ////////////////////////////////////////////////////////////////////////////////
 // Checks
@@ -679,7 +777,7 @@ impl ActorCode for Actor {
                 Self::withdraw_balance(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            
+
             Some(Method::PublishStorageDeals) => {
                 let res = Self::publish_storage_deals(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
