@@ -24,6 +24,7 @@ features = ["cbor", "json"]
 
 [features]
 json = ["serde_json", "multibase"]
+submodule_tests = ["json"]
 
 [dev-dependencies]
 serde_json = "1.0"

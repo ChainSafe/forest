@@ -143,7 +143,7 @@ impl Serialize for WindowPoStVerifyInfo {
         (
             BytesSer(&self.randomness),
             &self.proofs,
-            &self.private_proof,
+            &self.challenged_sectors,
             &self.prover,
         )
             .serialize(serializer)
@@ -155,13 +155,13 @@ impl<'de> Deserialize<'de> for WindowPoStVerifyInfo {
     where
         D: Deserializer<'de>,
     {
-        let (Byte32De(randomness), proofs, private_proof, prover) =
+        let (Byte32De(randomness), proofs, challenged_sectors, prover) =
             Deserialize::deserialize(deserializer)?;
 
         Ok(Self {
             randomness,
             proofs,
-            private_proof,
+            challenged_sectors,
             prover,
         })
     }

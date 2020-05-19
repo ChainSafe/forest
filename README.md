@@ -39,7 +39,7 @@ make install
 forest
 ```
 
-> protoc is also required to build, if not already installed follow [instructions here](http://google.github.io/proto-lens/installing-protoc.html)
+> `protoc` and `OpenCL` are also required to build. Installation for protoc can be found [here](http://google.github.io/proto-lens/installing-protoc.html).
 
 ### Config
 

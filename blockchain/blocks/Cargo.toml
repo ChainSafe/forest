@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
 beacon = { path = "../beacon" }
-crypto = { path = "../../crypto" }
+crypto = { package = "forest_crypto", path = "../../crypto" }
 message = { package = "forest_message", path = "../../vm/message" }
 clock = { path = "../../node/clock" }
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor"] }
@@ -17,7 +17,7 @@ encoding = { package = "forest_encoding", path = "../../encoding" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 sha2 = { version = "0.8", default-features = false }
 thiserror = "1.0"
-vm = { path = "../../vm" }
+vm = { package = "forest_vm", path = "../../vm" }
 fil_types = { path = "../../types" }
 
 [dev-dependencies]
