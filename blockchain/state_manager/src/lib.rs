@@ -129,8 +129,4 @@ where
         }
         Ok(kaddr.payload_bytes())
     }
-
-    pub fn get_db(&self) -> Arc<DB> {
-        Arc::clone(&self.bs)
-    }
 }
