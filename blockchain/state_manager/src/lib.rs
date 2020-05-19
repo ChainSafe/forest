@@ -118,9 +118,13 @@ where
     }
 
     /// Returns a bls public key from provided address
-    pub fn get_bls_public_key(&self, addr: &Address, state_cid: &Cid) -> Result<Vec<u8>, Error> {
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
-        let kaddr = resolve_to_key_addr(&state, self.bs.as_ref(), addr)
+    pub fn get_bls_public_key(
+        db: &Arc<DB>,
+        addr: &Address,
+        state_cid: &Cid,
+    ) -> Result<Vec<u8>, Error> {
+        let state = StateTree::new_from_root(db.as_ref(), state_cid).map_err(Error::State)?;
+        let kaddr = resolve_to_key_addr(&state, db.as_ref(), addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
         if kaddr.protocol() != Protocol::BLS {
             return Err("Address must be BLS address to load bls public key"

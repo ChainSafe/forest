@@ -508,12 +508,17 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    fn check_block_msgs(
-        db: Arc<DB>,
-        pub_keys: Vec<Vec<u8>>,
-        cids: Vec<Vec<u8>>,
-        block: Block,
-    ) -> Result<(), Error> {
+    fn check_block_msgs(db: Arc<DB>, block: Block, tip: &Tipset) -> Result<(), Error> {
+        //do the initial loop here
+        // Check Block Message and Signatures in them
+        let mut pub_keys = Vec::new();
+        let mut cids = Vec::new();
+        for m in block.bls_msgs() {
+            let pk = StateManager::get_bls_public_key(&db, m.from(), tip.parent_state())?;
+            pub_keys.push(pk);
+            cids.push(m.cid()?.to_bytes());
+        }
+
         if let Some(sig) = block.header().bls_aggregate() {
             if !verify_bls_aggregate(
                 cids.iter()
@@ -630,19 +635,10 @@ where
 
         let b = block.clone();
 
-        // Check Block Message and Signatures in them
-        let mut pub_keys = Vec::new();
-        let mut cids = Vec::new();
-        for m in block.bls_msgs() {
-            let pk = self
-                .state_manager
-                .get_bls_public_key(m.from(), parent_tipset.parent_state())?;
-            pub_keys.push(pk);
-            cids.push(m.cid()?.to_bytes());
-        }
         let db = Arc::clone(&self.chain_store.db);
+        let parent_clone = parent_tipset.clone();
         // check messages to ensure valid state transitions
-        let x = task::spawn_blocking(move || Self::check_block_msgs(db, pub_keys, cids, b));
+        let x = task::spawn_blocking(move || Self::check_block_msgs(db, b, &parent_clone));
         validations.push(x);
 
         // TODO use computed state_root instead of parent_tipset.parent_state()
