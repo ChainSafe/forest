@@ -24,3 +24,4 @@ blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore", features = ["rocksdb"] }
 chain = { path = "../blockchain/chain" }
 structopt = { version = "0.3" }
+rpc = { path = "../node/rpc" }

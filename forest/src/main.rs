@@ -15,6 +15,7 @@ use log::{info, trace};
 use std::sync::Arc;
 use structopt::StructOpt;
 use utils::write_to_file;
+use rpc::start_rpc;
 
 fn main() {
     logger::setup_logger();
@@ -68,6 +69,11 @@ fn main() {
     });
     let sync_thread = task::spawn(async {
         chain_syncer.start().await.unwrap();
+    });
+
+    let db_rpc = Arc::clone(&db);
+    let rpc_thread = task::spawn(async {
+        let rpc = rpc::start_rpc(db_rpc).await;
     });
 
     // Block until ctrl-c is hit
