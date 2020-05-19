@@ -129,7 +129,7 @@ impl Actor {
     {
         let (nominal, recipient) = escrow_address(rt, &params.provider_or_client)?;
 
-        let mut amount_slashed_total = TokenAmount::zero();
+        let amount_slashed_total = TokenAmount::zero();
         let amount_extracted =
             rt.transaction::<_, Result<TokenAmount, ActorError>, _>(|st: &mut State, rt| {
                 // Before any operations that check the balance tables for funds, execute all deferred
@@ -467,97 +467,96 @@ impl Actor {
         let mut amount_slashed = TokenAmount::from(0u8);
         let mut timed_out_verif_deals: Vec<DealProposal> = vec![];
 
-        let v = rt
-            .transaction::<_, Result<(), ActorError>, _>(|st: &mut State, rt| {
-                let mut dbe = SetMultimap::from_root(rt.store(), &st.deal_ids_by_party)
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+        rt.transaction::<_, Result<(), ActorError>, _>(|st: &mut State, rt| {
+            let mut dbe = SetMultimap::from_root(rt.store(), &st.deal_ids_by_party)
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-                let mut updates_needed: HashMap<ChainEpoch, Vec<DealID>> = HashMap::new();
+            let mut updates_needed: HashMap<ChainEpoch, Vec<DealID>> = HashMap::new();
 
-                let mut states: Amt<DealState, BS> = Amt::load(&st.states, rt.store())
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+            let mut states: Amt<DealState, BS> = Amt::load(&st.states, rt.store())
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-                let mut et = BalanceTable::from_root(rt.store(), &st.escrow_table)
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+            let mut et = BalanceTable::from_root(rt.store(), &st.escrow_table)
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-                let mut lt = BalanceTable::from_root(rt.store(), &st.locked_table)
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+            let mut lt = BalanceTable::from_root(rt.store(), &st.locked_table)
+                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-                for i in st.last_cron.unwrap() + 1..rt.curr_epoch() {
-                    let loop_result = dbe.for_each(&Address::new_id(i), |deal_id| {
-                        let state_option = states.get(deal_id)?;
-                        if state_option.is_none() {
-                            return Ok(());
+            for i in st.last_cron.unwrap() + 1..rt.curr_epoch() {
+                let loop_result = dbe.for_each(&Address::new_id(i), |deal_id| {
+                    let state_option = states.get(deal_id)?;
+                    if state_option.is_none() {
+                        return Ok(());
+                    }
+                    let mut state = state_option.unwrap();
+                    let deal = st.must_get_deal(rt.store(), deal_id).unwrap();
+
+                    if state.sector_start_epoch.is_none() {
+                        assert!(rt.curr_epoch() >= deal.start_epoch);
+                        let slashed = st
+                            .process_deal_init_timed_out(rt.store(), deal_id, deal.clone(), state)
+                            .unwrap();
+                        amount_slashed += slashed;
+                        if deal.verified_deal {
+                            timed_out_verif_deals.push(deal);
                         }
-                        let mut state = state_option.unwrap();
-                        let mut deal = st.must_get_deal(rt.store(), deal_id).unwrap();
+                        return Ok(());
+                    }
+                    let (slash_amount, next_epoch) = st
+                        .update_pending_deal_state(rt.store(), deal_id, rt.curr_epoch())
+                        .unwrap();
 
-                        if state.sector_start_epoch.is_none() {
-                            assert!(rt.curr_epoch() >= deal.start_epoch);
-                            let slashed = st
-                                .process_deal_init_timed_out(
-                                    rt.store(),
-                                    deal_id,
-                                    deal.clone(),
-                                    state,
-                                )
-                                .unwrap();
-                            amount_slashed += slashed;
-                            if deal.verified_deal {
-                                timed_out_verif_deals.push(deal);
-                            }
-                            return Ok(());
+                    //let slash_amount = TokenAmount::from(0u8);
+                    //let next_epoch: OptionalEpoch = OptionalEpoch(None);
+
+                    amount_slashed += slash_amount;
+
+                    if next_epoch.is_some() {
+                        assert!(next_epoch.unwrap() > rt.curr_epoch());
+                        let v = rt.curr_epoch();
+                        state.last_updated_epoch = OptionalEpoch(Some(v));
+                        states.set(deal_id, state)?;
+                        let key = next_epoch.unwrap();
+                        if updates_needed.get(&key).is_none() {
+                            updates_needed
+                                .get_mut(&key)
+                                .get_or_insert(&mut vec![deal_id]);
+                        } else {
+                            updates_needed.get_mut(&key).unwrap().push(deal_id);
                         }
-
-                        let slash_amount = TokenAmount::from(0u8);
-                        let next_epoch: OptionalEpoch = OptionalEpoch(None);
-
-                        amount_slashed += slash_amount;
-
-                        if next_epoch.is_some() {
-                            assert!(next_epoch.unwrap() > rt.curr_epoch());
-                            let v = rt.curr_epoch();
-                            state.last_updated_epoch = OptionalEpoch(Some(v));
-                            states.set(deal_id, state)?;
-                            let key = next_epoch.unwrap();
-                            if updates_needed.get(&key).is_none() {
-                                updates_needed
-                                    .get_mut(&key)
-                                    .get_or_insert(&mut vec![deal_id]);
-                            } else {
-                                updates_needed.get_mut(&key).unwrap().push(deal_id);
-                            }
-                        }
-
-                        Ok(())
-                    });
-
-                    if loop_result.is_err() {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            "failed to iterate deals for epoch".to_string(),
-                        ));
                     }
 
-                    dbe.remove_all(&Address::new_id(i));
+                    Ok(())
+                });
+
+                if loop_result.is_err() {
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        "failed to iterate deals for epoch".to_string(),
+                    ));
                 }
 
-                for (epoch, deals) in updates_needed.iter().enumerate() {
-                    if dbe.put_many(&Address::new_id(*deals.0), deals.1).is_err() {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            "failed to reinsert deal IDs into epoch set".to_string(),
-                        ));
-                    }
-                }
+                if dbe.remove_all(&Address::new_id(i)).is_err(){
+                    return Err(ActorError::new(ExitCode::ErrIllegalState,"failed to delete deals from set".to_string()));
 
-                st.deal_ids_by_party = dbe.root().unwrap();
-                st.locked_table = lt.root().unwrap();
-                st.escrow_table = et.root().unwrap();
-                st.last_cron = OptionalEpoch(Some(rt.curr_epoch()));
-                Ok(())
-            })
-            .unwrap();
+                }
+            }
+
+            for deals in updates_needed {
+                if dbe.put_many(&Address::new_id(deals.0), &deals.1).is_err() {
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        "failed to reinsert deal IDs into epoch set".to_string(),
+                    ));
+                }
+            }
+
+            st.deal_ids_by_party = dbe.root().unwrap();
+            st.locked_table = lt.root().unwrap();
+            st.escrow_table = et.root().unwrap();
+            st.last_cron = OptionalEpoch(Some(rt.curr_epoch()));
+            Ok(())
+        })??;
 
         for deal in timed_out_verif_deals {
             let params = RestoreBytesParams {
@@ -565,7 +564,7 @@ impl Actor {
                 deal_size: deal.storage_price_per_epoch,
             };
 
-            let send_result = rt.send(
+            rt.send(
                 &VERIFREG_ACTOR_ADDR.clone(),
                 VerifregMethod::RestoreBytes as u64,
                 &Serialized::serialize(params).unwrap(),
