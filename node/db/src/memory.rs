@@ -61,34 +61,6 @@ impl Store for MemoryDB {
         Ok(())
     }
 
-    fn bulk_write<K, V>(&self, keys: &[K], values: &[V]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        // Safety check to make sure kv lengths are the same
-        if keys.len() != values.len() {
-            return Err(Error::InvalidBulkLen);
-        }
-
-        for (k, v) in keys.iter().zip(values.iter()) {
-            self.db
-                .write()
-                .insert(Self::db_index(k), v.as_ref().to_vec());
-        }
-        Ok(())
-    }
-
-    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        for k in keys.iter() {
-            self.db.write().remove(&Self::db_index(k));
-        }
-        Ok(())
-    }
-
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
@@ -101,16 +73,5 @@ impl Store for MemoryDB {
         K: AsRef<[u8]>,
     {
         Ok(self.db.read().contains_key(&Self::db_index(key)))
-    }
-
-    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        let mut v = Vec::with_capacity(keys.len());
-        for k in keys.iter() {
-            v.push(self.db.read().get(&Self::db_index(k)).cloned())
-        }
-        Ok(v)
     }
 }

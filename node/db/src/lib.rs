@@ -43,16 +43,31 @@ pub trait Store {
     /// Read slice of keys and return a vector of optional values.
     fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
     where
-        K: AsRef<[u8]>;
+        K: AsRef<[u8]>,
+    {
+        keys.iter().map(|key| self.read(key)).collect()
+    }
 
     /// Write slice of KV pairs.
     fn bulk_write<K, V>(&self, keys: &[K], values: &[V]) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
-        V: AsRef<[u8]>;
+        V: AsRef<[u8]>,
+    {
+        if keys.len() != values.len() {
+            return Err(Error::InvalidBulkLen);
+        }
+        keys.iter()
+            .zip(values)
+            .map(|(key, value)| self.write(key, value))
+            .collect()
+    }
 
     /// Bulk delete keys from the data store.
     fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
     where
-        K: AsRef<[u8]>;
+        K: AsRef<[u8]>,
+    {
+        keys.iter().map(|key| self.delete(key)).collect()
+    }
 }
