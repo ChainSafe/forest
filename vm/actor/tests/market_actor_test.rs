@@ -4,24 +4,21 @@
 mod common;
 
 use actor::{
-    init::{ConstructorParams, ExecParams, ExecReturn},
-    market::{DealState, Method, State, WithdrawBalanceParams},
+    market::{Method, State, WithdrawBalanceParams},
     miner::MinerInfo,
-    BalanceTable, Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, FIRST_NON_SINGLETON_ADDR,
+    Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, FIRST_NON_SINGLETON_ADDR,
     INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
-    PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
-    SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
+    STORAGE_MARKET_ACTOR_ADDR, 
+    SYSTEM_ACTOR_ADDR, 
 };
 use address::Address;
-use cid::Cid;
 use common::*;
 use db::MemoryDB;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use message::{Message, UnsignedMessage};
-use serde::{de::DeserializeOwned, Serialize};
+use message::{UnsignedMessage};
 use vm::{
-    ActorError, ExitCode, SectorSize, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+    ExitCode, SectorSize, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
 
 enum TestId {
