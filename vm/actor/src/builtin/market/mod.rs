@@ -536,9 +536,11 @@ impl Actor {
                     ));
                 }
 
-                if dbe.remove_all(&Address::new_id(i)).is_err(){
-                    return Err(ActorError::new(ExitCode::ErrIllegalState,"failed to delete deals from set".to_string()));
-
+                if dbe.remove_all(&Address::new_id(i)).is_err() {
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        "failed to delete deals from set".to_string(),
+                    ));
                 }
             }
 
