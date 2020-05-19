@@ -50,13 +50,13 @@ pull-serialization-tests:
 	git submodule update --init
 
 run-vectors:
-	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "serde_tests"
+	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
 
 test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo test --all --release --exclude serialization_tests
+	cargo test --all --exclude serialization_tests
 
 # This will run all tests will all features enabled, which will exclude some tests with
 # specific features disabled

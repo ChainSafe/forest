@@ -3,7 +3,7 @@
 
 mod empty_map;
 mod walk;
-pub use walk::{LinkResolver, Progress, VisitReason};
+pub use self::walk::*;
 
 use super::{Ipld, PathSegment};
 use indexmap::IndexMap;
