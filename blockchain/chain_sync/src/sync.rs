@@ -129,12 +129,7 @@ where
             next_sync_target: SyncBucket::default(),
         })
     }
-}
 
-impl<DB> ChainSyncer<DB>
-where
-    DB: BlockStore + Sync + Send + 'static,
-{
     pub async fn start(mut self) -> Result<(), Error> {
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
