@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "json")]
+#![cfg(feature = "submodule_tests")]
 
 use forest_ipld::selector::Selector;
 use forest_ipld::{json, Ipld, PathSegment};
@@ -59,7 +59,7 @@ fn process_vector(initial_selector: Selector, params: Vec<ExploreParams>) -> Opt
 
 #[test]
 fn selector_explore_tests() {
-    let file = File::open("./tests/selector_explore.json").unwrap();
+    let file = File::open("./tests/ipld-traversal-vectors/selector_explore.json").unwrap();
     let reader = BufReader::new(file);
     let vectors: Vec<TestVector> =
         serde_json::from_reader(reader).expect("Test vector deserialization failed");

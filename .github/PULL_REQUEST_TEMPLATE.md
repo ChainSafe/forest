@@ -5,8 +5,9 @@ Changes introduced in this pull request:
 
 
 **Reference issue to close (if applicable)**
-<!-- Include the issue reference this pull request is connected to (e.g. closes #1). -->
-Closes <!--ADD ISSUE NUMBER (don't remove Closes)-->
+<!-- Include the issue reference this pull request is connected to -->
+<!--(e.g. Closes #1)-->
+Closes 
 
 
 **Other information and links**

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
-vm = { path = "../../vm" }
+vm = { package = "forest_vm", path = "../../vm" }
 amt = { package = "ipld_amt", path = "../../ipld/amt" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
@@ -19,7 +19,7 @@ message = { package = "forest_message", path = "../../vm/message" }
 state_tree = { path = "../../vm/state_tree/" }
 state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-crypto = { path = "../../crypto" }
+crypto = { package = "forest_crypto", path = "../../crypto" }
 log = "0.4.8"
 async-std = { version = "1.5.0", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }

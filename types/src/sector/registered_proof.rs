@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::SectorSize;
-use filecoin_proofs_api::RegisteredSealProof;
+use filecoin_proofs_api::{RegisteredPoStProof, RegisteredSealProof};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -164,6 +164,31 @@ impl From<RegisteredProof> for RegisteredSealProof {
             | StackedDRG512MiBPoSt
             | StackedDRG512MiBWindowPoSt
             | StackedDRG512MiBWinningPoSt => RegisteredSealProof::StackedDrg512MiBV1,
+        }
+    }
+}
+
+impl From<RegisteredProof> for RegisteredPoStProof {
+    fn from(p: RegisteredProof) -> Self {
+        use RegisteredProof::*;
+
+        match p {
+            StackedDRG32GiBSeal
+            | StackedDRG32GiBPoSt
+            | StackedDRG32GiBWindowPoSt
+            | StackedDRG32GiBWinningPoSt => RegisteredPoStProof::StackedDrgWindow32GiBV1,
+            StackedDRG2KiBSeal
+            | StackedDRG2KiBPoSt
+            | StackedDRG2KiBWindowPoSt
+            | StackedDRG2KiBWinningPoSt => RegisteredPoStProof::StackedDrgWindow2KiBV1,
+            StackedDRG8MiBSeal
+            | StackedDRG8MiBPoSt
+            | StackedDRG8MiBWindowPoSt
+            | StackedDRG8MiBWinningPoSt => RegisteredPoStProof::StackedDrgWindow8MiBV1,
+            StackedDRG512MiBSeal
+            | StackedDRG512MiBPoSt
+            | StackedDRG512MiBWindowPoSt
+            | StackedDRG512MiBWinningPoSt => RegisteredPoStProof::StackedDrgWindow512MiBV1,
         }
     }
 }

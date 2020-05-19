@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "serde_tests")]
+#![cfg(feature = "submodule_tests")]
 
 use cid::{
     json::{self, CidJson},
