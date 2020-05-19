@@ -18,11 +18,12 @@ impl Selector {
     ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
-        L: LinkResolver + Sync + Send + Clone,
+        L: LinkResolver + Sync + Send,
     {
         Progress {
             resolver,
             path: Path::default(),
+            last_block: None,
         }
         .walk_all(ipld, self, &callback)
         .await
@@ -38,7 +39,7 @@ impl Selector {
     ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld) -> Result<(), String> + Sync,
-        L: LinkResolver + Sync + Send + Clone,
+        L: LinkResolver + Sync + Send,
     {
         self.walk_all(ipld, resolver, |prog, ipld, reason| -> Result<(), String> {
             match reason {
@@ -61,19 +62,31 @@ pub enum VisitReason {
 
 #[async_trait]
 pub trait LinkResolver {
-    #[allow(unused_variables)]
     /// Resolves a Cid link into it's respective Ipld node, if it exists.
+    async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>, String>;
+}
+
+#[async_trait]
+impl LinkResolver for () {
+    #[allow(unused_variables, clippy::trivially_copy_pass_by_ref)]
     async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>, String> {
-        Err("load_link not implemented on the LinkResolver".into())
+        Err("load_link not implemented on the LinkResolver for default implementation".into())
     }
 }
 
-impl LinkResolver for () {}
-
-#[derive(Debug)]
+/// Contains progress of traversal and last block information from link traversals.
+#[derive(Debug, Default)]
 pub struct Progress<L = ()> {
     resolver: Option<L>,
     path: Path,
+    last_block: Option<LastBlockInfo>,
+}
+
+/// Contains information about the last block that was traversed in walking of the ipld graph.
+#[derive(Debug, PartialEq, Clone)]
+pub struct LastBlockInfo {
+    pub path: Path,
+    pub link: Cid,
 }
 
 impl<L> Progress<L>
@@ -83,6 +96,11 @@ where
     /// Returns the path of the current progress
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Returns the last block information from a link traversal.
+    pub fn last_block(&self) -> Option<&LastBlockInfo> {
+        self.last_block.as_ref()
     }
 
     #[async_recursion]
@@ -98,6 +116,10 @@ where
         // Resolve any links transparently before traversing
         if let Ipld::Link(cid) = ipld {
             if let Some(resolver) = &self.resolver {
+                self.last_block = Some(LastBlockInfo {
+                    path: self.path.clone(),
+                    link: cid.clone(),
+                });
                 let mut node = resolver.load_link(cid).await.map_err(Error::Link)?;
                 while let Some(Ipld::Link(c)) = node {
                     node = resolver.load_link(&c).await.map_err(Error::Link)?;
