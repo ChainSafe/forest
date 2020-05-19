@@ -6,20 +6,17 @@ mod common;
 use actor::{
     market::{Method, State, WithdrawBalanceParams},
     miner::MinerInfo,
-    Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, FIRST_NON_SINGLETON_ADDR,
-    INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
-    STORAGE_MARKET_ACTOR_ADDR, 
-    SYSTEM_ACTOR_ADDR, 
+    Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, FIRST_NON_SINGLETON_ADDR, INIT_ACTOR_CODE_ID,
+    MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR,
+    SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use common::*;
 use db::MemoryDB;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use message::{UnsignedMessage};
-use vm::{
-    ExitCode, SectorSize, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
-};
+use message::UnsignedMessage;
+use vm::{ExitCode, SectorSize, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
 enum TestId {
     MarketActorId = 100,
