@@ -514,7 +514,6 @@ where
     }
     // Block message validation checks
     fn check_block_msgs(
-        blockstore: &DB,
         db: Arc<DB>,
         pub_keys: Vec<Vec<u8>>,
         cids: Vec<Vec<u8>>,
@@ -607,7 +606,7 @@ where
                 .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root
-        let sm_root = Self::compute_msg_data(blockstore, block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = Self::compute_msg_data(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -647,10 +646,8 @@ where
             cids.push(m.cid()?.to_bytes());
         }
         let db = Arc::clone(&self.chain_store.db);
-        // let bs = Arc::clone(&self.chain_store.blockstore());
         // check messages to ensure valid state transitions
-        let bs = Arc::clone(&self.chain_store.db);
-        let x = task::spawn_blocking(move || Self::check_block_msgs(&bs, db, pub_keys, cids, b));
+        let x = task::spawn_blocking(move || Self::check_block_msgs(db, pub_keys, cids, b));
         validations.push(x);
 
         // TODO use computed state_root instead of parent_tipset.parent_state()
@@ -1000,8 +997,7 @@ mod tests {
                 .unwrap();
 
         let root =
-            ChainSyncer::<MemoryDB>::compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp])
-                .unwrap();
+            ChainSyncer::compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
     }
 }
