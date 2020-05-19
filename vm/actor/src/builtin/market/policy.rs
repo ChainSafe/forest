@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use clock::ChainEpoch;
+use fil_types::PaddedPieceSize;
 use num_traits::Zero;
-use vm::{PaddedPieceSize, TokenAmount};
+use vm::TokenAmount;
 
 // The maximum supply of Filecoin that will ever exist (in token units)
 const TOTAL_FILECOIN: u32 = 2000000000;

@@ -1,13 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{
-    MethodNum, PieceInfo, RegisteredProof, SealVerifyInfo, TokenAmount, WindowPoStVerifyInfo,
-    METHOD_SEND,
-};
 use clock::ChainEpoch;
 use crypto::SignatureType;
+use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use num_traits::Zero;
+use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
 /// Provides prices for operations in the VM
 #[derive(Copy, Clone, Debug)]

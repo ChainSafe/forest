@@ -13,6 +13,7 @@ use encoding::{
     ser::{Serialize, Serializer},
     Cbor, Error as EncodingError,
 };
+use fil_types::PoStProof;
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
     BigUint,
@@ -21,7 +22,6 @@ use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
-use vm::PoStProof;
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
@@ -50,7 +50,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .build_and_validate()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Builder, Default, Eq)]
+#[derive(Clone, Debug, PartialEq, Builder, Eq)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -78,7 +78,6 @@ pub struct BlockHeader {
 
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
-    #[builder(default)]
     miner_address: Address,
 
     // STATE

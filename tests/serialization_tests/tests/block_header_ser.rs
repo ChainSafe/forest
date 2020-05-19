@@ -9,6 +9,7 @@ use cid::{
 };
 use crypto::VRFProof;
 use encoding::{from_slice, to_vec};
+use fil_types::PoStProof;
 use forest_blocks::{BlockHeader, EPostProof, EPostTicket, Ticket, TipsetKeys};
 use hex::encode;
 use num_traits::FromPrimitive;
@@ -16,7 +17,6 @@ use serde::Deserialize;
 use serialization_tests::SignatureVector;
 use std::fs::File;
 use std::io::prelude::*;
-use vm::PoStProof;
 
 #[derive(Debug, Deserialize)]
 struct TicketVector {

@@ -7,6 +7,8 @@ mod rocks;
 
 pub use errors::Error;
 pub use memory::MemoryDB;
+
+#[cfg(feature = "rocksdb")]
 pub use rocks::RocksDb;
 
 pub trait DatabaseService {

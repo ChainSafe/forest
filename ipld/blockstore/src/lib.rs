@@ -6,9 +6,12 @@ mod buffered;
 pub use self::buffered::BufferedBlockStore;
 
 use cid::{multihash::MultihashDigest, Cid};
-use db::{MemoryDB, RocksDb, Store};
+use db::{MemoryDB, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use std::error::Error as StdError;
+
+#[cfg(feature = "rocksdb")]
+use db::RocksDb;
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
@@ -42,4 +45,6 @@ pub trait BlockStore: Store {
 }
 
 impl BlockStore for MemoryDB {}
+
+#[cfg(feature = "rocksdb")]
 impl BlockStore for RocksDb {}

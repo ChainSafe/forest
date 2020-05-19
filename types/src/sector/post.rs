@@ -1,8 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{ActorID, Randomness, RegisteredProof, SectorNumber};
+use super::{RegisteredProof, SectorNumber};
 use cid::Cid;
+use vm::{ActorID, Randomness};
 
 pub type PoStRandomness = Randomness;
 
@@ -39,7 +40,7 @@ pub struct WinningPoStVerifyInfo {
 pub struct WindowPoStVerifyInfo {
     pub randomness: PoStRandomness,
     pub proofs: Vec<PoStProof>,
-    pub private_proof: Vec<SectorInfo>,
+    pub challenged_sectors: Vec<SectorInfo>,
     pub prover: ActorID,
 }
 

@@ -1,15 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::gas_tracker::{GasTracker, PriceList};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
+use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use runtime::{ConsensusFault, Syscalls};
 use std::cell::RefCell;
 use std::error::Error as StdError;
 use std::rc::Rc;
-use vm::{GasTracker, PieceInfo, PriceList, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 
 /// Syscall wrapper to charge gas on syscalls
 pub(crate) struct GasSyscalls<'sys, S> {
@@ -153,7 +154,7 @@ mod tests {
         };
 
         assert_eq!(gsys.gas.borrow().gas_used(), 0);
-        gsys.verify_signature(&Default::default(), &Default::default(), &[0u8])
+        gsys.verify_signature(&Default::default(), &Address::new_id(0), &[0u8])
             .unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 5);
 

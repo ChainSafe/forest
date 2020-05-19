@@ -24,6 +24,7 @@ message = { package = "forest_message", path = "../message" }
 unsigned-varint = "0.3.2"
 crypto = { path = "../../crypto" }
 rleplus = { path = "../../utils/rleplus" }
+fil_types = { path = "../../types" }
 
 [dev-dependencies]
 db = { path = "../../node/db" }
