@@ -17,7 +17,6 @@ use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
 use crypto::verify_bls_aggregate;
-use db::MemoryDB;
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
@@ -989,18 +988,20 @@ mod tests {
         });
     }
 
-    // #[test]
-    // fn compute_msg_data_given_msgs_test() {
-    //     let db = Arc::new(MemoryDB::default());
-    //     let (cs, _) = chain_syncer_setup(db);
-    //
-    //     let (bls, secp) = construct_messages();
-    //
-    //     let expected_root =
-    //         Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
-    //             .unwrap();
-    //
-    //     let root = ChainSyncer::<MemoryDB>::compute_msg_data(, &[bls], &[secp]).unwrap();
-    //     assert_eq!(root, expected_root);
-    // }
+    #[test]
+    fn compute_msg_data_given_msgs_test() {
+        let db = Arc::new(MemoryDB::default());
+        let (cs, _) = chain_syncer_setup(db);
+
+        let (bls, secp) = construct_messages();
+
+        let expected_root =
+            Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
+                .unwrap();
+
+        let root =
+            ChainSyncer::<MemoryDB>::compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp])
+                .unwrap();
+        assert_eq!(root, expected_root);
+    }
 }
