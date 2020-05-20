@@ -75,7 +75,7 @@ where
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&mut self, header: BlockHeader) -> Result<(), Error> {
+    pub fn set_genesis(&self, header: BlockHeader) -> Result<(), Error> {
         set_genesis(self.blockstore(), header)
     }
 
@@ -223,9 +223,8 @@ where
         let key = m.cid()?.key();
         let value = &m.marshal_cbor()?;
         if db.exists(&key)? {
-            return Ok(());
+            db.write(&key, value)?
         }
-        db.write(&key, value)?
     }
     Ok(())
 }
