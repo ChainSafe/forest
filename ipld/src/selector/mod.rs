@@ -6,6 +6,7 @@ mod walk;
 pub use self::walk::*;
 
 use super::{Ipld, PathSegment};
+use encoding::Cbor;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::ops::SubAssign;
@@ -145,6 +146,8 @@ pub enum Selector {
     //     next: Box<Selector>,
     // },
 }
+
+impl Cbor for Selector {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Copy)]
 pub enum RecursionLimit {
