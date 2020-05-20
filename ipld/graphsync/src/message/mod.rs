@@ -1,8 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod proto;
+pub mod proto;
 
+use super::*;
 use cid::{Cid, Prefix};
 use fnv::FnvHashMap;
 use forest_encoding::{Cbor, Error as EncodingError};
@@ -10,13 +11,8 @@ use forest_ipld::selector::Selector;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-type Priority = i32;
-type RequestID = i32;
-type ResponseStatusCode = i32;
-type ExtensionName = String;
-type Extensions = HashMap<ExtensionName, Vec<u8>>;
-
 /// Defines the data associated with each request type.
+#[derive(Debug, PartialEq, Clone)]
 pub enum Payload {
     New {
         root: Cid,
@@ -31,6 +27,7 @@ pub enum Payload {
 }
 
 /// Struct which contains all request data from a GraphSyncMessage.
+#[derive(Debug, PartialEq, Clone)]
 pub struct GraphSyncRequest {
     pub id: RequestID,
     pub payload: Payload,
@@ -42,7 +39,7 @@ impl GraphSyncRequest {
         root: Cid,
         selector: Selector,
         priority: Priority,
-        extensions: Extensions,
+        extensions: Option<Extensions>,
     ) -> Self {
         Self {
             id,
@@ -50,11 +47,12 @@ impl GraphSyncRequest {
                 root,
                 selector,
                 priority,
-                extensions,
+                extensions: extensions.unwrap_or_default(),
             },
         }
     }
     /// Generate a GraphSyncRequest to update an in progress request with extensions.
+    // TODO revisit this interface later, a map as a parameter isn't very ergonomic
     pub fn update(id: RequestID, extensions: Extensions) -> Self {
         Self {
             id,
@@ -71,18 +69,30 @@ impl GraphSyncRequest {
 }
 
 /// Struct which contains all response data from a GraphSyncMessage.
+#[derive(Debug, PartialEq, Clone)]
 pub struct GraphSyncResponse {
     pub id: RequestID,
     pub status: ResponseStatusCode,
     pub extensions: Extensions,
 }
 
+impl GraphSyncResponse {
+    pub fn new(id: RequestID, status: ResponseStatusCode, extensions: Option<Extensions>) -> Self {
+        Self {
+            id,
+            status,
+            extensions: extensions.unwrap_or_default(),
+        }
+    }
+}
+
 /// Contains all requests and responses
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct GraphSyncMessage {
     // TODO revisit for if these needs to be ordered, or preserve the order from over the wire
-    pub requests: FnvHashMap<RequestID, GraphSyncRequest>,
-    pub responses: FnvHashMap<RequestID, GraphSyncResponse>,
-    pub blocks: HashMap<Cid, Vec<u8>>,
+    requests: FnvHashMap<RequestID, GraphSyncRequest>,
+    responses: FnvHashMap<RequestID, GraphSyncResponse>,
+    blocks: HashMap<Cid, Vec<u8>>,
 }
 
 impl GraphSyncMessage {
@@ -99,16 +109,16 @@ impl GraphSyncMessage {
         &self.blocks
     }
     /// Adds a request to GraphSyncMessage requests.
-    pub fn add_request(&mut self, request: GraphSyncRequest) {
+    pub fn insert_request(&mut self, request: GraphSyncRequest) {
         self.requests.insert(request.id, request);
     }
     /// Adds a response to GraphSyncMessage responses.
-    pub fn add_response(&mut self, response: GraphSyncResponse) {
+    pub fn insert_response(&mut self, response: GraphSyncResponse) {
         self.responses.insert(response.id, response);
     }
     /// Add block to message.
-    // TODO revisit block format, should be fine to be kept seperate, but may need to merge
-    pub fn add_block(&mut self, cid: Cid, block: Vec<u8>) {
+    // TODO revisit block format, should be fine to be kept seperate, but may need to merge.
+    pub fn insert_block(&mut self, cid: Cid, block: Vec<u8>) {
         self.blocks.insert(cid, block);
     }
     /// Returns true if empty GraphSyncMessage.
@@ -158,7 +168,7 @@ impl TryFrom<GraphSyncMessage> for proto::Message {
             .into_iter()
             .map(|(_, res)| proto::Message_Response {
                 id: res.id,
-                status: res.status,
+                status: res.status.to_i32(),
                 extensions: res.extensions,
                 ..Default::default()
             })
@@ -202,7 +212,7 @@ impl TryFrom<proto::Message> for GraphSyncMessage {
                             Cid::try_from(r.root)?,
                             Selector::unmarshal_cbor(&r.selector)?,
                             r.priority,
-                            r.extensions,
+                            Some(r.extensions),
                         ),
                     ))
                 }
@@ -218,7 +228,7 @@ impl TryFrom<proto::Message> for GraphSyncMessage {
                     GraphSyncResponse {
                         id: r.id,
                         extensions: r.extensions,
-                        status: r.status,
+                        status: ResponseStatusCode::from_i32(r.status),
                     },
                 )
             })
