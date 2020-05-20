@@ -46,7 +46,7 @@ where
         Ok(self.0.set(key.to_bytes().into(), &new_root)?)
     }
 
-    pub fn put_many(&mut self, key: &Address, value: &Vec<DealID>) -> Result<(), String> {
+    pub fn put_many(&mut self, key: &Address, value: &[DealID]) -> Result<(), String> {
         // Get construct amt from retrieved cid or create new
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
