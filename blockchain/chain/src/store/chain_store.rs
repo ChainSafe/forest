@@ -4,6 +4,7 @@
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use cid::multihash::Blake2b256;
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use ipld_amt::Amt;
@@ -220,11 +221,8 @@ where
     DB: BlockStore,
 {
     for m in msgs {
-        let key = m.cid()?.key();
-        let value = &m.marshal_cbor()?;
-        if db.exists(&key)? {
-            db.write(&key, value)?
-        }
+        db.put(m, Blake2b256)
+            .map_err(|e| Error::Other(e.to_string()))?;
     }
     Ok(())
 }
@@ -349,7 +347,7 @@ mod tests {
     fn genesis_test() {
         let db = db::MemoryDB::default();
 
-        let mut cs = ChainStore::new(Arc::new(db));
+        let cs = ChainStore::new(Arc::new(db));
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight((2 as u32).into())
