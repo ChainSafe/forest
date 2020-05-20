@@ -4,6 +4,7 @@
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use cid::multihash::Blake2b256;
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use ipld_amt::Amt;
@@ -75,29 +76,13 @@ where
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&mut self, header: BlockHeader) -> Result<(), Error> {
-        self.db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-        Ok(self.persist_headers(&[header])?)
-    }
-
-    /// Writes encoded blockheader data to blockstore
-    fn persist_headers(&mut self, bh: &[BlockHeader]) -> Result<(), Error> {
-        let mut raw_header_data = Vec::new();
-        let mut keys = Vec::new();
-        // loop through block to push blockheader raw data and cid into vector to be stored
-        for header in bh {
-            if !self.db.exists(header.cid().key())? {
-                raw_header_data.push(header.marshal_cbor()?);
-                keys.push(header.cid().key());
-            }
-        }
-
-        Ok(self.db.bulk_write(&keys, &raw_header_data)?)
+    pub fn set_genesis(&self, header: BlockHeader) -> Result<(), Error> {
+        set_genesis(self.blockstore(), header)
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
     pub fn put_tipsets(&mut self, ts: &Tipset) -> Result<(), Error> {
-        self.persist_headers(ts.blocks())?;
+        persist_headers(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         self.update_heaviest(ts)?;
         Ok(())
@@ -105,20 +90,12 @@ where
 
     /// Writes encoded message data to blockstore
     pub fn put_messages<T: Cbor>(&self, msgs: &[T]) -> Result<(), Error> {
-        for m in msgs {
-            let key = m.cid()?.key();
-            let value = &m.marshal_cbor()?;
-            if self.db.exists(&key)? {
-                return Ok(());
-            }
-            self.db.write(&key, value)?
-        }
-        Ok(())
+        put_messages(self.blockstore(), msgs)
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
     pub fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
-        let heaviest_ts = get_heaviest_tipset(self.db.as_ref())?.ok_or_else(|| {
+        let heaviest_ts = get_heaviest_tipset(self.blockstore())?.ok_or_else(|| {
             warn!("No previous chain state found");
             Error::Other("No chain state found".to_owned())
         })?;
@@ -130,10 +107,7 @@ where
 
     /// Returns genesis blockheader from blockstore
     pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
-        Ok(match self.db.read(GENESIS_KEY)? {
-            Some(bz) => Some(BlockHeader::unmarshal_cbor(&bz)?),
-            None => None,
-        })
+        genesis(self.blockstore())
     }
 
     /// Returns heaviest tipset from blockstore
@@ -148,7 +122,7 @@ where
 
     /// Returns Tipset from key-value store from provided cids
     pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        tipset_from_keys(self.db.as_ref(), tsk)
+        tipset_from_keys(self.blockstore(), tsk)
     }
 
     /// Returns a tuple of cids for both Unsigned and Signed messages
@@ -158,26 +132,12 @@ where
             .get::<TxMeta>(msg_cid)
             .map_err(|e| Error::Other(e.to_string()))?
         {
-            let bls_cids = self.read_amt_cids(&roots.bls_message_root)?;
-            let secpk_cids = self.read_amt_cids(&roots.secp_message_root)?;
+            let bls_cids = read_amt_cids(self.blockstore(), &roots.bls_message_root)?;
+            let secpk_cids = read_amt_cids(self.blockstore(), &roots.secp_message_root)?;
             Ok((bls_cids, secpk_cids))
         } else {
             Err(Error::UndefinedKey("no msgs with that key".to_string()))
         }
-    }
-
-    /// Returns a vector of cids from provided root cid
-    fn read_amt_cids(&self, root: &Cid) -> Result<Vec<Cid>, Error> {
-        let amt = Amt::load(root, self.blockstore())?;
-
-        let mut cids = Vec::new();
-        for i in 0..amt.count() {
-            if let Some(c) = amt.get(i)? {
-                cids.push(c);
-            }
-        }
-
-        Ok(cids)
     }
 
     /// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
@@ -188,27 +148,10 @@ where
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
         let (bls_cids, secpk_cids) = self.read_msg_cids(bh.messages())?;
 
-        let bls_msgs: Vec<UnsignedMessage> = self.messages_from_cids(bls_cids)?;
-        let secp_msgs: Vec<SignedMessage> = self.messages_from_cids(secpk_cids)?;
+        let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(self.blockstore(), bls_cids)?;
+        let secp_msgs: Vec<SignedMessage> = messages_from_cids(self.blockstore(), secpk_cids)?;
 
         Ok((bls_msgs, secp_msgs))
-    }
-
-    /// Returns messages from key-value store
-    pub fn messages_from_cids<T>(&self, keys: Vec<Cid>) -> Result<Vec<T>, Error>
-    where
-        T: DeserializeOwned,
-    {
-        keys.iter()
-            .map(|k| {
-                let value = self.db.read(&k.key())?;
-                let bytes = value.ok_or_else(|| Error::UndefinedKey(k.to_string()))?;
-
-                // Decode bytes into type T
-                let t = from_slice(&bytes)?;
-                Ok(t)
-            })
-            .collect()
     }
 
     /// Constructs and returns a full tipset if messages from storage exists
@@ -231,8 +174,8 @@ where
     fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
         match &self.heaviest {
             Some(heaviest) => {
-                let new_weight = self.weight(ts)?;
-                let curr_weight = self.weight(&heaviest)?;
+                let new_weight = weight(self.blockstore(), ts)?;
+                let curr_weight = weight(self.blockstore(), &heaviest)?;
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset");
@@ -246,33 +189,42 @@ where
         }
         Ok(())
     }
+}
 
-    /// Returns the weight of provided tipset
-    fn weight(&self, ts: &Tipset) -> Result<BigUint, String> {
-        let mut tpow = BigUint::zero();
-        let state = StateTree::new_from_root(self.db.as_ref(), ts.parent_state())?;
-        if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
-            if let Some(state) = self
-                .db
-                .get::<PowerState>(&act.state)
-                .map_err(|e| e.to_string())?
-            {
-                tpow = state.total_network_power;
-            }
+fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<(), Error>
+where
+    DB: BlockStore,
+{
+    db.write(GENESIS_KEY, header.marshal_cbor()?)?;
+    Ok(persist_headers(db, &[header])?)
+}
+
+fn persist_headers<DB>(db: &DB, bh: &[BlockHeader]) -> Result<(), Error>
+where
+    DB: BlockStore,
+{
+    let mut raw_header_data = Vec::new();
+    let mut keys = Vec::new();
+    // loop through block to push blockheader raw data and cid into vector to be stored
+    for header in bh {
+        if !db.exists(header.cid().key())? {
+            raw_header_data.push(header.marshal_cbor()?);
+            keys.push(header.cid().key());
         }
-        let log2_p = if tpow > BigUint::zero() {
-            BigUint::from(tpow.bits() - 1)
-        } else {
-            return Err("All power in the net is gone. You network might be disconnected, or the net is dead!".to_owned());
-        };
-
-        let mut out = ts.weight() + (&log2_p << 8);
-        let e_weight =
-            ((log2_p * BigUint::from(ts.blocks().len())) * BigUint::from(W_RATIO_NUM)) << 8;
-        let value = e_weight / (BigUint::from(BLOCKS_PER_EPOCH) * BigUint::from(W_RATIO_DEN));
-        out += &value;
-        Ok(out)
     }
+
+    Ok(db.bulk_write(&keys, &raw_header_data)?)
+}
+
+fn put_messages<DB, T: Cbor>(db: &DB, msgs: &[T]) -> Result<(), Error>
+where
+    DB: BlockStore,
+{
+    for m in msgs {
+        db.put(m, Blake2b256)
+            .map_err(|e| Error::Other(e.to_string()))?;
+    }
+    Ok(())
 }
 
 fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
@@ -309,6 +261,82 @@ where
     Ok(ts)
 }
 
+/// Returns a vector of cids from provided root cid
+fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
+where
+    DB: BlockStore,
+{
+    let amt = Amt::load(root, db)?;
+
+    let mut cids = Vec::new();
+    for i in 0..amt.count() {
+        if let Some(c) = amt.get(i)? {
+            cids.push(c);
+        }
+    }
+
+    Ok(cids)
+}
+
+fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
+where
+    DB: BlockStore,
+{
+    Ok(match db.read(GENESIS_KEY)? {
+        Some(bz) => Some(BlockHeader::unmarshal_cbor(&bz)?),
+        None => None,
+    })
+}
+
+/// Returns messages from key-value store
+fn messages_from_cids<DB, T>(db: &DB, keys: Vec<Cid>) -> Result<Vec<T>, Error>
+where
+    DB: BlockStore,
+    T: DeserializeOwned,
+{
+    keys.iter()
+        .map(|k| {
+            let value = db.read(&k.key())?;
+            let bytes = value.ok_or_else(|| Error::UndefinedKey(k.to_string()))?;
+
+            // Decode bytes into type T
+            let t = from_slice(&bytes)?;
+            Ok(t)
+        })
+        .collect()
+}
+
+/// Returns the weight of provided tipset
+fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigUint, String>
+where
+    DB: BlockStore,
+{
+    let mut tpow = BigUint::zero();
+    let state = StateTree::new_from_root(db, ts.parent_state())?;
+    if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
+        if let Some(state) = db
+            .get::<PowerState>(&act.state)
+            .map_err(|e| e.to_string())?
+        {
+            tpow = state.total_network_power;
+        }
+    }
+    let log2_p = if tpow > BigUint::zero() {
+        BigUint::from(tpow.bits() - 1)
+    } else {
+        return Err(
+            "All power in the net is gone. You network might be disconnected, or the net is dead!"
+                .to_owned(),
+        );
+    };
+
+    let mut out = ts.weight() + (&log2_p << 8);
+    let e_weight = ((log2_p * BigUint::from(ts.blocks().len())) * BigUint::from(W_RATIO_NUM)) << 8;
+    let value = e_weight / (BigUint::from(BLOCKS_PER_EPOCH) * BigUint::from(W_RATIO_DEN));
+    out += &value;
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,7 +347,7 @@ mod tests {
     fn genesis_test() {
         let db = db::MemoryDB::default();
 
-        let mut cs = ChainStore::new(Arc::new(db));
+        let cs = ChainStore::new(Arc::new(db));
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight((2 as u32).into())

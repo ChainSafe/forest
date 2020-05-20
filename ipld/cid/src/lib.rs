@@ -3,18 +3,19 @@
 
 mod codec;
 mod error;
+mod prefix;
 mod to_cid;
 mod version;
 
 pub use self::codec::Codec;
 pub use self::error::Error;
+pub use self::prefix::Prefix;
 pub use self::version::Version;
-use integer_encoding::{VarIntReader, VarIntWriter};
+use integer_encoding::VarIntWriter;
 pub use multihash;
-use multihash::{Code, Identity, Multihash, MultihashDigest};
+use multihash::{Identity, Multihash, MultihashDigest};
 use std::convert::TryInto;
 use std::fmt;
-use std::io::Cursor;
 
 #[cfg(feature = "cbor")]
 use serde::{de, ser};
@@ -32,14 +33,6 @@ const MULTIBASE_IDENTITY: u8 = 0;
 
 #[cfg(feature = "json")]
 pub mod json;
-
-/// Prefix represents all metadata of a CID, without the actual content.
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Prefix {
-    pub version: Version,
-    pub codec: Codec,
-    pub mh_type: Code,
-}
 
 /// Representation of a IPLD CID.
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -193,6 +186,7 @@ impl Cid {
             version: self.version,
             codec: self.codec.to_owned(),
             mh_type: self.hash.algorithm(),
+            mh_len: self.hash.digest().len(),
         }
     }
 
@@ -215,39 +209,5 @@ impl fmt::Display for Cid {
 impl fmt::Debug for Cid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Cid(\"{}\")", self)
-    }
-}
-
-impl Prefix {
-    /// Generate new prefix from encoded bytes
-    pub fn new_from_bytes(data: &[u8]) -> Result<Prefix, Error> {
-        let mut cur = Cursor::new(data);
-
-        let raw_version = cur.read_varint()?;
-        let raw_codec = cur.read_varint()?;
-        let raw_mh_type: u64 = cur.read_varint()?;
-
-        let version = Version::from(raw_version)?;
-        let codec = Codec::from(raw_codec)?;
-
-        let mh_type = Code::from_u64(raw_mh_type as u64);
-
-        Ok(Prefix {
-            version,
-            codec,
-            mh_type,
-        })
-    }
-
-    /// Encodes prefix to bytes
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut res = Vec::with_capacity(4);
-
-        // io can't fail on Vec
-        res.write_varint(u64::from(self.version)).unwrap();
-        res.write_varint(u64::from(self.codec)).unwrap();
-        res.write_varint(self.mh_type.to_u64()).unwrap();
-
-        res
     }
 }
