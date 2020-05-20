@@ -89,12 +89,12 @@ where
 
     /// Writes encoded message data to blockstore
     pub fn put_messages<T: Cbor>(&self, msgs: &[T]) -> Result<(), Error> {
-        put_messages(self.db.as_ref(), msgs)
+        put_messages(self.blockstore(), msgs)
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
     pub fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
-        let heaviest_ts = get_heaviest_tipset(self.db.as_ref())?.ok_or_else(|| {
+        let heaviest_ts = get_heaviest_tipset(self.blockstore())?.ok_or_else(|| {
             warn!("No previous chain state found");
             Error::Other("No chain state found".to_owned())
         })?;
@@ -106,7 +106,7 @@ where
 
     /// Returns genesis blockheader from blockstore
     pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
-        genesis(self.db.as_ref())
+        genesis(self.blockstore())
     }
 
     /// Returns heaviest tipset from blockstore
@@ -121,7 +121,7 @@ where
 
     /// Returns Tipset from key-value store from provided cids
     pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        tipset_from_keys(self.db.as_ref(), tsk)
+        tipset_from_keys(self.blockstore(), tsk)
     }
 
     /// Returns a tuple of cids for both Unsigned and Signed messages
@@ -131,8 +131,8 @@ where
             .get::<TxMeta>(msg_cid)
             .map_err(|e| Error::Other(e.to_string()))?
         {
-            let bls_cids = read_amt_cids(self.db.as_ref(), &roots.bls_message_root)?;
-            let secpk_cids = read_amt_cids(self.db.as_ref(), &roots.secp_message_root)?;
+            let bls_cids = read_amt_cids(self.blockstore(), &roots.bls_message_root)?;
+            let secpk_cids = read_amt_cids(self.blockstore(), &roots.secp_message_root)?;
             Ok((bls_cids, secpk_cids))
         } else {
             Err(Error::UndefinedKey("no msgs with that key".to_string()))
@@ -147,8 +147,8 @@ where
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
         let (bls_cids, secpk_cids) = self.read_msg_cids(bh.messages())?;
 
-        let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(self.db.as_ref(), bls_cids)?;
-        let secp_msgs: Vec<SignedMessage> = messages_from_cids(self.db.as_ref(), secpk_cids)?;
+        let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(self.blockstore(), bls_cids)?;
+        let secp_msgs: Vec<SignedMessage> = messages_from_cids(self.blockstore(), secpk_cids)?;
 
         Ok((bls_msgs, secp_msgs))
     }
@@ -173,8 +173,8 @@ where
     fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
         match &self.heaviest {
             Some(heaviest) => {
-                let new_weight = weight(self.db.as_ref(), ts)?;
-                let curr_weight = weight(self.db.as_ref(), &heaviest)?;
+                let new_weight = weight(self.blockstore(), ts)?;
+                let curr_weight = weight(self.blockstore(), &heaviest)?;
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset");
@@ -190,7 +190,7 @@ where
     }
 }
 
-fn set_genesis<DB>(db: DB, header: BlockHeader) -> Result<(), Error>
+fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<(), Error>
 where
     DB: BlockStore,
 {
