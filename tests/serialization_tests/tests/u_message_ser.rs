@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // Doesn't run these unless feature specified
-#![cfg(feature = "serde_tests")]
+#![cfg(feature = "submodule_tests")]
 
 use address::Address;
 use encoding::{from_slice, to_vec};

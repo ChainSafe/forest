@@ -35,7 +35,7 @@ const NETWORK_DEFAULT: Network = Network::Testnet;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
-#[derive(PartialEq, Eq, Clone, Debug, Hash, Default, Copy)]
+#[derive(PartialEq, Eq, Clone, Debug, Hash, Copy)]
 pub struct Address {
     network: Network,
     payload: Payload,
@@ -206,11 +206,6 @@ impl ser::Serialize for Address {
     where
         S: ser::Serializer,
     {
-        if self == &Address::default() {
-            // Just a sanity check to disallow serialization of invalid address
-            return Err(ser::Error::custom("Cannot serialize a default Address"));
-        }
-
         let address_bytes = self.to_bytes();
         serde_bytes::Serialize::serialize(&address_bytes, s)
     }

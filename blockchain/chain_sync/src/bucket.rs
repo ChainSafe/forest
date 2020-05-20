@@ -91,6 +91,7 @@ impl SyncBucketSet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use address::Address;
     use blocks::BlockHeader;
     use cid::{multihash::Blake2b256, Cid};
     use num_bigint::BigUint;
@@ -100,6 +101,7 @@ mod tests {
             .weight(BigUint::from(weight))
             .cached_bytes(cached_bytes.to_vec())
             .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
+            .miner_address(Address::new_id(0))
             .build()
             .unwrap();
         header

@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![cfg(feature = "rocksdb")]
+
 use super::errors::Error;
 use super::{DatabaseService, Store};
 use rocksdb::{Options, WriteBatch, DB};
@@ -104,16 +106,6 @@ impl Store for RocksDb {
         Ok(self.db()?.write(batch)?)
     }
 
-    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        for k in keys.iter() {
-            self.db()?.delete(k)?;
-        }
-        Ok(())
-    }
-
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
@@ -129,19 +121,5 @@ impl Store for RocksDb {
             .get_pinned(key)
             .map(|v| v.is_some())
             .map_err(Error::from)
-    }
-
-    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        let mut v = Vec::with_capacity(keys.len());
-        for k in keys.iter() {
-            match self.db()?.get(k) {
-                Ok(val) => v.push(val),
-                Err(e) => return Err(Error::from(e)),
-            }
-        }
-        Ok(v)
     }
 }

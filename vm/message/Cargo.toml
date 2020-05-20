@@ -1,16 +1,19 @@
 [package]
 name = "forest_message"
+description = "Filecoin message types"
+license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-vm = { path = "../../vm" }
-address = { package = "forest_address", path = "../address" }
-cid = { package = "forest_cid", path = "../../ipld/cid" }
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-encoding = { package = "forest_encoding", path = "../../encoding" }
-crypto = { path = "../../crypto" }
+vm = { package = "forest_vm", path = "../../vm", version = "0.1" }
+address = { package = "forest_address", path = "../address", version = "0.1" }
+cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.1" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1" }
+encoding = { package = "forest_encoding", path = "../../encoding", version = "0.1" }
+crypto = { package = "forest_crypto", path = "../../crypto", version = "0.1" }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 

@@ -1,8 +1,11 @@
 [package]
 name = "forest_cid"
+description = "A Cid library used in Forest for the Filecoin protocol"
+license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
 features = ["cbor", "json"]

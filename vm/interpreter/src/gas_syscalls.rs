@@ -154,7 +154,7 @@ mod tests {
         };
 
         assert_eq!(gsys.gas.borrow().gas_used(), 0);
-        gsys.verify_signature(&Default::default(), &Default::default(), &[0u8])
+        gsys.verify_signature(&Default::default(), &Address::new_id(0), &[0u8])
             .unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 5);
 
