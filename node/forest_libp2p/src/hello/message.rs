@@ -3,84 +3,26 @@
 
 use clock::ChainEpoch;
 use forest_cid::Cid;
-use forest_encoding::{de::Deserializer, ser::Serializer};
-use num_bigint::{
-    biguint_ser::{BigUintDe, BigUintSer},
-    BigUint,
-};
-use serde::{Deserialize, Serialize};
+use forest_encoding::tuple::*;
+use num_bigint::BigUint;
 
 /// Hello message https://filecoin-project.github.io/specs/#hello-spec
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct HelloMessage {
     pub heaviest_tip_set: Vec<Cid>,
     pub heaviest_tipset_height: ChainEpoch,
+    #[serde(with = "num_bigint::biguint_ser")]
     pub heaviest_tipset_weight: BigUint,
     pub genesis_hash: Cid,
 }
 
-impl Serialize for HelloMessage {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.heaviest_tip_set,
-            &self.heaviest_tipset_height,
-            BigUintSer(&self.heaviest_tipset_weight),
-            &self.genesis_hash,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for HelloMessage {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (
-            heaviest_tip_set,
-            heaviest_tipset_height,
-            BigUintDe(heaviest_tipset_weight),
-            genesis_hash,
-        ) = Deserialize::deserialize(deserializer)?;
-
-        Ok(HelloMessage {
-            heaviest_tip_set,
-            heaviest_tipset_height,
-            heaviest_tipset_weight,
-            genesis_hash,
-        })
-    }
-}
-
 /// Response to a Hello
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct HelloResponse {
     /// Time of arrival in unix nanoseconds
     pub arrival: i64,
     /// Time sent in unix nanoseconds
     pub sent: i64,
-}
-
-impl Serialize for HelloResponse {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.arrival, &self.sent).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for HelloResponse {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (arrival, sent) = Deserialize::deserialize(deserializer)?;
-        Ok(HelloResponse { arrival, sent })
-    }
 }
 
 #[cfg(test)]

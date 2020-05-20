@@ -34,10 +34,7 @@ impl<'de> Deserialize<'de> for OptionalEpoch {
         D: Deserializer<'de>,
     {
         let epoch: i64 = Deserialize::deserialize(deserializer)?;
-        match epoch.try_into() {
-            Ok(v) => Ok(Self(Some(v))),
-            Err(_) => Ok(Self(None)),
-        }
+        Ok(Self(epoch.try_into().ok()))
     }
 }
 

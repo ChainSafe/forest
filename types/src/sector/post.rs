@@ -3,12 +3,13 @@
 
 use super::{RegisteredProof, SectorNumber};
 use cid::Cid;
+use encoding::{serde_bytes, tuple::*};
 use vm::{ActorID, Randomness};
 
 pub type PoStRandomness = Randomness;
 
 /// Information about a sector necessary for PoSt verification
-#[derive(Debug, PartialEq, Default, Clone, Eq)]
+#[derive(Debug, PartialEq, Default, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorInfo {
     /// Used when sealing - needs to be mapped to PoSt registered proof when used to verify a PoSt
     pub proof: RegisteredProof,
@@ -17,16 +18,17 @@ pub struct SectorInfo {
 }
 
 // TODO docs
-#[derive(Debug, PartialEq, Default, Clone, Eq)]
+#[derive(Debug, PartialEq, Default, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct PoStProof {
     pub registered_proof: RegisteredProof,
     // TODO revisit if can be array in future
+    #[serde(with = "serde_bytes")]
     pub proof_bytes: Vec<u8>,
 }
 
 /// Information needed to verify a Winning PoSt attached to a block header.
 /// Note: this is not used within the state machine, but by the consensus/election mechanisms.
-#[derive(Debug, PartialEq, Default, Clone, Eq)]
+#[derive(Debug, PartialEq, Default, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct WinningPoStVerifyInfo {
     pub randomness: PoStRandomness,
     pub proofs: Vec<PoStProof>,
@@ -36,7 +38,7 @@ pub struct WinningPoStVerifyInfo {
 }
 
 /// Information needed to verify a Window PoSt submitted directly to a miner actor.
-#[derive(Debug, PartialEq, Default, Clone, Eq)]
+#[derive(Debug, PartialEq, Default, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct WindowPoStVerifyInfo {
     pub randomness: PoStRandomness,
     pub proofs: Vec<PoStProof>,
@@ -45,7 +47,7 @@ pub struct WindowPoStVerifyInfo {
 }
 
 /// Information submitted by a miner to provide a Window PoSt.
-#[derive(Debug, PartialEq, Default, Clone, Eq)]
+#[derive(Debug, PartialEq, Default, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct OnChainWindowPoStVerifyInfo {
     pub proofs: Vec<PoStProof>,
 }
