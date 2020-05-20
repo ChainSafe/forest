@@ -38,3 +38,20 @@ impl<'de> Deserialize<'de> for Randomness {
         Ok(Self(array))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use encoding::{from_slice, to_vec, BytesSer};
+
+    #[test]
+    fn array_symmetric_serialization() {
+        let vec: Vec<u8> = (0..32).collect();
+        let slice_bz = to_vec(&BytesSer(&vec)).unwrap();
+        let Randomness(arr) = from_slice(&slice_bz).unwrap();
+        // Check decoded array against slice
+        assert_eq!(arr.as_ref(), vec.as_slice());
+        // Check re-encoded array is equal to the slice encoded
+        assert_eq!(to_vec(&BytesSer(&arr)).unwrap(), slice_bz);
+    }
+}
