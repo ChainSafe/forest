@@ -906,7 +906,7 @@ mod tests {
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
     fn chain_syncer_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
-        let mut chain_store = ChainStore::new(db);
+        let chain_store = ChainStore::new(db);
 
         let (local_sender, _test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);

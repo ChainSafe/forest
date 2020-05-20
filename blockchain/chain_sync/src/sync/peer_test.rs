@@ -14,7 +14,7 @@ use std::time::Duration;
 fn peer_manager_update() {
     let db = Arc::new(MemoryDB::default());
 
-    let mut chain_store = ChainStore::new(db);
+    let chain_store = ChainStore::new(db);
 
     let (local_sender, _test_receiver) = channel(20);
     let (event_sender, event_receiver) = channel(20);
