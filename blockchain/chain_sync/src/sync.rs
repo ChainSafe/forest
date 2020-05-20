@@ -1013,8 +1013,12 @@ mod tests {
             Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
-        let root =
-            ChainSyncer::<MemoryDB, MockBeacon>::compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
+        let root = ChainSyncer::<MemoryDB, MockBeacon>::compute_msg_data(
+            cs.chain_store.blockstore(),
+            &[bls],
+            &[secp],
+        )
+        .unwrap();
         assert_eq!(root, expected_root);
     }
 }
