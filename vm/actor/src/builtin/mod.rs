@@ -15,7 +15,9 @@ mod shared;
 mod singletons;
 pub mod system;
 pub mod verifreg;
+pub mod time;
 
 pub use self::codes::*;
 pub(crate) use self::shared::*;
 pub use self::singletons::*;
+
