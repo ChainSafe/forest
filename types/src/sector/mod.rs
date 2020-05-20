@@ -4,7 +4,9 @@
 mod post;
 mod registered_proof;
 mod seal;
-mod serde;
+
+#[cfg(test)]
+mod serde_tests;
 
 pub use self::post::*;
 pub use self::registered_proof::*;
