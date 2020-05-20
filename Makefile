@@ -33,6 +33,8 @@ clean:
 	@cargo clean -p rleplus
 	@cargo clean -p commcid
 	@cargo clean -p fil_types
+	@cargo clean -p graphsync
+	@cargo clean -p ipld_blockstore
 	@echo "Done cleaning."
 
 lint: license clean

@@ -1,0 +1,10 @@
+[package]
+name = "graphsync"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+
+[build-dependencies]
+protoc-rust = "2.14.0"
