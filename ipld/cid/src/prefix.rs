@@ -28,7 +28,7 @@ impl Prefix {
         let version = Version::from(raw_version)?;
         let codec = Codec::from(raw_codec)?;
 
-        let mh_type = Code::from_u64(raw_mh_type as u64);
+        let mh_type = Code::from_u64(raw_mh_type);
 
         Ok(Prefix {
             version,
