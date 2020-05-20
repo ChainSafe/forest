@@ -3,7 +3,7 @@
 
 mod proto;
 
-use cid::Cid;
+use cid::{Cid, Prefix};
 use fnv::FnvHashMap;
 use forest_encoding::{Cbor, Error as EncodingError};
 use forest_ipld::selector::Selector;
@@ -14,31 +14,75 @@ type Priority = i32;
 type RequestID = i32;
 type ResponseStatusCode = i32;
 type ExtensionName = String;
+type Extensions = HashMap<ExtensionName, Vec<u8>>;
+
+/// Defines the data associated with each request type.
+pub enum Payload {
+    New {
+        root: Cid,
+        selector: Selector,
+        priority: Priority,
+        extensions: Extensions,
+    },
+    Update {
+        extensions: Extensions,
+    },
+    Cancel,
+}
 
 /// Struct which contains all request data from a GraphSyncMessage.
 pub struct GraphSyncRequest {
-    id: RequestID,
-    root: Cid,
-    selector: Option<Selector>,
-    priority: Priority,
-    extensions: HashMap<ExtensionName, Vec<u8>>,
-    is_cancel: bool,
-    is_update: bool,
+    pub id: RequestID,
+    pub payload: Payload,
+}
+
+impl GraphSyncRequest {
+    pub fn new(
+        id: RequestID,
+        root: Cid,
+        selector: Selector,
+        priority: Priority,
+        extensions: Extensions,
+    ) -> Self {
+        Self {
+            id,
+            payload: Payload::New {
+                root,
+                selector,
+                priority,
+                extensions,
+            },
+        }
+    }
+    /// Generate a GraphSyncRequest to update an in progress request with extensions.
+    pub fn update(id: RequestID, extensions: Extensions) -> Self {
+        Self {
+            id,
+            payload: Payload::Update { extensions },
+        }
+    }
+    /// Generate a GraphSyncRequest to cancel and in progress GraphSync request.
+    pub fn cancel(id: RequestID) -> Self {
+        Self {
+            id,
+            payload: Payload::Cancel,
+        }
+    }
 }
 
 /// Struct which contains all response data from a GraphSyncMessage.
 pub struct GraphSyncResponse {
-    id: RequestID,
-    status: ResponseStatusCode,
-    extensions: HashMap<ExtensionName, Vec<u8>>,
+    pub id: RequestID,
+    pub status: ResponseStatusCode,
+    pub extensions: Extensions,
 }
 
 /// Contains all requests and responses
 pub struct GraphSyncMessage {
     // TODO revisit for if these needs to be ordered, or preserve the order from over the wire
-    requests: FnvHashMap<RequestID, GraphSyncRequest>,
-    responses: FnvHashMap<RequestID, GraphSyncResponse>,
-    blocks: HashMap<Cid, Vec<u8>>,
+    pub requests: FnvHashMap<RequestID, GraphSyncRequest>,
+    pub responses: FnvHashMap<RequestID, GraphSyncResponse>,
+    pub blocks: HashMap<Cid, Vec<u8>>,
 }
 
 impl GraphSyncMessage {
@@ -79,21 +123,33 @@ impl TryFrom<GraphSyncMessage> for proto::Message {
         let requests: protobuf::RepeatedField<_> = msg
             .requests
             .into_iter()
-            .map(|(_, req)| {
-                let selector = match &req.selector {
-                    Some(s) => s.marshal_cbor()?,
-                    None => Vec::new(),
-                };
-                Ok(proto::Message_Request {
-                    id: req.id,
-                    root: req.root.to_bytes(),
+            .map(|(_, req)| match req.payload {
+                Payload::New {
+                    root,
                     selector,
-                    extensions: req.extensions,
-                    priority: req.priority,
-                    cancel: req.is_cancel,
-                    update: req.is_update,
+                    priority,
+                    extensions,
+                } => Ok(proto::Message_Request {
+                    id: req.id,
+                    // Cid bytes format (not cbor encoded)
+                    root: root.to_bytes(),
+                    // Cbor encoded selector
+                    selector: selector.marshal_cbor()?,
+                    extensions,
+                    priority,
                     ..Default::default()
-                })
+                }),
+                Payload::Update { extensions } => Ok(proto::Message_Request {
+                    id: req.id,
+                    update: true,
+                    extensions,
+                    ..Default::default()
+                }),
+                Payload::Cancel => Ok(proto::Message_Request {
+                    id: req.id,
+                    cancel: true,
+                    ..Default::default()
+                }),
             })
             .collect::<Result<_, Self::Error>>()?;
 
@@ -127,8 +183,61 @@ impl TryFrom<GraphSyncMessage> for proto::Message {
     }
 }
 
-impl From<proto::Message> for GraphSyncMessage {
-    fn from(_msg: proto::Message) -> Self {
-        todo!()
+impl TryFrom<proto::Message> for GraphSyncMessage {
+    type Error = EncodingError;
+    fn try_from(msg: proto::Message) -> Result<Self, Self::Error> {
+        let requests: FnvHashMap<_, _> = msg
+            .requests
+            .into_iter()
+            .map(|r| {
+                if r.cancel {
+                    Ok((r.id, GraphSyncRequest::cancel(r.id)))
+                } else if r.update {
+                    Ok((r.id, GraphSyncRequest::update(r.id, r.extensions)))
+                } else {
+                    Ok((
+                        r.id,
+                        GraphSyncRequest::new(
+                            r.id,
+                            Cid::try_from(r.root)?,
+                            Selector::unmarshal_cbor(&r.selector)?,
+                            r.priority,
+                            r.extensions,
+                        ),
+                    ))
+                }
+            })
+            .collect::<Result<_, Self::Error>>()?;
+
+        let responses: FnvHashMap<_, _> = msg
+            .responses
+            .into_iter()
+            .map(|r| {
+                (
+                    r.id,
+                    GraphSyncResponse {
+                        id: r.id,
+                        extensions: r.extensions,
+                        status: r.status,
+                    },
+                )
+            })
+            .collect();
+
+        let blocks: HashMap<_, _> = msg
+            .data
+            .into_iter()
+            .map(|block| {
+                let prefix = Prefix::new_from_bytes(&block.prefix)?;
+                let cid = Cid::new_from_prefix(&prefix, &block.data)?;
+                Ok((cid, block.data))
+            })
+            .collect::<Result<_, Self::Error>>()?;
+
+        Ok(GraphSyncMessage {
+            requests,
+            responses,
+            blocks,
+        })
     }
 }
