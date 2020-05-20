@@ -318,8 +318,7 @@ where
             }
 
             // validate message root from header matches message root
-            let sm_root =
-                Self::compute_msg_data(self.chain_store.blockstore(), &bls_msgs, &secp_msgs)?;
+            let sm_root = compute_msg_data(self.chain_store.blockstore(), &bls_msgs, &secp_msgs)?;
             if header.messages() != &sm_root {
                 return Err(Error::InvalidRoots);
             }
@@ -439,7 +438,7 @@ where
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
-        let sm_root = Self::compute_msg_data(
+        let sm_root = compute_msg_data(
             self.chain_store.blockstore(),
             block.bls_msgs(),
             block.secp_msgs(),
@@ -453,31 +452,7 @@ where
 
         Ok(())
     }
-    /// Returns message root CID from bls and secp message contained in the param Block
-    fn compute_msg_data(
-        blockstore: &DB,
-        bls_msgs: &[UnsignedMessage],
-        secp_msgs: &[SignedMessage],
-    ) -> Result<Cid, Error> {
-        // collect bls and secp cids
-        let bls_cids = cids_from_messages(bls_msgs)?;
-        let secp_cids = cids_from_messages(secp_msgs)?;
-        // generate Amt and batch set message values
-        let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
-        let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
 
-        let meta = TxMeta {
-            bls_message_root: bls_root,
-            secp_message_root: secp_root,
-        };
-        // TODO this should be memoryDB for temp storage
-        // store message roots and receive meta_root
-        let meta_root = blockstore
-            .put(&meta, Blake2b256)
-            .map_err(|e| Error::Other(e.to_string()))?;
-
-        Ok(meta_root)
-    }
     /// Returns FullTipset from store if TipsetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
     async fn fetch_tipset(
@@ -613,7 +588,7 @@ where
                 .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root
-        let sm_root = Self::compute_msg_data(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = compute_msg_data(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -905,6 +880,32 @@ where
     }
 }
 
+/// Returns message root CID from bls and secp message contained in the param Block
+fn compute_msg_data<DB: BlockStore>(
+    blockstore: &DB,
+    bls_msgs: &[UnsignedMessage],
+    secp_msgs: &[SignedMessage],
+) -> Result<Cid, Error> {
+    // collect bls and secp cids
+    let bls_cids = cids_from_messages(bls_msgs)?;
+    let secp_cids = cids_from_messages(secp_msgs)?;
+    // generate Amt and batch set message values
+    let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
+    let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
+
+    let meta = TxMeta {
+        bls_message_root: bls_root,
+        secp_message_root: secp_root,
+    };
+    // TODO this should be memoryDB for temp storage
+    // store message roots and receive meta_root
+    let meta_root = blockstore
+        .put(&meta, Blake2b256)
+        .map_err(|e| Error::Other(e.to_string()))?;
+
+    Ok(meta_root)
+}
+
 fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
     messages.iter().map(Cbor::cid).collect()
 }
@@ -1013,12 +1014,7 @@ mod tests {
             Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
-        let root = ChainSyncer::<MemoryDB, MockBeacon>::compute_msg_data(
-            cs.chain_store.blockstore(),
-            &[bls],
-            &[secp],
-        )
-        .unwrap();
+        let root = compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
     }
 }

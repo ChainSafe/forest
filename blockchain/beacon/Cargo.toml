@@ -9,8 +9,6 @@ grpc = "0.8"
 grpc-protobuf = "0.8"
 protobuf = "2.14.0"
 clock = { path = "../../node/clock" }
-
-
 tls-api-rustls = "0.4"
 bls-signatures = "0.6.0"
 serde = { version = "1.0", features = ["derive"] }
