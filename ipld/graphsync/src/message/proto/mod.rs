@@ -3,4 +3,4 @@
 
 mod message;
 
-pub use self::message::*;
+pub(crate) use self::message::*;
