@@ -356,6 +356,7 @@ impl BlockHeader {
         lhs < rhs
     }
 
+    /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
     pub async fn validate_block_drand<B: Beacon>(
         &self,
         beacon: Arc<B>,
