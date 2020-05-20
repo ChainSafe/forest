@@ -18,7 +18,7 @@ use sha2::Digest;
 use std::convert::TryFrom;
 use std::error;
 use std::sync::Arc;
-use tls_api_openssl::TlsConnector;
+use tls_api_rustls::TlsConnector;
 
 /// Coeffiencients of the publicly available Drand keys.
 /// This is shared by all participants on the Drand network.
