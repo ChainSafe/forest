@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::time::EPOCHS_IN_YEAR;
 use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
 use num_traits::Zero;
 use vm::TokenAmount;
-use crate::{time::EPOCHS_IN_YEAR};
 
 // The maximum supply of Filecoin that will ever exist (in token units)
 const TOTAL_FILECOIN: u64 = 2_000_000_000;

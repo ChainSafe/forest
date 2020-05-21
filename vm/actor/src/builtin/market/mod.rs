@@ -12,8 +12,8 @@ pub use self::state::State;
 pub use self::types::*;
 use crate::{
     make_map, request_miner_control_addrs,
-    verifreg::{Method as VerifregMethod, RestoreBytesParams},
-    BalanceTable, DealID, DealWeight, OptionalEpoch, SetMultimap, BURNT_FUNDS_ACTOR_ADDR,
+    verifreg::{Method as VerifregMethod, RestoreBytesParams, UseBytesParams},
+    BalanceTable, DealID, OptionalEpoch, SetMultimap, BURNT_FUNDS_ACTOR_ADDR,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
     VERIFREG_ACTOR_ADDR,
 };
@@ -42,7 +42,6 @@ pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     AddBalance = 2,
     WithdrawBalance = 3,
-    //HandleExpiredDeals = 4,
     PublishStorageDeals = 4,
     VerifyDealsOnSectorProveCommit = 5,
     OnMinerSectorsTerminate = 6,
@@ -181,8 +180,6 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let mut amount_slashed_total = TokenAmount::zero();
-
         // Deal message must have a From field identical to the provider of all the deals.
         // This allows us to retain and verify only the client's signature in each deal proposal itself.
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
@@ -194,7 +191,7 @@ impl Actor {
         }
 
         // All deals should have the same provider so get worker once
-        let provider_raw = &params.deals[0].proposal.provider;
+        let provider_raw = &params.deals[0].proposal.provider.clone();
         let provider = rt.resolve_address(&provider_raw)?;
 
         let (_, worker) = request_miner_control_addrs(rt, &provider)?;
@@ -205,9 +202,20 @@ impl Actor {
             ));
         }
 
-        // All deals should have the same provider so get worker once
-        let provider_raw = params.deals[0].proposal.provider;
-        let provider = rt.resolve_address(&provider_raw)?;
+        for deal in &params.deals {
+            if deal.proposal.verified_deal {
+                let verif_params = UseBytesParams {
+                    address: deal.proposal.client,
+                    deal_size: BigUint::from(deal.proposal.piece_size.0),
+                };
+                rt.send(
+                    &VERIFREG_ACTOR_ADDR,
+                    VerifregMethod::UseBytes as u64,
+                    &Serialized::serialize(verif_params).unwrap(),
+                    &TokenAmount::from(0u8),
+                )?;
+            }
+        }
 
         let mut new_deal_ids: Vec<DealID> = Vec::new();
         rt.transaction(|st: &mut State, rt| {
@@ -219,7 +227,7 @@ impl Actor {
             for mut deal in params.deals {
                 validate_deal(rt, &deal)?;
 
-                if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
+                if deal.proposal.provider != provider && deal.proposal.provider != *provider_raw {
                     return Err(ActorError::new(
                         ExitCode::ErrIllegalArgument,
                         "Cannot publish deals from different providers at the same time."
@@ -231,14 +239,6 @@ impl Actor {
                 // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
                 deal.proposal.provider = provider;
                 deal.proposal.client = client;
-
-                // Before any operations that check the balance tables for funds, execute all deferred
-                // deal state updates.
-                //
-                // Note: as an optimization, implementations may cache efficient data structures indicating
-                // which of the following set of updates are redundant and can be skipped.
-                amount_slashed_total += st.update_pending_deal_states_for_party(rt, &client)?;
-                amount_slashed_total += st.update_pending_deal_states_for_party(rt, &provider)?;
 
                 st.lock_balance_or_abort(
                     rt.store(),
@@ -253,11 +253,11 @@ impl Actor {
 
                 let id = st.generate_storage_deal_id();
 
-                prop.set(id, deal.proposal)
+                prop.set(id, deal.proposal.clone())
                     .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-                dbp.put(&client, id)
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
-                dbp.put(&provider, id)
+
+                let key = Address::new_id(deal.proposal.start_epoch);
+                dbp.put(&key, id)
                     .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
 
                 new_deal_ids.push(id);
@@ -271,13 +271,6 @@ impl Actor {
             Ok(())
         })??;
 
-        rt.send(
-            &*BURNT_FUNDS_ACTOR_ADDR,
-            METHOD_SEND,
-            &Serialized::default(),
-            &amount_slashed_total,
-        )?;
-
         Ok(PublishStorageDealsReturn { ids: new_deal_ids })
     }
 
@@ -290,7 +283,7 @@ impl Actor {
     fn verify_deals_on_sector_prove_commit<BS, RT>(
         rt: &mut RT,
         params: VerifyDealsOnSectorProveCommitParams,
-    ) -> Result<DealWeight, ActorError>
+    ) -> Result<VerifyDealsOnSectorProveCommitReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -298,7 +291,7 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().from();
         let mut total_deal_space_time = BigInt::zero();
-        let mut deal_weight = BigInt::zero();
+        let mut total_verified_deal_space_time = BigInt::zero();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector
@@ -343,24 +336,22 @@ impl Actor {
 
                 // compute deal weight
                 let deal_space_time = proposal.duration() * proposal.piece_size.0;
-                total_deal_space_time += deal_space_time;
+                if proposal.verified_deal {
+                    total_verified_deal_space_time += deal_space_time;
+                } else {
+                    total_deal_space_time += deal_space_time;
+                }
             }
             st.states = states
                 .flush()
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-            let epoch_value = params
-                .sector_expiry
-                .checked_sub(rt.curr_epoch())
-                .unwrap_or(1u64);
-
-            let sector_space_time = BigInt::from(params.sector_size as u64) * epoch_value;
-            deal_weight = total_deal_space_time / sector_space_time;
-
             Ok(())
         })??;
 
-        Ok(deal_weight)
+        Ok(VerifyDealsOnSectorProveCommitReturn {
+            deal_weight: total_deal_space_time,
+            verified_deal_weight: total_verified_deal_space_time,
+        })
     }
 
     /// Terminate a set of deals in response to their containing sector being terminated.
@@ -785,7 +776,9 @@ impl ActorCode for Actor {
             }
             Some(Method::VerifyDealsOnSectorProveCommit) => {
                 let res = Self::verify_deals_on_sector_prove_commit(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(BigIntSer(&res))?)
+
+                // TODO Change this to return serialozed VerifyDealsOnSectorProveCommitReturn, should jsut be res
+                Ok(Serialized::serialize(BigIntSer(&res.deal_weight))?)
             }
             Some(Method::OnMinerSectorsTerminate) => {
                 Self::on_miners_sector_terminate(rt, params.deserialize()?)?;

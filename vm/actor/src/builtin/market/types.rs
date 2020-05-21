@@ -4,10 +4,12 @@
 use super::deal::ClientDealProposal;
 use address::Address;
 use clock::ChainEpoch;
-use fil_types::{RegisteredProof, SectorSize};
+use fil_types::RegisteredProof;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{DealID, TokenAmount};
+
+use crate::DealWeight;
 
 pub struct WithdrawBalanceParams {
     pub provider_or_client: Address,
@@ -130,7 +132,6 @@ impl<'de> Deserialize<'de> for PublishStorageDealsReturn {
 
 pub struct VerifyDealsOnSectorProveCommitParams {
     pub deal_ids: Vec<DealID>,
-    pub sector_size: SectorSize,
     pub sector_expiry: ChainEpoch,
 }
 
@@ -139,7 +140,7 @@ impl Serialize for VerifyDealsOnSectorProveCommitParams {
     where
         S: Serializer,
     {
-        (&self.deal_ids, &self.sector_size, &self.sector_expiry).serialize(serializer)
+        (&self.deal_ids, &self.sector_expiry).serialize(serializer)
     }
 }
 
@@ -148,14 +149,42 @@ impl<'de> Deserialize<'de> for VerifyDealsOnSectorProveCommitParams {
     where
         D: Deserializer<'de>,
     {
-        let (deal_ids, sector_size, sector_expiry) = Deserialize::deserialize(deserializer)?;
+        let (deal_ids, sector_expiry) = Deserialize::deserialize(deserializer)?;
         Ok(Self {
             deal_ids,
-            sector_size,
             sector_expiry,
         })
     }
 }
+
+pub struct VerifyDealsOnSectorProveCommitReturn {
+    pub deal_weight: DealWeight,
+    pub verified_deal_weight: DealWeight,
+}
+
+// impl Serialize for VerifyDealsOnSectorProveCommitReturn {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//        // (&self.deal_weight, &self.verified_deal_weight).serialize(serializer)
+//        (&self.deal_weight, &self.verified_deal_weight).serialize(serializer) ;
+//        //BigInt.serialize(&self.deal_weight);
+//     }
+// }
+
+// impl<'de> Deserialize<'de> for VerifyDealsOnSectorProveCommitReturn {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         let (deal_weight, verified_deal_weight) = Deserialize::deserialize(deserializer)?;
+//         Ok(Self {
+//             deal_weight,
+//             verified_deal_weight,
+//         })
+//     }
+// }
 
 pub struct ComputeDataCommitmentParams {
     pub deal_ids: Vec<DealID>,

@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{collateral_penalty_for_deal_activation_missed, DealProposal, DealState};
+use super::{
+    collateral_penalty_for_deal_activation_missed, ClientDealProposal, DealProposal, DealState,
+};
 use crate::{BalanceTable, DealID, OptionalEpoch, SetMultimap};
 use address::Address;
 use cid::Cid;
@@ -248,6 +250,7 @@ impl State {
     // Deal state operations
     ////////////////////////////////////////////////////////////////////////////////
 
+    #[allow(dead_code)]
     pub(super) fn update_pending_deal_states_for_party<BS, RT>(
         &mut self,
         rt: &RT,
@@ -271,6 +274,8 @@ impl State {
 
         self.update_pending_deal_states(rt.store(), extracted_ids, epoch)
     }
+
+    #[allow(dead_code)]
 
     pub(super) fn update_pending_deal_states<BS>(
         &mut self,
@@ -551,6 +556,28 @@ impl State {
 ////////////////////////////////////////////////////////////////////////////////
 // State utility functions
 ////////////////////////////////////////////////////////////////////////////////
+///
+///
+#[allow(dead_code)]
+pub fn proposal_is_internally_valid<BS, RT>(
+    rt: &RT,
+    proposal: ClientDealProposal,
+) -> Result<(), ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    if proposal.proposal.end_epoch <= proposal.proposal.start_epoch {
+        return Err(ActorError::new(
+            ExitCode::ErrIllegalState,
+            "Proposal end epoch before start epoch".to_string(),
+        ));
+    }
+
+    //TODO Use rt to call the verify signature syscall
+
+    Ok(())
+}
 
 fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAmount {
     assert!(

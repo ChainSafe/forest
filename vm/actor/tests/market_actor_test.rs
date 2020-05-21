@@ -5,14 +5,12 @@ mod common;
 
 use actor::{
     market::{Method, State, WithdrawBalanceParams},
-    miner::MinerInfo,
     Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use common::*;
 use db::MemoryDB;
-use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
@@ -101,7 +99,7 @@ fn simple_construction() {
     assert_eq!(state_data.last_cron.is_none(), true);
 }
 
-//#[test]
+#[test]
 fn add_provider_escrow_funds() {
     // First element of tuple is the delta the second element is the total after the delta change
     let test_cases = vec![(10, 10), (20, 30), (40, 70)];
@@ -141,7 +139,7 @@ fn add_provider_escrow_funds() {
     }
 }
 
-//#[test]
+#[test]
 fn account_actor_check() {
     let bs = MemoryDB::default();
     let mut rt = setup(&bs);
@@ -169,7 +167,7 @@ fn account_actor_check() {
     rt.verify();
 }
 
-//#[test]
+#[test]
 fn add_non_provider_funds() {
     // First element of tuple is the delta the second element is the total after the delta change
     let test_cases = vec![(10, 10), (20, 30), (40, 70)];
@@ -208,7 +206,7 @@ fn add_non_provider_funds() {
     }
 }
 
-//#[test]
+#[test]
 fn withdraw_provider_to_owner() {
     let bs = MemoryDB::default();
     let mut rt = setup(&bs);
@@ -380,7 +378,7 @@ fn client_withdraw_more_than_available() {
     );
 }
 
-//#[test]
+#[test]
 fn worker_withdraw_more_than_available() {
     let bs = MemoryDB::default();
     let mut rt = setup(&bs);

@@ -59,6 +59,7 @@ impl Serialize for DealProposal {
         (
             &self.piece_cid,
             &self.piece_size,
+            &self.verified_deal,
             &self.client,
             &self.provider,
             &self.start_epoch,
