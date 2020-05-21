@@ -26,6 +26,7 @@ impl Ticket {
 /// PoSt election candidates
 #[derive(Clone, Debug, PartialEq, Default, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct EPostTicket {
+    #[serde(with = "serde_bytes")]
     pub partial: Vec<u8>,
     pub sector_id: u64,
     pub challenge_index: u64,
