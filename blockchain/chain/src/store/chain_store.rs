@@ -3,6 +3,7 @@
 
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
+use beacon::BeaconEntry;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::multihash::Blake2b256;
 use cid::Cid;
@@ -108,6 +109,26 @@ where
     /// Returns genesis blockheader from blockstore
     pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
         genesis(self.blockstore())
+    }
+
+    /// Finds the latest beacon entry given a tipset up to 20 blocks behind
+    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
+        let mut cur = ts.clone();
+        for _ in 1..20 {
+            let cbe = ts.blocks()[0].beacon_entries();
+            if let Some(entry) = cbe.last() {
+                return Ok(entry.clone());
+            }
+            if cur.epoch() == 0 {
+                return Err(Error::Other(
+                    "made it back to genesis block without finding beacon entry".to_owned(),
+                ));
+            }
+            cur = self.tipset_from_keys(cur.parents())?;
+        }
+        Err(Error::Other(
+            "Found no beacon entries in the 20 blocks prior to the given tipset".to_owned(),
+        ))
     }
 
     /// Returns heaviest tipset from blockstore

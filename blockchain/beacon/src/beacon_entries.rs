@@ -12,16 +12,11 @@ use encoding::{
 pub struct BeaconEntry {
     round: u64,
     data: Vec<u8>,
-    prev_round: u64,
 }
 
 impl BeaconEntry {
-    pub fn new(round: u64, data: Vec<u8>, prev_round: u64) -> Self {
-        Self {
-            round,
-            data,
-            prev_round,
-        }
+    pub fn new(round: u64, data: Vec<u8>) -> Self {
+        Self { round, data }
     }
     /// Returns the current round number
     pub fn round(&self) -> u64 {
@@ -30,10 +25,6 @@ impl BeaconEntry {
     /// The signature of message H(prev_round, prev_round.data, round).
     pub fn data(&self) -> &[u8] {
         &self.data
-    }
-    /// Returns the previous round number
-    pub fn prev_round(&self) -> u64 {
-        self.prev_round
     }
 }
 
@@ -52,11 +43,9 @@ impl<'de> Deserialize<'de> for BeaconEntry {
         D: Deserializer<'de>,
     {
         let (round, data): (u64, BytesDe) = Deserialize::deserialize(deserializer)?;
-        let prev_round = if round == 0 { 0 } else { round - 1 };
         Ok(Self {
             round,
             data: data.0,
-            prev_round,
         })
     }
 }

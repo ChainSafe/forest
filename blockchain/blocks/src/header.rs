@@ -3,7 +3,7 @@
 
 use super::{Error, Ticket, Tipset, TipsetKeys};
 use address::Address;
-use beacon::BeaconEntry;
+use beacon::{Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{Signature, VRFProof};
@@ -21,6 +21,7 @@ use num_bigint::{
 use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
@@ -353,6 +354,49 @@ impl BlockHeader {
 
         // h(vrfout) * totalPower < e * sectorSize * 2^256
         lhs < rhs
+    }
+
+    /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
+    pub async fn validate_block_drand<B: Beacon>(
+        &self,
+        beacon: Arc<B>,
+        prev_entry: BeaconEntry,
+    ) -> Result<(), Error> {
+        let max_round = beacon.max_beacon_round_for_epoch(self.epoch);
+        if max_round == prev_entry.round() {
+            if !self.beacon_entries.is_empty() {
+                return Err(Error::Validation(format!(
+                    "expected not to have any beacon entries in this block, got: {:?}",
+                    self.beacon_entries.len()
+                )));
+            }
+            return Ok(());
+        }
+
+        let last = self.beacon_entries.last().unwrap();
+        if last.round() != max_round {
+            return Err(Error::Validation(format!(
+                "expected final beacon entry in block to be at round {}, got: {}",
+                max_round,
+                last.round()
+            )));
+        }
+        self.beacon_entries.iter().try_fold(
+            &prev_entry,
+            |prev, curr| -> Result<&BeaconEntry, Error> {
+                if !beacon
+                    .verify_entry(curr, &prev)
+                    .map_err(|e| Error::Validation(e.to_string()))?
+                {
+                    return Err(Error::Validation(format!(
+                        "beacon entry was invalid: curr:{:?}, prev: {:?}",
+                        curr, prev
+                    )));
+                }
+                Ok(curr)
+            },
+        )?;
+        Ok(())
     }
 }
 

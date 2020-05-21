@@ -12,6 +12,7 @@ use address::Address;
 use amt::Amt;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
+use beacon::Beacon;
 use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
@@ -56,9 +57,12 @@ pub enum SyncState {
     Follow,
 }
 
-pub struct ChainSyncer<DB> {
+pub struct ChainSyncer<DB, TBeacon> {
     /// Syncing state of chain sync
     state: SyncState,
+
+    /// Drand randomness beacon
+    beacon: Arc<TBeacon>,
 
     /// manages retrieving and updates state objects
     state_manager: StateManager<DB>,
@@ -94,12 +98,14 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<DB> ChainSyncer<DB>
+impl<DB, TBeacon> ChainSyncer<DB, TBeacon>
 where
+    TBeacon: Beacon,
     DB: BlockStore + Sync + Send + 'static,
 {
     pub fn new(
         chain_store: ChainStore<DB>,
+        beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
@@ -118,6 +124,7 @@ where
 
         Ok(Self {
             state: SyncState::Init,
+            beacon,
             state_manager,
             chain_store,
             network,
@@ -311,8 +318,7 @@ where
             }
 
             // validate message root from header matches message root
-            let sm_root =
-                Self::compute_msg_data(self.chain_store.blockstore(), &bls_msgs, &secp_msgs)?;
+            let sm_root = compute_msg_data(self.chain_store.blockstore(), &bls_msgs, &secp_msgs)?;
             if header.messages() != &sm_root {
                 return Err(Error::InvalidRoots);
             }
@@ -432,7 +438,7 @@ where
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
-        let sm_root = Self::compute_msg_data(
+        let sm_root = compute_msg_data(
             self.chain_store.blockstore(),
             block.bls_msgs(),
             block.secp_msgs(),
@@ -446,31 +452,7 @@ where
 
         Ok(())
     }
-    /// Returns message root CID from bls and secp message contained in the param Block
-    fn compute_msg_data(
-        blockstore: &DB,
-        bls_msgs: &[UnsignedMessage],
-        secp_msgs: &[SignedMessage],
-    ) -> Result<Cid, Error> {
-        // collect bls and secp cids
-        let bls_cids = cids_from_messages(bls_msgs)?;
-        let secp_cids = cids_from_messages(secp_msgs)?;
-        // generate Amt and batch set message values
-        let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
-        let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
 
-        let meta = TxMeta {
-            bls_message_root: bls_root,
-            secp_message_root: secp_root,
-        };
-        // TODO this should be memoryDB for temp storage
-        // store message roots and receive meta_root
-        let meta_root = blockstore
-            .put(&meta, Blake2b256)
-            .map_err(|e| Error::Other(e.to_string()))?;
-
-        Ok(meta_root)
-    }
     /// Returns FullTipset from store if TipsetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
     async fn fetch_tipset(
@@ -606,7 +588,7 @@ where
                 .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root
-        let sm_root = Self::compute_msg_data(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = compute_msg_data(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -670,6 +652,13 @@ where
         if slash {
             error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
+
+        let prev_beacon = self
+            .chain_store
+            .latest_beacon_entry(&self.chain_store.tipset_from_keys(header.parents())?)?;
+        header
+            .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
+            .await?;
 
         let power_result = self
             .state_manager
@@ -891,6 +880,32 @@ where
     }
 }
 
+/// Returns message root CID from bls and secp message contained in the param Block
+fn compute_msg_data<DB: BlockStore>(
+    blockstore: &DB,
+    bls_msgs: &[UnsignedMessage],
+    secp_msgs: &[SignedMessage],
+) -> Result<Cid, Error> {
+    // collect bls and secp cids
+    let bls_cids = cids_from_messages(bls_msgs)?;
+    let secp_cids = cids_from_messages(secp_msgs)?;
+    // generate Amt and batch set message values
+    let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
+    let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
+
+    let meta = TxMeta {
+        bls_message_root: bls_root,
+        secp_message_root: secp_root,
+    };
+    // TODO this should be memoryDB for temp storage
+    // store message roots and receive meta_root
+    let meta_root = blockstore
+        .put(&meta, Blake2b256)
+        .map_err(|e| Error::Other(e.to_string()))?;
+
+    Ok(meta_root)
+}
+
 fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
     messages.iter().map(Cbor::cid).collect()
 }
@@ -899,13 +914,16 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 mod tests {
     use super::*;
     use async_std::sync::Sender;
+    use beacon::MockBeacon;
     use blocks::BlockHeader;
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
-    fn chain_syncer_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
+    fn chain_syncer_setup(
+        db: Arc<MemoryDB>,
+    ) -> (ChainSyncer<MemoryDB, MockBeacon>, Sender<NetworkEvent>) {
         let chain_store = ChainStore::new(db);
 
         let (local_sender, _test_receiver) = channel(20);
@@ -914,9 +932,18 @@ mod tests {
         let gen = dummy_header();
         chain_store.set_genesis(gen.clone()).unwrap();
 
+        let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+
         let genesis_ts = Tipset::new(vec![gen]).unwrap();
         (
-            ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap(),
+            ChainSyncer::new(
+                chain_store,
+                beacon,
+                local_sender,
+                event_receiver,
+                genesis_ts,
+            )
+            .unwrap(),
             event_sender,
         )
     }
@@ -987,8 +1014,7 @@ mod tests {
             Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
-        let root =
-            ChainSyncer::compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
+        let root = compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
     }
 }

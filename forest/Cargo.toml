@@ -23,4 +23,7 @@ forest_car = { path = "../ipld/car" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore", features = ["rocksdb"] }
 chain = { path = "../blockchain/chain" }
-structopt = { version = "0.3" }
+structopt = { version = "0.3"}
+beacon = { path = "../blockchain/beacon" }
+hex = "0.4.2"
+

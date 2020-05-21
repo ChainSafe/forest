@@ -9,6 +9,7 @@ address = { package = "forest_address", path = "../../vm/address" }
 vm = { package = "forest_vm", path = "../../vm" }
 amt = { package = "ipld_amt", path = "../../ipld/amt" }
 blocks = { package = "forest_blocks", path = "../blocks" }
+beacon = { path = "../beacon" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 libp2p = "0.16.2"

@@ -4,6 +4,7 @@
 use super::*;
 use async_std::sync::channel;
 use async_std::task;
+use beacon::MockBeacon;
 use blocks::BlockHeader;
 use db::MemoryDB;
 use forest_libp2p::hello::HelloMessage;
@@ -29,7 +30,15 @@ fn peer_manager_update() {
     chain_store.set_genesis(dummy_header.clone()).unwrap();
 
     let genesis_ts = Tipset::new(vec![dummy_header]).unwrap();
-    let cs = ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap();
+    let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+    let cs = ChainSyncer::new(
+        chain_store,
+        beacon,
+        local_sender,
+        event_receiver,
+        genesis_ts,
+    )
+    .unwrap();
 
     let peer_manager = Arc::clone(&cs.peer_manager);
 
