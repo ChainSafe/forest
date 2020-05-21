@@ -8,6 +8,7 @@ use vm::MethodNum;
 
 /// Cron actor state which holds entries to call during epoch tick
 #[derive(Default, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct State {
     /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
     pub entries: Vec<Entry>,
