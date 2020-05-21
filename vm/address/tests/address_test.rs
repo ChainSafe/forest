@@ -25,6 +25,21 @@ fn bytes() {
 }
 
 #[test]
+fn key_len_validations() {
+    // Short
+    assert!(Address::new_bls(&[8; BLS_PUB_LEN - 1]).is_err());
+    assert!(Address::new_secp256k1(&[8; SECP_PUB_LEN - 1]).is_err());
+
+    // Equal
+    assert!(Address::new_bls(&[8; BLS_PUB_LEN]).is_ok());
+    assert!(Address::new_secp256k1(&[8; SECP_PUB_LEN]).is_ok());
+
+    // Long
+    assert!(Address::new_bls(&[8; BLS_PUB_LEN + 1]).is_err());
+    assert!(Address::new_secp256k1(&[8; SECP_PUB_LEN + 1]).is_err());
+}
+
+#[test]
 fn generate_validate_checksum() {
     let data = [0, 2, 3, 4, 5, 1, 2];
     let other_data = [1, 4, 3, 6, 7, 1, 2];
