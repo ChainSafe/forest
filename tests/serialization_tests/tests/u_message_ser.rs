@@ -96,7 +96,7 @@ fn unsigned_message_cbor_vectors() {
 
     let vectors: Vec<TestVector> =
         serde_json::from_str(&string).expect("Test vector deserialization failed");
-    for tv in vectors {
-        encode_assert_cbor(&UnsignedMessage::from(tv.message), &tv.hex_cbor)
+    for TestVector { message, hex_cbor } in vectors {
+        encode_assert_cbor(&message, &hex_cbor)
     }
 }
