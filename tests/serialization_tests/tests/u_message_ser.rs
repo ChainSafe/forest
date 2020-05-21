@@ -4,55 +4,75 @@
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
 
-use address::Address;
 use encoding::{from_slice, to_vec};
 use forest_message::UnsignedMessage;
 use hex::encode;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
-use std::str::FromStr;
-use vm::Serialized;
 
-#[derive(Debug, Deserialize)]
-struct MessageVector {
-    #[serde(alias = "To")]
-    to: String,
-    #[serde(alias = "From")]
-    from: String,
-    #[serde(alias = "Nonce")]
-    nonce: u64,
-    #[serde(alias = "Value")]
-    value: String,
-    #[serde(alias = "GasPrice")]
-    gas_price: String,
-    #[serde(alias = "GasLimit")]
-    gas_limit: u64,
-    #[serde(alias = "Method")]
-    method: u64,
-    #[serde(alias = "Params")]
-    params: String,
-}
+mod unsigned_message_json {
+    use super::UnsignedMessage;
+    use serde::{de, Deserialize, Deserializer};
+    use vm::Serialized;
 
-impl From<MessageVector> for UnsignedMessage {
-    fn from(vector: MessageVector) -> UnsignedMessage {
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct UnsignedMessageDe {
+            #[serde(alias = "Version")]
+            version: i64,
+            #[serde(alias = "To")]
+            to: String,
+            #[serde(alias = "From")]
+            from: String,
+            #[serde(alias = "Nonce")]
+            nonce: u64,
+            #[serde(alias = "Value")]
+            value: String,
+            #[serde(alias = "GasPrice")]
+            gas_price: String,
+            #[serde(alias = "GasLimit")]
+            gas_limit: u64,
+            #[serde(alias = "Method")]
+            method: u64,
+            #[serde(alias = "Params")]
+            params: String,
+        }
+        let UnsignedMessageDe {
+            version,
+            to,
+            from,
+            nonce,
+            value,
+            gas_price,
+            gas_limit,
+            method,
+            params,
+        } = Deserialize::deserialize(deserializer)?;
         UnsignedMessage::builder()
-            .to(Address::from_str(&vector.to).unwrap())
-            .from(Address::from_str(&vector.from).unwrap())
-            .sequence(vector.nonce)
-            .value(vector.value.parse().unwrap())
-            .method_num(vector.method)
-            .params(Serialized::new(base64::decode(&vector.params).unwrap()))
-            .gas_limit(vector.gas_limit)
-            .gas_price(vector.gas_price.parse().unwrap())
+            .version(version)
+            .to(to.parse().map_err(de::Error::custom)?)
+            .from(from.parse().map_err(de::Error::custom)?)
+            .sequence(nonce)
+            .value(value.parse().map_err(de::Error::custom)?)
+            .method_num(method)
+            .params(Serialized::new(
+                base64::decode(&params).map_err(de::Error::custom)?,
+            ))
+            .gas_limit(gas_limit)
+            .gas_price(gas_price.parse().map_err(de::Error::custom)?)
             .build()
-            .unwrap()
+            .map_err(de::Error::custom)
     }
 }
 
 #[derive(Deserialize)]
 struct TestVector {
-    message: MessageVector,
+    #[serde(with = "unsigned_message_json")]
+    message: UnsignedMessage,
     hex_cbor: String,
 }
 
@@ -69,7 +89,6 @@ fn encode_assert_cbor(message: &UnsignedMessage, expected: &str) {
 }
 
 #[test]
-#[ignore]
 fn unsigned_message_cbor_vectors() {
     let mut file = File::open("../serialization-vectors/unsigned_messages.json").unwrap();
     let mut string = String::new();
