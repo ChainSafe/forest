@@ -41,29 +41,19 @@ mod unsigned_message_json {
             #[serde(alias = "Params")]
             params: String,
         }
-        let UnsignedMessageDe {
-            version,
-            to,
-            from,
-            nonce,
-            value,
-            gas_price,
-            gas_limit,
-            method,
-            params,
-        } = Deserialize::deserialize(deserializer)?;
+        let m: UnsignedMessageDe = Deserialize::deserialize(deserializer)?;
         UnsignedMessage::builder()
-            .version(version)
-            .to(to.parse().map_err(de::Error::custom)?)
-            .from(from.parse().map_err(de::Error::custom)?)
-            .sequence(nonce)
-            .value(value.parse().map_err(de::Error::custom)?)
-            .method_num(method)
+            .version(m.version)
+            .to(m.to.parse().map_err(de::Error::custom)?)
+            .from(m.from.parse().map_err(de::Error::custom)?)
+            .sequence(m.nonce)
+            .value(m.value.parse().map_err(de::Error::custom)?)
+            .method_num(m.method)
             .params(Serialized::new(
-                base64::decode(&params).map_err(de::Error::custom)?,
+                base64::decode(&m.params).map_err(de::Error::custom)?,
             ))
-            .gas_limit(gas_limit)
-            .gas_price(gas_price.parse().map_err(de::Error::custom)?)
+            .gas_limit(m.gas_limit)
+            .gas_price(m.gas_price.parse().map_err(de::Error::custom)?)
             .build()
             .map_err(de::Error::custom)
     }
