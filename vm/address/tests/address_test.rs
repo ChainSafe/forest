@@ -5,22 +5,38 @@ use data_encoding::{DecodeError, DecodeKind};
 use encoding::{from_slice, Cbor};
 use forest_address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
+    SECP_PUB_LEN,
 };
 use std::str::FromStr;
 
 #[test]
 fn bytes() {
-    let data = &[0, 3, 2, 2, 4, 3, 2, 1, 3, 2, 1, 1, 3, 5, 7, 2, 4, 2, 1, 4];
-    let new_addr = Address::new_secp256k1(data);
+    let data = [0; SECP_PUB_LEN];
+    let new_addr = Address::new_secp256k1(&data).unwrap();
     let encoded_bz = new_addr.to_bytes();
 
     // Assert decoded address equals the original address and a new one with the same data
     let decoded_addr = Address::from_bytes(&encoded_bz).unwrap();
     assert!(decoded_addr == new_addr);
-    assert!(decoded_addr == Address::new_secp256k1(data));
+    assert!(decoded_addr == Address::new_secp256k1(&data).unwrap());
 
     // Assert different types don't match
-    assert!(decoded_addr != Address::new_actor(data));
+    assert!(decoded_addr != Address::new_actor(&data));
+}
+
+#[test]
+fn key_len_validations() {
+    // Short
+    assert!(Address::new_bls(&[8; BLS_PUB_LEN - 1]).is_err());
+    assert!(Address::new_secp256k1(&[8; SECP_PUB_LEN - 1]).is_err());
+
+    // Equal
+    assert!(Address::new_bls(&[8; BLS_PUB_LEN]).is_ok());
+    assert!(Address::new_secp256k1(&[8; SECP_PUB_LEN]).is_ok());
+
+    // Long
+    assert!(Address::new_bls(&[8; BLS_PUB_LEN + 1]).is_err());
+    assert!(Address::new_secp256k1(&[8; SECP_PUB_LEN + 1]).is_err());
 }
 
 #[test]
@@ -114,7 +130,7 @@ fn secp256k1_address() {
     ];
 
     for t in test_vectors.iter() {
-        let addr = Address::new_secp256k1(t.input);
+        let addr = Address::new_secp256k1(t.input).unwrap();
         test_address(addr, Protocol::Secp256k1, t.expected);
     }
 }
