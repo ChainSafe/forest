@@ -26,4 +26,4 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 [dev-dependencies]
 forest_address = { path = "../../vm/address" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-crypto = { path = "../../crypto" }
+crypto = { package = "forest_crypto", path = "../../crypto" }

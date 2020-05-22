@@ -60,7 +60,7 @@ macro_rules! account_tests {
 
 account_tests! {
     happy_construct_secp256k1_address: (
-        Address::new_secp256k1(&[1, 2, 3]),
+        Address::new_secp256k1(&[2; address::SECP_PUB_LEN]).unwrap(),
         ExitCode::Ok
     ),
     happy_construct_bls_address: (

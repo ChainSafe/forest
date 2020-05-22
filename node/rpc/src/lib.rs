@@ -8,6 +8,10 @@ struct State <DB: BlockStore>{
     pub chain: Arc<DB>,
 }
 
+impl <DB: BlockStore> State<DB> {
+    pub fn
+}
+
 async fn handle_json_rpc<DB: BlockStore> (mut req: Request<State<DB>>) -> tide::Result {
     let call: MethodCall = req.body_json().await?;
 //    req.state().chain.get("");

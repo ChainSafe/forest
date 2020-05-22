@@ -1,13 +1,16 @@
 [package]
 name = "forest_encoding"
+description = "Filecoin encoding and decoding utilities for use in Forest"
+license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 blake2b_simd = "0.5.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.3"
 serde_cbor = { version = "0.11.0", features = ["tags"] }
-cid = { package = "forest_cid", path = "../ipld/cid" }
+cid = { package = "forest_cid", path = "../ipld/cid", version = "0.1" }
 thiserror = "1.0"

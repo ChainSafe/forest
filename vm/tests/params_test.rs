@@ -3,7 +3,7 @@
 
 use address::Address;
 use encoding::{from_slice, to_vec};
-use vm::Serialized;
+use forest_vm::Serialized;
 
 #[test]
 fn serialized_deserialize() {
