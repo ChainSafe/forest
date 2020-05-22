@@ -497,9 +497,6 @@ impl Actor {
                         .update_pending_deal_state(rt.store(), deal_id, rt.curr_epoch())
                         .unwrap();
 
-                    //let slash_amount = TokenAmount::from(0u8);
-                    //let next_epoch: OptionalEpoch = OptionalEpoch(None);
-
                     amount_slashed += slash_amount;
 
                     if next_epoch.is_some() {
