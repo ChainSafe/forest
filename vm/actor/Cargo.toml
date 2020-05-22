@@ -29,4 +29,4 @@ fil_types = { path = "../../types" }
 [dev-dependencies]
 db = { path = "../../node/db" }
 hex = "0.4.2"
-libp2p = "0.16.2"
+libp2p = "0.19"

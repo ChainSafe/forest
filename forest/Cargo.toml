@@ -8,7 +8,7 @@ edition = "2018"
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
 db = { path = "../node/db", features = ["rocksdb"] }
-libp2p = "0.16.2"
+libp2p = "0.19"
 futures = "0.3.1"
 log = "0.4.8"
 async-log = "2.0.0"
@@ -23,7 +23,6 @@ forest_car = { path = "../ipld/car" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore", features = ["rocksdb"] }
 chain = { path = "../blockchain/chain" }
-structopt = { version = "0.3"}
+structopt = { version = "0.3" }
 beacon = { path = "../blockchain/beacon" }
 hex = "0.4.2"
-
