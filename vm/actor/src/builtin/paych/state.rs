@@ -3,25 +3,22 @@
 
 use address::Address;
 use clock::ChainEpoch;
+use encoding::tuple::*;
 use encoding::Cbor;
-use num_bigint::{
-    bigint_ser::{BigIntDe, BigIntSer},
-    biguint_ser::{BigUintDe, BigUintSer},
-    BigInt,
-};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use num_bigint::{bigint_ser, biguint_ser, BigInt};
 use vm::TokenAmount;
 
 /// A given payment channel actor is established by `from`
 /// to enable off-chain microtransactions to `to` address
 /// to be reconciled and tallied on chain.
-#[derive(Debug)]
+#[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// Channel owner, who has funded the actor.
     pub from: Address,
     /// Recipient of payouts from channel.
     pub to: Address,
     /// Amount successfully redeemed through the payment channel, paid out on `Collect`.
+    #[serde(with = "biguint_ser")]
     pub to_send: TokenAmount,
     /// Height at which the channel can be collected.
     pub settling_at: ChainEpoch,
@@ -46,98 +43,23 @@ impl State {
 
 /// The Lane state tracks the latest (highest) voucher nonce used to merge the lane
 /// as well as the amount it has already redeemed.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct LaneState {
     /// Identifier unique to this channel
     pub id: u64,
     // TODO this could possibly be a BigUint, but won't affect serialization
+    #[serde(with = "bigint_ser")]
     pub redeemed: BigInt,
     pub nonce: u64,
 }
 
 /// Specifies which `lane`s to be merged with what `nonce` on `channel_update`
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct Merge {
     pub lane: u64,
     pub nonce: u64,
 }
 
 impl Cbor for State {}
-impl Serialize for State {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.from,
-            &self.to,
-            BigUintSer(&self.to_send),
-            &self.settling_at,
-            &self.min_settle_height,
-            &self.lane_states,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for State {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (from, to, BigUintDe(to_send), settling_at, min_settle_height, lane_states) =
-            Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            from,
-            to,
-            to_send,
-            settling_at,
-            min_settle_height,
-            lane_states,
-        })
-    }
-}
-
 impl Cbor for LaneState {}
-impl Serialize for LaneState {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.id, BigIntSer(&self.redeemed), &self.nonce).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for LaneState {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (id, BigIntDe(redeemed), nonce) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            id,
-            redeemed,
-            nonce,
-        })
-    }
-}
-
 impl Cbor for Merge {}
-impl Serialize for Merge {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.lane, &self.nonce).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Merge {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (lane, nonce) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { lane, nonce })
-    }
-}

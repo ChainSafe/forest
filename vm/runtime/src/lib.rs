@@ -203,8 +203,8 @@ pub trait Syscalls {
             commd,
             prover_id,
             SectorId::from(vi.sector_id.number),
-            vi.randomness,
-            vi.interactive_randomness,
+            vi.randomness.0,
+            vi.interactive_randomness.0,
             &vi.on_chain.proof,
         )? {
             return Err(format!(
@@ -246,7 +246,7 @@ pub trait Syscalls {
         prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
 
         // verify
-        if !verify_window_post(&verify_info.randomness, &proofs, &replicas, prover_id)? {
+        if !verify_window_post(&verify_info.randomness.0, &proofs, &replicas, prover_id)? {
             return Err("Proof was invalid".to_string().into());
         }
 

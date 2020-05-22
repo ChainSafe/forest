@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::SectorSize;
+use encoding::repr::*;
 use filecoin_proofs_api::{RegisteredPoStProof, RegisteredSealProof};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// This ordering, defines mappings to UInt in a way which MUST never change.
-#[derive(PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash)]
+#[derive(
+    PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash, Serialize_repr, Deserialize_repr,
+)]
 #[repr(u8)]
 pub enum RegisteredProof {
     StackedDRG32GiBSeal = 1,
@@ -121,25 +123,6 @@ impl RegisteredProof {
 impl Default for RegisteredProof {
     fn default() -> Self {
         RegisteredProof::StackedDRG2KiBPoSt
-    }
-}
-
-impl Serialize for RegisteredProof {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (*self as u8).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for RegisteredProof {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let b: u8 = Deserialize::deserialize(deserializer)?;
-        Ok(Self::from_byte(b).ok_or_else(|| de::Error::custom("Invalid registered proof byte"))?)
     }
 }
 

@@ -4,15 +4,15 @@
 use crate::HAMT_BIT_WIDTH;
 use address::Address;
 use cid::Cid;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use encoding::Cbor;
+use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Hamt};
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 
 use crate::builtin::verifreg::types::Datacap;
 
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     pub root_key: Address,
     pub verifiers: Cid,
@@ -124,26 +124,3 @@ impl State {
 }
 
 impl Cbor for State {}
-
-impl Serialize for State {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.root_key, &self.verifiers, &self.verified_clients).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for State {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (root_key, verifiers, verified_clients) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            root_key,
-            verifiers,
-            verified_clients,
-        })
-    }
-}

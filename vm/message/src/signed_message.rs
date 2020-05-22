@@ -4,35 +4,15 @@
 use super::{Message, UnsignedMessage};
 use address::Address;
 use crypto::{Error as CryptoError, Signature, Signer};
+use encoding::tuple::*;
 use encoding::Cbor;
-use encoding::{de::Deserializer, ser::Serializer};
-use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct SignedMessage {
     message: UnsignedMessage,
     signature: Signature,
-}
-
-impl Serialize for SignedMessage {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.message, &self.signature).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for SignedMessage {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (message, signature) = Deserialize::deserialize(deserializer)?;
-        Ok(SignedMessage { message, signature })
-    }
 }
 
 impl SignedMessage {

@@ -6,9 +6,9 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
+use encoding::tuple::*;
 use fil_types::PaddedPieceSize;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use num_bigint::biguint_ser;
 use vm::TokenAmount;
 
 /// Note: Deal Collateral is only released and returned to clients and miners
@@ -19,7 +19,7 @@ use vm::TokenAmount;
 /// minimal deals that last for a long time.
 /// Note: ClientCollateralPerEpoch may not be needed and removed pending future confirmation.
 /// There will be a Minimum value for both client and provider deal collateral.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct DealProposal {
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
@@ -28,9 +28,12 @@ pub struct DealProposal {
 
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
+    #[serde(with = "biguint_ser")]
     pub storage_price_per_epoch: TokenAmount,
 
+    #[serde(with = "biguint_ser")]
     pub provider_collateral: TokenAmount,
+    #[serde(with = "biguint_ser")]
     pub client_collateral: TokenAmount,
 }
 
@@ -49,117 +52,16 @@ impl DealProposal {
     }
 }
 
-impl Serialize for DealProposal {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.piece_cid,
-            &self.piece_size,
-            &self.client,
-            &self.provider,
-            &self.start_epoch,
-            &self.end_epoch,
-            BigUintSer(&self.storage_price_per_epoch),
-            BigUintSer(&self.provider_collateral),
-            BigUintSer(&self.client_collateral),
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for DealProposal {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (
-            piece_cid,
-            piece_size,
-            client,
-            provider,
-            start_epoch,
-            end_epoch,
-            BigUintDe(storage_price_per_epoch),
-            BigUintDe(provider_collateral),
-            BigUintDe(client_collateral),
-        ) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            piece_cid,
-            piece_size,
-            client,
-            provider,
-            start_epoch,
-            end_epoch,
-            storage_price_per_epoch,
-            provider_collateral,
-            client_collateral,
-        })
-    }
-}
-
 /// ClientDealProposal is a DealProposal signed by a client
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ClientDealProposal {
     pub proposal: DealProposal,
     pub client_signature: Signature,
 }
 
-impl Serialize for ClientDealProposal {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.proposal, &self.client_signature).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ClientDealProposal {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (proposal, client_signature) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            proposal,
-            client_signature,
-        })
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Copy)]
+#[derive(Clone, Debug, PartialEq, Copy, Serialize_tuple, Deserialize_tuple)]
 pub struct DealState {
     pub sector_start_epoch: OptionalEpoch,
     pub last_updated_epoch: OptionalEpoch,
     pub slash_epoch: OptionalEpoch,
-}
-
-impl Serialize for DealState {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.sector_start_epoch,
-            &self.last_updated_epoch,
-            &self.slash_epoch,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for DealState {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (sector_start_epoch, last_updated_epoch, slash_epoch) =
-            Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            sector_start_epoch,
-            last_updated_epoch,
-            slash_epoch,
-        })
-    }
 }

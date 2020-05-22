@@ -3,9 +3,8 @@
 
 use super::BlockHeader;
 use cid::Cid;
-use encoding::{de::Deserializer, ser::Serializer};
+use encoding::tuple::*;
 use message::{SignedMessage, UnsignedMessage};
-use serde::{Deserialize, Serialize};
 
 /// A complete block
 #[derive(Clone, Debug, PartialEq)]
@@ -35,29 +34,8 @@ impl Block {
 }
 
 /// Tracks the merkleroots of both secp and bls messages separately
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TxMeta {
     pub bls_message_root: Cid,
     pub secp_message_root: Cid,
-}
-
-impl Serialize for TxMeta {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.bls_message_root, &self.secp_message_root).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for TxMeta {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (bls_message_root, secp_message_root) = Deserialize::deserialize(deserializer)?;
-        Ok(TxMeta {
-            bls_message_root,
-            secp_message_root,
-        })
-    }
 }

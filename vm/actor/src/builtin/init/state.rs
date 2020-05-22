@@ -4,13 +4,14 @@
 use crate::{BytesKey, FIRST_NON_SINGLETON_ADDR, HAMT_BIT_WIDTH};
 use address::{Address, Protocol};
 use cid::Cid;
+use encoding::tuple::*;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::ActorID;
 
 /// State is reponsible for creating
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     pub address_map: Cid,
     pub next_id: ActorID,
@@ -67,29 +68,6 @@ impl State {
             .ok_or_else(|| "Address not found".to_owned())?;
 
         Ok(Address::new_id(actor_id))
-    }
-}
-
-impl Serialize for State {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.address_map, &self.next_id, &self.network_name).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for State {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (address_map, next_id, network_name) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            address_map,
-            next_id,
-            network_name,
-        })
     }
 }
 
