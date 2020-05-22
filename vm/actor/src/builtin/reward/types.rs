@@ -4,9 +4,8 @@
 use super::VestingFunction;
 use address::Address;
 use clock::ChainEpoch;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
-use num_bigint::BigUint;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use encoding::tuple::*;
+use num_bigint::{biguint_ser, BigUint};
 use vm::TokenAmount;
 
 /// Number of token units in an abstract "FIL" token.
@@ -22,41 +21,12 @@ lazy_static! {
 pub(super) const REWARD_VESTING_FUNCTION: VestingFunction = VestingFunction::None;
 pub(super) const REWARD_VESTING_PERIOD: ChainEpoch = 0;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct AwardBlockRewardParams {
     pub miner: Address,
+    #[serde(with = "biguint_ser")]
     pub penalty: TokenAmount,
+    #[serde(with = "biguint_ser")]
     pub gas_reward: TokenAmount,
     pub ticket_count: u64,
-}
-
-impl Serialize for AwardBlockRewardParams {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.miner,
-            BigUintSer(&self.penalty),
-            BigUintSer(&self.gas_reward),
-            &self.ticket_count,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for AwardBlockRewardParams {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (miner, BigUintDe(penalty), BigUintDe(gas_reward), ticket_count) =
-            Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            miner,
-            penalty,
-            gas_reward,
-            ticket_count,
-        })
-    }
 }
