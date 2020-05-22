@@ -3,17 +3,10 @@
 
 use encoding::{Byte32De, BytesSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt::{self, Debug, Formatter};
 
 /// String of random bytes
-#[derive(PartialEq, Eq, Default, Copy, Clone)]
+#[derive(PartialEq, Eq, Default, Copy, Clone, Debug)]
 pub struct Randomness(pub [u8; 32]);
-
-impl Debug for Randomness {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
 
 impl Serialize for Randomness {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
