@@ -14,3 +14,11 @@ pub use self::bytes::*;
 pub use self::cbor::*;
 pub use self::errors::*;
 pub use self::hash::*;
+
+pub mod tuple {
+    pub use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
+}
+
+pub mod repr {
+    pub use serde_repr::{Deserialize_repr, Serialize_repr};
+}

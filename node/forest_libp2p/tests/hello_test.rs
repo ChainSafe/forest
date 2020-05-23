@@ -63,6 +63,7 @@ fn test_empty_rpc() {
                         ev => panic!("Receiver invalid RPC received, {:?}", ev),
                     }
                 }
+                RPCMessage::PeerDialed(_) => (),
                 e => panic!("unexpected {:?}", e),
             }
         }

@@ -5,12 +5,8 @@ use super::Merge;
 use address::Address;
 use clock::ChainEpoch;
 use crypto::Signature;
-use encoding::{BytesDe, BytesSer};
-use num_bigint::{
-    bigint_ser::{BigIntDe, BigIntSer},
-    BigInt,
-};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use encoding::{serde_bytes, tuple::*};
+use num_bigint::{bigint_ser, BigInt};
 use vm::{MethodNum, Serialized};
 
 /// Maximum number of lanes in a channel
@@ -20,33 +16,15 @@ pub const LANE_LIMIT: usize = 256;
 pub const SETTLE_DELAY: ChainEpoch = 1;
 
 /// Constructor parameters for payment channel actor
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ConstructorParams {
     pub from: Address,
     pub to: Address,
 }
 
-impl Serialize for ConstructorParams {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.from, &self.to).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ConstructorParams {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (from, to) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { from, to })
-    }
-}
-
 /// A voucher is sent by `from` to `to` off-chain in order to enable
 /// `to` to redeem payments on-chain in the future
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct SignedVoucher {
     /// Min epoch before which the voucher cannot be redeemed
     pub time_lock_min: ChainEpoch,
@@ -55,6 +33,7 @@ pub struct SignedVoucher {
     pub time_lock_max: ChainEpoch,
     /// (optional) Used by `to` to validate
     // TODO revisit this type, can probably be a 32 byte array
+    #[serde(with = "serde_bytes")]
     pub secret_pre_image: Vec<u8>,
     /// (optional) Specified by `from` to add a verification method to the voucher
     pub extra: Option<ModVerifyParams>,
@@ -63,6 +42,7 @@ pub struct SignedVoucher {
     /// Set by `from` to prevent redemption of stale vouchers on a lane
     pub nonce: u64,
     /// Amount voucher can be redeemed for
+    #[serde(with = "bigint_ser")]
     pub amount: BigInt,
     /// (optional) Can extend channel min_settle_height if needed
     pub min_settle_height: ChainEpoch,
@@ -74,139 +54,30 @@ pub struct SignedVoucher {
     pub signature: Option<Signature>,
 }
 
-impl Serialize for SignedVoucher {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.time_lock_min,
-            &self.time_lock_max,
-            BytesSer(&self.secret_pre_image),
-            &self.extra,
-            &self.lane,
-            &self.nonce,
-            BigIntSer(&self.amount),
-            &self.min_settle_height,
-            &self.merges,
-            &self.signature,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for SignedVoucher {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (
-            time_lock_min,
-            time_lock_max,
-            BytesDe(secret_pre_image),
-            extra,
-            lane,
-            nonce,
-            BigIntDe(amount),
-            min_settle_height,
-            merges,
-            signature,
-        ) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            time_lock_min,
-            time_lock_max,
-            secret_pre_image,
-            extra,
-            lane,
-            nonce,
-            amount,
-            min_settle_height,
-            merges,
-            signature,
-        })
-    }
-}
-
 /// Modular Verification method
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ModVerifyParams {
     pub actor: Address,
     pub method: MethodNum,
     pub data: Serialized,
 }
 
-impl Serialize for ModVerifyParams {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.actor, &self.method, &self.data).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ModVerifyParams {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (actor, method, data) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            actor,
-            method,
-            data,
-        })
-    }
-}
-
 /// Payment Verification parameters
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PaymentVerifyParams {
     pub extra: Serialized,
     // TODO revisit these to see if they should be arrays or optional
+    #[serde(with = "serde_bytes")]
     pub proof: Vec<u8>,
 }
 
-impl Serialize for PaymentVerifyParams {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.extra, BytesSer(&self.proof)).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for PaymentVerifyParams {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (extra, BytesDe(proof)) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { extra, proof })
-    }
-}
-
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct UpdateChannelStateParams {
     pub sv: SignedVoucher,
+    #[serde(with = "serde_bytes")]
     pub secret: Vec<u8>,
+    #[serde(with = "serde_bytes")]
     pub proof: Vec<u8>,
-}
-
-impl Serialize for UpdateChannelStateParams {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.sv, BytesSer(&self.secret), BytesSer(&self.proof)).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for UpdateChannelStateParams {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (sv, BytesDe(secret), BytesDe(proof)) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { sv, secret, proof })
-    }
 }
 
 #[cfg(test)]

@@ -6,17 +6,17 @@ use crate::{BalanceTable, BytesKey, Multimap, Set, StoragePower, HAMT_BIT_WIDTH}
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use encoding::Cbor;
+use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_bigint::biguint_ser;
 use num_traits::{CheckedSub, Zero};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{Serialized, TokenAmount};
 
 /// Storage power actor state
-#[derive(Default)]
+#[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
+    #[serde(with = "biguint_ser")]
     pub total_network_power: StoragePower,
     pub miner_count: i64,
     /// The balances of pledge collateral for each miner actually held by this actor.
@@ -358,103 +358,19 @@ fn epoch_key(e: ChainEpoch) -> BytesKey {
 }
 
 impl Cbor for State {}
-impl Serialize for State {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            BigUintDe(self.total_network_power.clone()),
-            &self.miner_count,
-            &self.escrow_table,
-            &self.cron_event_queue,
-            &self.last_epoch_tick,
-            &self.post_detected_fault_miners,
-            &self.claims,
-            &self.num_miners_meeting_min_power,
-        )
-            .serialize(serializer)
-    }
-}
 
-impl<'de> Deserialize<'de> for State {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (
-            BigUintDe(total_network_power),
-            miner_count,
-            escrow_table,
-            cron_event_queue,
-            last_epoch_tick,
-            post_detected_fault_miners,
-            claims,
-            num_miners_meeting_min_power,
-        ) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            total_network_power,
-            miner_count,
-            escrow_table,
-            cron_event_queue,
-            last_epoch_tick,
-            post_detected_fault_miners,
-            claims,
-            num_miners_meeting_min_power,
-        })
-    }
-}
-
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Claim {
+    #[serde(with = "biguint_ser")]
     pub power: StoragePower,
+    #[serde(with = "biguint_ser")]
     pub pledge: TokenAmount,
 }
 
-impl Serialize for Claim {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (BigUintSer(&self.power), BigUintSer(&self.pledge)).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Claim {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (BigUintDe(power), BigUintDe(pledge)) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { power, pledge })
-    }
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct CronEvent {
     pub miner_addr: Address,
     pub callback_payload: Serialized,
 }
 
 impl Cbor for CronEvent {}
-impl Serialize for CronEvent {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.miner_addr, &self.callback_payload).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for CronEvent {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (miner_addr, callback_payload) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            miner_addr,
-            callback_payload,
-        })
-    }
-}

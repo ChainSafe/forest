@@ -15,7 +15,7 @@ clean:
 	@cargo clean -p blockchain
 	@cargo clean -p forest_blocks
 	@cargo clean -p chain_sync
-	@cargo clean -p vm
+	@cargo clean -p forest_vm
 	@cargo clean -p forest_address
 	@cargo clean -p actor
 	@cargo clean -p forest_message
@@ -23,7 +23,7 @@ clean:
 	@cargo clean -p state_tree
 	@cargo clean -p state_manager
 	@cargo clean -p interpreter
-	@cargo clean -p crypto
+	@cargo clean -p forest_crypto
 	@cargo clean -p forest_encoding
 	@cargo clean -p forest_cid
 	@cargo clean -p forest_ipld
@@ -33,6 +33,7 @@ clean:
 	@cargo clean -p rleplus
 	@cargo clean -p commcid
 	@cargo clean -p fil_types
+	@cargo clean -p ipld_blockstore
 	@echo "Done cleaning."
 
 lint: license clean
@@ -50,13 +51,13 @@ pull-serialization-tests:
 	git submodule update --init
 
 run-vectors:
-	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "serde_tests"
+	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
 
 test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo test --all --release --exclude serialization_tests
+	cargo test --all --exclude serialization_tests
 
 # This will run all tests will all features enabled, which will exclude some tests with
 # specific features disabled

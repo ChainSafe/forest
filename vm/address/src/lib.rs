@@ -23,9 +23,18 @@ const ADDRESS_ENCODER: Encoding = new_encoding! {
     padding: None,
 };
 
-pub const BLS_PUB_LEN: usize = 48;
+/// Hash length of payload for Secp and Actor addresses.
 pub const PAYLOAD_HASH_LEN: usize = 20;
+
+/// Uncompressed secp public key used for validation of Secp addresses.
+pub const SECP_PUB_LEN: usize = 65;
+
+/// BLS public key length used for validation of BLS addresses.
+pub const BLS_PUB_LEN: usize = 48;
+
+/// Length of the checksum hash for string encodings.
 pub const CHECKSUM_HASH_LEN: usize = 4;
+
 const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
@@ -69,11 +78,14 @@ impl Address {
     }
 
     /// Generates new address using Secp256k1 pubkey
-    pub fn new_secp256k1(pubkey: &[u8]) -> Self {
-        Self {
+    pub fn new_secp256k1(pubkey: &[u8]) -> Result<Self, Error> {
+        if pubkey.len() != 65 {
+            return Err(Error::InvalidSECPLength(pubkey.len()));
+        }
+        Ok(Self {
             network: NETWORK_DEFAULT,
             payload: Payload::Secp256k1(address_hash(pubkey)),
-        }
+        })
     }
 
     /// Generates new address using the Actor protocol

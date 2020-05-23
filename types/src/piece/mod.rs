@@ -5,7 +5,8 @@ mod zero;
 
 use cid::Cid;
 use commcid::cid_to_piece_commitment_v1;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use encoding::tuple::*;
+use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 pub use zero::zero_piece_commitment;
 
@@ -60,30 +61,12 @@ impl PaddedPieceSize {
 }
 
 // Piece information for part or a whole file
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PieceInfo {
     /// Size in nodes. For BLS12-381 (capacity 254 bits), must be >= 16. (16 * 8 = 128)
     pub size: PaddedPieceSize,
     /// Content identifier for piece
     pub cid: Cid,
-}
-
-impl Serialize for PieceInfo {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.size, &self.cid).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for PieceInfo {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (size, cid) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { size, cid })
-    }
 }
 
 impl TryFrom<&PieceInfo> for filecoin_proofs_api::PieceInfo {

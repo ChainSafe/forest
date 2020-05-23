@@ -9,7 +9,7 @@ use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 /// Cron actor methods available
@@ -22,29 +22,11 @@ pub enum Method {
 
 /// Constructor parameters for Cron actor, contains entries
 /// of actors and methods to call on each epoch
-#[derive(Default, Clone, PartialEq, Debug)]
+#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct ConstructorParams {
     /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
     pub entries: Vec<Entry>,
-}
-
-impl Serialize for ConstructorParams {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.entries.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ConstructorParams {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let entries: Vec<Entry> = Deserialize::deserialize(deserializer)?;
-        Ok(Self { entries })
-    }
 }
 
 /// Cron actor

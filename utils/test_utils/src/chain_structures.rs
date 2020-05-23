@@ -7,13 +7,14 @@ use address::Address;
 use blocks::{
     Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta,
 };
-use chain::TipsetMetadata;
+
 use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
 use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
 use forest_libp2p::rpc::RPCResponse;
 
+use chain::TipsetMetadata;
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::error::Error;
@@ -37,7 +38,7 @@ fn template_header(
         .parents(TipsetKeys {
             cids: vec![cids[0].clone()],
         })
-        .miner_address(Address::new_secp256k1(&ticket_p))
+        .miner_address(Address::new_actor(&ticket_p))
         .timestamp(timestamp)
         .ticket(Ticket {
             vrfproof: VRFProof::new(ticket_p),

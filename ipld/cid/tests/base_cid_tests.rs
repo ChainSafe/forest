@@ -65,7 +65,7 @@ fn prefix_roundtrip() {
 
     assert_eq!(cid, cid2);
 
-    let prefix_bytes = prefix.as_bytes();
+    let prefix_bytes = prefix.to_bytes();
     let prefix2 = Prefix::new_from_bytes(&prefix_bytes).unwrap();
 
     assert_eq!(prefix, prefix2);
@@ -95,6 +95,7 @@ fn test_hash() {
         version: Version::V0,
         codec: Codec::DagProtobuf,
         mh_type: Code::Sha2_256,
+        mh_len: 32,
     };
     let mut map = HashMap::new();
     let cid = Cid::new_from_prefix(&prefix, &data).unwrap();

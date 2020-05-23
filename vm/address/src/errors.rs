@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{BLS_PUB_LEN, PAYLOAD_HASH_LEN};
+use super::{BLS_PUB_LEN, PAYLOAD_HASH_LEN, SECP_PUB_LEN};
 use data_encoding::DecodeError;
 use encoding::{CodecProtocol, Error as EncodingError};
 use leb128::read::Error as Leb128Error;
@@ -23,6 +23,8 @@ pub enum Error {
     InvalidPayloadLength(usize),
     #[error("Invalid BLS pub key length, wanted: {} got: {0}", BLS_PUB_LEN)]
     InvalidBLSLength(usize),
+    #[error("Invalid SECP pub key length, wanted: {} got: {0}", SECP_PUB_LEN)]
+    InvalidSECPLength(usize),
     #[error("Invalid address checksum")]
     InvalidChecksum,
     #[error("Decoding for address failed: {0}")]
