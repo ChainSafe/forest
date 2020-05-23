@@ -121,3 +121,11 @@ jobs:
       - run:
           name: cargo fmt
           command: cargo fmt--all -- --check
+
+workflows:
+  setup_and_lint:
+    jobs:
+      - prefetch-crates
+      - lint:
+          requires:
+            - prefetch-crates
