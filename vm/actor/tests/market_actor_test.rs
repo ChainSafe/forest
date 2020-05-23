@@ -121,7 +121,7 @@ fn add_provider_escrow_funds() {
 
             expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
 
-            rt.call(
+            let _v = rt.call(
                 &MARKET_ACTOR_CODE_ID.clone(),
                 Method::AddBalance as u64,
                 &Serialized::serialize(provider_addr.clone()).unwrap(),
@@ -187,7 +187,7 @@ fn add_non_provider_funds() {
             rt.set_value(amount);
             rt.expect_validate_caller_type(&[]);
 
-            rt.call(
+            let _v = rt.call(
                 &MARKET_ACTOR_CODE_ID.clone(),
                 Method::AddBalance as u64,
                 &Serialized::serialize(caller_addr.clone()).unwrap(),
@@ -310,7 +310,7 @@ fn withdraw_non_provider() {
         amount: withdraw_amount.clone(),
     };
 
-    let call_result = rt.call(
+    let _call_result = rt.call(
         &MARKET_ACTOR_CODE_ID.clone(),
         Method::WithdrawBalance as u64,
         &Serialized::serialize(params).unwrap(),
@@ -360,7 +360,7 @@ fn client_withdraw_more_than_available() {
         amount: withdraw_amount.clone(),
     };
 
-    let call_result = rt.call(
+    let _call_result = rt.call(
         &MARKET_ACTOR_CODE_ID.clone(),
         Method::WithdrawBalance as u64,
         &Serialized::serialize(params).unwrap(),
@@ -423,7 +423,7 @@ fn worker_withdraw_more_than_available() {
         amount: withdraw_amount.clone(),
     };
 
-    let call_result = rt.call(
+    let _call_result = rt.call(
         &MARKET_ACTOR_CODE_ID.clone(),
         Method::WithdrawBalance as u64,
         &Serialized::serialize(params).unwrap(),
@@ -471,7 +471,7 @@ fn add_provider_funds<BS: BlockStore>(
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), owner.clone());
     expect_provider_control_address(rt, provider, owner, worker);
 
-    let v = rt.call(
+    let _v = rt.call(
         &MARKET_ACTOR_CODE_ID.clone(),
         Method::AddBalance as u64,
         &Serialized::serialize(provider.clone()).unwrap(),
