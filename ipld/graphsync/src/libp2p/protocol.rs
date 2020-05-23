@@ -19,6 +19,7 @@ pub struct ProtocolConfig {
     protocol_id: Cow<'static, [u8]>,
 }
 
+// TODO allow configuration of id with a constructor
 impl Default for ProtocolConfig {
     fn default() -> Self {
         Self {

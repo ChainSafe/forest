@@ -2,60 +2,90 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::handler::GraphSyncHandler;
-use crate::GraphSyncMessage;
+use crate::{Extensions, GraphSyncMessage};
+use cid::Cid;
+use forest_ipld::selector::Selector;
 use futures::task::Context;
 use futures_util::task::Poll;
 use libp2p::core::connection::ConnectionId;
 use libp2p::swarm::{
-    protocols_handler::ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
+    protocols_handler::ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler,
+    PollParameters,
 };
 use libp2p::{Multiaddr, PeerId};
+use log::debug;
+use std::collections::{HashSet, VecDeque};
 
-/// The RPC behaviour that gets consumed by the Swarm.
-pub struct RPC {
+/// The GraphSync behaviour that gets consumed by the Swarm.
+#[derive(Default)]
+pub struct GraphSync {
     /// Queue of events to processed.
-    events: Vec<NetworkBehaviourAction<GraphSyncMessage, GraphSyncEvent>>,
+    events: VecDeque<NetworkBehaviourAction<GraphSyncMessage, ()>>,
+
+    // TODO just temporary, will probably have to attach some data with peers
+    peers: HashSet<PeerId>,
 }
 
-impl RPC {
-    /// Creates a new RPC behaviour
+impl GraphSync {
+    /// Creates a new GraphSync behaviour
     pub fn new() -> Self {
-        RPC::default()
+        GraphSync::default()
+    }
+
+    /// Initiates GraphSync request to peer given root and selector.
+    pub fn send_request(
+        &mut self,
+        _peer_id: PeerId,
+        _root: Cid,
+        _selector: Selector,
+        _extensions: Extensions,
+    ) {
+        todo!()
+        // self.events
+        //     .push_back(NetworkBehaviourAction::NotifyHandler {
+        //         peer_id,
+        //         // TODO once request manager logic built out
+        //         event: todo!(),
+        //         handler: NotifyHandler::Any,
+        //     });
     }
 }
 
-impl Default for RPC {
-    fn default() -> Self {
-        RPC { events: vec![] }
-    }
-}
-
-impl NetworkBehaviour for RPC {
+impl NetworkBehaviour for GraphSync {
     type ProtocolsHandler = GraphSyncHandler;
-    type OutEvent = GraphSyncEvent;
+    // TODO this will need to be updated to include data emitted from the GS responses
+    type OutEvent = ();
+
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
         GraphSyncHandler::default()
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
-        vec![]
+        Vec::new()
     }
 
-    fn inject_connected(&mut self, _peer_id: &PeerId) {
-        todo!()
+    fn inject_connected(&mut self, peer_id: &PeerId) {
+        debug!("New peer connected: {:?}", peer_id);
+        self.peers.insert(peer_id.clone());
     }
 
-    fn inject_disconnected(&mut self, _peer_id: &PeerId) {
-        todo!()
+    fn inject_disconnected(&mut self, peer_id: &PeerId) {
+        debug!("Peer disconnected: {:?}", peer_id);
+        self.peers.remove(peer_id);
     }
 
     fn inject_event(
         &mut self,
-        _peer_id: PeerId,
+        peer_id: PeerId,
         _connection: ConnectionId,
-        _event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
+        event: GraphSyncMessage,
     ) {
-        todo!()
+        self.events
+            .push_back(NetworkBehaviourAction::NotifyHandler {
+                peer_id,
+                event,
+                handler: NotifyHandler::Any,
+            });
     }
 
     fn poll(
@@ -68,22 +98,9 @@ impl NetworkBehaviour for RPC {
             Self::OutEvent,
         >,
     > {
-        if !self.events.is_empty() {
-            return Poll::Ready(self.events.remove(0));
+        if let Some(event) = self.events.pop_front() {
+            return Poll::Ready(event);
         }
         Poll::Pending
     }
-}
-
-// TODO remove
-#[allow(dead_code)]
-/// Event from the GraphSync behaviour.
-#[derive(Debug)]
-pub enum GraphSyncEvent {
-    /// A message has been received. This contains the PeerId that we received the message from
-    /// and the message itself.
-    Message(PeerId, GraphSyncMessage),
-
-    Connected(PeerId),
-    Disconnected(PeerId),
 }
