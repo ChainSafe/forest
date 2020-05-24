@@ -53,7 +53,7 @@ commands:
             - ../../../usr/local/cargo/git
             - ../../../usr/local/cargo/registry
             - ../../../usr/local/cargo/.package-cache
-            - ../../../usr/local/bin/protoc
+            - ../../../usr/local/include
   restore_cargo_package_cache:
     description: Restore Cargo package cache from prev job
     steps:
