@@ -20,17 +20,16 @@ commands:
       - run:
           name: Version Info
           command: rustc --version; cargo --version; rustup --version
-  # env_setup:
-  #   description: Environment Setup
-  #   steps:
-  #     - run:
-  #         name: Setup Env
-  #         command: |
-  #           echo 'export TAG=0.1.${CIRCLE_BUILD_NUM}' >> $BASH_ENV
-  #           echo 'export IMAGE_NAME=forest' >> $BASH_ENV
-  #           echo 'export LIBRA_DUMP_LOGS=1' >> $BASH_ENV
-  #           echo 'export CARGO_INCREMENTAL=0' >> $BASH_ENV
-  #           echo 'export CI_TIMEOUT="timeout 40m"' >> $BASH_ENV
+  env_setup:
+    description: Environment Setup
+    steps:
+      - run:
+          name: Setup Env
+          command: |
+            echo 'export TAG=0.1.${CIRCLE_BUILD_NUM}' >> $BASH_ENV
+            echo 'export IMAGE_NAME=forest' >> $BASH_ENV
+            echo 'export CARGO_INCREMENTAL=0' >> $BASH_ENV
+            echo 'export CI_TIMEOUT="timeout 40m"' >> $BASH_ENV
   install_deps:
     steps:
       - run:
@@ -39,37 +38,11 @@ commands:
             sudo apt-get update
             sudo apt-get install -y cmake curl clang llvm gcc-powerpc-linux-gnu ocl-icd-opencl-dev
             rustup component add clippy rustfmt
-  # install_code_coverage_deps:
-  #   steps:
-  #     - run:
-  #         name: Install grcov and lcov
-  #         command: |
-  #           sudo apt-get update
-  #           sudo apt-get install lcov
-  #           cargo install --force grcov
-  # install_docker_linter:
-  #   steps:
-  #     - run:
-  #         name: install dockerfile linter (hadolint)
-  #         command: |
-  #           export HADOLINT=${HOME}/hadolint
-  #           export HADOLINT_VER=v1.17.4
-  #           curl -sL -o ${HADOLINT} "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VER}/hadolint-$(uname -s)-$(uname -m)" && chmod 700 ${HADOLINT}
-  # find_dockerfile_changes:
-  #   steps:
-  #     - run:
-  #         name: Get the list of updated docker files
-  #         command: |
-  #           echo 'export CHANGED_DOCKER_FILES=$(
-  #             for commit in $(git rev-list origin/master..HEAD) ; do
-  #               git diff-tree --no-commit-id --name-only -r "$commit" -- "*Dockerfile";
-  #             done
-  #           )' >> $BASH_ENV
   save_cargo_package_cache:
     description: Save cargo package cache for subsequent jobs
     steps:
       - save_cache:
-          key: cargo-package-cache-{{ checksum "Cargo.lock" }}
+          key: cargo-package-cache-{{ .Environment.CIRCLE_SHA1 }}
           # paths are relative to /home/circleci/project/
           paths:
             - ../../../usr/local/cargo/git
@@ -79,7 +52,7 @@ commands:
     description: Restore Cargo package cache from prev job
     steps:
       - restore_cache:
-          key: cargo-package-cache-{{ checksum "Cargo.lock" }}
+          key: cargo-package-cache-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Check cargo package cache
           command: |
@@ -91,13 +64,8 @@ commands:
       - checkout
       - rust_setup
       - print_versions
-      # - env_setup
+      - env_setup
       - install_deps
-  # build_teardown:
-  #   steps:
-  #     - run:
-  #         name: Check for changed and untracked files
-  #         command: ./scripts/changed-files.sh
 jobs:
   prefetch-crates:
     executor: test-executor
