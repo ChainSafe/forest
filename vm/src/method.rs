@@ -52,7 +52,7 @@ impl Serialized {
     }
 
     /// Returns serialized bytes
-    pub fn bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         &self.bytes
     }
 
