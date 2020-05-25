@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::TipsetKeys;
-use chain;
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use ipld_blockstore::BlockStore;
