@@ -22,17 +22,17 @@ use vm::{ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, DB, SYS> {
+pub struct VM<'db, 'r, DB, SYS> {
     state: StateTree<'db, DB>,
     // TODO revisit handling buffered store specifically in VM
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
-    rand: ChainRand,
+    rand: &'r ChainRand,
     // TODO: missing fields
 }
 
-impl<'db, DB, SYS> VM<'db, DB, SYS>
+impl<'db, 'r, DB, SYS> VM<'db, 'r, DB, SYS>
 where
     DB: BlockStore,
     SYS: Syscalls,
@@ -42,7 +42,7 @@ where
         store: &'db DB,
         epoch: ChainEpoch,
         syscalls: SYS,
-        rand: ChainRand,
+        rand: &'r ChainRand,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
         Ok(VM {
@@ -350,7 +350,7 @@ where
         gas_cost: i64,
     ) -> (
         Serialized,
-        DefaultRuntime<'db, 'm, '_, '_, DB, SYS>,
+        DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS>,
         Option<ActorError>,
     ) {
         let mut rt = DefaultRuntime::new(
@@ -363,7 +363,7 @@ where
             *msg.from(),
             msg.sequence(),
             0,
-            self.rand.clone(),
+            self.rand,
         );
 
         let ser = match internal_send(&mut rt, msg, gas_cost) {

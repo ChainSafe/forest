@@ -215,18 +215,6 @@ where
         }
         Ok(())
     }
-
-    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch, Entropy
-    pub fn get_randomness(
-        &self,
-        blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Error> {
-        get_randomness(self.db.as_ref(), blocks, pers, round, entropy)
-            .map_err(|e| Error::Other(e.to_string()))
-    }
 }
 
 fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<(), Error>

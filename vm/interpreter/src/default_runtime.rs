@@ -29,7 +29,7 @@ use vm::{
 };
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS> {
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
@@ -40,10 +40,10 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS> {
     origin_nonce: u64,
     num_actors_created: u64,
     price_list: PriceList,
-    rand: ChainRand,
+    rand: &'r ChainRand,
 }
 
-impl<'db, 'msg, 'st, 'sys, BS, SYS> DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS>
+impl<'db, 'msg, 'st, 'sys, 'r, BS, SYS> DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -60,7 +60,7 @@ where
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
-        rand: ChainRand,
+        rand: &'r ChainRand,
     ) -> Self {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
@@ -156,7 +156,7 @@ where
     }
 }
 
-impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, BS, SYS>
+impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -335,7 +335,7 @@ where
                 self.origin,
                 self.origin_nonce,
                 self.num_actors_created,
-                self.rand.clone(),
+                self.rand,
             );
             internal_send::<BS, SYS>(&mut parent, &msg, 0)
         };
@@ -415,7 +415,7 @@ where
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
 pub fn internal_send<BS, SYS>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, '_, BS, SYS>,
+    runtime: &mut DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS>,
     msg: &UnsignedMessage,
     _gas_cost: i64,
 ) -> Result<Serialized, ActorError>

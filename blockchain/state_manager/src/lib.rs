@@ -96,7 +96,7 @@ where
     pub fn apply_blocks(
         &self,
         ts: &FullTipset,
-        rand: ChainRand,
+        rand: &ChainRand,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
