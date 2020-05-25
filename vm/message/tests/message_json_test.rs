@@ -21,7 +21,7 @@ use std::error::Error;
 use vm::Serialized;
 
 #[test]
-fn symmetric_json_serialization() {
+fn unsigned_symmetric_json() {
     let message_json = r#"{"Version":9,"To":"t01234","From":"t01234","Nonce":42,"Value":"0","GasPrice":"0","GasLimit":9,"Method":1,"Params":"Ynl0ZSBhcnJheQ=="}"#;
 
     // Deserialize
