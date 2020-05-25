@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de, from_slice, ser, serde_bytes, to_vec, Cbor, Error as EncodingError};
+use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
 /// Method number indicator for calling actor methods
@@ -13,8 +14,10 @@ pub const METHOD_SEND: MethodNum = 0;
 pub const METHOD_CONSTRUCTOR: MethodNum = 1;
 
 /// Serialized bytes to be used as parameters into actor methods
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Serialized {
+    #[serde(with = "serde_bytes")]
     bytes: Vec<u8>,
 }
 
@@ -23,25 +26,6 @@ impl Default for Serialized {
     #[inline]
     fn default() -> Self {
         Self::serialize::<[u8; 0]>([]).unwrap()
-    }
-}
-
-impl ser::Serialize for Serialized {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: ser::Serializer,
-    {
-        serde_bytes::Serialize::serialize(&self.bytes, s)
-    }
-}
-
-impl<'de> de::Deserialize<'de> for Serialized {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
-        Ok(Serialized::new(bz))
     }
 }
 

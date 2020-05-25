@@ -12,5 +12,7 @@ blake2b_simd = "0.5.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.3"
 serde_cbor = { version = "0.11.0", features = ["tags"] }
+serde_tuple = "0.5"
+serde_repr = "0.1"
 cid = { package = "forest_cid", path = "../ipld/cid", version = "0.1" }
 thiserror = "1.0"

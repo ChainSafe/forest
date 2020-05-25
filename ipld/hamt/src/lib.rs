@@ -22,7 +22,7 @@ pub use self::hamt::Hamt;
 pub use self::hash::*;
 
 use forest_ipld::Ipld;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::hash::Hasher;
 use std::ops::Deref;
@@ -51,8 +51,9 @@ impl<K> KeyValuePair<K> {
 
 /// Key type to be used to isolate usage of unsafe code and allow non utf-8 bytes to be
 /// serialized as a string.
-#[derive(Eq, PartialOrd, Clone, Debug)]
-pub struct BytesKey(pub Vec<u8>);
+#[derive(Eq, PartialOrd, Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct BytesKey(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 impl PartialEq for BytesKey {
     fn eq(&self, other: &Self) -> bool {
@@ -82,24 +83,6 @@ impl Deref for BytesKey {
     type Target = Vec<u8>;
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl Serialize for BytesKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serde_bytes::Serialize::serialize(&self.0, serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for BytesKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self(serde_bytes::Deserialize::deserialize(deserializer)?))
     }
 }
 
