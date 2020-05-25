@@ -1,13 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use encoding::repr::*;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// ExitCode defines the exit code from the VM execution
 #[repr(u64)]
-#[derive(PartialEq, Eq, Debug, Clone, Copy, FromPrimitive)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
 pub enum ExitCode {
     Ok = 0,
 
@@ -93,25 +92,5 @@ impl ExitCode {
             ExitCode::Ok => true,
             _ => false,
         }
-    }
-}
-
-impl Serialize for ExitCode {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (*self as u64).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ExitCode {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let v: u64 = Deserialize::deserialize(deserializer)?;
-        FromPrimitive::from_u64(v)
-            .ok_or_else(|| de::Error::custom(format!("Invalid sector size: {}", v)))
     }
 }

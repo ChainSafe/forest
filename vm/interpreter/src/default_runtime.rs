@@ -225,7 +225,7 @@ where
                 ActorError::new_fatal(format!("could not get randomness: {}", e.to_string()))
             })?;
 
-        Ok(r)
+        Ok(Randomness(r))
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {

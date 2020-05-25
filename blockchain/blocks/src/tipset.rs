@@ -6,18 +6,15 @@
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
-use encoding::{
-    de::{self, Deserializer},
-    ser::{self, Serializer},
-    Cbor,
-};
+use encoding::Cbor;
 use num_bigint::BigUint;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A set of CIDs forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct TipsetKeys {
     pub cids: Vec<Cid>,
 }
@@ -30,25 +27,6 @@ impl TipsetKeys {
     /// Returns tipset header cids
     pub fn cids(&self) -> &[Cid] {
         &self.cids
-    }
-}
-
-impl ser::Serialize for TipsetKeys {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.cids.serialize(serializer)
-    }
-}
-
-impl<'de> de::Deserialize<'de> for TipsetKeys {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let cids: Vec<Cid> = Deserialize::deserialize(deserializer)?;
-        Ok(TipsetKeys { cids })
     }
 }
 

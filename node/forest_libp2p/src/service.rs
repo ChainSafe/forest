@@ -128,7 +128,9 @@ impl Libp2pService {
                         }
                         ForestBehaviourEvent::DiscoveredPeer(peer) => {
                             debug!("Discovered: {:?}", peer);
-                            libp2p::Swarm::dial(&mut swarm_stream.get_mut(), peer);
+                            if let Err(e) = libp2p::Swarm::dial(&mut swarm_stream.get_mut(), &peer) {
+                                warn!("failed to dial peer: {:?}", peer);
+                            }
                         }
                         ForestBehaviourEvent::ExpiredPeer(_) => {}
                         ForestBehaviourEvent::GossipMessage {

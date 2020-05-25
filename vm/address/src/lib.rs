@@ -23,9 +23,18 @@ const ADDRESS_ENCODER: Encoding = new_encoding! {
     padding: None,
 };
 
-pub const BLS_PUB_LEN: usize = 48;
+/// Hash length of payload for Secp and Actor addresses.
 pub const PAYLOAD_HASH_LEN: usize = 20;
+
+/// Uncompressed secp public key used for validation of Secp addresses.
+pub const SECP_PUB_LEN: usize = 65;
+
+/// BLS public key length used for validation of BLS addresses.
+pub const BLS_PUB_LEN: usize = 48;
+
+/// Length of the checksum hash for string encodings.
 pub const CHECKSUM_HASH_LEN: usize = 4;
+
 const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
@@ -35,7 +44,7 @@ const NETWORK_DEFAULT: Network = Network::Testnet;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
-#[derive(PartialEq, Eq, Clone, Debug, Hash, Default, Copy)]
+#[derive(PartialEq, Eq, Clone, Debug, Hash, Copy)]
 pub struct Address {
     network: Network,
     payload: Payload,
@@ -69,11 +78,14 @@ impl Address {
     }
 
     /// Generates new address using Secp256k1 pubkey
-    pub fn new_secp256k1(pubkey: &[u8]) -> Self {
-        Self {
+    pub fn new_secp256k1(pubkey: &[u8]) -> Result<Self, Error> {
+        if pubkey.len() != 65 {
+            return Err(Error::InvalidSECPLength(pubkey.len()));
+        }
+        Ok(Self {
             network: NETWORK_DEFAULT,
             payload: Payload::Secp256k1(address_hash(pubkey)),
-        }
+        })
     }
 
     /// Generates new address using the Actor protocol
@@ -206,11 +218,6 @@ impl ser::Serialize for Address {
     where
         S: ser::Serializer,
     {
-        if self == &Address::default() {
-            // Just a sanity check to disallow serialization of invalid address
-            return Err(ser::Error::custom("Cannot serialize a default Address"));
-        }
-
         let address_bytes = self.to_bytes();
         serde_bytes::Serialize::serialize(&address_bytes, s)
     }

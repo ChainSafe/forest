@@ -70,7 +70,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             epoch: 0,
             caller_type: Cid::default(),
 
-            miner: Address::default(),
+            miner: Address::new_id(0),
 
             id_addresses: HashMap::new(),
             actor_code_cids: HashMap::new(),
