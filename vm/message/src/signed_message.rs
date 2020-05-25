@@ -16,19 +16,21 @@ pub struct SignedMessage {
 }
 
 impl SignedMessage {
-    pub fn new<S: Signer>(msg: UnsignedMessage, signer: &S) -> Result<Self, CryptoError> {
-        let bz = msg.marshal_cbor()?;
+    /// Generate new signed message from an unsigned message and a signer.
+    pub fn new<S: Signer>(message: UnsignedMessage, signer: &S) -> Result<Self, CryptoError> {
+        let bz = message.marshal_cbor()?;
 
-        let sig = signer.sign_bytes(bz, msg.from())?;
+        let signature = signer.sign_bytes(bz, message.from())?;
 
-        Ok(SignedMessage {
-            message: msg,
-            signature: sig,
-        })
+        Ok(SignedMessage { message, signature })
     }
+
+    /// Returns reference to the unsigned message.
     pub fn message(&self) -> &UnsignedMessage {
         &self.message
     }
+
+    /// Returns signature of the signed message.
     pub fn signature(&self) -> &Signature {
         &self.signature
     }
