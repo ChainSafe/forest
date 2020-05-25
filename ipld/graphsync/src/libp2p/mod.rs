@@ -3,6 +3,7 @@
 
 mod behaviour;
 mod codec;
+mod config;
 mod handler;
 mod protocol;
 

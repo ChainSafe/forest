@@ -12,6 +12,7 @@ use libp2p::swarm::{
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use log::trace;
 use smallvec::SmallVec;
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::io;
 use std::task::{Context, Poll};
@@ -46,15 +47,10 @@ pub struct GraphSyncHandler {
 
 impl GraphSyncHandler {
     /// Constructor for new RPC handler
-    pub fn new() -> Self {
-        GraphSyncHandler {
-            listen_protocol: SubstreamProtocol::new(ProtocolConfig::default()),
-            inbound_substreams: Default::default(),
-            dial_queue: Default::default(),
-            dial_negotiated: Default::default(),
-            _max_dial_negotiated: 8,
-            keep_alive: KeepAlive::Yes,
-            pending_error: None,
+    pub fn new(id: impl Into<Cow<'static, [u8]>>, max_transmit_size: usize) -> Self {
+        Self {
+            listen_protocol: SubstreamProtocol::new(ProtocolConfig::new(id, max_transmit_size)),
+            ..Default::default()
         }
     }
 
@@ -68,7 +64,15 @@ impl GraphSyncHandler {
 
 impl Default for GraphSyncHandler {
     fn default() -> Self {
-        GraphSyncHandler::new()
+        Self {
+            listen_protocol: SubstreamProtocol::new(ProtocolConfig::default()),
+            inbound_substreams: Default::default(),
+            dial_queue: Default::default(),
+            dial_negotiated: 0,
+            _max_dial_negotiated: 8,
+            keep_alive: KeepAlive::Yes,
+            pending_error: None,
+        }
     }
 }
 
@@ -117,7 +121,7 @@ impl ProtocolsHandler for GraphSyncHandler {
             self.keep_alive = KeepAlive::Until(Instant::now() + Duration::from_secs(TIMEOUT));
         }
 
-        // TODO handle outbound
+        // TODO handle outbound when events are emitted from service
         // self.events_out.push(out);
     }
 

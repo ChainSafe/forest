@@ -17,13 +17,23 @@ use unsigned_varint::codec;
 #[derive(Debug, Clone)]
 pub struct ProtocolConfig {
     protocol_id: Cow<'static, [u8]>,
+    max_transmit_size: usize,
 }
 
-// TODO allow configuration of id with a constructor
 impl Default for ProtocolConfig {
     fn default() -> Self {
         Self {
             protocol_id: Cow::Borrowed(b"/ipfs/graphsync/1.0.0"),
+            max_transmit_size: 2048,
+        }
+    }
+}
+
+impl ProtocolConfig {
+    pub fn new(id: impl Into<Cow<'static, [u8]>>, max_transmit_size: usize) -> Self {
+        Self {
+            protocol_id: id.into(),
+            max_transmit_size,
         }
     }
 }
@@ -47,8 +57,8 @@ where
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_inbound(self, socket: TSocket, _: Self::Info) -> Self::Future {
-        let length_codec = codec::UviBytes::default();
-        // length_codec.set_max_len(self.max_transmit_size);
+        let mut length_codec = codec::UviBytes::default();
+        length_codec.set_max_len(self.max_transmit_size);
         Box::pin(future::ok(Framed::new(
             socket,
             GraphSyncCodec { length_codec },
@@ -66,8 +76,8 @@ where
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
     fn upgrade_outbound(self, socket: TSocket, _: Self::Info) -> Self::Future {
-        let length_codec = codec::UviBytes::default();
-        // length_codec.set_max_len(self.max_transmit_size);
+        let mut length_codec = codec::UviBytes::default();
+        length_codec.set_max_len(self.max_transmit_size);
         Box::pin(future::ok(Framed::new(
             socket,
             GraphSyncCodec { length_codec },

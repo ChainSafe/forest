@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::config::GraphSyncConfig;
 use super::handler::GraphSyncHandler;
 use crate::{Extensions, GraphSyncMessage};
 use cid::Cid;
@@ -19,6 +20,9 @@ use std::collections::{HashSet, VecDeque};
 /// The GraphSync behaviour that gets consumed by the Swarm.
 #[derive(Default)]
 pub struct GraphSync {
+    /// Config options for the service
+    config: GraphSyncConfig,
+
     /// Queue of events to processed.
     events: VecDeque<NetworkBehaviourAction<GraphSyncMessage, ()>>,
 
@@ -28,8 +32,11 @@ pub struct GraphSync {
 
 impl GraphSync {
     /// Creates a new GraphSync behaviour
-    pub fn new() -> Self {
-        GraphSync::default()
+    pub fn new(config: GraphSyncConfig) -> Self {
+        Self {
+            config,
+            ..Default::default()
+        }
     }
 
     /// Initiates GraphSync request to peer given root and selector.
@@ -57,7 +64,10 @@ impl NetworkBehaviour for GraphSync {
     type OutEvent = ();
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        GraphSyncHandler::default()
+        GraphSyncHandler::new(
+            self.config.protocol_id.clone(),
+            self.config.max_transmit_size,
+        )
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
