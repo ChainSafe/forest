@@ -215,7 +215,9 @@ where
         }
         Ok(())
     }
-    pub fn get_randomness_block(
+
+    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch, Entropy
+    pub fn get_randomness(
         &self,
         blocks: &TipsetKeys,
         pers: DomainSeparationTag,
