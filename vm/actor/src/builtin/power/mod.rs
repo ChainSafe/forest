@@ -474,9 +474,9 @@ impl Actor {
         let fault = rt
             .syscalls()
             .verify_consensus_fault(
-                params.block_header_1.as_bytes(),
-                params.block_header_2.as_bytes(),
-                params.block_header_extra.as_bytes(),
+                params.block_header_1.bytes(),
+                params.block_header_2.bytes(),
+                params.block_header_extra.bytes(),
                 earliest,
             )
             .map_err(|e| {

@@ -199,7 +199,7 @@ pub mod json {
             gas_price: m.gas_price.to_string(),
             gas_limit: m.gas_limit,
             method_num: m.method_num,
-            params: base64::encode(m.params.as_bytes()),
+            params: base64::encode(m.params.bytes()),
         }
         .serialize(serializer)
     }
