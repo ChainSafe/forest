@@ -10,6 +10,14 @@ cid = { package = "forest_cid", path = "../cid", version = "0.1" }
 forest_ipld = { path = "../" }
 fnv = "1.0.6"
 forest_encoding = { path = "../../encoding", version = "0.1" }
+libp2p = "0.19"
+futures = "0.3.2"
+futures-util = "0.3.1"
+futures_codec = "0.4.0"
+log = "0.4.8"
+bytes = "0.5.2"
+unsigned-varint = { version = "0.4", features = ["futures-codec"] }
+smallvec = "1.1.0"
 
 [build-dependencies]
 protoc-rust = "2.14.0"
