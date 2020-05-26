@@ -343,7 +343,7 @@ impl BlockHeader {
         */
 
         // TODO switch ticket for election_proof
-        let h = sha2::Sha256::digest(self.ticket.vrfproof.bytes());
+        let h = sha2::Sha256::digest(self.ticket.vrfproof.as_bytes());
         let mut lhs = BigUint::from_bytes_le(&h);
         lhs *= net_pow;
 
