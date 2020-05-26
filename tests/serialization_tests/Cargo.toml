@@ -19,7 +19,7 @@ hex = "0.4.2"
 vm = { package = "forest_vm", path = "../../vm" }
 fil_types = { path = "../../types" }
 address = { package = "forest_address", path = "../../vm/address" }
-forest_message = { path = "../../vm/message" }
+forest_message = { path = "../../vm/message", features = ["json"] }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 forest_blocks = { path = "../../blockchain/blocks" }
 num-traits = "0.2"
