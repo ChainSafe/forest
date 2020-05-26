@@ -110,7 +110,7 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = StateManager::new(chain_store.db.clone());
+        let state_manager = StateManager::new(ChainStore::new(chain_store.db.clone()));
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);

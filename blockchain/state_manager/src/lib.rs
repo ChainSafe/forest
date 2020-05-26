@@ -17,10 +17,11 @@ use num_bigint::BigUint;
 use state_tree::StateTree;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use chain::ChainStore;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub struct StateManager<DB> {
-    bs: Arc<DB>,
+    cs: ChainStore<DB>,
 }
 
 impl<DB> StateManager<DB>
@@ -28,8 +29,8 @@ where
     DB: BlockStore,
 {
     /// constructor
-    pub fn new(bs: Arc<DB>) -> Self {
-        Self { bs }
+    pub fn new(cs: ChainStore<DB>) -> Self {
+        Self { cs }
     }
     /// Loads actor state from IPLD Store
     fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
@@ -40,14 +41,14 @@ where
             .get_actor(addr, state_cid)?
             .ok_or_else(|| Error::ActorNotFound(addr.to_string()))?;
         let act: D = self
-            .bs
+            .cs.blockstore()
             .get(&actor.state)
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }
     fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.cs.blockstore(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
     }
     /// Returns the network name from the init actor state
@@ -63,7 +64,7 @@ where
         }
 
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
-        match ps.get_claim(self.bs.as_ref(), addr)? {
+        match ps.get_claim(self.cs.blockstore(), addr)? {
             Some(_) => Ok(false),
             None => Ok(true),
         }
@@ -72,9 +73,9 @@ where
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.cs.blockstore(), state_cid).map_err(Error::State)?;
         // Note: miner::State info likely to be changed to CID
-        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
+        let addr = resolve_to_key_addr(&state, self.cs.blockstore(), &ms.info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
         Ok(addr)
     }
@@ -82,7 +83,7 @@ where
     pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigUint, BigUint), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {
+        if let Some(claim) = ps.get_claim(self.cs.blockstore(), addr)? {
             Ok((claim.power, ps.total_network_power))
         } else {
             Err(Error::State(
@@ -94,7 +95,7 @@ where
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
     /// This function returns the state root and receipt root of the transition.
     pub fn apply_blocks(&self, ts: &FullTipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
-        let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
+        let mut buf_store = BufferedBlockStore::new(self.cs.blockstore());
         // TODO possibly switch out syscalls to be saved at state manager level
         let mut vm = VM::new(
             ts.parent_state(),
@@ -107,7 +108,7 @@ where
         let receipts = vm.apply_tip_set_messages(ts)?;
 
         // Construct receipt root from receipts
-        let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
+        let rect_root = Amt::new_from_slice(self.cs.blockstore(), &receipts)?;
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
