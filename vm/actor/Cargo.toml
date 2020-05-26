@@ -21,7 +21,7 @@ ipld_hamt = { path = "../../ipld/hamt" }
 ipld_amt = { path = "../../ipld/amt" }
 forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
-unsigned-varint = "0.3.2"
+unsigned-varint = "0.4"
 crypto = { package = "forest_crypto", path = "../../crypto" }
 rleplus = { path = "../../utils/rleplus" }
 fil_types = { path = "../../types" }
@@ -29,4 +29,4 @@ fil_types = { path = "../../types" }
 [dev-dependencies]
 db = { path = "../../node/db" }
 hex = "0.4.2"
-libp2p = "0.16.2"
+libp2p = "0.19"

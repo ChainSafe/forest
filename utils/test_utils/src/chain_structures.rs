@@ -37,7 +37,7 @@ fn template_header(
         .parents(TipsetKeys {
             cids: vec![cids[0].clone()],
         })
-        .miner_address(Address::new_secp256k1(&ticket_p))
+        .miner_address(Address::new_actor(&ticket_p))
         .timestamp(timestamp)
         .ticket(Ticket {
             vrfproof: VRFProof::new(ticket_p),

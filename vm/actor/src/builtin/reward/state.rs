@@ -5,19 +5,20 @@ use crate::Multimap;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use encoding::Cbor;
+use encoding::{repr::*, tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_bigint::biguint_ser;
 use num_derive::FromPrimitive;
-use num_traits::{CheckedSub, FromPrimitive};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use num_traits::CheckedSub;
 use vm::TokenAmount;
 
 /// Reward actor state
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// Reward multimap indexing addresses.
     pub reward_map: Cid,
     /// Sum of un-withdrawn rewards.
+    #[serde(with = "biguint_ser")]
     pub reward_total: TokenAmount,
 }
 
@@ -101,62 +102,23 @@ impl State {
 }
 
 impl Cbor for State {}
-impl Serialize for State {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.reward_map, BigUintSer(&self.reward_total)).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for State {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (reward_map, BigUintDe(reward_total)) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            reward_map,
-            reward_total,
-        })
-    }
-}
 
 /// Defines vestion function type for reward actor
-#[derive(Clone, Debug, PartialEq, Copy, FromPrimitive)]
+#[derive(Clone, Debug, PartialEq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum VestingFunction {
     None = 0,
     Linear = 1,
 }
 
-impl Serialize for VestingFunction {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (*self as u8).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for VestingFunction {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let b: u8 = Deserialize::deserialize(deserializer)?;
-        Ok(FromPrimitive::from_u8(b)
-            .ok_or_else(|| de::Error::custom("Invalid registered proof byte"))?)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct Reward {
     pub vesting_function: VestingFunction,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
+    #[serde(with = "biguint_ser")]
     pub value: TokenAmount,
+    #[serde(with = "biguint_ser")]
     pub amount_withdrawn: TokenAmount,
 }
 
@@ -174,43 +136,5 @@ impl Reward {
                 }
             }
         }
-    }
-}
-
-impl Serialize for Reward {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.vesting_function,
-            &self.start_epoch,
-            &self.end_epoch,
-            BigUintSer(&self.value),
-            BigUintSer(&self.amount_withdrawn),
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Reward {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (
-            vesting_function,
-            start_epoch,
-            end_epoch,
-            BigUintDe(value),
-            BigUintDe(amount_withdrawn),
-        ) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            vesting_function,
-            start_epoch,
-            end_epoch,
-            value,
-            amount_withdrawn,
-        })
     }
 }

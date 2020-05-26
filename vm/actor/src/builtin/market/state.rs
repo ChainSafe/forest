@@ -6,16 +6,16 @@ use crate::{BalanceTable, DealID, OptionalEpoch, SetMultimap};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
+use encoding::tuple::*;
 use encoding::Cbor;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;
 use runtime::Runtime;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{ActorError, ExitCode, TokenAmount};
 
 /// Market actor state
-#[derive(Default)]
+#[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// Amt<DealID, DealProposal>
     pub proposals: Cid,
@@ -546,38 +546,3 @@ fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAm
 }
 
 impl Cbor for State {}
-
-impl Serialize for State {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.proposals,
-            &self.states,
-            &self.escrow_table,
-            &self.locked_table,
-            &self.next_id,
-            &self.deal_ids_by_party,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for State {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (proposals, states, escrow_table, locked_table, next_id, deal_ids_by_party) =
-            Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            proposals,
-            states,
-            escrow_table,
-            locked_table,
-            next_id,
-            deal_ids_by_party,
-        })
-    }
-}

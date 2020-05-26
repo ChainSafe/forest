@@ -1,0 +1,15 @@
+[package]
+name = "graphsync"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+protobuf = "2.14.0"
+cid = { package = "forest_cid", path = "../cid", version = "0.1" }
+forest_ipld = { path = "../" }
+fnv = "1.0.6"
+forest_encoding = { path = "../../encoding", version = "0.1" }
+
+[build-dependencies]
+protoc-rust = "2.14.0"

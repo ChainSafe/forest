@@ -22,4 +22,4 @@ hex = "0.4.2"
 async-std = { version = "1.5.0", features = ["unstable", "attributes"] }
 
 [build-dependencies]
-protoc-rust-grpc = "0.7.1"
+protoc-rust-grpc = "0.8"

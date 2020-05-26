@@ -25,6 +25,8 @@ members = [
     "ipld/amt",
     "ipld",
     "ipld/hamt",
+    "ipld/blockstore",
+    "ipld/graphsync",
     "utils/bigint",
     "tests/serialization_tests",
     "utils/rleplus",

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::{init, ActorState, INIT_ACTOR_ADDR};
-use address::Address;
+use address::{Address, SECP_PUB_LEN};
 use cid::{multihash::Identity, Cid};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
@@ -87,7 +87,7 @@ fn get_set_non_id() {
     );
 
     // Register new address
-    let addr = Address::new_secp256k1(&[0, 2]);
+    let addr = Address::new_secp256k1(&[2; SECP_PUB_LEN]).unwrap();
     let secp_state = ActorState::new(e_cid.clone(), e_cid.clone(), Default::default(), 0);
     let assigned_addr = tree
         .register_new_address(&addr, secp_state.clone())
