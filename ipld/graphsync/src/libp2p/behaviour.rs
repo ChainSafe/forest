@@ -48,13 +48,6 @@ impl GraphSync {
         _extensions: Extensions,
     ) {
         todo!()
-        // self.events
-        //     .push_back(NetworkBehaviourAction::NotifyHandler {
-        //         peer_id,
-        //         // TODO once request manager logic built out
-        //         event: todo!(),
-        //         handler: NotifyHandler::Any,
-        //     });
     }
 }
 
