@@ -4,6 +4,8 @@
 // TODO evaluate exporting from libp2p mod
 pub mod libp2p;
 mod message;
+#[cfg(test)]
+mod test_utils;
 
 pub use self::message::*;
 use std::collections::HashMap;
