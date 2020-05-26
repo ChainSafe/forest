@@ -70,7 +70,7 @@ impl Libp2pService {
         let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
-            let be = ForestBehaviour::new(&net_keypair);
+            let be = ForestBehaviour::new(&net_keypair, config);
             Swarm::new(transport, be, peer_id)
         };
 

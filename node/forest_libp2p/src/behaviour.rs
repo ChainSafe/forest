@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::rpc::{RPCEvent, RPCMessage, RPC};
+use crate::config::Libp2pConfig;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
 use libp2p::identify::{Identify, IdentifyEvent};
+use libp2p::kad::record::store::MemoryStore;
+use libp2p::kad::{Kademlia, KademliaEvent};
 use libp2p::mdns::{Mdns, MdnsEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
@@ -19,11 +22,12 @@ use std::{task::Context, task::Poll};
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
 pub struct ForestBehaviour {
-    pub gossipsub: Gossipsub,
-    pub mdns: Mdns,
-    pub ping: Ping,
-    pub identify: Identify,
-    pub rpc: RPC,
+    gossipsub: Gossipsub,
+    mdns: Mdns,
+    ping: Ping,
+    identify: Identify,
+    rpc: RPC,
+    kademlia: Kademlia<MemoryStore>,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
 }
@@ -56,6 +60,21 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
                         self.events.push(ForestBehaviourEvent::ExpiredPeer(peer))
                     }
                 }
+            }
+        }
+    }
+}
+
+impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
+    fn inject_event(&mut self, event: KademliaEvent) {
+        match event {
+            KademliaEvent::Discovered { peer_id, ty, .. } => {
+                log::info!("kad: Discovered peer {} {:?}", peer_id.to_base58(), ty);
+                self.events
+                    .push(ForestBehaviourEvent::DiscoveredPeer(peer_id))
+            }
+            event => {
+                log::trace!("kad: {:?}", event);
             }
         }
     }
@@ -158,9 +177,25 @@ impl ForestBehaviour {
         Poll::Pending
     }
 
-    pub fn new(local_key: &Keypair) -> Self {
+    pub fn new(local_key: &Keypair, config: &Libp2pConfig) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
+
+        // Kademlia config
+        let store = MemoryStore::new(local_peer_id.to_owned());
+        let mut kademlia = Kademlia::new(local_peer_id.to_owned(), store);
+        // TODO fix this (need peerIDs)
+        // for (peer_id, addr) in &config.bootstrap_peers {
+        //     kademlia.add_address(&addr.parse().unwrap(), addr.parse().unwrap());
+        // }
+
+        // kademlia.add_address(
+        //     &"12D3KooWKNF7vNFEhnvB45E9mw2B5z6t419W3ziZPLdUDVnLLKGs"
+        //         .parse()
+        //         .unwrap(),
+        //     "/ip4/86.109.15.57/tcp/1347".parse().unwrap(),
+        // );
+
         ForestBehaviour {
             gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
             mdns: Mdns::new().expect("Could not start mDNS"),
@@ -168,6 +203,7 @@ impl ForestBehaviour {
             identify: Identify::new("forest/libp2p".into(), "0.0.1".into(), local_key.public()),
             rpc: RPC::default(),
             events: vec![],
+            kademlia,
         }
     }
 
