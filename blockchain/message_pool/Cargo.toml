@@ -1,0 +1,22 @@
+[package]
+name = "message_pool"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+address = { package = "forest_address", path = "../../vm/address" }
+vm = { package = "forest_vm", path = "../../vm" }
+blocks = { package = "forest_blocks", path = "../blocks" }
+message = { package = "forest_message", path = "../../vm/message" }
+thiserror = "1.0"
+state_manager = { path = "../state_manager" }
+cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.1" }
+encoding = { package = "forest_encoding", path = "../../encoding", version = "0.1" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+lru = "0.4.5"
+crypto = { package = "forest_crypto", path = "../../crypto", version = "0.1" }
+chain = { path = "../chain"}
+state_tree = { path = "../../vm/state_tree/" }
+interpreter = { path = "../../vm/interpreter/" }

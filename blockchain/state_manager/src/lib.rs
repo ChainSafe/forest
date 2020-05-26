@@ -8,6 +8,7 @@ use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR
 use address::{Address, Protocol};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
+use chain::ChainStore;
 use cid::Cid;
 use encoding::de::DeserializeOwned;
 use forest_blocks::FullTipset;
@@ -17,7 +18,6 @@ use num_bigint::BigUint;
 use state_tree::StateTree;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use chain::ChainStore;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub struct StateManager<DB> {
@@ -32,6 +32,10 @@ where
     pub fn new(cs: ChainStore<DB>) -> Self {
         Self { cs }
     }
+    /// get ChainStore to modify
+    pub fn get_cs(&self) -> &ChainStore<DB> {
+        &self.cs
+    }
     /// Loads actor state from IPLD Store
     fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
     where
@@ -41,14 +45,16 @@ where
             .get_actor(addr, state_cid)?
             .ok_or_else(|| Error::ActorNotFound(addr.to_string()))?;
         let act: D = self
-            .cs.blockstore()
+            .cs
+            .blockstore()
             .get(&actor.state)
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }
     fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.cs.blockstore(), state_cid).map_err(Error::State)?;
+        let state =
+            StateTree::new_from_root(self.cs.blockstore(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
     }
     /// Returns the network name from the init actor state
@@ -73,7 +79,8 @@ where
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
-        let state = StateTree::new_from_root(self.cs.blockstore(), state_cid).map_err(Error::State)?;
+        let state =
+            StateTree::new_from_root(self.cs.blockstore(), state_cid).map_err(Error::State)?;
         // Note: miner::State info likely to be changed to CID
         let addr = resolve_to_key_addr(&state, self.cs.blockstore(), &ms.info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
