@@ -105,7 +105,7 @@ fn transfer_test() {
         actor_addr_2.clone(),
         0,
         0,
-        dummy_rand,
+        &dummy_rand,
     );
     let _serialized = internal_send(&mut runtime, &message, 0).unwrap();
 
