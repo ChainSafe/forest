@@ -7,7 +7,7 @@ use bls_signatures::{
     hash as bls_hash, paired::bls12_381::G2, verify, PublicKey as BlsPubKey, Serialize,
     Signature as BlsSignature,
 };
-use encoding::{blake2b_256, de, ser, serde_bytes};
+use encoding::{blake2b_256, de, repr::*, ser, serde_bytes};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
@@ -18,7 +18,8 @@ pub const BLS_SIG_LEN: usize = 96;
 pub const BLS_PUB_LEN: usize = 48;
 
 /// Signature variants for Forest signatures
-#[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq)]
+#[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum SignatureType {
     Secp256 = 1,
     BLS = 2,
@@ -266,5 +267,41 @@ mod tests {
             verify_bls_aggregate(&data, &public_keys_slice, &calculated_bls_agg),
             true
         );
+    }
+}
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "Type")]
+        sig_type: SignatureType,
+        #[serde(rename = "Data")]
+        bytes: String,
+    }
+
+    pub fn serialize<S>(m: &Signature, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            sig_type: m.sig_type,
+            bytes: base64::encode(&m.bytes),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Signature, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(Signature {
+            sig_type: m.sig_type,
+            bytes: base64::decode(m.bytes).map_err(de::Error::custom)?,
+        })
     }
 }

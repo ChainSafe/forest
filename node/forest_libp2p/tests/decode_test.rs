@@ -81,10 +81,10 @@ fn tipset_bundle_to_full_tipset() {
         .from(Address::new_id(3))
         .build()
         .unwrap();
-    let sa = SignedMessage::new(&ua, &DummySigner).unwrap();
-    let sb = SignedMessage::new(&ua, &DummySigner).unwrap();
-    let sc = SignedMessage::new(&ua, &DummySigner).unwrap();
-    let sd = SignedMessage::new(&ua, &DummySigner).unwrap();
+    let sa = SignedMessage::new(ua.clone(), &DummySigner).unwrap();
+    let sb = SignedMessage::new(ub.clone(), &DummySigner).unwrap();
+    let sc = SignedMessage::new(uc.clone(), &DummySigner).unwrap();
+    let sd = SignedMessage::new(ud.clone(), &DummySigner).unwrap();
 
     let b0 = Block {
         header: h0.clone(),

@@ -2,10 +2,13 @@
 name = "forest_crypto"
 description = "Filecoin crypto utilities for use in Forest"
 license = "MIT OR Apache-2.0"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
+
+[package.metadata.docs.rs]
+features = ["json"]
 
 [dependencies]
 address = { package = "forest_address", path = "../vm/address", version = "0.2" }
@@ -16,6 +19,10 @@ serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2"
 num-derive = "0.3.0"
 thiserror = "1.0"
+base64 = { version = "0.12.1", optional = true }
 
 [dev-dependencies]
 rand = "0.7.3"
+
+[features]
+json = ["base64"]
