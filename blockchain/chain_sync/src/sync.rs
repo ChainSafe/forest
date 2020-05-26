@@ -510,7 +510,7 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    fn check_block_msgs(&self, block: Block, tip: &Tipset) -> Result<(), Error> {
+    fn check_block_msgs(&mut self, block: Block, tip: &Tipset) -> Result<(), Error> {
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
@@ -542,6 +542,7 @@ where
                 "No bls signature included in the block header".to_owned(),
             ));
         }
+
         // check msgs for validity
         fn check_msg<M, DB: BlockStore>(
             msg: &M,
@@ -591,9 +592,8 @@ where
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
-        // TODO retrieve tipset state and load state tree
-        // temporary
-        let tree = StateTree::new(self.chain_store.db.as_ref());
+        let (state_root,_) =  self.state_manager.tipset_state(tip).map_err(|_|Error::Validation("Could not update set in state manager".to_owned()))?;
+        let tree = StateTree::new_from_root(self.chain_store.db.as_ref(),&state_root).map_err(|_|Error::Validation("Could not load from new state root in state manager".to_owned()))?;
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
@@ -616,7 +616,7 @@ where
     }
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-    async fn validate(&self, block: &Block) -> Result<(), Error> {
+    async fn validate(&mut self, block: &Block) -> Result<(), Error> {
         let header = block.header();
 
         // check if block has been signed
@@ -632,10 +632,12 @@ where
         // check messages to ensure valid state transitions
         self.check_block_msgs(block.clone(), &parent_tipset)?;
 
-        // TODO use computed state_root instead of parent_tipset.parent_state()
+        let (state_root,_) = self.state_manager.tipset_state(&parent_tipset).map_err(|_|Error::Validation(
+            "Failed to set tipset".to_owned(),
+        ))?;
         let work_addr = self
             .state_manager
-            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address())?;
+            .get_miner_work_addr(&state_root, header.miner_address())?;
         // block signature check
         header.check_block_signature(&work_addr)?;
 
