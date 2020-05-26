@@ -3,11 +3,10 @@ use crate::errors::Error::DuplicateNonce;
 use address::Address;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
-use chain::ChainStore;
+// use chain::ChainStore;
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::Signature;
-use interpreter::{resolve_to_key_addr, DefaultSyscalls, VM};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, ToBigInt};
@@ -38,7 +37,7 @@ impl MsgSet {
             return Err(DuplicateNonce);
         }
         self.msgs.insert(m.sequence(), m);
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -81,13 +80,13 @@ where
             .db
             .put(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
-        return Ok(cid);
+        Ok(cid)
     }
 
     fn state_get_actor(&self, addr: &Address) -> Result<Option<ActorState>, Error> {
         let state = StateTree::new(self.sm.get_cs().db.as_ref());
         //TODO need to have this error be an Error::Other from state_manager errs
-        state.get_actor(addr).map_err(|err| Error::Other(err))
+        state.get_actor(addr).map_err(Error::Other)
     }
 
     fn state_account_key(&self, addr: &Address, ts: Tipset) -> Result<Address, Error> {
