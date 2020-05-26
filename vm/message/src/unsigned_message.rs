@@ -4,9 +4,9 @@
 use super::Message;
 use address::Address;
 use derive_builder::Builder;
-use encoding::{de, ser, Cbor};
+use encoding::Cbor;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
@@ -66,10 +66,10 @@ impl UnsignedMessage {
     }
 }
 
-impl ser::Serialize for UnsignedMessage {
+impl Serialize for UnsignedMessage {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
-        S: ser::Serializer,
+        S: Serializer,
     {
         (
             &self.version,
@@ -86,10 +86,10 @@ impl ser::Serialize for UnsignedMessage {
     }
 }
 
-impl<'de> de::Deserialize<'de> for UnsignedMessage {
+impl<'de> Deserialize<'de> for UnsignedMessage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: de::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let (
             version,
@@ -148,3 +148,77 @@ impl Message for UnsignedMessage {
 }
 
 impl Cbor for UnsignedMessage {}
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::de;
+
+    /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct UnsignedMessageJson(#[serde(with = "self")] pub UnsignedMessage);
+
+    /// Wrapper for serializing a UnsignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct UnsignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a UnsignedMessage);
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "Version")]
+        version: i64,
+        #[serde(rename = "To")]
+        to: String,
+        #[serde(rename = "From")]
+        from: String,
+        #[serde(rename = "Nonce")]
+        sequence: u64,
+        #[serde(rename = "Value")]
+        value: String,
+        #[serde(rename = "GasPrice")]
+        gas_price: String,
+        #[serde(rename = "GasLimit")]
+        gas_limit: u64,
+        #[serde(rename = "Method")]
+        method_num: u64,
+        #[serde(rename = "Params")]
+        params: String,
+    }
+
+    pub fn serialize<S>(m: &UnsignedMessage, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            version: m.version,
+            to: m.to.to_string(),
+            from: m.from.to_string(),
+            sequence: m.sequence,
+            value: m.value.to_string(),
+            gas_price: m.gas_price.to_string(),
+            gas_limit: m.gas_limit,
+            method_num: m.method_num,
+            params: base64::encode(m.params.bytes()),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(UnsignedMessage {
+            version: m.version,
+            to: m.to.parse().map_err(de::Error::custom)?,
+            from: m.from.parse().map_err(de::Error::custom)?,
+            sequence: m.sequence,
+            value: m.value.parse().map_err(de::Error::custom)?,
+            gas_price: m.gas_price.parse().map_err(de::Error::custom)?,
+            gas_limit: m.gas_limit,
+            method_num: m.method_num,
+            params: Serialized::new(base64::decode(&m.params).map_err(de::Error::custom)?),
+        })
+    }
+}

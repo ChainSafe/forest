@@ -5,63 +5,15 @@
 #![cfg(feature = "submodule_tests")]
 
 use encoding::{from_slice, to_vec};
-use forest_message::UnsignedMessage;
+use forest_message::{unsigned_message, UnsignedMessage};
 use hex::encode;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
 
-mod unsigned_message_json {
-    use super::UnsignedMessage;
-    use serde::{de, Deserialize, Deserializer};
-    use vm::Serialized;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct UnsignedMessageDe {
-            #[serde(alias = "Version")]
-            version: i64,
-            #[serde(alias = "To")]
-            to: String,
-            #[serde(alias = "From")]
-            from: String,
-            #[serde(alias = "Nonce")]
-            nonce: u64,
-            #[serde(alias = "Value")]
-            value: String,
-            #[serde(alias = "GasPrice")]
-            gas_price: String,
-            #[serde(alias = "GasLimit")]
-            gas_limit: u64,
-            #[serde(alias = "Method")]
-            method: u64,
-            #[serde(alias = "Params")]
-            params: String,
-        }
-        let m: UnsignedMessageDe = Deserialize::deserialize(deserializer)?;
-        UnsignedMessage::builder()
-            .version(m.version)
-            .to(m.to.parse().map_err(de::Error::custom)?)
-            .from(m.from.parse().map_err(de::Error::custom)?)
-            .sequence(m.nonce)
-            .value(m.value.parse().map_err(de::Error::custom)?)
-            .method_num(m.method)
-            .params(Serialized::new(
-                base64::decode(&m.params).map_err(de::Error::custom)?,
-            ))
-            .gas_limit(m.gas_limit)
-            .gas_price(m.gas_price.parse().map_err(de::Error::custom)?)
-            .build()
-            .map_err(de::Error::custom)
-    }
-}
-
 #[derive(Deserialize)]
 struct TestVector {
-    #[serde(with = "unsigned_message_json")]
+    #[serde(with = "unsigned_message::json")]
     message: UnsignedMessage,
     hex_cbor: String,
 }
