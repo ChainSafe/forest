@@ -202,6 +202,106 @@ impl<'de> Deserialize<'de> for BlockHeader {
     }
 }
 
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::de;
+
+    /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct BlockHeaderJson(#[serde(with = "self")] pub BlockHeader);
+
+    /// Wrapper for serializing a UnsignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct BlockHeaderJsonRef<'a>(#[serde(with = "self")] pub &'a BlockHeader);
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+    #[serde(rename = "Miner")]
+    miner_address: Address,
+    #[serde(rename = "Ticket")]
+    ticket: Ticket,
+    #[serde(rename = "ElectionProof")]
+    election_proof: Option<VRFProof>,
+    #[serde(rename = "BeaconEntries")]
+    beacon_entries: Vec<BeaconEntry>,
+    #[serde(rename = "WinPoStProof")]
+    win_post_proof: Vec<PoStProof>,
+    #[serde(rename = "Parents")]
+    parents: TipsetKeys,
+    #[serde(rename = "ParentWeight")]
+    weight: BigUint,
+    #[serde(rename = "Height")]
+    epoch: ChainEpoch,
+    #[serde(rename = "ParentStateRoot")]
+    state_root: Cid,
+    #[serde(rename = "ParentMessageReceipts")]
+    message_receipts: Cid,
+    #[serde(rename = "Messages")]
+    messages: Cid,
+    #[serde(rename = "BLSAggregate")]
+    bls_aggregate: Option<Signature>,
+    #[serde(rename = "Timestamp")]
+    timestamp: u64,
+    #[serde(rename = "BlockSig")]
+    signature: Option<Signature>,
+    #[serde(rename = "ForkSignaling")]
+    fork_signal: u64,
+    }
+
+    pub fn serialize<S>(m: &BlockHeader, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            miner_address: m.miner_address(),
+            ticket: m.ticket(),
+            election_proof: m.election_proof(),
+            beacon_entries: m.beacon_entries(),
+            win_post_proof: m.win_post_proof(),
+            parents: m.parents(),
+            weight: m.weight(),
+            epoch: m.epoch(),
+            state_root: m.state_root(),
+            message_receipts: m.message_receipts(),
+            messages: m.messages(),
+            bls_aggregate: m.bls_aggregate(),
+            timestamp: m.timestamp(),
+            signature: m.signature(),
+            fork_signal: m.fork_signal(),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<BlockHeader, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(BlockHeader::builder()
+        .miner_address(m.miner_address)
+        .ticket(m.ticket)
+        .election_proof(m.election_proof)
+        .beacon_entries(m.beacon_entries) 
+        .win_post_proof(m.win_post_proof) 
+        . parents(m.parents) 
+        .weight(m.weight) 
+        .epoch(m.epoch) 
+        .tate_root(m.state_root) 
+        .message_receipts(m.message_receipts) 
+        .messages(m.messages) 
+        .bls_aggregate(m.bls_aggregate) 
+        .timestamp(m.timestamp) 
+        .signature(m.signature) 
+        .fork_signal(m.fork_signal) 
+        .build()
+    )
+    }
+}
+
+
 impl Ord for BlockHeader {
     fn cmp(&self, other: &Self) -> Ordering {
         self.ticket()
