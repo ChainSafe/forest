@@ -17,7 +17,7 @@ impl VRFProof {
     }
 
     /// Returns reference to underlying vector
-    pub fn bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 
