@@ -610,7 +610,7 @@ where
     }
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-    async fn validate(&self, block: Block) -> Result<(), Error> {
+    async fn validate(&self, block: &Block) -> Result<(), Error> {
         let mut error_vec: Vec<String> = Vec::new();
         let mut validations = FuturesUnordered::new();
         let header = block.header();
@@ -725,7 +725,7 @@ where
         }
 
         for b in fts.blocks() {
-            if let Err(e) = self.validate(b.clone()).await {
+            if let Err(e) = self.validate(&b).await {
                 self.bad_blocks.put(b.cid().clone(), e.to_string());
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
