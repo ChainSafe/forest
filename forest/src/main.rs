@@ -6,6 +6,7 @@ mod logger;
 
 use self::cli::{block_until_sigint, initialize_genesis};
 use async_std::task;
+use beacon::DrandBeacon;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
@@ -59,14 +60,28 @@ fn main() {
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
-    // Initialize ChainSyncer
-    let chain_syncer = ChainSyncer::new(chain_store, network_send, network_rx, genesis).unwrap();
+    // Get Drand Coefficients
+    let coeff = config.drand_dist_public.clone();
 
     // Start services
     let p2p_thread = task::spawn(async {
         p2p_service.run().await;
     });
     let sync_thread = task::spawn(async {
+        // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
+        let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
+            .await
+            .unwrap();
+
+        // Initialize ChainSyncer
+        let chain_syncer = ChainSyncer::new(
+            chain_store,
+            Arc::new(beacon),
+            network_send,
+            network_rx,
+            genesis,
+        )
+        .unwrap();
         chain_syncer.start().await.unwrap();
     });
 

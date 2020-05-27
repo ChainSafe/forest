@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-unsigned-varint = "0.3.1"
+unsigned-varint = "0.4"
 cid = { package = "forest_cid", path = "../cid", features = ["cbor"] }
 forest_encoding = { path = "../../encoding" }
 blockstore = { package = "ipld_blockstore", path = "../blockstore" }

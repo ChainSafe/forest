@@ -4,6 +4,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+// workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
+extern crate serde;
+
 mod builtin;
 mod util;
 

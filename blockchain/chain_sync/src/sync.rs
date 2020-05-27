@@ -10,9 +10,9 @@ use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::Address;
 use amt::Amt;
-use async_std::prelude::*;
-use async_std::sync::{channel, Receiver, Sender};
+use async_std::sync::{channel, Receiver, RwLock, Sender};
 use async_std::task;
+use beacon::Beacon;
 use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
@@ -22,6 +22,8 @@ use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
+use futures::future::FutureExt;
+use futures::stream::{FuturesUnordered, StreamExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
@@ -56,12 +58,15 @@ pub enum SyncState {
     Follow,
 }
 
-pub struct ChainSyncer<DB> {
+pub struct ChainSyncer<DB, TBeacon> {
     /// Syncing state of chain sync
     state: SyncState,
 
+    /// Drand randomness beacon
+    beacon: Arc<TBeacon>,
+
     /// manages retrieving and updates state objects
-    state_manager: StateManager<DB>,
+    state_manager: Arc<RwLock<StateManager<DB>>>,
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
@@ -94,17 +99,19 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<DB> ChainSyncer<DB>
+impl<DB, TBeacon: 'static> ChainSyncer<DB, TBeacon>
 where
-    DB: BlockStore,
+    TBeacon: Beacon + Send,
+    DB: BlockStore + Sync + Send + 'static,
 {
     pub fn new(
         chain_store: ChainStore<DB>,
+        beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = StateManager::new(chain_store.db.clone());
+        let state_manager = Arc::new(RwLock::new(StateManager::new(chain_store.db.clone())));
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
@@ -118,6 +125,7 @@ where
 
         Ok(Self {
             state: SyncState::Init,
+            beacon,
             state_manager,
             chain_store,
             network,
@@ -129,12 +137,7 @@ where
             next_sync_target: SyncBucket::default(),
         })
     }
-}
 
-impl<DB> ChainSyncer<DB>
-where
-    DB: BlockStore,
-{
     pub async fn start(mut self) -> Result<(), Error> {
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
@@ -316,7 +319,7 @@ where
             }
 
             // validate message root from header matches message root
-            let sm_root = self.compute_msg_data(&bls_msgs, &secp_msgs)?;
+            let sm_root = compute_msg_data(self.chain_store.blockstore(), &bls_msgs, &secp_msgs)?;
             if header.messages() != &sm_root {
                 return Err(Error::InvalidRoots);
             }
@@ -436,7 +439,11 @@ where
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
-        let sm_root = self.compute_msg_data(block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = compute_msg_data(
+            self.chain_store.blockstore(),
+            block.bls_msgs(),
+            block.secp_msgs(),
+        )?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -446,33 +453,7 @@ where
 
         Ok(())
     }
-    /// Returns message root CID from bls and secp message contained in the param Block
-    fn compute_msg_data(
-        &self,
-        bls_msgs: &[UnsignedMessage],
-        secp_msgs: &[SignedMessage],
-    ) -> Result<Cid, Error> {
-        // collect bls and secp cids
-        let bls_cids = cids_from_messages(bls_msgs)?;
-        let secp_cids = cids_from_messages(secp_msgs)?;
-        // generate Amt and batch set message values
-        let bls_root = Amt::new_from_slice(self.chain_store.blockstore(), &bls_cids)?;
-        let secp_root = Amt::new_from_slice(self.chain_store.blockstore(), &secp_cids)?;
 
-        let meta = TxMeta {
-            bls_message_root: bls_root,
-            secp_message_root: secp_root,
-        };
-        // TODO this should be memoryDB for temp storage
-        // store message roots and receive meta_root
-        let meta_root = self
-            .chain_store
-            .blockstore()
-            .put(&meta, Blake2b256)
-            .map_err(|e| Error::Other(e.to_string()))?;
-
-        Ok(meta_root)
-    }
     /// Returns FullTipset from store if TipsetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
     async fn fetch_tipset(
@@ -510,16 +491,22 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    fn check_block_msgs(&mut self, block: Block, tip: &Tipset) -> Result<(), Error> {
+    async fn check_block_msgs(
+        state_manager: Arc<RwLock<StateManager<DB>>>,
+        db: Arc<DB>,
+        block: Block,
+        tip: Tipset,
+    ) -> Result<(), Error> {
+        //do the initial loop here
+        // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
-            let pk = self
-                .state_manager
-                .get_bls_public_key(m.from(), tip.parent_state())?;
+            let pk = StateManager::get_bls_public_key(&db, m.from(), tip.parent_state())?;
             pub_keys.push(pk);
             cids.push(m.cid()?.to_bytes());
         }
+
         if let Some(sig) = block.header().bls_aggregate() {
             if !verify_bls_aggregate(
                 cids.iter()
@@ -592,8 +579,15 @@ where
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
-        let (state_root,_) =  self.state_manager.tipset_state(tip).map_err(|_|Error::Validation("Could not update set in state manager".to_owned()))?;
-        let tree = StateTree::new_from_root(self.chain_store.db.as_ref(),&state_root).map_err(|_|Error::Validation("Could not load from new state root in state manager".to_owned()))?;
+        let (state_root, _) = state_manager
+            .write()
+            .await
+            .tipset_state(&tip)
+            .map_err(|_| Error::Validation("Could not update set in state manager".to_owned()))?;
+        let database = &*db.clone();
+        let tree = StateTree::new_from_root(database, &state_root).map_err(|_| {
+            Error::Validation("Could not load from new state root in state manager".to_owned())
+        })?;
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
@@ -607,7 +601,7 @@ where
                 .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root
-        let sm_root = self.compute_msg_data(block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = compute_msg_data(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -616,50 +610,111 @@ where
     }
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-    async fn validate(&mut self, block: &Block) -> Result<(), Error> {
+    async fn validate(&self, block: Block) -> Result<(), Error> {
+        let mut error_vec: Vec<String> = Vec::new();
+        let mut validations = FuturesUnordered::new();
+        //let mut validations = Vec::new();
         let header = block.header();
 
         // check if block has been signed
         if header.signature().is_none() {
-            return Err(Error::Validation("Signature is nil in header".to_owned()));
+            error_vec.push("Signature is nil in header".to_owned());
         }
 
         let parent_tipset = self.chain_store.tipset_from_keys(header.parents())?;
 
         // time stamp checks
-        header.validate_timestamps(&parent_tipset)?;
+        if let Err(err) = header.validate_timestamps(&parent_tipset) {
+            error_vec.push(err.to_string());
+        }
 
+        let b = block.clone();
+
+        let db = Arc::clone(&self.chain_store.db);
+        let parent_clone = parent_tipset.clone();
         // check messages to ensure valid state transitions
-        self.check_block_msgs(block.clone(), &parent_tipset)?;
+        let sm = self.state_manager.clone();
+        let x = Self::check_block_msgs(sm, db, b, parent_clone).boxed();
+        validations.push(x);
 
-        let (state_root,_) = self.state_manager.tipset_state(&parent_tipset).map_err(|_|Error::Validation(
-            "Failed to set tipset".to_owned(),
-        ))?;
-        let work_addr = self
+        let (state_root, _) = self
             .state_manager
-            .get_miner_work_addr(&state_root, header.miner_address())?;
-        // block signature check
-        header.check_block_signature(&work_addr)?;
+            .write()
+            .await
+            .tipset_state(&parent_tipset)
+            .map_err(|_| Error::Validation("Failed to set tipset".to_owned()))?;
+        let work_addr_result = self
+            .state_manager
+            .read()
+            .await
+            .get_miner_work_addr(&state_root, header.miner_address());
+
+        //temp header needs to live long enough
+        match work_addr_result {
+            Ok(_) => {
+                //work_addr_result lives longer that is why it is unwrapped
+                validations.push(
+                    async {
+                        block
+                            .header()
+                            .check_block_signature(work_addr_result.unwrap().clone())
+                            .map_err(Error::Blockchain)
+                    }
+                    .boxed(),
+                )
+            }
+            Err(err) => error_vec.push(err.to_string()),
+        }
 
         let slash = self
             .state_manager
-            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())?;
+            .read()
+            .await
+            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
+            .unwrap_or_else(|err| {
+                error_vec.push(err.to_string());
+                false
+            });
         if slash {
-            return Err(Error::Validation(
-                "Received block was from slashed or invalid miner".to_owned(),
-            ));
+            error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
 
-        let (c_pow, net_pow) = self
+        let prev_beacon = self
+            .chain_store
+            .latest_beacon_entry(&self.chain_store.tipset_from_keys(header.parents())?)?;
+        header
+            .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
+            .await?;
+
+        let power_result = self
             .state_manager
-            .get_power(&parent_tipset.parent_state(), header.miner_address())?;
+            .read()
+            .await
+            .get_power(&parent_tipset.parent_state(), header.miner_address());
         // ticket winner check
-        if !header.is_ticket_winner(c_pow, net_pow) {
-            return Err(Error::Validation(
-                "Miner created a block but was not a winner".to_owned(),
-            ));
+        match power_result {
+            Ok(pow_tuple) => {
+                let (c_pow, net_pow) = pow_tuple;
+                if !header.is_ticket_winner(c_pow, net_pow) {
+                    error_vec.push("Miner created a block but was not a winner".to_owned())
+                }
+            }
+            Err(err) => error_vec.push(err.to_string()),
         }
+
         // TODO verify_ticket_vrf
+
+        // collect the errors from the async validations
+        while let Some(result) = validations.next().await {
+            if result.is_err() {
+                error_vec.push(result.err().unwrap().to_string());
+            }
+        }
+        // combine vec of error strings and return Validation error with this resultant string
+        if !error_vec.is_empty() {
+            let error_string = error_vec.join(", ");
+            return Err(Error::Validation(error_string));
+        }
 
         Ok(())
     }
@@ -670,7 +725,7 @@ where
         }
 
         for b in fts.blocks() {
-            if let Err(e) = self.validate(b).await {
+            if let Err(e) = self.validate(b.clone()).await {
                 self.bad_blocks.put(b.cid().clone(), e.to_string());
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
@@ -853,6 +908,32 @@ where
     }
 }
 
+/// Returns message root CID from bls and secp message contained in the param Block
+fn compute_msg_data<DB: BlockStore>(
+    blockstore: &DB,
+    bls_msgs: &[UnsignedMessage],
+    secp_msgs: &[SignedMessage],
+) -> Result<Cid, Error> {
+    // collect bls and secp cids
+    let bls_cids = cids_from_messages(bls_msgs)?;
+    let secp_cids = cids_from_messages(secp_msgs)?;
+    // generate Amt and batch set message values
+    let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
+    let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
+
+    let meta = TxMeta {
+        bls_message_root: bls_root,
+        secp_message_root: secp_root,
+    };
+    // TODO this should be memoryDB for temp storage
+    // store message roots and receive meta_root
+    let meta_root = blockstore
+        .put(&meta, Blake2b256)
+        .map_err(|e| Error::Other(e.to_string()))?;
+
+    Ok(meta_root)
+}
+
 fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
     messages.iter().map(Cbor::cid).collect()
 }
@@ -861,14 +942,17 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 mod tests {
     use super::*;
     use async_std::sync::Sender;
+    use beacon::MockBeacon;
     use blocks::BlockHeader;
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
-    fn chain_syncer_setup(db: Arc<MemoryDB>) -> (ChainSyncer<MemoryDB>, Sender<NetworkEvent>) {
-        let mut chain_store = ChainStore::new(db);
+    fn chain_syncer_setup(
+        db: Arc<MemoryDB>,
+    ) -> (ChainSyncer<MemoryDB, MockBeacon>, Sender<NetworkEvent>) {
+        let chain_store = ChainStore::new(db);
 
         let (local_sender, _test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
@@ -876,9 +960,18 @@ mod tests {
         let gen = dummy_header();
         chain_store.set_genesis(gen.clone()).unwrap();
 
+        let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+
         let genesis_ts = Tipset::new(vec![gen]).unwrap();
         (
-            ChainSyncer::new(chain_store, local_sender, event_receiver, genesis_ts).unwrap(),
+            ChainSyncer::new(
+                chain_store,
+                beacon,
+                local_sender,
+                event_receiver,
+                genesis_ts,
+            )
+            .unwrap(),
             event_sender,
         )
     }
@@ -949,7 +1042,7 @@ mod tests {
             Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
-        let root = cs.compute_msg_data(&[bls], &[secp]).unwrap();
+        let root = compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
     }
 }

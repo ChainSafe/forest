@@ -1,13 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
+extern crate serde;
+
 mod message_receipt;
-mod signed_message;
-mod unsigned_message;
+pub mod signed_message;
+pub mod unsigned_message;
 
 pub use message_receipt::*;
-pub use signed_message::*;
-pub use unsigned_message::*;
+pub use signed_message::SignedMessage;
+pub use unsigned_message::UnsignedMessage;
 
 use address::Address;
 use vm::{MethodNum, Serialized, TokenAmount};

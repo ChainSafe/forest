@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-vm = { path = "../../vm" }
+vm = { package = "forest_vm", path = "../../vm" }
 address = { package = "forest_address", path = "../address" }
 runtime = { path = "../runtime" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
@@ -21,12 +21,12 @@ ipld_hamt = { path = "../../ipld/hamt" }
 ipld_amt = { path = "../../ipld/amt" }
 forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
-unsigned-varint = "0.3.2"
-crypto = { path = "../../crypto" }
+unsigned-varint = "0.4"
+crypto = { package = "forest_crypto", path = "../../crypto" }
 rleplus = { path = "../../utils/rleplus" }
 fil_types = { path = "../../types" }
 
 [dev-dependencies]
 db = { path = "../../node/db" }
 hex = "0.4.2"
-libp2p = "0.16.2"
+libp2p = "0.19"

@@ -3,7 +3,7 @@
 
 mod errors;
 mod randomness;
-mod signature;
+pub mod signature;
 mod signer;
 mod vrf;
 

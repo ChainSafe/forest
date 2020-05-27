@@ -58,6 +58,7 @@ fn test_empty_blocksync() {
                         ev => panic!("Receiver invalid RPC received, {:?}", ev),
                     }
                 }
+                RPCMessage::PeerDialed(_) => (),
                 e => panic!("unexpected {:?}", e),
             }
         }

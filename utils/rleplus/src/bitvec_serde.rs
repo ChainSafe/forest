@@ -6,31 +6,31 @@ use bitvec::prelude::{BitVec, Lsb0};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Wrapper for serializing bit vector with RLE+ encoding
-pub struct BitVecSer<'a>(pub &'a BitVec<Lsb0, u8>);
+#[derive(Serialize)]
+#[serde(transparent)]
+struct BitVecSer<'a>(#[serde(with = "self")] pub &'a BitVec<Lsb0, u8>);
 
 /// Wrapper for deserializing bit vector with RLE+ decoding from bytes.
-pub struct BitVecDe(pub BitVec<Lsb0, u8>);
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct BitVecDe(#[serde(with = "self")] pub BitVec<Lsb0, u8>);
 
-impl Serialize for BitVecSer<'_> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // This serialize will encode into rle+ before serializing
-        serde_bytes::serialize(encode(self.0).as_slice(), serializer)
-    }
+pub fn serialize<S>(bit_vec: &BitVec<Lsb0, u8>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    // This serialize will encode into rle+ before serializing
+    serde_bytes::serialize(encode(bit_vec).as_slice(), serializer)
 }
 
-impl<'de> Deserialize<'de> for BitVecDe {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // Deserialize will decode using rle+ decompression
-        let bz: Vec<u8> = serde_bytes::deserialize(deserializer)?;
-        let compressed = BitVec::from_vec(bz);
-        Ok(BitVecDe(decode(&compressed).map_err(de::Error::custom)?))
-    }
+pub fn deserialize<'de, D>(deserializer: D) -> Result<BitVec<Lsb0, u8>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    // Deserialize will decode using rle+ decompression
+    let bz: Vec<u8> = serde_bytes::deserialize(deserializer)?;
+    let compressed = BitVec::from_vec(bz);
+    Ok(decode(&compressed).map_err(de::Error::custom)?)
 }
 
 #[cfg(test)]

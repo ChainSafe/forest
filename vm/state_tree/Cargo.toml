@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 actor = { path = "../actor" }
 address = { package = "forest_address", path = "../address" }
-vm = { path = "../../vm" }
+vm = { package = "forest_vm", path = "../../vm" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_hamt = { path = "../../ipld/hamt" }
 ipld_blockstore = { path = "../../ipld/blockstore" }

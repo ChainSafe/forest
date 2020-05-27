@@ -8,30 +8,30 @@ use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR
 use address::{Address, Protocol};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
+use chain::ChainStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use interpreter::{resolve_to_key_addr, DefaultSyscalls, VM};
 use ipld_amt::Amt;
+use log::trace;
 use num_bigint::BigUint;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use chain::ChainStore;
-use log::trace;
 
 /// Intermediary for retrieving state objects and updating actor states
 
 pub type CidPair = (Cid, Cid);
 
-pub type ForkFunctions<'a,DB> =
+pub type ForkFunctions<'a, DB> =
     &'a dyn Fn(&'a StateManager<DB>, Cid) -> Result<Cid, Box<dyn StdError>>;
 
 pub struct StateManager<DB> {
     bs: Arc<DB>,
-    cache: HashMap<TipsetKeys, CidPair>
+    cache: HashMap<TipsetKeys, CidPair>,
 }
 
 impl<DB> StateManager<DB>
@@ -42,7 +42,7 @@ where
     pub fn new(bs: Arc<DB>) -> Self {
         Self {
             bs,
-            cache: HashMap::new()
+            cache: HashMap::new(),
         }
     }
     /// Loads actor state from IPLD Store
@@ -131,11 +131,7 @@ where
         Ok((state_root, rect_root))
     }
 
-    pub fn tipset_state(
-        &mut self,
-        tipset: &Tipset,
-    ) -> Result<(Cid, Cid), Box<dyn StdError>> {
-
+    pub fn tipset_state(&mut self, tipset: &Tipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
         trace!("tipSetState");
 
         // if exists in cache return
@@ -151,26 +147,27 @@ where
             let message_receipts = tipset
                 .blocks()
                 .first()
-                .ok_or(Error::Other(format!("Could not get message receipts")))?;
-            let cid_pair = (tipset.parent_state().clone(),message_receipts.message_receipts().clone());
-            self.cache
-                .insert(tipset.key().clone(), cid_pair.clone());
+                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
+            let cid_pair = (
+                tipset.parent_state().clone(),
+                message_receipts.message_receipts().clone(),
+            );
+            self.cache.insert(tipset.key().clone(), cid_pair.clone());
             return Ok(cid_pair);
         }
 
         let block_headers = tipset.blocks().to_vec();
-        //generic constants are not implemented yet this is a lowcost method for now
+        // generic constants are not implemented yet this is a lowcost method for now
         let cid_pair = self.compute_tipset_state(&block_headers, &HashMap::new())?;
-        self.cache.insert(tipset.key().clone(),cid_pair.clone());
+        self.cache.insert(tipset.key().clone(), cid_pair.clone());
         Ok(cid_pair)
     }
 
     pub fn compute_tipset_state<'a>(
         &'a self,
-        blocks: &Vec<BlockHeader>,
-        forks_at_heights: &'a HashMap<ChainEpoch, ForkFunctions<'a,DB>>
+        blocks: &[BlockHeader],
+        forks_at_heights: &'a HashMap<ChainEpoch, ForkFunctions<'a, DB>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
-
         trace!("compute tipset state");
         if blocks.len() > 2
             && blocks
@@ -179,56 +176,61 @@ where
                 .any(|(a, b)| a.miner_address() == b.miner_address())
         {
             // Duplicate Minor found
-            return Err(Box::new(Error::Other(format!(
-                "Could not get message receipts"
-            ))));
+            return Err(Box::new(Error::Other(
+                "Could not get message receipts".to_string(),
+            )));
         }
 
         let parents_cid = &blocks
-        .first()
-        .ok_or(Error::Other(format!("Could not get message receipts")))?
-        .parents()
-        .cids;
-        
-        if ! parents_cid
-            .is_empty()
-        {
+            .first()
+            .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?
+            .parents()
+            .cids;
+
+        if !parents_cid.is_empty() {
             let parents_first = parents_cid
                 .first()
-                .ok_or(Error::Other(format!("Could not get message receipts")))?;
+                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
             self.bs
                 .get(parents_first)?
-                .ok_or(Error::Other(format!("Could not get message receipts")))?;
-            //handle state forks
+                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
+            // handle state forks
             let func_to_execute = forks_at_heights
-                .get(&blocks
-                    .first()
-                    .ok_or(Error::Other(format!("Could not get message receipts")))?
-                    .epoch())
-                .ok_or(Error::Other(format!("Could not get message receipts")))?;
+                .get(
+                    &blocks
+                        .first()
+                        .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?
+                        .epoch(),
+                )
+                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
             func_to_execute(&self, parents_first.clone())?;
         };
 
         let chain_store = ChainStore::new(self.bs.clone());
-        let blocks = blocks.iter().map::<Result<Block,Box<dyn StdError>>,_>(|s:&BlockHeader|{
-            let (bls_messages,secp_messages) = chain_store.messages(&s)?;
-            Ok(Block
-            {
-                header : s.clone(),
-                bls_messages,
-                secp_messages
-
+        let blocks = blocks
+            .iter()
+            .map::<Result<Block, Box<dyn StdError>>, _>(|s: &BlockHeader| {
+                let (bls_messages, secp_messages) = chain_store.messages(&s)?;
+                Ok(Block {
+                    header: s.clone(),
+                    bls_messages,
+                    secp_messages,
+                })
             })
-        }).collect::<Result<Vec<Block>,_>>()?;
+            .collect::<Result<Vec<Block>, _>>()?;
         let full_tipset = FullTipset::new(blocks)?;
         // convert tipset to fulltipset
         self.apply_blocks(&full_tipset)
     }
 
     /// Returns a bls public key from provided address
-    pub fn get_bls_public_key(&self, addr: &Address, state_cid: &Cid) -> Result<Vec<u8>, Error> {
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
-        let kaddr = resolve_to_key_addr(&state, self.bs.as_ref(), addr)
+    pub fn get_bls_public_key(
+        db: &Arc<DB>,
+        addr: &Address,
+        state_cid: &Cid,
+    ) -> Result<Vec<u8>, Error> {
+        let state = StateTree::new_from_root(db.as_ref(), state_cid).map_err(Error::State)?;
+        let kaddr = resolve_to_key_addr(&state, db.as_ref(), addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
         if kaddr.protocol() != Protocol::BLS {
             return Err("Address must be BLS address to load bls public key"

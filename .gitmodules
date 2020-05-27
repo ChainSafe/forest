@@ -1,6 +1,6 @@
 [submodule "tests/serialization-vectors"]
 	path = tests/serialization-vectors
-	url = https://github.com/austinabell/serialization-vectors
+	url = https://github.com/filecoin-project/serialization-vectors
 [submodule "blockchain/beacon/proto/api-common-protos"]
 	path = blockchain/beacon/proto/api-common-protos
 	url = https://github.com/googleapis/api-common-protos
