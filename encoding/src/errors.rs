@@ -4,6 +4,7 @@
 use cid::Error as CidError;
 use serde_cbor::error::Error as CborError;
 use std::fmt;
+use std::io;
 use thiserror::Error;
 
 /// Error type for encoding and decoding data through any Forest supported protocol
@@ -53,6 +54,12 @@ impl From<CidError> for Error {
             description: err.to_string(),
             protocol: CodecProtocol::Cbor,
         }
+    }
+}
+
+impl From<Error> for io::Error {
+    fn from(err: Error) -> io::Error {
+        io::Error::new(io::ErrorKind::Other, err)
     }
 }
 
