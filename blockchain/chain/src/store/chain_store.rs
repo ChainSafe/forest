@@ -266,7 +266,7 @@ pub fn get_randomness<DB: BlockStore>(
         let nts = tipset_from_keys(db, &blks)?;
         let mtb = nts.min_ticket_block();
         if nts.epoch() <= round || mtb.epoch() == 0 {
-            return draw_randomness(mtb.ticket().vrfproof.bytes(), pers, round, entropy);
+            return draw_randomness(mtb.ticket().vrfproof.as_bytes(), pers, round, entropy);
         }
         blks = mtb.parents().clone();
     }
