@@ -3,16 +3,12 @@
 
 use super::{Error, Ticket, Tipset, TipsetKeys};
 use address::Address;
-use beacon::{Beacon, BeaconEntry};
+use beacon::{self, Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{Signature, VRFProof};
 use derive_builder::Builder;
-use encoding::{
-    de::{Deserialize, Deserializer},
-    ser::{Serialize, Serializer},
-    Cbor, Error as EncodingError,
-};
+use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
@@ -23,6 +19,8 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
@@ -205,102 +203,61 @@ impl<'de> Deserialize<'de> for BlockHeader {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::de;
+    use num_bigint::biguint_ser;
+    use serde::{de,Serialize, Deserialize};
+    use crate::{ticket};
+    use beacon::beacon_entries;
 
-    /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
-    #[derive(Deserialize, Serialize)]
-    #[serde(transparent)]
-    pub struct BlockHeaderJson(#[serde(with = "self")] pub BlockHeader);
+    // Wrapper for serializing and deserializing a BlockHeader from JSON.
+    // #[derive(Deserialize, Serialize)]
+    // #[serde(transparent)]
+    // pub struct BlockHeaderJson(#[serde(with = "self")] pub BlockHeader);
 
-    /// Wrapper for serializing a UnsignedMessage reference to JSON.
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct BlockHeaderJsonRef<'a>(#[serde(with = "self")] pub &'a BlockHeader);
+    // /// Wrapper for serializing a BlockHeader reference to JSON.
+    // #[derive(Serialize)]
+    // #[serde(transparent)]
+    // pub struct BlockHeaderJsonRef<'a>(#[serde(with = "self")] pub &'a BlockHeader);
 
-    #[derive(Serialize, Deserialize)]
-    struct JsonHelper {
-    #[serde(rename = "Miner")]
-    miner_address: Address,
-    #[serde(rename = "Ticket")]
-    ticket: Ticket,
-    #[serde(rename = "ElectionProof")]
-    election_proof: Option<VRFProof>,
-    #[serde(rename = "BeaconEntries")]
-    beacon_entries: Vec<BeaconEntry>,
-    #[serde(rename = "WinPoStProof")]
-    win_post_proof: Vec<PoStProof>,
-    #[serde(rename = "Parents")]
-    parents: TipsetKeys,
-    #[serde(rename = "ParentWeight")]
-    weight: BigUint,
-    #[serde(rename = "Height")]
-    epoch: ChainEpoch,
-    #[serde(rename = "ParentStateRoot")]
-    state_root: Cid,
-    #[serde(rename = "ParentMessageReceipts")]
-    message_receipts: Cid,
-    #[serde(rename = "Messages")]
-    messages: Cid,
-    #[serde(rename = "BLSAggregate")]
-    bls_aggregate: Option<Signature>,
-    #[serde(rename = "Timestamp")]
-    timestamp: u64,
-    #[serde(rename = "BlockSig")]
-    signature: Option<Signature>,
-    #[serde(rename = "ForkSignaling")]
-    fork_signal: u64,
-    }
 
     pub fn serialize<S>(m: &BlockHeader, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        JsonHelper {
-            miner_address: m.miner_address(),
-            ticket: m.ticket(),
-            election_proof: m.election_proof(),
-            beacon_entries: m.beacon_entries(),
-            win_post_proof: m.win_post_proof(),
-            parents: m.parents(),
-            weight: m.weight(),
-            epoch: m.epoch(),
-            state_root: m.state_root(),
-            message_receipts: m.message_receipts(),
-            messages: m.messages(),
-            bls_aggregate: m.bls_aggregate(),
-            timestamp: m.timestamp(),
-            signature: m.signature(),
-            fork_signal: m.fork_signal(),
+        #[derive(Serialize)]
+        struct BlockHeaderSer<'a> {
+            #[serde(rename = "Miner")]
+            miner: &'a String,
+            #[serde(rename = "Ticket", with = "ticket::json")]
+            ticket : &'a Ticket,
+            //ElectionProof
+            #[serde(rename = "BeaconEntries", with = "beacon_entries::json")]
+            beacon_entries : Vec<BeaconEntry>
+            
+            // WinPostProof
+            // Parents
+            // ParentWeight
+            // Height
+            // ParentStateRoot
+            // ParentMessageReceipts
+            // Messages
+            // BLSAggregate
+            // Timestamp
+            // BlockSig
+            // ForkSignaling
+            // // #[serde(rename = "ElectionProof", with = "ticket::json")]
+            // election_proof : &'a Option<VRFProof>,
+            
+        }
+        BlockHeaderSer {
+            miner: &m.miner_address.to_string(),
+            ticket: &m.ticket(),
+            beacon_entries : m.beacon_entries().to_vec()
         }
         .serialize(serializer)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<BlockHeader, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        Ok(BlockHeader::builder()
-        .miner_address(m.miner_address)
-        .ticket(m.ticket)
-        .election_proof(m.election_proof)
-        .beacon_entries(m.beacon_entries) 
-        .win_post_proof(m.win_post_proof) 
-        . parents(m.parents) 
-        .weight(m.weight) 
-        .epoch(m.epoch) 
-        .tate_root(m.state_root) 
-        .message_receipts(m.message_receipts) 
-        .messages(m.messages) 
-        .bls_aggregate(m.bls_aggregate) 
-        .timestamp(m.timestamp) 
-        .signature(m.signature) 
-        .fork_signal(m.fork_signal) 
-        .build()
-    )
-    }
+   
 }
-
 
 impl Ord for BlockHeader {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -518,19 +475,5 @@ impl BlockHeaderBuilder {
         header.update_cache()?;
 
         Ok(header)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::BlockHeader;
-    use encoding::Cbor;
-
-    #[test]
-    fn symmetric_header_encoding() {
-        // This test vector is the genesis header for interopnet config
-        let bz = hex::decode("8f4200008158207672662070726f6f66303030303030307672662070726f6f6630303030303030f68182005820000000000000000000000000000000000000000000000000000000000000000080804000d82a5827000171a0e402209fcfcbb98dcbf141cd7f1977fcd1b5da2198ebdcc96a61288562dbc3ee8e8ff0d82a5827000171a0e4022001cd927fdccd7938faba323e32e70c44541b8a83f5dc941d90866565ef5af14ad82a5827000171a0e402208d6f0e09e0453685b8816895cd56a7ee2fce600026ee23ac445d78f020c1ca40f61a5ea37bdcf600").unwrap();
-        let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
-        assert_eq!(hex::encode(header.marshal_cbor().unwrap()), hex::encode(bz));
     }
 }

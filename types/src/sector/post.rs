@@ -51,3 +51,40 @@ pub struct WindowPoStVerifyInfo {
 pub struct OnChainWindowPoStVerifyInfo {
     pub proofs: Vec<PoStProof>,
 }
+
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "RegisteredProof")]
+        registered_proof: u64,
+        #[serde(rename = "ProofBytes")]
+        proof_bytes: String,
+    }
+
+    pub fn serialize<S>(m: &PoStProof, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            registered_proof: m.registered_proof,
+            proof_bytes: base64::encode(&m.proof_bytes),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<PoStProof, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(Signature {
+            registered_proof: m.registered_proof,
+            proof_bytes: base64::decode(m.bytes).map_err(de::Error::custom)?
+        })
+    }
+}

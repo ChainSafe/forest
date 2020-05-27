@@ -49,3 +49,50 @@ impl<'de> Deserialize<'de> for BeaconEntry {
         })
     }
 }
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::de;
+
+        /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct BeaconEntryJson(#[serde(with = "self")] pub BeaconEntry);
+    
+        /// Wrapper for serializing a SignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct BeaconEntryJsonRef<'a>(#[serde(with = "self")] pub &'a BeaconEntry);
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "Round")]
+        round: u64,
+        #[serde(rename = "Data")]
+        data: String,
+    }
+
+    pub fn serialize<S>(m: &BeaconEntry, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            round: m.round,
+            data:  base64 ::encode(m.data.bytes())
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<BeaconEntry, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(BeaconEntry{
+            round: m.version,
+            data : base64::decode(m.data).map_err(de::Error::custom)?
+        })
+    }
+}
+

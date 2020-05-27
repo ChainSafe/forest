@@ -40,3 +40,39 @@ pub struct EPostProof {
     pub post_rand: Vec<u8>,
     pub candidates: Vec<EPostTicket>,
 }
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer,de};
+
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct TicketJson(#[serde(with = "self")] pub Ticket);
+ 
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "VRFProof")]
+        vrfproof: String,
+    }
+
+    pub fn serialize<S>(m: &Ticket, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper{
+            vrfproof : base64::encode(m.vrfproof.as_bytes())
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Ticket, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(Ticket{
+            vrfproof : VRFProof::new(base64::decode(m.vrfproof).map_err(de::Error::custom)?)
+        })
+    }
+}
