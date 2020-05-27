@@ -657,7 +657,7 @@ where
                     async {
                         block
                             .header()
-                            .check_block_signature(work_addr_result.unwrap().clone()) //work_addr_result lives longer than unwrapped_value in scope
+                            .check_block_signature(&work_addr_result.unwrap().clone()) //work_addr_result lives longer than unwrapped_value in scope
                             .map_err(Error::Blockchain)
                     }
                     .boxed(),

@@ -294,7 +294,7 @@ impl BlockHeader {
         Ok(())
     }
     /// Check to ensure block signature is valid
-    pub fn check_block_signature(&self, addr: Address) -> Result<(), Error> {
+    pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
         let signature = self
             .signature()
             .as_ref()
