@@ -613,7 +613,6 @@ where
     async fn validate(&self, block: Block) -> Result<(), Error> {
         let mut error_vec: Vec<String> = Vec::new();
         let mut validations = FuturesUnordered::new();
-        //let mut validations = Vec::new();
         let header = block.header();
 
         // check if block has been signed
@@ -637,6 +636,7 @@ where
         let x = Self::check_block_msgs(sm, db, b, parent_clone).boxed();
         validations.push(x);
 
+        // block signature check
         let (state_root, _) = self
             .state_manager
             .write()
@@ -649,15 +649,15 @@ where
             .await
             .get_miner_work_addr(&state_root, header.miner_address());
 
-        //temp header needs to live long enough
+        // temp header needs to live long enough
         match work_addr_result {
             Ok(_) => {
-                //work_addr_result lives longer that is why it is unwrapped
+  
                 validations.push(
                     async {
                         block
                             .header()
-                            .check_block_signature(work_addr_result.unwrap().clone())
+                            .check_block_signature(work_addr_result.unwrap().clone()) //work_addr_result lives longer than unwrapped_value in scope
                             .map_err(Error::Blockchain)
                     }
                     .boxed(),
