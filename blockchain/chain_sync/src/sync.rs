@@ -583,7 +583,7 @@ where
             .write()
             .await
             .tipset_state(&tip)
-            .map_err(|_| Error::Validation("Could not update set in state manager".to_owned()))?;
+            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let database = &*db.clone();
         let tree = StateTree::new_from_root(database, &state_root).map_err(|_| {
             Error::Validation("Could not load from new state root in state manager".to_owned())
@@ -642,7 +642,7 @@ where
             .write()
             .await
             .tipset_state(&parent_tipset)
-            .map_err(|_| Error::Validation("Failed to set tipset".to_owned()))?;
+            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let work_addr_result = self
             .state_manager
             .read()
