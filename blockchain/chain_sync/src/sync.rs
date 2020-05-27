@@ -652,7 +652,6 @@ where
         // temp header needs to live long enough
         match work_addr_result {
             Ok(_) => {
-  
                 validations.push(
                     async {
                         block

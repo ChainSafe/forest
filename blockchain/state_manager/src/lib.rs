@@ -10,7 +10,6 @@ use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use chain::ChainStore;
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use interpreter::{resolve_to_key_addr, DefaultSyscalls, VM};
@@ -25,9 +24,6 @@ use std::sync::Arc;
 /// Intermediary for retrieving state objects and updating actor states
 
 pub type CidPair = (Cid, Cid);
-
-pub type ForkFunctions<'a, DB> =
-    &'a dyn Fn(&'a StateManager<DB>, Cid) -> Result<Cid, Box<dyn StdError>>;
 
 pub struct StateManager<DB> {
     bs: Arc<DB>,
@@ -156,9 +152,9 @@ where
             return Ok(cid_pair);
         }
 
-        let block_headers = tipset.blocks().to_vec();
+        let block_headers = tipset.blocks();
         // generic constants are not implemented yet this is a lowcost method for now
-        let cid_pair = self.compute_tipset_state(&block_headers, &HashMap::new())?;
+        let cid_pair = self.compute_tipset_state(&block_headers)?;
         self.cache.insert(tipset.key().clone(), cid_pair.clone());
         Ok(cid_pair)
     }
@@ -166,7 +162,6 @@ where
     pub fn compute_tipset_state<'a>(
         &'a self,
         blocks: &[BlockHeader],
-        forks_at_heights: &'a HashMap<ChainEpoch, ForkFunctions<'a, DB>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         trace!("compute tipset state");
         if blocks.len() > 2
@@ -175,36 +170,11 @@ where
                 .zip(blocks.iter().skip(0))
                 .any(|(a, b)| a.miner_address() == b.miner_address())
         {
-            // Duplicate Minor found
+            // Duplicate Miner found
             return Err(Box::new(Error::Other(
                 "Could not get message receipts".to_string(),
             )));
         }
-
-        let parents_cid = &blocks
-            .first()
-            .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?
-            .parents()
-            .cids;
-
-        if !parents_cid.is_empty() {
-            let parents_first = parents_cid
-                .first()
-                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-            self.bs
-                .get(parents_first)?
-                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-            // handle state forks
-            let func_to_execute = forks_at_heights
-                .get(
-                    &blocks
-                        .first()
-                        .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?
-                        .epoch(),
-                )
-                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-            func_to_execute(&self, parents_first.clone())?;
-        };
 
         let chain_store = ChainStore::new(self.bs.clone());
         let blocks = blocks
