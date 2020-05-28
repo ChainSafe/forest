@@ -15,7 +15,7 @@ use cid::Cid;
 use encoding::de::DeserializeOwned;
 
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
-use interpreter::{resolve_to_key_addr, DefaultSyscalls, VM};
+use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::trace;
 use num_bigint::BigUint;
@@ -202,9 +202,10 @@ where
                     })
                 })
                 .collect::<Result<Vec<Block>, _>>()?;
-            let full_tipset = FullTipset::new(blocks)?;
             // convert tipset to fulltipset
-            self.apply_blocks(&full_tipset)
+            let full_tipset = FullTipset::new(blocks)?;
+            let chain_rand = ChainRand::new(full_tipset.to_tipset().key().to_owned());
+            self.apply_blocks(&full_tipset, &chain_rand)
         })
     }
 
