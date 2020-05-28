@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-std = {version = "1.5.0", features = ["attributes"]}
+async-std = { version = "1.6.0", features = ["attributes"] }
 tide = "0.8.0"
 serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 serde_json = "1.0.48"
@@ -15,6 +15,5 @@ chain = { path = "../../blockchain/chain" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore" }
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
-message = {package = "forest_message", path = "../../vm/message", features = ["json"] }
-jsonrpc-v2 = "0.5.2"
-address = { package = "forest_address", path = "../../vm/address" }
+message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
+jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }

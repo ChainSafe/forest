@@ -309,7 +309,7 @@ where
 }
 
 /// Returns Tipset from key-value store from provided cids
-fn tipset_from_keys<DB>(db: &DB, tsk: &TipsetKeys) -> Result<Tipset, Error>
+pub fn tipset_from_keys<DB>(db: &DB, tsk: &TipsetKeys) -> Result<Tipset, Error>
 where
     DB: BlockStore,
 {
@@ -327,6 +327,43 @@ where
     // construct new Tipset to return
     let ts = Tipset::new(block_headers)?;
     Ok(ts)
+}
+/// Returns the tipset behind `tsk` at a given `height`. If the given height
+/// is a null round:
+/// if `prev` is `true`, the tipset before the null round is returned.
+/// If `prev` is `false`, the tipset following the null round is returned.
+pub fn tipset_by_height<DB>(
+    db: &DB,
+    height: ChainEpoch,
+    ts: &Tipset,
+    prev: bool,
+) -> Result<Tipset, Error>
+where
+    DB: BlockStore,
+{
+    if height > ts.epoch() {
+        return Err(Error::Other(
+            "searching for tipset that has a height less than starting point".to_owned(),
+        ));
+    }
+    if height == ts.epoch() {
+        return Ok(ts.clone());
+    }
+    // TODO: If ts.epoch()-h > Fork Length Threshold, it could be expensive to look up
+    let mut ts_temp = ts.clone();
+    loop {
+        let pts = tipset_from_keys(db, ts_temp.parents())?;
+        if height > pts.epoch() {
+            if prev {
+                return Ok(pts);
+            }
+            return Ok(ts_temp);
+        }
+        if height == pts.epoch() {
+            return Ok(pts);
+        }
+        ts_temp = pts.clone();
+    }
 }
 
 /// Returns a vector of cids from provided root cid

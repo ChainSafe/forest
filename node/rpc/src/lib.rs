@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 mod chain_api;
 
 use blockstore::BlockStore;
@@ -24,6 +27,10 @@ pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(store: Arc<DB>) {
         )
         .with_method("Filecoin.ChainGetObj", chain_api::chain_read_obj::<DB>)
         .with_method("Filecoin.ChainHasObj", chain_api::chain_has_obj::<DB>)
+        .with_method(
+            "Filecoin.ChainGetBlockMessages",
+            chain_api::chain_block_messages::<DB>,
+        )
         .finish_unwrapped();
     let mut app = tide::Server::with_state(rpc);
     app.at("/api").post(handle_json_rpc);

@@ -88,13 +88,14 @@ fn main() {
 
     let db_rpc = Arc::clone(&db);
     let rpc_thread = task::spawn(async {
-        let rpc = rpc::start_rpc(db_rpc).await;
+        start_rpc(db_rpc).await;
     });
 
     // Block until ctrl-c is hit
     block_until_sigint();
 
     // Drop threads
+    drop(rpc_thread);
     drop(p2p_thread);
     drop(sync_thread);
 
