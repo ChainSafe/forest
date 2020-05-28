@@ -39,10 +39,12 @@ pub struct State {
     /// Number of miners having proven the minimum consensus power.
     // TODO: revisit todo in specs-actors
     pub num_miners_meeting_min_power: i64,
+
+    pub proof_validation_batch: Option<Cid>,
 }
 
 impl State {
-    pub fn new(empty_map_cid: Cid) -> State {
+    pub fn new(empty_map_cid: Cid, _empty_mmap_cid: Cid) -> State {
         State {
             cron_event_queue: empty_map_cid.clone(),
             claims: empty_map_cid,

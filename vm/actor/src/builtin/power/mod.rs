@@ -10,13 +10,13 @@ pub use self::state::{Claim, CronEvent, State};
 pub use self::types::*;
 use crate::reward::Method as RewardMethod;
 use crate::{
-    check_empty_params, init, request_miner_control_addrs, CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR,
-    HAMT_BIT_WIDTH, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR,
+    check_empty_params, init, make_map, request_miner_control_addrs, Multimap, SetMultimap,
+    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
+    REWARD_ACTOR_ADDR,
 };
 use address::Address;
-use fil_types::StoragePower;
+use fil_types::{SealVerifyInfo, StoragePower};
 use ipld_blockstore::BlockStore;
-use ipld_hamt::Hamt;
 use message::Message;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use num_bigint::BigUint;
@@ -42,6 +42,7 @@ pub enum Method {
     OnEpochTickEnd = 10,
     UpdatePledgeTotal = 11,
     OnConsensusFault = 12,
+    SubmitPoRepForBulkVerify = 13,
 }
 
 /// Storage Power Actor
@@ -53,15 +54,21 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let empty_root = Hamt::<String, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
-            .flush()
-            .map_err(|e| {
-                rt.abort(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to create storage power state: {}", e),
-                )
-            })?;
-        let st = State::new(empty_root);
+        let empty_map = make_map(rt.store()).flush().map_err(|err| {
+            rt.abort(
+                ExitCode::ErrIllegalState,
+                format!("Failed to create storage power state: {}", err),
+            )
+        })?;
+
+        let empty_m_set = SetMultimap::new(rt.store()).root().map_err(|e| {
+            ActorError::new(
+                ExitCode::ErrIllegalState,
+                format!("Failed to get empty multimap cid: {}", e),
+            )
+        })?;
+
+        let st = State::new(empty_map, empty_m_set);
         rt.create(&st)?;
         Ok(())
     }
@@ -423,6 +430,48 @@ impl Actor {
                 )
             })
     }
+
+    fn submit_porep_for_bulk_verify<BS, RT>(
+        rt: &mut RT,
+        seal_info: SealVerifyInfo,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
+
+        let miner_addr = *rt.message().from();
+        rt.transaction::<State, _, _>(|st, rt| {
+            let mut mmap = if st.proof_validation_batch.is_none() {
+                Multimap::new(rt.store())
+            } else {
+                Multimap::from_root(rt.store(), &st.proof_validation_batch.as_ref().unwrap())
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to load proof batching set: {}", e),
+                        )
+                    })?
+            };
+            mmap.add(miner_addr.to_bytes().into(), seal_info)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to insert proof into set: {}", e),
+                    )
+                })?;
+
+            let mmrc = mmap.root().map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to flush proofs batch map: {}", e),
+                )
+            })?;
+            st.proof_validation_batch = Some(mmrc);
+            Ok(())
+        })?
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -532,6 +581,10 @@ impl ActorCode for Actor {
             Some(Method::OnConsensusFault) => {
                 let BigUintDe(param) = params.deserialize()?;
                 Self::on_consensus_fault(rt, param)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::SubmitPoRepForBulkVerify) => {
+                Self::submit_porep_for_bulk_verify(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
