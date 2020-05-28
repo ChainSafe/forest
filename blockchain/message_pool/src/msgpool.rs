@@ -9,13 +9,15 @@ use blockstore::BlockStore;
 // use chain::ChainStore;
 use cid::multihash::Blake2b256;
 use cid::Cid;
-use crypto::Signature;
+use crypto::{Signature, SignatureType};
+use encoding::Cbor;
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, ToBigInt};
+use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
+// use serde::Serialize;
 use state_manager::StateManager;
 use state_tree::StateTree;
-use std::collections::HashMap;
+use std::{collections::HashMap, str::from_utf8};
 use vm::ActorState;
 
 struct MsgSet {
@@ -31,22 +33,35 @@ impl MsgSet {
         }
     }
 
-    pub fn add(&mut self, m: SignedMessage) -> Result<(), Error> {
+    pub fn add(&mut self, m: &SignedMessage) -> Result<(), Error> {
         if self.msgs.is_empty() || m.sequence() >= self.next_nonce {
             self.next_nonce = m.sequence() + 1;
         }
         if self.msgs.contains_key(&m.sequence()) {
             // need to fix in the event that there's an err raised from calling this next line
-            return Err(DuplicateNonce);
+            let exms = self.msgs.get(&m.sequence()).unwrap();
+            if m.cid().map_err(|err| Error::Other(err.to_string()))?
+                != exms.cid().map_err(|err| Error::Other(err.to_string()))?
+            {
+                let mut gas_price = exms.message().gas_price();
+                let replace_by_fee_ratio: f32 = 1.25;
+                let rbf_num =
+                    BigUint::from(((replace_by_fee_ratio - 1 as f32) * 256 as f32) as u64);
+                let rbf_denom = BigUint::from(256 as u64);
+                let min_price = gas_price.clone() + (gas_price / &rbf_num) + rbf_denom;
+                if m.message().gas_price() <= &min_price {
+                    return Err(DuplicateNonce);
+                }
+            }
         }
-        self.msgs.insert(m.sequence(), m);
+        self.msgs.insert(m.sequence(), m.clone());
         Ok(())
     }
 }
 
 trait Provider {
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
-    fn state_get_actor(&self, addr: &Address) -> Result<Option<ActorState>, Error>;
+    fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
     fn state_account_key(&self, addr: &Address, ts: Tipset) -> Result<Address, Error>; // TODO dunno how to do this
     fn messages_for_block(
         &self,
@@ -86,10 +101,15 @@ where
         Ok(cid)
     }
 
-    fn state_get_actor(&self, addr: &Address) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new(self.sm.get_cs().db.as_ref());
+    fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
+        let state = StateTree::new_from_root(self.sm.get_cs().db.as_ref(), ts.parent_state())
+            .map_err(|err| Error::Other(err))?;
         //TODO need to have this error be an Error::Other from state_manager errs
-        state.get_actor(addr).map_err(Error::Other)
+        let actor = state.get_actor(addr).map_err(Error::Other)?;
+        match actor {
+            Some(actor_state) => Ok(actor_state),
+            None => Err(Error::Other("No actor state".to_string())),
+        }
     }
 
     fn state_account_key(&self, addr: &Address, ts: Tipset) -> Result<Address, Error> {
@@ -121,7 +141,7 @@ where
 struct MessagePool<DB> {
     // need to inquire about closer in golang and rust equivalent
     local_addrs: HashMap<String, String>,
-    pending: HashMap<String, MsgSet>,
+    pending: HashMap<Address, MsgSet>,
     cur_tipset: String,     // need to wait until pubsub is done
     api: MpoolProvider<DB>, // will need to replace with provider type
     min_gas_price: BigInt,
@@ -139,6 +159,7 @@ where
     where
         DB: BlockStore,
     {
+        // TODO create tipset
         // LruCache sizes have been taken from the lotus implementation
         let bls_sig_cache = LruCache::new(40000);
         let sig_val_cache = LruCache::new(32000);
@@ -153,5 +174,138 @@ where
             bls_sig_cache,
             sig_val_cache,
         }
+    }
+
+    pub fn push(&mut self, msg: &SignedMessage) -> Result<Cid, Error> {
+        // TODO will be used to addlocal which still needs to be implemented
+        let msg_serial = msg
+            .marshal_cbor()
+            .map_err(|err| return Error::Other(err.to_string()))?;
+        self.add(msg)?;
+        // TODO do pubsub publish with mp.netName and msg_serial
+        msg.cid().map_err(|err| Error::Other(err.to_string()))
+    }
+
+    pub fn add(&mut self, msg: &SignedMessage) -> Result<(), Error> {
+        let size = msg
+            .marshal_cbor()
+            .map_err(|err| return Error::Other(err.to_string()))?
+            .len();
+        if size > 32 * 1024 {
+            return Err(Error::MessageTooBig);
+        }
+        if msg
+            .value()
+            .gt(&ToBigUint::to_biguint(&2_000_000_000).unwrap())
+        {
+            return Err(Error::MessageValueTooHigh);
+        }
+
+        self.verify_msg_sig(msg)?;
+
+        // TODO uncomment this when cur tipset is implemented
+        // self.add_tipset(msg, self.cur_tipset)?;
+        Ok(())
+    }
+
+    fn sig_cache_key(&mut self, msg: &SignedMessage) -> Result<String, Error> {
+        match msg.signature().signature_type() {
+            SignatureType::Secp256 => Ok(msg.cid().unwrap().to_string()),
+            SignatureType::BLS => {
+                if msg.signature().bytes().len() < 90 {
+                    return Err(Error::BLSSigTooShort);
+                }
+                let slice = from_utf8(&msg.signature().bytes()[64..]).unwrap();
+                let mut beginning = from_utf8(&msg.cid().unwrap().to_bytes())
+                    .unwrap()
+                    .to_string();
+                beginning.push_str(slice);
+                Ok(beginning)
+            }
+        }
+    }
+
+    fn verify_msg_sig(&mut self, msg: &SignedMessage) -> Result<(), Error> {
+        let sck = self.sig_cache_key(msg)?;
+        let is_verif = self.sig_val_cache.get(&sck);
+        match is_verif {
+            Some(()) => return Ok(()),
+            None => {
+                let verif = msg
+                    .signature()
+                    .verify(&msg.message().cid().unwrap().to_bytes(), msg.from());
+                match verif {
+                    Ok(()) => {
+                        self.sig_val_cache.put(sck, ());
+                        Ok(())
+                    }
+                    Err(value) => Err(Error::Other(value)),
+                }
+            }
+        }
+    }
+
+    fn add_tipset(&mut self, msg: &SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
+        let snonce = self.get_state_nonce(msg.from(), cur_ts)?;
+
+        if snonce > msg.message().sequence() {
+            return Err(Error::NonceTooLow);
+        }
+
+        let balance = self.get_state_balance(msg.from(), cur_ts)?;
+        let msg_balance = BigInt::from(msg.message().required_funds());
+        if balance.lt(&msg_balance) {
+            return Err(Error::NotEnoughFunds);
+        }
+        self.add_locked(msg)
+    }
+
+    fn add_locked(&mut self, msg: &SignedMessage) -> Result<(), Error> {
+        if msg.signature().signature_type() == SignatureType::BLS {
+            self.bls_sig_cache.put(
+                msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+                msg.signature().clone(),
+            );
+        }
+        if msg.message().gas_limit() > 100_000_000 {
+            return Err(Error::Other(
+                "given message has too high of a gas limit".to_string(),
+            ));
+        }
+        self.api.put_message(msg)?;
+
+        let msett = self.pending.get_mut(msg.message().from());
+        match msett {
+            Some(mset) => mset.add(msg).map_err(|err| Error::Other(err.to_string()))?,
+            None => {
+                let mut mset = MsgSet::new();
+                mset.add(msg).map_err(|err| Error::Other(err.to_string()))?;
+                self.pending.insert(msg.message().from().clone(), mset);
+            }
+        }
+        // TODO pubsub msg
+        Ok(())
+    }
+
+    fn get_state_nonce(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
+        let actor = self.api.state_get_actor(&addr, cur_ts)?;
+
+        let base_nonce = actor.sequence;
+
+        // TODO will need to chang e this to set cur_ts to chain.head
+        // will implement this once we have subscribe to head change done
+        let msgs = self.api.messages_for_tipset(cur_ts).unwrap();
+
+        // TODO will need to call messages_for_tipset after it is implemented
+        // and iterate over the messages, and check whether or not the from
+        // addr from each message equals addr, if it is not throw error, otherwise
+        // increase base_nonce by 1 and then after loop termpinates return base_nonce
+
+        Ok(base_nonce)
+    }
+
+    fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
+        let actor = self.api.state_get_actor(&addr, &ts)?;
+        return Ok(BigInt::from(actor.balance));
     }
 }

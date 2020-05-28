@@ -19,8 +19,12 @@ pub enum Error {
     InvalidToAddr,
     #[error("message with nonce already in mempool")]
     DuplicateNonce,
-    #[error("broadcasting message despite validation fail")]
-    BroadcastAnyway,
+    #[error("signature validation failed")]
+    SigVerification,
+    #[error("Unknown signature type")]
+    UnknownSigType,
+    #[error("BLS signature too short")]
+    BLSSigTooShort,
     #[error("{0}")]
     Other(String),
 }
