@@ -6,6 +6,7 @@ mod errors;
 pub use self::errors::*;
 use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR};
 use address::{Address, Protocol};
+use async_log::span;
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
@@ -21,7 +22,6 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-
 /// Intermediary for retrieving state objects and updating actor states
 
 pub type CidPair = (Cid, Cid);
@@ -129,75 +129,77 @@ where
     }
 
     pub async fn tipset_state(&self, tipset: &Tipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
-        trace!("tipset_state {:#?}", tipset.cids());
+        span!("tipset_state", {
+            trace!("tipset {:?}", tipset.cids());
+            // if exists in cache return
+            if let Some(cid_pair) = self.cache.read().await.get(&tipset.key()) {
+                return Ok(cid_pair.clone());
+            }
 
-        // if exists in cache return
-        if let Some(cid_pair) = self.cache.read().await.get(&tipset.key()) {
-            return Ok(cid_pair.clone());
-        }
+            if tipset.len() == 0 {
+                // NB: This is here because the process that executes blocks requires that the
+                // block miner reference a valid miner in the state tree. Unless we create some
+                // magical genesis miner, this won't work properly, so we short circuit here
+                // This avoids the question of 'who gets paid the genesis block reward'
+                let message_receipts = tipset
+                    .blocks()
+                    .first()
+                    .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
+                let cid_pair = (
+                    tipset.parent_state().clone(),
+                    message_receipts.message_receipts().clone(),
+                );
+                self.cache
+                    .write()
+                    .await
+                    .insert(tipset.key().clone(), cid_pair.clone());
+                return Ok(cid_pair);
+            }
 
-        if tipset.len() == 0 {
-            // NB: This is here because the process that executes blocks requires that the
-            // block miner reference a valid miner in the state tree. Unless we create some
-            // magical genesis miner, this won't work properly, so we short circuit here
-            // This avoids the question of 'who gets paid the genesis block reward'
-            let message_receipts = tipset
-                .blocks()
-                .first()
-                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-            let cid_pair = (
-                tipset.parent_state().clone(),
-                message_receipts.message_receipts().clone(),
-            );
+            let block_headers = tipset.blocks();
+            // generic constants are not implemented yet this is a lowcost method for now
+            let cid_pair = self.compute_tipset_state(&block_headers)?;
             self.cache
                 .write()
                 .await
                 .insert(tipset.key().clone(), cid_pair.clone());
-            return Ok(cid_pair);
-        }
-
-        let block_headers = tipset.blocks();
-        // generic constants are not implemented yet this is a lowcost method for now
-        let cid_pair = self.compute_tipset_state(&block_headers)?;
-        self.cache
-            .write()
-            .await
-            .insert(tipset.key().clone(), cid_pair.clone());
-        Ok(cid_pair)
+            Ok(cid_pair)
+        })
     }
 
     pub fn compute_tipset_state<'a>(
         &'a self,
         blocks: &[BlockHeader],
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
-        trace!("compute tipset state");
-        if blocks.len() > 2
-            && blocks
-                .iter()
-                .zip(blocks.iter().skip(0))
-                .any(|(a, b)| a.miner_address() == b.miner_address())
-        {
-            // Duplicate Miner found
-            return Err(Box::new(Error::Other(
-                "Could not get message receipts".to_string(),
-            )));
-        }
+        span!("compute_tipset_state", {
+            if blocks.len() > 2
+                && blocks
+                    .iter()
+                    .zip(blocks.iter().skip(0))
+                    .any(|(a, b)| a.miner_address() == b.miner_address())
+            {
+                // Duplicate Miner found
+                return Err(Box::new(Error::Other(
+                    "Could not get message receipts".to_string(),
+                )));
+            }
 
-        let chain_store = ChainStore::new(self.bs.clone());
-        let blocks = blocks
-            .iter()
-            .map::<Result<Block, Box<dyn StdError>>, _>(|s: &BlockHeader| {
-                let (bls_messages, secp_messages) = chain_store.messages(&s)?;
-                Ok(Block {
-                    header: s.clone(),
-                    bls_messages,
-                    secp_messages,
+            let chain_store = ChainStore::new(self.bs.clone());
+            let blocks = blocks
+                .iter()
+                .map::<Result<Block, Box<dyn StdError>>, _>(|s: &BlockHeader| {
+                    let (bls_messages, secp_messages) = chain_store.messages(&s)?;
+                    Ok(Block {
+                        header: s.clone(),
+                        bls_messages,
+                        secp_messages,
+                    })
                 })
-            })
-            .collect::<Result<Vec<Block>, _>>()?;
-        let full_tipset = FullTipset::new(blocks)?;
-        // convert tipset to fulltipset
-        self.apply_blocks(&full_tipset)
+                .collect::<Result<Vec<Block>, _>>()?;
+            let full_tipset = FullTipset::new(blocks)?;
+            // convert tipset to fulltipset
+            self.apply_blocks(&full_tipset)
+        })
     }
 
     /// Returns a bls public key from provided address
