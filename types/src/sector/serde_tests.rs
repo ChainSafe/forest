@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    SealVerifyStuff, OnChainWindowPoStVerifyInfo, PoStProof, SealVerifyInfo,
-    WindowPoStVerifyInfo,
+    OnChainWindowPoStVerifyInfo, PoStProof, SealVerifyInfo, SealVerifyStuff, WindowPoStVerifyInfo,
 };
 use cid::{multihash::Identity, Cid};
 use encoding::{from_slice, to_vec};
