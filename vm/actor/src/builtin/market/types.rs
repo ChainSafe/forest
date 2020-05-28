@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::deal::ClientDealProposal;
+use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::tuple::*;
-use fil_types::{RegisteredProof, SectorSize};
-use num_bigint::biguint_ser;
+use fil_types::RegisteredProof;
+use num_bigint::{bigint_ser, biguint_ser};
 use vm::{DealID, TokenAmount};
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -39,8 +40,15 @@ pub struct PublishStorageDealsReturn {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct VerifyDealsOnSectorProveCommitParams {
     pub deal_ids: Vec<DealID>,
-    pub sector_size: SectorSize,
     pub sector_expiry: ChainEpoch,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct VerifyDealsOnSectorProveCommitReturn {
+    #[serde(with = "bigint_ser")]
+    pub deal_weight: DealWeight,
+    #[serde(with = "bigint_ser")]
+    pub verified_deal_weight: DealWeight,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]

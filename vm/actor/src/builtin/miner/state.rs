@@ -323,8 +323,9 @@ fn as_storage_weight_desc(
 ) -> power::SectorStorageWeightDesc {
     power::SectorStorageWeightDesc {
         sector_size,
-        deal_weight: sector_info.deal_weight,
+        deal_weight: sector_info.deal_weight.clone(), // temp clone
         duration: sector_info.info.expiration - sector_info.activation_epoch,
+        verified_deal_weight: sector_info.deal_weight, // temp
     }
 }
 

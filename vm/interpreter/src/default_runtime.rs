@@ -411,6 +411,9 @@ where
     fn syscalls(&self) -> &dyn Syscalls {
         &self.syscalls
     }
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
+        todo!()
+    }
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.

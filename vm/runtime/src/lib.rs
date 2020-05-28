@@ -123,6 +123,8 @@ pub trait Runtime<BS: BlockStore> {
 
     /// Provides the system call interface.
     fn syscalls(&self) -> &dyn Syscalls;
+
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError>;
 }
 
 /// Message information available to the actor about executing message.

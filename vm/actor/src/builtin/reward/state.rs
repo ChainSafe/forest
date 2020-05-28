@@ -12,6 +12,7 @@ use num_derive::FromPrimitive;
 use num_traits::CheckedSub;
 use vm::TokenAmount;
 
+// TODO update reward state
 /// Reward actor state
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
@@ -20,6 +21,11 @@ pub struct State {
     /// Sum of un-withdrawn rewards.
     #[serde(with = "biguint_ser")]
     pub reward_total: TokenAmount,
+    // The reward to be paid in total to block producers, if exactly the expected number of them produce a block.
+    // The actual reward total paid out depends on the number of winners in any round.
+    // This is computed at the end of the previous epoch, and should really be called ThisEpochReward.
+    #[serde(with = "biguint_ser")]
+    pub last_per_epoch_reward: TokenAmount,
 }
 
 impl State {
@@ -27,6 +33,7 @@ impl State {
         Self {
             reward_map: empty_multimap,
             reward_total: TokenAmount::default(),
+            last_per_epoch_reward: TokenAmount::default(),
         }
     }
 

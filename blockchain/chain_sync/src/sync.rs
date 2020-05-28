@@ -664,9 +664,10 @@ where
             .state_manager
             .get_power(&parent_tipset.parent_state(), header.miner_address());
         // ticket winner check
+        // TODO update to handle power result tuple in full
         match power_result {
             Ok(pow_tuple) => {
-                let (c_pow, net_pow) = pow_tuple;
+                let (c_pow, _, net_pow) = pow_tuple;
                 if !header.is_ticket_winner(c_pow, net_pow) {
                     error_vec.push("Miner created a block but was not a winner".to_owned())
                 }
