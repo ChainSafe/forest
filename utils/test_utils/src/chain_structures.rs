@@ -174,7 +174,7 @@ pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
         .build()
         .unwrap();
 
-    let secp_messages = SignedMessage::new(&bls_messages, &DummySigner).unwrap();
+    let secp_messages = SignedMessage::new(bls_messages.clone(), &DummySigner).unwrap();
     (bls_messages, secp_messages)
 }
 
