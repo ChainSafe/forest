@@ -19,7 +19,7 @@ async-trait = "0.1"
 
 [dev-dependencies]
 hex = "0.4.2"
-async-std = { version = "1.5.0", features = ["unstable", "attributes"] }
+async-std = { version = "1.6.0", features = ["unstable", "attributes"] }
 
 [build-dependencies]
 protoc-rust-grpc = "0.8"
