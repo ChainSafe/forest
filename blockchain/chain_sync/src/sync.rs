@@ -99,9 +99,9 @@ struct MsgMetaData {
 }
 
 impl<DB, TBeacon> ChainSyncer<DB, TBeacon>
-where
-    TBeacon: Beacon,
-    DB: BlockStore + Sync + Send + 'static,
+    where
+        TBeacon: Beacon,
+        DB: BlockStore + Sync + Send + 'static,
 {
     pub fn new(
         chain_store: ChainStore<DB>,
@@ -110,7 +110,7 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = StateManager::new(ChainStore::new(chain_store.db.clone()));
+        let state_manager = StateManager::new(chain_store.db.clone());
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
@@ -529,8 +529,8 @@ where
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
             tree: &StateTree<DB>,
         ) -> Result<(), Error>
-        where
-            M: Message,
+            where
+                M: Message,
         {
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
@@ -943,7 +943,7 @@ mod tests {
                 event_receiver,
                 genesis_ts,
             )
-            .unwrap(),
+                .unwrap(),
             event_sender,
         )
     }

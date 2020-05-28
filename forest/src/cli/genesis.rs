@@ -42,7 +42,7 @@ where
 
     // This is just a workaround to get the network name before the sync process starts to use in
     // the pubsub topics, hopefully can be removed in future.
-    let sm = StateManager::new(ChainStore::new(chain_store.db.clone()));
+    let sm = StateManager::new(chain_store.db.clone());
     let network_name = sm.get_network_name(genesis.state_root()).expect(
         "Genesis not initialized properly, failed to retrieve network name. \
             Requires either a previously initialized genesis or with genesis config option set",

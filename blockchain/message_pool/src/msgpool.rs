@@ -6,7 +6,7 @@ use crate::errors::Error::DuplicateNonce;
 use address::Address;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
-// use chain::ChainStore;
+use chain::ChainStore;
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
@@ -18,7 +18,7 @@ use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::{collections::HashMap, str::from_utf8};
-use vm::ActorState;
+use vm::{ActorState, TokenAmount, MethodNum, Serialized};
 
 struct MsgSet {
     msgs: HashMap<u64, SignedMessage>,
@@ -67,23 +67,23 @@ trait Provider {
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<SignedMessage>, Error>;
+    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>;
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>; // TODO dunno how to do this
 }
 
 struct MpoolProvider<DB> {
-    sm: StateManager<DB>,
+    cs: ChainStore<DB>,
 }
 
 impl<'db, DB> MpoolProvider<DB>
 where
     DB: BlockStore,
 {
-    pub fn new(sm: StateManager<DB>) -> Self
+    pub fn new(cs: ChainStore<DB>) -> Self
     where
         DB: BlockStore,
     {
-        MpoolProvider { sm }
+        MpoolProvider { cs }
     }
 }
 
@@ -92,17 +92,14 @@ where
     DB: BlockStore,
 {
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
-        let cid = self
-            .sm
-            .get_cs()
-            .db
+        let cid = self.cs.db
             .put(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }
 
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
-        let state = StateTree::new_from_root(self.sm.get_cs().db.as_ref(), ts.parent_state())
+        let state = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
             .map_err(|err| Error::Other(err))?;
         //TODO need to have this error be an Error::Other from state_manager errs
         let actor = state.get_actor(addr).map_err(Error::Other)?;
@@ -120,19 +117,30 @@ where
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        self.sm
-            .get_cs()
+        self.cs
             .messages(h)
             .map_err(|err| Error::Other(err.to_string()))
     }
 
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<SignedMessage>, Error> {
+    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
+        // let mut umsg: Vec<UnsignedMessage> = Vec::new();
+        // let mut msg: Vec<SignedMessage> = Vec::new();
+        // for bh in h.blocks().iter() {
+        //     let (mut bh_umsg_tmp, mut bh_msg_tmp) = self.messages_for_block(bh)?;
+        //     let mut bh_umsg = bh_umsg_tmp.as_mut();
+        //     let mut bh_msg = bh_msg_tmp.as_mut();
+        //     umsg.append(bh_umsg);
+        //     msg.append(bh_msg);
+        // }
+        // for msg in &msg {
+        //     umsg.push(msg.message().clone());
+        // }
+        // Ok(umsg)
         unimplemented!()
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        self.sm
-            .get_cs()
+        self.cs
             .tipset_from_keys(tsk)
             .map_err(|err| Error::Other(err.to_string()))
     }
@@ -309,3 +317,20 @@ where
         return Ok(BigInt::from(actor.balance));
     }
 }
+
+struct MessageQuery {
+    from: Option<Address>,
+    to: Option<Address>,
+
+    method: Option<MethodNum>, // equiv to message method_num
+    params: Option<Serialized>,
+
+    value_min: Option<TokenAmount>,
+    value_max: Option<TokenAmount>,
+    gas_price_min: Option<TokenAmount>,
+    gas_price_max: Option<TokenAmount>,
+    gas_limit_min: Option<TokenAmount>,
+    gas_limit_max: Option<TokenAmount>
+}
+
+
