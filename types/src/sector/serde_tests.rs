@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    OnChainSealVerifyInfo, OnChainWindowPoStVerifyInfo, PoStProof, SealVerifyInfo,
+    SealVerifyStuff, OnChainWindowPoStVerifyInfo, PoStProof, SealVerifyInfo,
     WindowPoStVerifyInfo,
 };
 use cid::{multihash::Identity, Cid};
@@ -14,12 +14,12 @@ fn empty_cid() -> Cid {
 
 #[test]
 fn default_serializations() {
-    let ocs = OnChainSealVerifyInfo {
+    let ocs = SealVerifyStuff {
         sealed_cid: empty_cid(),
         ..Default::default()
     };
     let bz = to_vec(&ocs).unwrap();
-    assert_eq!(from_slice::<OnChainSealVerifyInfo>(&bz).unwrap(), ocs);
+    assert_eq!(from_slice::<SealVerifyStuff>(&bz).unwrap(), ocs);
 
     let s = SealVerifyInfo {
         unsealed_cid: empty_cid(),

@@ -33,6 +33,7 @@ pub enum SectorSize {
     _8MiB = 8 << 20,
     _512MiB = 512 << 20,
     _32GiB = 32 << 30,
+    _64GiB = 2 * (32 << 30),
 }
 
 impl fmt::Display for SectorSize {

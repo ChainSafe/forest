@@ -498,7 +498,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         Ok(())
     }
 
-    fn delete_actor(&mut self) -> Result<(), ActorError> {
+    fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
             return Err(self.abort(
