@@ -10,7 +10,6 @@ vm = { package = "forest_vm", path = "../../vm" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 message = { package = "forest_message", path = "../../vm/message" }
 thiserror = "1.0"
-state_manager = { path = "../state_manager" }
 cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.1" }
 encoding = { package = "forest_encoding", path = "../../encoding", version = "0.1" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }

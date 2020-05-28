@@ -24,8 +24,8 @@ pub struct StateManager<DB> {
 }
 
 impl<DB> StateManager<DB>
-    where
-        DB: BlockStore,
+where
+    DB: BlockStore,
 {
     /// constructor
     pub fn new(bs: Arc<DB>) -> Self {
@@ -33,8 +33,8 @@ impl<DB> StateManager<DB>
     }
     /// Loads actor state from IPLD Store
     fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
-        where
-            D: DeserializeOwned,
+    where
+        D: DeserializeOwned,
     {
         let actor = self
             .get_actor(addr, state_cid)?

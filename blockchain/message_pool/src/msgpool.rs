@@ -14,18 +14,19 @@ use encoding::Cbor;
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
-// use serde::Serialize;
-use state_manager::StateManager;
 use state_tree::StateTree;
 use std::{collections::HashMap, str::from_utf8};
-use vm::{ActorState, TokenAmount, MethodNum, Serialized};
+use vm::ActorState;
 
+/// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
+/// which corresponds to that address
 struct MsgSet {
     msgs: HashMap<u64, SignedMessage>,
     next_nonce: u64,
 }
 
 impl MsgSet {
+    /// Generate a new MsgSet with an empty hashmap and a default next_nonce of 0
     pub fn new() -> Self {
         MsgSet {
             msgs: HashMap::new(),
@@ -33,6 +34,8 @@ impl MsgSet {
         }
     }
 
+    /// Add a signed message to the MsgSet. Increase next_nonce if the message has a nonce greater
+    /// than any existing message nonce.
     pub fn add(&mut self, m: &SignedMessage) -> Result<(), Error> {
         if self.msgs.is_empty() || m.sequence() >= self.next_nonce {
             self.next_nonce = m.sequence() + 1;
@@ -43,13 +46,14 @@ impl MsgSet {
             if m.cid().map_err(|err| Error::Other(err.to_string()))?
                 != exms.cid().map_err(|err| Error::Other(err.to_string()))?
             {
-                let mut gas_price = exms.message().gas_price();
+                let gas_price = exms.message().gas_price();
                 let replace_by_fee_ratio: f32 = 1.25;
                 let rbf_num =
                     BigUint::from(((replace_by_fee_ratio - 1 as f32) * 256 as f32) as u64);
                 let rbf_denom = BigUint::from(256 as u64);
                 let min_price = gas_price.clone() + (gas_price / &rbf_num) + rbf_denom;
                 if m.message().gas_price() <= &min_price {
+                    // message with duplicate nonce is already in mpool
                     return Err(DuplicateNonce);
                 }
             }
@@ -71,6 +75,9 @@ trait Provider {
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>; // TODO dunno how to do this
 }
 
+/// This is the mpool provider struct that will let us access and add messages to messagepool.
+/// future TODO is to add a pubsub field to allow for publishing updates. Future TODO is also to
+/// add a subscribe_head_change function in order to actually get a functioning messagepool
 struct MpoolProvider<DB> {
     cs: ChainStore<DB>,
 }
@@ -79,7 +86,7 @@ impl<'db, DB> MpoolProvider<DB>
 where
     DB: BlockStore,
 {
-    pub fn new(cs: ChainStore<DB>) -> Self
+    fn new(cs: ChainStore<DB>) -> Self
     where
         DB: BlockStore,
     {
@@ -91,13 +98,18 @@ impl<DB> Provider for MpoolProvider<DB>
 where
     DB: BlockStore,
 {
+    /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
-        let cid = self.cs.db
+        let cid = self
+            .cs
+            .db
             .put(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }
 
+    /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
+    /// at. Return ActorState or Error depending on whether or not ActorState is found
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
             .map_err(|err| Error::Other(err))?;
@@ -109,10 +121,12 @@ where
         }
     }
 
+    /// TODO implement this method when we can resolve to key address given a temp StateManager
     fn state_account_key(&self, addr: &Address, ts: Tipset) -> Result<Address, Error> {
         unimplemented!()
     }
 
+    /// Return the signed messages for given blockheader
     fn messages_for_block(
         &self,
         h: &BlockHeader,
@@ -122,23 +136,25 @@ where
             .map_err(|err| Error::Other(err.to_string()))
     }
 
+    /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        // let mut umsg: Vec<UnsignedMessage> = Vec::new();
-        // let mut msg: Vec<SignedMessage> = Vec::new();
-        // for bh in h.blocks().iter() {
-        //     let (mut bh_umsg_tmp, mut bh_msg_tmp) = self.messages_for_block(bh)?;
-        //     let mut bh_umsg = bh_umsg_tmp.as_mut();
-        //     let mut bh_msg = bh_msg_tmp.as_mut();
-        //     umsg.append(bh_umsg);
-        //     msg.append(bh_msg);
-        // }
-        // for msg in &msg {
-        //     umsg.push(msg.message().clone());
-        // }
-        // Ok(umsg)
-        unimplemented!()
+        let mut umsg: Vec<UnsignedMessage> = Vec::new();
+        let mut msg: Vec<SignedMessage> = Vec::new();
+        for bh in h.blocks().iter() {
+            let (mut bh_umsg_tmp, mut bh_msg_tmp) = self.messages_for_block(bh)?;
+            let bh_umsg = bh_umsg_tmp.as_mut();
+            let bh_msg = bh_msg_tmp.as_mut();
+            umsg.append(bh_umsg);
+            msg.append(bh_msg);
+        }
+        for msg in &msg {
+            umsg.push(msg.message().clone());
+        }
+        Ok(umsg)
+        // unimplemented!()
     }
 
+    /// Return a tipset given the tipset keys from the ChainStore
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
         self.cs
             .tipset_from_keys(tsk)
@@ -146,6 +162,8 @@ where
     }
 }
 
+/// This is the main MessagePool struct TODO async safety as well as get a tipset for the cur_tipset
+/// field. This can only be done when subscribe to new heads has been completed
 struct MessagePool<DB> {
     // need to inquire about closer in golang and rust equivalent
     local_addrs: HashMap<String, String>,
@@ -163,6 +181,7 @@ impl<DB> MessagePool<DB>
 where
     DB: BlockStore,
 {
+    /// Create a new MessagePool. This is not yet functioning as per the outlined TODO above
     pub fn new(api: MpoolProvider<DB>, network_name: String) -> Self
     where
         DB: BlockStore,
@@ -184,6 +203,7 @@ where
         }
     }
 
+    /// Push a signed message to the MessagePool
     pub fn push(&mut self, msg: &SignedMessage) -> Result<Cid, Error> {
         // TODO will be used to addlocal which still needs to be implemented
         let msg_serial = msg
@@ -194,7 +214,9 @@ where
         msg.cid().map_err(|err| Error::Other(err.to_string()))
     }
 
-    pub fn add(&mut self, msg: &SignedMessage) -> Result<(), Error> {
+    /// This is a helper to push that will help to make sure that the message fits the parameters
+    /// to be pushed to the MessagePool
+    fn add(&mut self, msg: &SignedMessage) -> Result<(), Error> {
         let size = msg
             .marshal_cbor()
             .map_err(|err| return Error::Other(err.to_string()))?
@@ -216,6 +238,7 @@ where
         Ok(())
     }
 
+    /// Return the string representation of the message signature
     fn sig_cache_key(&mut self, msg: &SignedMessage) -> Result<String, Error> {
         match msg.signature().signature_type() {
             SignatureType::Secp256 => Ok(msg.cid().unwrap().to_string()),
@@ -233,6 +256,8 @@ where
         }
     }
 
+    /// Verify the message signature. first check if it has already been verified and put into
+    /// cache. If it has not, then manually verify it then put it into cache for future use
     fn verify_msg_sig(&mut self, msg: &SignedMessage) -> Result<(), Error> {
         let sck = self.sig_cache_key(msg)?;
         let is_verif = self.sig_val_cache.get(&sck);
@@ -253,6 +278,8 @@ where
         }
     }
 
+    /// Verify the state_nonce and balance for the sender of the message given then call add_locked
+    /// to finish adding the signed_message to pending
     fn add_tipset(&mut self, msg: &SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
         let snonce = self.get_state_nonce(msg.from(), cur_ts)?;
 
@@ -268,6 +295,9 @@ where
         self.add_locked(msg)
     }
 
+    /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
+    /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
+    /// and push it to the pending hashmap
     fn add_locked(&mut self, msg: &SignedMessage) -> Result<(), Error> {
         if msg.signature().signature_type() == SignatureType::BLS {
             self.bls_sig_cache.put(
@@ -295,6 +325,7 @@ where
         Ok(())
     }
 
+    /// Get the state of the base_nonce for a given address in cur_ts
     fn get_state_nonce(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         let actor = self.api.state_get_actor(&addr, cur_ts)?;
 
@@ -302,7 +333,7 @@ where
 
         // TODO will need to chang e this to set cur_ts to chain.head
         // will implement this once we have subscribe to head change done
-        let msgs = self.api.messages_for_tipset(cur_ts).unwrap();
+        // let msgs = self.api.messages_for_tipset(cur_ts).unwrap();
 
         // TODO will need to call messages_for_tipset after it is implemented
         // and iterate over the messages, and check whether or not the from
@@ -312,25 +343,10 @@ where
         Ok(base_nonce)
     }
 
+    /// Get the state balance for the actor that corresponds to the supplied address and tipset,
+    /// if this actor does not exist, return an error
     fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
         let actor = self.api.state_get_actor(&addr, &ts)?;
         return Ok(BigInt::from(actor.balance));
     }
 }
-
-struct MessageQuery {
-    from: Option<Address>,
-    to: Option<Address>,
-
-    method: Option<MethodNum>, // equiv to message method_num
-    params: Option<Serialized>,
-
-    value_min: Option<TokenAmount>,
-    value_max: Option<TokenAmount>,
-    gas_price_min: Option<TokenAmount>,
-    gas_price_max: Option<TokenAmount>,
-    gas_limit_min: Option<TokenAmount>,
-    gas_limit_max: Option<TokenAmount>
-}
-
-
