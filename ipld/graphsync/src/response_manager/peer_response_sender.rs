@@ -66,6 +66,18 @@ impl PeerResponseSender {
         status
     }
 
+    /// Marks the given requestID as having terminated with an error.
+    pub fn finish_request_with_error(&mut self, id: RequestID, status: ResponseStatusCode) {
+        self.link_tracker.finish_request(id);
+        self.response_builder(0).complete(id, status);
+    }
+
+    /// Marks the given request ID as paused.
+    pub fn pause_request(&mut self, id: RequestID) {
+        self.response_builder(0)
+            .complete(id, ResponseStatusCode::RequestPaused);
+    }
+
     /// Either returns the most recent response builder or creates a new one, depending
     /// on whether the most recent one has enough space left to store a block with the
     /// given size.
