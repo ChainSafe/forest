@@ -22,7 +22,6 @@ use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
-use futures::future::FutureExt;
 use futures::stream::{FuturesUnordered, StreamExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
@@ -632,7 +631,7 @@ where
         let parent_clone = parent_tipset.clone();
         // check messages to ensure valid state transitions
         let sm = self.state_manager.clone();
-        let x = Self::check_block_msgs(sm, db, b, parent_clone).boxed();
+        let x = task::spawn(Self::check_block_msgs(sm, db, b, parent_clone));
         validations.push(x);
 
         // block signature check
@@ -645,17 +644,17 @@ where
             .state_manager
             .get_miner_work_addr(&state_root, header.miner_address());
 
-        // temp header needs to live long enough
+        // temp header needs to live long enough in static context returned by task::spawn
+        let temp_header = block.header().clone();
         match work_addr_result {
             Ok(_) => {
                 validations.push(
-                    async {
-                        block
-                            .header()
+                    task::spawn(
+                        async move {temp_header
                             .check_block_signature(&work_addr_result.unwrap().clone()) 
-                            .map_err(Error::Blockchain)
-                    }
-                    .boxed(),
+                            .map_err(Error::Blockchain)}
+                    )
+                    
                 )
             }
             Err(err) => error_vec.push(err.to_string()),
