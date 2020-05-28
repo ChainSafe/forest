@@ -9,14 +9,14 @@ use std::collections::{HashMap, HashSet};
 /// LinkTracker records links being traversed to determine useful information
 /// in crafting responses for a peer. Specifically, if any in progress request
 /// has already sent a block for a given link, don't send it again.
-/// Second, keep track of whether links are missing blocks so you can determine
+/// Second, keep track of whether blocks are missing so you can determine
 /// at the end if a complete response has been transmitted.
 #[derive(Default)]
 pub struct LinkTracker {
-    /// The links traversed by any given request that were present.
+    /// The links traversed by any given request which corresponding blocks were present.
     present_blocks: FnvHashMap<RequestID, Vec<Cid>>,
 
-    /// The links traversed by any given request that were missing.
+    /// The links traversed by any given request which corresponding blocks were missing.
     missing_blocks: FnvHashMap<RequestID, HashSet<Cid>>,
 
     /// The number of times any given link has been traversed by in-progress requests.
