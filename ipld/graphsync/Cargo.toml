@@ -20,6 +20,7 @@ unsigned-varint = { version = "0.4", features = ["futures-codec"] }
 smallvec = "1.1.0"
 async-trait = "0.1"
 serde = { version = "1.0", features = ["derive"] }
+ipld_blockstore = { path = "../blockstore" }
 
 [build-dependencies]
 protoc-rust = "2.14.0"
