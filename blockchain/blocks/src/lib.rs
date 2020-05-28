@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
+#[macro_use]
 extern crate serde;
 
 mod block;

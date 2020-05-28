@@ -6,6 +6,7 @@ mod error;
 mod prefix;
 mod to_cid;
 mod version;
+pub mod json;
 
 pub use self::codec::Codec;
 pub use self::error::Error;

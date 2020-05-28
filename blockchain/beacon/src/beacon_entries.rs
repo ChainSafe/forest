@@ -7,6 +7,8 @@ use encoding::{
     BytesDe, BytesSer,
 };
 
+use encoding::{blake2b_256, serde_bytes};
+
 /// The result from getting an entry from Drand.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BeaconEntry {
@@ -50,10 +52,11 @@ impl<'de> Deserialize<'de> for BeaconEntry {
     }
 }
 
-#[cfg(feature = "json")]
+//#[cfg(feature = "json")]
+
 pub mod json {
     use super::*;
-    use serde::de;
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
         /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Deserialize, Serialize)]
@@ -69,8 +72,8 @@ pub mod json {
     struct JsonHelper {
         #[serde(rename = "Round")]
         round: u64,
-        #[serde(rename = "Data")]
-        data: String,
+        // #[serde(rename = "Data")]
+        // data: String,
     }
 
     pub fn serialize<S>(m: &BeaconEntry, serializer: S) -> Result<S::Ok, S::Error>
@@ -79,7 +82,7 @@ pub mod json {
     {
         JsonHelper {
             round: m.round,
-            data:  base64 ::encode(m.data.bytes())
+            //data:  base64::encode(m.data.bytes())
         }
         .serialize(serializer)
     }
@@ -90,8 +93,9 @@ pub mod json {
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(BeaconEntry{
-            round: m.version,
-            data : base64::decode(m.data).map_err(de::Error::custom)?
+            round: m.round,
+            data : Vec::new()
+            //base64::decode(m.data).map_err(de::Error::custom)?
         })
     }
 }

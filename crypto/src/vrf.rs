@@ -32,3 +32,36 @@ impl VRFProof {
         Self::new([std::u8::MAX; BLS_SIG_LEN].to_vec())
     }
 }
+
+//#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer,de};
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "VRFProof")]
+        bytes: String
+    }
+
+    pub fn serialize<S>(m: &VRFProof, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+
+        JsonHelper{
+        bytes: base64::encode(&m.as_bytes())
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<VRFProof, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(VRFProof::new(
+            base64::decode(m.bytes).map_err(de::Error::custom)?
+        ))
+    }
+}

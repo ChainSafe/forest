@@ -5,7 +5,7 @@ mod errors;
 mod randomness;
 pub mod signature;
 mod signer;
-mod vrf;
+pub mod vrf;
 
 pub use self::errors::Error;
 pub use self::randomness::DomainSeparationTag;
