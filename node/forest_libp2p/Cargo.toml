@@ -7,11 +7,11 @@ edition = "2018"
 [dependencies]
 utils = { path = "../utils" }
 libp2p = "0.19"
-futures = "0.3.2"
-futures-util = "0.3.1"
+futures = "0.3.5"
+futures-util = "0.3.5"
 futures_codec = "0.4.0"
 log = "0.4.8"
-async-std = { version = "1.5.0", features = ["unstable"] }
+async-std = { version = "1.6.0", features = ["unstable"] }
 serde = { version = "1.0", features = ["derive"] }
 forest_blocks = { path = "../../blockchain/blocks" }
 forest_message = { path = "../../vm/message" }
