@@ -6,6 +6,7 @@ mod errors;
 pub use self::errors::*;
 use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR};
 use address::{Address, Protocol};
+use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use chain::ChainStore;
@@ -27,7 +28,7 @@ pub type CidPair = (Cid, Cid);
 
 pub struct StateManager<DB> {
     bs: Arc<DB>,
-    cache: HashMap<TipsetKeys, CidPair>,
+    cache: RwLock<HashMap<TipsetKeys, CidPair>>,
 }
 
 impl<DB> StateManager<DB>
@@ -38,7 +39,7 @@ where
     pub fn new(bs: Arc<DB>) -> Self {
         Self {
             bs,
-            cache: HashMap::new(),
+            cache: RwLock::new(HashMap::new()),
         }
     }
     /// Loads actor state from IPLD Store
@@ -127,11 +128,11 @@ where
         Ok((state_root, rect_root))
     }
 
-    pub fn tipset_state(&mut self, tipset: &Tipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
-        trace!("tipSetState");
+    pub async fn tipset_state(&self, tipset: &Tipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
+        trace!("tipset_state {:#?}", tipset.cids());
 
         // if exists in cache return
-        if let Some(cid_pair) = self.cache.get(&tipset.key()) {
+        if let Some(cid_pair) = self.cache.read().await.get(&tipset.key()) {
             return Ok(cid_pair.clone());
         }
 
@@ -148,14 +149,20 @@ where
                 tipset.parent_state().clone(),
                 message_receipts.message_receipts().clone(),
             );
-            self.cache.insert(tipset.key().clone(), cid_pair.clone());
+            self.cache
+                .write()
+                .await
+                .insert(tipset.key().clone(), cid_pair.clone());
             return Ok(cid_pair);
         }
 
         let block_headers = tipset.blocks();
         // generic constants are not implemented yet this is a lowcost method for now
         let cid_pair = self.compute_tipset_state(&block_headers)?;
-        self.cache.insert(tipset.key().clone(), cid_pair.clone());
+        self.cache
+            .write()
+            .await
+            .insert(tipset.key().clone(), cid_pair.clone());
         Ok(cid_pair)
     }
 

@@ -10,7 +10,7 @@ use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::Address;
 use amt::Amt;
-use async_std::sync::{channel, Receiver, RwLock, Sender};
+use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
 use beacon::Beacon;
 use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -66,7 +66,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     beacon: Arc<TBeacon>,
 
     /// manages retrieving and updates state objects
-    state_manager: Arc<RwLock<StateManager<DB>>>,
+    state_manager: Arc<StateManager<DB>>,
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
@@ -111,7 +111,7 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = Arc::new(RwLock::new(StateManager::new(chain_store.db.clone())));
+        let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
@@ -492,7 +492,7 @@ where
     }
     // Block message validation checks
     async fn check_block_msgs(
-        state_manager: Arc<RwLock<StateManager<DB>>>,
+        state_manager: Arc<StateManager<DB>>,
         db: Arc<DB>,
         block: Block,
         tip: Tipset,
@@ -580,9 +580,8 @@ where
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         let (state_root, _) = state_manager
-            .write()
-            .await
             .tipset_state(&tip)
+            .await
             .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let database = &*db.clone();
         let tree = StateTree::new_from_root(database, &state_root).map_err(|_| {
@@ -639,14 +638,11 @@ where
         // block signature check
         let (state_root, _) = self
             .state_manager
-            .write()
-            .await
             .tipset_state(&parent_tipset)
+            .await
             .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let work_addr_result = self
             .state_manager
-            .read()
-            .await
             .get_miner_work_addr(&state_root, header.miner_address());
 
         // temp header needs to live long enough
@@ -667,8 +663,6 @@ where
 
         let slash = self
             .state_manager
-            .read()
-            .await
             .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
             .unwrap_or_else(|err| {
                 error_vec.push(err.to_string());
@@ -687,8 +681,6 @@ where
 
         let power_result = self
             .state_manager
-            .read()
-            .await
             .get_power(&parent_tipset.parent_state(), header.miner_address());
         // ticket winner check
         match power_result {
