@@ -22,9 +22,9 @@ state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 log = "0.4.8"
-async-std = { version = "1.5.0", features = ["unstable"] }
+async-std = { version = "1.6.0", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
-futures = "0.3.2"
+futures = "0.3.5"
 lru = "0.4.3"
 thiserror = "1.0"
 num-traits = "0.2"
