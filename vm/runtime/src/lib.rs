@@ -61,10 +61,11 @@ pub trait Runtime<BS: BlockStore> {
     /// Randomness returns a (pseudo)random byte array drawing from a
     /// random beacon at a given epoch and incorporating reequisite entropy
     fn get_randomness(
+        &self,
         personalization: DomainSeparationTag,
         rand_epoch: ChainEpoch,
         entropy: &[u8],
-    ) -> Randomness;
+    ) -> Result<Randomness, ActorError>;
 
     /// Initializes the state object.
     /// This is only valid in a constructor function and when the state has not yet been initialized.

@@ -9,6 +9,7 @@ blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 clock = { path = "../../node/clock" }
+crypto = { package = "forest_crypto", path = "../../crypto" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
@@ -20,11 +21,12 @@ thiserror = "1.0"
 log = "0.4.8"
 state_tree = { path = "../../vm/state_tree/" }
 actor = { path = "../../vm/actor/" }
+blake2b_simd = "0.5.9"
+byteorder = "1.3.4"
 beacon = { path = "../beacon" }
 
 [dev-dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
-crypto = { package = "forest_crypto", path = "../../crypto" }
 multihash = "0.10.0"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
     "test_constructors"

@@ -4,6 +4,7 @@
 use super::gas_block_store::GasBlockStore;
 use super::gas_syscalls::GasSyscalls;
 use super::gas_tracker::{price_list_by_epoch, GasTracker, PriceList};
+use super::ChainRand;
 use actor::{
     self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
     MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
@@ -28,7 +29,7 @@ use vm::{
 };
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS> {
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
@@ -39,9 +40,10 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS> {
     origin_nonce: u64,
     num_actors_created: u64,
     price_list: PriceList,
+    rand: &'r ChainRand,
 }
 
-impl<'db, 'msg, 'st, 'sys, BS, SYS> DefaultRuntime<'db, 'msg, 'st, 'sys, BS, SYS>
+impl<'db, 'msg, 'st, 'sys, 'r, BS, SYS> DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -58,6 +60,7 @@ where
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
+        rand: &'r ChainRand,
     ) -> Self {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
@@ -85,6 +88,7 @@ where
             origin_nonce,
             num_actors_created,
             price_list,
+            rand,
         }
     }
 
@@ -152,7 +156,7 @@ where
     }
 }
 
-impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, BS, SYS>
+impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -209,11 +213,19 @@ where
         self.get_actor(&addr).map(|act| act.code)
     }
     fn get_randomness(
-        _personalization: DomainSeparationTag,
-        _rand_epoch: ChainEpoch,
-        _entropy: &[u8],
-    ) -> Randomness {
-        todo!()
+        &self,
+        personalization: DomainSeparationTag,
+        rand_epoch: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<Randomness, ActorError> {
+        let r = self
+            .rand
+            .get_randomness(&self.store, personalization, rand_epoch, entropy)
+            .map_err(|e| {
+                ActorError::new_fatal(format!("could not get randomness: {}", e.to_string()))
+            })?;
+
+        Ok(Randomness(r))
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
@@ -323,6 +335,7 @@ where
                 self.origin,
                 self.origin_nonce,
                 self.num_actors_created,
+                self.rand,
             );
             internal_send::<BS, SYS>(&mut parent, &msg, 0)
         };
@@ -402,7 +415,7 @@ where
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
 pub fn internal_send<BS, SYS>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, '_, BS, SYS>,
+    runtime: &mut DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS>,
     msg: &UnsignedMessage,
     _gas_cost: i64,
 ) -> Result<Serialized, ActorError>

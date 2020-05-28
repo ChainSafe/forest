@@ -1,8 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::gas_tracker::price_list_by_epoch;
-use super::{internal_send, DefaultRuntime};
+use super::{gas_tracker::price_list_by_epoch, internal_send, ChainRand, DefaultRuntime};
 use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
@@ -23,16 +22,17 @@ use vm::{ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, DB, SYS> {
+pub struct VM<'db, 'r, DB, SYS> {
     state: StateTree<'db, DB>,
     // TODO revisit handling buffered store specifically in VM
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
+    rand: &'r ChainRand,
     // TODO: missing fields
 }
 
-impl<'db, DB, SYS> VM<'db, DB, SYS>
+impl<'db, 'r, DB, SYS> VM<'db, 'r, DB, SYS>
 where
     DB: BlockStore,
     SYS: Syscalls,
@@ -42,6 +42,7 @@ where
         store: &'db DB,
         epoch: ChainEpoch,
         syscalls: SYS,
+        rand: &'r ChainRand,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
         Ok(VM {
@@ -49,6 +50,7 @@ where
             store,
             epoch,
             syscalls,
+            rand,
         })
     }
 
@@ -348,7 +350,7 @@ where
         gas_cost: i64,
     ) -> (
         Serialized,
-        DefaultRuntime<'db, 'm, '_, '_, DB, SYS>,
+        DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS>,
         Option<ActorError>,
     ) {
         let mut rt = DefaultRuntime::new(
@@ -361,6 +363,7 @@ where
             *msg.from(),
             msg.sequence(),
             0,
+            self.rand,
         );
 
         let ser = match internal_send(&mut rt, msg, gas_cost) {
