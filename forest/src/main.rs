@@ -13,10 +13,10 @@ use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{info, trace};
+use rpc::start_rpc;
 use std::sync::Arc;
 use structopt::StructOpt;
 use utils::write_to_file;
-use rpc::start_rpc;
 
 fn main() {
     logger::setup_logger();

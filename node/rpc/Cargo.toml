@@ -15,5 +15,6 @@ chain = { path = "../../blockchain/chain" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore" }
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
-message = {package = "forest_message", path = "../../vm/message" }
+message = {package = "forest_message", path = "../../vm/message", features = ["json"] }
 jsonrpc-v2 = "0.5.2"
+address = { package = "forest_address", path = "../../vm/address" }

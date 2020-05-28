@@ -1,28 +1,12 @@
-use blocks::BlockHeader;
+mod chain_api;
+
 use blockstore::BlockStore;
-use chain::ChainStore;
-use cid::json::CidJson;
-use message::UnsignedMessage;
+use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
 
-use jsonrpc_v2::{Data, Params, Server, RequestObject,MapRouter,  Error as JsonRpcError};
-//use jsonrpc_v2::*;
-struct State<DB: BlockStore + Send + Sync + 'static> {
-    pub chain: Arc<DB>,
-}
-
-async fn get_chain_message<DB: BlockStore + Send + Sync + 'static>(
-    data: Data<State<DB>>,
-) -> Result<u64, JsonRpcError> {
-    Ok(3u64)
-}
-
-async fn cid_i<DB: BlockStore + Send + Sync + 'static>(
-    _data: Data<State<DB>>,
-    Params(params): Params<(CidJson)>,
-) -> Result<CidJson, JsonRpcError> {
-    Ok(params)
+pub struct State<DB: BlockStore + Send + Sync + 'static> {
+    pub store: Arc<DB>,
 }
 
 async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
@@ -31,11 +15,15 @@ async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
     Ok(Response::new(StatusCode::Ok).body_json(&res)?)
 }
 
-pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(chain: Arc<DB>) {
+pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(store: Arc<DB>) {
     let rpc = Server::new()
-        .with_data(Data::new(State { chain }))
-        .with_method("Filecoin.ChainGetMessage", get_chain_message::<DB>)
-        .with_method("Filecoin.CidI", cid_i::<DB>)
+        .with_data(Data::new(State { store }))
+        .with_method(
+            "Filecoin.ChainGetMessage",
+            chain_api::chain_get_message::<DB>,
+        )
+        .with_method("Filecoin.ChainGetObj", chain_api::chain_read_obj::<DB>)
+        .with_method("Filecoin.ChainHasObj", chain_api::chain_has_obj::<DB>)
         .finish_unwrapped();
     let mut app = tide::Server::with_state(rpc);
     app.at("/api").post(handle_json_rpc);
