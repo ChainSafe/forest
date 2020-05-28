@@ -3,6 +3,7 @@
 
 use crate::RequestID;
 use cid::Cid;
+use fnv::FnvHashMap;
 use std::collections::{HashMap, HashSet};
 
 /// LinkTracker records links being traversed to determine useful information
@@ -13,10 +14,10 @@ use std::collections::{HashMap, HashSet};
 #[derive(Default)]
 pub struct LinkTracker {
     /// The links traversed by any given request that were present.
-    present_blocks: HashMap<RequestID, Vec<Cid>>,
+    present_blocks: FnvHashMap<RequestID, Vec<Cid>>,
 
     /// The links traversed by any given request that were missing.
-    missing_blocks: HashMap<RequestID, HashSet<Cid>>,
+    missing_blocks: FnvHashMap<RequestID, HashSet<Cid>>,
 
     /// The number of times any given link has been traversed by in-progress requests.
     in_progress_traversal_counts: HashMap<Cid, u32>,

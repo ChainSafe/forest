@@ -6,7 +6,7 @@ use crate::{
     EXTENSION_METADATA,
 };
 use cid::Cid;
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 
 /// ResponseBuilder captures components of a response message across multiple
 /// requests for a given peer and then generates the corresponding GraphSync
@@ -24,14 +24,14 @@ pub struct ResponseBuilder {
 
     /// The request IDs of the requests included in this message, as well
     /// as which blocks were present and which ones were missing.
-    outgoing_responses: HashMap<RequestID, Vec<MetadataItem>>,
+    outgoing_responses: FnvHashMap<RequestID, Vec<MetadataItem>>,
 
     /// The status codes of the requests that have been completed,
     /// either `RequestCompletedFull` or `RequestCompletedPartial`.
-    completed_responses: HashMap<RequestID, ResponseStatusCode>,
+    completed_responses: FnvHashMap<RequestID, ResponseStatusCode>,
 
     /// Any extension data that was added to this message for any particular request.
-    extensions: HashMap<RequestID, Extensions>,
+    extensions: FnvHashMap<RequestID, Extensions>,
 }
 
 impl ResponseBuilder {
