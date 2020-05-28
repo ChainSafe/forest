@@ -512,6 +512,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     fn syscalls(&self) -> &dyn Syscalls {
         unimplemented!()
     }
+    
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         unimplemented!()
     }
