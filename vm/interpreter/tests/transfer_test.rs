@@ -3,9 +3,10 @@
 
 use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
+use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
-use interpreter::{internal_send, DefaultRuntime, DefaultSyscalls};
+use interpreter::{internal_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
@@ -93,6 +94,7 @@ fn transfer_test() {
 
     let default_syscalls = DefaultSyscalls::new(&store);
 
+    let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
     let mut runtime = DefaultRuntime::new(
         &mut state,
         &store,
@@ -103,6 +105,7 @@ fn transfer_test() {
         actor_addr_2.clone(),
         0,
         0,
+        &dummy_rand,
     );
     let _serialized = internal_send(&mut runtime, &message, 0).unwrap();
 
