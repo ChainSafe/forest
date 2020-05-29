@@ -3,7 +3,7 @@ version: 2.1
 executors:
   test-executor:
     docker:
-    - image: circleci/rust:buster
+    - image: cimg/rust:1.43.0
     resource_class: large
 
 commands:
