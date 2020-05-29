@@ -582,8 +582,7 @@ where
             .tipset_state(&tip)
             .await
             .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
-        let database = &*db.clone();
-        let tree = StateTree::new_from_root(database, &state_root).map_err(|_| {
+        let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
             Error::Validation("Could not load from new state root in state manager".to_owned())
         })?;
         // loop through bls messages and check msg validity

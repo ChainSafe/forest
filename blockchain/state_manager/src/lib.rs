@@ -13,7 +13,6 @@ use blockstore::BufferedBlockStore;
 use chain::ChainStore;
 use cid::Cid;
 use encoding::de::DeserializeOwned;
-
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
@@ -23,8 +22,8 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-/// Intermediary for retrieving state objects and updating actor states
 
+/// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
 pub struct StateManager<DB> {
