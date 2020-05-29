@@ -181,6 +181,7 @@ where
                 blocks
                     .iter()
                     .filter(|val| val.miner_address() == s.miner_address())
+                    .take(2)
                     .count()
                     > 1
             }) {
