@@ -305,3 +305,32 @@ pub mod json {
         })
     }
 }
+
+pub mod opt_signature_json {
+    use super::Signature;
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    
+
+    pub fn serialize<S>(v: &Option<Signature>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Some(ref d) = *v {
+            return s.serialize_some(d);
+        }
+        s.serialize_none()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: Option<Signature> = Option::deserialize(deserializer)?;
+        if let Some(s) = s {
+            return Ok(Some(s));
+        }
+
+        Ok(None)
+    }
+}

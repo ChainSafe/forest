@@ -35,3 +35,14 @@ struct CidMap {
     #[serde(rename = "/")]
     cid: String,
 }
+
+// pub fn vec_cid<'de, D>(deserializer: D) -> Result<Vec<Cid>, D::Error>
+// where
+//     D: Deserializer<'de>,
+// {
+//     #[derive(Deserialize)]
+//     struct Wrapper(#[serde(with = "CidJson")] Cid);
+
+//     let v = Vec::deserialize(deserializer)?;
+//     Ok(v.into_iter().map(|Wrapper(a)| a).collect())
+// }

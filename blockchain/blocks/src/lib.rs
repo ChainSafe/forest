@@ -9,7 +9,7 @@ mod block;
 mod errors;
 mod header;
 mod ticket;
-mod tipset;
+pub mod tipset;
 
 pub use block::*;
 pub use errors::*;
