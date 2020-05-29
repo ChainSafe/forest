@@ -4,7 +4,7 @@ executors:
   test-executor:
     docker:
     - image: cimg/rust:1.43.0
-    resource_class: large
+    resource_class: xlarge
 
 commands:
   rust_setup:
@@ -31,6 +31,7 @@ commands:
             echo 'export IMAGE_NAME=forest' >> $BASH_ENV
             echo 'export CARGO_INCREMENTAL=0' >> $BASH_ENV
             echo 'export CI_TIMEOUT="timeout 40m"' >> $BASH_ENV
+            echo 'export CC=g++' >> $BASH_ENV 
   install_deps:
     steps:
       - run:
