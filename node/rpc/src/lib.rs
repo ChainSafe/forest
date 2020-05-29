@@ -8,6 +8,7 @@ use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
 
+/// This is where you store persistant data, or at least access to stateful data.
 pub struct State<DB: BlockStore + Send + Sync + 'static> {
     pub store: Arc<DB>,
 }
