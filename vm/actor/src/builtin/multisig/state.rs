@@ -6,20 +6,21 @@ use crate::BytesKey;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use encoding::Cbor;
+use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use num_bigint::biguint_ser;
 use vm::TokenAmount;
 
 /// Multisig actor state
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     pub signers: Vec<Address>,
     pub num_approvals_threshold: i64,
     pub next_tx_id: TxnID,
 
     // Linear unlock
+    #[serde(with = "biguint_ser")]
     pub initial_balance: TokenAmount,
     pub start_epoch: ChainEpoch,
     pub unlock_duration: ChainEpoch,
@@ -108,50 +109,6 @@ impl State {
         map.delete(&txn_id.key())?;
         self.pending_txs = map.flush()?;
         Ok(())
-    }
-}
-
-impl Serialize for State {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.signers,
-            &self.num_approvals_threshold,
-            &self.next_tx_id,
-            BigUintSer(&self.initial_balance),
-            &self.start_epoch,
-            &self.unlock_duration,
-            &self.pending_txs,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for State {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (
-            signers,
-            num_approvals_threshold,
-            next_tx_id,
-            BigUintDe(initial_balance),
-            start_epoch,
-            unlock_duration,
-            pending_txs,
-        ) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            signers,
-            num_approvals_threshold,
-            next_tx_id,
-            initial_balance,
-            start_epoch,
-            unlock_duration,
-            pending_txs,
-        })
     }
 }
 

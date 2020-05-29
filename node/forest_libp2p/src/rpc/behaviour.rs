@@ -5,9 +5,10 @@ use super::handler::RPCHandler;
 use super::RPCEvent;
 use futures::task::Context;
 use futures_util::task::Poll;
-use libp2p::core::ConnectedPoint;
+use libp2p::core::connection::ConnectionId;
 use libp2p::swarm::{
-    protocols_handler::ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
+    protocols_handler::ProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler,
+    PollParameters,
 };
 use libp2p::{Multiaddr, PeerId};
 
@@ -25,8 +26,11 @@ impl RPC {
 
     /// Send an RPCEvent to a peer specified by peer_id.
     pub fn send_rpc(&mut self, peer_id: PeerId, event: RPCEvent) {
-        self.events
-            .push(NetworkBehaviourAction::SendEvent { peer_id, event });
+        self.events.push(NetworkBehaviourAction::NotifyHandler {
+            peer_id,
+            event,
+            handler: NotifyHandler::Any,
+        });
     }
 }
 
@@ -55,25 +59,22 @@ impl NetworkBehaviour for RPC {
         vec![]
     }
 
-    fn inject_connected(&mut self, peer_id: PeerId, connected_point: ConnectedPoint) {
-        if let ConnectedPoint::Dialer { .. } = connected_point {
-            self.events.push(NetworkBehaviourAction::GenerateEvent(
-                RPCMessage::PeerDialed(peer_id),
-            ));
-        }
+    fn inject_connected(&mut self, peer_id: &PeerId) {
+        self.events.push(NetworkBehaviourAction::GenerateEvent(
+            RPCMessage::PeerDialed(peer_id.clone()),
+        ));
     }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId, connected_point: ConnectedPoint) {
-        if let ConnectedPoint::Dialer { .. } = connected_point {
-            self.events.push(NetworkBehaviourAction::GenerateEvent(
-                RPCMessage::PeerDisconnected(peer_id.clone()),
-            ));
-        }
+    fn inject_disconnected(&mut self, peer_id: &PeerId) {
+        self.events.push(NetworkBehaviourAction::GenerateEvent(
+            RPCMessage::PeerDisconnected(peer_id.clone()),
+        ));
     }
 
-    fn inject_node_event(
+    fn inject_event(
         &mut self,
         peer_id: PeerId,
+        _connection: ConnectionId,
         event: <Self::ProtocolsHandler as ProtocolsHandler>::OutEvent,
     ) {
         self.events

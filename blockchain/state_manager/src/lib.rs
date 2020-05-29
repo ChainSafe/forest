@@ -11,7 +11,7 @@ use blockstore::BufferedBlockStore;
 use cid::Cid;
 use encoding::de::DeserializeOwned;
 use forest_blocks::FullTipset;
-use interpreter::{resolve_to_key_addr, DefaultSyscalls, VM};
+use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use num_bigint::BigUint;
 use state_tree::StateTree;
@@ -93,7 +93,11 @@ where
 
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
     /// This function returns the state root and receipt root of the transition.
-    pub fn apply_blocks(&self, ts: &FullTipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
+    pub fn apply_blocks(
+        &self,
+        ts: &FullTipset,
+        rand: &ChainRand,
+    ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
         let mut vm = VM::new(
@@ -101,6 +105,7 @@ where
             &buf_store,
             ts.epoch(),
             DefaultSyscalls::new(&buf_store),
+            rand,
         )?;
 
         // Apply tipset messages

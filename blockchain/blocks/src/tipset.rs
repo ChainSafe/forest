@@ -6,18 +6,15 @@
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
-use encoding::{
-    de::{self, Deserializer},
-    ser::{self, Serializer},
-    Cbor,
-};
+use encoding::Cbor;
 use num_bigint::BigUint;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A set of CIDs forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct TipsetKeys {
     pub cids: Vec<Cid>,
 }
@@ -30,25 +27,6 @@ impl TipsetKeys {
     /// Returns tipset header cids
     pub fn cids(&self) -> &[Cid] {
         &self.cids
-    }
-}
-
-impl ser::Serialize for TipsetKeys {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.cids.serialize(serializer)
-    }
-}
-
-impl<'de> de::Deserialize<'de> for TipsetKeys {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let cids: Vec<Cid> = Deserialize::deserialize(deserializer)?;
-        Ok(TipsetKeys { cids })
     }
 }
 
@@ -108,14 +86,9 @@ impl Tipset {
             },
         })
     }
-    /// Returns the first block of the tipset
-    fn first_block(&self) -> &BlockHeader {
-        // `Tipset::new` guarantees that `blocks` isn't empty
-        self.blocks.first().unwrap()
-    }
     /// Returns epoch of the tipset
     pub fn epoch(&self) -> ChainEpoch {
-        self.first_block().epoch()
+        self.min_ticket_block().epoch()
     }
     /// Returns all blocks in tipset
     pub fn blocks(&self) -> &[BlockHeader] {
@@ -127,7 +100,12 @@ impl Tipset {
     }
     /// Returns the smallest ticket of all blocks in the tipset
     pub fn min_ticket(&self) -> Ticket {
-        self.first_block().ticket().clone()
+        self.min_ticket_block().ticket().clone()
+    }
+    /// Returns the block with the smallest ticket of all blocks in the tipset
+    pub fn min_ticket_block(&self) -> &BlockHeader {
+        // `Tipset::new` guarantees that `blocks` isn't empty
+        self.blocks.first().unwrap()
     }
     /// Returns the smallest timestamp of all blocks in the tipset
     pub fn min_timestamp(&self) -> u64 {
@@ -151,15 +129,15 @@ impl Tipset {
     }
     /// Returns the CIDs of the parents of the blocks in the tipset
     pub fn parents(&self) -> &TipsetKeys {
-        self.first_block().parents()
+        self.min_ticket_block().parents()
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
-        self.first_block().state_root()
+        self.min_ticket_block().state_root()
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
-        self.first_block().weight()
+        self.min_ticket_block().weight()
     }
 }
 

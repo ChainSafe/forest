@@ -22,7 +22,7 @@ byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }
 log = "0.4.8"
 db = { path = "../../node/db" }
+chain = { path = "../../blockchain/chain" }
 fil_types = { path = "../../types" }
-
 [dev-dependencies]
 ipld_hamt = { path = "../../ipld/hamt" }

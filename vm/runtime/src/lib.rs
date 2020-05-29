@@ -61,10 +61,11 @@ pub trait Runtime<BS: BlockStore> {
     /// Randomness returns a (pseudo)random byte array drawing from a
     /// random beacon at a given epoch and incorporating reequisite entropy
     fn get_randomness(
+        &self,
         personalization: DomainSeparationTag,
         rand_epoch: ChainEpoch,
         entropy: &[u8],
-    ) -> Randomness;
+    ) -> Result<Randomness, ActorError>;
 
     /// Initializes the state object.
     /// This is only valid in a constructor function and when the state has not yet been initialized.
@@ -203,8 +204,8 @@ pub trait Syscalls {
             commd,
             prover_id,
             SectorId::from(vi.sector_id.number),
-            vi.randomness,
-            vi.interactive_randomness,
+            vi.randomness.0,
+            vi.interactive_randomness.0,
             &vi.on_chain.proof,
         )? {
             return Err(format!(
@@ -246,7 +247,7 @@ pub trait Syscalls {
         prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
 
         // verify
-        if !verify_window_post(&verify_info.randomness, &proofs, &replicas, prover_id)? {
+        if !verify_window_post(&verify_info.randomness.0, &proofs, &replicas, prover_id)? {
             return Err("Proof was invalid".to_string().into());
         }
 
