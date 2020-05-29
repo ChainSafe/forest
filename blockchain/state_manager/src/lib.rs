@@ -23,8 +23,8 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-/// Intermediary for retrieving state objects and updating actor states
 
+/// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
 pub struct StateManager<DB> {
