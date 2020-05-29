@@ -13,7 +13,6 @@ use blockstore::BufferedBlockStore;
 use chain::ChainStore;
 use cid::Cid;
 use encoding::de::DeserializeOwned;
-
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
