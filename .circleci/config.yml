@@ -57,9 +57,9 @@ commands:
           key: cargo-package-cache-{{ .Environment.CIRCLE_SHA1 }}
           # paths are relative to /home/circleci/project/
           paths:
-            - ../../../usr/local/cargo/git
-            - ../../../usr/local/cargo/registry
-            - ../../../usr/local/cargo/.package-cache
+            - ../.cargo/git
+            - ../.cargo/registry
+            - ../.cargo/.package-cache
             # - ../../../usr/local/include
   restore_cargo_package_cache:
     description: Restore Cargo package cache from prev job
@@ -73,8 +73,8 @@ commands:
       - run:
           name: Check cargo package cache
           command: |
-            ls -all /usr/local/cargo
-            du -ssh /usr/local/cargo
+            ls -all $HOME/.cargo
+            du -ssh $HOME/.cargo
   build_setup:
     description: Sets up environment for future jobs
     steps:
