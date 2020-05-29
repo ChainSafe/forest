@@ -1,0 +1,258 @@
+pub mod bitvec_serde;
+pub mod rleplus;
+pub use bitvec;
+
+use bitvec::prelude::{BitVec, Lsb0};
+use core::ops::{BitAnd, BitOr, Not};
+use fnv::FnvHashSet;
+
+type Result<T> = std::result::Result<T, &'static str>;
+
+/// Represents a bitfield to track bits set at indexes in the range of `u64`.
+pub enum BitField {
+    Encoded {
+        bv: BitVec<Lsb0, u8>,
+        set: FnvHashSet<u64>,
+        unset: FnvHashSet<u64>,
+    },
+    // TODO would be beneficial in future to only keep encoded bitvec in memory, but comes at a cost
+    Decoded(BitVec<Lsb0, u8>),
+}
+
+impl Default for BitField {
+    fn default() -> Self {
+        Self::Decoded(BitVec::new())
+    }
+}
+
+impl BitField {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Generates a new bitfield with a slice of all indexes to set.
+    pub fn new_from_set(set_bits: &[u64]) -> Self {
+        let mut vec = match set_bits.iter().max() {
+            Some(&max) => {
+                let mut vec = BitVec::with_capacity(max as usize + 1);
+                vec.resize(max as usize + 1, false);
+                vec
+            }
+            None => return Self::Decoded(BitVec::new()),
+        };
+
+        // Set all bits in bitfield
+        for b in set_bits {
+            vec.set(*b as usize, true);
+        }
+
+        Self::Decoded(vec)
+    }
+
+    /// Sets bit at bit index provided
+    pub fn set(&mut self, bit: u64) {
+        match self {
+            BitField::Encoded { set, unset, .. } => {
+                unset.remove(&bit);
+                set.insert(bit);
+            }
+            BitField::Decoded(bv) => {
+                let index = bit as usize;
+                if bv.len() <= index {
+                    bv.resize(index + 1, false);
+                }
+                bv.set(index, true);
+            }
+        }
+    }
+
+    /// Removes bit at bit index provided
+    pub fn unset(&mut self, bit: u64) {
+        match self {
+            BitField::Encoded { set, unset, .. } => {
+                set.remove(&bit);
+                unset.insert(bit);
+            }
+            BitField::Decoded(bv) => {
+                let index = bit as usize;
+                if bv.len() < index {
+                    return;
+                }
+                bv.set(index, false);
+            }
+        }
+    }
+
+    /// Gets the bit at the given index.
+    // TODO this probably should not require mut self and RLE decode bits
+    pub fn get(&mut self, index: u64) -> Result<bool> {
+        match self {
+            BitField::Encoded { set, unset, .. } => {
+                if set.contains(&index) {
+                    return Ok(true);
+                }
+
+                if unset.contains(&index) {
+                    return Ok(false);
+                }
+
+                // Check in encoded for the given bit
+                // This can be changed to not flush changes
+                if let Some(true) = self.as_mut_flushed()?.get(index as usize) {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+            BitField::Decoded(bv) => {
+                if let Some(true) = bv.get(index as usize) {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+        }
+    }
+
+    /// Retrieves the index of the first set bit, and error if invalid encoding or no bits set.
+    pub fn first(&mut self) -> Result<u64> {
+        for (i, b) in (0..).zip(self.as_mut_flushed()?.iter()) {
+            if b == &true {
+                return Ok(i);
+            }
+        }
+        // Return error if none found, not ideal but no reason not to match
+        Err("Bitfield has no set bits")
+    }
+
+    /// Returns true if there are no bits set, false if the bitfield is empty.
+    pub fn is_empty(&mut self) -> Result<bool> {
+        for b in self.as_mut_flushed()?.iter() {
+            if b == &true {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+
+    /// Returns a slice of the bitfield with the start index and count.
+    pub fn slice(&mut self, start: u64, count: u64) -> Result<BitField> {
+        // These conversions aren't ideal, but we aren't supporting 32 bit targets
+        let start = start as usize;
+        let count = count as usize;
+
+        let bitvec = self.as_mut_flushed()?;
+        if bitvec.len() < start + count {
+            return Err("Not enough bits to index the slice");
+        }
+
+        Ok(BitField::Decoded(bitvec[start..start + count].into()))
+    }
+
+    /// Retrieves number of set bits in the bitfield
+    ///
+    /// This function requires a mutable reference for now to be able to handle the cached
+    /// changes in the case of an RLE encoded bitfield.
+    pub fn count(&mut self) -> Result<usize> {
+        Ok(self.as_mut_flushed()?.count_ones())
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        if let BitField::Encoded { bv, set, unset } = self {
+            *self = BitField::Decoded(decode_and_apply_cache(bv, set, unset)?);
+        }
+
+        Ok(())
+    }
+
+    fn into_flushed(mut self) -> Result<BitVec<Lsb0, u8>> {
+        self.flush()?;
+        match self {
+            BitField::Decoded(bv) => Ok(bv),
+            // Unreachable because flushed before this.
+            _ => unreachable!(),
+        }
+    }
+
+    fn as_mut_flushed(&mut self) -> Result<&mut BitVec<Lsb0, u8>> {
+        self.flush()?;
+        match self {
+            BitField::Decoded(bv) => Ok(bv),
+            // Unreachable because flushed before this.
+            _ => unreachable!(),
+        }
+    }
+
+    /// Merges to bitfields together (equivalent of bitwise OR `|` operator)
+    pub fn merge(self, other: Self) -> Result<Self> {
+        Ok(Self::Decoded(self.into_flushed()? | other.into_flushed()?))
+    }
+
+    /// Intersection of two bitfields (equivalent of bit AND `&`)
+    pub fn intersect(self, other: Self) -> Result<Self> {
+        Ok(Self::Decoded(self.into_flushed()? & other.into_flushed()?))
+    }
+
+    /// Subtract other bitfield from self (equivalent of `a & !b`)
+    pub fn subtract(self, other: Self) -> Result<Self> {
+        Ok(Self::Decoded(
+            self.into_flushed()? & (!other.into_flushed()?),
+        ))
+    }
+}
+
+pub(crate) fn decode_and_apply_cache(
+    bit_vec: &BitVec<Lsb0, u8>,
+    set: &FnvHashSet<u64>,
+    unset: &FnvHashSet<u64>,
+) -> Result<BitVec<Lsb0, u8>> {
+    let mut decoded = rleplus::decode(bit_vec)?;
+
+    // Resize before setting any values
+    if let Some(&max) = set.iter().max() {
+        decoded.resize(max as usize + 1, false);
+    };
+
+    // Set all values in the cache
+    for &b in set.iter() {
+        decoded.set(b as usize, true);
+    }
+
+    // Unset all values from the encoded cache
+    for &b in unset.iter() {
+        decoded.set(b as usize, false);
+    }
+
+    Ok(decoded)
+}
+
+impl From<BitVec<Lsb0, u8>> for BitField {
+    fn from(b: BitVec<Lsb0, u8>) -> Self {
+        Self::Decoded(b)
+    }
+}
+
+impl BitOr for BitField {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self {
+        self.merge(rhs).unwrap()
+    }
+}
+
+impl BitAnd for BitField {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        self.intersect(rhs).unwrap()
+    }
+}
+
+impl Not for BitField {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        Self::Decoded(!self.into_flushed().unwrap())
+    }
+}

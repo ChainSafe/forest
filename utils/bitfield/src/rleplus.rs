@@ -59,9 +59,7 @@
 //! > the same encoding, given the same input.
 //!
 
-pub mod bitvec_serde;
-
-pub use bitvec;
+use bitvec;
 use bitvec::prelude::{BitVec, Lsb0};
 
 /// Encode the given bitset into their RLE+ encoded representation.
