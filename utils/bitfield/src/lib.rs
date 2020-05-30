@@ -8,12 +8,14 @@ pub use bitvec;
 use bitvec::prelude::Lsb0;
 use core::ops::{BitAnd, BitOr, Not};
 use fnv::FnvHashSet;
+use std::iter::FromIterator;
 
 type BitVec = bitvec::prelude::BitVec<Lsb0, u8>;
 
 type Result<T> = std::result::Result<T, &'static str>;
 
 /// Represents a bitfield to track bits set at indexes in the range of `u64`.
+#[derive(Debug)]
 pub enum BitField {
     Encoded {
         bv: BitVec,
@@ -130,6 +132,28 @@ impl BitField {
         Err("Bitfield has no set bits")
     }
 
+    fn retrieve_set_indexes<B: FromIterator<u64>>(&mut self, max: usize) -> Result<B> {
+        let flushed = self.as_mut_flushed()?;
+        if flushed.count_ones() > max {
+            return Err("Bits set exceeds max in retrieval");
+        }
+
+        Ok((0..)
+            .zip(self.as_mut_flushed()?.iter())
+            .filter_map(|(i, b)| if b == &true { Some(i) } else { None })
+            .collect())
+    }
+
+    /// Returns a vector of indexes of all set bits
+    pub fn to_all(&mut self, max: usize) -> Result<Vec<u64>> {
+        self.retrieve_set_indexes(max)
+    }
+
+    /// Returns a Hash set of indexes of all set bits
+    pub fn to_all_set(&mut self, max: usize) -> Result<FnvHashSet<u64>> {
+        self.retrieve_set_indexes(max)
+    }
+
     /// Returns true if there are no bits set, false if the bitfield is empty.
     pub fn is_empty(&mut self) -> Result<bool> {
         for b in self.as_mut_flushed()?.iter() {
@@ -141,18 +165,50 @@ impl BitField {
         Ok(true)
     }
 
-    /// Returns a slice of the bitfield with the start index and count.
-    pub fn slice(&mut self, start: u64, count: u64) -> Result<BitField> {
+    /// Returns a slice of the bitfield with the start index of set bits
+    /// and number of bits to include in slice.
+    pub fn to_slice(&mut self, start: u64, count: u64) -> Result<BitField> {
+        if count == 0 {
+            return Ok(BitField::default());
+        }
+
         // These conversions aren't ideal, but we aren't supporting 32 bit targets
-        let start = start as usize;
-        let count = count as usize;
+        let mut start = start as usize;
+        let mut count = count as usize;
 
         let bitvec = self.as_mut_flushed()?;
-        if bitvec.len() < start + count {
+        let mut start_idx: usize = 0;
+        let mut range: usize = 0;
+        if start != 0 {
+            for (i, v) in bitvec.iter().enumerate() {
+                if v == &true {
+                    start -= 1;
+                    if start == 0 {
+                        start_idx = i + 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        for (i, v) in bitvec[start_idx..].iter().enumerate() {
+            if v == &true {
+                count -= 1;
+                if count == 0 {
+                    range = i + 1;
+                    break;
+                }
+            }
+        }
+
+        if count > 0 {
             return Err("Not enough bits to index the slice");
         }
 
-        Ok(BitField::Decoded(bitvec[start..start + count].into()))
+        let mut slice = BitVec::with_capacity(start_idx + range);
+        slice.resize(start_idx, false);
+        slice.extend_from_slice(&bitvec[start_idx..start_idx + range]);
+        Ok(BitField::Decoded(slice))
     }
 
     /// Retrieves number of set bits in the bitfield

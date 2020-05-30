@@ -1,7 +1,10 @@
 [package]
 name = "bitfield"
 version = "0.1.0"
-authors = ["dignifiedquire <dignifiedquire@users.noreply.github.com>", "ChainSafe Systems <info@chainsafe.io>"]
+authors = [
+    "dignifiedquire <dignifiedquire@users.noreply.github.com>",
+    "ChainSafe Systems <info@chainsafe.io>"
+]
 edition = "2018"
 
 [dependencies]
