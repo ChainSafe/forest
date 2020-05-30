@@ -53,7 +53,7 @@ impl<'de> Deserialize<'de> for BeaconEntry {
 }
 
 //#[cfg(feature = "json")]
-
+#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -72,8 +72,8 @@ pub mod json {
     struct JsonHelper {
         #[serde(rename = "Round")]
         round: u64,
-        // #[serde(rename = "Data")]
-        // data: String,
+        #[serde(rename = "Data")]
+        data: String
     }
 
     pub fn serialize<S>(m: &BeaconEntry, serializer: S) -> Result<S::Ok, S::Error>
@@ -82,7 +82,7 @@ pub mod json {
     {
         JsonHelper {
             round: m.round,
-            //data:  base64::encode(m.data.bytes())
+            data:  base64::encode(&m.data)
         }
         .serialize(serializer)
     }
@@ -94,9 +94,10 @@ pub mod json {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(BeaconEntry{
             round: m.round,
-            data : Vec::new()
-            //base64::decode(m.data).map_err(de::Error::custom)?
+            data : base64::decode(m.data).unwrap()
         })
     }
+
+
 }
 

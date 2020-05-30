@@ -239,7 +239,8 @@ pub mod json {
             // #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json")]
             // beacon_entries : BeaconEntry,
             
-            // #[serde(rename = "WinPostProof",  with  = "fil_types::sector::post::json" )]
+            // #[serde(default)]
+            // #[serde(rename = "WinPostProof",  serialize_with  = "fil_types::sector::post::json::serialize" )]
             // win_post_proof : Vec<PoStProof>,
 
             // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
@@ -268,7 +269,7 @@ pub mod json {
             miner: &m.miner_address.to_string(),
             ticket: &m.ticket,
             election_proof : &m.election_proof,
-           // win_post_proof : m.win_post_proof,
+            //win_post_proof : m.win_post_proof,
             //parents: &m.parents,
             weight : &m.weight.to_str_radix(10),
             height : &m.epoch,
@@ -300,7 +301,7 @@ pub mod json {
             // #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json")]
             // beacon_entries : BeaconEntry,
             
-            // #[serde(rename = "WinPostProof",  with  = "fil_types::sector::post::json" )]
+            // #[serde(rename = "WinPostProof",  deserialize_with  = "fil_types::sector::post::json::deserialize" )]
             // win_post_proof : Vec<PoStProof>,
 
             // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
@@ -332,6 +333,7 @@ pub mod json {
             .miner_address(v.miner.parse::<Address>().unwrap())
             .ticket(v.ticket)
             .epoch(v.height)
+            //.win_post_proof(v.win_post_proof)
             .state_root(v.state_root)
             .message_receipts(v.message_receipts)
             .messages(v.messages)
