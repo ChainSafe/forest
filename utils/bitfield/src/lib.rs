@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 pub mod bitvec_serde;
 pub mod rleplus;
 pub use bitvec;
@@ -195,6 +198,7 @@ impl BitField {
         a.extend(extra);
         Ok(Self::Decoded(a))
     }
+
     /// Merges to bitfields into `self` (equivalent of bitwise OR `|` operator)
     pub fn merge_assign(&mut self, other: Self) -> Result<()> {
         let a = self.as_mut_flushed()?;
@@ -204,10 +208,18 @@ impl BitField {
         a.extend(extra);
         Ok(())
     }
+
     /// Intersection of two bitfields (equivalent of bit AND `&`)
     pub fn intersect(self, other: Self) -> Result<Self> {
         Ok(Self::Decoded(self.into_flushed()? & other.into_flushed()?))
     }
+
+    /// Intersection of two bitfields and assigns to self (equivalent of bit AND `&`)
+    pub fn intersect_assign(&mut self, other: Self) -> Result<()> {
+        *self.as_mut_flushed()? &= other.into_flushed()?;
+        Ok(())
+    }
+
     /// Subtract other bitfield from self (equivalent of `a & !b`)
     pub fn subtract(self, other: Self) -> Result<Self> {
         Ok(Self::Decoded(
@@ -215,13 +227,58 @@ impl BitField {
         ))
     }
 
+    /// Subtract other bitfield from self (equivalent of `a & !b`)
+    pub fn subtract_assign(&mut self, other: Self) -> Result<()> {
+        *self.as_mut_flushed()? &= !other.into_flushed()?;
+        Ok(())
+    }
+
     /// Creates a bitfield which is a union of a vector of bitfields.
-    pub fn union<'a>(bit_fields: Vec<Self>) -> Result<Self> {
+    pub fn union(bit_fields: Vec<Self>) -> Result<Self> {
         let mut ret = Self::default();
         for bf in bit_fields.into_iter() {
             ret.merge_assign(bf)?;
         }
         Ok(ret)
+    }
+
+    /// Returns true if BitFields have any overlapping bits.
+    pub fn contains_any(&mut self, other: &mut BitField) -> Result<bool> {
+        for (a, b) in self
+            .as_mut_flushed()?
+            .iter()
+            .zip(other.as_mut_flushed()?.iter())
+        {
+            if a == b {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    /// Returns true if BitFields have all the same bits set.
+    pub fn contains_all(&mut self, other: &mut BitField) -> Result<bool> {
+        let a_bf = self.as_mut_flushed()?;
+        let b_bf = other.as_mut_flushed()?;
+
+        // Checking lengths should be sufficient in most cases, but does not take into account
+        // decoded bitfields with extra 0 bits. This makes sure there are no extra bits in the
+        // extension.
+        if a_bf.len() > b_bf.len() {
+            if a_bf[b_bf.len()..].count_ones() > 0 {
+                return Ok(false);
+            }
+        } else if b_bf.len() > a_bf.len() && b_bf[a_bf.len()..].count_ones() > 0 {
+            return Ok(false);
+        }
+
+        for (a, b) in a_bf.iter().zip(b_bf.iter()) {
+            if a != b {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
     }
 }
 
