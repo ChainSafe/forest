@@ -2,21 +2,23 @@ pub mod bitvec_serde;
 pub mod rleplus;
 pub use bitvec;
 
-use bitvec::prelude::{BitVec, Lsb0};
+use bitvec::prelude::Lsb0;
 use core::ops::{BitAnd, BitOr, Not};
 use fnv::FnvHashSet;
+
+type BitVec = bitvec::prelude::BitVec<Lsb0, u8>;
 
 type Result<T> = std::result::Result<T, &'static str>;
 
 /// Represents a bitfield to track bits set at indexes in the range of `u64`.
 pub enum BitField {
     Encoded {
-        bv: BitVec<Lsb0, u8>,
+        bv: BitVec,
         set: FnvHashSet<u64>,
         unset: FnvHashSet<u64>,
     },
     // TODO would be beneficial in future to only keep encoded bitvec in memory, but comes at a cost
-    Decoded(BitVec<Lsb0, u8>),
+    Decoded(BitVec),
 }
 
 impl Default for BitField {
@@ -166,7 +168,7 @@ impl BitField {
         Ok(())
     }
 
-    fn into_flushed(mut self) -> Result<BitVec<Lsb0, u8>> {
+    fn into_flushed(mut self) -> Result<BitVec> {
         self.flush()?;
         match self {
             BitField::Decoded(bv) => Ok(bv),
@@ -175,7 +177,7 @@ impl BitField {
         }
     }
 
-    fn as_mut_flushed(&mut self) -> Result<&mut BitVec<Lsb0, u8>> {
+    fn as_mut_flushed(&mut self) -> Result<&mut BitVec> {
         self.flush()?;
         match self {
             BitField::Decoded(bv) => Ok(bv),
@@ -186,27 +188,59 @@ impl BitField {
 
     /// Merges to bitfields together (equivalent of bitwise OR `|` operator)
     pub fn merge(self, other: Self) -> Result<Self> {
-        Ok(Self::Decoded(self.into_flushed()? | other.into_flushed()?))
+        let mut a = self.into_flushed()?;
+        let mut b = other.into_flushed()?;
+        let extra = match_lengths(&mut a, &mut b);
+        a |= b;
+        a.extend(extra);
+        Ok(Self::Decoded(a))
     }
-
+    /// Merges to bitfields into `self` (equivalent of bitwise OR `|` operator)
+    pub fn merge_assign(&mut self, other: Self) -> Result<()> {
+        let a = self.as_mut_flushed()?;
+        let mut b = other.into_flushed()?;
+        let extra = match_lengths(a, &mut b);
+        *a |= b;
+        a.extend(extra);
+        Ok(())
+    }
     /// Intersection of two bitfields (equivalent of bit AND `&`)
     pub fn intersect(self, other: Self) -> Result<Self> {
         Ok(Self::Decoded(self.into_flushed()? & other.into_flushed()?))
     }
-
     /// Subtract other bitfield from self (equivalent of `a & !b`)
     pub fn subtract(self, other: Self) -> Result<Self> {
         Ok(Self::Decoded(
             self.into_flushed()? & (!other.into_flushed()?),
         ))
     }
+
+    /// Creates a bitfield which is a union of a vector of bitfields.
+    pub fn union<'a>(bit_fields: Vec<Self>) -> Result<Self> {
+        let mut ret = Self::default();
+        for bf in bit_fields.into_iter() {
+            ret.merge_assign(bf)?;
+        }
+        Ok(ret)
+    }
+}
+
+/// Matches lengths of decoded bitvecs. Bit operations on the bit vector truncates to smaller
+/// vector. This will return the otherwise ignored bits
+#[inline]
+fn match_lengths(a: &mut BitVec, b: &mut BitVec) -> BitVec {
+    if a.len() < b.len() {
+        b.split_off(a.len())
+    } else {
+        a.split_off(b.len())
+    }
 }
 
 pub(crate) fn decode_and_apply_cache(
-    bit_vec: &BitVec<Lsb0, u8>,
+    bit_vec: &BitVec,
     set: &FnvHashSet<u64>,
     unset: &FnvHashSet<u64>,
-) -> Result<BitVec<Lsb0, u8>> {
+) -> Result<BitVec> {
     let mut decoded = rleplus::decode(bit_vec)?;
 
     // Resize before setting any values
@@ -227,8 +261,8 @@ pub(crate) fn decode_and_apply_cache(
     Ok(decoded)
 }
 
-impl From<BitVec<Lsb0, u8>> for BitField {
-    fn from(b: BitVec<Lsb0, u8>) -> Self {
+impl From<BitVec> for BitField {
+    fn from(b: BitVec) -> Self {
         Self::Decoded(b)
     }
 }
