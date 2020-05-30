@@ -56,13 +56,19 @@ fn bitfield_slice_small() {
     }
 }
 
-#[test]
-fn bitfield_union() {
+fn setup_test_bitfields() -> (Vec<u64>, Vec<u64>, BitField, BitField) {
     let a = gen_random_index_set(100, 1);
     let b = gen_random_index_set(100, 2);
 
     let bf_a = BitField::new_from_set(&a);
     let bf_b = BitField::new_from_set(&b);
+
+    (a, b, bf_a, bf_b)
+}
+
+#[test]
+fn bitfield_union() {
+    let (a, b, bf_a, bf_b) = setup_test_bitfields();
 
     let mut expected: FnvHashSet<u64> = a.iter().copied().collect();
     expected.extend(b);
@@ -71,3 +77,36 @@ fn bitfield_union() {
 
     assert_eq!(expected, merged.to_all_set(100).unwrap());
 }
+
+#[test]
+fn bitfield_intersection() {
+    let (a, b, bf_a, bf_b) = setup_test_bitfields();
+
+    let hs_a: FnvHashSet<u64> = a.into_iter().collect();
+    let hs_b: FnvHashSet<u64> = b.into_iter().collect();
+    let expected: FnvHashSet<u64> = hs_a.intersection(&hs_b).copied().collect();
+
+    let mut merged = bf_a.intersect(bf_b).unwrap();
+
+    assert_eq!(expected, merged.to_all_set(100).unwrap());
+}
+
+#[test]
+fn bitfield_subtraction() {
+    let (a, b, bf_a, bf_b) = setup_test_bitfields();
+
+    let mut expected: FnvHashSet<u64> = a.into_iter().collect();
+    for i in b.iter() {
+        expected.remove(i);
+    }
+
+    let mut merged = bf_a.subtract(bf_b).unwrap();
+    assert_eq!(expected, merged.to_all_set(100).unwrap());
+}
+
+// // Ported test from go impl (specs-actors)
+// #[test]
+// fn subtract_more() {
+//     let have = BitField::new_from_set(&[5, 6, 8, 10, 11, 13, 14, 17]);
+//     // let
+// }
