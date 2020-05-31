@@ -59,10 +59,10 @@
 //! > the same encoding, given the same input.
 //!
 
-use bitvec::prelude::{BitVec, Lsb0};
+use super::BitVec;
 
 /// Encode the given bitset into their RLE+ encoded representation.
-pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
+pub fn encode(raw: &BitVec) -> BitVec {
     let mut encoding = BitVec::new();
 
     if raw.is_empty() {
@@ -97,7 +97,7 @@ pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
             } else if count < 16 {
                 // Block Short
                 // 4 bits
-                let s_vec: BitVec<Lsb0, u8> = BitVec::from(&[count as u8][..]);
+                let s_vec: BitVec = BitVec::from(&[count as u8][..]);
 
                 // prefix: 01
                 encoding.push(false);
@@ -108,7 +108,7 @@ pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
                 // Block Long
                 let mut v = [0u8; 10];
                 let s = unsigned_varint::encode::u64(count, &mut v);
-                let s_vec: BitVec<Lsb0, u8> = BitVec::from(s);
+                let s_vec: BitVec = BitVec::from(s);
 
                 // prefix: 00
                 encoding.push(false);
@@ -127,7 +127,7 @@ pub fn encode(raw: &BitVec<Lsb0, u8>) -> BitVec<Lsb0, u8> {
 }
 
 /// Decode an RLE+ encoded bitset into its original form.
-pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> {
+pub fn decode(enc: &BitVec) -> Result<BitVec, &'static str> {
     let mut decoded = BitVec::new();
 
     if enc.is_empty() {
@@ -167,7 +167,7 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> 
                             .skip(i + 2)
                             .take(10 * 8)
                             .copied()
-                            .collect::<BitVec<Lsb0, u8>>();
+                            .collect::<BitVec>();
                         let buf_ref: &[u8] = buf.as_ref();
                         let (len, rest) = unsigned_varint::decode::u64(buf_ref)
                             .map_err(|_| "Failed to decode uvarint")?;
@@ -183,12 +183,7 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> 
                     Some(true) => {
                         // Block Short
                         // prefix: 01
-                        let buf = enc
-                            .iter()
-                            .skip(i + 2)
-                            .take(4)
-                            .copied()
-                            .collect::<BitVec<Lsb0, u8>>();
+                        let buf = enc.iter().skip(i + 2).take(4).copied().collect::<BitVec>();
                         let res: Vec<u8> = buf.into();
 
                         if res.len() != 1 {
@@ -227,13 +222,14 @@ pub fn decode(enc: &BitVec<Lsb0, u8>) -> Result<BitVec<Lsb0, u8>, &'static str> 
 mod tests {
     use super::*;
 
+    use bitvec::prelude::Lsb0;
     use bitvec::*;
     use rand::{Rng, RngCore, SeedableRng};
     use rand_xorshift::XorShiftRng;
 
     #[test]
     fn test_rle_plus_basics() {
-        let cases: Vec<(BitVec<Lsb0, u8>, BitVec<Lsb0, u8>)> = vec![
+        let cases: Vec<(BitVec, BitVec)> = vec![
             (
                 bitvec![Lsb0, u8; 0; 8],
                 bitvec![Lsb0, u8;
@@ -273,7 +269,7 @@ mod tests {
             let mut src = vec![0u8; len];
             rng.fill_bytes(&mut src);
 
-            let original: BitVec<Lsb0, u8> = src.into();
+            let original: BitVec = src.into();
 
             let encoded = encode(&original);
             let decoded = decode(&encoded).unwrap();
@@ -293,7 +289,7 @@ mod tests {
             let mut src = vec![0u8; len];
             rng.fill_bytes(&mut src);
 
-            let original: BitVec<Lsb0, u8> = src.into();
+            let original: BitVec = src.into();
 
             let encoded = encode(&original);
             let decoded = decode(&encoded).unwrap();

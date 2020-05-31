@@ -73,7 +73,7 @@ fn bitfield_union() {
     let mut expected: FnvHashSet<u64> = a.iter().copied().collect();
     expected.extend(b);
 
-    let mut merged = bf_a.merge(bf_b).unwrap();
+    let mut merged = bf_a.merge(&bf_b).unwrap();
 
     assert_eq!(expected, merged.to_all_set(100).unwrap());
 }

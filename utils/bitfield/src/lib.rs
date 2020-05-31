@@ -11,6 +11,7 @@ use fnv::FnvHashSet;
 use std::iter::FromIterator;
 
 type BitVec = bitvec::prelude::BitVec<Lsb0, u8>;
+// type BitSlice = bitvec::prelude::BitSlice<Lsb0, u8>;
 
 type Result<T> = std::result::Result<T, &'static str>;
 
@@ -246,22 +247,22 @@ impl BitField {
     }
 
     /// Merges to bitfields together (equivalent of bitwise OR `|` operator)
-    pub fn merge(self, other: Self) -> Result<Self> {
-        let mut a = self.into_flushed()?;
-        let mut b = other.into_flushed()?;
-        let extra = match_lengths(&mut a, &mut b);
-        a |= b;
-        a.extend(extra);
-        Ok(Self::Decoded(a))
+    pub fn merge(mut self, other: &Self) -> Result<Self> {
+        self.merge_assign(other)?;
+        Ok(self)
     }
 
     /// Merges to bitfields into `self` (equivalent of bitwise OR `|` operator)
-    pub fn merge_assign(&mut self, other: Self) -> Result<()> {
+    pub fn merge_assign(&mut self, other: &Self) -> Result<()> {
         let a = self.as_mut_flushed()?;
-        let mut b = other.into_flushed()?;
-        let extra = match_lengths(a, &mut b);
-        *a |= b;
-        a.extend(extra);
+        match other {
+            BitField::Encoded { bv, set, unset } => {
+                let v = decode_and_apply_cache(bv, set, unset)?;
+                bit_or(a, v.into_iter())
+            }
+            BitField::Decoded(bv) => bit_or(a, bv.iter().copied()),
+        }
+
         Ok(())
     }
 
@@ -289,14 +290,14 @@ impl BitField {
         Ok(())
     }
 
-    /// Creates a bitfield which is a union of a vector of bitfields.
-    pub fn union(bit_fields: Vec<Self>) -> Result<Self> {
-        let mut ret = Self::default();
-        for bf in bit_fields.into_iter() {
-            ret.merge_assign(bf)?;
-        }
-        Ok(ret)
-    }
+    // /// Creates a bitfield which is a union of a vector of bitfields.
+    // pub fn union(bit_fields: Vec<Self>) -> Result<Self> {
+    //     let mut ret = Self::default();
+    //     for bf in bit_fields.into_iter() {
+    //         ret.merge_assign(bf)?;
+    //     }
+    //     Ok(ret)
+    // }
 
     /// Returns true if BitFields have any overlapping bits.
     pub fn contains_any(&mut self, other: &mut BitField) -> Result<bool> {
@@ -338,15 +339,19 @@ impl BitField {
     }
 }
 
-/// Matches lengths of decoded bitvecs. Bit operations on the bit vector truncates to smaller
-/// vector. This will return the otherwise ignored bits
-#[inline]
-fn match_lengths(a: &mut BitVec, b: &mut BitVec) -> BitVec {
-    if a.len() < b.len() {
-        b.split_off(a.len())
-    } else {
-        a.split_off(b.len())
+fn bit_or<I>(a: &mut BitVec, mut b: I)
+where
+    I: Iterator<Item = bool>,
+{
+    for mut a_i in a.iter_mut() {
+        match b.next() {
+            Some(true) => *a_i = true,
+            Some(false) => (),
+            None => return,
+        }
     }
+
+    a.extend(b);
 }
 
 pub(crate) fn decode_and_apply_cache(
@@ -383,8 +388,8 @@ impl From<BitVec> for BitField {
 impl BitOr for BitField {
     type Output = Self;
 
-    fn bitor(self, rhs: Self) -> Self {
-        self.merge(rhs).unwrap()
+    fn bitor(self, mut rhs: Self) -> Self {
+        self.merge(&mut rhs).unwrap()
     }
 }
 
