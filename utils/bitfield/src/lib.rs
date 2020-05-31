@@ -11,8 +11,6 @@ use fnv::FnvHashSet;
 use std::iter::FromIterator;
 
 type BitVec = bitvec::prelude::BitVec<Lsb0, u8>;
-// type BitSlice = bitvec::prelude::BitSlice<Lsb0, u8>;
-
 type Result<T> = std::result::Result<T, &'static str>;
 
 /// Represents a bitfield to track bits set at indexes in the range of `u64`.
@@ -311,12 +309,12 @@ impl BitField {
 
     /// Returns true if BitFields have any overlapping bits.
     pub fn contains_any(&mut self, other: &mut BitField) -> Result<bool> {
-        for (a, b) in self
+        for (&a, &b) in self
             .as_mut_flushed()?
             .iter()
             .zip(other.as_mut_flushed()?.iter())
         {
-            if a == b {
+            if a && b {
                 return Ok(true);
             }
         }
@@ -389,6 +387,12 @@ pub(crate) fn decode_and_apply_cache(
     Ok(decoded)
 }
 
+impl AsRef<BitField> for BitField {
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
 impl From<BitVec> for BitField {
     fn from(b: BitVec) -> Self {
         Self::Decoded(b)
@@ -401,6 +405,7 @@ where
 {
     type Output = Self;
 
+    #[inline]
     fn bitor(self, rhs: B) -> Self {
         self.merge(rhs.as_ref()).unwrap()
     }
@@ -410,6 +415,7 @@ impl<B> BitOrAssign<B> for BitField
 where
     B: AsRef<Self>,
 {
+    #[inline]
     fn bitor_assign(&mut self, rhs: B) {
         self.merge_assign(rhs.as_ref()).unwrap()
     }
@@ -420,6 +426,8 @@ where
     B: AsRef<Self>,
 {
     type Output = Self;
+
+    #[inline]
     fn bitand(self, rhs: B) -> Self::Output {
         self.intersect(rhs.as_ref()).unwrap()
     }
@@ -429,6 +437,7 @@ impl<B> BitAndAssign<B> for BitField
 where
     B: AsRef<Self>,
 {
+    #[inline]
     fn bitand_assign(&mut self, rhs: B) {
         self.intersect_assign(rhs.as_ref()).unwrap()
     }
@@ -437,6 +446,7 @@ where
 impl Not for BitField {
     type Output = Self;
 
+    #[inline]
     fn not(self) -> Self::Output {
         Self::Decoded(!self.into_flushed().unwrap())
     }

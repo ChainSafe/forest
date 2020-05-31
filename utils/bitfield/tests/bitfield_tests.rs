@@ -119,3 +119,68 @@ fn subtract_more() {
     let mut u = BitField::union(&[s1, s2, s3, s4]).unwrap();
     assert_eq!(u.count().unwrap(), 0);
 }
+
+#[test]
+fn contains_any() {
+    assert_eq!(
+        BitField::new_from_set(&[0, 4])
+            .contains_any(&mut BitField::new_from_set(&[1, 3, 5]))
+            .unwrap(),
+        false
+    );
+
+    assert_eq!(
+        BitField::new_from_set(&[0, 2, 5, 6])
+            .contains_any(&mut BitField::new_from_set(&[1, 3, 5]))
+            .unwrap(),
+        true
+    );
+}
+
+#[test]
+fn contains_all() {
+    assert_eq!(
+        BitField::new_from_set(&[0, 2, 4])
+            .contains_all(&mut BitField::new_from_set(&[0, 2, 4, 5]))
+            .unwrap(),
+        false
+    );
+
+    assert_eq!(
+        BitField::new_from_set(&[0, 2, 4, 5])
+            .contains_all(&mut BitField::new_from_set(&[0, 2, 4]))
+            .unwrap(),
+        false
+    );
+
+    assert_eq!(
+        BitField::new_from_set(&[1, 2, 3])
+            .contains_any(&mut BitField::new_from_set(&[1, 2, 3]))
+            .unwrap(),
+        true
+    );
+}
+
+#[test]
+fn bit_ops() {
+    let mut a = BitField::new_from_set(&[1, 2, 3]) & BitField::new_from_set(&[1, 3, 4]);
+    assert_eq!(a.to_all(5).unwrap(), &[1, 3]);
+
+    let mut a = BitField::new_from_set(&[1, 2, 3]);
+    a &= BitField::new_from_set(&[1, 3, 4]);
+    assert_eq!(a.to_all(5).unwrap(), &[1, 3]);
+
+    let mut a = BitField::new_from_set(&[1, 2, 3]) | BitField::new_from_set(&[1, 3, 4]);
+    assert_eq!(a.to_all(5).unwrap(), &[1, 2, 3, 4]);
+
+    let mut a = BitField::new_from_set(&[1, 2, 3]);
+    a |= BitField::new_from_set(&[1, 3, 4]);
+    assert_eq!(a.to_all(5).unwrap(), &[1, 2, 3, 4]);
+
+    assert_eq!(
+        (!BitField::from(bitvec![Lsb0, u8; 1, 0, 1, 0]))
+            .to_all(5)
+            .unwrap(),
+        &[1, 3]
+    );
+}
