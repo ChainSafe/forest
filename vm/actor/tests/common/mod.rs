@@ -125,6 +125,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         assert!(addr.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
     }
+    pub fn expect_validate_caller_type(&self, ids: &[Cid]) {
+        assert!(ids.len() > 0, "addrs must be non-empty");
+        *self.expect_validate_caller_type.borrow_mut() = Some(ids.to_vec());
+    }
 
     #[allow(dead_code)]
     pub fn expect_validate_caller_any(&self) {
@@ -368,8 +372,13 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
         self.require_in_call();
-        let ret = self.actor_code_cids.get(&addr).unwrap();
-        Ok(ret.clone())
+        if let Some(ret) = self.actor_code_cids.get(&addr) {
+            return Ok(ret.clone());
+        }
+        Err(ActorError::new(
+            ExitCode::ErrIllegalArgument,
+            "Actor address is not found".to_string(),
+        ))
     }
 
     fn get_randomness(

@@ -349,6 +349,10 @@ impl ActorCode for Actor {
                 Self::collect(rt)?;
                 Ok(Serialized::default())
             }
+            Some(Method::UpdateChannelState) => {
+                Self::update_channel_state(rt, params.deserialize().unwrap())?;
+                Ok(Serialized::default())
+            }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }
