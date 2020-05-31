@@ -6,7 +6,11 @@ use address::Address;
 use beacon::{self, Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::{signature::{self, opt_signature_json}, Signature, VRFProof, vrf::opt_vrf_json};
+use crypto::{
+    signature::{self, opt_signature_json},
+    vrf::opt_vrf_json,
+    Signature, VRFProof,
+};
 use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
@@ -14,12 +18,12 @@ use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
     BigUint,
 };
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
@@ -203,9 +207,9 @@ impl<'de> Deserialize<'de> for BlockHeader {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use crate::ticket;
     use num_bigint::biguint_ser;
-    use serde::{de,Serialize, Deserialize};
-    use crate::{ticket};
+    use serde::{de, Deserialize, Serialize};
     //use beacon::json;
 
     // Wrapper for serializing and deserializing a BlockHeader from JSON.
@@ -218,27 +222,21 @@ pub mod json {
     // #[serde(transparent)]
     // pub struct BlockHeaderJsonRef<'a>(#[serde(with = "self")] pub &'a BlockHeader);
 
-
-      
-
-
-    pub fn serialize<S>(m: & BlockHeader, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(m: &BlockHeader, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        #[derive(Serialize )]
-        struct BlockHeaderSer <'a> {
+        #[derive(Serialize)]
+        struct BlockHeaderSer<'a> {
             #[serde(rename = "Miner")]
-            miner:  &'a String,
+            miner: &'a String,
             #[serde(rename = "Ticket", with = "ticket::json")]
-            ticket : &'a Ticket,
-            
+            ticket: &'a Ticket,
             #[serde(rename = "ElectionProof", with = "opt_vrf_json")]
-            election_proof : &'a Option<VRFProof>,
+            election_proof: &'a Option<VRFProof>,
 
-            // #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json")]
-            // beacon_entries : BeaconEntry,
-            
+            #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json::vec")]
+            beacon_entries: &'a [BeaconEntry],
             // #[serde(default)]
             // #[serde(rename = "WinPostProof",  serialize_with  = "fil_types::sector::post::json::serialize" )]
             // win_post_proof : Vec<PoStProof>,
@@ -246,41 +244,41 @@ pub mod json {
             // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
             // parents : &'a TipsetKeys,
             #[serde(rename = "ParentWeight")]
-            weight : &'a String,
+            weight: &'a String,
             #[serde(rename = "Height")]
-            height :  &'a u64,
-            #[serde(rename = "ParentStateRoot", with  = "cid::json")]
-            state_root:  &'a Cid,
-            #[serde(rename = "ParentMessageReceipts", with  = "cid::json")]
+            height: &'a u64,
+            #[serde(rename = "ParentStateRoot", with = "cid::json")]
+            state_root: &'a Cid,
+            #[serde(rename = "ParentMessageReceipts", with = "cid::json")]
             message_receipts: &'a Cid,
-            #[serde(rename = "Messages", with  = "cid::json")]
+            #[serde(rename = "Messages", with = "cid::json")]
             messages: &'a Cid,
             #[serde(rename = "BLSAggregate", with = "opt_signature_json")]
-            bls_aggregate : &'a Option<Signature>,
+            bls_aggregate: &'a Option<Signature>,
             #[serde(rename = "Timestamp")]
-            timestamp : &'a u64,
+            timestamp: &'a u64,
             #[serde(rename = "BlockSig", with = "opt_signature_json")]
-            signature : &'a Option<Signature>,
+            signature: &'a Option<Signature>,
             #[serde(rename = "ForkSignaling")]
-            fork_signal : &'a u64
+            fork_signal: &'a u64,
         }
 
         BlockHeaderSer {
             miner: &m.miner_address.to_string(),
             ticket: &m.ticket,
-            election_proof : &m.election_proof,
+            election_proof: &m.election_proof,
             //win_post_proof : m.win_post_proof,
             //parents: &m.parents,
-            weight : &m.weight.to_str_radix(10),
-            height : &m.epoch,
-            state_root : &m.state_root,
-            message_receipts : &m.message_receipts,
-            messages : &m.messages,
-            bls_aggregate : &m.bls_aggregate,
-            timestamp : &m.timestamp,
-            //beacon_entries : m.beacon_entries().last()
-            signature : &m.signature,
-            fork_signal : &m.fork_signal,
+            weight: &m.weight.to_str_radix(10),
+            height: &m.epoch,
+            state_root: &m.state_root,
+            message_receipts: &m.message_receipts,
+            messages: &m.messages,
+            bls_aggregate: &m.bls_aggregate,
+            timestamp: &m.timestamp,
+            beacon_entries: m.beacon_entries(),
+            signature: &m.signature,
+            fork_signal: &m.fork_signal,
         }
         .serialize(serializer)
     }
@@ -289,47 +287,51 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Serialize, Deserialize )]
-        struct BlockHeaderDe  {
+        #[derive(Serialize, Deserialize)]
+        struct BlockHeaderDe {
             #[serde(rename = "Miner")]
-            miner:  String,
+            miner: String,
             #[serde(rename = "Ticket", with = "ticket::json")]
-            ticket : Ticket,
+            ticket: Ticket,
             #[serde(default, rename = "ElectionProof", with = "opt_vrf_json")]
-            election_proof : Option<VRFProof>,
+            election_proof: Option<VRFProof>,
 
             // #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json")]
             // beacon_entries : BeaconEntry,
-            
             // #[serde(rename = "WinPostProof",  deserialize_with  = "fil_types::sector::post::json::deserialize" )]
             // win_post_proof : Vec<PoStProof>,
 
             // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
             // parents : TipsetKeys,
             #[serde(rename = "ParentWeight")]
-            weight :  String,
+            weight: String,
             #[serde(rename = "Height")]
-            height :  u64,
-            #[serde(rename = "ParentStateRoot", deserialize_with  = "cid::json::deserialize")]
-            state_root:  Cid,
-            #[serde(rename = "ParentMessageReceipts", deserialize_with  = "cid::json::deserialize")]
+            height: u64,
+            #[serde(
+                rename = "ParentStateRoot",
+                deserialize_with = "cid::json::deserialize"
+            )]
+            state_root: Cid,
+            #[serde(
+                rename = "ParentMessageReceipts",
+                deserialize_with = "cid::json::deserialize"
+            )]
             message_receipts: Cid,
-            #[serde(rename = "Messages", deserialize_with  = "cid::json::deserialize")]
-            messages:  Cid,
+            #[serde(rename = "Messages", deserialize_with = "cid::json::deserialize")]
+            messages: Cid,
             #[serde(rename = "BLSAggregate", with = "opt_signature_json")]
-            bls_aggregate :  Option<Signature>,
+            bls_aggregate: Option<Signature>,
             #[serde(rename = "Timestamp")]
-            timestamp : u64,
+            timestamp: u64,
             #[serde(rename = "BlockSig", with = "opt_signature_json")]
-            signature :  Option<Signature>,
+            signature: Option<Signature>,
             #[serde(rename = "ForkSignaling")]
-            fork_signal :  u64
+            fork_signal: u64,
         }
 
-        let v : BlockHeaderDe   = Deserialize::deserialize(deserializer) ?; 
-        
-        Ok(
-            BlockHeader::builder()
+        let v: BlockHeaderDe = Deserialize::deserialize(deserializer)?;
+
+        Ok(BlockHeader::builder()
             .miner_address(v.miner.parse::<Address>().unwrap())
             .ticket(v.ticket)
             .epoch(v.height)
@@ -340,12 +342,8 @@ pub mod json {
             .timestamp(v.timestamp)
             .fork_signal(v.fork_signal)
             .build_and_validate()
-            .unwrap()
-        )
-       
+            .unwrap())
     }
-
-   
 }
 
 impl Ord for BlockHeader {

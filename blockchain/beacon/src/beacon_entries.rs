@@ -52,18 +52,17 @@ impl<'de> Deserialize<'de> for BeaconEntry {
     }
 }
 
-//#[cfg(feature = "json")]
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-        /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct BeaconEntryJson(#[serde(with = "self")] pub BeaconEntry);
-    
-        /// Wrapper for serializing a SignedMessage reference to JSON.
+
+    /// Wrapper for serializing a SignedMessage reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct BeaconEntryJsonRef<'a>(#[serde(with = "self")] pub &'a BeaconEntry);
@@ -73,7 +72,7 @@ pub mod json {
         #[serde(rename = "Round")]
         round: u64,
         #[serde(rename = "Data")]
-        data: String
+        data: String,
     }
 
     pub fn serialize<S>(m: &BeaconEntry, serializer: S) -> Result<S::Ok, S::Error>
@@ -82,7 +81,7 @@ pub mod json {
     {
         JsonHelper {
             round: m.round,
-            data:  base64::encode(&m.data)
+            data: base64::encode(&m.data),
         }
         .serialize(serializer)
     }
@@ -92,12 +91,64 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        Ok(BeaconEntry{
+        Ok(BeaconEntry {
             round: m.round,
-            data : base64::decode(m.data).unwrap()
+            data: base64::decode(m.data).unwrap(),
         })
     }
 
+    pub mod vec {
+        use super::*;
+        use serde::de::{SeqAccess, Visitor};
+        use serde::ser::SerializeSeq;
+        use std::fmt;
 
+        pub fn serialize<S>(m: &[BeaconEntry], serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            if m.is_empty() {
+                None::<()>.serialize(serializer)
+            } else {
+                let mut seq = serializer.serialize_seq(Some(m.len()))?;
+                for e in m {
+                    seq.serialize_element(&BeaconEntryJsonRef(e))?;
+                }
+                seq.end()
+            }
+        }
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<BeaconEntry>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            struct BeaconEntryVisitor;
+
+            impl<'de> Visitor<'de> for BeaconEntryVisitor {
+                type Value = Vec<BeaconEntry>;
+
+                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    formatter.write_str("A vector of beaconentries")
+                }
+
+                fn visit_seq<A>(self, mut seq: A) -> Result<Vec<BeaconEntry>, A::Error>
+                where
+                    A: SeqAccess<'de>,
+                {
+                    let mut vec = Vec::new();
+                    while let Some(elem) = seq.next_element::<BeaconEntryJson>()? {
+                        vec.push(elem.0);
+                    }
+                    Ok(vec)
+                }
+                fn visit_none<E>(self) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+                {
+                    Ok(Vec::new())
+                }
+            }
+
+            deserializer.deserialize_seq(BeaconEntryVisitor)
+        }
+    }
 }
-
