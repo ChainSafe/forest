@@ -144,12 +144,12 @@ impl BitField {
     }
 
     /// Returns a vector of indexes of all set bits
-    pub fn to_all(&mut self, max: usize) -> Result<Vec<u64>> {
+    pub fn all(&mut self, max: usize) -> Result<Vec<u64>> {
         self.retrieve_set_indexes(max)
     }
 
     /// Returns a Hash set of indexes of all set bits
-    pub fn to_all_set(&mut self, max: usize) -> Result<FnvHashSet<u64>> {
+    pub fn all_set(&mut self, max: usize) -> Result<FnvHashSet<u64>> {
         self.retrieve_set_indexes(max)
     }
 
@@ -166,7 +166,7 @@ impl BitField {
 
     /// Returns a slice of the bitfield with the start index of set bits
     /// and number of bits to include in slice.
-    pub fn to_slice(&mut self, start: u64, count: u64) -> Result<BitField> {
+    pub fn slice(&mut self, start: u64, count: u64) -> Result<BitField> {
         if count == 0 {
             return Ok(BitField::default());
         }

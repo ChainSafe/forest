@@ -25,8 +25,8 @@ fn bitfield_slice() {
 
     let mut bf = BitField::new_from_set(&vals);
 
-    let mut slice = bf.to_slice(600, 500).unwrap();
-    let out_vals = slice.to_all(10000).unwrap();
+    let mut slice = bf.slice(600, 500).unwrap();
+    let out_vals = slice.all(10000).unwrap();
     let expected_slice = &vals[600..1100];
 
     assert_eq!(out_vals[..500], expected_slice[..500]);
@@ -35,19 +35,19 @@ fn bitfield_slice() {
 #[test]
 fn bitfield_slice_small() {
     let mut bf = BitField::from(bitvec![Lsb0, u8; 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0]);
-    let mut slice = bf.to_slice(1, 3).unwrap();
+    let mut slice = bf.slice(1, 3).unwrap();
 
     assert_eq!(slice.count().unwrap(), 3);
-    assert_eq!(slice.to_all(10).unwrap(), &[4, 7, 9]);
+    assert_eq!(slice.all(10).unwrap(), &[4, 7, 9]);
 
     // Test all combinations
     let vals = [1, 5, 6, 7, 10, 11, 12, 15];
 
     let test_permutations = |start, count: usize| {
         let mut bf = BitField::new_from_set(&vals);
-        let mut sl = bf.to_slice(start as u64, count as u64).unwrap();
+        let mut sl = bf.slice(start as u64, count as u64).unwrap();
         let exp = &vals[start..start + count];
-        let out = sl.to_all(10000).unwrap();
+        let out = sl.all(10000).unwrap();
         assert_eq!(out, exp);
     };
 
@@ -78,7 +78,7 @@ fn bitfield_union() {
 
     let mut merged = bf_a.merge(&bf_b).unwrap();
 
-    assert_eq!(expected, merged.to_all_set(100).unwrap());
+    assert_eq!(expected, merged.all_set(100).unwrap());
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn bitfield_intersection() {
 
     let mut merged = bf_a.intersect(&bf_b).unwrap();
 
-    assert_eq!(expected, merged.to_all_set(100).unwrap());
+    assert_eq!(expected, merged.all_set(100).unwrap());
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn bitfield_subtraction() {
     }
 
     let mut merged = bf_a.subtract(&bf_b).unwrap();
-    assert_eq!(expected, merged.to_all_set(100).unwrap());
+    assert_eq!(expected, merged.all_set(100).unwrap());
 }
 
 // Ported test from go impl (specs-actors)
@@ -164,22 +164,22 @@ fn contains_all() {
 #[test]
 fn bit_ops() {
     let mut a = BitField::new_from_set(&[1, 2, 3]) & BitField::new_from_set(&[1, 3, 4]);
-    assert_eq!(a.to_all(5).unwrap(), &[1, 3]);
+    assert_eq!(a.all(5).unwrap(), &[1, 3]);
 
     let mut a = BitField::new_from_set(&[1, 2, 3]);
     a &= BitField::new_from_set(&[1, 3, 4]);
-    assert_eq!(a.to_all(5).unwrap(), &[1, 3]);
+    assert_eq!(a.all(5).unwrap(), &[1, 3]);
 
     let mut a = BitField::new_from_set(&[1, 2, 3]) | BitField::new_from_set(&[1, 3, 4]);
-    assert_eq!(a.to_all(5).unwrap(), &[1, 2, 3, 4]);
+    assert_eq!(a.all(5).unwrap(), &[1, 2, 3, 4]);
 
     let mut a = BitField::new_from_set(&[1, 2, 3]);
     a |= BitField::new_from_set(&[1, 3, 4]);
-    assert_eq!(a.to_all(5).unwrap(), &[1, 2, 3, 4]);
+    assert_eq!(a.all(5).unwrap(), &[1, 2, 3, 4]);
 
     assert_eq!(
         (!BitField::from(bitvec![Lsb0, u8; 1, 0, 1, 0]))
-            .to_all(5)
+            .all(5)
             .unwrap(),
         &[1, 3]
     );
