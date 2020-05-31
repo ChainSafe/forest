@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use bitfield::*;
 use bitvec::*;
 use fnv::FnvHashSet;
@@ -86,7 +89,7 @@ fn bitfield_intersection() {
     let hs_b: FnvHashSet<u64> = b.into_iter().collect();
     let expected: FnvHashSet<u64> = hs_a.intersection(&hs_b).copied().collect();
 
-    let mut merged = bf_a.intersect(bf_b).unwrap();
+    let mut merged = bf_a.intersect(&bf_b).unwrap();
 
     assert_eq!(expected, merged.to_all_set(100).unwrap());
 }
@@ -100,13 +103,19 @@ fn bitfield_subtraction() {
         expected.remove(i);
     }
 
-    let mut merged = bf_a.subtract(bf_b).unwrap();
+    let mut merged = bf_a.subtract(&bf_b).unwrap();
     assert_eq!(expected, merged.to_all_set(100).unwrap());
 }
 
-// // Ported test from go impl (specs-actors)
-// #[test]
-// fn subtract_more() {
-//     let have = BitField::new_from_set(&[5, 6, 8, 10, 11, 13, 14, 17]);
-//     // let
-// }
+// Ported test from go impl (specs-actors)
+#[test]
+fn subtract_more() {
+    let have = BitField::new_from_set(&[5, 6, 8, 10, 11, 13, 14, 17]);
+    let s1 = BitField::new_from_set(&[5, 6]).subtract(&have).unwrap();
+    let s2 = BitField::new_from_set(&[8, 10]).subtract(&have).unwrap();
+    let s3 = BitField::new_from_set(&[11, 13]).subtract(&have).unwrap();
+    let s4 = BitField::new_from_set(&[14, 17]).subtract(&have).unwrap();
+
+    let mut u = BitField::union(&[s1, s2, s3, s4]).unwrap();
+    assert_eq!(u.count().unwrap(), 0);
+}

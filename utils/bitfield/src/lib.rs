@@ -6,7 +6,7 @@ pub mod rleplus;
 pub use bitvec;
 
 use bitvec::prelude::Lsb0;
-use core::ops::{BitAnd, BitOr, Not};
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use fnv::FnvHashSet;
 use std::iter::FromIterator;
 
@@ -267,37 +267,47 @@ impl BitField {
     }
 
     /// Intersection of two bitfields (equivalent of bit AND `&`)
-    pub fn intersect(self, other: Self) -> Result<Self> {
-        Ok(Self::Decoded(self.into_flushed()? & other.into_flushed()?))
+    pub fn intersect(mut self, other: &Self) -> Result<Self> {
+        self.intersect_assign(other)?;
+        Ok(self)
     }
 
     /// Intersection of two bitfields and assigns to self (equivalent of bit AND `&`)
-    pub fn intersect_assign(&mut self, other: Self) -> Result<()> {
-        *self.as_mut_flushed()? &= other.into_flushed()?;
+    pub fn intersect_assign(&mut self, other: &Self) -> Result<()> {
+        match other {
+            BitField::Encoded { bv, set, unset } => {
+                *self.as_mut_flushed()? &= decode_and_apply_cache(bv, set, unset)?
+            }
+            BitField::Decoded(bv) => *self.as_mut_flushed()? &= bv.iter().copied(),
+        }
         Ok(())
     }
 
     /// Subtract other bitfield from self (equivalent of `a & !b`)
-    pub fn subtract(self, other: Self) -> Result<Self> {
-        Ok(Self::Decoded(
-            self.into_flushed()? & (!other.into_flushed()?),
-        ))
+    pub fn subtract(mut self, other: &Self) -> Result<Self> {
+        self.subtract_assign(other)?;
+        Ok(self)
     }
 
     /// Subtract other bitfield from self (equivalent of `a & !b`)
-    pub fn subtract_assign(&mut self, other: Self) -> Result<()> {
-        *self.as_mut_flushed()? &= !other.into_flushed()?;
+    pub fn subtract_assign(&mut self, other: &Self) -> Result<()> {
+        match other {
+            BitField::Encoded { bv, set, unset } => {
+                *self.as_mut_flushed()? &= !decode_and_apply_cache(bv, set, unset)?
+            }
+            BitField::Decoded(bv) => *self.as_mut_flushed()? &= bv.iter().copied().map(|b| !b),
+        }
         Ok(())
     }
 
-    // /// Creates a bitfield which is a union of a vector of bitfields.
-    // pub fn union(bit_fields: Vec<Self>) -> Result<Self> {
-    //     let mut ret = Self::default();
-    //     for bf in bit_fields.into_iter() {
-    //         ret.merge_assign(bf)?;
-    //     }
-    //     Ok(ret)
-    // }
+    /// Creates a bitfield which is a union of a vector of bitfields.
+    pub fn union(bit_fields: &[Self]) -> Result<Self> {
+        let mut ret = Self::default();
+        for bf in bit_fields.iter() {
+            ret.merge_assign(bf)?;
+        }
+        Ok(ret)
+    }
 
     /// Returns true if BitFields have any overlapping bits.
     pub fn contains_any(&mut self, other: &mut BitField) -> Result<bool> {
@@ -385,19 +395,42 @@ impl From<BitVec> for BitField {
     }
 }
 
-impl BitOr for BitField {
+impl<B> BitOr<B> for BitField
+where
+    B: AsRef<Self>,
+{
     type Output = Self;
 
-    fn bitor(self, mut rhs: Self) -> Self {
-        self.merge(&mut rhs).unwrap()
+    fn bitor(self, rhs: B) -> Self {
+        self.merge(rhs.as_ref()).unwrap()
     }
 }
 
-impl BitAnd for BitField {
-    type Output = Self;
+impl<B> BitOrAssign<B> for BitField
+where
+    B: AsRef<Self>,
+{
+    fn bitor_assign(&mut self, rhs: B) {
+        self.merge_assign(rhs.as_ref()).unwrap()
+    }
+}
 
-    fn bitand(self, rhs: Self) -> Self::Output {
-        self.intersect(rhs).unwrap()
+impl<B> BitAnd<B> for BitField
+where
+    B: AsRef<Self>,
+{
+    type Output = Self;
+    fn bitand(self, rhs: B) -> Self::Output {
+        self.intersect(rhs.as_ref()).unwrap()
+    }
+}
+
+impl<B> BitAndAssign<B> for BitField
+where
+    B: AsRef<Self>,
+{
+    fn bitand_assign(&mut self, rhs: B) {
+        self.intersect_assign(rhs.as_ref()).unwrap()
     }
 }
 
