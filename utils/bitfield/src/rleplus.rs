@@ -156,18 +156,14 @@ pub fn decode(enc: &BitVec) -> Result<BitVec, &'static str> {
         // read the next prefix
         match enc.get(i).unwrap() {
             false => {
+                let enc_iter = enc.iter().skip(i + 2);
                 // multiple bits
                 match enc.get(i + 1) {
                     Some(false) => {
                         // Block Long
                         // prefix: 00
 
-                        let buf = enc
-                            .iter()
-                            .skip(i + 2)
-                            .take(10 * 8)
-                            .copied()
-                            .collect::<BitVec>();
+                        let buf = enc_iter.take(10 * 8).copied().collect::<BitVec>();
                         let buf_ref: &[u8] = buf.as_ref();
                         let (len, rest) = unsigned_varint::decode::u64(buf_ref)
                             .map_err(|_| "Failed to decode uvarint")?;
@@ -183,7 +179,7 @@ pub fn decode(enc: &BitVec) -> Result<BitVec, &'static str> {
                     Some(true) => {
                         // Block Short
                         // prefix: 01
-                        let buf = enc.iter().skip(i + 2).take(4).copied().collect::<BitVec>();
+                        let buf = enc_iter.take(4).copied().collect::<BitVec>();
                         let res: Vec<u8> = buf.into();
 
                         if res.len() != 1 {
@@ -205,7 +201,7 @@ pub fn decode(enc: &BitVec) -> Result<BitVec, &'static str> {
                 }
             }
             true => {
-                // Block Signle
+                // Block Single
                 decoded.push(cur);
                 i += 1;
             }

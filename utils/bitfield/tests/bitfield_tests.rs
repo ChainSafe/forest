@@ -10,12 +10,7 @@ use rand_xorshift::XorShiftRng;
 fn gen_random_index_set(range: u64, seed: u8) -> Vec<u64> {
     let mut rng = XorShiftRng::from_seed([seed; 16]);
 
-    let mut ret = Vec::new();
-    for i in 0..range {
-        if rng.gen::<bool>() {
-            ret.push(i);
-        }
-    }
+    let ret = (0..range).filter(|_| rng.gen::<bool>()).collect();
     ret
 }
 
