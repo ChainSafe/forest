@@ -148,7 +148,7 @@ pub mod json {
                 }
             }
 
-            deserializer.deserialize_seq(BeaconEntryVisitor)
+            deserializer.deserialize_any(BeaconEntryVisitor)
         }
     }
 }

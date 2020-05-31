@@ -237,6 +237,7 @@ pub mod json {
 
             #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json::vec")]
             beacon_entries: &'a [BeaconEntry],
+
             // #[serde(default)]
             // #[serde(rename = "WinPostProof",  serialize_with  = "fil_types::sector::post::json::serialize" )]
             // win_post_proof : Vec<PoStProof>,
