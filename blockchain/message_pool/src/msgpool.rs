@@ -20,6 +20,7 @@ use vm::ActorState;
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
+#[derive(Clone)]
 struct MsgSet {
     msgs: HashMap<u64, SignedMessage>,
     next_nonce: u64,
@@ -49,7 +50,7 @@ impl MsgSet {
                 let gas_price = exms.message().gas_price();
                 let replace_by_fee_ratio: f32 = 1.25;
                 let rbf_num =
-                    BigUint::from(((replace_by_fee_ratio - 1 as f32) * 256 as f32) as u64);
+                    BigUint::from(((replace_by_fee_ratio - 1_f32) * 256_f32) as u64);
                 let rbf_denom = BigUint::from(256 as u64);
                 let min_price = gas_price.clone() + (gas_price / &rbf_num) + rbf_denom;
                 if m.message().gas_price() <= &min_price {
@@ -112,7 +113,7 @@ where
     /// at. Return ActorState or Error depending on whether or not ActorState is found
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
-            .map_err(|err| Error::Other(err))?;
+            .map_err(Error::Other)?;
         //TODO need to have this error be an Error::Other from state_manager errs
         let actor = state.get_actor(addr).map_err(Error::Other)?;
         match actor {
@@ -175,6 +176,8 @@ struct MessagePool<DB> {
     network_name: String,
     bls_sig_cache: LruCache<Cid, Signature>,
     sig_val_cache: LruCache<String, ()>,
+    // this will be a hashmap where the key is msg.cid.bytes.to_string and the value is a byte vec
+    local_msgs: HashMap<String, Vec<u8>>
 }
 
 impl<DB> MessagePool<DB>
@@ -190,6 +193,10 @@ where
         // LruCache sizes have been taken from the lotus implementation
         let bls_sig_cache = LruCache::new(40000);
         let sig_val_cache = LruCache::new(32000);
+        // TODO take in the local_msgs hashmap as a param and just apply a standard key
+        // prefix to it
+        let local_msgs = HashMap::new();
+
         MessagePool {
             local_addrs: HashMap::new(),
             pending: HashMap::new(),
@@ -200,6 +207,7 @@ where
             network_name,
             bls_sig_cache,
             sig_val_cache,
+            local_msgs,
         }
     }
 
@@ -208,7 +216,7 @@ where
         // TODO will be used to addlocal which still needs to be implemented
         let msg_serial = msg
             .marshal_cbor()
-            .map_err(|err| return Error::Other(err.to_string()))?;
+            .map_err(|err| Error::Other(err.to_string()))?;
         self.add(msg)?;
         // TODO do pubsub publish with mp.netName and msg_serial
         msg.cid().map_err(|err| Error::Other(err.to_string()))
@@ -219,7 +227,7 @@ where
     fn add(&mut self, msg: &SignedMessage) -> Result<(), Error> {
         let size = msg
             .marshal_cbor()
-            .map_err(|err| return Error::Other(err.to_string()))?
+            .map_err(|err| Error::Other(err.to_string()))?
             .len();
         if size > 32 * 1024 {
             return Err(Error::MessageTooBig);
@@ -262,7 +270,7 @@ where
         let sck = self.sig_cache_key(msg)?;
         let is_verif = self.sig_val_cache.get(&sck);
         match is_verif {
-            Some(()) => return Ok(()),
+            Some(()) => Ok(()),
             None => {
                 let verif = msg
                     .signature()
@@ -325,28 +333,163 @@ where
         Ok(())
     }
 
+    /// TODO uncomment the code for this function when subscribe new head changes has been implemented
+    fn get_nonce(&self, addr: &Address) -> Result<u64, Error> {
+        // self.get_nonce_locked(addr, self.cur_tipset)
+        unimplemented!()
+    }
+
+    fn get_nonce_locked(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
+        let state_nonce = self.get_state_nonce(addr, cur_ts)?;
+
+        let mset = self.pending.get(addr).unwrap();
+        if state_nonce > mset.next_nonce {
+            // state nonce is larger than mset.next_nonce
+            return Ok(state_nonce);
+        }
+        Ok(mset.next_nonce)
+    }
+
     /// Get the state of the base_nonce for a given address in cur_ts
     fn get_state_nonce(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         let actor = self.api.state_get_actor(&addr, cur_ts)?;
 
-        let base_nonce = actor.sequence;
+        let mut base_nonce = actor.sequence;
 
-        // TODO will need to chang e this to set cur_ts to chain.head
-        // will implement this once we have subscribe to head change done
-        // let msgs = self.api.messages_for_tipset(cur_ts).unwrap();
-
-        // TODO will need to call messages_for_tipset after it is implemented
-        // and iterate over the messages, and check whether or not the from
-        // addr from each message equals addr, if it is not throw error, otherwise
-        // increase base_nonce by 1 and then after loop termpinates return base_nonce
-
+        // TODO here lotus has a todo, so I guess we should eventually remove cur_ts from one
+        // of the params for this method and just use the chain head
+        let msgs = self.api.messages_for_tipset(cur_ts)?;
+        for m in msgs {
+            if m.from() == addr {
+                return Err(Error::Other("thipset has bad nonce ordering".to_string()))
+            }
+            base_nonce += 1;
+        }
         Ok(base_nonce)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error
-    fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
+    fn get_state_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
         let actor = self.api.state_get_actor(&addr, &ts)?;
-        return Ok(BigInt::from(actor.balance));
+        Ok(BigInt::from(actor.balance))
+    }
+
+    /// TODO this will need to be completed when state_account_key is implemented
+    fn push_with_nonce(&self) { unimplemented!()}
+
+    /// TODO need to add publish to the end of this once a way to publish has been figured out
+    fn remove(&mut self, from: &Address, sequence: u64) -> Result<(), Error> {
+        let mset = self.pending.get_mut(from).unwrap();
+        // TODO will use this to publish the removal of this message once implemented
+        // let m = mset.msgs.get(&sequence).unwrap();
+        mset.msgs.remove(&sequence);
+
+        if mset.msgs.len() == 0 {
+            self.pending.remove(from);
+        } else {
+            let mut max_sequence: u64 = 0;
+            for sequence_temp in mset.msgs.keys().cloned() {
+                if max_sequence < sequence_temp {
+                    max_sequence = sequence_temp;
+                }
+            }
+            if max_sequence < sequence {
+                max_sequence = sequence;
+            }
+            mset.next_nonce = max_sequence + 1;
+        }
+        Ok(())
+    }
+
+    /// TODO need to see if after this function is run, clear out the pending field in self
+    fn pending(&self) -> Result<Vec<SignedMessage>, Tipset> {
+        let mut out: Vec<SignedMessage> = Vec::new();
+        for (addr, _) in self.pending.clone() {
+            out.append(self.pending_for(&addr).unwrap().as_mut())
+        }
+        Ok(out)
+    }
+
+    fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
+        let mset = self.pending.get(a);
+        match mset {
+            Some(msgset) => {
+                if msgset.msgs.is_empty() {
+                    return None;
+                }
+
+                let mut msg_vec = Vec::new();
+
+                for (_, item) in msgset.msgs.clone() {
+                    msg_vec.push(item);
+                }
+
+                msg_vec.sort_by_key(|value| value.message().sequence().clone());
+
+                Some(msg_vec)
+            }
+            None => None
+        }
+    }
+
+    fn messages_for_blocks(&mut self, blks: Vec<BlockHeader>) -> Result<Vec<SignedMessage>, Error> {
+        let mut msg_vec: Vec<SignedMessage> = Vec::new();
+        for block in blks {
+            let (umsg, mut smsgs) = self.api.messages_for_block(&block)?;
+            msg_vec.append(smsgs.as_mut());
+            for msg in umsg {
+                let smsg = self.recover_sig(msg)?;
+                msg_vec.push(smsg)
+            }
+        }
+        Ok(msg_vec)
+    }
+
+    fn recover_sig(&mut self, msg: UnsignedMessage) -> Result<SignedMessage, Error> {
+        let val = self.bls_sig_cache.get(&msg.cid().map_err(|err| Error::Other(err.to_string()))?).unwrap();
+        Ok(SignedMessage::new_from_fields(msg, val.clone()))
+    }
+
+    fn add_local(&mut self) -> Result<(), Error> {
+        let mut msg_vec = Vec::new();
+        for (_, bvec) in self.local_msgs.iter_mut() {
+            // TODO convert these errors into one larger error so that this loop doesnt terminate after finding
+            // one error
+            msg_vec.push(SignedMessage::unmarshal_cbor(&bvec).map_err(|err| Error::Other(err.to_string()))?);
+        }
+        for sm in msg_vec {
+            self.add(&sm).map_err(|err| Error::Other(err.to_string()))?;
+            // TODO if error is encountered, remove this message from cache
+        }
+        Ok(())
+    }
+
+    pub fn estimate_gas_price(&self, nblocksincl: u64) -> Result<BigInt, Error> {
+        // TODO: something different, this is what lotus has and there is a TODO there too
+        let min_gas_price = 0;
+        match nblocksincl {
+            0 => Ok(BigInt::from(min_gas_price + 2)),
+            1 => Ok(BigInt::from(min_gas_price + 1)),
+            _ => Ok(BigInt::from(min_gas_price))
+        }
+    }
+
+    pub fn load_local(&mut self) -> Result<(), Error> {
+        for (key, value) in self.local_msgs.clone() {
+            let value = SignedMessage::unmarshal_cbor(&value).map_err(|err| Error::Other(err.to_string()))?;
+            self.add(&value).map_err(|err| {
+                if err == Error::NonceTooLow {
+                    self.local_msgs.remove(&key);
+                }
+            });
+
+        }
+        Ok(())
     }
 }
+
+struct StatBucket {
+    msgs: HashMap<u64, SignedMessage>
+}
+
