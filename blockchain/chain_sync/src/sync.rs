@@ -504,7 +504,7 @@ where
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
             let pk = StateManager::get_bls_public_key(
-                &state_manager.get_bs(),
+                &state_manager.get_block_store(),
                 m.from(),
                 tip.parent_state(),
             )?;
@@ -584,7 +584,7 @@ where
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
-        let db = state_manager.get_bs();
+        let db = state_manager.get_block_store();
         let (state_root, _) = block_on(state_manager.tipset_state(&tip))
             .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {

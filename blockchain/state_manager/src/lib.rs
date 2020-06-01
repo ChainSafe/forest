@@ -62,7 +62,7 @@ where
         state.get_actor(addr).map_err(Error::State)
     }
 
-    pub fn get_bs(&self) -> Arc<DB> {
+    pub fn get_block_store(&self) -> Arc<DB> {
         self.bs.clone()
     }
 
