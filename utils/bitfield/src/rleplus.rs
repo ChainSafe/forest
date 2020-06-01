@@ -154,56 +154,42 @@ pub fn decode(enc: &BitVec) -> Result<BitVec, &'static str> {
 
     while i < len {
         // read the next prefix
-        match enc.get(i).unwrap() {
-            false => {
-                let enc_iter = enc.iter().skip(i + 2);
-                // multiple bits
-                match enc.get(i + 1) {
-                    Some(false) => {
-                        // Block Long
-                        // prefix: 00
+        if *enc.get(i).unwrap_or(&false) {
+            decoded.push(cur);
+            i += 1;
+        } else {
+            let enc_iter = enc.iter().skip(i + 2);
+            if *enc.get(i + 1).ok_or_else(|| "premature end to bits")? {
+                // Block Short
+                // prefix: 01
+                let buf = enc_iter.take(4).copied().collect::<BitVec>();
+                let res: Vec<u8> = buf.into();
 
-                        let buf = enc_iter.take(10 * 8).copied().collect::<BitVec>();
-                        let buf_ref: &[u8] = buf.as_ref();
-                        let (len, rest) = unsigned_varint::decode::u64(buf_ref)
-                            .map_err(|_| "Failed to decode uvarint")?;
-
-                        // insert this many bits
-                        decoded.extend((0..len).map(|_| cur));
-
-                        // prefix
-                        i += 2;
-                        // this is how much space the varint took in bits
-                        i += (buf_ref.len() * 8) - (rest.len() * 8);
-                    }
-                    Some(true) => {
-                        // Block Short
-                        // prefix: 01
-                        let buf = enc_iter.take(4).copied().collect::<BitVec>();
-                        let res: Vec<u8> = buf.into();
-
-                        if res.len() != 1 {
-                            return Err("Invalid short block encoding");
-                        }
-
-                        let len = res[0] as usize;
-
-                        // prefix
-                        i += 2;
-                        // length of the encoded number
-                        i += 4;
-
-                        decoded.extend((0..len).map(|_| cur));
-                    }
-                    None => {
-                        return Err("premature end to bits");
-                    }
+                if res.len() != 1 {
+                    return Err("Invalid short block encoding");
                 }
-            }
-            true => {
-                // Block Single
-                decoded.push(cur);
-                i += 1;
+
+                let len = res[0] as usize;
+
+                // prefix
+                i += 2;
+                // length of the encoded number
+                i += 4;
+
+                decoded.extend((0..len).map(|_| cur));
+            } else {
+                let buf = enc_iter.take(10 * 8).copied().collect::<BitVec>();
+                let buf_ref: &[u8] = buf.as_ref();
+                let (len, rest) = unsigned_varint::decode::u64(buf_ref)
+                    .map_err(|_| "Failed to decode uvarint")?;
+
+                // prefix
+                i += 2;
+                // this is how much space the varint took in bits
+                i += (buf_ref.len() * 8) - (rest.len() * 8);
+
+                // insert this many bits
+                decoded.extend((0..len).map(|_| cur));
             }
         }
 
