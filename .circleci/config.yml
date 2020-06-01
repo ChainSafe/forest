@@ -18,6 +18,7 @@ commands:
             ./install_rust.sh -q -y
             rm install_rust.sh
             export PATH="${HOME}/.cargo/bin:${PATH}"
+            source $HOME/.cargo/env
             rustc -V
   rust_setup:
     description: Set rustc version
