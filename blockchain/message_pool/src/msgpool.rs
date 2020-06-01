@@ -18,6 +18,9 @@ use state_tree::StateTree;
 use std::{collections::HashMap, str::from_utf8};
 use vm::ActorState;
 
+/// TODO after subscribe head changes is done, re-go over logic to make sure that all functions are
+/// connected where needed as well as implement all uses of subscribe head changes
+
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
 #[derive(Clone)]
@@ -49,8 +52,7 @@ impl MsgSet {
             {
                 let gas_price = exms.message().gas_price();
                 let replace_by_fee_ratio: f32 = 1.25;
-                let rbf_num =
-                    BigUint::from(((replace_by_fee_ratio - 1_f32) * 256_f32) as u64);
+                let rbf_num = BigUint::from(((replace_by_fee_ratio - 1_f32) * 256_f32) as u64);
                 let rbf_denom = BigUint::from(256 as u64);
                 let min_price = gas_price.clone() + (gas_price / &rbf_num) + rbf_denom;
                 if m.message().gas_price() <= &min_price {
@@ -177,7 +179,7 @@ struct MessagePool<DB> {
     bls_sig_cache: LruCache<Cid, Signature>,
     sig_val_cache: LruCache<String, ()>,
     // this will be a hashmap where the key is msg.cid.bytes.to_string and the value is a byte vec
-    local_msgs: HashMap<String, Vec<u8>>
+    local_msgs: HashMap<String, Vec<u8>>,
 }
 
 impl<DB> MessagePool<DB>
@@ -185,7 +187,7 @@ where
     DB: BlockStore,
 {
     /// Create a new MessagePool. This is not yet functioning as per the outlined TODO above
-    pub fn new(api: MpoolProvider<DB>, network_name: String) -> Self
+    pub fn new(api: MpoolProvider<DB>, network_name: String) -> Result<MessagePool<DB>, Error>
     where
         DB: BlockStore,
     {
@@ -197,7 +199,7 @@ where
         // prefix to it
         let local_msgs = HashMap::new();
 
-        MessagePool {
+        let mut mp = MessagePool {
             local_addrs: HashMap::new(),
             pending: HashMap::new(),
             cur_tipset: "tmp".to_string(), // cannnot do this yet, need pubsub done
@@ -208,7 +210,9 @@ where
             bls_sig_cache,
             sig_val_cache,
             local_msgs,
-        }
+        };
+        mp.load_local()?;
+        Ok(mp)
     }
 
     /// Push a signed message to the MessagePool
@@ -361,7 +365,7 @@ where
         let msgs = self.api.messages_for_tipset(cur_ts)?;
         for m in msgs {
             if m.from() == addr {
-                return Err(Error::Other("thipset has bad nonce ordering".to_string()))
+                return Err(Error::Other("thipset has bad nonce ordering".to_string()));
             }
             base_nonce += 1;
         }
@@ -376,7 +380,9 @@ where
     }
 
     /// TODO this will need to be completed when state_account_key is implemented
-    fn push_with_nonce(&self) { unimplemented!()}
+    fn push_with_nonce(&self) {
+        unimplemented!()
+    }
 
     /// TODO need to add publish to the end of this once a way to publish has been figured out
     fn remove(&mut self, from: &Address, sequence: u64) -> Result<(), Error> {
@@ -385,7 +391,7 @@ where
         // let m = mset.msgs.get(&sequence).unwrap();
         mset.msgs.remove(&sequence);
 
-        if mset.msgs.len() == 0 {
+        if mset.msgs.is_empty() {
             self.pending.remove(from);
         } else {
             let mut max_sequence: u64 = 0;
@@ -402,15 +408,20 @@ where
         Ok(())
     }
 
+    /// Return a tuple that contains a vector of all signed messages and the current tipset for
+    /// self.
+    /// TODO when subscribe head changes is completed, change the return type parameters and refactor
     /// TODO need to see if after this function is run, clear out the pending field in self
-    fn pending(&self) -> Result<Vec<SignedMessage>, Tipset> {
+    fn pending(&self) -> (Vec<SignedMessage>, String) {
         let mut out: Vec<SignedMessage> = Vec::new();
         for (addr, _) in self.pending.clone() {
             out.append(self.pending_for(&addr).unwrap().as_mut())
         }
-        Ok(out)
+        (out, self.cur_tipset.clone())
     }
 
+    /// Return a Vector of signed messages for a given from address. This vector will be sorted by
+    /// each messsage's nonce (sequence). If no corresponding messages found, return None result type
     fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let mset = self.pending.get(a);
         match mset {
@@ -425,14 +436,15 @@ where
                     msg_vec.push(item);
                 }
 
-                msg_vec.sort_by_key(|value| value.message().sequence().clone());
+                msg_vec.sort_by_key(|value| value.message().sequence());
 
                 Some(msg_vec)
             }
-            None => None
+            None => None,
         }
     }
 
+    /// Return Vector of signed messages given a block header for self
     fn messages_for_blocks(&mut self, blks: Vec<BlockHeader>) -> Result<Vec<SignedMessage>, Error> {
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
         for block in blks {
@@ -446,50 +458,46 @@ where
         Ok(msg_vec)
     }
 
+    /// Attempt to get the signed message given an unsigned message in message pool
     fn recover_sig(&mut self, msg: UnsignedMessage) -> Result<SignedMessage, Error> {
-        let val = self.bls_sig_cache.get(&msg.cid().map_err(|err| Error::Other(err.to_string()))?).unwrap();
+        let val = self
+            .bls_sig_cache
+            .get(&msg.cid().map_err(|err| Error::Other(err.to_string()))?)
+            .unwrap();
         Ok(SignedMessage::new_from_fields(msg, val.clone()))
     }
 
-    fn add_local(&mut self) -> Result<(), Error> {
-        let mut msg_vec = Vec::new();
-        for (_, bvec) in self.local_msgs.iter_mut() {
-            // TODO convert these errors into one larger error so that this loop doesnt terminate after finding
-            // one error
-            msg_vec.push(SignedMessage::unmarshal_cbor(&bvec).map_err(|err| Error::Other(err.to_string()))?);
-        }
-        for sm in msg_vec {
-            self.add(&sm).map_err(|err| Error::Other(err.to_string()))?;
-            // TODO if error is encountered, remove this message from cache
-        }
-        Ok(())
-    }
-
+    /// Return gas price estimate this has been translated from lotus, a more smart implementation will
+    /// most likely need to be implemented
     pub fn estimate_gas_price(&self, nblocksincl: u64) -> Result<BigInt, Error> {
         // TODO: something different, this is what lotus has and there is a TODO there too
         let min_gas_price = 0;
         match nblocksincl {
             0 => Ok(BigInt::from(min_gas_price + 2)),
             1 => Ok(BigInt::from(min_gas_price + 1)),
-            _ => Ok(BigInt::from(min_gas_price))
+            _ => Ok(BigInt::from(min_gas_price)),
         }
     }
 
+    /// Load local messages into pending. As of  right now messages are not deleted from self's
+    /// local_message field, possibly implement this in the future?
     pub fn load_local(&mut self) -> Result<(), Error> {
         for (key, value) in self.local_msgs.clone() {
-            let value = SignedMessage::unmarshal_cbor(&value).map_err(|err| Error::Other(err.to_string()))?;
-            self.add(&value).map_err(|err| {
-                if err == Error::NonceTooLow {
-                    self.local_msgs.remove(&key);
+            let value = SignedMessage::unmarshal_cbor(&value)
+                .map_err(|err| Error::Other(err.to_string()))?;
+            match self.add(&value) {
+                Ok(()) => (),
+                Err(err) => {
+                    if err == Error::NonceTooLow {
+                        self.local_msgs.remove(&key);
+                    }
                 }
-            });
-
+            }
         }
         Ok(())
     }
 }
 
 struct StatBucket {
-    msgs: HashMap<u64, SignedMessage>
+    msgs: HashMap<u64, SignedMessage>,
 }
-
