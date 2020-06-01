@@ -364,7 +364,7 @@ fn decode_and_apply_cache(
     // Resize before setting any values
     if let Some(&max) = set.iter().max() {
         let max = max as usize;
-        if max > bit_vec.len() {
+        if max >= bit_vec.len() {
             decoded.resize(max + 1, false);
         }
     };
