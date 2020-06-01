@@ -308,10 +308,10 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
         Ok(Signature {
-            sig_type: m.sig_type,
-            bytes: base64::decode(m.bytes).map_err(de::Error::custom)?,
+            sig_type,
+            bytes: base64::decode(bytes).map_err(de::Error::custom)?,
         })
     }
 

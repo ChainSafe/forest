@@ -1,7 +1,7 @@
 use super::*;
 use crate::ticket;
 use beacon::beacon_entries;
-use crypto::{signature, vrf::opt_vrf_json};
+use crypto::{signature, vrf};
 use fil_types::sector::post;
 use serde::{de, Deserialize, Serialize};
 
@@ -25,7 +25,7 @@ where
         miner: String,
         #[serde(with = "ticket::json")]
         ticket: &'a Ticket,
-        #[serde(with = "opt_vrf_json")]
+        #[serde(with = "vrf::json::opt")]
         election_proof: &'a Option<VRFProof>,
         #[serde(with = "beacon_entries::json::vec")]
         beacon_entries: &'a [BeaconEntry],
@@ -81,7 +81,7 @@ where
         miner: String,
         #[serde(with = "ticket::json")]
         ticket: Ticket,
-        #[serde(default, with = "opt_vrf_json")]
+        #[serde(default, with = "vrf::json::opt")]
         election_proof: Option<VRFProof>,
         #[serde(with = "beacon_entries::json::vec")]
         beacon_entries: Vec<BeaconEntry>,

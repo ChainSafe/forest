@@ -38,6 +38,16 @@ pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+    // Wrapper for serializing and deserializing a VRFProof from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct VRFProofJson(#[serde(with = "self")] pub VRFProof);
+
+    /// Wrapper for serializing a VRFProof reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct VRFProofJsonRef<'a>(#[serde(with = "self")] pub &'a VRFProof);
+
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "VRFProof")]
@@ -58,36 +68,29 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        let JsonHelper { bytes } = Deserialize::deserialize(deserializer)?;
         Ok(VRFProof::new(
-            base64::decode(m.bytes).map_err(de::Error::custom)?,
+            base64::decode(bytes).map_err(de::Error::custom)?,
         ))
     }
-}
 
-pub mod opt_vrf_json {
-    use super::VRFProof;
-    use serde::{self, Deserialize, Deserializer, Serializer};
+    pub mod opt {
+        use super::{VRFProof, VRFProofJson, VRFProofJsonRef};
+        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S>(v: &Option<VRFProof>, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        if let Some(ref d) = *v {
-            return s.serialize_some(d);
-        }
-        s.serialize_none()
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<VRFProof>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Option<VRFProof> = Option::deserialize(deserializer)?;
-        if let Some(s) = s {
-            return Ok(Some(s));
+        pub fn serialize<S>(v: &Option<VRFProof>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            v.as_ref().map(|s| VRFProofJsonRef(s)).serialize(serializer)
         }
 
-        Ok(None)
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<VRFProof>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s: Option<VRFProofJson> = Deserialize::deserialize(deserializer)?;
+            Ok(s.map(|v| v.0))
+        }
     }
 }
