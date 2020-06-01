@@ -22,7 +22,7 @@ use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures::{stream::{FuturesUnordered, StreamExt},executor::block_on};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
@@ -490,7 +490,7 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    async fn check_block_msgs(
+   fn check_block_msgs(
         state_manager: Arc<StateManager<DB>>,
         block: Block,
         tip: Tipset,
@@ -582,9 +582,8 @@ where
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         let db = state_manager.get_bs();
-        let (state_root, _) = state_manager
-            .tipset_state(&tip)
-            .await
+        let (state_root, _) = block_on(state_manager
+            .tipset_state(&tip))
             .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
             Error::Validation("Could not load from new state root in state manager".to_owned())
@@ -633,7 +632,7 @@ where
         let parent_clone = parent_tipset.clone();
         // check messages to ensure valid state transitions
         let sm = self.state_manager.clone();
-        let x = task::spawn(Self::check_block_msgs(sm, b, parent_clone));
+        let x = task::spawn_blocking(move || Self::check_block_msgs(sm, b, parent_clone));
         validations.push(x);
 
         // block signature check
@@ -650,7 +649,7 @@ where
         let signature = block.header().signature().clone();
         let cid_bytes = block.header().cid().to_bytes().clone();
         match work_addr_result {
-            Ok(_) => validations.push(task::spawn(async move {
+            Ok(_) => validations.push(task::spawn_blocking(move || {
                 signature
                     .ok_or_else(|| {
                         Error::Blockchain(blocks::Error::InvalidSignature(
