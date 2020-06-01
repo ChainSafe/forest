@@ -363,7 +363,10 @@ fn decode_and_apply_cache(
 
     // Resize before setting any values
     if let Some(&max) = set.iter().max() {
-        decoded.resize(max as usize + 1, false);
+        let max = max as usize;
+        if max > bit_vec.len() {
+            decoded.resize(max + 1, false);
+        }
     };
 
     // Set all values in the cache
