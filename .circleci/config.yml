@@ -2,9 +2,9 @@ version: 2.1
 
 executors:
   test-executor:
-    docker:
-    - image: cimg/rust:1.43.0
-    resource_class: xlarge
+    machine:
+    - image: ubuntu-1604:202004-01
+    resource_class: large
 
 commands:
   rust_setup:
