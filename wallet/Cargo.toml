@@ -1,0 +1,10 @@
+[package]
+name = "wallet"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+thiserror = "1.0"
+address = { package = "forest_address", path = "../vm/address", version = "0.2" }
+crypto = { package = "forest_crypto", path = "../crypto" }
