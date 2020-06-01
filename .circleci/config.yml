@@ -3,7 +3,7 @@ version: 2.1
 executors:
   test-executor:
     machine:
-    - image: ubuntu-1604:202004-01
+      image: ubuntu-1604:202004-01
     resource_class: large
 
 commands:
