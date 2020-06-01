@@ -144,7 +144,7 @@ fn contains_all() {
         BitField::new_from_set(&[0, 2, 4, 5])
             .contains_all(&mut BitField::new_from_set(&[0, 2, 4]))
             .unwrap(),
-        false
+        true
     );
 
     assert_eq!(

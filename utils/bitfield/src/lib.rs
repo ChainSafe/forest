@@ -317,7 +317,7 @@ impl BitField {
         Ok(false)
     }
 
-    /// Returns true if BitFields have all the same bits set.
+    /// Returns true if the self `BitField` has all the bits set in the other `BitField`.
     pub fn contains_all(&mut self, other: &mut BitField) -> Result<bool> {
         let a_bf = self.as_mut_flushed()?;
         let b_bf = other.as_mut_flushed()?;
@@ -325,16 +325,12 @@ impl BitField {
         // Checking lengths should be sufficient in most cases, but does not take into account
         // decoded bitfields with extra 0 bits. This makes sure there are no extra bits in the
         // extension.
-        if a_bf.len() > b_bf.len() {
-            if a_bf[b_bf.len()..].count_ones() > 0 {
-                return Ok(false);
-            }
-        } else if b_bf.len() > a_bf.len() && b_bf[a_bf.len()..].count_ones() > 0 {
+        if b_bf.len() > a_bf.len() && b_bf[a_bf.len()..].count_ones() > 0 {
             return Ok(false);
         }
 
         for (a, b) in a_bf.iter().zip(b_bf.iter()) {
-            if a != b {
+            if *b && !a {
                 return Ok(false);
             }
         }
