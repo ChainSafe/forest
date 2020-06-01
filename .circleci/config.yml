@@ -17,7 +17,7 @@ commands:
           chmod +x rustup-init && \
           ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION && \
           rm rustup-init && \
-          export PATH=$HOME/.cargo/bin:$PATH
+          export PATH=$HOME/.cargo/bin:$PATH \
           rustc --version && \
           cargo --version \
   rust_setup:
