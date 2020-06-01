@@ -492,7 +492,6 @@ where
     // Block message validation checks
     async fn check_block_msgs(
         state_manager: Arc<StateManager<DB>>,
-        db: Arc<DB>,
         block: Block,
         tip: Tipset,
     ) -> Result<(), Error> {
@@ -501,7 +500,11 @@ where
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
-            let pk = StateManager::get_bls_public_key(&db, m.from(), tip.parent_state())?;
+            let pk = StateManager::get_bls_public_key(
+                &state_manager.get_bs(),
+                m.from(),
+                tip.parent_state(),
+            )?;
             pub_keys.push(pk);
             cids.push(m.cid()?.to_bytes());
         }
@@ -578,6 +581,7 @@ where
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
+        let db = state_manager.get_bs();
         let (state_root, _) = state_manager
             .tipset_state(&tip)
             .await
@@ -626,11 +630,10 @@ where
 
         let b = block.clone();
 
-        let db = Arc::clone(&self.chain_store.db);
         let parent_clone = parent_tipset.clone();
         // check messages to ensure valid state transitions
         let sm = self.state_manager.clone();
-        let x = task::spawn(Self::check_block_msgs(sm, db, b, parent_clone));
+        let x = task::spawn(Self::check_block_msgs(sm, b, parent_clone));
         validations.push(x);
 
         // block signature check
@@ -644,12 +647,14 @@ where
             .get_miner_work_addr(&state_root, header.miner_address());
 
         // temp header needs to live long enough in static context returned by task::spawn
-        let temp_header = block.header().clone();
+        let signature = block.header().signature().clone();
+        let cid_bytes = block.header().cid().to_bytes().clone();
         match work_addr_result {
             Ok(_) => validations.push(task::spawn(async move {
-                temp_header
-                    .check_block_signature(&work_addr_result.unwrap().clone())
-                    .map_err(Error::Blockchain)
+                signature
+                .ok_or_else(||Error::Blockchain(blocks::Error::InvalidSignature("Signature is nil in header".to_owned())))?
+                .verify(&cid_bytes,&work_addr_result.unwrap())
+                .map_err(|e|Error::Blockchain(blocks::Error::InvalidSignature(e)))
             })),
             Err(err) => error_vec.push(err.to_string()),
         }

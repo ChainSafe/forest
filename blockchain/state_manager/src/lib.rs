@@ -61,6 +61,11 @@ where
         let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
     }
+
+    pub fn get_bs(&self) -> Arc<DB> {
+        self.bs.clone()
+    }
+
     /// Returns the network name from the init actor state
     pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
         let state: init::State = self.load_actor_state(&*INIT_ACTOR_ADDR, st)?;
@@ -177,14 +182,15 @@ where
         blocks: &[BlockHeader],
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
-            if blocks.iter().any(|s| {
+            if blocks.iter().any(|s| 
+                
                 blocks
                     .iter()
                     .filter(|val| val.miner_address() == s.miner_address())
                     .take(2)
                     .count()
                     > 1
-            }) {
+            ) {
                 // Duplicate Miner found
                 return Err(Box::new(Error::Other(
                     "Could not get message receipts".to_string(),
