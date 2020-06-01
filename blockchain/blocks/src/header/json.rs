@@ -1,7 +1,19 @@
 use super::*;
 use crate::ticket;
-use crypto::{signature::opt_signature_json, vrf::opt_vrf_json};
+use beacon::beacon_entries;
+use crypto::{signature, vrf::opt_vrf_json};
+use fil_types::sector::post;
 use serde::{de, Deserialize, Serialize};
+
+// Wrapper for serializing and deserializing a BlockHeader from JSON.
+#[derive(Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct BlockHeaderJson(#[serde(with = "self")] pub BlockHeader);
+
+/// Wrapper for serializing a BlockHeader reference to JSON.
+#[derive(Serialize)]
+#[serde(transparent)]
+pub struct BlockHeaderJsonRef<'a>(#[serde(with = "self")] pub &'a BlockHeader);
 
 pub fn serialize<S>(m: &BlockHeader, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -15,9 +27,9 @@ where
         ticket: &'a Ticket,
         #[serde(with = "opt_vrf_json")]
         election_proof: &'a Option<VRFProof>,
-        #[serde(with = "beacon::beacon_entries::json::vec")]
+        #[serde(with = "beacon_entries::json::vec")]
         beacon_entries: &'a [BeaconEntry],
-        #[serde(with = "fil_types::sector::post::json::vec")]
+        #[serde(with = "post::json::vec")]
         win_post_proof: &'a [PoStProof],
         // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
         // parents : &'a TipsetKeys,
@@ -30,10 +42,10 @@ where
         message_receipts: &'a Cid,
         #[serde(with = "cid::json")]
         messages: &'a Cid,
-        #[serde(rename = "BLSAggregate", with = "opt_signature_json")]
+        #[serde(rename = "BLSAggregate", with = "signature::json::opt")]
         bls_aggregate: &'a Option<Signature>,
         timestamp: &'a u64,
-        #[serde(rename = "BlockSig", with = "opt_signature_json")]
+        #[serde(rename = "BlockSig", with = "signature::json::opt")]
         signature: &'a Option<Signature>,
         #[serde(rename = "ForkSignaling")]
         fork_signal: &'a u64,
@@ -71,9 +83,9 @@ where
         ticket: Ticket,
         #[serde(default, with = "opt_vrf_json")]
         election_proof: Option<VRFProof>,
-        #[serde(with = "beacon::beacon_entries::json::vec")]
+        #[serde(with = "beacon_entries::json::vec")]
         beacon_entries: Vec<BeaconEntry>,
-        #[serde(with = "fil_types::sector::post::json::vec")]
+        #[serde(with = "post::json::vec")]
         win_post_proof: Vec<PoStProof>,
         // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
         // parents : TipsetKeys,
@@ -86,10 +98,10 @@ where
         message_receipts: Cid,
         #[serde(with = "cid::json")]
         messages: Cid,
-        #[serde(default, rename = "BLSAggregate", with = "opt_signature_json")]
+        #[serde(default, rename = "BLSAggregate", with = "signature::json::opt")]
         bls_aggregate: Option<Signature>,
         timestamp: u64,
-        #[serde(default, rename = "BlockSig", with = "opt_signature_json")]
+        #[serde(default, rename = "BlockSig", with = "signature::json::opt")]
         signature: Option<Signature>,
         #[serde(rename = "ForkSignaling")]
         fork_signal: u64,

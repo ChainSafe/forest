@@ -275,6 +275,16 @@ pub mod json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+    // Wrapper for serializing and deserializing a Signature from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct SignatureJson(#[serde(with = "self")] pub Signature);
+
+    /// Wrapper for serializing a Signature reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct SignatureJsonRef<'a>(#[serde(with = "self")] pub &'a Signature);
+
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "Type")]
@@ -304,32 +314,26 @@ pub mod json {
             bytes: base64::decode(m.bytes).map_err(de::Error::custom)?,
         })
     }
-}
 
-#[cfg(feature = "json")]
-pub mod opt_signature_json {
-    use super::Signature;
-    use serde::{self, Deserialize, Deserializer, Serializer};
+    pub mod opt {
+        use super::{Signature, SignatureJson, SignatureJsonRef};
+        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S>(v: &Option<Signature>, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        if let Some(ref d) = *v {
-            return s.serialize_some(d);
-        }
-        s.serialize_none()
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Option<Signature> = Option::deserialize(deserializer)?;
-        if let Some(s) = s {
-            return Ok(Some(s));
+        pub fn serialize<S>(v: &Option<Signature>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            v.as_ref()
+                .map(|s| SignatureJsonRef(s))
+                .serialize(serializer)
         }
 
-        Ok(None)
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s: Option<SignatureJson> = Deserialize::deserialize(deserializer)?;
+            Ok(s.map(|v| v.0))
+        }
     }
 }
