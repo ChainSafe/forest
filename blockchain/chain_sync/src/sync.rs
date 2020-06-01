@@ -22,7 +22,10 @@ use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
-use futures::{stream::{FuturesUnordered, StreamExt},executor::block_on};
+use futures::{
+    executor::block_on,
+    stream::{FuturesUnordered, StreamExt},
+};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
@@ -490,7 +493,7 @@ where
         Ok(fts)
     }
     // Block message validation checks
-   fn check_block_msgs(
+    fn check_block_msgs(
         state_manager: Arc<StateManager<DB>>,
         block: Block,
         tip: Tipset,
@@ -582,8 +585,7 @@ where
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         let db = state_manager.get_bs();
-        let (state_root, _) = block_on(state_manager
-            .tipset_state(&tip))
+        let (state_root, _) = block_on(state_manager.tipset_state(&tip))
             .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
             Error::Validation("Could not load from new state root in state manager".to_owned())
