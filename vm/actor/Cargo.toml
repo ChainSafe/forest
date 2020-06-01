@@ -23,7 +23,7 @@ forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
 unsigned-varint = "0.4"
 crypto = { package = "forest_crypto", path = "../../crypto" }
-rleplus = { path = "../../utils/rleplus" }
+bitfield = { path = "../../utils/bitfield" }
 fil_types = { path = "../../types" }
 
 [dev-dependencies]
