@@ -44,12 +44,12 @@ pub struct EPostProof {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer,de};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct TicketJson(#[serde(with = "self")] pub Ticket);
- 
+
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "VRFProof")]
@@ -60,8 +60,8 @@ pub mod json {
     where
         S: Serializer,
     {
-        JsonHelper{
-            vrfproof : base64::encode(m.vrfproof.as_bytes())
+        JsonHelper {
+            vrfproof: base64::encode(m.vrfproof.as_bytes()),
         }
         .serialize(serializer)
     }
@@ -71,8 +71,8 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        Ok(Ticket{
-            vrfproof : VRFProof::new(base64::decode(m.vrfproof).map_err(de::Error::custom)?)
+        Ok(Ticket {
+            vrfproof: VRFProof::new(base64::decode(m.vrfproof).map_err(de::Error::custom)?),
         })
     }
 }

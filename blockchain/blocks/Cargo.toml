@@ -10,7 +10,7 @@ features = ["json"]
 
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
-beacon = { path = "../beacon" }
+beacon = { path = "../beacon", features = ["json"] }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 message = { package = "forest_message", path = "../../vm/message" }
 clock = { path = "../../node/clock" }
@@ -22,7 +22,7 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 sha2 = { version = "0.8", default-features = false }
 thiserror = "1.0"
 vm = { package = "forest_vm", path = "../../vm" }
-fil_types = { path = "../../types" }
+fil_types = { path = "../../types", features = ["json"]}
 base64 = { version = "0.12.1", optional = true }
 
 

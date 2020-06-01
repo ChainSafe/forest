@@ -21,6 +21,4 @@ use vm::Serialized;
 
 #[test]
 
-fn blockheader_symmetric_json() {
-
-}
+fn blockheader_symmetric_json() {}

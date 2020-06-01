@@ -7,7 +7,7 @@ extern crate serde;
 
 mod block;
 mod errors;
-mod header;
+pub mod header;
 mod ticket;
 pub mod tipset;
 

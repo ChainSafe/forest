@@ -238,9 +238,12 @@ pub mod json {
             #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json::vec")]
             beacon_entries: &'a [BeaconEntry],
 
-            // #[serde(default)]
-            // #[serde(rename = "WinPostProof",  serialize_with  = "fil_types::sector::post::json::serialize" )]
-            // win_post_proof : Vec<PoStProof>,
+            #[serde(default)]
+            #[serde(
+                rename = "WinPostProof",
+                with = "fil_types::sector::post::json::vec"
+            )]
+            win_post_proof: &'a [PoStProof],
 
             // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
             // parents : &'a TipsetKeys,
@@ -268,7 +271,7 @@ pub mod json {
             miner: &m.miner_address.to_string(),
             ticket: &m.ticket,
             election_proof: &m.election_proof,
-            //win_post_proof : m.win_post_proof,
+            win_post_proof : m.win_post_proof(),
             //parents: &m.parents,
             weight: &m.weight.to_str_radix(10),
             height: &m.epoch,
@@ -297,10 +300,10 @@ pub mod json {
             #[serde(default, rename = "ElectionProof", with = "opt_vrf_json")]
             election_proof: Option<VRFProof>,
 
-            // #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json")]
-            // beacon_entries : BeaconEntry,
-            // #[serde(rename = "WinPostProof",  deserialize_with  = "fil_types::sector::post::json::deserialize" )]
-            // win_post_proof : Vec<PoStProof>,
+            #[serde(rename = "BeaconEntries", with = "beacon::beacon_entries::json::vec")]
+            beacon_entries: Vec<BeaconEntry>,
+            #[serde(rename = "WinPostProof",  with  = "fil_types::sector::post::json::vec" )]
+            win_post_proof : Vec<PoStProof>,
 
             // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
             // parents : TipsetKeys,
@@ -336,7 +339,7 @@ pub mod json {
             .miner_address(v.miner.parse::<Address>().unwrap())
             .ticket(v.ticket)
             .epoch(v.height)
-            //.win_post_proof(v.win_post_proof)
+            .win_post_proof(v.win_post_proof)
             .state_root(v.state_root)
             .message_receipts(v.message_receipts)
             .messages(v.messages)
