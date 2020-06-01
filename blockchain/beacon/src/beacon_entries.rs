@@ -7,8 +7,6 @@ use encoding::{
     BytesDe, BytesSer,
 };
 
-use encoding::{blake2b_256, serde_bytes};
-
 /// The result from getting an entry from Drand.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BeaconEntry {

@@ -3,7 +3,6 @@
 
 mod codec;
 mod error;
-pub mod json;
 mod prefix;
 mod to_cid;
 mod version;
@@ -31,7 +30,9 @@ const CBOR_TAG_CID: u64 = 42;
 /// https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#link-format
 #[cfg(feature = "cbor")]
 const MULTIBASE_IDENTITY: u8 = 0;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+#[cfg(feature = "json")]
+pub mod json;
 
 /// Representation of a IPLD CID.
 #[derive(PartialEq, Eq, Hash, Clone)]

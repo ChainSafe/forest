@@ -67,10 +67,9 @@ pub mod json {
     pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a PoStProof);
 
     #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
-        #[serde(rename = "RegisteredProof")]
         registered_proof: u8,
-        #[serde(rename = "ProofBytes")]
         proof_bytes: String,
     }
 
