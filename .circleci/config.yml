@@ -18,6 +18,7 @@ commands:
             ./rustup-init -y --no-modify-path --default-toolchain stable && \
             rm rustup-init && \
             echo 'export PATH=$HOME/.cargo/bin:$PATH' >> $BASH_ENV && \
+            source $BASH_ENV
             rustc --version && \
             cargo --version \
   rust_setup:
