@@ -7,6 +7,18 @@ executors:
     resource_class: large
 
 commands:
+  install_rust:
+    description: Install Rust Toolchain
+    steps:
+      - run:
+        name: Install Rust Toolchain
+        command: |
+          curl https://sh.rustup.rs -sSf -o install_rust.sh
+          chmod +x install_rust.sh
+          ./install_rust.sh -q -y
+          rm install_rust.sh
+          export PATH="${HOME}/.cargo/bin:${PATH}"
+    rustc -V
   rust_setup:
     description: Set rustc version
     steps:
@@ -79,6 +91,7 @@ commands:
     description: Sets up environment for future jobs
     steps:
       - checkout
+      - install_rust
       - rust_setup
       - print_versions
       - env_setup
