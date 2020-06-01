@@ -182,15 +182,14 @@ where
         blocks: &[BlockHeader],
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
-            if blocks.iter().any(|s| 
-                
+            if blocks.iter().any(|s| {
                 blocks
                     .iter()
                     .filter(|val| val.miner_address() == s.miner_address())
                     .take(2)
                     .count()
                     > 1
-            ) {
+            }) {
                 // Duplicate Miner found
                 return Err(Box::new(Error::Other(
                     "Could not get message receipts".to_string(),

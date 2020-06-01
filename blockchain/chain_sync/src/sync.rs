@@ -652,9 +652,13 @@ where
         match work_addr_result {
             Ok(_) => validations.push(task::spawn(async move {
                 signature
-                .ok_or_else(||Error::Blockchain(blocks::Error::InvalidSignature("Signature is nil in header".to_owned())))?
-                .verify(&cid_bytes,&work_addr_result.unwrap())
-                .map_err(|e|Error::Blockchain(blocks::Error::InvalidSignature(e)))
+                    .ok_or_else(|| {
+                        Error::Blockchain(blocks::Error::InvalidSignature(
+                            "Signature is nil in header".to_owned(),
+                        ))
+                    })?
+                    .verify(&cid_bytes, &work_addr_result.unwrap())
+                    .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
             })),
             Err(err) => error_vec.push(err.to_string()),
         }
