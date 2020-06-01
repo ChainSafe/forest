@@ -311,8 +311,6 @@ pub mod opt_signature_json {
     use super::Signature;
     use serde::{self, Deserialize, Deserializer, Serializer};
 
-    
-
     pub fn serialize<S>(v: &Option<Signature>, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

@@ -3,10 +3,10 @@
 
 mod codec;
 mod error;
+pub mod json;
 mod prefix;
 mod to_cid;
 mod version;
-pub mod json;
 
 pub use self::codec::Codec;
 pub use self::error::Error;
@@ -32,8 +32,6 @@ const CBOR_TAG_CID: u64 = 42;
 #[cfg(feature = "cbor")]
 const MULTIBASE_IDENTITY: u8 = 0;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-
 
 /// Representation of a IPLD CID.
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -196,7 +194,6 @@ impl Cid {
         self.to_bytes()
     }
 }
-
 
 impl fmt::Display for Cid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

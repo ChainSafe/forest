@@ -36,21 +36,20 @@ impl VRFProof {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer,de};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "VRFProof")]
-        bytes: String
+        bytes: String,
     }
 
     pub fn serialize<S>(m: &VRFProof, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-
-        JsonHelper{
-        bytes: base64::encode(&m.as_bytes())
+        JsonHelper {
+            bytes: base64::encode(&m.as_bytes()),
         }
         .serialize(serializer)
     }
@@ -61,7 +60,7 @@ pub mod json {
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(VRFProof::new(
-            base64::decode(m.bytes).map_err(de::Error::custom)?
+            base64::decode(m.bytes).map_err(de::Error::custom)?,
         ))
     }
 }
@@ -70,13 +69,10 @@ pub mod opt_vrf_json {
     use super::VRFProof;
     use serde::{self, Deserialize, Deserializer, Serializer};
 
-    
-
     pub fn serialize<S>(v: &Option<VRFProof>, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        
         if let Some(ref d) = *v {
             return s.serialize_some(d);
         }

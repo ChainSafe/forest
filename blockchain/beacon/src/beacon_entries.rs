@@ -57,12 +57,12 @@ pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and deserializing a BeaconEntry from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct BeaconEntryJson(#[serde(with = "self")] pub BeaconEntry);
 
-    /// Wrapper for serializing a SignedMessage reference to JSON.
+    /// Wrapper for serializing a BeaconEntryreference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct BeaconEntryJsonRef<'a>(#[serde(with = "self")] pub &'a BeaconEntry);
