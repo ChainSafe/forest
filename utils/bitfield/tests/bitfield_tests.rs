@@ -10,8 +10,7 @@ use rand_xorshift::XorShiftRng;
 fn gen_random_index_set(range: u64, seed: u8) -> Vec<u64> {
     let mut rng = XorShiftRng::from_seed([seed; 16]);
 
-    let ret = (0..range).filter(|_| rng.gen::<bool>()).collect();
-    ret
+    (0..range).filter(|_| rng.gen::<bool>()).collect()
 }
 
 #[test]
@@ -54,7 +53,7 @@ fn bitfield_slice_small() {
     }
 }
 
-fn setup_test_bitfields() -> (Vec<u64>, Vec<u64>, BitField, BitField) {
+fn set_up_test_bitfields() -> (Vec<u64>, Vec<u64>, BitField, BitField) {
     let a = gen_random_index_set(100, 1);
     let b = gen_random_index_set(100, 2);
 
@@ -66,7 +65,7 @@ fn setup_test_bitfields() -> (Vec<u64>, Vec<u64>, BitField, BitField) {
 
 #[test]
 fn bitfield_union() {
-    let (a, b, bf_a, bf_b) = setup_test_bitfields();
+    let (a, b, bf_a, bf_b) = set_up_test_bitfields();
 
     let mut expected: FnvHashSet<u64> = a.iter().copied().collect();
     expected.extend(b);
@@ -78,7 +77,7 @@ fn bitfield_union() {
 
 #[test]
 fn bitfield_intersection() {
-    let (a, b, bf_a, bf_b) = setup_test_bitfields();
+    let (a, b, bf_a, bf_b) = set_up_test_bitfields();
 
     let hs_a: FnvHashSet<u64> = a.into_iter().collect();
     let hs_b: FnvHashSet<u64> = b.into_iter().collect();
@@ -91,7 +90,7 @@ fn bitfield_intersection() {
 
 #[test]
 fn bitfield_subtraction() {
-    let (a, b, bf_a, bf_b) = setup_test_bitfields();
+    let (a, b, bf_a, bf_b) = set_up_test_bitfields();
 
     let mut expected: FnvHashSet<u64> = a.into_iter().collect();
     for i in b.iter() {

@@ -5,7 +5,7 @@ pub mod bitvec_serde;
 pub mod rleplus;
 pub use bitvec;
 
-use bitvec::prelude::Lsb0;
+use bitvec::prelude::*;
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use fnv::FnvHashSet;
 use std::iter::FromIterator;
@@ -39,12 +39,8 @@ impl BitField {
     /// Generates a new bitfield with a slice of all indexes to set.
     pub fn new_from_set(set_bits: &[u64]) -> Self {
         let mut vec = match set_bits.iter().max() {
-            Some(&max) => {
-                let mut vec = BitVec::with_capacity(max as usize + 1);
-                vec.resize(max as usize + 1, false);
-                vec
-            }
-            None => return Self::Decoded(BitVec::new()),
+            Some(&max) => bitvec![_, u8; 0; max as usize + 1],
+            None => return Self::new(),
         };
 
         // Set all bits in bitfield
@@ -81,7 +77,7 @@ impl BitField {
             }
             BitField::Decoded(bv) => {
                 let index = bit as usize;
-                if bv.len() < index {
+                if bv.len() <= index {
                     return;
                 }
                 bv.set(index, false);
@@ -131,7 +127,7 @@ impl BitField {
         Err("Bitfield has no set bits")
     }
 
-    fn retrieve_set_indexes<B: FromIterator<u64>>(&mut self, max: usize) -> Result<B> {
+    fn retrieve_set_indices<B: FromIterator<u64>>(&mut self, max: usize) -> Result<B> {
         let flushed = self.as_mut_flushed()?;
         if flushed.count_ones() > max {
             return Err("Bits set exceeds max in retrieval");
@@ -145,12 +141,12 @@ impl BitField {
 
     /// Returns a vector of indexes of all set bits
     pub fn all(&mut self, max: usize) -> Result<Vec<u64>> {
-        self.retrieve_set_indexes(max)
+        self.retrieve_set_indices(max)
     }
 
     /// Returns a Hash set of indexes of all set bits
     pub fn all_set(&mut self, max: usize) -> Result<FnvHashSet<u64>> {
-        self.retrieve_set_indexes(max)
+        self.retrieve_set_indices(max)
     }
 
     /// Returns true if there are no bits set, false if the bitfield is empty.
@@ -362,7 +358,7 @@ where
     a.extend(b);
 }
 
-pub(crate) fn decode_and_apply_cache(
+fn decode_and_apply_cache(
     bit_vec: &BitVec,
     set: &FnvHashSet<u64>,
     unset: &FnvHashSet<u64>,
