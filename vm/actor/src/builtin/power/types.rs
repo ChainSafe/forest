@@ -4,9 +4,8 @@
 use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
-use encoding::{tuple::*, Cbor};
+use encoding::{serde_bytes, tuple::*, Cbor};
 use fil_types::{RegisteredProof, SectorSize};
-use num_bigint::bigint_ser;
 use num_bigint::biguint_ser;
 use vm::{Serialized, TokenAmount};
 
@@ -24,6 +23,7 @@ pub struct CreateMinerParams {
     owner_addr: Address,
     worker_addr: Address,
     seal_proof_type: RegisteredProof,
+    #[serde(with = "serde_bytes")]
     peer_id: Vec<u8>,
 }
 
@@ -31,9 +31,9 @@ pub struct CreateMinerParams {
 pub struct SectorStorageWeightDesc {
     pub sector_size: SectorSize,
     pub duration: ChainEpoch,
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "biguint_ser")]
     pub deal_weight: DealWeight,
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "biguint_ser")]
     pub verified_deal_weight: DealWeight,
 }
 

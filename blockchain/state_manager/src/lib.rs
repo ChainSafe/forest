@@ -79,19 +79,11 @@ where
         Ok(addr)
     }
     /// Returns specified actor's claimed power and total network power as a tuple
-    pub fn get_power(
-        &self,
-        state_cid: &Cid,
-        addr: &Address,
-    ) -> Result<(BigUint, BigUint, BigUint), Error> {
+    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigUint, BigUint), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
         if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {
-            Ok((
-                claim.raw_byte_power,
-                claim.quality_adj_power,
-                ps.total_network_power,
-            ))
+            Ok((claim.raw_byte_power, claim.quality_adj_power))
         } else {
             Err(Error::State(
                 "Failed to retrieve claimed power from actor state".to_owned(),

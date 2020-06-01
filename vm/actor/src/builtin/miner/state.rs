@@ -10,9 +10,8 @@ use fil_types::{RegisteredProof, SectorInfo, SectorNumber, SectorSize};
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
-use num_bigint::bigint_ser;
 use num_bigint::biguint_ser;
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use rleplus::bitvec::prelude::{BitVec, Lsb0};
 use rleplus::bitvec_serde;
 use runtime::Runtime;
@@ -304,8 +303,8 @@ pub struct SectorOnChainInfo {
     pub activation_epoch: ChainEpoch,
 
     /// Integral of active deals over sector lifetime, 0 if CommittedCapacity sector
-    #[serde(with = "bigint_ser")]
-    pub deal_weight: BigInt,
+    #[serde(with = "biguint_ser")]
+    pub deal_weight: BigUint,
 
     /// Fixed pledge collateral requirement determined at activation
     #[serde(with = "biguint_ser")]
@@ -321,6 +320,7 @@ fn as_storage_weight_desc(
     sector_size: SectorSize,
     sector_info: SectorOnChainInfo,
 ) -> power::SectorStorageWeightDesc {
+    // TODO update verified_deal_weight
     power::SectorStorageWeightDesc {
         sector_size,
         deal_weight: sector_info.deal_weight.clone(), // temp clone

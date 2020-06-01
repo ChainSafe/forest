@@ -8,6 +8,7 @@ pub use self::state::{Reward, State, VestingFunction};
 pub use self::types::*;
 use crate::{check_empty_params, Multimap, BURNT_FUNDS_ACTOR_ADDR, SYSTEM_ACTOR_ADDR};
 use ipld_blockstore::BlockStore;
+use num_bigint::biguint_ser::BigUintSer;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -171,8 +172,8 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::LastPerEpochReward) => {
-                Self::last_per_epoch_reward(rt)?;
-                Ok(Serialized::default())
+                let res = Self::last_per_epoch_reward(rt)?;
+                Ok(Serialized::serialize(BigUintSer(&res))?)
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }

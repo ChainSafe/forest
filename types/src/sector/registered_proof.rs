@@ -77,7 +77,7 @@ impl RegisteredProof {
         // Resolve to seal proof and then compute size from that.
         use RegisteredProof::*;
         match self {
-            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => 3200,
+            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => 2300,
             StackedDRG32GiBSeal
             | StackedDRG32GiBPoSt
             | StackedDRG32GiBWindowPoSt

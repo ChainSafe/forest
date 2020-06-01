@@ -8,7 +8,6 @@ mod types;
 pub use self::policy::*;
 pub use self::state::{Claim, CronEvent, State};
 pub use self::types::*;
-use crate::reward::Method as RewardMethod;
 use crate::{
     check_empty_params, init, make_map, request_miner_control_addrs, Multimap, SetMultimap,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
@@ -117,7 +116,21 @@ impl Actor {
         let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
         rt.validate_immediate_caller_is(&[owner_addr, worker_addr])?;
 
-        let claim = Self::get_claim_or_abort(&st, rt.store(), &nominal)?;
+        let claim = st
+            .get_claim(rt.store(), &nominal)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load miner claim for deletion: {}", e),
+                )
+            })?
+            .ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to find miner {} claim for deletion", nominal),
+                )
+            })?;
+
         rt.transaction(|st: &mut State, rt| {
             if claim.raw_byte_power > Zero::zero() {
                 return Err(rt.abort(
@@ -158,11 +171,10 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let initial_pledge = compute_initial_pledge(rt, &params.weight)?;
 
-        let from = *rt.message().from();
         rt.transaction(|st: &mut State, rt| {
             let rb_power = BigUint::from(params.weight.sector_size as u64);
             let qa_power = qa_power_for_weight(&params.weight);
-            st.add_to_claim(rt.store(), &from, &rb_power, &qa_power)
+            st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -181,11 +193,10 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().from();
 
         rt.transaction(|st: &mut State, rt| {
             let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), &miner_addr, &rb_power, &qa_power)
+            st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -203,10 +214,10 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().from();
+
         rt.transaction(|st: &mut State, rt| {
             let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), &miner_addr, &rb_power, &qa_power)
+            st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -223,10 +234,10 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().from();
+
         rt.transaction(|st: &mut State, rt| {
             let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), &miner_addr, &rb_power, &qa_power)
+            st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -248,8 +259,6 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let new_initial_pledge = compute_initial_pledge(rt, &params.new_weight)?;
-        let from = *rt.message().from();
-        let msg = *rt.message().from();
         let prev_weight = params.prev_weight;
         let new_weight = params.new_weight;
 
@@ -258,7 +267,7 @@ impl Actor {
 
             st.add_to_claim(
                 rt.store(),
-                &msg,
+                rt.message().from(),
                 &BigUint::from(prev_weight.sector_size as u64),
                 &prev_power,
             )
@@ -272,7 +281,7 @@ impl Actor {
             let new_power = qa_power_for_weight(&new_weight);
             st.add_to_claim(
                 rt.store(),
-                &from,
+                rt.message().from(),
                 &BigUint::from(new_weight.sector_size as u64),
                 &new_power,
             )
@@ -295,9 +304,8 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().from();
         let miner_event = CronEvent {
-            miner_addr,
+            miner_addr: *rt.message().from(),
             callback_payload: params.payload.clone(),
         };
 
@@ -377,10 +385,22 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().from();
-        let store = rt.store();
         let st: State = rt.state()?;
 
-        let claim = Self::get_claim_or_abort(&st, store, &miner_addr)?;
+        let claim = st
+            .get_claim(rt.store(), &miner_addr)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to read claimed power for fault: {}", e),
+                )
+            })?
+            .ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!("miner {} not registered (already slashed?)", miner_addr),
+                )
+            })?;
 
         rt.transaction(|st: &mut State, _| {
             st.total_quality_adj_power -= claim.quality_adj_power;
@@ -411,26 +431,6 @@ impl Actor {
         Ok(())
     }
 
-    fn get_claim_or_abort<BS: BlockStore>(
-        st: &State,
-        store: &BS,
-        a: &Address,
-    ) -> Result<Claim, ActorError> {
-        st.get_claim(store, a)
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to load claim for miner {}: {}", a, e),
-                )
-            })?
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    format!("no claim for miner {}", a),
-                )
-            })
-    }
-
     fn submit_porep_for_bulk_verify<BS, RT>(
         rt: &mut RT,
         seal_info: SealVerifyInfo,
@@ -441,19 +441,19 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        let miner_addr = *rt.message().from();
         rt.transaction::<State, _, _>(|st, rt| {
-            let mut mmap = if st.proof_validation_batch.is_none() {
-                Multimap::new(rt.store())
+            let mut mmap = if let Some(ref batch) = st.proof_validation_batch {
+                Multimap::from_root(rt.store(), batch).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load proof batching set: {}", e),
+                    )
+                })?
             } else {
-                Multimap::from_root(rt.store(), &st.proof_validation_batch.as_ref().unwrap())
-                    .map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to load proof batching set: {}", e),
-                        )
-                    })?
+                Multimap::new(rt.store())
             };
+
+            let miner_addr = rt.message().from();
             mmap.add(miner_addr.to_bytes().into(), seal_info)
                 .map_err(|e| {
                     ActorError::new(
@@ -487,10 +487,9 @@ where
     RT: Runtime<BS>,
 {
     let st: State = rt.state()?;
-    let method_num = RewardMethod::LastPerEpochReward as u64;
     let ret = rt.send(
         &*REWARD_ACTOR_ADDR,
-        method_num,
+        3,
         &Serialized::default(),
         &TokenAmount::zero(),
     )?;

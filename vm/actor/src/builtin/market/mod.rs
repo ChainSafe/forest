@@ -22,7 +22,7 @@ use fil_types::PieceInfo;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -317,8 +317,8 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().from();
-        let mut total_deal_space_time = BigInt::zero();
-        let mut total_verified_deal_space_time = BigInt::zero();
+        let mut total_deal_space_time = BigUint::zero();
+        let mut total_verified_deal_space_time = BigUint::zero();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector

@@ -3,18 +3,18 @@
 
 use super::SectorStorageWeightDesc;
 use fil_types::{SectorQuality, StoragePower};
-use num_bigint::BigInt;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_bigint::BigUint;
+use num_traits::FromPrimitive;
 use vm::TokenAmount;
+
+const SECTOR_QUALITY_PRECISION: usize = 20; // PARAM_FINISH
+const BASE_MULTIPLIER: usize = 10; // PARAM_FINISH
+const DEAL_WEIGHT_MULTIPLIER: usize = 11; // PARAM_FINISH
+const VERIFIED_DEAL_WEIGHT_MULITPLIER: usize = 100; // PARAM_FINISH
 
 lazy_static! {
     /// Minimum power of an individual miner to meet the threshold for leader election.
     pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = StoragePower::from_i32(2 << 30).unwrap(); // placeholder
-
-    pub static ref BASE_MULTIPLIER: BigInt = BigInt::from(10); // PARAM_FINISH
-    pub static ref DEAL_WEIGHT_MULTIPLIER: BigInt = BigInt::from(11); // PARAM_FINISH
-    pub static ref VERIFIED_DEAL_WEIGHT_MULITPLIER: BigInt = BigInt::from(100); // PARAM_FINISH
-    pub static ref SECTOR_QUALITY_PRECISION: BigInt =  BigInt::from(20); // PARAM_FINISH
 }
 
 /// DealWeight and VerifiedDealWeight are spacetime occupied by regular deals and verified deals in a sector.
@@ -24,30 +24,26 @@ lazy_static! {
 /// Sectors with neither will have a SectorQuality of BaseMultiplier/BaseMultiplier.
 /// SectorQuality of a sector is a weighted average of multipliers based on their propotions.
 fn sector_quality_from_weight(weight: &SectorStorageWeightDesc) -> SectorQuality {
-    let sector_space_time = weight.sector_size as u64 * weight.duration;
+    let sector_size = BigUint::from(weight.sector_size as u64);
+    let sector_space_time = sector_size * weight.duration;
     let total_deal_space_time = &weight.deal_weight + &weight.verified_deal_weight;
-    assert!(BigInt::from(sector_space_time) < total_deal_space_time);
+    assert!(sector_space_time < total_deal_space_time);
 
-    let weighted_base_space_time = (sector_space_time - total_deal_space_time) * &*BASE_MULTIPLIER;
-    let weighted_deal_space_time = &weight.deal_weight + &*DEAL_WEIGHT_MULTIPLIER;
+    let weighted_base_space_time = (&sector_space_time - &total_deal_space_time) * BASE_MULTIPLIER;
+    let weighted_deal_space_time = &weight.deal_weight + DEAL_WEIGHT_MULTIPLIER;
     let weighted_verified_space_time =
-        &weight.verified_deal_weight * &*VERIFIED_DEAL_WEIGHT_MULITPLIER;
+        &weight.verified_deal_weight * VERIFIED_DEAL_WEIGHT_MULITPLIER;
     let weighted_sum_space_time =
         weighted_base_space_time + (weighted_deal_space_time + weighted_verified_space_time);
-    let scale_up_weighted_sum_space_time =
-        weighted_sum_space_time << ToPrimitive::to_usize(&*SECTOR_QUALITY_PRECISION).unwrap();
+    let scale_up_weighted_sum_space_time = weighted_sum_space_time << SECTOR_QUALITY_PRECISION;
 
-    ((scale_up_weighted_sum_space_time / sector_space_time) / &*BASE_MULTIPLIER)
-        .to_biguint()
-        .unwrap()
+    (scale_up_weighted_sum_space_time / sector_space_time) / BASE_MULTIPLIER
 }
 
 pub fn qa_power_for_weight(weight: &SectorStorageWeightDesc) -> StoragePower {
     let qual = sector_quality_from_weight(weight);
-    let sector_quality = ToPrimitive::to_usize(&(weight.sector_size as usize * qual)).unwrap();
-    (&*SECTOR_QUALITY_PRECISION >> sector_quality)
-        .to_biguint()
-        .unwrap()
+    let sector_quality = BigUint::from(weight.sector_size as u64) * qual;
+    sector_quality >> SECTOR_QUALITY_PRECISION
 }
 
 pub fn initial_pledge_for_weight(

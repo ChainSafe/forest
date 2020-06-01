@@ -20,8 +20,6 @@ pub struct State {
     #[serde(with = "biguint_ser")]
     pub total_raw_byte_power: StoragePower,
     #[serde(with = "biguint_ser")]
-    pub total_network_power: StoragePower,
-    #[serde(with = "biguint_ser")]
     pub total_quality_adj_power: StoragePower,
     #[serde(with = "biguint_ser")]
     pub total_pledge_collateral: TokenAmount,
@@ -65,15 +63,16 @@ impl State {
             .get_claim(store, miner)?
             .ok_or(format!("no claim for actor {}", miner))?;
 
+        let old_nominal_power = claim.quality_adj_power.clone();
+
         // update power
         claim.raw_byte_power += power;
         claim.quality_adj_power += qa_power;
 
-        let old_nominal_power = &claim.quality_adj_power;
         let new_nominal_power = &claim.quality_adj_power;
 
-        let min_power_ref: &StoragePower = &CONSENSUS_MINER_MIN_POWER;
-        let prev_below: bool = old_nominal_power < min_power_ref;
+        let min_power_ref: &StoragePower = &*CONSENSUS_MINER_MIN_POWER;
+        let prev_below: bool = &old_nominal_power < min_power_ref;
         let still_below: bool = new_nominal_power < min_power_ref;
 
         if prev_below && !still_below {

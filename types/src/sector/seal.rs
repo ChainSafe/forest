@@ -15,7 +15,7 @@ pub type InteractiveSealRandomness = Randomness;
 pub struct SealVerifyInfo {
     pub sector_id: SectorID,
     // TODO revisit issue to remove this: https://github.com/filecoin-project/specs-actors/issues/276
-    pub on_chain: SealVerifyStuff,
+    pub on_chain: SealVerifyParams,
     pub randomness: SealRandomness,
     pub interactive_randomness: InteractiveSealRandomness,
     pub unsealed_cid: Cid,
@@ -26,7 +26,7 @@ pub struct SealVerifyInfo {
 /// state tree but will be verified in sm.CommitSector. See SealCommitment for
 /// data stored on the state tree for each sector.
 #[derive(Clone, Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
-pub struct SealVerifyStuff {
+pub struct SealVerifyParams {
     pub sealed_cid: Cid,
     pub interactive_epoch: ChainEpoch,
     pub registered_proof: RegisteredProof,
