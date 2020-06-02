@@ -362,7 +362,7 @@ where
         ));
     }
     if height == ts.epoch() {
-        return Ok(ts.clone());
+        return Ok(ts);
     }
     // TODO: If ts.epoch()-h > Fork Length Threshold, it could be expensive to look up
     let mut ts_temp = ts;
