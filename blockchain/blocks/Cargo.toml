@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
-
 [package.metadata.docs.rs]
 features = ["json"]
 
@@ -14,7 +13,10 @@ beacon = { path = "../beacon", features = ["json"] }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 message = { package = "forest_message", path = "../../vm/message" }
 clock = { path = "../../node/clock" }
-cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor"] }
+cid = { package = "forest_cid", path = "../../ipld/cid", features = [
+    "cbor",
+    "json"
+] }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 encoding = { package = "forest_encoding", path = "../../encoding" }
@@ -22,15 +24,17 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 sha2 = { version = "0.8", default-features = false }
 thiserror = "1.0"
 vm = { package = "forest_vm", path = "../../vm" }
-fil_types = { path = "../../types", features = ["json"]}
+fil_types = { path = "../../types", features = ["json"] }
 base64 = { version = "0.12.1", optional = true }
-
+forest_json_utils = { path = "../../utils/json_utils", optional = true }
 
 [dev-dependencies]
 base64 = "0.12.1"
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
+    "test_constructors"
+] }
 hex = "0.4.2"
 serde_json = "1.0"
 
 [features]
-json = ["base64", "crypto/json"]
+json = ["base64", "crypto/json", "forest_json_utils"]

@@ -20,7 +20,7 @@ num-derive = "0.3.0"
 encoding = { package = "forest_encoding", path = "../encoding" }
 clock = { path = "../node/clock" }
 base64 = { version = "0.12.1", optional = true }
-
+forest_json_utils = { path = "../utils/json_utils", optional = true }
 
 [features]
-json = ["base64"]
+json = ["base64", "forest_json_utils"]

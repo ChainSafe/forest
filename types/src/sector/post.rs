@@ -66,6 +66,12 @@ pub mod json {
     #[serde(transparent)]
     pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a PoStProof);
 
+    impl From<PoStProofJson> for PoStProof {
+        fn from(wrapper: PoStProofJson) -> Self {
+            wrapper.0
+        }
+    }
+
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
@@ -97,53 +103,25 @@ pub mod json {
 
     pub mod vec {
         use super::*;
-        use serde::de::{SeqAccess, Visitor};
+        use forest_json_utils::GoVecVisitor;
         use serde::ser::SerializeSeq;
-        use std::fmt;
 
         pub fn serialize<S>(m: &[PoStProof], serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
-            if m.is_empty() {
-                None::<()>.serialize(serializer)
-            } else {
-                let mut seq = serializer.serialize_seq(Some(m.len()))?;
-                for e in m {
-                    seq.serialize_element(&PoStProofJsonRef(e))?;
-                }
-                seq.end()
+            let mut seq = serializer.serialize_seq(Some(m.len()))?;
+            for e in m {
+                seq.serialize_element(&PoStProofJsonRef(e))?;
             }
+            seq.end()
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<PoStProof>, D::Error>
         where
             D: Deserializer<'de>,
         {
-            struct PoStVisitor;
-            impl<'de> Visitor<'de> for PoStVisitor {
-                type Value = Vec<PoStProof>;
-                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                    formatter.write_str("A vector of PoStProof")
-                }
-                fn visit_seq<A>(self, mut seq: A) -> Result<Vec<PoStProof>, A::Error>
-                where
-                    A: SeqAccess<'de>,
-                {
-                    let mut vec = vec![];
-                    while let Some(el) = seq.next_element::<PoStProofJson>()? {
-                        vec.push(el.0);
-                    }
-                    Ok(vec)
-                }
-                fn visit_none<E>(self) -> Result<Self::Value, E>
-                where
-                    E: de::Error,
-                {
-                    Ok(Vec::new())
-                }
-            }
-            deserializer.deserialize_any(PoStVisitor)
+            deserializer.deserialize_any(GoVecVisitor::<PoStProof, PoStProofJson>::new())
         }
     }
 }

@@ -31,5 +31,6 @@ members = [
     "utils/rleplus",
     "utils/test_utils",
     "utils/commcid",
+    "utils/json_utils",
     "types",
 ]

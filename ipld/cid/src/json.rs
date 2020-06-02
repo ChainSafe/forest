@@ -14,6 +14,12 @@ pub struct CidJson(#[serde(with = "self")] pub Cid);
 #[serde(transparent)]
 pub struct CidJsonRef<'a>(#[serde(with = "self")] pub &'a Cid);
 
+impl From<CidJson> for Cid {
+    fn from(wrapper: CidJson) -> Self {
+        wrapper.0
+    }
+}
+
 pub fn serialize<S>(c: &Cid, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,

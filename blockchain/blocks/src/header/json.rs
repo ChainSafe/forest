@@ -1,5 +1,6 @@
 use super::*;
 use crate::ticket;
+use crate::tipset::tipset_keys_json;
 use beacon::beacon_entries;
 use crypto::{signature, vrf};
 use fil_types::sector::post;
@@ -29,10 +30,10 @@ where
         election_proof: &'a Option<VRFProof>,
         #[serde(with = "beacon_entries::json::vec")]
         beacon_entries: &'a [BeaconEntry],
-        #[serde(with = "post::json::vec")]
+        #[serde(rename = "WinPoStProof", with = "post::json::vec")]
         win_post_proof: &'a [PoStProof],
-        // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
-        // parents : &'a TipsetKeys,
+        #[serde(rename = "Parents", with = "tipset_keys_json")]
+        parents: &'a TipsetKeys,
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: &'a u64,
@@ -56,7 +57,7 @@ where
         ticket: &m.ticket,
         election_proof: &m.election_proof,
         win_post_proof: &m.win_post_proof,
-        // parents: &m.parents,
+        parents: &m.parents,
         weight: m.weight.to_string(),
         height: &m.epoch,
         state_root: &m.state_root,
@@ -85,10 +86,10 @@ where
         election_proof: Option<VRFProof>,
         #[serde(with = "beacon_entries::json::vec")]
         beacon_entries: Vec<BeaconEntry>,
-        #[serde(with = "post::json::vec")]
+        #[serde(rename = "WinPoStProof", with = "post::json::vec")]
         win_post_proof: Vec<PoStProof>,
-        // #[serde(rename = "Parents",  deserialize_with  = "cid::json" )]
-        // parents : TipsetKeys,
+        #[serde(rename = "Parents", with = "tipset_keys_json")]
+        parents: TipsetKeys,
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: u64,
@@ -121,7 +122,7 @@ where
         .timestamp(v.timestamp)
         .fork_signal(v.fork_signal)
         .weight(v.weight.parse().map_err(de::Error::custom)?)
-        // .parents(v.pa)
+        .parents(v.parents)
         .signature(v.signature)
         .bls_aggregate(v.bls_aggregate)
         .election_proof(v.election_proof)

@@ -53,7 +53,7 @@ impl<'de> Deserialize<'de> for BeaconEntry {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a BeaconEntry from JSON.
     #[derive(Deserialize, Serialize)]
@@ -64,6 +64,12 @@ pub mod json {
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct BeaconEntryJsonRef<'a>(#[serde(with = "self")] pub &'a BeaconEntry);
+
+    impl From<BeaconEntryJson> for BeaconEntry {
+        fn from(wrapper: BeaconEntryJson) -> Self {
+            wrapper.0
+        }
+    }
 
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
@@ -97,56 +103,25 @@ pub mod json {
 
     pub mod vec {
         use super::*;
-        use serde::de::{SeqAccess, Visitor};
+        use forest_json_utils::GoVecVisitor;
         use serde::ser::SerializeSeq;
-        use std::fmt;
 
         pub fn serialize<S>(m: &[BeaconEntry], serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
-            if m.is_empty() {
-                None::<()>.serialize(serializer)
-            } else {
-                let mut seq = serializer.serialize_seq(Some(m.len()))?;
-                for e in m {
-                    seq.serialize_element(&BeaconEntryJsonRef(e))?;
-                }
-                seq.end()
+            let mut seq = serializer.serialize_seq(Some(m.len()))?;
+            for e in m {
+                seq.serialize_element(&BeaconEntryJsonRef(e))?;
             }
+            seq.end()
         }
+
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<BeaconEntry>, D::Error>
         where
             D: Deserializer<'de>,
         {
-            struct BeaconEntryVisitor;
-
-            impl<'de> Visitor<'de> for BeaconEntryVisitor {
-                type Value = Vec<BeaconEntry>;
-
-                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                    formatter.write_str("A vector of beaconentries")
-                }
-
-                fn visit_seq<A>(self, mut seq: A) -> Result<Vec<BeaconEntry>, A::Error>
-                where
-                    A: SeqAccess<'de>,
-                {
-                    let mut vec = Vec::new();
-                    while let Some(elem) = seq.next_element::<BeaconEntryJson>()? {
-                        vec.push(elem.0);
-                    }
-                    Ok(vec)
-                }
-                fn visit_none<E>(self) -> Result<Self::Value, E>
-                where
-                    E: de::Error,
-                {
-                    Ok(Vec::new())
-                }
-            }
-
-            deserializer.deserialize_any(BeaconEntryVisitor)
+            deserializer.deserialize_any(GoVecVisitor::<BeaconEntry, BeaconEntryJson>::new())
         }
     }
 }
