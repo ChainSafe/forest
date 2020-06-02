@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::*;
 use crate::ticket;
 use crate::tipset::tipset_keys_json;
