@@ -392,7 +392,7 @@ where
                 )
             })
     }
-    fn delete_actor(&mut self) -> Result<(), ActorError> {
+    fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
         self.charge_gas(self.price_list.on_delete_actor())?;
         let balance = self.get_actor(self.message.to()).map(|act| act.balance)?;
         if !balance.eq(&0u64.into()) {
@@ -410,6 +410,9 @@ where
     }
     fn syscalls(&self) -> &dyn Syscalls {
         &self.syscalls
+    }
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
+        todo!()
     }
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
