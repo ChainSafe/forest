@@ -31,5 +31,6 @@ members = [
     "utils/bitfield",
     "utils/test_utils",
     "utils/commcid",
+    "utils/json_utils",
     "types",
 ]

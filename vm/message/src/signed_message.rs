@@ -90,10 +90,11 @@ pub mod json {
         S: Serializer,
     {
         #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
         struct SignedMessageSer<'a> {
-            #[serde(rename = "Message", with = "unsigned_message::json")]
+            #[serde(with = "unsigned_message::json")]
             message: &'a UnsignedMessage,
-            #[serde(rename = "Signature", with = "signature::json")]
+            #[serde(with = "signature::json")]
             signature: &'a Signature,
         }
         SignedMessageSer {
@@ -108,10 +109,11 @@ pub mod json {
         D: Deserializer<'de>,
     {
         #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "PascalCase")]
         struct SignedMessageDe {
-            #[serde(rename = "Message", with = "unsigned_message::json")]
+            #[serde(with = "unsigned_message::json")]
             message: UnsignedMessage,
-            #[serde(rename = "Signature", with = "signature::json")]
+            #[serde(with = "signature::json")]
             signature: Signature,
         }
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;

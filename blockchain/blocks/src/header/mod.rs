@@ -1,28 +1,29 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{ElectionProof, Error, Ticket, Tipset, TipsetKeys};
+use super::{Error, Ticket, Tipset, TipsetKeys};
 use address::Address;
-use beacon::{Beacon, BeaconEntry};
+use beacon::{self, Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::Signature;
+use crypto::{election_proof::ElectionProof, Signature};
 use derive_builder::Builder;
-use encoding::{
-    de::{Deserialize, Deserializer},
-    ser::{Serialize, Serializer},
-    Cbor, Error as EncodingError,
-};
+use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
     BigUint,
 };
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+#[cfg(feature = "json")]
+pub mod json;
+
 // TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
 const BLOCKS_PER_EPOCH: u64 = 5;
@@ -42,12 +43,17 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .message_receipts(Cid::new_from_cbor(&[], Identity)) // required
 ///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0)) // optional
+///     .beacon_entries(Vec::new()) // optional
+///     .win_post_proof(Vec::new()) // optional
+///     .election_proof(None) // optional
 ///     .bls_aggregate(None) // optional
+///     .signature(None) // optional
 ///     .parents(TipsetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(0) // optional
 ///     .timestamp(0) // optional
 ///     .ticket(Ticket::default()) // optional
+///     .fork_signal(0) // optional
 ///     .build_and_validate()
 ///     .unwrap();
 /// ```
@@ -70,10 +76,12 @@ pub struct BlockHeader {
     #[builder(default)]
     epoch: ChainEpoch,
 
-    /// Values from Drand
+    /// BeaconEntries contain the verifiable oracle randomness used to elect
+    /// this block's author leader
     #[builder(default)]
     beacon_entries: Vec<BeaconEntry>,
 
+    /// PoStProofs are the winning post proofs
     #[builder(default)]
     win_post_proof: Vec<PoStProof>,
 
