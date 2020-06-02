@@ -381,7 +381,7 @@ where
             .get::<PowerState>(&act.state)
             .map_err(|e| e.to_string())?
         {
-            tpow = state.total_network_power;
+            tpow = state.total_quality_adj_power;
         }
     }
     let log2_p = if tpow > BigUint::zero() {
