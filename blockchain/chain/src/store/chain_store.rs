@@ -8,6 +8,7 @@ use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
+use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
@@ -30,6 +31,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 pub struct ChainStore<DB> {
     // TODO add IPLD Store
     // TODO add a pubsub channel that publishes an event every time the head changes.
+    publisher: Publisher<TipIndex>,
 
     // key-value datastore
     pub db: Arc<DB>,
@@ -52,6 +54,7 @@ where
             .map(Arc::new);
         Self {
             db,
+            publisher: Publisher::new(1024),
             tip_index: TipIndex::new(),
             heaviest,
         }
@@ -64,8 +67,12 @@ where
         Ok(())
     }
 
+    pub fn subscribe(&mut self) -> Subscriber<TipIndex> {
+        self.publisher.subscribe()
+    }
+
     /// Sets tip_index tracker
-    pub fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
+    pub async fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
         let ts: Tipset = Tipset::new(vec![header.clone()])?;
         let meta = TipsetMetadata {
             tipset_state_root: header.state_root().clone(),
@@ -73,6 +80,7 @@ where
             tipset: ts,
         };
         self.tip_index.put(&meta);
+        self.publisher.publish(self.tip_index.clone()).await;
         Ok(())
     }
 

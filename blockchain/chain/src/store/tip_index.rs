@@ -5,9 +5,9 @@ use super::errors::Error;
 use blocks::{Tipset, TipsetKeys};
 use cid::Cid;
 use clock::ChainEpoch;
-use std::collections::{hash_map::DefaultHasher, HashMap};
+use im::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-
 /// TipsetMetadata is the type stored as the value in the TipIndex hashmap.  It contains
 /// a tipset pointing to blocks, the root cid of the chain's state after
 /// applying the messages in this tipset to it's parent state, and the cid of the receipts
@@ -36,7 +36,7 @@ impl Index for ChainEpoch {}
 impl Index for TipsetKeys {}
 
 /// Tracks tipsets and their states by TipsetKeys and ChainEpoch.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TipIndex {
     // metadata allows lookup of recorded Tipsets and their state roots
     // by TipsetKey and Epoch

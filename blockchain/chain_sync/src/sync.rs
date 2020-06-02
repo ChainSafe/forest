@@ -701,7 +701,7 @@ where
                 self.bad_blocks.put(b.cid().clone(), e.to_string());
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
-            self.chain_store.set_tipset_tracker(b.header())?;
+            self.chain_store.set_tipset_tracker(b.header()).await?;
         }
         Ok(())
     }
