@@ -146,7 +146,7 @@ where
                 return Ok(cid_pair.clone());
             }
 
-            if tipset.len() == 0 {
+            if tipset.epoch() == 0 {
                 // NB: This is here because the process that executes blocks requires that the
                 // block miner reference a valid miner in the state tree. Unless we create some
                 // magical genesis miner, this won't work properly, so we short circuit here
