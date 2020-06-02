@@ -86,14 +86,9 @@ impl Tipset {
             },
         })
     }
-    /// Returns the first block of the tipset
-    fn first_block(&self) -> &BlockHeader {
-        // `Tipset::new` guarantees that `blocks` isn't empty
-        self.blocks.first().unwrap()
-    }
     /// Returns epoch of the tipset
     pub fn epoch(&self) -> ChainEpoch {
-        self.first_block().epoch()
+        self.min_ticket_block().epoch()
     }
     /// Returns all blocks in tipset
     pub fn blocks(&self) -> &[BlockHeader] {
@@ -105,7 +100,12 @@ impl Tipset {
     }
     /// Returns the smallest ticket of all blocks in the tipset
     pub fn min_ticket(&self) -> Ticket {
-        self.first_block().ticket().clone()
+        self.min_ticket_block().ticket().clone()
+    }
+    /// Returns the block with the smallest ticket of all blocks in the tipset
+    pub fn min_ticket_block(&self) -> &BlockHeader {
+        // `Tipset::new` guarantees that `blocks` isn't empty
+        self.blocks.first().unwrap()
     }
     /// Returns the smallest timestamp of all blocks in the tipset
     pub fn min_timestamp(&self) -> u64 {
@@ -129,15 +129,15 @@ impl Tipset {
     }
     /// Returns the CIDs of the parents of the blocks in the tipset
     pub fn parents(&self) -> &TipsetKeys {
-        self.first_block().parents()
+        self.min_ticket_block().parents()
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
-        self.first_block().state_root()
+        self.min_ticket_block().state_root()
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
-        self.first_block().weight()
+        self.min_ticket_block().weight()
     }
 }
 

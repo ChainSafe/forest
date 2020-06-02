@@ -6,7 +6,7 @@ use address::Address;
 use beacon::{self, Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::{Signature, VRFProof};
+use crypto::{election_proof::ElectionProof, Signature};
 use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
@@ -43,12 +43,17 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .message_receipts(Cid::new_from_cbor(&[], Identity)) // required
 ///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0)) // optional
+///     .beacon_entries(Vec::new()) // optional
+///     .win_post_proof(Vec::new()) // optional
+///     .election_proof(None) // optional
 ///     .bls_aggregate(None) // optional
+///     .signature(None) // optional
 ///     .parents(TipsetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(0) // optional
 ///     .timestamp(0) // optional
 ///     .ticket(Ticket::default()) // optional
+///     .fork_signal(0) // optional
 ///     .build_and_validate()
 ///     .unwrap();
 /// ```
@@ -102,7 +107,7 @@ pub struct BlockHeader {
     signature: Option<Signature>,
 
     #[builder(default)]
-    election_proof: Option<VRFProof>,
+    election_proof: Option<ElectionProof>,
 
     // CONSENSUS
     /// timestamp, in seconds since the Unix epoch, at which this block was created
@@ -281,7 +286,7 @@ impl BlockHeader {
         self.fork_signal
     }
     /// Getter for BlockHeader epost_verify
-    pub fn election_proof(&self) -> &Option<VRFProof> {
+    pub fn election_proof(&self) -> &Option<ElectionProof> {
         &self.election_proof
     }
     /// Getter for BlockHeader signature
@@ -430,7 +435,7 @@ mod tests {
     #[test]
     fn symmetric_header_encoding() {
         // This test vector is the genesis header for interopnet config
-        let bz = hex::decode("8f4200008158207672662070726f6f66303030303030307672662070726f6f6630303030303030f68182005820000000000000000000000000000000000000000000000000000000000000000080804000d82a5827000171a0e402209fcfcbb98dcbf141cd7f1977fcd1b5da2198ebdcc96a61288562dbc3ee8e8ff0d82a5827000171a0e4022001cd927fdccd7938faba323e32e70c44541b8a83f5dc941d90866565ef5af14ad82a5827000171a0e402208d6f0e09e0453685b8816895cd56a7ee2fce600026ee23ac445d78f020c1ca40f61a5ea37bdcf600").unwrap();
+        let bz = hex::decode("8f4200008158207672662070726f6f66303030303030307672662070726f6f663030303030303081408182005820000000000000000000000000000000000000000000000000000000000000000080804000d82a5827000171a0e402206b5f2a7a2c2be076e0635b908016ddca0de082e14d9c8d776a017660628b5bfdd82a5827000171a0e4022001cd927fdccd7938faba323e32e70c44541b8a83f5dc941d90866565ef5af14ad82a5827000171a0e402208d6f0e09e0453685b8816895cd56a7ee2fce600026ee23ac445d78f020c1ca40f61a5ebdc1b8f600").unwrap();
         let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
         assert_eq!(hex::encode(header.marshal_cbor().unwrap()), hex::encode(bz));
     }
