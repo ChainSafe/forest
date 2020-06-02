@@ -63,12 +63,13 @@ pub(crate) async fn chain_block_messages<DB: BlockStore + Send + Sync + 'static>
         .store
         .get(&blk_cid)?
         .ok_or("can't find block with that cid")?;
-
-    let (unsigned, signed) = chain::messages(data.store.as_ref(), &blk)?;
-    let (unsigned_cid, signed_cid) = chain::read_msg_cids(data.store.as_ref(), blk.messages())?;
-    let cids = unsigned_cid
+    let blk_msgs = blk.messages();
+    let (unsigned_cids, signed_cids) = chain::read_msg_cids(data.store.as_ref(), &blk_msgs)?;
+    let (unsigned, signed) =
+        chain::block_messages_from_cids(data.store.as_ref(), &unsigned_cids, &signed_cids)?;
+    let cids = unsigned_cids
         .into_iter()
-        .chain(signed_cid)
+        .chain(signed_cids)
         .collect::<Vec<_>>();
 
     let ret = BlockMessage {

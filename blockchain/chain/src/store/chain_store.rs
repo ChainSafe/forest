@@ -156,7 +156,7 @@ where
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
 
         for header in ts.into_blocks() {
-            let (bls_messages, secp_messages) = messages(self.blockstore(), &header)?;
+            let (bls_messages, secp_messages) = block_messages(self.blockstore(), &header)?;
             blocks.push(Block {
                 header,
                 bls_messages,
@@ -190,7 +190,7 @@ where
 
 /// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
 /// of type SignedMessage
-pub fn messages<DB>(
+pub fn block_messages<DB>(
     db: &DB,
     bh: &BlockHeader,
 ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
@@ -199,8 +199,23 @@ where
 {
     let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
 
+    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, &bls_cids)?;
+    let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
+
+    Ok((bls_msgs, secp_msgs))
+}
+
+/// Returns a tuple of UnsignedMessage and SignedMessages from their Cid
+pub fn block_messages_from_cids<DB>(
+    db: &DB,
+    bls_cids: &[Cid],
+    secp_cids: &[Cid],
+) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+where
+    DB: BlockStore,
+{
     let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, bls_cids)?;
-    let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secpk_cids)?;
+    let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secp_cids)?;
 
     Ok((bls_msgs, secp_msgs))
 }
@@ -394,7 +409,7 @@ where
 }
 
 /// Returns messages from key-value store
-fn messages_from_cids<DB, T>(db: &DB, keys: Vec<Cid>) -> Result<Vec<T>, Error>
+fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
     DB: BlockStore,
     T: DeserializeOwned,
