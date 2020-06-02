@@ -8,6 +8,7 @@ mod types;
 pub use self::policy::*;
 pub use self::state::{Claim, CronEvent, State};
 pub use self::types::*;
+use crate::reward::Method as RewardMethod;
 use crate::{
     check_empty_params, init, make_map, request_miner_control_addrs, Multimap, SetMultimap,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
@@ -489,7 +490,7 @@ where
     let st: State = rt.state()?;
     let ret = rt.send(
         &*REWARD_ACTOR_ADDR,
-        3,
+        RewardMethod::LastPerEpochReward as u64,
         &Serialized::default(),
         &TokenAmount::zero(),
     )?;

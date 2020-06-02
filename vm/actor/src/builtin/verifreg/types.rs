@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::StoragePower;
 use address::Address;
 use encoding::tuple::*;
+use fil_types::StoragePower;
 use num_bigint::biguint_ser;
 use num_traits::FromPrimitive;
 

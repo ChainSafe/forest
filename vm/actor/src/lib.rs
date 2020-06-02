@@ -25,9 +25,6 @@ const HAMT_BIT_WIDTH: u8 = 5;
 type EmptyType = [u8; 0];
 const EMPTY_VALUE: EmptyType = [];
 
-/// Storage power unit, could possibly be a BigUint
-type StoragePower = BigUint;
-
 /// Deal weight
 type DealWeight = BigUint;
 
