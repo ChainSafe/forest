@@ -350,7 +350,7 @@ where
 pub fn tipset_by_height<DB>(
     db: &DB,
     height: ChainEpoch,
-    ts: &Tipset,
+    ts: Tipset,
     prev: bool,
 ) -> Result<Tipset, Error>
 where
@@ -365,7 +365,7 @@ where
         return Ok(ts.clone());
     }
     // TODO: If ts.epoch()-h > Fork Length Threshold, it could be expensive to look up
-    let mut ts_temp = ts.clone();
+    let mut ts_temp = ts;
     loop {
         let pts = tipset_from_keys(db, ts_temp.parents())?;
         if height > pts.epoch() {
@@ -377,7 +377,7 @@ where
         if height == pts.epoch() {
             return Ok(pts);
         }
-        ts_temp = pts.clone();
+        ts_temp = pts;
     }
 }
 

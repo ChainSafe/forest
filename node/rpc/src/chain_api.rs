@@ -13,7 +13,7 @@ use message::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct BlockMessage {
+pub(crate) struct BlockMessages {
     #[serde(rename = "BlsMessages")]
     pub bls_msg: Option<Vec<UnsignedMessageJson>>,
     #[serde(rename = "SecpkMessages")]
@@ -57,7 +57,7 @@ pub(crate) async fn chain_has_obj<DB: BlockStore + Send + Sync + 'static>(
 pub(crate) async fn chain_block_messages<DB: BlockStore + Send + Sync + 'static>(
     data: Data<State<DB>>,
     Params(params): Params<(CidJson,)>,
-) -> Result<BlockMessage, JsonRpcError> {
+) -> Result<BlockMessages, JsonRpcError> {
     let blk_cid = (params.0).0;
     let blk: BlockHeader = data
         .store
@@ -72,7 +72,7 @@ pub(crate) async fn chain_block_messages<DB: BlockStore + Send + Sync + 'static>
         .chain(signed_cids)
         .collect::<Vec<_>>();
 
-    let ret = BlockMessage {
+    let ret = BlockMessages {
         bls_msg: if unsigned.is_empty() {
             None
         } else {
