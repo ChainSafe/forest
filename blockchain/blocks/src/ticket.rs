@@ -41,7 +41,6 @@ pub struct EPostProof {
     pub candidates: Vec<EPostTicket>,
 }
 
-
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
