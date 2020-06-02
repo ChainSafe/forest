@@ -14,7 +14,7 @@ const VERIFIED_DEAL_WEIGHT_MULITPLIER: usize = 100; // PARAM_FINISH
 
 lazy_static! {
     /// Minimum power of an individual miner to meet the threshold for leader election.
-    pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = StoragePower::from_i32(2 << 30).unwrap(); // placeholder
+    pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = StoragePower::from_i64(1 << 40).unwrap(); // placeholder
 }
 
 /// DealWeight and VerifiedDealWeight are spacetime occupied by regular deals and verified deals in a sector.
