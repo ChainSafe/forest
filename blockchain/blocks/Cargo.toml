@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
+[package.metadata.docs.rs]
+features = ["json"]
+
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address" }
 beacon = { path = "../beacon" }
@@ -20,8 +23,14 @@ sha2 = { version = "0.8", default-features = false }
 thiserror = "1.0"
 vm = { package = "forest_vm", path = "../../vm" }
 fil_types = { path = "../../types" }
+base64 = { version = "0.12.1", optional = true }
+forest_json_utils = { path = "../../utils/json_utils", optional = true }
 
 [dev-dependencies]
 base64 = "0.12.1"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
 hex = "0.4.2"
+serde_json = "1.0"
+
+[features]
+json = ["base64", "crypto/json", "forest_json_utils", "beacon/json", "cid/json", "fil_types/json"]
