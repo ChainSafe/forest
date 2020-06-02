@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::State;
-use blocks::BlockHeader;
+use blocks::{tipset_json::TipsetJson, BlockHeader, TipsetKeys};
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
+use clock::ChainEpoch;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     signed_message,
@@ -54,7 +55,6 @@ pub(crate) async fn chain_has_obj<DB: BlockStore + Send + Sync + 'static>(
     let obj_cid = (params.0).0;
     Ok(data.store.get_bytes(&obj_cid)?.is_some())
 }
-
 pub(crate) async fn chain_block_messages<DB: BlockStore + Send + Sync + 'static>(
     data: Data<State<DB>>,
     Params(params): Params<(CidJson,)>,
@@ -79,4 +79,15 @@ pub(crate) async fn chain_block_messages<DB: BlockStore + Send + Sync + 'static>
         cids,
     };
     Ok(ret)
+}
+
+pub(crate) async fn chain_get_tipset_by_height<DB: BlockStore + Send + Sync + 'static>(
+    data: Data<State<DB>>,
+    Params(params): Params<(ChainEpoch, TipsetKeys)>,
+) -> Result<TipsetJson, JsonRpcError> {
+    let height = params.0;
+    let tsk = params.1;
+    let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk).unwrap();
+    let tss = chain::tipset_by_height(data.store.as_ref(), height, ts, true)?;
+    Ok(TipsetJson(tss))
 }
