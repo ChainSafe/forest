@@ -421,3 +421,17 @@ impl BlockHeaderBuilder {
         Ok(header)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::BlockHeader;
+    use encoding::Cbor;
+
+    #[test]
+    fn symmetric_header_encoding() {
+        // This test vector is the genesis header for interopnet config
+        let bz = hex::decode("8f4200008158207672662070726f6f66303030303030307672662070726f6f6630303030303030f68182005820000000000000000000000000000000000000000000000000000000000000000080804000d82a5827000171a0e402209fcfcbb98dcbf141cd7f1977fcd1b5da2198ebdcc96a61288562dbc3ee8e8ff0d82a5827000171a0e4022001cd927fdccd7938faba323e32e70c44541b8a83f5dc941d90866565ef5af14ad82a5827000171a0e402208d6f0e09e0453685b8816895cd56a7ee2fce600026ee23ac445d78f020c1ca40f61a5ea37bdcf600").unwrap();
+        let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
+        assert_eq!(hex::encode(header.marshal_cbor().unwrap()), hex::encode(bz));
+    }
+}

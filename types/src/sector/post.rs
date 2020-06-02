@@ -56,6 +56,7 @@ pub struct OnChainWindowPoStVerifyInfo {
 pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
     /// Wrapper for serializing a PoStProof to JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]

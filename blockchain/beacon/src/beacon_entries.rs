@@ -60,7 +60,7 @@ pub mod json {
     #[serde(transparent)]
     pub struct BeaconEntryJson(#[serde(with = "self")] pub BeaconEntry);
 
-    /// Wrapper for serializing a BeaconEntryreference to JSON.
+    /// Wrapper for serializing a BeaconEntry reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct BeaconEntryJsonRef<'a>(#[serde(with = "self")] pub &'a BeaconEntry);
