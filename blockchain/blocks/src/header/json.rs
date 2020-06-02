@@ -86,9 +86,9 @@ where
         ticket: Ticket,
         #[serde(default, with = "election_proof::json::opt")]
         election_proof: Option<ElectionProof>,
-        #[serde(with = "beacon_entries::json::vec")]
+        #[serde(default, with = "beacon_entries::json::vec")]
         beacon_entries: Vec<BeaconEntry>,
-        #[serde(rename = "WinPoStProof", with = "post::json::vec")]
+        #[serde(default, rename = "WinPoStProof", with = "post::json::vec")]
         win_post_proof: Vec<PoStProof>,
         #[serde(rename = "Parents", with = "tipset_keys_json")]
         parents: TipsetKeys,

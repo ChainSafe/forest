@@ -76,10 +76,12 @@ pub struct BlockHeader {
     #[builder(default)]
     epoch: ChainEpoch,
 
-    /// Values from Drand
+	/// BeaconEntries contain the verifiable oracle randomness used to elect
+	/// this block's author leader
     #[builder(default)]
     beacon_entries: Vec<BeaconEntry>,
 
+    /// PoStProofs are the winning post proofs
     #[builder(default)]
     win_post_proof: Vec<PoStProof>,
 
