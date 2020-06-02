@@ -179,17 +179,17 @@ where
 
     pub fn compute_tipset_state<'a>(
         &'a self,
-        blocks: &[BlockHeader],
+        blocks_headers: &[BlockHeader],
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
             let check_for_duplicates = |s: &BlockHeader| {
-                blocks
+                blocks_headers
                     .iter()
                     .filter(|val| val.miner_address() == s.miner_address())
                     .take(2)
                     .count()
             };
-            if blocks.iter().any(|s| check_for_duplicates(s) > 1) {
+            if blocks_headers.iter().any(|s| check_for_duplicates(s) > 1) {
                 // Duplicate Miner found
                 return Err(Box::new(Error::Other(
                     "Could not get message receipts".to_string(),
@@ -197,7 +197,11 @@ where
             }
 
             let chain_store = ChainStore::new(self.bs.clone());
-            let blocks = blocks
+            let tipset_keys =
+                TipsetKeys::new(blocks_headers.iter().map(|s| s.cid()).cloned().collect());
+            let chain_rand = ChainRand::new(tipset_keys);
+
+            let blocks = blocks_headers
                 .iter()
                 .map::<Result<Block, Box<dyn StdError>>, _>(|s: &BlockHeader| {
                     let (bls_messages, secp_messages) = chain_store.messages(&s)?;
@@ -210,7 +214,6 @@ where
                 .collect::<Result<Vec<Block>, _>>()?;
             // convert tipset to fulltipset
             let full_tipset = FullTipset::new(blocks)?;
-            let chain_rand = ChainRand::new(full_tipset.to_tipset().key().to_owned());
             self.apply_blocks(&full_tipset, &chain_rand)
         })
     }
