@@ -76,8 +76,8 @@ pub struct BlockHeader {
     #[builder(default)]
     epoch: ChainEpoch,
 
-	/// BeaconEntries contain the verifiable oracle randomness used to elect
-	/// this block's author leader
+    /// BeaconEntries contain the verifiable oracle randomness used to elect
+    /// this block's author leader
     #[builder(default)]
     beacon_entries: Vec<BeaconEntry>,
 
