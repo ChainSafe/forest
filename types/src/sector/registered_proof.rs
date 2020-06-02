@@ -33,6 +33,11 @@ pub enum RegisteredProof {
 
     StackedDRG32GiBWinningPoSt = 15,
     StackedDRG32GiBWindowPoSt = 16,
+
+    StackedDRG64GiBSeal = 17,
+
+    StackedDRG64GiBWinningPoSt = 18,
+    StackedDRG64GiBWindowPoSt = 19,
 }
 
 impl RegisteredProof {
@@ -44,6 +49,9 @@ impl RegisteredProof {
     pub fn sector_size(self) -> SectorSize {
         use RegisteredProof::*;
         match self {
+            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => {
+                SectorSize::_64GiB
+            }
             StackedDRG32GiBSeal
             | StackedDRG32GiBPoSt
             | StackedDRG32GiBWindowPoSt
@@ -63,11 +71,38 @@ impl RegisteredProof {
         }
     }
 
+    /// Returns the partition size, in sectors, associated with a proof type.
+    /// The partition size is the number of sectors proven in a single PoSt proof.
+    pub fn window_post_partitions_sector(self) -> u64 {
+        // Resolve to seal proof and then compute size from that.
+        use RegisteredProof::*;
+        match self {
+            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => 2300,
+            StackedDRG32GiBSeal
+            | StackedDRG32GiBPoSt
+            | StackedDRG32GiBWindowPoSt
+            | StackedDRG32GiBWinningPoSt => 2349,
+            StackedDRG2KiBSeal
+            | StackedDRG2KiBPoSt
+            | StackedDRG2KiBWindowPoSt
+            | StackedDRG2KiBWinningPoSt => 2,
+            StackedDRG8MiBSeal
+            | StackedDRG8MiBPoSt
+            | StackedDRG8MiBWindowPoSt
+            | StackedDRG8MiBWinningPoSt => 2,
+            StackedDRG512MiBSeal
+            | StackedDRG512MiBPoSt
+            | StackedDRG512MiBWindowPoSt
+            | StackedDRG512MiBWinningPoSt => 2,
+        }
+    }
+
     /// Produces the winning PoSt-specific RegisteredProof corresponding
     /// to the receiving RegisteredProof.
     pub fn registered_winning_post_proof(self) -> Result<RegisteredProof, String> {
         use RegisteredProof::*;
         match self {
+            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt => Ok(StackedDRG64GiBWindowPoSt),
             StackedDRG32GiBSeal | StackedDRG32GiBWinningPoSt => Ok(StackedDRG32GiBWinningPoSt),
             StackedDRG2KiBSeal | StackedDRG2KiBWinningPoSt => Ok(StackedDRG2KiBWinningPoSt),
             StackedDRG8MiBSeal | StackedDRG8MiBWinningPoSt => Ok(StackedDRG8MiBWinningPoSt),
@@ -84,6 +119,7 @@ impl RegisteredProof {
     pub fn registered_window_post_proof(self) -> Result<RegisteredProof, String> {
         use RegisteredProof::*;
         match self {
+            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt => Ok(StackedDRG64GiBWindowPoSt),
             StackedDRG32GiBSeal | StackedDRG32GiBWindowPoSt => Ok(StackedDRG32GiBWindowPoSt),
             StackedDRG2KiBSeal | StackedDRG2KiBWindowPoSt => Ok(StackedDRG2KiBWindowPoSt),
             StackedDRG8MiBSeal | StackedDRG8MiBWindowPoSt => Ok(StackedDRG8MiBWindowPoSt),
@@ -100,6 +136,9 @@ impl RegisteredProof {
     pub fn registered_seal_proof(self) -> RegisteredProof {
         use RegisteredProof::*;
         match self {
+            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => {
+                StackedDRG64GiBSeal
+            }
             StackedDRG32GiBSeal
             | StackedDRG32GiBPoSt
             | StackedDRG32GiBWindowPoSt
@@ -131,6 +170,9 @@ impl From<RegisteredProof> for RegisteredSealProof {
         use RegisteredProof::*;
 
         match p {
+            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => {
+                RegisteredSealProof::StackedDrg64GiBV1
+            }
             StackedDRG32GiBSeal
             | StackedDRG32GiBPoSt
             | StackedDRG32GiBWindowPoSt
@@ -156,6 +198,9 @@ impl From<RegisteredProof> for RegisteredPoStProof {
         use RegisteredProof::*;
 
         match p {
+            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => {
+                RegisteredPoStProof::StackedDrgWindow64GiBV1
+            }
             StackedDRG32GiBSeal
             | StackedDRG32GiBPoSt
             | StackedDRG32GiBWindowPoSt

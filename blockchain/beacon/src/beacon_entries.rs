@@ -49,3 +49,79 @@ impl<'de> Deserialize<'de> for BeaconEntry {
         })
     }
 }
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Wrapper for serializing and deserializing a BeaconEntry from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct BeaconEntryJson(#[serde(with = "self")] pub BeaconEntry);
+
+    /// Wrapper for serializing a BeaconEntry reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct BeaconEntryJsonRef<'a>(#[serde(with = "self")] pub &'a BeaconEntry);
+
+    impl From<BeaconEntryJson> for BeaconEntry {
+        fn from(wrapper: BeaconEntryJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "Round")]
+        round: u64,
+        #[serde(rename = "Data")]
+        data: String,
+    }
+
+    pub fn serialize<S>(m: &BeaconEntry, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            round: m.round,
+            data: base64::encode(&m.data),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<BeaconEntry, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(BeaconEntry {
+            round: m.round,
+            data: base64::decode(m.data).unwrap(),
+        })
+    }
+
+    pub mod vec {
+        use super::*;
+        use forest_json_utils::GoVecVisitor;
+        use serde::ser::SerializeSeq;
+
+        pub fn serialize<S>(m: &[BeaconEntry], serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq = serializer.serialize_seq(Some(m.len()))?;
+            for e in m {
+                seq.serialize_element(&BeaconEntryJsonRef(e))?;
+            }
+            seq.end()
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<BeaconEntry>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_any(GoVecVisitor::<BeaconEntry, BeaconEntryJson>::new())
+        }
+    }
+}

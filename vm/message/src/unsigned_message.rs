@@ -165,24 +165,18 @@ pub mod json {
     pub struct UnsignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a UnsignedMessage);
 
     #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
-        #[serde(rename = "Version")]
         version: i64,
-        #[serde(rename = "To")]
         to: String,
-        #[serde(rename = "From")]
         from: String,
         #[serde(rename = "Nonce")]
         sequence: u64,
-        #[serde(rename = "Value")]
         value: String,
-        #[serde(rename = "GasPrice")]
         gas_price: String,
-        #[serde(rename = "GasLimit")]
         gas_limit: u64,
         #[serde(rename = "Method")]
         method_num: u64,
-        #[serde(rename = "Params")]
         params: String,
     }
 

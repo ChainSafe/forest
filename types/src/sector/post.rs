@@ -51,3 +51,78 @@ pub struct WindowPoStVerifyInfo {
 pub struct OnChainWindowPoStVerifyInfo {
     pub proofs: Vec<PoStProof>,
 }
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Wrapper for serializing a PoStProof to JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct PoStProofJson(#[serde(with = "self")] pub PoStProof);
+
+    /// Wrapper for serializing a PoStProof reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a PoStProof);
+
+    impl From<PoStProofJson> for PoStProof {
+        fn from(wrapper: PoStProofJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct JsonHelper {
+        registered_proof: u8,
+        proof_bytes: String,
+    }
+
+    pub fn serialize<S>(m: &PoStProof, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            registered_proof: m.registered_proof as u8,
+            proof_bytes: base64::encode(&m.proof_bytes),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<PoStProof, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(PoStProof {
+            registered_proof: RegisteredProof::from_byte(m.registered_proof).unwrap(),
+            proof_bytes: base64::decode(m.proof_bytes).map_err(de::Error::custom)?,
+        })
+    }
+
+    pub mod vec {
+        use super::*;
+        use forest_json_utils::GoVecVisitor;
+        use serde::ser::SerializeSeq;
+
+        pub fn serialize<S>(m: &[PoStProof], serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq = serializer.serialize_seq(Some(m.len()))?;
+            for e in m {
+                seq.serialize_element(&PoStProofJsonRef(e))?;
+            }
+            seq.end()
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<PoStProof>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_any(GoVecVisitor::<PoStProof, PoStProofJson>::new())
+        }
+    }
+}

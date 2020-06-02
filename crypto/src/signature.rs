@@ -275,6 +275,16 @@ pub mod json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+    // Wrapper for serializing and deserializing a Signature from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct SignatureJson(#[serde(with = "self")] pub Signature);
+
+    /// Wrapper for serializing a Signature reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct SignatureJsonRef<'a>(#[serde(with = "self")] pub &'a Signature);
+
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "Type")]
@@ -298,10 +308,32 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
         Ok(Signature {
-            sig_type: m.sig_type,
-            bytes: base64::decode(m.bytes).map_err(de::Error::custom)?,
+            sig_type,
+            bytes: base64::decode(bytes).map_err(de::Error::custom)?,
         })
+    }
+
+    pub mod opt {
+        use super::{Signature, SignatureJson, SignatureJsonRef};
+        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        pub fn serialize<S>(v: &Option<Signature>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            v.as_ref()
+                .map(|s| SignatureJsonRef(s))
+                .serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s: Option<SignatureJson> = Deserialize::deserialize(deserializer)?;
+            Ok(s.map(|v| v.0))
+        }
     }
 }
