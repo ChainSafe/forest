@@ -1,103 +1,153 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::DealWeight;
 use address::Address;
+use cid::Cid;
 use clock::ChainEpoch;
-use encoding::{tuple::*, Cbor};
-use fil_types::SectorSize;
-use num_bigint::bigint_ser;
-use num_bigint::biguint_ser;
-use vm::{Serialized, TokenAmount};
+use encoding::{serde_bytes, tuple::*};
+use fil_types::{PoStProof, RegisteredProof, SectorNumber};
+use num_bigint::{bigint_ser, biguint_ser, BigInt};
+use rleplus::bitvec::prelude::{BitVec, Lsb0};
+use rleplus::bitvec_serde;
+use vm::{DealID, TokenAmount};
 
-pub type SectorTermination = i64;
-/// Implicit termination after all deals expire
-pub const SECTOR_TERMINATION_EXPIRED: SectorTermination = 0;
-/// Unscheduled explicit termination by the miner
-pub const SECTOR_TERMINATION_MANUAL: SectorTermination = 1;
-/// Implicit termination due to unrecovered fault
-pub const SECTOR_TERMINATION_FAULTY: SectorTermination = 3;
-#[derive(Clone, Serialize_tuple, Deserialize_tuple)]
-pub struct SectorStorageWeightDesc {
-    pub sector_size: SectorSize,
-    pub duration: ChainEpoch,
-    #[serde(with = "bigint_ser")]
-    pub deal_weight: DealWeight,
-    #[serde(with = "bigint_ser")]
-    pub verified_deal_weight: DealWeight,
+pub type CronEvent = i64;
+pub const CRON_EVENT_WORKER_KEY_CHANGE: CronEvent = 1;
+pub const CRON_EVENT_PRE_COMMIT_EXPIRY: CronEvent = 2;
+pub const CRON_EVENT_PROVING_PERIOD: CronEvent = 3;
+/// Storage miner actor constructor params are defined here so the power actor can send them to the init actor
+/// to instantiate miners.
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct MinerConstructorParams {
+    pub owner: Address,
+    pub worker: Address,
+    pub seal_proof_type: RegisteredProof,
+    #[serde(with = "serde_bytes")]
+    pub peer_id: Vec<u8>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct AddBalanceParams {
-    pub miner: Address,
+pub struct CronEventPayload {
+    pub event_type: i64,
+    #[serde(with = "bitvec_serde")]
+    pub sectors: BitVec<Lsb0, u8>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct WithdrawBalanceParams {
-    pub miner: Address,
-    #[serde(with = "biguint_ser")]
-    pub requested: TokenAmount,
-}
-// TODO on miner impl, alias these params for constructor
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct CreateMinerParams {
-    pub owner_addr: Address,
-    pub worker_addr: Address,
-    pub sector_size: SectorSize,
-    pub peer: String,
-}
-impl Cbor for CreateMinerParams {}
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct CreateMinerReturn {
-    /// Canonical ID-based address for the actor.
-    pub id_address: Address,
-    /// Re-org safe address for created actor
-    pub robust_address: Address,
+pub struct GetControlAddressesReturn {
+    owner: Address,
+    worker: Address,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct DeleteMinerParams {
-    pub miner: Address,
+pub struct ChangeWorkerAddressParams {
+    pub new_worker: Address,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct OnSectorProveCommitParams {
-    pub weight: SectorStorageWeightDesc,
+pub struct ChangePeerIDParams {
+    #[serde(with = "serde_bytes")]
+    pub new_id: Vec<u8>,
+}
+/// Information submitted by a miner to provide a Window PoSt.
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct SubmitWindowedPoStParams {
+    /// The deadline index which the submission targets.
+    pub deadline: u64,
+    /// The partition indices being proven.
+    /// Partitions are counted across all deadlines, such that all partition indices in the second deadline are greater
+    /// than the partition numbers in the first deadlines.
+    pub partitions: Vec<u64>,
+    /// Array of proofs, one per distinct registered proof type present in the sectors being proven.
+    /// In the usual case of a single proof type, this array will always have a single element (independent of number of partitions).
+    pub proofs: Vec<PoStProof>,
+    /// Sectors skipped while proving that weren't already declared faulty
+    #[serde(with = "bitvec_serde")]
+    pub skipped: BitVec<Lsb0, u8>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct OnSectorTerminateParams {
-    pub termination_type: SectorTermination,
-    pub weights: Vec<SectorStorageWeightDesc>,
-    #[serde(with = "biguint_ser")]
-    pub pledge: TokenAmount,
+pub struct ProveCommitSectorParams {
+    pub sector_number: SectorNumber,
+    #[serde(with = "serde_bytes")]
+    pub proof: Vec<u8>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct OnSectorTemporaryFaultEffectiveBeginParams {
-    // TODO revisit todo for replacing with power
-    pub weights: Vec<SectorStorageWeightDesc>,
-    #[serde(with = "biguint_ser")]
-    pub pledge: TokenAmount,
+pub struct CheckSectorProvenParams {
+    pub sector_number: SectorNumber,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct OnSectorTemporaryFaultEffectiveEndParams {
-    // TODO revisit todo for replacing with power
-    pub weights: Vec<SectorStorageWeightDesc>,
-    #[serde(with = "biguint_ser")]
-    pub pledge: TokenAmount,
+pub struct ExtendSectorExpirationParams {
+    pub sector_number: SectorNumber,
+    pub new_expiration: ChainEpoch,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct OnSectorModifyWeightDescParams {
-    pub prev_weight: SectorStorageWeightDesc,
-    pub new_weight: SectorStorageWeightDesc,
+pub struct TerminateSectorsParams {
+    #[serde(with = "bitvec_serde")]
+    pub sectors: BitVec<Lsb0, u8>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct OnMinerWindowedPoStFailureParams {
-    pub num_consecutive_failures: i64,
+pub struct DeclareFaultsParams {
+    pub faults: Vec<FaultDeclaration>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct EnrollCronEventParams {
-    pub event_epoch: ChainEpoch,
-    pub payload: Serialized,
+pub struct FaultDeclaration {
+    pub deadline: u64, // In range [0..WPoStPeriodDeadlines)
+    #[serde(with = "bitvec_serde")]
+    pub sectors: BitVec<Lsb0, u8>,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct DeclareFaultsRecoveredParams {
+    recoveries: Vec<RecoveryDeclaration>,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct RecoveryDeclaration {
+    deadline: u64, // In range [0..WPoStPeriodDeadlines)
+    #[serde(with = "bitvec_serde")]
+    sectors: BitVec<Lsb0, u8>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ReportConsensusFaultParams {
-    pub block_header_1: Serialized,
-    pub block_header_2: Serialized,
-    pub block_header_extra: Serialized,
+    #[serde(with = "serde_bytes")]
+    pub header1: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub header2: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub header_extra: Vec<u8>,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct WithdrawBalanceParams {
+    #[serde(with = "biguint_ser")]
+    pub amount_requested: TokenAmount,
+}
+#[derive(Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+pub struct WorkerKeyChange {
+    /// Must be an ID address
+    pub new_worker: Address,
+    pub effective_at: ChainEpoch,
+}
+#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+pub struct SectorPreCommitInfo {
+    pub registered_proof: RegisteredProof,
+    pub sector_number: SectorNumber,
+    /// CommR
+    pub sealed_cid: Cid,
+    pub seal_rand_epoch: ChainEpoch,
+    pub deal_ids: Vec<DealID>,
+    /// Sector Expiration
+    pub expiration: ChainEpoch,
+}
+#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+pub struct SectorPreCommitOnChainInfo {
+    pub info: SectorPreCommitInfo,
+    #[serde(with = "biguint_ser")]
+    pub pre_commit_deposit: TokenAmount,
+    pub pre_commit_epoch: ChainEpoch,
+}
+#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+pub struct SectorOnChainInfo {
+    pub info: SectorPreCommitInfo,
+    /// Epoch at which SectorProveCommit is accepted
+    pub activation_epoch: ChainEpoch,
+    /// Integral of active deals over sector lifetime, 0 if CommittedCapacity sector
+    #[serde(with = "bigint_ser")]
+    pub deal_weight: BigInt,
+    /// Integral of active verified deals over sector lifetime
+    #[serde(with = "bigint_ser")]
+    pub verified_deal_weight: BigInt,
 }

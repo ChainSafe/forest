@@ -20,7 +20,7 @@ use address::Address;
 use cid::{Cid, multihash::Blake2b256};
 use crypto::DomainSeparationTag::WindowPoStDeadlineAssignment;
 use clock::ChainEpoch;
-use fil_types::{SealVerifyStuff, PoStProof, RegisteredProof, SectorSize, SectorNumber};
+use fil_types::{SealVerifyParams, PoStProof, RegisteredProof, SectorSize, SectorNumber};
 use ipld_blockstore::BlockStore;
 use ipld_amt::Amt;
 use num_derive::FromPrimitive;

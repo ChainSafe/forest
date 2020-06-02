@@ -21,8 +21,9 @@ use num_bigint::bigint_ser;
 use num_bigint::biguint_ser;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Zero;
-use vm::{TokenAmount, ActorError};
+use vm::TokenAmount;
 use num_traits::ToPrimitive;    
+use std::collections::HashMap;
 
 // Balance of Miner Actor should be greater than or equal to
 // the sum of PreCommitDeposits and LockedFunds.
@@ -266,7 +267,7 @@ impl State {
         Ok(())
     }
     /// Removes some sector numbers from the new sectors bitfield, if present.
-    fn remove_new_sectors(&self, sector_nos: BitField) -> Result<(), String> {
+    fn remove_new_sectors(&mut self, sector_nos: BitField) -> Result<(), String> {
         self.new_sectors.subtract(&sector_nos)?;
         Ok(())
     }
@@ -276,80 +277,181 @@ impl State {
         store: &BS,
         expiry: ChainEpoch,
     ) -> Result<BitField, String> {
-        let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
-        
+        let sectors = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
+        Ok(sectors.get(expiry)?.ok_or("unable to find sector")?)
     }
-    // TODO
     /// Iterates sector expiration groups in order.
     /// Note that the sectors bitfield provided to the callback is not safe to store.
-    fn for_each_sector_expiration<BS: BlockStore>(&self, store: &BS) {
-        todo!()
+    fn for_each_sector_expiration<BS: BlockStore, F>(&self, store: &BS, mut f: F) -> Result<(), String> 
+    where 
+        F: FnMut(&ChainEpoch, &BitField) -> Result<(), String>,
+    {
+        let sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
+        sector_arr.for_each(|i, v| f(&i, &v))
     }
     /// Adds some sector numbers to the set expiring at an epoch.
     /// The sector numbers are given as uint64s to avoid pointless conversions.
     pub fn add_sector_expirations<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
-        expiry: &ChainEpoch,
+        expiry: ChainEpoch,
         sectors: &[u64],
     ) -> Result<(), String> {
+        let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
+        let mut bf: BitField = sector_arr.get(expiry)?.ok_or("unable to find sector")?;
+        //let ns = BitField::new_from_set(sectors)?;
+        bf.merge(&BitField::new_from_set(sectors))?;
+        let count = bf.count()?;
+        if count > SECTORS_MAX {
+            return Err(format!("too many sectors at expiration {}, {}, max {}", expiry, count, SECTORS_MAX))
+        }
+
+        sector_arr.set(expiry, bf)?;
+
+        self.sector_expirations = sector_arr.flush()?;
         Ok(())
     }
-    // TODO
     /// Removes some sector numbers from the set expiring at an epoch.
     fn remove_sector_expirations<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
-        expiry: &ChainEpoch,
+        expiry: ChainEpoch,
         sectors: &[u64],
     ) -> Result<(), String> {
+        let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
+        
+        let mut bf: BitField = sector_arr.get(expiry)?.ok_or("unable to find sector")?;
+        bf.subtract(&BitField::new_from_set(sectors))?;
+        
+        sector_arr.set(expiry, bf)?;
+
+        self.sector_expirations = sector_arr.flush()?;
+        
         Ok(())
-    }
-    // TODO
+    }   
     /// Removes all sector numbers from the set expiring some epochs.
-    fn clear_sector_expirations(&self, expirations: &[ChainEpoch]) -> Result<(), String> {
+    fn clear_sector_expirations<BS: BlockStore>(&mut self, store: &BS, expirations: &[ChainEpoch]) -> Result<(), String> {
+        let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
+        
+        for &exp in expirations {
+            sector_arr.delete(exp)?;
+        }
+
+        self.sector_expirations = sector_arr.flush()?;
+
         Ok(())
     }
-    // TODO
     /// Adds sectors numbers to faults and fault epochs.
     pub fn add_faults<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
         sector_nos: &BitField,
-        fault_epoch: &ChainEpoch,
+        fault_epoch: ChainEpoch,
     ) -> Result<(), String> {
+        if sector_nos.is_empty()? {
+            return Err(format!("sectors are empty: {:?}", sector_nos));
+        }
+
+        self.faults.merge(sector_nos)?;
+
+        let count = self.faults.count()?;
+        if count > SECTORS_MAX {
+            return Err(format!("too many faults {}, max {}", count, SECTORS_MAX));
+        }
+        
+        let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+        let mut bf: BitField = epoch_fault_arr.get(fault_epoch)?.ok_or("unable to find sector")?;
+
+        bf.merge(sector_nos)?;
+
+        epoch_fault_arr.set(fault_epoch, bf)?;
+
+        self.fault_epoch = epoch_fault_arr.flush()?;
+
         Ok(())
     }
-    // TODO - actor error where its called
     /// Removes sector numbers from faults and fault epochs, if present.
     pub fn remove_faults<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
-        sectors_nos: &BitField,
-    ) -> Result<(), ActorError> {
+        sector_nos: &BitField,
+    ) -> Result<(), String> {
+        if sector_nos.is_empty()? {
+            return Err(format!("sectors are empty: {:?}", sector_nos));
+        }
+
+        self.faults.subtract(sector_nos)?;
+        let sector_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+        
+        let mut changed: HashMap<u64, BitField> = HashMap::new();
+
+        sector_arr.for_each(|i, bf1: &BitField| {
+            let c1 = bf1.count()?;
+
+            let bf2 = bf1.subtract(sector_nos)?;
+
+            let c2 = bf2.count()?;
+
+            if c1 != c2 {
+                changed.insert(i, bf2);
+            }
+
+            Ok(())
+        });
+
+        for (&k, &v) in changed.iter() {
+            sector_arr.set(k, v)?;
+        }
+
+        self.fault_epoch = sector_arr.flush()?;
+
         Ok(())
     }
-    // TODO
     /// Iterates faults by declaration epoch, in order.
-    fn for_each_fault_epoch<BS: BlockStore>(&self, store: &BS) -> Result<(), String> {
-        Ok(())
+    fn for_each_fault_epoch<BS: BlockStore, F>(&self, store: &BS, mut f: F) -> Result<(), String> 
+    where 
+        F: FnMut(&ChainEpoch, &BitField) -> Result<(), String>,
+    {
+        let sector_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+        sector_arr.for_each(|i, v| f(&i, &v))
     }
-    // TODO
     fn clear_fault_epochs<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
         epochs: &[ChainEpoch],
     ) -> Result<(), String> {
+        let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+
+        for &exp in epochs {
+            epoch_fault_arr.delete(exp)?;
+        }
+
+        self.fault_epoch = epoch_fault_arr.flush()?;
+
         Ok(())
     }
-    // TODO
     /// Adds sectors to recoveries.
-    fn add_recoveries(&self, sector_nos: BitField) -> Result<(), String> {
+    fn add_recoveries(&mut self, sector_nos: &BitField) -> Result<(), String> {
+        if sector_nos.is_empty()? {
+            return Err(format!("sectors are empty: {:?}", sector_nos));
+        }
+
+        self.recoveries.merge(sector_nos)?;
+        let count = self.recoveries.count()?;
+
+        if count > SECTORS_MAX {
+            return Err(format!("too many recoveries {}, max {}", count, SECTORS_MAX));
+        }
+
         Ok(())
     }
-    // TODO
     /// Removes sectors from recoveries, if present.
-    pub fn remove_recoveries(&self, sector_nos: &BitField) -> Result<(), ActorError> {
+    pub fn remove_recoveries(&mut self, sector_nos: &BitField) -> Result<(), String> {
+        if sector_nos.is_empty()? {
+            return Err(format!("sectors are empty: {:?}", sector_nos));
+        }
+        self.recoveries.subtract(sector_nos)?;
+
         Ok(())
     }
     // TODO
@@ -359,20 +461,46 @@ impl State {
         store: &BS,
         sectors: BitField,
     ) -> Result<Vec<SectorOnChainInfo>, String> {
-        todo!()
+        let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
+        sectors.into_iter().for_each(|i, _| {
+            let key : SectorNumber = i as u64;
+            let sector_on_chain = self.get_sector(store, key)?.ok_or("sector not found")?;
+            sector_infos.push(sector_on_chain);
+            Ok(())
+        });
+
+        Ok(sector_infos)
     }
-    // TODO
+    
     /// Loads info for a set of sectors to be proven.
     /// If any of the sectors are declared faulty and not to be recovered, info for the first non-faulty sector is substituted instead.
     /// If any of the sectors are declared recovered, they are returned from this method.
     pub fn load_sector_infos_for_proof<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
         proven_sectors: BitField,
-    ) -> Result<(Vec<SectorOnChainInfo>, BitField), ActorError> {
-        todo!()
+    ) -> Result<(Vec<SectorOnChainInfo>, BitField), String> {
+        // Extract a fault set relevant to the sectors being submitted, for expansion into a map.
+        let declared_faults = self.faults.intersect(&proven_sectors)?;
+
+        let recoveries = self.recoveries.intersect(&declared_faults)?;
+
+        let expected_faults = declared_faults.subtract(&recoveries)?;
+
+        let non_faults = expected_faults.subtract(&proven_sectors)?;
+
+        if non_faults.is_empty()? {
+            return Err(format!("failed to check if bitfield was empty: {:?}", non_faults));
+        }
+
+        // Select a non-faulty sector as a substitute for faulty ones.
+        let good_sector_no = non_faults.first()?;
+    
+        // load sector infos
+        let sector_infos = self.load_sector_infos_with_fault_mask(store, proven_sectors, expected_faults, good_sector_no)?;
+        
+        Ok((sector_infos, recoveries))
     }
-    // TODO
     /// Loads sector info for a sequence of sectors, substituting info for a stand-in sector for any that are faulty.
     fn load_sector_infos_with_fault_mask<BS: BlockStore>(
         &self,
@@ -381,21 +509,29 @@ impl State {
         faults: BitField,
         fault_stand_in: SectorNumber,
     ) -> Result<Vec<SectorOnChainInfo>, String> {
+        let sector_on_chain = self.get_sector(store, fault_stand_in)?.ok_or("unable to find sector")?;
+
+        // Expand faults into a map for quick lookups.
+	    // The faults bitfield should already be a subset of the sectors bitfield.
+        let fault_max = sectors.count()?;
+        let fault_set = faults.all_set(fault_max)?;
+
+        // Load the sector infos, masking out fault sectors with a good one.
+
+
+        
         todo!()
     }
-    // TODO
     /// Adds partition numbers to the set of PoSt submissions
-    fn add_post_submissions(&self, partitions_nos: BitField) -> Result<(), String> {
+    fn add_post_submissions(&mut self, partitions_no: BitField) -> Result<(), String> {
+        self.post_submissions.merge_assign(partition_nos)?;
         Ok(())
     }
-    // TODO
     /// Removes all PoSt submissions
     pub fn clear_post_submissions(&mut self) -> Result<(), String> {
         self.post_submissions = BitField::default();
         Ok(())
     }
-    // TODO
-    // NOTE: ActorError needs to be returned; exitcode.ErrIllegalState, "failed to load deadlines"
     pub fn load_deadlines<BS: BlockStore>(&self, store: &BS) -> Result<Deadlines, String> {
         if let Some(deadlines) = store
             .get::<Deadlines>(&self.deadlines)
@@ -409,7 +545,6 @@ impl State {
                 ))
         }
     }
-    // TODO
     pub fn save_deadlines<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -473,13 +608,46 @@ impl State {
         Ok(())
     }
 
+    /// Unlocks an amount of funds that have *not yet vested*, if possible.
+    /// The soonest-vesting entries are unlocked first.
+    /// Returns the amount actually unlocked.
     fn unlock_unvested_funds<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
         current_epoch: ChainEpoch,
         target: TokenAmount,
     ) -> Result<TokenAmount, String> {
-        todo!()
+        let mut vesting_funds: Amt<u64, _> = Amt::load(&self.vesting_funds, store)?;
+
+        let mut amount_unlocked = TokenAmount::default();
+        let mut locked_entry = TokenAmount::default();
+        let mut to_del: Vec<u64> = Vec::new();
+
+        vesting_funds.for_each(|k, v: &TokenAmount| {
+            if amount_unlocked > target {
+                if k >= current_epoch {
+                    let mut unlock_amount = std::cmp::min(target - amount_unlocked, locked_entry);
+                    amount_unlocked += unlock_amount;
+                    locked_entry -= unlock_amount;
+
+                    if locked_entry.is_zero() {
+                        to_del.push(k);
+                    } else {
+                        vesting_funds.set(k, &locked_entry)?;
+                    }
+                }
+            } else {
+                return Err(format!("amount unlocked is greater than target: {}, {}", amount_unlocked, target));
+            }
+            Ok(())
+        });
+
+        delete_many(vesting_funds, &to_del)?;
+
+        self.locked_funds -= amount_unlocked;
+        self.vesting_funds = vesting_funds.flush()?;
+
+        Ok(amount_unlocked)
     }
 
     /// Unlocks all vesting funds that have vested before the provided epoch.
@@ -489,7 +657,28 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, String> {
-        todo!()
+        let mut vesting_funds: Amt<u64, _> = Amt::load(&self.vesting_funds, store)?;
+
+        let mut amount_unlocked = TokenAmount::default();
+        let mut locked_entry = TokenAmount::default();
+        let mut to_del: Vec<u64> = Vec::new();
+
+        vesting_funds.for_each(|k, v: &TokenAmount| {
+                if k < current_epoch {
+                    amount_unlocked += locked_entry;
+                    to_del.push(k);
+                } else {
+                    return Err(format!("amount unlocked is greater than target: {}, {}", amount_unlocked, target));
+            }
+            Ok(())
+        });
+
+        delete_many(vesting_funds, &to_del)?;
+
+        self.locked_funds -= amount_unlocked;
+        self.vesting_funds = vesting_funds.flush()?;
+
+        Ok(amount_unlocked)
     }
 
     /// CheckVestedFunds returns the amount of vested funds that have vested before the provided epoch.
@@ -498,7 +687,21 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, String> {
-        todo!()
+        let mut vesting_funds: Amt<u64, _> = Amt::load(&self.vesting_funds, store)?;
+
+        let mut amount_unlocked = TokenAmount::default();
+        let mut locked_entry = TokenAmount::default();
+
+        vesting_funds.for_each(|k, _| {
+                if k < current_epoch {
+                    amount_unlocked += locked_entry;
+                } else {
+                    return Err(format!("amount unlocked is greater than target: {}, {}", amount_unlocked, target));
+            }
+            Ok(())
+        });
+
+        Ok(amount_unlocked)
     }
 
     pub fn get_available_balance(&self, actor_balance: &TokenAmount) -> TokenAmount {
@@ -508,62 +711,6 @@ impl State {
     pub fn assert_balance_invariants(&self, balance: &TokenAmount) {
         assert!(balance > &(&self.pre_commit_deposit + &self.locked_funds))
     }
-
-    // pub fn get_storage_weight_desc_for_sector<BS: BlockStore>(
-    //     &self,
-    //     store: &BS,
-    //     sector_num: SectorNumber,
-    // ) -> Result<power::SectorStorageWeightDesc, String> {
-    //     let sector_info = self
-    //         .get_sector(store, sector_num)?
-    //         .ok_or(format!("no such sector {}", sector_num))?;
-
-    //     Ok(as_storage_weight_desc(self.info.sector_size, sector_info))
-    // }
-    // pub fn in_challenge_window<BS, RT>(&self, epoch: ChainEpoch) -> bool
-    // where
-    //     BS: BlockStore,
-    //     RT: Runtime<BS>,
-    // {
-    //     // TODO revisit TODO in spec impl
-    //     match *self.post_state.proving_period_start {
-    //         Some(e) => epoch > e,
-    //         None => true,
-    //     }
-    // }
-    // pub fn compute_proving_set<BS: BlockStore>(
-    //     &self,
-    //     store: &BS,
-    // ) -> Result<Vec<SectorInfo>, String> {
-    //     let proving_set = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
-
-    //     let max_allowed_faults = self.get_max_allowed_faults(store)?;
-    //     if self.fault_set.count_ones() > max_allowed_faults as usize {
-    //         return Err("Bitfield larger than maximum allowed".to_owned());
-    //     }
-
-    //     let mut sector_infos: Vec<SectorInfo> = Vec::new();
-    //     proving_set.for_each(|i, v: &SectorOnChainInfo| {
-    //         if *v.declared_fault_epoch != None || *v.declared_fault_duration != None {
-    //             return Err("sector fault epoch or duration invalid".to_owned());
-    //         }
-
-    //         let fault = match self.fault_set.get(i as usize) {
-    //             Some(true) => true,
-    //             _ => false,
-    //         };
-    //         if !fault {
-    //             sector_infos.push(SectorInfo {
-    //                 sealed_cid: v.info.sealed_cid.clone(),
-    //                 sector_number: v.info.sector_number,
-    //                 proof: v.info.registered_proof,
-    //             });
-    //         }
-    //         Ok(())
-    //     })?;
-
-    //     Ok(sector_infos)
-    // }
 }
 
 /// Static information about miner
@@ -657,20 +804,28 @@ pub struct Deadlines {
     // A bitfield of sector numbers due at each deadline.
     // The sectors for each deadline are logically grouped into sequential partitions for proving.
     // TODO should have capacity of WPOST_PERIOD_DEADLINES
-    pub due: BitField,
+    pub due: BitField::with_capacity(WPOST_PERIOD_DEADLINES),
 }
 
 impl Deadlines {
     pub fn new() -> Self {
-        let d: BitVec<Lsb0, u8> = BitVec::with_capacity(WPOST_PERIOD_DEADLINES as usize);
+        let d: BitField = BitField::with_capacity(WPOST_PERIOD_DEADLINES as usize);
         Self { due: d }
     }
 
-    fn add_to_deadline(&self, deadline: u64, new_sectors: &[u64]) -> Result<(), String> {
+    /// Adds sector numbers to a deadline.
+    /// The sector numbers are given as uint64 to avoid pointless conversions for bitfield use.
+    fn add_to_deadline(&mut self, deadline: u64, new_sectors: &[u64]) -> Result<(), String> {
+        let ns = BitField::new_from_set(new_sectors);
+        self.due[deadline].merge_assign(ns)?;
         Ok(())
     }
+    /// Removes sector numbers from all deadlines.
+    fn remove_from_all_deadlines(&mut self, sector_nos: BitField) -> Result<(), String> {
+        for i in 0..self.due {
+            self.due[i].subtract(sector_nos)?;
+        }
 
-    fn remove_from_all_deadlines(&self, sector_nos: BitField) -> Result<(), String> {
         Ok(())
     }
 }
@@ -679,12 +834,12 @@ impl Deadlines {
 // Misc helpers
 //
 
-// fn delete_many(amt: Amt, keys: &[u64]) -> Result<(), AmtError> {
-//     for i in keys {
-//         amt.delete(i)?;
-//     }
-//     Ok(())
-// }
+fn delete_many<BS: BlockStore>(amt: Amt<u64, BS>, keys: &[u64]) -> Result<(), AmtError> {
+    for &i in keys {
+        amt.delete(i)?;
+    }
+    Ok(())
+}
 
 /// Rounds e to the nearest exact multiple of the quantization unit, rounding up.
 /// Precondition: unit >= 0 else behaviour is undefined

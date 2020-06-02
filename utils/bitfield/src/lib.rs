@@ -14,7 +14,7 @@ type BitVec = bitvec::prelude::BitVec<Lsb0, u8>;
 type Result<T> = std::result::Result<T, &'static str>;
 
 /// Represents a bitfield to track bits set at indexes in the range of `u64`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BitField {
     Encoded {
         bv: BitVec,

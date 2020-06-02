@@ -30,7 +30,7 @@ pub const WPOST_MESSAGE_PARTITIONS_MAX: u64 = 100_000 / WPOST_PARTITION_SECTORS;
 /// The maximum number of sectors that a miner can have simultaneously active.
 /// This also bounds the number of faults that can be declared, etc.
 /// TODO raise this number, carefully
-const SECTORS_MAX: u64 = 32 << 20; // PARAM_FINISH
+pub const SECTORS_MAX: usize = 32 << 20; // PARAM_FINISH
 /// The maximum number of proving partitions a miner can have simultaneously active.
 pub fn active_partitions_max(partition_sector_count: u64) -> u64 {
     (SECTORS_MAX / partition_sector_count) + WPOST_PERIOD_DEADLINES
