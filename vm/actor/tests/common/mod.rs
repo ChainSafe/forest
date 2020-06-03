@@ -9,7 +9,7 @@ use actor::{
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::DomainSeparationTag;
+use crypto::{DomainSeparationTag, Signature};
 use encoding::{de::DeserializeOwned, Cbor};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
@@ -33,6 +33,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     // Actor State
     pub state: Option<Cid>,
     pub balance: TokenAmount,
+    pub received: TokenAmount,
 
     // VM Impl
     pub in_call: bool,
@@ -45,6 +46,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
+    pub expect_verify_sig : Option<ExpectedVerifySig>,
 }
 
 #[derive(Clone, Debug)]
@@ -64,6 +66,14 @@ pub struct ExpectedMessage {
     pub exit_code: ExitCode,
 }
 
+#[derive(Clone, Debug)]
+pub struct ExpectedVerifySig{
+    sig : Signature,
+    signer : Address,
+    result : Option<String>,
+}
+
+
 impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn new(bs: &'a BS, message: UnsignedMessage) -> Self {
         Self {
@@ -79,6 +89,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             message: message,
             state: None,
             balance: 0u8.into(),
+            received: 0u8.into(),
 
             // VM Impl
             in_call: false,
@@ -91,6 +102,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             expect_validate_caller_type: RefCell::new(None),
             expect_sends: VecDeque::new(),
             expect_create_actor: None,
+            expect_verify_sig : None,
         }
     }
     fn require_in_call(&self) {
@@ -128,6 +140,15 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn expect_validate_caller_type(&self, ids: &[Cid]) {
         assert!(ids.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_type.borrow_mut() = Some(ids.to_vec());
+    }
+
+    pub fn expect_verify_signature(&mut self, sig : Signature, signer : Address, result : Option<String>){
+
+        self.expect_verify_sig = Some(ExpectedVerifySig{
+            sig : sig,
+            signer : signer,
+            result : result
+        });
     }
 
     #[allow(dead_code)]
@@ -220,6 +241,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         *self.expect_validate_caller_addr.borrow_mut() = None;
         *self.expect_validate_caller_type.borrow_mut() = None;
         self.expect_create_actor = None;
+        self.expect_verify_sig = None;
     }
 
     #[allow(dead_code)]

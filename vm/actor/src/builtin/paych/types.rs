@@ -24,7 +24,7 @@ pub struct ConstructorParams {
 
 /// A voucher is sent by `from` to `to` off-chain in order to enable
 /// `to` to redeem payments on-chain in the future
-#[derive(Default, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct SignedVoucher {
     /// Min epoch before which the voucher cannot be redeemed
     pub time_lock_min: ChainEpoch,
@@ -55,7 +55,7 @@ pub struct SignedVoucher {
 }
 
 /// Modular Verification method
-#[derive(Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Clone,PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ModVerifyParams {
     pub actor: Address,
     pub method: MethodNum,
@@ -71,7 +71,7 @@ pub struct PaymentVerifyParams {
     pub proof: Vec<u8>,
 }
 
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive( Serialize_tuple, Deserialize_tuple)]
 pub struct UpdateChannelStateParams {
     pub sv: SignedVoucher,
     #[serde(with = "serde_bytes")]

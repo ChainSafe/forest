@@ -25,6 +25,7 @@ unsigned-varint = "0.4"
 crypto = { package = "forest_crypto", path = "../../crypto" }
 rleplus = { path = "../../utils/rleplus" }
 fil_types = { path = "../../types" }
+derive_builder = "0.9"
 
 [dev-dependencies]
 db = { path = "../../node/db" }
