@@ -28,7 +28,7 @@ const W_RATIO_DEN: u64 = 2;
 const BLOCKS_PER_EPOCH: u64 = 5;
 
 // A cap on the size of the future_sink
-const SINK_CAP : usize = 1000;
+const SINK_CAP: usize = 1000;
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
@@ -67,7 +67,9 @@ where
     pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         self.heaviest = Some(ts);
-        self.publisher.publish(self.heaviest.as_ref().unwrap().clone()).await;
+        self.publisher
+            .publish(self.heaviest.as_ref().unwrap().clone())
+            .await;
         Ok(())
     }
 
@@ -115,7 +117,9 @@ where
 
         // set as heaviest tipset
         self.heaviest = Some(Arc::new(heaviest_ts));
-        self.publisher.publish(self.heaviest.as_ref().unwrap().clone()).await;
+        self.publisher
+            .publish(self.heaviest.as_ref().unwrap().clone())
+            .await;
         Ok(())
     }
 

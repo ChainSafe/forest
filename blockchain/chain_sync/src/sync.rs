@@ -866,8 +866,7 @@ where
 
     /// Persists headers from tipset slice to chain store
     async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
-        for tipset in tipsets.iter()
-        {
+        for tipset in tipsets.iter() {
             self.chain_store.put_tipsets(tipset).await?
         }
         Ok(())
