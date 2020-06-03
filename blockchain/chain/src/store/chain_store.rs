@@ -120,7 +120,7 @@ where
         // set as heaviest tipset
         let heaviest_ts = Arc::new(heaviest_ts);
         self.heaviest = Some(heaviest_ts.clone());
-        self.publisher.publish(heaviest_ts.clone()).await;
+        self.publisher.publish(heaviest_ts).await;
         Ok(())
     }
 
