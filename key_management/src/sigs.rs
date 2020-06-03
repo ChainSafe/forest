@@ -5,9 +5,8 @@ use super::errors::Error;
 use address::Address;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use crypto::{Signature, SignatureType};
+use rand::rngs::OsRng;
 use secp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
-// use rand::rngs::mock::StepRng;
-// use rand::Rng;
 
 /// Return the public key for a given private_key and SignatureType
 pub fn to_public(sig_type: SignatureType, private_key: Vec<u8>) -> Result<Vec<u8>, Error> {
@@ -70,15 +69,16 @@ pub fn sign(
 }
 
 /// Generate a new private key
-pub fn generate(_sig_type: SignatureType) -> Result<Vec<u8>, Error> {
-    // let
-    // match sig_type {
-    //     SignatureType::BLS => {
-    //         BlsPrivate::new()
-    //     },
-    //     SignatureType::Secp256 => {
-    //
-    //     }
-    // }
-    unimplemented!()
+pub fn generate(sig_type: SignatureType) -> Result<Vec<u8>, Error> {
+    let rng = &mut OsRng::default();
+    match sig_type {
+        SignatureType::BLS => {
+            let key = BlsPrivate::generate(rng);
+            Ok(key.as_bytes())
+        }
+        SignatureType::Secp256 => {
+            let key = SecpPrivate::random(rng);
+            Ok(key.serialize().to_vec())
+        }
+    }
 }

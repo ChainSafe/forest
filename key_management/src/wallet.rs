@@ -31,7 +31,7 @@ impl Key {
     }
 }
 
-/// This is a wallet, it contains 2 HashMaps:
+/// This is a Wallet, it contains 2 HashMaps:
 /// - keys which is a HashMap of Keys resolved by their Address
 /// - keystore which is a HashMap of KeyInfos resolved by their Address
 #[derive(Clone, PartialEq, Debug, Eq)]
@@ -151,7 +151,7 @@ impl Wallet {
         Ok(key.address)
     }
 
-    /// Return whether or not the wallet contains a Key that is resolved by the supplied Address
+    /// Return whether or not the Wallet contains a Key that is resolved by the supplied Address
     pub fn has_key(&mut self, addr: &Address) -> bool {
         self.find_key(addr).map_or_else(|_| false, |_| true)
     }

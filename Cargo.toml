@@ -32,5 +32,5 @@ members = [
     "utils/test_utils",
     "utils/commcid",
     "types",
-    "wallet",
+    "key_management",
 ]
