@@ -70,10 +70,8 @@ where
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
     pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        self.heaviest = Some(ts);
-        self.publisher
-            .publish(self.heaviest.as_ref().unwrap().clone())
-            .await;
+        self.heaviest = Some(ts.clone());
+        self.publisher.publish(ts).await;
         Ok(())
     }
 
@@ -120,10 +118,9 @@ where
         })?;
 
         // set as heaviest tipset
-        self.heaviest = Some(Arc::new(heaviest_ts));
-        self.publisher
-            .publish(self.heaviest.as_ref().unwrap().clone())
-            .await;
+        let heaviest_ts = Arc::new(heaviest_ts);
+        self.heaviest = Some(heaviest_ts.clone());
+        self.publisher.publish(heaviest_ts.clone()).await;
         Ok(())
     }
 
