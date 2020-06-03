@@ -34,6 +34,7 @@ clean:
 	@cargo clean -p commcid
 	@cargo clean -p fil_types
 	@cargo clean -p ipld_blockstore
+	@cargo clean -p rpc
 	@echo "Done cleaning."
 
 lint: license clean
