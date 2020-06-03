@@ -4,9 +4,28 @@
 // TODO evaluate exporting from libp2p mod
 pub mod libp2p;
 mod message;
+mod response_manager;
+
+#[cfg(test)]
+mod test_utils;
 
 pub use self::message::*;
+pub use response_manager::PeerResponseSender;
+
+use cid::Cid;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// The maximum combined block size for a single message.
+pub const MAX_BLOCK_SIZE: usize = 512 * 1024;
+
+/// Provides response metadata for a GraphSync request,
+/// see https://github.com/ipld/specs/blob/master/block-layer/graphsync/known_extensions.md
+pub const EXTENSION_METADATA: &str = "graphsync/response-metadata";
+
+/// Tells the responding peer not to send certain blocks if they are encountered in a traversal,
+/// see https://github.com/ipld/specs/blob/master/block-layer/graphsync/known_extensions.md
+pub const EXTENSION_DO_NOT_SEND_CIDS: &str = "graphsync/do-not-send-cids";
 
 /// Priority for a GraphSync request.
 pub type Priority = i32;
@@ -16,6 +35,20 @@ pub type RequestID = i32;
 pub type ExtensionName = String;
 /// Represents the data attached as extensions to the requests.
 pub type Extensions = HashMap<ExtensionName, Vec<u8>>;
+
+/// A name/data pair for a GraphSync extension.
+#[derive(Debug, Clone)]
+pub struct ExtensionData {
+    name: ExtensionName,
+    data: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct MetadataItem {
+    link: Cid,
+    #[serde(rename = "blockPresent")]
+    block_is_present: bool,
+}
 
 /// Status code returned for a GraphSync Request.
 #[derive(PartialEq, Clone, Copy, Eq, Debug)]
