@@ -1,0 +1,17 @@
+[package]
+name = "rpc"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+async-std = { version = "1.6.0", features = ["attributes"] }
+tide = "0.9.0"
+serde = { version = "1.0.101", default-features = false, features = ["derive"] }
+serde_json = "1.0.48"
+chain = { path = "../../blockchain/chain" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore" }
+cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
+message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
+jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }

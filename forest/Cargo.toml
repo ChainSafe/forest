@@ -26,3 +26,4 @@ chain = { path = "../blockchain/chain" }
 structopt = { version = "0.3" }
 beacon = { path = "../blockchain/beacon" }
 hex = "0.4.2"
+rpc = { path = "../node/rpc" }

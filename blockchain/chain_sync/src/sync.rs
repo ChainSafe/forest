@@ -477,7 +477,8 @@ where
         let ts = self.chain_store.tipset_from_keys(keys)?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) = self.chain_store.messages(&header)?;
+            let (bls_msgs, secp_msgs) =
+                chain::block_messages(self.chain_store.blockstore(), &header)?;
 
             // construct a full block
             let full_block = Block {
