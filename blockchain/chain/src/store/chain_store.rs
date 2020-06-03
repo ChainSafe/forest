@@ -310,7 +310,7 @@ fn draw_randomness(
     Ok(ret)
 }
 
-fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
+pub fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
 where
     DB: BlockStore,
 {

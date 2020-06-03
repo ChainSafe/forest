@@ -16,3 +16,4 @@ blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features
 clock = { path = "../clock" }
 message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
 jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
+forest_bigint = { path = "../../utils/bigint" }

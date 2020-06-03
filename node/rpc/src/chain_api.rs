@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::State;
-use blocks::{tipset_json::TipsetJson, BlockHeader, Tipset, TipsetKeys};
+use blocks::{tipset_json::TipsetJson, header::json::BlockHeaderJson, BlockHeader, Tipset, TipsetKeys};
+use forest_bigint::BigUint;
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
@@ -96,7 +97,7 @@ pub(crate) async fn chain_get_tipset_by_height<DB: BlockStore + Send + Sync + 's
 ) -> Result<TipsetJson, JsonRpcError> {
     let height = params.0;
     let tsk = params.1;
-    let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk).unwrap();
+    let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
     let tss = chain::tipset_by_height(data.store.as_ref(), height, ts, true)?;
     Ok(TipsetJson(tss))
 }
@@ -104,11 +105,49 @@ pub(crate) async fn chain_get_tipset_by_height<DB: BlockStore + Send + Sync + 's
 pub(crate) async fn chain_get_genesis<DB: BlockStore + Send + Sync + 'static>(
     data: Data<State<DB>>,
 ) -> Result<Option<TipsetJson>, JsonRpcError> {
-    let genesis = chain::genesis(data.store.as_ref())?;
-    if genesis.is_none() {
-        return Ok(None);
-    }
-    let genesis = genesis.unwrap();
+    let genesis = chain::genesis(data.store.as_ref())?.ok_or("can't find genesis tipset")?;
     let gen_ts = Tipset::new(vec![genesis])?;
     Ok(Some(TipsetJson(gen_ts)))
 }
+
+pub(crate) async fn chain_head<DB: BlockStore + Send + Sync + 'static>(
+    data: Data<State<DB>>,
+) -> Result<TipsetJson, JsonRpcError> {
+    let heaviest = chain::get_heaviest_tipset(data.store.as_ref())?.ok_or("can't find heaviest tipset")?;
+    Ok(TipsetJson(heaviest))
+}
+
+//pub(crate) async fn chain_tipset_weight<DB: BlockStore + Send + Sync + 'static>(
+//    data: Data<State<DB>>,
+//    Params(params): Params<(TipsetKeys, )>,
+//) -> Result<BigUint, JsonRpcError> {
+//    let tsk = params.0;
+//    let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
+//    Ok(ts.weight().clone())
+//}
+
+pub(crate) async fn chain_get_block<DB: BlockStore + Send + Sync + 'static>(
+    data: Data<State<DB>>,
+    Params(params): Params<(CidJson, )>,
+) -> Result<BlockHeaderJson, JsonRpcError> {
+    let blk_cid = (params.0).0;
+    let blk: BlockHeader = data.store.as_ref().get(&blk_cid)?.ok_or("can't find BlockHeader with that cid")?;
+    Ok(BlockHeaderJson(blk))
+}
+
+pub(crate) async fn chain_get_tipset<DB: BlockStore + Send + Sync + 'static>(
+    data: Data<State<DB>>,
+    Params(params): Params<(TipsetKeys, )>,
+) -> Result<TipsetJson, JsonRpcError> {
+    let tsk = params.0;
+    let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
+    Ok(TipsetJson(ts))
+}
+// pub(crate) async fn chain_get_randomness<DB: BlockStore + Send + Sync + 'static>(
+//     data: Data<State<DB>>,
+//     Params(params): Params<(TipsetKeys, )>,
+// ) -> Result<BigUint, JsonRpcError> {
+//     let tsk = params.0;
+//     let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
+//     Ok(ts.weight().clone())
+// }
