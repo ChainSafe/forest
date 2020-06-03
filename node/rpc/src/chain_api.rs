@@ -7,6 +7,7 @@ use forest_bigint::BigUint;
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
+
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     signed_message,
@@ -65,6 +66,7 @@ pub(crate) async fn chain_has_obj<DB: BlockStore + Send + Sync + 'static>(
     let obj_cid = (params.0).0;
     Ok(data.store.get_bytes(&obj_cid)?.is_some())
 }
+
 pub(crate) async fn chain_block_messages<DB: BlockStore + Send + Sync + 'static>(
     data: Data<State<DB>>,
     Params(params): Params<(CidJson,)>,

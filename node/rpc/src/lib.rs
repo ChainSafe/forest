@@ -44,6 +44,7 @@ pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(store: Arc<DB>) {
 //            "Filecoin.ChainTipsetWeight",
 //            chain_api::chain_tipset_weight::<DB>,
 //        )
+
         .finish_unwrapped();
     let mut app = tide::Server::with_state(rpc);
     app.at("/api").post(handle_json_rpc);

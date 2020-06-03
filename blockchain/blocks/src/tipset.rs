@@ -247,20 +247,13 @@ where
 #[cfg(feature = "json")]
 pub mod tipset_keys_json {
     use super::*;
-    use cid::json::{CidJson, CidJsonRef};
-    use forest_json_utils::GoVecVisitor;
-    use serde::ser::SerializeSeq;
     use serde::{Deserializer, Serializer};
 
     pub fn serialize<S>(m: &TipsetKeys, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let mut seq = serializer.serialize_seq(Some(m.cids.len()))?;
-        for e in m.cids() {
-            seq.serialize_element(&CidJsonRef(e))?;
-        }
-        seq.end()
+        cid::json::vec::serialize(m.cids(), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
@@ -268,7 +261,7 @@ pub mod tipset_keys_json {
         D: Deserializer<'de>,
     {
         Ok(TipsetKeys {
-            cids: deserializer.deserialize_any(GoVecVisitor::<Cid, CidJson>::new())?,
+            cids: cid::json::vec::deserialize(deserializer)?,
         })
     }
 }
