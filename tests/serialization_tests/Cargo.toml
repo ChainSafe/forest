@@ -21,5 +21,5 @@ fil_types = { path = "../../types" }
 address = { package = "forest_address", path = "../../vm/address" }
 forest_message = { path = "../../vm/message", features = ["json"] }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-forest_blocks = { path = "../../blockchain/blocks" }
+forest_blocks = { path = "../../blockchain/blocks", features = ["json"] }
 num-traits = "0.2"

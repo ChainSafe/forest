@@ -61,10 +61,11 @@ pub trait Runtime<BS: BlockStore> {
     /// Randomness returns a (pseudo)random byte array drawing from a
     /// random beacon at a given epoch and incorporating reequisite entropy
     fn get_randomness(
+        &self,
         personalization: DomainSeparationTag,
         rand_epoch: ChainEpoch,
         entropy: &[u8],
-    ) -> Randomness;
+    ) -> Result<Randomness, ActorError>;
 
     /// Initializes the state object.
     /// This is only valid in a constructor function and when the state has not yet been initialized.
@@ -117,11 +118,15 @@ pub trait Runtime<BS: BlockStore> {
     /// Creates an actor with code `codeID` and address `address`, with empty state. May only be called by Init actor.
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError>;
 
-    /// Deletes the executing actor from the state tree. May only be called by the actor itself.
-    fn delete_actor(&mut self) -> Result<(), ActorError>;
+    /// Deletes the executing actor from the state tree, transferring any balance to beneficiary.
+    /// Aborts if the beneficiary does not exist.
+    /// May only be called by the actor itself.
+    fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError>;
 
     /// Provides the system call interface.
     fn syscalls(&self) -> &dyn Syscalls;
+
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError>;
 }
 
 /// Message information available to the actor about executing message.

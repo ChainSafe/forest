@@ -3,6 +3,7 @@
 
 use crate::{power, u64_key, BytesKey, OptionalEpoch, HAMT_BIT_WIDTH};
 use address::Address;
+use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*};
@@ -10,11 +11,8 @@ use fil_types::{RegisteredProof, SectorInfo, SectorNumber, SectorSize};
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
-use num_bigint::bigint_ser;
 use num_bigint::biguint_ser;
-use num_bigint::BigInt;
-use rleplus::bitvec::prelude::{BitVec, Lsb0};
-use rleplus::bitvec_serde;
+use num_bigint::BigUint;
 use runtime::Runtime;
 use vm::{DealID, TokenAmount};
 
@@ -29,8 +27,7 @@ pub struct State {
     pub sectors: Cid,
 
     /// BitField of faults
-    #[serde(with = "bitvec_serde")]
-    pub fault_set: BitVec<Lsb0, u8>,
+    pub fault_set: BitField,
 
     /// Sectors in proving set
     /// Array, AMT<SectorOnChainInfo>
@@ -57,7 +54,7 @@ impl State {
         Self {
             pre_committed_sectors: empty_map,
             sectors: empty_arr.clone(),
-            fault_set: BitVec::default(),
+            fault_set: BitField::default(),
             proving_set: empty_arr,
             info: MinerInfo {
                 owner,
@@ -191,13 +188,13 @@ impl State {
         }
     }
     pub fn compute_proving_set<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
     ) -> Result<Vec<SectorInfo>, String> {
         let proving_set = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
 
         let max_allowed_faults = self.get_max_allowed_faults(store)?;
-        if self.fault_set.count_ones() > max_allowed_faults as usize {
+        if self.fault_set.count()? > max_allowed_faults as usize {
             return Err("Bitfield larger than maximum allowed".to_owned());
         }
 
@@ -207,10 +204,7 @@ impl State {
                 return Err("sector fault epoch or duration invalid".to_owned());
             }
 
-            let fault = match self.fault_set.get(i as usize) {
-                Some(true) => true,
-                _ => false,
-            };
+            let fault = self.fault_set.get(i)?;
             if !fault {
                 sector_infos.push(SectorInfo {
                     sealed_cid: v.info.sealed_cid.clone(),
@@ -304,8 +298,8 @@ pub struct SectorOnChainInfo {
     pub activation_epoch: ChainEpoch,
 
     /// Integral of active deals over sector lifetime, 0 if CommittedCapacity sector
-    #[serde(with = "bigint_ser")]
-    pub deal_weight: BigInt,
+    #[serde(with = "biguint_ser")]
+    pub deal_weight: BigUint,
 
     /// Fixed pledge collateral requirement determined at activation
     #[serde(with = "biguint_ser")]
@@ -321,10 +315,12 @@ fn as_storage_weight_desc(
     sector_size: SectorSize,
     sector_info: SectorOnChainInfo,
 ) -> power::SectorStorageWeightDesc {
+    // TODO update verified_deal_weight
     power::SectorStorageWeightDesc {
         sector_size,
-        deal_weight: sector_info.deal_weight,
+        deal_weight: sector_info.deal_weight.clone(), // temp clone
         duration: sector_info.info.expiration - sector_info.activation_epoch,
+        verified_deal_weight: sector_info.deal_weight, // temp
     }
 }
 

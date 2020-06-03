@@ -6,12 +6,9 @@ mod types;
 
 pub use self::state::{Reward, State, VestingFunction};
 pub use self::types::*;
-use crate::{
-    check_empty_params, request_miner_control_addrs, Multimap, BURNT_FUNDS_ACTOR_ADDR,
-    SYSTEM_ACTOR_ADDR,
-};
-use address::Address;
+use crate::{check_empty_params, Multimap, BURNT_FUNDS_ACTOR_ADDR, SYSTEM_ACTOR_ADDR};
 use ipld_blockstore::BlockStore;
+use num_bigint::biguint_ser::BigUintSer;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -25,7 +22,8 @@ use vm::{
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     AwardBlockReward = 2,
-    WithdrawReward = 3,
+    LastPerEpochReward = 3,
+    // TODO add UpdateNetworkKPI
 }
 
 /// Reward Actor
@@ -133,39 +131,14 @@ impl Actor {
         Ok(())
     }
 
-    /// Withdraw available funds from reward map
-    fn withdraw_reward<BS, RT>(rt: &mut RT, miner_in: Address) -> Result<(), ActorError>
+    fn last_per_epoch_reward<BS, RT>(rt: &RT) -> Result<TokenAmount, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let maddr = rt.resolve_address(&miner_in)?;
-
-        let (owner, worker) = request_miner_control_addrs(rt, &maddr)?;
-
-        rt.validate_immediate_caller_is([owner, worker].iter())?;
-
-        let cur_epoch = rt.curr_epoch();
-        let withdrawable_reward =
-            rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
-                let withdrawn = st
-                    .withdraw_reward(rt.store(), &maddr, cur_epoch)
-                    .map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to withdraw record: {}", e),
-                        )
-                    })?;
-                Ok(withdrawn)
-            })??;
-
-        rt.send(
-            &owner,
-            METHOD_SEND,
-            &Serialized::default(),
-            &withdrawable_reward,
-        )?;
-        Ok(())
+        rt.validate_immediate_caller_accept_any();
+        let st: State = rt.state()?;
+        Ok(st.last_per_epoch_reward)
     }
 
     /// Withdraw available funds from reward map
@@ -198,9 +171,9 @@ impl ActorCode for Actor {
                 Self::award_block_reward(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            Some(Method::WithdrawReward) => {
-                Self::withdraw_reward(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
+            Some(Method::LastPerEpochReward) => {
+                let res = Self::last_per_epoch_reward(rt)?;
+                Ok(Serialized::serialize(BigUintSer(&res))?)
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }

@@ -4,9 +4,8 @@
 use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
-use encoding::{tuple::*, Cbor};
-use fil_types::SectorSize;
-use num_bigint::bigint_ser;
+use encoding::{serde_bytes, tuple::*, Cbor};
+use fil_types::{RegisteredProof, SectorSize};
 use num_bigint::biguint_ser;
 use vm::{Serialized, TokenAmount};
 
@@ -16,34 +15,26 @@ pub type SectorTermination = i64;
 pub const SECTOR_TERMINATION_EXPIRED: SectorTermination = 0;
 /// Unscheduled explicit termination by the miner
 pub const SECTOR_TERMINATION_MANUAL: SectorTermination = 1;
+/// Implicit termination due to unrecovered fault
+pub const SECTOR_TERMINATION_FAULTY: SectorTermination = 3;
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct CreateMinerParams {
+    owner_addr: Address,
+    worker_addr: Address,
+    seal_proof_type: RegisteredProof,
+    #[serde(with = "serde_bytes")]
+    peer_id: Vec<u8>,
+}
 
 #[derive(Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorStorageWeightDesc {
     pub sector_size: SectorSize,
     pub duration: ChainEpoch,
-    #[serde(with = "bigint_ser")]
-    pub deal_weight: DealWeight,
-}
-
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct AddBalanceParams {
-    pub miner: Address,
-}
-
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct WithdrawBalanceParams {
-    pub miner: Address,
     #[serde(with = "biguint_ser")]
-    pub requested: TokenAmount,
-}
-
-// TODO on miner impl, alias these params for constructor
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct CreateMinerParams {
-    pub owner_addr: Address,
-    pub worker_addr: Address,
-    pub sector_size: SectorSize,
-    pub peer: String,
+    pub deal_weight: DealWeight,
+    #[serde(with = "biguint_ser")]
+    pub verified_deal_weight: DealWeight,
 }
 
 impl Cbor for CreateMinerParams {}
@@ -92,10 +83,7 @@ pub struct OnSectorTemporaryFaultEffectiveEndParams {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct OnSectorModifyWeightDescParams {
-    // TODO revisit todo in spec to change with power
     pub prev_weight: SectorStorageWeightDesc,
-    #[serde(with = "biguint_ser")]
-    pub prev_pledge: TokenAmount,
     pub new_weight: SectorStorageWeightDesc,
 }
 
@@ -115,4 +103,14 @@ pub struct ReportConsensusFaultParams {
     pub block_header_1: Serialized,
     pub block_header_2: Serialized,
     pub block_header_extra: Serialized,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct OnFaultBeginParams {
+    pub weights: Vec<SectorStorageWeightDesc>, // TODO: replace with power if it can be computed by miner
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct OnFaultEndParams {
+    pub weights: Vec<SectorStorageWeightDesc>, // TODO: replace with power if it can be computed by miner
 }

@@ -373,10 +373,11 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     }
 
     fn get_randomness(
+        &self,
         _personalization: DomainSeparationTag,
         _rand_epoch: ChainEpoch,
         _entropy: &[u8],
-    ) -> Randomness {
+    ) -> Result<Randomness, ActorError> {
         unimplemented!()
     }
 
@@ -497,7 +498,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         Ok(())
     }
 
-    fn delete_actor(&mut self) -> Result<(), ActorError> {
+    fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
             return Err(self.abort(
@@ -509,6 +510,10 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     }
 
     fn syscalls(&self) -> &dyn Syscalls {
+        unimplemented!()
+    }
+
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         unimplemented!()
     }
 }

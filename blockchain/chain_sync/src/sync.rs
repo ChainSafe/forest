@@ -22,7 +22,10 @@ use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures::{
+    executor::block_on,
+    stream::{FuturesUnordered, StreamExt},
+};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, warn};
@@ -65,7 +68,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     beacon: Arc<TBeacon>,
 
     /// manages retrieving and updates state objects
-    state_manager: StateManager<DB>,
+    state_manager: Arc<StateManager<DB>>,
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
@@ -98,9 +101,9 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<DB, TBeacon> ChainSyncer<DB, TBeacon>
+impl<DB, TBeacon: 'static> ChainSyncer<DB, TBeacon>
 where
-    TBeacon: Beacon,
+    TBeacon: Beacon + Send,
     DB: BlockStore + Sync + Send + 'static,
 {
     pub fn new(
@@ -110,7 +113,7 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = StateManager::new(chain_store.db.clone());
+        let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
@@ -490,13 +493,21 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    fn check_block_msgs(db: Arc<DB>, block: Block, tip: &Tipset) -> Result<(), Error> {
+    fn check_block_msgs(
+        state_manager: Arc<StateManager<DB>>,
+        block: Block,
+        tip: Tipset,
+    ) -> Result<(), Error> {
         //do the initial loop here
         // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
-            let pk = StateManager::get_bls_public_key(&db, m.from(), tip.parent_state())?;
+            let pk = StateManager::get_bls_public_key(
+                &state_manager.get_block_store(),
+                m.from(),
+                tip.parent_state(),
+            )?;
             pub_keys.push(pk);
             cids.push(m.cid()?.to_bytes());
         }
@@ -523,6 +534,7 @@ where
                 "No bls signature included in the block header".to_owned(),
             ));
         }
+
         // check msgs for validity
         fn check_msg<M, DB: BlockStore>(
             msg: &M,
@@ -572,9 +584,12 @@ where
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
-        // TODO retrieve tipset state and load state tree
-        // temporary
-        let tree = StateTree::new(db.as_ref());
+        let db = state_manager.get_block_store();
+        let (state_root, _) = block_on(state_manager.tipset_state(&tip))
+            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
+        let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
+            Error::Validation("Could not load from new state root in state manager".to_owned())
+        })?;
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
@@ -600,7 +615,6 @@ where
     async fn validate(&self, block: &Block) -> Result<(), Error> {
         let mut error_vec: Vec<String> = Vec::new();
         let mut validations = FuturesUnordered::new();
-
         let header = block.header();
 
         // check if block has been signed
@@ -617,28 +631,36 @@ where
 
         let b = block.clone();
 
-        let db = Arc::clone(&self.chain_store.db);
         let parent_clone = parent_tipset.clone();
         // check messages to ensure valid state transitions
-        let x = task::spawn_blocking(move || Self::check_block_msgs(db, b, &parent_clone));
+        let sm = self.state_manager.clone();
+        let x = task::spawn_blocking(move || Self::check_block_msgs(sm, b, parent_clone));
         validations.push(x);
 
-        // TODO use computed state_root instead of parent_tipset.parent_state()
-
         // block signature check
+        let (state_root, _) = self
+            .state_manager
+            .tipset_state(&parent_tipset)
+            .await
+            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let work_addr_result = self
             .state_manager
-            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address());
+            .get_miner_work_addr(&state_root, header.miner_address());
+
+        // temp header needs to live long enough in static context returned by task::spawn
+        let signature = block.header().signature().clone();
+        let cid_bytes = block.header().cid().to_bytes().clone();
         match work_addr_result {
-            Ok(work_addr) => {
-                let temp_header = header.clone();
-                let block_sig_task = task::spawn_blocking(move || {
-                    temp_header
-                        .check_block_signature(&work_addr)
-                        .map_err(Error::Blockchain)
-                });
-                validations.push(block_sig_task)
-            }
+            Ok(_) => validations.push(task::spawn_blocking(move || {
+                signature
+                    .ok_or_else(|| {
+                        Error::Blockchain(blocks::Error::InvalidSignature(
+                            "Signature is nil in header".to_owned(),
+                        ))
+                    })?
+                    .verify(&cid_bytes, &work_addr_result.unwrap())
+                    .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
+            })),
             Err(err) => error_vec.push(err.to_string()),
         }
 
@@ -697,7 +719,7 @@ where
         }
 
         for b in fts.blocks() {
-            if let Err(e) = self.validate(b).await {
+            if let Err(e) = self.validate(&b).await {
                 self.bad_blocks.put(b.cid().clone(), e.to_string());
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
