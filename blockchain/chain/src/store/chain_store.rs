@@ -38,7 +38,6 @@ const SINK_CAP: usize = 1000;
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
     // TODO add IPLD Store
-    // TODO add a pubsub channel that publishes an event every time the head changes.
     publisher: Publisher<Arc<Tipset>>,
 
     // key-value datastore
