@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::errors::Error;
 use address::Address;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
