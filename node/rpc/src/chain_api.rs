@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::State;
-use blocks::{tipset_json::TipsetJson, BlockHeader, TipsetKeys};
+use blocks::{tipset_json::TipsetJson, BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
@@ -22,6 +22,15 @@ pub(crate) struct BlockMessages {
     pub secp_msg: Vec<SignedMessage>,
     #[serde(rename = "Cids", with = "cid::json::vec")]
     pub cids: Vec<Cid>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub(crate) struct Message {
+    #[serde(with = "cid::json")]
+    cid: Cid,
+    #[serde(with = "unsigned_message::json")]
+    message: UnsignedMessage,
 }
 
 pub(crate) async fn chain_get_message<DB: BlockStore + Send + Sync + 'static>(
@@ -90,4 +99,16 @@ pub(crate) async fn chain_get_tipset_by_height<DB: BlockStore + Send + Sync + 's
     let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk).unwrap();
     let tss = chain::tipset_by_height(data.store.as_ref(), height, ts, true)?;
     Ok(TipsetJson(tss))
+}
+
+pub(crate) async fn chain_get_genesis<DB: BlockStore + Send + Sync + 'static>(
+    data: Data<State<DB>>,
+) -> Result<Option<TipsetJson>, JsonRpcError> {
+    let genesis = chain::genesis(data.store.as_ref())?;
+    if genesis.is_none() {
+        return Ok(None);
+    }
+    let genesis = genesis.unwrap();
+    let gen_ts = Tipset::new(vec![genesis])?;
+    Ok(Some(TipsetJson(gen_ts)))
 }

@@ -398,7 +398,7 @@ where
     Ok(cids)
 }
 
-fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
+pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
 where
     DB: BlockStore,
 {
