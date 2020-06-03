@@ -75,7 +75,7 @@ where
         Ok(())
     }
 
-    // subscribing returns a future sink that we can essentially iteratre over using future streams
+    // subscribing returns a future sink that we can essentially iterate over using future streams
     pub fn subscribe(&mut self) -> Subscriber<Arc<Tipset>> {
         self.publisher.subscribe()
     }
