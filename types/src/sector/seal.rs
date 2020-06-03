@@ -11,22 +11,22 @@ pub type SealRandomness = Randomness;
 pub type InteractiveSealRandomness = Randomness;
 
 /// Information needed to verify a seal proof.
-#[derive(Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct SealVerifyInfo {
     pub sector_id: SectorID,
     // TODO revisit issue to remove this: https://github.com/filecoin-project/specs-actors/issues/276
-    pub on_chain: OnChainSealVerifyInfo,
+    pub on_chain: SealVerifyParams,
     pub randomness: SealRandomness,
     pub interactive_randomness: InteractiveSealRandomness,
     pub unsealed_cid: Cid,
 }
 
-/// OnChainSealVerifyInfo is the structure of information that must be sent with
+/// SealVerifyParams is the structure of information that must be sent with
 /// a message to commit a sector. Most of this information is not needed in the
 /// state tree but will be verified in sm.CommitSector. See SealCommitment for
 /// data stored on the state tree for each sector.
-#[derive(Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
-pub struct OnChainSealVerifyInfo {
+#[derive(Clone, Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
+pub struct SealVerifyParams {
     pub sealed_cid: Cid,
     pub interactive_epoch: ChainEpoch,
     pub registered_proof: RegisteredProof,
