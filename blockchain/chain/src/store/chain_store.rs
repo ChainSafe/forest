@@ -12,6 +12,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
+use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
@@ -31,10 +32,13 @@ const W_RATIO_DEN: u64 = 2;
 /// Blocks epoch allowed
 const BLOCKS_PER_EPOCH: u64 = 5;
 
+// A cap on the size of the future_sink
+const SINK_CAP: usize = 1000;
+
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
     // TODO add IPLD Store
-    // TODO add a pubsub channel that publishes an event every time the head changes.
+    publisher: Publisher<Arc<Tipset>>,
 
     // key-value datastore
     pub db: Arc<DB>,
@@ -57,16 +61,23 @@ where
             .map(Arc::new);
         Self {
             db,
+            publisher: Publisher::new(SINK_CAP),
             tip_index: TipIndex::new(),
             heaviest,
         }
     }
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
-    pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        self.heaviest = Some(ts);
+        self.heaviest = Some(ts.clone());
+        self.publisher.publish(ts).await;
         Ok(())
+    }
+
+    // subscribing returns a future sink that we can essentially iterate over using future streams
+    pub fn subscribe(&mut self) -> Subscriber<Arc<Tipset>> {
+        self.publisher.subscribe()
     }
 
     /// Sets tip_index tracker
@@ -87,10 +98,10 @@ where
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
-    pub fn put_tipsets(&mut self, ts: &Tipset) -> Result<(), Error> {
+    pub async fn put_tipsets(&mut self, ts: &Tipset) -> Result<(), Error> {
         persist_headers(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
-        self.update_heaviest(ts)?;
+        self.update_heaviest(ts).await?;
         Ok(())
     }
 
@@ -100,14 +111,16 @@ where
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    pub fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
+    pub async fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
         let heaviest_ts = get_heaviest_tipset(self.blockstore())?.ok_or_else(|| {
             warn!("No previous chain state found");
             Error::Other("No chain state found".to_owned())
         })?;
 
         // set as heaviest tipset
-        self.heaviest = Some(Arc::new(heaviest_ts));
+        let heaviest_ts = Arc::new(heaviest_ts);
+        self.heaviest = Some(heaviest_ts.clone());
+        self.publisher.publish(heaviest_ts).await;
         Ok(())
     }
 
@@ -197,7 +210,7 @@ where
         Ok(FullTipset::new(blocks).unwrap())
     }
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
+    async fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
         match &self.heaviest {
             Some(heaviest) => {
                 let new_weight = weight(self.blockstore(), ts)?;
@@ -205,12 +218,12 @@ where
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset");
-                    self.set_heaviest_tipset(Arc::new(ts.clone()))?;
+                    self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
                 }
             }
             None => {
                 info!("set heaviest tipset");
-                self.set_heaviest_tipset(Arc::new(ts.clone()))?;
+                self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
             }
         }
         Ok(())
