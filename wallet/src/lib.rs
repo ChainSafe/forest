@@ -3,8 +3,10 @@
 
 mod errors;
 mod keystore;
+mod sigs;
 mod wallet;
 
 pub use errors::*;
 pub use keystore::*;
+pub use sigs::*;
 pub use wallet::*;
