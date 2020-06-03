@@ -164,6 +164,12 @@ pub mod json {
     #[serde(transparent)]
     pub struct UnsignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a UnsignedMessage);
 
+    impl From<UnsignedMessageJson> for UnsignedMessage {
+        fn from(wrapper: UnsignedMessageJson) -> Self {
+            wrapper.0
+        }
+    }
+
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
@@ -214,5 +220,30 @@ pub mod json {
             method_num: m.method_num,
             params: Serialized::new(base64::decode(&m.params).map_err(de::Error::custom)?),
         })
+    }
+
+    pub mod vec {
+        use super::*;
+        use forest_json_utils::GoVecVisitor;
+        use serde::ser::SerializeSeq;
+
+        pub fn serialize<S>(m: &[UnsignedMessage], serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq = serializer.serialize_seq(Some(m.len()))?;
+            for e in m {
+                seq.serialize_element(&UnsignedMessageJsonRef(e))?;
+            }
+            seq.end()
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<UnsignedMessage>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer
+                .deserialize_any(GoVecVisitor::<UnsignedMessage, UnsignedMessageJson>::new())
+        }
     }
 }
