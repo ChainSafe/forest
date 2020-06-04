@@ -11,6 +11,8 @@ pub enum Error {
     /// Key already exists in keystore
     #[error("Key already exists")]
     KeyExists,
+    #[error("Key does not exist")]
+    KeyNotExists,
     #[error("key not found")]
     NoKey,
     #[error("{0}")]

@@ -3,10 +3,10 @@
 
 mod errors;
 mod keystore;
-mod sigs;
+mod wallet_helpers;
 mod wallet;
 
 pub use errors::*;
 pub use keystore::*;
-pub use sigs::*;
+pub use wallet_helpers::*;
 pub use wallet::*;

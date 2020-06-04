@@ -44,7 +44,7 @@ pub fn new_address(sig_type: SignatureType, public_key: Vec<u8>) -> Result<Addre
 pub fn sign(
     sig_type: SignatureType,
     private_key: Vec<u8>,
-    msg: Vec<u8>,
+    msg: &[u8],
 ) -> Result<Signature, Error> {
     match sig_type {
         SignatureType::BLS => {
@@ -58,7 +58,7 @@ pub fn sign(
         SignatureType::Secp256 => {
             let priv_key = SecpPrivate::parse_slice(private_key.as_ref())
                 .map_err(|err| Error::Other(err.to_string()))?;
-            let message = SecpMessage::parse_slice(msg.as_ref())
+            let message = SecpMessage::parse_slice(msg)
                 .map_err(|err| Error::Other(err.to_string()))?;
             // this returns a signature of secp256k1 type, next lines convert this sig to crypto signature type
             let (sig, _) = secp256k1::sign(&message, &priv_key);

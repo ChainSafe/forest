@@ -36,44 +36,36 @@ impl KeyInfo {
 /// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
 pub struct KeyStore {
-    pub m: HashMap<String, KeyInfo>,
+    pub key_inf: HashMap<String, KeyInfo>,
 }
 
 impl KeyStore {
     /// Return a new empty KeyStore
     pub fn new() -> Self {
-        KeyStore { m: HashMap::new() }
+        KeyStore { key_inf: HashMap::new() }
     }
 
     /// Return all of the keys that are stored in the KeyStore
     pub fn list(&self) -> Vec<String> {
-        let mut out_vec = Vec::new();
-
-        for (key, _) in self.m.iter() {
-            out_vec.push(key.clone())
-        }
-        out_vec
+        self.key_inf.iter().map(|(key, _ )| key.clone()).collect()
     }
 
     /// Return Keyinfo that corresponds to a given key
     pub fn get(&self, k: &str) -> Result<&KeyInfo, Error> {
-        self.m.get(k).map_or_else(|| Err(Error::KeyInfo), Ok)
+        self.key_inf.get(k).ok_or(Error::KeyInfo)
     }
 
     /// Save a key key_info pair to the KeyStore
     pub fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
-        if self.m.contains_key(&key) {
+        if self.key_inf.contains_key(&key) {
             return Err(Error::KeyExists);
         }
-        self.m.insert(key, key_info);
+        self.key_inf.insert(key, key_info);
         Ok(())
     }
 
     /// Remove the Key and corresponding key_info from the KeyStore
-    pub fn remove(&mut self, key: String) -> Result<(), Error> {
-        match self.m.remove(&key) {
-            Some(_t) => Ok(()),
-            None => Err(Error::NoKey),
-        }
+    pub fn remove(&mut self, key: String) -> Option<KeyInfo> {
+        self.key_inf.remove(&key)
     }
 }
