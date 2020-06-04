@@ -7,6 +7,7 @@ use forest_bigint::BigUint;
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
+use crypto::DomainSeparationTag;
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
@@ -15,7 +16,7 @@ use message::{
     SignedMessage, UnsignedMessage,
 };
 use serde::{Deserialize, Serialize};
-
+use num_traits::FromPrimitive;
 #[derive(Serialize, Deserialize)]
 pub(crate) struct BlockMessages {
     #[serde(rename = "BlsMessages", with = "unsigned_message::json::vec")]
@@ -145,11 +146,13 @@ pub(crate) async fn chain_get_tipset<DB: BlockStore + Send + Sync + 'static>(
     let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
     Ok(TipsetJson(ts))
 }
-// pub(crate) async fn chain_get_randomness<DB: BlockStore + Send + Sync + 'static>(
-//     data: Data<State<DB>>,
-//     Params(params): Params<(TipsetKeys, )>,
-// ) -> Result<BigUint, JsonRpcError> {
-//     let tsk = params.0;
-//     let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
-//     Ok(ts.weight().clone())
-// }
+ pub(crate) async fn chain_get_randomness<DB: BlockStore + Send + Sync + 'static>(
+     data: Data<State<DB>>,
+     Params(params): Params<(TipsetKeys, i64, ChainEpoch, &[u8])>,
+ ) -> Result<[u8;32], JsonRpcError> {
+     let tsk = params.0;
+     let pers = params.1;
+     let epoch = params.2;
+     let entropy = params.3;
+     Ok(chain::get_randomness(data.store.as_ref(), &tsk, DomainSeparationTag::from_i64(pers).unwrap(), epoch,entropy)?)
+ }
