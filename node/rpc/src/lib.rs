@@ -40,11 +40,17 @@ pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(store: Arc<DB>) {
             "Filecoin.ChainGetGenesis",
             chain_api::chain_get_genesis::<DB>,
         )
-//        .with_method(
-//            "Filecoin.ChainTipsetWeight",
-//            chain_api::chain_tipset_weight::<DB>,
-//        )
-
+        .with_method(
+            "Filecoin.ChainTipsetWeight",
+            chain_api::chain_tipset_weight::<DB>,
+        )
+        .with_method("Filecoin.ChainGetTipset", chain_api::chain_get_tipset::<DB>)
+        .with_method(
+            "Filecoin.GetRandomness",
+            chain_api::chain_get_randomness::<DB>,
+        )
+        .with_method("Filecoin.ChainGetBlock", chain_api::chain_get_block::<DB>)
+        .with_method("Filecoin.ChainHead", chain_api::chain_head::<DB>)
         .finish_unwrapped();
     let mut app = tide::Server::with_state(rpc);
     app.at("/api").post(handle_json_rpc);
