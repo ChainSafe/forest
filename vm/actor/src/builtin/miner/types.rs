@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*};
 use fil_types::{PoStProof, RegisteredProof, SectorNumber};
-use num_bigint::{bigint_ser, biguint_ser, BigInt};
-use rleplus::bitvec::prelude::{BitVec, Lsb0};
-use rleplus::bitvec_serde;
+use num_bigint::{biguint_ser, BigUint};
 use vm::{DealID, TokenAmount};
 
 pub type CronEvent = i64;
@@ -28,8 +27,7 @@ pub struct MinerConstructorParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CronEventPayload {
     pub event_type: i64,
-    #[serde(with = "bitvec_serde")]
-    pub sectors: BitVec<Lsb0, u8>,
+    pub sectors: BitField,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct GetControlAddressesReturn {
@@ -58,8 +56,7 @@ pub struct SubmitWindowedPoStParams {
     /// In the usual case of a single proof type, this array will always have a single element (independent of number of partitions).
     pub proofs: Vec<PoStProof>,
     /// Sectors skipped while proving that weren't already declared faulty
-    #[serde(with = "bitvec_serde")]
-    pub skipped: BitVec<Lsb0, u8>,
+    pub skipped: BitField,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ProveCommitSectorParams {
@@ -78,8 +75,7 @@ pub struct ExtendSectorExpirationParams {
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TerminateSectorsParams {
-    #[serde(with = "bitvec_serde")]
-    pub sectors: BitVec<Lsb0, u8>,
+    pub sectors: BitField,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct DeclareFaultsParams {
@@ -88,18 +84,16 @@ pub struct DeclareFaultsParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct FaultDeclaration {
     pub deadline: u64, // In range [0..WPoStPeriodDeadlines)
-    #[serde(with = "bitvec_serde")]
-    pub sectors: BitVec<Lsb0, u8>,
+    pub sectors: BitField,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct DeclareFaultsRecoveredParams {
-    recoveries: Vec<RecoveryDeclaration>,
+    pub recoveries: Vec<RecoveryDeclaration>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct RecoveryDeclaration {
-    deadline: u64, // In range [0..WPoStPeriodDeadlines)
-    #[serde(with = "bitvec_serde")]
-    sectors: BitVec<Lsb0, u8>,
+    pub deadline: u64, // In range [0..WPoStPeriodDeadlines)
+    pub sectors: BitField,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ReportConsensusFaultParams {
@@ -145,9 +139,9 @@ pub struct SectorOnChainInfo {
     /// Epoch at which SectorProveCommit is accepted
     pub activation_epoch: ChainEpoch,
     /// Integral of active deals over sector lifetime, 0 if CommittedCapacity sector
-    #[serde(with = "bigint_ser")]
-    pub deal_weight: BigInt,
+    #[serde(with = "biguint_ser")]
+    pub deal_weight: BigUint,
     /// Integral of active verified deals over sector lifetime
-    #[serde(with = "bigint_ser")]
-    pub verified_deal_weight: BigInt,
+    #[serde(with = "biguint_ser")]
+    pub verified_deal_weight: BigUint,
 }

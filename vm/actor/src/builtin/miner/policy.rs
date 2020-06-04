@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 #![allow(unused_variables)]
 #![allow(dead_code)]
+
 use super::types::SectorOnChainInfo;
 use clock::ChainEpoch;
 use fil_types::{
@@ -23,17 +25,17 @@ pub const WPOST_CHALLENGE_WINDOW: ChainEpoch = 1800 / EPOCH_DURATION_SECONDS; //
 /// The number of non-overlapping PoSt deadlines in each proving period.
 pub const WPOST_PERIOD_DEADLINES: u64 = WPOST_PROVING_PERIOD / WPOST_CHALLENGE_WINDOW;
 /// The maximum number of sectors in a single window PoSt proof.
-pub const WPOST_PARTITION_SECTORS: u64 = 2350;
+pub const WPOST_PARTITION_SECTORS: usize = 2350;
 /// The maximum number of partitions that may be submitted in a single message.
 /// This bounds the size of a list/set of sector numbers that might be instantiated to process a submission.
-pub const WPOST_MESSAGE_PARTITIONS_MAX: u64 = 100_000 / WPOST_PARTITION_SECTORS;
+pub const WPOST_MESSAGE_PARTITIONS_MAX: usize = 100_000 / WPOST_PARTITION_SECTORS;
 /// The maximum number of sectors that a miner can have simultaneously active.
 /// This also bounds the number of faults that can be declared, etc.
 /// TODO raise this number, carefully
 pub const SECTORS_MAX: usize = 32 << 20; // PARAM_FINISH
 /// The maximum number of proving partitions a miner can have simultaneously active.
-pub fn active_partitions_max(partition_sector_count: u64) -> u64 {
-    (SECTORS_MAX / partition_sector_count) + WPOST_PERIOD_DEADLINES
+pub fn active_partitions_max(partition_sector_count: u64) -> usize {
+    (SECTORS_MAX / partition_sector_count as usize) + WPOST_PERIOD_DEADLINES as usize
 }
 /// The maximum number of partitions that may be submitted in a single message.
 /// This bounds the size of a list/set of sector numbers that might be instantiated to process a submission.
@@ -41,9 +43,10 @@ pub fn window_post_message_partitions_max(partition_sector_count: u64) -> u64 {
     100_000 / partition_sector_count
 }
 /// The maximum number of proving partitions a miner can have simultaneously active.
-pub const PARTITIONS_MAX: u64 = (SECTORS_MAX / WPOST_PARTITION_SECTORS) + WPOST_PERIOD_DEADLINES;
+pub const PARTITIONS_MAX: usize =
+    (SECTORS_MAX / WPOST_PARTITION_SECTORS) + WPOST_PERIOD_DEADLINES as usize;
 /// The maximum number of new sectors that may be staged by a miner during a single proving period.
-pub const NEW_SECTORS_PER_PERIOD_MAX: u64 = 128 << 10;
+pub const NEW_SECTORS_PER_PERIOD_MAX: usize = 128 << 10;
 /// An approximation to chain state finality (should include message propagation time as well).
 pub const CHAIN_FINALITYISH: ChainEpoch = 500; // PARAM_FINISH
 /// List of proof types which can be used when creating new miner actors
@@ -95,11 +98,11 @@ struct BigFrac {
     numerator: BigUint,
     denominator: BigUint,
 }
-fn pledge_penalty_for_sector_termination(_sector: SectorOnChainInfo) -> TokenAmount {
+pub fn pledge_penalty_for_sector_termination(_sector: SectorOnChainInfo) -> TokenAmount {
     BigUint::zero() // PARAM_FINISH
 }
 /// Penalty to locked pledge collateral for a "skipped" sector or missing PoSt fault.
-pub fn pledge_penalty_for_sector_undeclared_fault() -> TokenAmount {
+pub fn pledge_penalty_for_sector_undeclared_fault(_sector: SectorOnChainInfo) -> TokenAmount {
     BigUint::zero() // PARAM_FINISH
 }
 /// Penalty to locked pledge collateral for a declared or on-going sector fault.

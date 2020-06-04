@@ -1,36 +1,54 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 #![allow(unused_variables)]
 #![allow(dead_code)]
 use super::policy::*;
+use super::state::Deadlines;
 use crate::OptionalEpoch;
+use bitfield::BitField;
 use clock::ChainEpoch;
-use encoding::tuple::*;
 use std::collections::HashMap;
 use vm::Randomness;
-use bitfield::BitField;
+
 /// Deadline calculations with respect to a current epoch.
 /// "Deadline" refers to the window during which proofs may be submitted.
 /// Windows are non-overlapping ranges [Open, Close), but the challenge epoch for a window occurs before
 /// the window opens.
 pub struct DeadlineInfo {
     /// Epoch at which this info was calculated.
-    current_epoch: ChainEpoch,
+    pub current_epoch: ChainEpoch,
     /// First epoch of the proving period (<= CurrentEpoch).
-    period_start: ChainEpoch,
+    pub period_start: ChainEpoch,
     /// Current deadline index, in [0..WPoStProvingPeriodDeadlines).
-    index: u64,
+    pub index: u64,
     /// First epoch from which a proof may be submitted, inclusive (>= CurrentEpoch).
     open: ChainEpoch,
     /// First epoch from which a proof may no longer be submitted, exclusive (>= Open).
     close: ChainEpoch,
     /// Epoch at which to sample the chain for challenge (< Open).
-    challenge: ChainEpoch,
+    pub challenge: ChainEpoch,
     /// First epoch at which a fault declaration is rejected (< Open).
-    fault_cutoff: ChainEpoch,
+    pub fault_cutoff: ChainEpoch,
 }
+
+// TODO ask if really needed
+impl Default for DeadlineInfo {
+    fn default() -> Self {
+        Self {
+            current_epoch: ChainEpoch::default(),
+            period_start: ChainEpoch::default(),
+            index: 0,
+            open: ChainEpoch::default(),
+            close: ChainEpoch::default(),
+            challenge: ChainEpoch::default(),
+            fault_cutoff: ChainEpoch::default(),
+        }
+    }
+}
+
 impl DeadlineInfo {
-    fn new(period_start: ChainEpoch, deadline_idx: u64, current_epoch: ChainEpoch) -> Self {
+    pub fn new(period_start: ChainEpoch, deadline_idx: u64, current_epoch: ChainEpoch) -> Self {
         if deadline_idx < WPOST_PERIOD_DEADLINES {
             let deadline_open = period_start + deadline_idx + WPOST_CHALLENGE_WINDOW;
             Self {
@@ -56,31 +74,31 @@ impl DeadlineInfo {
         }
     }
     /// Whether the proving period has begun.
-    fn period_start(&self) -> bool {
+    pub fn period_start(&self) -> bool {
         self.current_epoch >= self.period_start
     }
     /// Whether the proving period has elapsed.
-    fn period_elapsed(&self) -> bool {
+    pub fn period_elapsed(&self) -> bool {
         self.current_epoch >= self.next_period_start()
     }
     /// Whether the current deadline is currently open.
-    fn is_open(&self) -> bool {
+    pub fn is_open(&self) -> bool {
         self.current_epoch >= self.open && self.current_epoch < self.close
     }
     /// Whether the current deadline has already closed.
-    fn has_elapsed(&self) -> bool {
+    pub fn has_elapsed(&self) -> bool {
         self.current_epoch >= self.close
     }
     /// Whether the deadline's fault cutoff has passed.
-    fn fault_cutoff_passed(&self) -> bool {
+    pub fn fault_cutoff_passed(&self) -> bool {
         self.current_epoch >= self.fault_cutoff
     }
     /// The last epoch in the proving period.
-    fn period_end(&self) -> ChainEpoch {
+    pub fn period_end(&self) -> ChainEpoch {
         self.period_start + WPOST_PROVING_PERIOD - 1
     }
     /// The first epoch in the next proving period.
-    fn next_period_start(&self) -> ChainEpoch {
+    pub fn next_period_start(&self) -> ChainEpoch {
         self.period_start + WPOST_PROVING_PERIOD
     }
 }
@@ -166,13 +184,16 @@ pub fn compute_partitions_sector(
     partition_size: u64,
     deadline_idx: u64,
     partitions: &[u64],
-) -> Result<BitField, String> {
+) -> Result<Vec<BitField>, String> {
     let (deadline_first_partition, deadline_sector_count) =
         parititions_for_deadline(d, partition_size, deadline_idx)?;
     let deadline_partition_count = (deadline_sector_count + partition_size - 1) / partition_size;
     // Work out which sector numbers the partitions correspond to.
-    let deadline_sectors = d.due[deadline_idx as usize];
-    let partitions_sectors = BitField::default();
+    let &deadline_sectors = d
+        .due
+        .get(deadline_idx as usize)
+        .ok_or("unable to find deadline")?;
+    let mut partitions_sectors: Vec<BitField> = Vec::new();
     for p_idx in partitions {
         if p_idx < &deadline_first_partition
             || p_idx >= &(deadline_first_partition + deadline_partition_count)
@@ -185,10 +206,8 @@ pub fn compute_partitions_sector(
         // Slice out the sectors corresponding to this partition from the deadline's sector bitfield.
         let sector_offset = (p_idx - deadline_first_partition) * partition_size;
         let sector_count = std::cmp::min(partition_size, deadline_sector_count - sector_offset);
-        let partition_sectors = deadline_sectors
-            .splice(sector_count, sector_offset)
-            .collect::<BitField>();
-        partitions_sectors.append(partition_sectors);
+        let partition_sectors = deadline_sectors.slice(sector_count, sector_offset)?;
+        partitions_sectors.push(partition_sectors);
     }
     Ok(partitions_sectors)
 }

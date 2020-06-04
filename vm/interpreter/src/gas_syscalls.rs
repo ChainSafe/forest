@@ -75,15 +75,12 @@ where
         h1: &[u8],
         h2: &[u8],
         extra: &[u8],
-        earliest: ChainEpoch,
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_consensus_fault())
             .unwrap();
-        Ok(self
-            .syscalls
-            .verify_consensus_fault(h1, h2, extra, earliest)?)
+        Ok(self.syscalls.verify_consensus_fault(h1, h2, extra)?)
     }
 }
 
@@ -124,7 +121,6 @@ mod tests {
             _h1: &[u8],
             _h2: &[u8],
             _extra: &[u8],
-            _earliest: ChainEpoch,
         ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
             Ok(Some(ConsensusFault {
                 target: Address::new_id(0),
@@ -171,7 +167,7 @@ mod tests {
         gsys.verify_post(&Default::default()).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 10);
 
-        gsys.verify_consensus_fault(&[], &[], &[], 0).unwrap();
+        gsys.verify_consensus_fault(&[], &[], &[]).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 11);
     }
 }

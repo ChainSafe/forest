@@ -194,29 +194,26 @@ pub trait Syscalls {
         Ok(data_commitment_v1_to_cid(&comm_d))
     }
     /// Verifies a sector seal proof.
+    // TODO needs to be updated to reflect changes
     fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
         let commd = cid_to_data_commitment_v1(&vi.unsealed_cid)?;
-        let commr = cid_to_replica_commitment_v1(&vi.on_chain.sealed_cid)?;
+        let commr = cid_to_replica_commitment_v1(&vi.sealed_cid)?;
         let miner_addr = Address::new_id(vi.sector_id.miner);
         let miner_payload = miner_addr.payload_bytes();
         let mut prover_id = ProverId::default();
         prover_id[..miner_payload.len()].copy_from_slice(&miner_payload);
 
         if !proofs_verify_seal(
-            vi.on_chain.registered_proof.into(),
+            vi.registered_proof.into(),
             commr,
             commd,
             prover_id,
             SectorId::from(vi.sector_id.number),
             vi.randomness.0,
             vi.interactive_randomness.0,
-            &vi.on_chain.proof,
+            &vi.proof,
         )? {
-            return Err(format!(
-                "Invalid proof detected: {:?}",
-                base64::encode(&vi.on_chain.proof)
-            )
-            .into());
+            return Err(format!("Invalid proof detected: {:?}", base64::encode(&vi.proof)).into());
         }
 
         Ok(())
@@ -272,7 +269,6 @@ pub trait Syscalls {
         h1: &[u8],
         h2: &[u8],
         extra: &[u8],
-        _earliest: ChainEpoch,
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>>;
 }
 
