@@ -309,9 +309,9 @@ impl BitField {
     }
 
     /// Creates a bitfield which is a union of a vector of bitfields.
-    pub fn union(bit_fields: &[Self]) -> Result<Self> {
+    pub fn union<'a>(bit_fields: impl IntoIterator<Item = &'a Self>) -> Result<Self> {
         let mut ret = Self::default();
-        for bf in bit_fields.iter() {
+        for bf in bit_fields.into_iter() {
             ret.merge_assign(bf)?;
         }
         Ok(ret)

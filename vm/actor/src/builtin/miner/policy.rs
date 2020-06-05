@@ -1,9 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use super::types::SectorOnChainInfo;
 use clock::ChainEpoch;
 use fil_types::{
@@ -13,6 +10,7 @@ use fil_types::{
 use num_bigint::BigUint;
 use num_traits::Zero;
 use vm::TokenAmount;
+
 /// The duration of a chain epoch.
 /// This is used for deriving epoch-denominated periods that are more naturally expressed in clock time.
 pub const EPOCH_DURATION_SECONDS: u64 = 25;
@@ -98,15 +96,15 @@ struct BigFrac {
     numerator: BigUint,
     denominator: BigUint,
 }
-pub fn pledge_penalty_for_sector_termination(_sector: SectorOnChainInfo) -> TokenAmount {
+pub fn pledge_penalty_for_sector_termination(_sector: &SectorOnChainInfo) -> TokenAmount {
     BigUint::zero() // PARAM_FINISH
 }
 /// Penalty to locked pledge collateral for a "skipped" sector or missing PoSt fault.
-pub fn pledge_penalty_for_sector_undeclared_fault(_sector: SectorOnChainInfo) -> TokenAmount {
+pub fn pledge_penalty_for_sector_undeclared_fault(_sector: &SectorOnChainInfo) -> TokenAmount {
     BigUint::zero() // PARAM_FINISH
 }
 /// Penalty to locked pledge collateral for a declared or on-going sector fault.
-pub fn pledge_penalty_for_sector_declared_fault(_sector: SectorOnChainInfo) -> TokenAmount {
+pub fn pledge_penalty_for_sector_declared_fault(_sector: &SectorOnChainInfo) -> TokenAmount {
     BigUint::zero() // PARAM_FINISH
 }
 /// Specification for a linear vesting schedule.

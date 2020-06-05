@@ -26,9 +26,9 @@ fn make_builtin(bz: &[u8]) -> Cid {
 
 // Tests whether a code CID represents an actor that can be an external principal: i.e. an account or multisig.
 // We could do something more sophisticated here: https://github.com/filecoin-project/specs-actors/issues/178
-pub fn is_principal(code: Cid) -> bool {
+pub fn is_principal(code: &Cid) -> bool {
     for c in CALLER_TYPES_SIGNABLE.into_iter() {
-        if c == &code {
+        if c == code {
             return true;
         }
     }

@@ -1,11 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused_variables)]
-#![allow(dead_code)]
 use super::policy::*;
 use super::state::Deadlines;
-use crate::OptionalEpoch;
 use bitfield::BitField;
 use clock::ChainEpoch;
 use std::collections::HashMap;
@@ -32,7 +29,6 @@ pub struct DeadlineInfo {
     pub fault_cutoff: ChainEpoch,
 }
 
-// TODO ask if really needed
 impl Default for DeadlineInfo {
     fn default() -> Self {
         Self {
@@ -104,39 +100,35 @@ impl DeadlineInfo {
 }
 /// Calculates the deadline at some epoch for a proving period and returns the deadline-related calculations.
 pub fn compute_proving_period_deadline(
-    period_start: OptionalEpoch,
+    period_start: ChainEpoch,
     current_epoch: ChainEpoch,
 ) -> Option<DeadlineInfo> {
-    let start_period = match period_start.0 {
-        Some(start_period) => start_period,
-        None => return None,
-    };
-    let period_progress = current_epoch - start_period;
+    let period_progress = current_epoch - period_start;
     if period_progress >= WPOST_PROVING_PERIOD {
         // Proving period has completely elapsed.
         return Some(DeadlineInfo::new(
-            start_period,
+            period_start,
             WPOST_PERIOD_DEADLINES,
             current_epoch,
         ));
     }
-    let period_progress = current_epoch - start_period;
+    let period_progress = current_epoch - period_start;
     if period_progress >= WPOST_PROVING_PERIOD {
         return Some(DeadlineInfo::new(
-            start_period,
+            period_start,
             WPOST_PERIOD_DEADLINES,
             current_epoch,
         ));
     }
     let deadline_idx = period_progress / WPOST_CHALLENGE_WINDOW;
-    Some(DeadlineInfo::new(start_period, deadline_idx, current_epoch))
+    Some(DeadlineInfo::new(period_start, deadline_idx, current_epoch))
 }
 /// Computes the first partition index and number of sectors for a deadline.
 /// Partitions are numbered globally for the miner, not per-deadline.
 /// If the deadline has no sectors, the first partition index is the index that a partition at that deadline would
 /// have, if non-empty (and sectorCount is zero).
 fn parititions_for_deadline(
-    d: &Deadlines,
+    mut d: Deadlines,
     partition_size: u64,
     deadline_idx: u64,
 ) -> Result<(u64, u64), String> {
@@ -148,7 +140,7 @@ fn parititions_for_deadline(
     }
     let mut partition_count_so_far: u64 = 0;
     for i in 0..WPOST_PERIOD_DEADLINES {
-        let (partition_count, sector_count) = deadline_count(&d, partition_size, i)?;
+        let (partition_count, sector_count) = deadline_count(&mut d, partition_size, i)?;
         if i == deadline_idx {
             return Ok((partition_count_so_far, sector_count));
         }
@@ -158,7 +150,7 @@ fn parititions_for_deadline(
 }
 /// Counts the partitions (including up to one partial) and sectors at a deadline.
 pub fn deadline_count(
-    d: &Deadlines,
+    d: &mut Deadlines,
     partition_size: u64,
     deadline_idx: u64,
 ) -> Result<(u64, u64), String> {
@@ -168,30 +160,29 @@ pub fn deadline_count(
             deadline_idx, WPOST_PERIOD_DEADLINES
         ));
     }
-    // TODO bit ops
-    //let sector_count = d.due[deadline_idx as usize].count();
-    let sector_count: u64 = 2;
-    let mut paritition_count = sector_count / partition_size;
-    if sector_count % partition_size != 0 {
+
+    let sector_count = d.due.get_mut(deadline_idx as usize).unwrap().count()?;
+    let mut paritition_count = sector_count / partition_size as usize;
+    if sector_count % partition_size as usize != 0 {
         paritition_count += 1;
     };
-    Ok((paritition_count, sector_count))
+    Ok((paritition_count as u64, sector_count as u64))
 }
 /// Computes a bitfield of the sector numbers included in a sequence of partitions due at some deadline.
 /// Fails if any partition is not due at the provided deadline.
 pub fn compute_partitions_sector(
-    d: &Deadlines,
+    mut d: Deadlines,
     partition_size: u64,
     deadline_idx: u64,
     partitions: &[u64],
 ) -> Result<Vec<BitField>, String> {
     let (deadline_first_partition, deadline_sector_count) =
-        parititions_for_deadline(d, partition_size, deadline_idx)?;
+        parititions_for_deadline(d.clone(), partition_size, deadline_idx)?;
     let deadline_partition_count = (deadline_sector_count + partition_size - 1) / partition_size;
     // Work out which sector numbers the partitions correspond to.
-    let &deadline_sectors = d
+    let deadline_sectors = d
         .due
-        .get(deadline_idx as usize)
+        .get_mut(deadline_idx as usize)
         .ok_or("unable to find deadline")?;
     let mut partitions_sectors: Vec<BitField> = Vec::new();
     for p_idx in partitions {
@@ -216,7 +207,7 @@ pub fn compute_partitions_sector(
 /// - repeatedly adding a new partition to the deadline with the fewest partitions
 /// When multiple partitions share the minimal sector count, one is chosen at random (from a seed).
 pub fn assign_new_sectors(
-    deadlines: &Deadlines,
+    deadlines: &mut Deadlines,
     partition_size: u64,
     new_sectors: &[u64],
     _seed: Randomness,
@@ -224,25 +215,26 @@ pub fn assign_new_sectors(
     let mut next_new_sector: usize = 0;
     let new_sector_length = new_sectors.len();
     // Assigns up to `count` sectors to `deadline` and advances `nextNewSector`.
-    let mut assign_to_deadline = |count: usize, deadline: u64| -> Result<(), String> {
-        let count_to_add = std::cmp::min(count, new_sector_length - next_new_sector.clone());
-        let limit = next_new_sector.clone() + count_to_add;
-        let sectors_to_add = &new_sectors[next_new_sector..limit];
-        deadlines.add_to_deadline(deadline, sectors_to_add)?;
-        next_new_sector += count_to_add;
-        Ok(())
-    };
+    let mut assign_to_deadline =
+        |count: usize, deadline: u64, deadlines: &mut Deadlines| -> Result<(), String> {
+            let count_to_add = std::cmp::min(count, new_sector_length - next_new_sector.clone());
+            let limit = next_new_sector.clone() + count_to_add;
+            let sectors_to_add = &new_sectors[next_new_sector..limit];
+            deadlines.add_to_deadline(deadline, sectors_to_add)?;
+            next_new_sector += count_to_add;
+            Ok(())
+        };
     // Iterate deadlines and fill any partial partitions. There's no great advantage to filling more- or less-
     // full ones first, so they're filled in sequence order.
     // Meanwhile, record the partition count at each deadline.
-    let deadline_partitions_counts: HashMap<u64, u64> = HashMap::default();
+    let mut deadline_partitions_counts: HashMap<u64, u64> = HashMap::default();
     let mut i = 0;
-    while i < WPOST_PERIOD_DEADLINES && next_new_sector.clone() < new_sector_length {
-        let (partition_count, sector_count) = deadline_count(&deadlines, partition_size, i)?;
-        deadline_partitions_counts[&i] = partition_count;
+    while i < WPOST_PERIOD_DEADLINES && next_new_sector < new_sector_length {
+        let (partition_count, sector_count) = deadline_count(deadlines, partition_size, i)?;
+        *deadline_partitions_counts.get_mut(&i).unwrap() = partition_count;
         let gap = partition_size - (sector_count % partition_size);
         if gap != partition_size {
-            assign_to_deadline(gap as usize, i)?;
+            assign_to_deadline(gap as usize, i, deadlines)?;
         }
         i += 1;
     }
@@ -250,7 +242,7 @@ pub fn assign_new_sectors(
     // TODO WPOST (follow-up): fill less-full deadlines first, randomize when equally full.
     let mut target_deadline: u64 = 0;
     while next_new_sector < new_sectors.len() {
-        assign_to_deadline(partition_size as usize, target_deadline)?;
+        assign_to_deadline(partition_size as usize, target_deadline, deadlines)?;
         target_deadline = (target_deadline + 1) % WPOST_PERIOD_DEADLINES;
     }
     Ok(())

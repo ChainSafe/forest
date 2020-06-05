@@ -23,9 +23,9 @@ use crate::power::{
     SECTOR_TERMINATION_FAULTY, SECTOR_TERMINATION_MANUAL,
 };
 use crate::{
-    check_empty_params, is_principal, make_map, OptionalEpoch, ACCOUNT_ACTOR_CODE_ID,
-    BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR, REWARD_ACTOR_ADDR,
-    STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
+    check_empty_params, is_principal, make_map, ACCOUNT_ACTOR_CODE_ID, BURNT_FUNDS_ACTOR_ADDR,
+    CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR, REWARD_ACTOR_ADDR, STORAGE_MARKET_ACTOR_ADDR,
+    STORAGE_POWER_ACTOR_ADDR,
 };
 use address::{Address, Payload, Protocol};
 use bitfield::BitField;
@@ -94,9 +94,6 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*INIT_ACTOR_ADDR))?;
 
-        // Sanity check that we've been given a valid peer ID
-        // TODO
-
         if !check_supported_proof_types(params.seal_proof_type) {
             ActorError::new(
                 ExitCode::ErrIllegalArgument,
@@ -125,16 +122,20 @@ impl Actor {
         })?;
 
         let empty_deadlines = Deadlines::new();
-        // TODO
         let empty_deadlines_cid = rt.store().put(&empty_deadlines, Blake2b256).unwrap();
 
         let current_epoch = rt.curr_epoch();
-        let offset =
-            assign_proving_period_offset(*rt.message().to(), current_epoch, rt.syscalls())?;
-        // TODO
+        let offset = assign_proving_period_offset(*rt.message().to(), current_epoch, rt.syscalls())
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrSerialization,
+                    format!("failed to assign proving period offset: {}", e),
+                )
+            })?;
+
         let period_start = next_proving_period_start(current_epoch, offset).unwrap();
         assert!(period_start > current_epoch);
-        // TODO handle actor error potential
+
         let st = State::new(
             empty_root,
             empty_map,
@@ -186,7 +187,6 @@ impl Actor {
         let current_epoch = rt.curr_epoch();
         let mut effective_epoch = ChainEpoch::default();
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-            
             rt.validate_immediate_caller_is(std::iter::once(&st.info.owner))?;
             let worker = resolve_worker_address(rt, params.new_worker)?;
 
@@ -256,7 +256,6 @@ impl Actor {
                     ),
                 );
             }
-            // TODO ask about none case
             let deadline = match st.deadline_info(current_epoch) {
                 Some(deadline) => deadline,
                 None => {
@@ -268,35 +267,35 @@ impl Actor {
             };
 
             if !deadline.period_start() {
-                ActorError::new(
+                return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
                     format!(
                         "proving period {} not yet open at {}",
                         deadline.period_start(),
                         current_epoch
                     ),
-                );
+                ));
             }
             if deadline.period_elapsed() {
                 // A cron event has not yet processed the previous proving period and established the next one.
                 // This is possible in the first non-empty epoch of a proving period if there was an empty tipset on the
                 // last epoch of the previous period.
-                ActorError::new(
+                return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!(
                         "proving period at {} elapsed, next one not yet opened",
                         deadline.period_start()
                     ),
-                );
+                ));
             }
             if params.deadline != deadline.index {
-                ActorError::new(
+                return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
                     format!(
                         "invalid deadline {} at epoch {}, expected {}",
                         params.deadline, current_epoch, deadline.index
                     ),
-                );
+                ));
             }
             // Verify locked funds are are at least the sum of sector initial pledges.
             // Note that this call does not actually compute recent vesting, so the reported locked funds may be
@@ -305,7 +304,7 @@ impl Actor {
             // Vesting will be at most one proving period old if computed in the cron callback.
             verify_pledge_meets_initial_requirements(rt, &st);
 
-            let deadlines = st.load_deadlines(rt.store()).map_err(|_| {
+            let mut deadlines = st.load_deadlines(rt.store()).map_err(|_| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("failed to load deadlines"),
@@ -319,7 +318,7 @@ impl Actor {
                 rt,
                 st,
                 rt.store(),
-                &deadlines,
+                &mut deadlines,
                 &deadline.period_start,
                 deadline.index,
                 &current_epoch,
@@ -330,7 +329,7 @@ impl Actor {
 
             // Work out which sectors are due in the declared partitions at this deadline.
             let partitions_sectors = compute_partitions_sector(
-                &deadlines,
+                deadlines,
                 partitions_size,
                 deadline.index,
                 &params.partitions,
@@ -418,10 +417,11 @@ impl Actor {
             })?;
 
             if !empty {
-                let sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> = HashMap::new();
+                let mut sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> =
+                    HashMap::new();
                 for s in sector_infos {
-                    let mut sec = sectors_by_number
-                        .get(&s.info.sector_number)
+                    let sec = sectors_by_number
+                        .get_mut(&s.info.sector_number)
                         .cloned()
                         .unwrap();
                     sec = s;
@@ -499,7 +499,6 @@ impl Actor {
                     format!("wrong proof type {:?}", params.registered_proof),
                 );
             };
-            // TODO ASK
             st.get_precommitted_sector(rt.store(), params.sector_number).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
@@ -542,15 +541,9 @@ impl Actor {
                         );
                     }
                 }
-            if st.proving_period_start.is_none() {
-                ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    format!("proving period is none: {:?}", st.proving_period_start)
-                );
-            };
 
             // Check expiry is exactly *the epoch before* the start of a proving period.
-            let period_offset = st.proving_period_start.unwrap() % WPOST_PROVING_PERIOD;
+            let period_offset = st.proving_period_start % WPOST_PROVING_PERIOD;
             let expiry_offset = (params.expiration + 1) % WPOST_PROVING_PERIOD;
             if expiry_offset != period_offset {
                 ActorError::new(
@@ -558,7 +551,6 @@ impl Actor {
                     format!("invalid expiration {}, must be immediately before proving period boundary {} mod {}", params.expiration, period_offset, WPOST_PROVING_PERIOD),
                 );
             }
-            // TODO specs actors currently not handeling this err
             let newly_vested_amount = st.unlock_vested_funds(rt.store(), rt.curr_epoch()).unwrap();
             let available_balance = st.get_available_balance(&rt.current_balance()?);
             let deposit_req = precommit_deposit(*st.get_sector_size(), &(params.expiration - rt.curr_epoch()));
@@ -664,7 +656,7 @@ impl Actor {
         // will abort if seal invalidgetVerifyInfo
         get_verify_info(
             rt,
-            &SealVerifyParams {
+            SealVerifyParams {
                 sealed_cid: precommit.info.sealed_cid.clone(),
                 interactive_epoch: precommit.pre_commit_epoch + PRE_COMMIT_CHALLENGE_DELAY,
                 seal_rand_epoch: precommit.info.seal_rand_epoch,
@@ -901,7 +893,7 @@ impl Actor {
 
     fn terminate_sectors<BS, RT>(
         rt: &mut RT,
-        params: TerminateSectorsParams,
+        mut params: TerminateSectorsParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -912,7 +904,7 @@ impl Actor {
 
         // Note: this cannot terminate pre-committed but un-proven sectors.
         // They must be allowed to expire (and deposit burnt).
-        terminate_sectors(rt, params.sectors, SECTOR_TERMINATION_MANUAL);
+        terminate_sectors(rt, &mut params.sectors, SECTOR_TERMINATION_MANUAL);
         Ok(())
     }
 
@@ -920,7 +912,6 @@ impl Actor {
     // Faults //
     ////////////
 
-    // TODO finish bitfield operations
     fn declare_faults<BS, RT>(rt: &mut RT, params: DeclareFaultsParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -944,7 +935,7 @@ impl Actor {
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, rt| {
             rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
-            // TODO ask about none case
+
             let current_deadline = match st.deadline_info(current_epoch) {
                 Some(current_deadline) => current_deadline,
                 None => {
@@ -954,7 +945,7 @@ impl Actor {
                     ))
                 }
             };
-            let deadlines = st.load_deadlines(rt.store()).map_err(|e| {
+            let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("failed to load deadlines: {}", e),
@@ -967,25 +958,18 @@ impl Actor {
                 rt,
                 st,
                 rt.store(),
-                &deadlines,
+                &mut deadlines,
                 &current_deadline.period_start,
                 current_deadline.index,
                 &current_epoch,
             )?;
             detected_fault_sectors = detected_faults;
             penalty = fine;
-            // TODO handle option better
-            if st.proving_period_start.is_none() {
-                ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    format!("proving period is none: {:?}", st.proving_period_start),
-                );
-            };
-            // TODO deal with unwrap
+
             let mut declared_sectors: Vec<BitField> = Vec::new();
             for mut decl in params.faults {
                 let target_deadline: DeadlineInfo = declaration_deadline_info(
-                    st.proving_period_start.unwrap(),
+                    st.proving_period_start,
                     decl.deadline,
                     current_epoch,
                 )
@@ -995,14 +979,13 @@ impl Actor {
                         format!("invalid fault declaration deadline: {}", e),
                     )
                 })?;
-                validate_fr_declaration(&deadlines, &target_deadline, &mut decl.sectors).map_err(
-                    |e| {
+                validate_fr_declaration(&mut deadlines, &target_deadline, &mut decl.sectors)
+                    .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalArgument,
                             format!("invalid fault declaration: {}", e),
                         )
-                    },
-                )?;
+                    })?;
                 declared_sectors.push(decl.sectors);
             }
 
@@ -1014,12 +997,16 @@ impl Actor {
             })?;
 
             // Split declarations into declarations of new faults, and retraction of declared recoveries.
-            let mut recoveries = st.recoveries.intersect(&all_declared).map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to intersect sectors with recoveries: {}", e),
-                )
-            })?;
+            let mut recoveries = st
+                .recoveries
+                .clone()
+                .intersect(&all_declared)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to intersect sectors with recoveries: {}", e),
+                    )
+                })?;
 
             let mut new_faults = all_declared.subtract(&recoveries).map_err(|e| {
                 ActorError::new(
@@ -1059,7 +1046,7 @@ impl Actor {
                 // even if some sectors have already been proven in this period.
                 // It would better to use the target deadline's proving period start (which may be the one subsequent
                 // to the current).
-                st.add_faults(rt.store(), &new_faults, st.proving_period_start)
+                st.add_faults(rt.store(), &mut new_faults, st.proving_period_start)
                     .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
@@ -1094,7 +1081,7 @@ impl Actor {
                 st,
                 rt.store(),
                 &current_epoch,
-                declared_fault_sectors,
+                &declared_fault_sectors,
                 &pledge_penalty_for_sector_declared_fault,
             )
             .map_err(|e| {
@@ -1156,7 +1143,7 @@ impl Actor {
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
-            // TODO ask anout none case
+
             let current_deadline = match st.deadline_info(current_epoch) {
                 Some(current_deadline) => current_deadline,
                 None => {
@@ -1166,7 +1153,7 @@ impl Actor {
                     ))
                 }
             };
-            let deadlines = st.load_deadlines(rt.store()).map_err(|e| {
+            let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("failed to load deadlines: {}", e),
@@ -1177,7 +1164,7 @@ impl Actor {
             // This is necessary to move the NextDeadlineToProcessFaults index past the deadline that this recovery
             // is targeting, so that the recovery won't be declared failed next time it's checked during this proving period.
             let (fault_sectors, fine) =
-                detect_faults_this_period(rt, st, rt.store(), &current_deadline, &deadlines)?;
+                detect_faults_this_period(rt, st, rt.store(), &current_deadline, &mut deadlines)?;
             detected_fault_sectors = fault_sectors;
             penalty = fine;
 
@@ -1185,7 +1172,7 @@ impl Actor {
             for mut decl in params.recoveries {
                 // TODO handle optional epoch
                 let target_deadline: DeadlineInfo = declaration_deadline_info(
-                    st.proving_period_start.unwrap(),
+                    st.proving_period_start,
                     decl.deadline,
                     current_epoch,
                 )
@@ -1196,14 +1183,13 @@ impl Actor {
                     )
                 })?;
 
-                validate_fr_declaration(&deadlines, &target_deadline, &mut decl.sectors).map_err(
-                    |e| {
+                validate_fr_declaration(&mut deadlines, &target_deadline, &mut decl.sectors)
+                    .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalArgument,
                             format!("invalid recovery declaration: {}", e),
                         )
-                    },
-                )?;
+                    })?;
                 declared_sectors.push(decl.sectors);
             }
 
@@ -1402,7 +1388,7 @@ impl Actor {
             &Serialized::default(),
             &amount_withdrawn,
         )?;
-        // TODO ask about the neg() operation
+
         notify_pledge_change(rt, &vested_amount);
 
         st.assert_balance_invariants(&rt.current_balance()?);
@@ -1413,10 +1399,9 @@ impl Actor {
     // Cron //
     //////////
 
-    // TODO ask about returned err
     fn on_deferred_cron_event<BS, RT>(
         rt: &mut RT,
-        payload: CronEventPayload,
+        mut payload: CronEventPayload,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -1484,7 +1469,7 @@ where
         })?;
         if deadline.period_start() {
             // Skip checking faults on the first, incomplete period.
-            let deadlines = st.load_deadlines(rt.store()).map_err(|e| {
+            let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("failed to load deadlines {:}", e),
@@ -1494,7 +1479,7 @@ where
                 rt,
                 st,
                 rt.store(),
-                &deadlines,
+                &mut deadlines,
                 &deadline.period_start,
                 deadline.index,
                 &curr_epoch,
@@ -1558,7 +1543,7 @@ where
             st,
             rt.store(),
             &deadline.period_end(),
-            ongoing_fault_info,
+            &ongoing_fault_info,
             &pledge_penalty_for_sector_declared_fault,
         )
         .map_err(|e| {
@@ -1574,7 +1559,7 @@ where
     burn_funds_and_notify_pledge_change(rt, &ongoing_fault_penalty);
 
     rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, rt| {
-        let deadlines = st.load_deadlines(rt.store()).map_err(|e| {
+        let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
             ActorError::new(
                 ExitCode::ErrIllegalState,
                 format!("failed to load deadlines {:}", e),
@@ -1596,7 +1581,7 @@ where
             let assignment_seed =
                 rt.get_randomness(WindowPoStDeadlineAssignment, deadline.period_end(), &[])?;
             assign_new_sectors(
-                &deadlines,
+                &mut deadlines,
                 st.info.window_post_partition_sectors,
                 &new_sectors,
                 assignment_seed,
@@ -1627,28 +1612,15 @@ where
             )
         })?;
 
-        let prove_start = st.proving_period_start.ok_or_else(|| {
-            ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                format!("No proving period: {:?}", st.proving_period_start),
-            )
-        })?;
-
         // set new proving period start
         if deadline.period_start() {
-            st.proving_period_start = OptionalEpoch(Some(prove_start + WPOST_PROVING_PERIOD));
+            st.proving_period_start += WPOST_PROVING_PERIOD;
         }
         Ok(())
     })?;
 
-    let prove_start = st.proving_period_start.ok_or_else(|| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("No proving period: {:?}", st.proving_period_start),
-        )
-    })?;
     // Schedule cron callback for next period
-    let next_period_end = prove_start + WPOST_PROVING_PERIOD - 1;
+    let next_period_end = st.proving_period_start + WPOST_PROVING_PERIOD - 1;
     enroll_cron_event(
         rt,
         next_period_end,
@@ -1665,7 +1637,7 @@ fn detect_faults_this_period<BS, RT>(
     st: &mut State,
     store: &BS,
     curr_deadline: &DeadlineInfo,
-    deadlines: &Deadlines,
+    deadlines: &mut Deadlines,
 ) -> Result<(Vec<SectorOnChainInfo>, TokenAmount), ActorError>
 where
     BS: BlockStore,
@@ -1702,7 +1674,7 @@ fn process_missing_post_faults<BS, RT>(
     _rt: &RT,
     st: &mut State,
     store: &BS,
-    deadlines: &Deadlines,
+    deadlines: &mut Deadlines,
     period_start: &ChainEpoch,
     before_deadline: u64,
     current_epoch: &ChainEpoch,
@@ -1738,7 +1710,7 @@ where
     })?;
     st.next_deadline_to_process_faults = before_deadline % WPOST_PERIOD_DEADLINES;
 
-    st.add_faults(store, &detected_faults, OptionalEpoch(Some(*period_start)))
+    st.add_faults(store, &mut detected_faults, *period_start)
         .map_err(|e| {
             ActorError::new(
                 ExitCode::ErrIllegalState,
@@ -1774,12 +1746,12 @@ where
 
     // unlock sector penalty for all undeclared faults
     detected_fault_sectors.append(&mut failed_recovery_sectors);
-    // TODO ask about fn as param
+
     let penalty = unlock_penalty(
         st,
         store,
         &current_epoch,
-        detected_fault_sectors,
+        &detected_fault_sectors,
         &pledge_penalty_for_sector_undeclared_fault,
     )
     .map_err(|e| {
@@ -1796,7 +1768,7 @@ where
 /// deadlines from sinceDeadline (inclusive) to beforeDeadline (exclusive).
 fn compute_faults_from_missing_posts(
     st: &mut State,
-    deadlines: &Deadlines,
+    deadlines: &mut Deadlines,
     since_deadline: u64,
     before_deadline: u64,
 ) -> Result<(BitField, BitField), String> {
@@ -1814,9 +1786,9 @@ fn compute_faults_from_missing_posts(
     let mut dl_idx = since_deadline;
     while dl_idx < before_deadline {
         let (dl_part_count, dl_sector_count) = deadline_count(deadlines, partition_size, dl_idx)?;
-        let mut deadline_sectors = deadlines
+        let deadline_sectors = deadlines
             .due
-            .get(dl_idx as usize)
+            .get_mut(dl_idx as usize)
             .ok_or("deadline not found")?;
 
         let mut dl_part_idx: u64 = 0;
@@ -1831,11 +1803,11 @@ fn compute_faults_from_missing_posts(
                     deadline_sectors.slice(part_first_sector_idx, part_sector_count)?;
 
                 // record newly-faulty sectors
-                let new_faults = st.faults.subtract(&partition_sectors)?;
+                let new_faults = st.faults.clone().subtract(&partition_sectors)?;
                 f_groups.push(new_faults);
 
                 // record failed recoveries
-                let failed_recovery = st.recoveries.intersect(&partition_sectors)?;
+                let failed_recovery = st.recoveries.clone().intersect(&partition_sectors)?;
                 r_groups.push(failed_recovery);
             }
             dl_part_idx += 1;
@@ -1861,12 +1833,12 @@ where
     let mut expired_epochs: Vec<ChainEpoch> = Vec::new();
     let mut expired_sectors: Vec<BitField> = Vec::new();
 
-    st.for_each_sector_expiration(store, |expiry: ChainEpoch, sectors: BitField| {
+    st.for_each_sector_expiration(store, |expiry: ChainEpoch, sectors: &BitField| {
         if expiry > epoch {
             return Err("done".to_string());
         }
         expired_epochs.push(expiry);
-        expired_sectors.push(sectors);
+        expired_sectors.push(sectors.clone());
         Ok(())
     });
 
@@ -1888,23 +1860,23 @@ where
     BS: BlockStore,
 {
     let mut expired_epochs: Vec<ChainEpoch> = Vec::new();
-    let mut expired_faults: Vec<BitField> = Vec::new();
-    let mut ongoing_faults: Vec<BitField> = Vec::new();
+    let mut all_expiries = BitField::new();
+    let mut all_ongoing_faults = BitField::new();
 
-    st.for_each_fault_epoch(store, |fault_start: ChainEpoch, faults: BitField| {
+    st.for_each_fault_epoch(store, |fault_start: ChainEpoch, faults: &BitField| {
         if fault_start <= latest_termination {
-            expired_faults.push(faults);
+            all_expiries.merge_assign(faults);
             expired_epochs.push(fault_start);
         } else {
-            ongoing_faults.push(faults);
+            all_ongoing_faults.merge_assign(faults);
         }
         Ok(())
     });
 
     st.clear_fault_epochs(store, &expired_epochs)?;
 
-    let all_expiries = BitField::union(&expired_faults)?;
-    let all_ongoing_faults = BitField::union(&ongoing_faults)?;
+    let all_expiries = BitField::union(&[all_expiries])?;
+    let all_ongoing_faults = BitField::union(&[all_ongoing_faults])?;
 
     Ok((all_expiries, all_ongoing_faults))
 }
@@ -1939,7 +1911,7 @@ where
                 )
             })?;
 
-        st.pre_commit_deposit -= deposit_burn;
+        st.pre_commit_deposit -= &deposit_burn;
 
         Ok(())
     })?;
@@ -1985,7 +1957,7 @@ where
         })?;
 
         // narrow faults to just the set that are expiring, before expanding to a map
-        let mut faults = st.faults.intersect(&sector_nos).map_err(|e| {
+        let mut faults = st.faults.clone().intersect(&sector_nos).map_err(|e| {
             ActorError::new(
                 ExitCode::ErrIllegalState,
                 format!("failed to load faults: {}", e),
@@ -2006,12 +1978,12 @@ where
                     .ok_or_else(|| format!("no sector: {}", i))?;
 
                 deal_ids.extend(&sector.info.deal_ids);
-                all_sectors.push(sector);
-
                 let fault = faults_map.contains(&i);
                 if fault {
-                    faulty_sectors.push(sector);
+                    faulty_sectors.push(sector.clone());
                 }
+
+                all_sectors.push(sector);
                 Ok(())
             })
             .map_err(|e| {
@@ -2041,7 +2013,7 @@ where
                 st,
                 rt.store(),
                 current_epoch,
-                all_sectors,
+                &all_sectors,
                 &pledge_penalty_for_sector_termination,
             )
             .unwrap();
@@ -2118,7 +2090,6 @@ where
     RT: Runtime<BS>,
 {
     if sectors.is_empty() {
-        // TODO confirm
         return Ok(());
     }
 
@@ -2149,7 +2120,6 @@ where
     RT: Runtime<BS>,
 {
     if sectors.is_empty() {
-        // TODO confirm
         return Ok(());
     }
 
@@ -2176,7 +2146,6 @@ where
     RT: Runtime<BS>,
 {
     if deal_ids.is_empty() {
-        // TODO confirm
         return Ok(());
     }
 
@@ -2201,7 +2170,6 @@ where
     RT: Runtime<BS>,
 {
     if sectors.is_empty() {
-        // TODO confirm
         return Ok(());
     }
 
@@ -2268,7 +2236,7 @@ where
 }
 fn get_verify_info<BS, RT>(
     rt: &mut RT,
-    params: &SealVerifyParams,
+    params: SealVerifyParams,
 ) -> Result<SealVerifyInfo, ActorError>
 where
     BS: BlockStore,
@@ -2293,7 +2261,8 @@ where
         ));
     }
 
-    let commd = request_unsealed_sector_cid(rt, params.registered_proof, params.deal_ids).unwrap(); // handle err
+    let commd =
+        request_unsealed_sector_cid(rt, params.registered_proof, params.deal_ids.clone()).unwrap(); // handle err
 
     let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().to().payload() {
         *i
@@ -2409,7 +2378,7 @@ where
             format!("no code for address: {}", resolved),
         )
     })?;
-    if !is_principal(owner_code) {
+    if !is_principal(&owner_code) {
         return Err(ActorError::new(
             ExitCode::ErrIllegalArgument,
             format!("owner actor type must be a principal, was {}", owner_code),
@@ -2473,7 +2442,7 @@ where
     }
     Ok(resolved)
 }
-// TODO determine best approach with result
+
 fn burn_funds_and_notify_pledge_change<BS, RT>(rt: &mut RT, amount: &TokenAmount)
 where
     BS: BlockStore,
@@ -2531,13 +2500,12 @@ fn next_proving_period_start(
     offset: ChainEpoch,
 ) -> Result<ChainEpoch, String> {
     let curr_modulus = current_epoch % WPOST_PROVING_PERIOD;
-    let mut period_progress = ChainEpoch::default();
 
-    if curr_modulus >= offset {
-        period_progress = curr_modulus - offset;
+    let period_progress = if curr_modulus >= offset {
+        curr_modulus - offset
     } else {
-        period_progress = WPOST_PROVING_PERIOD - (offset - curr_modulus);
-    }
+        WPOST_PROVING_PERIOD - (offset - curr_modulus)
+    };
 
     let period_start = current_epoch - (period_progress + WPOST_PROVING_PERIOD);
     assert!(period_start > current_epoch);
@@ -2570,18 +2538,18 @@ fn declaration_deadline_info(
 /// Checks that a fault or recovery declaration of sectors at a specific deadline is valid and not within
 /// the exclusion window for the deadline.
 fn validate_fr_declaration(
-    deadlines: &Deadlines,
+    deadlines: &mut Deadlines,
     deadline: &DeadlineInfo,
-    declared_sectors: &mut BitField,
+    mut declared_sectors: &mut BitField,
 ) -> Result<(), String> {
     if deadline.fault_cutoff_passed() {
         return Err("late fault or recovery declaration".to_string());
     }
 
     // check that the declared sectors are actually due at the deadline
-    let &deadline_sectors = deadlines
+    let deadline_sectors = deadlines
         .due
-        .get(deadline.index as usize)
+        .get_mut(deadline.index as usize)
         .ok_or("deadline not found")?;
     let contains = deadline_sectors.contains_all(&mut declared_sectors)?;
     if !contains {
@@ -2599,8 +2567,8 @@ fn unlock_penalty<BS>(
     st: &mut State,
     store: &BS,
     current_epoch: &ChainEpoch,
-    sectors: Vec<SectorOnChainInfo>,
-    f: &dyn Fn(SectorOnChainInfo) -> TokenAmount,
+    sectors: &[SectorOnChainInfo],
+    f: &dyn Fn(&SectorOnChainInfo) -> TokenAmount,
 ) -> Result<TokenAmount, String>
 where
     BS: BlockStore,
