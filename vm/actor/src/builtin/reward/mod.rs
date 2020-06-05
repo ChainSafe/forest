@@ -6,9 +6,9 @@ mod types;
 
 pub use self::state::{Reward, State, VestingFunction};
 pub use self::types::*;
+use crate::network::EXPECTED_LEADERS_PER_EPOCH;
 use crate::{
-    check_empty_params, miner, BURNT_FUNDS_ACTOR_ADDR, EXPECTED_LEADERS_PER_EPOCH,
-    STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    check_empty_params, miner, BURNT_FUNDS_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use clock::ChainEpoch;
 use fil_types::StoragePower;

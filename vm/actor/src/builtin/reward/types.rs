@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::network::*;
 use address::Address;
 use encoding::tuple::*;
 use num_bigint::{biguint_ser, BigInt, BigUint, ToBigInt};
@@ -27,8 +28,8 @@ const MINTING_OUTPUT_FIXED_POINT: usize = 97;
 lazy_static! {
     /// Target reward released to each block winner.
     pub static ref BLOCK_REWARD_TARGET: BigUint = BigUint::from(100u8) * TOKEN_PRECISION;
-    pub static ref LAMBDA_NUM: BigInt = BigInt::from(100); //TODO
-    pub static ref LAMBDA_DEN: BigInt = BigInt::from(100); //TODO
+    pub static ref LAMBDA_NUM: BigInt = BigInt::from(EPOCH_DURATION_SECONDS) * &*LN_TWO_DEN;
+    pub static ref LAMBDA_DEN: BigInt = BigInt::from(6*SECONDS_IN_YEAR);
     // pub static ref LAMBDA_NUM: BigUint = big.Mul(big.NewInt(builtin.EpochDurationSeconds), LnTwoNum);
     // pub static ref LAMBDA_DEN: BigUint = big.Mul(big.NewInt(6*builtin.SecondsInYear), LnTwoDen);
     // These numbers are placeholders, but should be in units of attoFIL, 10^-18 FIL

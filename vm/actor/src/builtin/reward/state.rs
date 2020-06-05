@@ -9,7 +9,6 @@ use num_bigint::biguint_ser;
 use num_derive::FromPrimitive;
 use vm::TokenAmount;
 
-// TODO update reward state
 /// Reward actor state
 #[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct State {
