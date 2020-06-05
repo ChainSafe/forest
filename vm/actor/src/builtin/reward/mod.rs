@@ -22,7 +22,7 @@ use vm::{
     ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: d788e1a1db39499d2b563240dcde1490d7e03d3a
+// * Updated to specs-actors commit: 52599b21919df07f44d7e61cc028e265ec18f700
 
 /// Reward actor methods available
 #[derive(FromPrimitive)]
