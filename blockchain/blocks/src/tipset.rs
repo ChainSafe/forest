@@ -243,3 +243,25 @@ where
 
     Ok(())
 }
+
+#[cfg(feature = "json")]
+pub mod tipset_keys_json {
+    use super::*;
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S>(m: &TipsetKeys, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        cid::json::vec::serialize(m.cids(), serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(TipsetKeys {
+            cids: cid::json::vec::deserialize(deserializer)?,
+        })
+    }
+}

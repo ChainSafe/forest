@@ -17,6 +17,7 @@ members = [
     "vm/interpreter",
     "node",
     "node/clock",
+    "node/rpc",
     "crypto",
     "encoding",
     "ipld/cid",
@@ -31,5 +32,6 @@ members = [
     "utils/bitfield",
     "utils/test_utils",
     "utils/commcid",
+    "utils/json_utils",
     "types",
 ]
