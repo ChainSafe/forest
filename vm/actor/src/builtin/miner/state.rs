@@ -552,7 +552,7 @@ impl State {
         // Load the sector infos, masking out fault sectors with a good one.
         let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
         sectors.for_each(|i| {
-            let mut sector = sector_on_chain;
+            let mut sector = sector_on_chain.clone();
             let faulty = fault_set.get(&i).ok_or_else(|| {
                 let new_sector_on_chain = self
                     .get_sector(store, fault_stand_in)

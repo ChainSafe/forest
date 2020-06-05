@@ -108,14 +108,14 @@ impl Actor {
         let worker = resolve_worker_address(rt, params.worker)?;
 
         let empty_map = make_map(rt.store()).flush().map_err(|err| {
-            rt.abort(
+            ActorError::new(
                 ExitCode::ErrIllegalState,
-                format!("Failed to construct miner state: {}", err),
+                format!("Failed to construct miner state: {}", e),
             )
         })?;
 
         let empty_root = Amt::<Cid, BS>::new(rt.store()).flush().map_err(|e| {
-            rt.abort(
+            ActorError::new(
                 ExitCode::ErrIllegalState,
                 format!("Failed to construct miner state: {}", e),
             )
@@ -420,11 +420,7 @@ impl Actor {
                 let mut sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> =
                     HashMap::new();
                 for s in sector_infos {
-                    let sec = sectors_by_number
-                        .get_mut(&s.info.sector_number)
-                        .cloned()
-                        .unwrap();
-                    sec = s;
+                    sectors_by_number.insert(s.info.sector_number, s);
                 }
                 declared_recoveries.for_each(|i| {
                     let key: SectorNumber = i as u64;

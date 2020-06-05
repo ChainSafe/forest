@@ -217,8 +217,8 @@ pub fn assign_new_sectors(
     // Assigns up to `count` sectors to `deadline` and advances `nextNewSector`.
     let mut assign_to_deadline =
         |count: usize, deadline: u64, deadlines: &mut Deadlines| -> Result<(), String> {
-            let count_to_add = std::cmp::min(count, new_sector_length - next_new_sector.clone());
-            let limit = next_new_sector.clone() + count_to_add;
+            let count_to_add = std::cmp::min(count, new_sector_length - next_new_sector);
+            let limit = next_new_sector + count_to_add;
             let sectors_to_add = &new_sectors[next_new_sector..limit];
             deadlines.add_to_deadline(deadline, sectors_to_add)?;
             next_new_sector += count_to_add;
