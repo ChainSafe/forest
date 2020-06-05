@@ -211,7 +211,7 @@ where
         let tipsets = self.sync_headers_reverse(head.clone(), &heaviest).await?;
         self.set_state(SyncState::Catchup);
         // Persist header chain pulled from network
-        self.persist_headers(&tipsets)?;
+        self.persist_headers(&tipsets).await?;
 
         // Sync and validate messages from fetched tipsets
         self.sync_messages_check_state(&tipsets).await?;
@@ -477,7 +477,8 @@ where
         let ts = self.chain_store.tipset_from_keys(keys)?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) = self.chain_store.messages(&header)?;
+            let (bls_msgs, secp_msgs) =
+                chain::block_messages(self.chain_store.blockstore(), &header)?;
 
             // construct a full block
             let full_block = Block {
@@ -887,10 +888,11 @@ where
     }
 
     /// Persists headers from tipset slice to chain store
-    fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
-        Ok(tipsets
-            .iter()
-            .try_for_each(|ts| self.chain_store.put_tipsets(ts))?)
+    async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
+        for tipset in tipsets.iter() {
+            self.chain_store.put_tipsets(tipset).await?
+        }
+        Ok(())
     }
     /// Returns the managed sync status
     pub fn get_state(&self) -> &SyncState {

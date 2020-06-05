@@ -10,7 +10,7 @@ use async_log::span;
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::ChainStore;
+use chain::{block_messages, ChainStore};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
@@ -204,7 +204,8 @@ where
             let blocks = blocks_headers
                 .iter()
                 .map::<Result<Block, Box<dyn StdError>>, _>(|s: &BlockHeader| {
-                    let (bls_messages, secp_messages) = chain_store.messages(&s)?;
+                    let (bls_messages, secp_messages) =
+                        block_messages(chain_store.blockstore(), &s)?;
                     Ok(Block {
                         header: s.clone(),
                         bls_messages,
