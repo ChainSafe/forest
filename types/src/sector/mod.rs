@@ -23,7 +23,7 @@ pub type SectorNumber = u64;
 /// Unit of storage power (measured in bytes)
 pub type StoragePower = BigUint;
 
-// The unit of spacetime committed to the network
+/// The unit of spacetime committed to the network
 pub type Spacetime = BigUint;
 
 pub type SectorQuality = BigUint;

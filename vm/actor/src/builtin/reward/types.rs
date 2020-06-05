@@ -28,10 +28,10 @@ const MINTING_OUTPUT_FIXED_POINT: usize = 97;
 lazy_static! {
     /// Target reward released to each block winner.
     pub static ref BLOCK_REWARD_TARGET: BigUint = BigUint::from(100u8) * TOKEN_PRECISION;
-    pub static ref LAMBDA_NUM: BigInt = BigInt::from(EPOCH_DURATION_SECONDS) * &*LN_TWO_DEN;
-    pub static ref LAMBDA_DEN: BigInt = BigInt::from(6*SECONDS_IN_YEAR);
-    // pub static ref LAMBDA_NUM: BigUint = big.Mul(big.NewInt(builtin.EpochDurationSeconds), LnTwoNum);
-    // pub static ref LAMBDA_DEN: BigUint = big.Mul(big.NewInt(6*builtin.SecondsInYear), LnTwoDen);
+
+    pub static ref LAMBDA_NUM: BigInt = BigInt::from(EPOCH_DURATION_SECONDS) * &*LN_TWO_NUM;
+    pub static ref LAMBDA_DEN: BigInt = BigInt::from(6*SECONDS_IN_YEAR) * &*LN_TWO_DEN;
+
     // These numbers are placeholders, but should be in units of attoFIL, 10^-18 FIL
     /// 100M for testnet, PARAM_FINISH
     pub static ref SIMPLE_TOTAL: BigInt = BigInt::from(100).pow(6u8) * BigInt::from(1).pow(18u8);
@@ -39,11 +39,9 @@ lazy_static! {
     pub static ref BASELINE_TOTAL: BigInt = BigInt::from(900).pow(6u8) * BigInt::from(1).pow(18u8);
 
     // The following are the numerator and denominator of -ln(1/2)=ln(2),
-    // represented as a rational with sufficient precision. They are parsed from
-    // strings because literals cannot be this long; they are stored as separate
-    // variables only because the string parsing function has multiple returns.
-    pub static ref LN_TWO_NUM: BigInt = "6931471805599453094172321215".parse().unwrap();
-    pub static ref LN_TWO_DEN: BigInt = "10000000000000000000000000000".parse().unwrap();
+    // represented as a rational with sufficient precision.
+    pub static ref LN_TWO_NUM: BigInt = BigInt::from(6_931_471_805_599_453_094_172_321_215u128);
+    pub static ref LN_TWO_DEN: BigInt = BigInt::from(10_000_000_000_000_000_000_000_000_000u128);
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
