@@ -46,7 +46,7 @@ impl Wallet<MemKeyStore> {
     pub fn new_from_keys(key_vec: impl IntoIterator<Item = Key>) -> Self {
         let mut keys: HashMap<Address, Key> = HashMap::new();
         for item in key_vec.into_iter() {
-            keys.insert(item.address.clone(), item);
+            keys.insert(item.address, item);
         }
         let key_store = MemKeyStore::new();
         Wallet {
