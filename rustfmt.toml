@@ -1,0 +1,4 @@
+ignore = [
+    "blockchain/beacon/proto",
+    "ipld/graphsync/src/message/proto",
+]
