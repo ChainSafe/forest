@@ -3,6 +3,7 @@
 
 use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
+use crate::MemKeyStore;
 use address::Address;
 use crypto::{Signature, SignatureType};
 use std::collections::HashMap;
@@ -12,22 +13,21 @@ use std::str::FromStr;
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Key {
     key_info: KeyInfo,
-    // Vec<u8> will be used because Eq has not been implemented for PublicKey type
+    // Vec<u8> is used because The public keys for BLS and SECP256K1 are not of the same type
     public_key: Vec<u8>,
     address: Address,
 }
 
-impl Key {
-    /// Return a new Key given key_info
-    pub fn new(key_info: &KeyInfo) -> Result<Key, Error> {
+impl From<KeyInfo> for Key {
+    fn from(key_info: KeyInfo) -> Self {
         let public_key =
-            wallet_helpers::to_public(act_sig_type(key_info.key_type()), key_info.private_key())?;
-        let address = wallet_helpers::new_address(act_sig_type(key_info.key_type()), public_key.clone())?;
-        Ok(Key {
-            key_info: key_info.clone(),
+            wallet_helpers::to_public(*key_info.key_type(), key_info.private_key()).unwrap();
+        let address = wallet_helpers::new_address(*key_info.key_type(), &public_key).unwrap();
+        Key {
+            key_info,
             public_key,
             address,
-        })
+        }
     }
 }
 
@@ -35,29 +35,36 @@ impl Key {
 /// - keys which is a HashMap of Keys resolved by their Address
 /// - keystore which is a HashMap of KeyInfos resolved by their Address
 #[derive(Clone, PartialEq, Debug, Eq)]
-pub struct Wallet {
+pub struct Wallet<T> {
     keys: HashMap<Address, Key>,
-    keystore: KeyStore,
+    keystore: T,
 }
 
-impl Wallet {
-    /// Return a new Wallet with a given KeyStore
-    pub fn new(keystore: KeyStore) -> Self {
-        Wallet {
-            keys: HashMap::new(),
-            keystore,
-        }
-    }
-
-    /// Return a new Wallet with Keys contructed by a given list of Keys
+impl Wallet<MemKeyStore> {
+    /// Return a wallet from a given amount of keys. This wallet will not use the
+    /// generic keystore trait, but rather specifically use a MemKeyStore
     pub fn new_from_keys(key_vec: impl IntoIterator<Item = Key>) -> Self {
         let mut keys: HashMap<Address, Key> = HashMap::new();
         for item in key_vec.into_iter() {
             keys.insert(item.address.clone(), item);
         }
+        let key_store = MemKeyStore::new();
         Wallet {
             keys,
-            keystore: KeyStore::new(),
+            keystore: key_store,
+        }
+    }
+}
+
+impl<T> Wallet<T>
+where
+    T: KeyStore,
+{
+    /// Return a new Wallet with a given KeyStore
+    pub fn new(keystore: T) -> Self {
+        Wallet {
+            keys: HashMap::new(),
+            keystore,
         }
     }
 
@@ -68,7 +75,7 @@ impl Wallet {
         }
         let key_string = format!("wallet-{}", addr.to_string());
         let key_info = self.keystore.get(&key_string)?;
-        let new_key = Key::new(key_info)?;
+        let new_key = Key::from(key_info.clone());
         self.keys.insert(*addr, new_key.clone());
         Ok(new_key)
     }
@@ -76,11 +83,7 @@ impl Wallet {
     /// Return the resultant Signature after signing a given message
     pub fn sign(&mut self, addr: &Address, msg: &[u8]) -> Result<Signature, Error> {
         let key = self.find_key(addr).map_err(|_| Error::KeyNotExists)?;
-        wallet_helpers::sign(
-            act_sig_type(key.key_info.key_type()),
-            key.key_info.private_key(),
-            msg,
-        )
+        wallet_helpers::sign(*key.key_info.key_type(), key.key_info.private_key(), msg)
     }
 
     /// Return the KeyInfo for a given Address
@@ -91,7 +94,7 @@ impl Wallet {
 
     /// Add Key_Info to the Wallet, return the Address that resolves to this newly added KeyInfo
     pub fn import(&mut self, key_info: &KeyInfo) -> Result<Address, Error> {
-        let k = Key::new(key_info)?;
+        let k = Key::from(key_info.clone());
         let addr = format!("wallet-{}", k.address.to_string());
         self.keystore.put(addr, k.key_info)?;
         Ok(k.address)
@@ -116,7 +119,7 @@ impl Wallet {
     /// Return the Address of the default KeyInfo in the Wallet
     pub fn get_default(&self) -> Result<Address, Error> {
         let key_info = self.keystore.get(&"default".to_string())?;
-        let k = Key::new(key_info)?;
+        let k = Key::from(key_info.clone());
         Ok(k.address)
     }
 
@@ -151,26 +154,9 @@ impl Wallet {
     }
 }
 
-/// Return the String that corresponds to each Signature type
-pub fn kstore_sig_type(typ: SignatureType) -> String {
-    match typ {
-        SignatureType::Secp256 => "secp256k1".to_string(),
-        SignatureType::BLS => "bls".to_string(),
-    }
-}
-
-/// Return the SignatureType that corresponds to the supplied String
-pub fn act_sig_type(typ: String) -> SignatureType {
-    match typ.as_str() {
-        "secp256k1" => SignatureType::Secp256,
-        "bls" => SignatureType::BLS,
-        _ => SignatureType::BLS
-    }
-}
-
 /// Generate a new Key that satisfies the given SignatureType
 fn generate_key(typ: SignatureType) -> Result<Key, Error> {
     let private_key = wallet_helpers::generate(typ)?;
-    let key_info = KeyInfo::new(kstore_sig_type(typ), private_key);
-    Key::new(&key_info)
+    let key_info = KeyInfo::new(typ, private_key);
+    Ok(Key::from(key_info))
 }
