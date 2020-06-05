@@ -215,15 +215,18 @@ pub fn assign_new_sectors(
     let mut next_new_sector: usize = 0;
     let new_sector_length = new_sectors.len();
     // Assigns up to `count` sectors to `deadline` and advances `nextNewSector`.
-    let mut assign_to_deadline =
-        |count: usize, deadline: u64, deadlines: &mut Deadlines| -> Result<(), String> {
-            let count_to_add = std::cmp::min(count, new_sector_length - next_new_sector);
-            let limit = next_new_sector + count_to_add;
-            let sectors_to_add = &new_sectors[next_new_sector..limit];
-            deadlines.add_to_deadline(deadline, sectors_to_add)?;
-            next_new_sector += count_to_add;
-            Ok(())
-        };
+    let mut assign_to_deadline = |count: usize,
+                                  deadline: u64,
+                                  next_new_sector: &mut usize,
+                                  deadlines: &mut Deadlines|
+     -> Result<(), String> {
+        let count_to_add = std::cmp::min(count, new_sector_length - *next_new_sector);
+        let limit = *next_new_sector + count_to_add;
+        let sectors_to_add = &new_sectors[*next_new_sector..limit];
+        deadlines.add_to_deadline(deadline, sectors_to_add)?;
+        *next_new_sector += count_to_add;
+        Ok(())
+    };
     // Iterate deadlines and fill any partial partitions. There's no great advantage to filling more- or less-
     // full ones first, so they're filled in sequence order.
     // Meanwhile, record the partition count at each deadline.
@@ -234,7 +237,7 @@ pub fn assign_new_sectors(
         *deadline_partitions_counts.get_mut(&i).unwrap() = partition_count;
         let gap = partition_size - (sector_count % partition_size);
         if gap != partition_size {
-            assign_to_deadline(gap as usize, i, deadlines)?;
+            assign_to_deadline(gap as usize, i, &mut next_new_sector, deadlines)?;
         }
         i += 1;
     }
@@ -242,7 +245,12 @@ pub fn assign_new_sectors(
     // TODO WPOST (follow-up): fill less-full deadlines first, randomize when equally full.
     let mut target_deadline: u64 = 0;
     while next_new_sector < new_sectors.len() {
-        assign_to_deadline(partition_size as usize, target_deadline, deadlines)?;
+        assign_to_deadline(
+            partition_size as usize,
+            target_deadline,
+            &mut next_new_sector,
+            deadlines,
+        )?;
         target_deadline = (target_deadline + 1) % WPOST_PERIOD_DEADLINES;
     }
     Ok(())

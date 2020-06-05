@@ -31,8 +31,8 @@ pub struct CronEventPayload {
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct GetControlAddressesReturn {
-    owner: Address,
-    worker: Address,
+    pub owner: Address,
+    pub worker: Address,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ChangeWorkerAddressParams {

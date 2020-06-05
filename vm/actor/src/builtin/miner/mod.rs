@@ -110,7 +110,7 @@ impl Actor {
         let empty_map = make_map(rt.store()).flush().map_err(|err| {
             ActorError::new(
                 ExitCode::ErrIllegalState,
-                format!("Failed to construct miner state: {}", e),
+                format!("Failed to construct miner state: {}", err),
             )
         })?;
 
