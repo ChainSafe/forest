@@ -4,7 +4,6 @@
 use crate::resolve_to_key_addr;
 use actor::miner;
 use blocks::BlockHeader;
-use clock::ChainEpoch;
 use forest_encoding::from_slice;
 use ipld_blockstore::BlockStore;
 use runtime::{ConsensusFault, ConsensusFaultType, Syscalls};

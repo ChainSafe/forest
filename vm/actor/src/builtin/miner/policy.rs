@@ -62,7 +62,7 @@ pub fn check_supported_proof_types(proof: RegisteredProof) -> bool {
 }
 /// Maximum duration to allow for the sealing process for seal algorithms.
 /// Dependent on algorithm and sector size
-pub fn max_seal_duration(proof: &RegisteredProof) -> Option<ChainEpoch> {
+pub fn max_seal_duration(proof: RegisteredProof) -> Option<ChainEpoch> {
     match proof {
         RegisteredProof::StackedDRG32GiBSeal => Some(10000),
         RegisteredProof::StackedDRG2KiBSeal => Some(10000),
@@ -88,7 +88,7 @@ pub const FAULT_MAX_AGE: ChainEpoch = WPOST_PROVING_PERIOD * 14 - 1;
 /// Staging period for a miner worker key change.
 pub const WORKER_KEY_CHANGE_DELAY: ChainEpoch = 2 * ELECTION_LOOKBACK; // PARAM_FINISH
 /// Deposit per sector required at pre-commitment, refunded after the commitment is proven (else burned).
-pub fn precommit_deposit(sector_size: SectorSize, _duration: &ChainEpoch) -> TokenAmount {
+pub fn precommit_deposit(sector_size: SectorSize, _duration: ChainEpoch) -> TokenAmount {
     let deposit_per_byte = BigUint::zero(); // PARAM_FINISH
     deposit_per_byte * BigUint::from(sector_size as u64)
 }

@@ -73,7 +73,7 @@ where
     }
     /// Returns true if miner has been slashed or is considered invalid
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
-        let ms: miner::State = self.load_actor_state(addr, state_cid)?;
+        let _ms: miner::State = self.load_actor_state(addr, state_cid)?;
         // TODO update function
         // if ms.post_state.has_failed_post() {
         //     return Ok(true);

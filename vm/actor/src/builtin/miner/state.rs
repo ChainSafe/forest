@@ -134,7 +134,7 @@ impl State {
             sector_expirations: empty_arr.clone(),
             deadlines: empty_deadlines,
             faults: BitField::default(),
-            fault_epoch: empty_arr.clone(),
+            fault_epoch: empty_arr,
             recoveries: BitField::default(),
             post_submissions: BitField::default(),
             next_deadline_to_process_faults: 0,
@@ -237,10 +237,12 @@ impl State {
     ) -> Result<(), AmtError> {
         let mut sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
 
-        sector_nos.for_each(|sector_num| {
-            sectors.delete(sector_num)?;
-            Ok(())
-        });
+        sector_nos
+            .for_each(|sector_num| {
+                sectors.delete(sector_num)?;
+                Ok(())
+            })
+            .unwrap();
 
         self.sectors = sectors.flush()?;
         Ok(())
@@ -414,7 +416,7 @@ impl State {
             }
 
             Ok(())
-        });
+        })?;
 
         for (k, v) in changed.into_iter() {
             sector_arr.set(k, v)?;
@@ -490,7 +492,7 @@ impl State {
             let sector_on_chain = self.get_sector(store, key)?.ok_or("sector not found")?;
             sector_infos.push(sector_on_chain);
             Ok(())
-        });
+        })?;
 
         Ok(sector_infos)
     }
@@ -564,7 +566,7 @@ impl State {
 
             sector_infos.push(sector);
             Ok(())
-        });
+        })?;
         Ok(sector_infos)
     }
     /// Adds partition numbers to the set of PoSt submissions
@@ -610,7 +612,7 @@ impl State {
     pub fn add_locked_funds<BS: BlockStore>(
         &mut self,
         store: &BS,
-        current_epoch: &ChainEpoch,
+        current_epoch: ChainEpoch,
         vesting_sum: &TokenAmount,
         spec: VestSpec,
     ) -> Result<(), AmtError> {
@@ -644,7 +646,7 @@ impl State {
                 let num = ToPrimitive::to_u64(&locked_funds)
                     .ok_or("unable to convert to u64")
                     .unwrap();
-                vesting_funds.set(vest_epoch, num);
+                vesting_funds.set(vest_epoch, num)?;
             }
         }
         self.vesting_funds = vesting_funds.flush()?;
@@ -669,7 +671,7 @@ impl State {
 
         let mut set: Vec<(u64, BigUintDe)> = Vec::new();
         vesting_funds.for_each(|k, v| {
-            if &amount_unlocked > &target {
+            if amount_unlocked > target {
                 if k >= current_epoch {
                     let BigUintDe(mut locked_entry) = v.clone();
                     let unlock_amount =
@@ -690,7 +692,7 @@ impl State {
                 ));
             }
             Ok(())
-        });
+        })?;
 
         for (k, v) in set {
             vesting_funds.set(k, v)?;
@@ -728,7 +730,7 @@ impl State {
                 ));
             }
             Ok(())
-        });
+        })?;
 
         delete_many(&mut vesting_funds, &to_del)?;
 
@@ -758,7 +760,7 @@ impl State {
                 ));
             }
             Ok(())
-        });
+        })?;
 
         Ok(amount_unlocked)
     }
@@ -828,11 +830,11 @@ impl SectorOnChainInfo {
 }
 
 pub fn as_storage_weight_desc(
-    sector_size: &SectorSize,
+    sector_size: SectorSize,
     sector_info: &SectorOnChainInfo,
 ) -> power::SectorStorageWeightDesc {
     power::SectorStorageWeightDesc {
-        sector_size: *sector_size,
+        sector_size,
         deal_weight: sector_info.deal_weight.clone(),
         verified_deal_weight: sector_info.verified_deal_weight.clone(),
         duration: sector_info.info.expiration - sector_info.activation_epoch,
@@ -847,6 +849,12 @@ pub struct Deadlines {
     /// A bitfield of sector numbers due at each deadline.
     /// The sectors for each deadline are logically grouped into sequential partitions for proving.
     pub due: Vec<BitField>,
+}
+
+impl Default for Deadlines {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Deadlines {
