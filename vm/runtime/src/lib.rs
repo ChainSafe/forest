@@ -22,8 +22,10 @@ use filecoin_proofs_api::{
 use filecoin_proofs_api::{ProverId, SectorId};
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
+use log::warn;
 use message::UnsignedMessage;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
@@ -274,6 +276,29 @@ pub trait Syscalls {
         extra: &[u8],
         _earliest: ChainEpoch,
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>>;
+
+    fn batch_verify_seals(
+        &self,
+        vis: &[(Address, Vec<SealVerifyInfo>)],
+    ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        // TODO make async
+        let mut out = HashMap::new();
+        for (addr, seals) in vis {
+            let mut results = vec![false; seals.len()];
+            for (i, s) in seals.iter().enumerate() {
+                if let Err(err) = self.verify_seal(s) {
+                    warn!(
+                        "seal verify in batch failed (miner: {}) (idx: {}) (err: {})",
+                        addr, i, err
+                    )
+                } else {
+                    results[i] = true
+                }
+            }
+            out.insert(*addr, results);
+        }
+        Ok(out)
+    }
 }
 
 /// Result of checking two headers for a consensus fault.
