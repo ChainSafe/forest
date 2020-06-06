@@ -828,7 +828,7 @@ impl Actor {
             // return DealWeight for the deal set in the sector
             // TODO: we should batch these calls...
             let ser_params = Serialized::serialize(VerifyDealsOnSectorProveCommitParams {
-                deal_ids: precommit.info.deal_ids,
+                deal_ids: precommit.info.deal_ids.clone(),
                 sector_expiry: precommit.info.expiration,
             })?;
 
@@ -850,8 +850,8 @@ impl Actor {
             let param = Serialized::serialize(OnSectorProveCommitParams {
                 weight: SectorStorageWeightDesc {
                     sector_size: st.info.sector_size,
-                    deal_weight: deal_weights.deal_weight,
-                    verified_deal_weight: deal_weights.verified_deal_weight,
+                    deal_weight: deal_weights.deal_weight.clone(),
+                    verified_deal_weight: deal_weights.verified_deal_weight.clone(),
                     duration: precommit.info.expiration - rt.curr_epoch(),
                 },
             })?;
@@ -866,6 +866,12 @@ impl Actor {
             // Add sector and pledge lock-up to miner state
             // TODO: do this all at once after the loop
             let current_epoch = rt.curr_epoch();
+            let expired_epoch = precommit.info.expiration;
+            let info = precommit.info;
+            let deposit = precommit.pre_commit_deposit;
+            let verified_deal_weight = deal_weights.verified_deal_weight;
+            let deal_weight = deal_weights.deal_weight;
+
             let vested_amount =
             rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
                 let newly_vested_fund = st.unlock_vested_funds(rt.store(), current_epoch).map_err(|e| {
@@ -873,7 +879,7 @@ impl Actor {
                 })?;
 
                 // unlock deposit for successful proof, make it available for lock-up as initial pledge
-                st.add_pre_commit_deposit(&precommit.pre_commit_deposit);
+                st.add_pre_commit_deposit(&deposit);
 
                 // Verify locked funds are are at least the sum of sector initial pledges.
                 verify_pledge_meets_initial_requirements(rt, st);
@@ -891,10 +897,10 @@ impl Actor {
                 st.assert_balance_invariants(&rt.current_balance()?);
 
                 let new_sector_info = SectorOnChainInfo {
-                    info: precommit.info,
+                    info,
                     activation_epoch: current_epoch,
-                    deal_weight: deal_weights.deal_weight,
-                    verified_deal_weight: deal_weights.verified_deal_weight
+                    deal_weight,
+                    verified_deal_weight
                 };
 
                 st.put_sector(rt.store(), new_sector_info).map_err(|e| {
@@ -905,7 +911,7 @@ impl Actor {
                     ActorError::new(ExitCode::ErrIllegalState, format!("failed to delete precommit for sector {}: {}", num, e))
                 })?;
 
-                st.add_sector_expirations(rt.store(), precommit.info.expiration, &[num]).map_err(|e| {
+                st.add_sector_expirations(rt.store(), expired_epoch, &[num]).map_err(|e| {
                     ActorError::new(ExitCode::ErrIllegalState, format!("failed to add new sector {} expiration: {}", num, e))
                 })?;
 

@@ -102,6 +102,7 @@ pub struct State {
 impl Cbor for State {}
 
 impl State {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         empty_arr: Cid,
         empty_map: Cid,
