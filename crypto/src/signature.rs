@@ -17,9 +17,6 @@ pub const BLS_SIG_LEN: usize = 96;
 /// BLS Public key length in bytes
 pub const BLS_PUB_LEN: usize = 48;
 
-/// BLS public key type. Represented as raw bytes.
-pub type BLSPublicKey = [u8; BLS_PUB_LEN];
-
 /// Signature variants for Forest signatures
 #[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
