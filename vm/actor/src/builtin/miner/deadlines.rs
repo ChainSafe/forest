@@ -102,26 +102,18 @@ impl DeadlineInfo {
 pub fn compute_proving_period_deadline(
     period_start: ChainEpoch,
     current_epoch: ChainEpoch,
-) -> Option<DeadlineInfo> {
+) -> DeadlineInfo {
     let period_progress = current_epoch - period_start;
     if period_progress >= WPOST_PROVING_PERIOD {
         // Proving period has completely elapsed.
-        return Some(DeadlineInfo::new(
-            period_start,
-            WPOST_PERIOD_DEADLINES,
-            current_epoch,
-        ));
+        return DeadlineInfo::new(period_start, WPOST_PERIOD_DEADLINES, current_epoch);
     }
     let period_progress = current_epoch - period_start;
     if period_progress >= WPOST_PROVING_PERIOD {
-        return Some(DeadlineInfo::new(
-            period_start,
-            WPOST_PERIOD_DEADLINES,
-            current_epoch,
-        ));
+        return DeadlineInfo::new(period_start, WPOST_PERIOD_DEADLINES, current_epoch);
     }
     let deadline_idx = period_progress / WPOST_CHALLENGE_WINDOW;
-    Some(DeadlineInfo::new(period_start, deadline_idx, current_epoch))
+    DeadlineInfo::new(period_start, deadline_idx, current_epoch)
 }
 /// Computes the first partition index and number of sectors for a deadline.
 /// Partitions are numbered globally for the miner, not per-deadline.

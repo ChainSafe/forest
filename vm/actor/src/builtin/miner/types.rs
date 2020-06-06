@@ -23,6 +23,8 @@ pub struct MinerConstructorParams {
     pub seal_proof_type: RegisteredProof,
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub multi_address: Vec<u8>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CronEventPayload {
@@ -42,6 +44,15 @@ pub struct ChangeWorkerAddressParams {
 pub struct ChangePeerIDParams {
     #[serde(with = "serde_bytes")]
     pub new_id: Vec<u8>,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct ChangeMultiaddrsParams {
+    #[serde(with = "serde_bytes")]
+    pub new_multia_ddrs: Vec<u8>,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct ConfirmSectorProofsParams {
+    pub sectors: Vec<SectorNumber>,
 }
 /// Information submitted by a miner to provide a Window PoSt.
 #[derive(Serialize_tuple, Deserialize_tuple)]

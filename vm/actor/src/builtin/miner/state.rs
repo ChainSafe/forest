@@ -109,6 +109,7 @@ impl State {
         owner: Address,
         worker: Address,
         peer_id: Vec<u8>,
+        multi_address: Vec<u8>,
         proof_type: RegisteredProof,
     ) -> Self {
         let seal_proof_type = proof_type.registered_seal_proof();
@@ -120,6 +121,7 @@ impl State {
                 worker,
                 pending_worker_key: None,
                 peer_id,
+                multi_address,
                 seal_proof_type,
                 sector_size,
                 window_post_partition_sectors: partitions_sectors,
@@ -146,11 +148,8 @@ impl State {
     pub fn get_sector_size(&self) -> &SectorSize {
         &self.info.sector_size
     }
-    pub fn deadline_info(&self, current_epoch: ChainEpoch) -> Option<DeadlineInfo> {
-        match compute_proving_period_deadline(self.proving_period_start, current_epoch) {
-            Some(deadline_info) => Some(deadline_info),
-            None => None,
-        }
+    pub fn deadline_info(&self, current_epoch: ChainEpoch) -> DeadlineInfo {
+        compute_proving_period_deadline(self.proving_period_start, current_epoch)
     }
     pub fn sector_count<BS: BlockStore>(&self, store: &BS) -> Result<u64, AmtError> {
         let arr = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
@@ -794,6 +793,9 @@ pub struct MinerInfo {
     /// Libp2p identity that should be used when connecting to this miner
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
+    /// Slice of byte arrays representing Libp2p multi-addresses used for establishing a connection with this miner.
+    #[serde(with = "serde_bytes")]
+    pub multi_address: Vec<u8>,
 
     /// The proof type used by this miner for sealing sectors.
     pub seal_proof_type: RegisteredProof,

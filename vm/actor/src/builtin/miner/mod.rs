@@ -74,6 +74,8 @@ pub enum Method {
     AddLockedFund = 14,
     ReportConsensusFault = 15,
     WithdrawBalance = 16,
+    ConfirmSectorProofsValid = 17,
+    ChangeMultiaddrs = 18,
 }
 
 /// Storage miner actors are created exclusively by the storage power actor. In order to break a circular dependency
@@ -143,6 +145,7 @@ impl Actor {
             owner,
             worker,
             params.peer_id,
+            params.multi_address,
             params.seal_proof_type,
         );
         rt.create(&st)?;
@@ -163,7 +166,7 @@ impl Actor {
     /////////////
     // Control //
     /////////////
-    
+
     fn control_addresses<BS, RT>(rt: &mut RT) -> Result<GetControlAddressesReturn, ActorError>
     where
         BS: BlockStore,
@@ -222,6 +225,22 @@ impl Actor {
         Ok(())
     }
 
+    fn change_multi_address<BS, RT>(
+        rt: &mut RT,
+        params: ChangeMultiaddrsParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, rt| {
+            rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
+            st.info.multi_address = params.new_multia_ddrs;
+            Ok(())
+        })??;
+        Ok(())
+    }
+
     //////////////////
     // WindowedPoSt //
     //////////////////
@@ -257,54 +276,7 @@ impl Actor {
                     ),
                 );
             }
-            let deadline = match st.deadline_info(current_epoch) {
-                Some(deadline) => deadline,
-                None => {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("no deadline info found for epoch {}", current_epoch),
-                    ))
-                }
-            };
-
-            if !deadline.period_start() {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    format!(
-                        "proving period {} not yet open at {}",
-                        deadline.period_start(),
-                        current_epoch
-                    ),
-                ));
-            }
-            if deadline.period_elapsed() {
-                // A cron event has not yet processed the previous proving period and established the next one.
-                // This is possible in the first non-empty epoch of a proving period if there was an empty tipset on the
-                // last epoch of the previous period.
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!(
-                        "proving period at {} elapsed, next one not yet opened",
-                        deadline.period_start()
-                    ),
-                ));
-            }
-            if params.deadline != deadline.index {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    format!(
-                        "invalid deadline {} at epoch {}, expected {}",
-                        params.deadline, current_epoch, deadline.index
-                    ),
-                ));
-            }
-            // Verify locked funds are are at least the sum of sector initial pledges.
-            // Note that this call does not actually compute recent vesting, so the reported locked funds may be
-            // slightly higher than the true amount (i.e. slightly in the miner's favour).
-            // Computing vesting here would be almost always redundant since vesting is quantized to ~daily units.
-            // Vesting will be at most one proving period old if computed in the cron callback.
-            verify_pledge_meets_initial_requirements(rt, &st);
-
+            let deadline = st.deadline_info(current_epoch);
             let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
@@ -326,6 +298,34 @@ impl Actor {
             )?;
             detected_faults_sector = detected_faults;
             penalty = p;
+
+            if !deadline.period_start() {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "proving period {} not yet open at {}",
+                        deadline.period_start(),
+                        current_epoch
+                    ),
+                ));
+            }
+
+            if params.deadline != deadline.index {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "invalid deadline {} at epoch {}, expected {}",
+                        params.deadline, current_epoch, deadline.index
+                    ),
+                ));
+            }
+            // Verify locked funds are are at least the sum of sector initial pledges.
+            // Note that this call does not actually compute recent vesting, so the reported locked funds may be
+            // slightly higher than the true amount (i.e. slightly in the miner's favour).
+            // Computing vesting here would be almost always redundant since vesting is quantized to ~daily units.
+            // Vesting will be at most one proving period old if computed in the cron callback.
+            verify_pledge_meets_initial_requirements(rt, &st);
+
             // TODO WPOST (follow-up): process Skipped as faults
 
             // Work out which sectors are due in the declared partitions at this deadline.
@@ -796,6 +796,132 @@ impl Actor {
         Ok(())
     }
 
+    fn confirm_sector_proofs_valid<BS, RT>(
+        rt: &mut RT,
+        params: ConfirmSectorProofsParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
+
+        let st: State = rt.state()?;
+
+        for num in params.sectors {
+            let precommit = st
+                .get_precommitted_sector(rt.store(), num)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to get precommitted sector: {}, {}", num, e),
+                    )
+                })?
+                .ok_or_else(|| {
+                    ActorError::new(
+                        ExitCode::ErrNotFound,
+                        format!("no precommitted sector: {}", num),
+                    )
+                })?;
+
+            // Check (and activate) storage deals associated to sector. Abort if checks failed.
+            // return DealWeight for the deal set in the sector
+            // TODO: we should batch these calls...
+            let ser_params = Serialized::serialize(VerifyDealsOnSectorProveCommitParams {
+                deal_ids: precommit.info.deal_ids,
+                sector_expiry: precommit.info.expiration,
+            })?;
+
+            let mut ret = rt.send(
+                &*STORAGE_MARKET_ACTOR_ADDR,
+                MarketMethod::VerifyDealsOnSectorProveCommit as u64,
+                &ser_params,
+                &TokenAmount::zero(),
+            )?;
+            let deal_weights: VerifyDealsOnSectorProveCommitReturn = ret.deserialize()?;
+
+            // Request power for activated sector.
+            // Return initial pledge requirement.
+
+            // TODO: since this method gets called by the storage power actor
+            // initially, can we just do this while we're there?
+            // We can probably return the right information from this call to the caller, so it can update there
+            // TODO: we should batch these calls...
+            let param = Serialized::serialize(OnSectorProveCommitParams {
+                weight: SectorStorageWeightDesc {
+                    sector_size: st.info.sector_size,
+                    deal_weight: deal_weights.deal_weight,
+                    verified_deal_weight: deal_weights.verified_deal_weight,
+                    duration: precommit.info.expiration - rt.curr_epoch(),
+                },
+            })?;
+            ret = rt.send(
+                &*STORAGE_POWER_ACTOR_ADDR,
+                PowerMethod::OnSectorProveCommit as u64,
+                &param,
+                &TokenAmount::zero(),
+            )?;
+            let BigUintDe(initial_pledge) = ret.deserialize()?;
+
+            // Add sector and pledge lock-up to miner state
+            // TODO: do this all at once after the loop
+            let current_epoch = rt.curr_epoch();
+            let vested_amount =
+            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
+                let newly_vested_fund = st.unlock_vested_funds(rt.store(), current_epoch).map_err(|e| {
+                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to vest new funds: {}", e))
+                })?;
+
+                // unlock deposit for successful proof, make it available for lock-up as initial pledge
+                st.add_pre_commit_deposit(&precommit.pre_commit_deposit);
+
+                // Verify locked funds are are at least the sum of sector initial pledges.
+                verify_pledge_meets_initial_requirements(rt, st);
+
+                // lock up initial pledge for new sector
+                let available_balance = st.get_available_balance(&rt.current_balance()?);
+                if available_balance > initial_pledge {
+                    return Err(ActorError::new(ExitCode::ErrInsufficientFunds, format!("insufficient funds for initial pledge requirement {}, available: {}", initial_pledge, available_balance)));
+                }
+
+                st.add_locked_funds(rt.store(), current_epoch, &initial_pledge, PLEDGE_VESTING_SPEC).map_err(|e| {
+                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to add pledge: {}", e))
+                })?;
+
+                st.assert_balance_invariants(&rt.current_balance()?);
+
+                let new_sector_info = SectorOnChainInfo {
+                    info: precommit.info,
+                    activation_epoch: current_epoch,
+                    deal_weight: deal_weights.deal_weight,
+                    verified_deal_weight: deal_weights.verified_deal_weight
+                };
+
+                st.put_sector(rt.store(), new_sector_info).map_err(|e| {
+                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to prove commit: {}", e))
+                })?;
+
+                st.delete_precommitted_sector(rt.store(), num).map_err(|e| {
+                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to delete precommit for sector {}: {}", num, e))
+                })?;
+
+                st.add_sector_expirations(rt.store(), precommit.info.expiration, &[num]).map_err(|e| {
+                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to add new sector {} expiration: {}", num, e))
+                })?;
+
+                // Add to new sectors, a staging ground before scheduling to a deadline at end of proving period.
+                st.add_new_sectors(&[num]).map_err(|e| {
+                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to add new sector number {}: {}", num, e))
+                })?;
+
+                Ok(newly_vested_fund)
+            })??;
+
+            notify_pledge_change(rt, &(initial_pledge - vested_amount))?;
+        }
+        Ok(())
+    }
+
     fn check_sector_proven<BS, RT>(
         rt: &mut RT,
         params: CheckSectorProvenParams,
@@ -935,15 +1061,7 @@ impl Actor {
         rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, rt| {
             rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
 
-            let current_deadline = match st.deadline_info(current_epoch) {
-                Some(current_deadline) => current_deadline,
-                None => {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("no deadline info found for epoch {}", current_epoch),
-                    ))
-                }
-            };
+            let current_deadline = st.deadline_info(current_epoch);
             let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
@@ -1143,15 +1261,7 @@ impl Actor {
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
 
-            let current_deadline = match st.deadline_info(current_epoch) {
-                Some(current_deadline) => current_deadline,
-                None => {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("no deadline info found for epoch {}", current_epoch),
-                    ))
-                }
-            };
+            let current_deadline = st.deadline_info(current_epoch);
             let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
@@ -1457,15 +1567,8 @@ where
     let mut penalty = TokenAmount::default();
     let mut deadline = DeadlineInfo::default();
     rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, rt| {
-        deadline = st.deadline_info(curr_epoch).ok_or_else(|| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!(
-                    "failed to load deadline info for current epoch {:}",
-                    curr_epoch
-                ),
-            )
-        })?;
+        deadline = st.deadline_info(curr_epoch);
+
         if deadline.period_start() {
             // Skip checking faults on the first, incomplete period.
             let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
@@ -2664,6 +2767,14 @@ impl ActorCode for Actor {
             }
             Some(Method::WithdrawBalance) => {
                 Self::withdraw_balance(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::ConfirmSectorProofsValid) => {
+                Self::confirm_sector_proofs_valid(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::ChangeMultiaddrs) => {
+                Self::change_multi_address(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             _ => {
