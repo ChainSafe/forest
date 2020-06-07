@@ -521,7 +521,7 @@ where
                     .as_slice(),
                 pub_keys
                     .iter()
-                    .map(|x| x.as_slice())
+                    .map(|x| &x[..])
                     .collect::<Vec<&[u8]>>()
                     .as_slice(),
                 &sig,
