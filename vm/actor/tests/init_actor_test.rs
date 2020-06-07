@@ -13,22 +13,24 @@ use address::Address;
 use cid::Cid;
 use common::*;
 use db::MemoryDB;
+use interpreter::DefaultSyscalls;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
+use runtime::Syscalls;
 use serde::Serialize;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
-use runtime::{Syscalls};
-use interpreter::{DefaultSyscalls};
 
-
-fn construct_runtime<'a,'sys,BS: BlockStore, SYS: Syscalls>(bs: &'a BS, default_syscalls: &'sys SYS) -> MockRuntime<'a, 'sys, BS, SYS> {
+fn construct_runtime<'a, 'sys, BS: BlockStore, SYS: Syscalls>(
+    bs: &'a BS,
+    default_syscalls: &'sys SYS,
+) -> MockRuntime<'a, 'sys, BS, SYS> {
     let receiver = Address::new_id(1000);
     let message = UnsignedMessage::builder()
         .to(receiver.clone())
         .from(SYSTEM_ACTOR_ADDR.clone())
         .build()
         .unwrap();
-    let mut rt = MockRuntime::new(bs, default_syscalls,message);
+    let mut rt = MockRuntime::new(bs, default_syscalls, message);
     rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
     return rt;
 }
@@ -53,7 +55,7 @@ fn abort_cant_call_exec() {
 fn create_2_payment_channels() {
     let bs = MemoryDB::default();
     let default_syscalls = DefaultSyscalls::new(&bs);
-    let mut rt= construct_runtime(&bs, & default_syscalls);
+    let mut rt = construct_runtime(&bs, &default_syscalls);
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001);
 
@@ -118,7 +120,7 @@ fn create_2_payment_channels() {
 fn create_storage_miner() {
     let bs = MemoryDB::default();
     let default_syscalls = DefaultSyscalls::new(&bs);
-    let mut rt= construct_runtime(&bs, &default_syscalls);
+    let mut rt = construct_runtime(&bs, &default_syscalls);
     construct_and_verify(&mut rt);
 
     // only the storage power actor can create a miner
@@ -170,7 +172,7 @@ fn create_storage_miner() {
 fn create_multisig_actor() {
     let bs = MemoryDB::default();
     let default_syscalls = DefaultSyscalls::new(&bs);
-    let mut rt = construct_runtime(&bs, & default_syscalls);
+    let mut rt = construct_runtime(&bs, &default_syscalls);
     construct_and_verify(&mut rt);
 
     // Actor creating multisig actor
@@ -267,7 +269,9 @@ fn sending_constructor_failure() {
     );
 }
 
-fn construct_and_verify<'a,'sys,BS: BlockStore, SYS: Syscalls>(rt: &mut MockRuntime<'a, 'sys, BS, SYS>) {
+fn construct_and_verify<'a, 'sys, BS: BlockStore, SYS: Syscalls>(
+    rt: &mut MockRuntime<'a, 'sys, BS, SYS>,
+) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
     let params = ConstructorParams {
         network_name: "mock".to_string(),
@@ -296,7 +300,7 @@ fn construct_and_verify<'a,'sys,BS: BlockStore, SYS: Syscalls>(rt: &mut MockRunt
 }
 
 fn exec_and_verify<'a, 'sys, BS: BlockStore, SYS: Syscalls, S: Serialize>(
-    rt: &mut MockRuntime<'a, 'sys,  BS, SYS>,
+    rt: &mut MockRuntime<'a, 'sys, BS, SYS>,
     code_id: Cid,
     params: &S,
 ) -> Result<Serialized, ActorError>
