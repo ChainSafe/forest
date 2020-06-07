@@ -17,8 +17,14 @@ use runtime::{ActorCode, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
+//use interpreter::gas_syscalls::GasSyscalls;
+use interpreter::{internal_send, ChainRand, DefaultRuntime, DefaultSyscalls, GasSyscalls};
+use interpreter::{price_list_by_epoch, GasTracker};
 
-pub struct MockRuntime<'a, BS: BlockStore> {
+use std::rc::Rc;
+//use super::gas_tracker::{price_list_by_epoch, GasTracker, PriceList};
+
+pub struct MockRuntime<'a, 'sys, BS, SYS> {
     pub epoch: ChainEpoch,
     pub caller_type: Cid,
     pub miner: Address,
@@ -27,6 +33,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub actor_code_cids: HashMap<Address, Cid>,
     pub new_actor_addr: Option<Address>,
     pub message: UnsignedMessage,
+    syscalls: GasSyscalls<'sys, SYS>,
 
     // TODO: syscalls: syscaller
 
@@ -46,7 +53,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
-    pub expect_verify_sig : Option<ExpectedVerifySig>,
+    pub expect_verify_sig: Option<ExpectedVerifySig>,
 }
 
 #[derive(Clone, Debug)]
@@ -67,16 +74,28 @@ pub struct ExpectedMessage {
 }
 
 #[derive(Clone, Debug)]
-pub struct ExpectedVerifySig{
-    sig : Signature,
-    signer : Address,
-    result : Option<String>,
+pub struct ExpectedVerifySig {
+    sig: Signature,
+    signer: Address,
+    result: Option<String>,
 }
 
+impl<'a, 'sys, BS, SYS> MockRuntime<'a, 'sys, BS, SYS>
+where
+    BS: BlockStore,
+    SYS: Syscalls,
+{
+    pub fn new(bs: &'a BS, default_syscalls: &'sys SYS, message: UnsignedMessage) -> Self {
+        let price_list = price_list_by_epoch(0);
+        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit() as i64, 0)));
 
-impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
-    pub fn new(bs: &'a BS, message: UnsignedMessage) -> Self {
-        Self {
+        let gas_syscalls = GasSyscalls {
+            price_list,
+            gas: Rc::clone(&gas_tracker),
+            syscalls: default_syscalls,
+        };
+
+        MockRuntime {
             epoch: 0,
             caller_type: Cid::default(),
 
@@ -90,6 +109,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             state: None,
             balance: 0u8.into(),
             received: 0u8.into(),
+            syscalls: gas_syscalls,
 
             // VM Impl
             in_call: false,
@@ -102,7 +122,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             expect_validate_caller_type: RefCell::new(None),
             expect_sends: VecDeque::new(),
             expect_create_actor: None,
-            expect_verify_sig : None,
+            expect_verify_sig: None,
         }
     }
     fn require_in_call(&self) {
@@ -142,12 +162,16 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         *self.expect_validate_caller_type.borrow_mut() = Some(ids.to_vec());
     }
 
-    pub fn expect_verify_signature(&mut self, sig : Signature, signer : Address, result : Option<String>){
-
-        self.expect_verify_sig = Some(ExpectedVerifySig{
-            sig : sig,
-            signer : signer,
-            result : result
+    pub fn expect_verify_signature(
+        &mut self,
+        sig: Signature,
+        signer: Address,
+        result: Option<String>,
+    ) {
+        self.expect_verify_sig = Some(ExpectedVerifySig {
+            sig: sig,
+            signer: signer,
+            result: result,
         });
     }
 
@@ -283,7 +307,11 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     }
 }
 
-impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
+impl<BS, SYS> Runtime<BS> for MockRuntime<'_, '_, BS, SYS>
+where
+    BS: BlockStore,
+    SYS: Syscalls,
+{
     fn message(&self) -> &UnsignedMessage {
         self.require_in_call();
         &self.message
@@ -541,6 +569,6 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     }
 
     fn syscalls(&self) -> &dyn Syscalls {
-        unimplemented!()
+        &self.syscalls
     }
 }

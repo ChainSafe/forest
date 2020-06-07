@@ -28,6 +28,7 @@ fil_types = { path = "../../types" }
 derive_builder = "0.9"
 
 [dev-dependencies]
+interpreter = { path = "../interpreter/" }
 db = { path = "../../node/db" }
 hex = "0.4.2"
 libp2p = "0.19"

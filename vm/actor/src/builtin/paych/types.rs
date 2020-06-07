@@ -55,7 +55,7 @@ pub struct SignedVoucher {
 }
 
 /// Modular Verification method
-#[derive(Debug, Clone,PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ModVerifyParams {
     pub actor: Address,
     pub method: MethodNum,
@@ -71,7 +71,7 @@ pub struct PaymentVerifyParams {
     pub proof: Vec<u8>,
 }
 
-#[derive( Serialize_tuple, Deserialize_tuple)]
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct UpdateChannelStateParams {
     pub sv: SignedVoucher,
     #[serde(with = "serde_bytes")]

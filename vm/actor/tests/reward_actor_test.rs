@@ -13,14 +13,17 @@ use db::MemoryDB;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use runtime::{ Syscalls};
+use interpreter::{ DefaultSyscalls,};
 
-fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
+fn construct_runtime<'a,'sys,BS: BlockStore, SYS: Syscalls>(bs: &'a BS, default_syscalls : &'sys SYS) -> MockRuntime<'a, 'sys, BS, SYS> {
     let message = UnsignedMessage::builder()
         .to(*REWARD_ACTOR_ADDR)
         .from(*SYSTEM_ACTOR_ADDR)
         .build()
         .unwrap();
-    let mut rt = MockRuntime::new(bs, message);
+    
+    let mut rt = MockRuntime::new(bs, default_syscalls, message);
     rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
     return rt;
 }
@@ -28,7 +31,8 @@ fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
 #[test]
 fn balance_less_than_reward() {
     let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let default_syscalls = DefaultSyscalls::new(&bs);
+    let mut rt = construct_runtime(&bs, & default_syscalls);
     construct_and_verify(&mut rt);
 
     let miner = Address::new_id(1000);
@@ -58,7 +62,7 @@ fn balance_less_than_reward() {
     rt.verify()
 }
 
-fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
+fn construct_and_verify<'a,'sys,BS: BlockStore, SYS: Syscalls>(rt: &mut MockRuntime<'a, 'sys, BS, SYS>) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
     let ret = rt
         .call(

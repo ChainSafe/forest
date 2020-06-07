@@ -54,7 +54,7 @@ pub struct LaneState {
 }
 
 /// Specifies which `lane`s to be merged with what `nonce` on `channel_update`
-#[derive(Default, Clone,Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct Merge {
     pub lane: u64,
     pub nonce: u64,
