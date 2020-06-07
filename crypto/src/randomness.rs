@@ -13,6 +13,7 @@ pub enum DomainSeparationTag {
     WindowedPoStChallengeSeed = 3,
     SealRandomness = 4,
     InteractiveSealChallengeSeed = 5,
+    WinningPoStChallengeSeed = 6
 }
 
 impl DomainSeparationTag {

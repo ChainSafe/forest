@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod errors;
-
+mod state_manager_ext;
 pub use self::errors::*;
 use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR};
 use address::{Address, Protocol};

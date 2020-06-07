@@ -12,8 +12,8 @@ use address::Address;
 use amt::Amt;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
-use beacon::Beacon;
-use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
+use beacon::{Beacon, BeaconEntry};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use core::time::Duration;
@@ -37,8 +37,13 @@ use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::str::from_utf8;
 use std::sync::Arc;
 use vm::TokenAmount;
+use address::Payload;
+use blake2b_simd::Params;
+use crypto::DomainSeparationTag;
+use filecoin_proofs_api::post::verify_winning_post;
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -727,6 +732,63 @@ where
             self.chain_store.set_tipset_tracker(b.header())?;
         }
         Ok(())
+    }
+
+    async fn verify_winning_posts_proof(
+        &self,
+        block: BlockHeader,
+        prev_entry: BeaconEntry,
+        lbst: Cid,
+        address: Address,
+    ) -> Result<(), Error> {
+        if block.win_post_proof().is_empty() {
+            return Err(Error::Validation(
+                "[TESTING] No winning post proof given".to_string(),
+            ));
+        }
+
+        if block
+            .win_post_proof()
+            .first()
+            .map(|s| {
+                from_utf8(&s.proof_bytes)
+                    .map(|buf| buf == "valid proof")
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default()
+        {
+            return Ok(());
+        }
+
+        let parent_tipset = self.chain_store.tipset_from_keys(block.parents())?;
+
+        let (state_root, _) = self
+        .state_manager
+        .tipset_state(&parent_tipset)
+        .await
+        .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
+
+        let work_addr_result = self
+        .state_manager
+        .get_miner_work_addr(&state_root, block.miner_address());
+        let buf : Vec<u8>= Vec::new();
+        let rbase = block.beacon_entries().iter().last().unwrap_or(&prev_entry);
+        let rand = chain::draw_randomness(rbase.data(),DomainSeparationTag::WinningPoStChallengeSeed,block.epoch(),&buf)?;
+
+        let mid = match block.miner_address().payload()
+        {
+            Payload::ID(new_id) => Address::new_id(*new_id),
+            _ => return  Err(Error::Validation("Could not update state".to_owned()))
+        };
+
+        let proofs = block.win_post_proof().iter().fold(Vec::new(), |mut proof, p| {
+            proof.extend_from_slice(&p.proof_bytes);
+            proof
+        });
+
+
+        verify_winning_post(&rand, &proofs, &replicas, prover_id)?;
+        unimplemented!("verify_winning_posts_proof_not_implemented")
     }
 
     /// Syncs chain data and persists it to blockstore
