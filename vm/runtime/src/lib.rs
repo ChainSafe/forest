@@ -22,8 +22,11 @@ use filecoin_proofs_api::{
 use filecoin_proofs_api::{ProverId, SectorId};
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
+use log::warn;
 use message::UnsignedMessage;
+use rayon::prelude::*;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
@@ -196,27 +199,7 @@ pub trait Syscalls {
     /// Verifies a sector seal proof.
     // TODO needs to be updated to reflect changes
     fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        let commd = cid_to_data_commitment_v1(&vi.unsealed_cid)?;
-        let commr = cid_to_replica_commitment_v1(&vi.sealed_cid)?;
-        let miner_addr = Address::new_id(vi.sector_id.miner);
-        let miner_payload = miner_addr.payload_bytes();
-        let mut prover_id = ProverId::default();
-        prover_id[..miner_payload.len()].copy_from_slice(&miner_payload);
-
-        if !proofs_verify_seal(
-            vi.registered_proof.into(),
-            commr,
-            commd,
-            prover_id,
-            SectorId::from(vi.sector_id.number),
-            vi.randomness.0,
-            vi.interactive_randomness.0,
-            &vi.proof,
-        )? {
-            return Err(format!("Invalid proof detected: {:?}", base64::encode(&vi.proof)).into());
-        }
-
-        Ok(())
+        verify_seal(vi)
     }
     /// Verifies a proof of spacetime.
     fn verify_post(&self, verify_info: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
@@ -270,6 +253,57 @@ pub trait Syscalls {
         h2: &[u8],
         extra: &[u8],
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>>;
+
+    fn batch_verify_seals(
+        &self,
+        vis: &[(Address, Vec<SealVerifyInfo>)],
+    ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        let out = vis
+            .par_iter()
+            .map(|(addr, seals)| {
+                let results = seals
+                    .par_iter()
+                    .map(|s| {
+                        if let Err(err) = verify_seal(s) {
+                            warn!(
+                                "seal verify in batch failed (miner: {}) (err: {})",
+                                addr, err
+                            );
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                    .collect();
+                (*addr, results)
+            })
+            .collect();
+        Ok(out)
+    }
+}
+
+fn verify_seal(vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+    let commd = cid_to_data_commitment_v1(&vi.unsealed_cid)?;
+    let commr = cid_to_replica_commitment_v1(&vi.sealed_cid)?;
+    let miner_addr = Address::new_id(vi.sector_id.miner);
+    let miner_payload = miner_addr.payload_bytes();
+    let mut prover_id = ProverId::default();
+    prover_id[..miner_payload.len()].copy_from_slice(&miner_payload);
+
+    if !proofs_verify_seal(
+        vi.registered_proof.into(),
+        commr,
+        commd,
+        prover_id,
+        SectorId::from(vi.sector_id.number),
+        vi.randomness.0,
+        vi.interactive_randomness.0,
+        &vi.proof,
+    )? {
+        return Err(format!("Invalid proof detected: {:?}", base64::encode(&vi.proof)).into());
+    }
+
+    Ok(())
 }
 
 /// Result of checking two headers for a consensus fault.
