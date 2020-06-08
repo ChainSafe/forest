@@ -135,7 +135,7 @@ where
         .bls_aggregate(v.bls_aggregate)
         .election_proof(v.election_proof)
         .build_and_validate()
-        .unwrap())
+        .map_err(de::Error::custom)?)
 }
 
 pub mod vec {
