@@ -18,6 +18,12 @@ pub struct BlockHeaderJson(#[serde(with = "self")] pub BlockHeader);
 #[serde(transparent)]
 pub struct BlockHeaderJsonRef<'a>(#[serde(with = "self")] pub &'a BlockHeader);
 
+impl From<BlockHeaderJson> for BlockHeader {
+    fn from(wrapper: BlockHeaderJson) -> Self {
+        wrapper.0
+    }
+}
+
 pub fn serialize<S>(m: &BlockHeader, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -129,5 +135,29 @@ where
         .bls_aggregate(v.bls_aggregate)
         .election_proof(v.election_proof)
         .build_and_validate()
-        .unwrap())
+        .map_err(de::Error::custom)?)
+}
+
+pub mod vec {
+    use super::*;
+    use forest_json_utils::GoVecVisitor;
+    use serde::ser::SerializeSeq;
+
+    pub fn serialize<S>(m: &[BlockHeader], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(m.len()))?;
+        for e in m {
+            seq.serialize_element(&BlockHeaderJsonRef(e))?;
+        }
+        seq.end()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<BlockHeader>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(GoVecVisitor::<BlockHeader, BlockHeaderJson>::new())
+    }
 }
