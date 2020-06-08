@@ -48,7 +48,7 @@ pub struct ChangePeerIDParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ChangeMultiaddrsParams {
     #[serde(with = "serde_bytes")]
-    pub new_multia_ddrs: Vec<u8>,
+    pub new_multi_addrs: Vec<u8>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ConfirmSectorProofsParams {

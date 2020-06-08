@@ -21,7 +21,8 @@ pub const WPOST_PROVING_PERIOD: ChainEpoch = SECONDS_IN_DAY / EPOCH_DURATION_SEC
 /// The duration of a deadline's challenge window, the period before a deadline when the challenge is available.
 pub const WPOST_CHALLENGE_WINDOW: ChainEpoch = 1800 / EPOCH_DURATION_SECONDS; // Half an hour (=48 per day)
 /// The number of non-overlapping PoSt deadlines in each proving period.
-pub const WPOST_PERIOD_DEADLINES: u64 = WPOST_PROVING_PERIOD / WPOST_CHALLENGE_WINDOW;
+pub const WPOST_PERIOD_DEADLINES: usize =
+    WPOST_PROVING_PERIOD as usize / WPOST_CHALLENGE_WINDOW as usize;
 /// The maximum number of sectors in a single window PoSt proof.
 pub const WPOST_PARTITION_SECTORS: usize = 2350;
 /// The maximum number of partitions that may be submitted in a single message.
@@ -33,7 +34,7 @@ pub const WPOST_MESSAGE_PARTITIONS_MAX: usize = 100_000 / WPOST_PARTITION_SECTOR
 pub const SECTORS_MAX: usize = 32 << 20; // PARAM_FINISH
 /// The maximum number of proving partitions a miner can have simultaneously active.
 pub fn active_partitions_max(partition_sector_count: u64) -> usize {
-    (SECTORS_MAX / partition_sector_count as usize) + WPOST_PERIOD_DEADLINES as usize
+    (SECTORS_MAX / partition_sector_count as usize) + WPOST_PERIOD_DEADLINES
 }
 /// The maximum number of partitions that may be submitted in a single message.
 /// This bounds the size of a list/set of sector numbers that might be instantiated to process a submission.
@@ -41,8 +42,7 @@ pub fn window_post_message_partitions_max(partition_sector_count: u64) -> u64 {
     100_000 / partition_sector_count
 }
 /// The maximum number of proving partitions a miner can have simultaneously active.
-pub const PARTITIONS_MAX: usize =
-    (SECTORS_MAX / WPOST_PARTITION_SECTORS) + WPOST_PERIOD_DEADLINES as usize;
+pub const PARTITIONS_MAX: usize = (SECTORS_MAX / WPOST_PARTITION_SECTORS) + WPOST_PERIOD_DEADLINES;
 /// The maximum number of new sectors that may be staged by a miner during a single proving period.
 pub const NEW_SECTORS_PER_PERIOD_MAX: usize = 128 << 10;
 /// An approximation to chain state finality (should include message propagation time as well).

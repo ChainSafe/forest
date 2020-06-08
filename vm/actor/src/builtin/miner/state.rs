@@ -1,9 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use super::deadlines::{compute_proving_period_deadline, DeadlineInfo};
 use super::policy::*;
 use super::types::*;
@@ -33,7 +30,7 @@ pub struct State {
     // TODO revisit as will likely change to Cid in future
     pub info: MinerInfo,
 
-    /// Total funds locked as PreCommitDeposits
+    /// Total funds locked as pre_commit_deposit
     #[serde(with = "biguint_ser")]
     pub pre_commit_deposit: TokenAmount,
     /// Total unvested funds locked as pledge collateral
@@ -96,7 +93,7 @@ pub struct State {
     /// Eager fault detection processing on fault/recovery declarations or PoSt may set a smaller number,
     /// indicating partial progress, from which subsequent processing should continue.
     /// In the range [0, WPoStProvingPeriodDeadlines).
-    pub next_deadline_to_process_faults: u64,
+    pub next_deadline_to_process_faults: usize,
 }
 
 impl Cbor for State {}
@@ -143,12 +140,15 @@ impl State {
             next_deadline_to_process_faults: 0,
         }
     }
+    /// Returns worker address
     pub fn get_worker(&self) -> &Address {
         &self.info.worker
     }
+    /// Returns sector size
     pub fn get_sector_size(&self) -> &SectorSize {
         &self.info.sector_size
     }
+    /// Returns deadline calculations for the current proving period.
     pub fn deadline_info(&self, current_epoch: ChainEpoch) -> DeadlineInfo {
         compute_proving_period_deadline(self.proving_period_start, current_epoch)
     }
@@ -242,7 +242,7 @@ impl State {
                 sectors.delete(sector_num)?;
                 Ok(())
             })
-            .unwrap();
+            .map_err(|e| AmtError::Other(format!("could not delete sector number: {}", e)))?;
 
         self.sectors = sectors.flush()?;
         Ok(())
@@ -257,8 +257,8 @@ impl State {
     /// Adds some sector numbers to the new sectors bitfield.
     pub fn add_new_sectors(&mut self, sector_nos: &[SectorNumber]) -> Result<(), String> {
         let mut ns = BitField::new();
-        for sector in sector_nos {
-            ns.set(*sector)
+        for &sector in sector_nos {
+            ns.set(sector)
         }
         self.new_sectors.merge_assign(&ns)?;
 
@@ -278,7 +278,7 @@ impl State {
         Ok(())
     }
     /// Gets the sector numbers expiring at some epoch.
-    fn get_sector_expirations<BS: BlockStore>(
+    fn _get_sector_expirations<BS: BlockStore>(
         &self,
         store: &BS,
         expiry: ChainEpoch,
@@ -324,7 +324,7 @@ impl State {
         Ok(())
     }
     /// Removes some sector numbers from the set expiring at an epoch.
-    fn remove_sector_expirations<BS: BlockStore>(
+    pub fn remove_sector_expirations<BS: BlockStore>(
         &mut self,
         store: &BS,
         expiry: ChainEpoch,
@@ -400,6 +400,7 @@ impl State {
         }
 
         self.faults.subtract_assign(sector_nos)?;
+
         let mut sector_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
 
         let mut changed: Vec<(u64, BitField)> = Vec::new();
@@ -436,6 +437,7 @@ impl State {
         F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
     {
         let sector_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+
         sector_arr.for_each(|i, v| f(i, v))
     }
     pub fn clear_fault_epochs<BS: BlockStore>(
@@ -460,8 +462,8 @@ impl State {
         }
 
         self.recoveries.clone().merge_assign(sector_nos)?;
-        let count = self.recoveries.count()?;
 
+        let count = self.recoveries.count()?;
         if count > SECTORS_MAX {
             return Err(format!(
                 "too many recoveries {}, max {}",
@@ -476,7 +478,7 @@ impl State {
         if sector_nos.is_empty()? {
             return Err(format!("sectors are empty: {:?}", sector_nos));
         }
-        self.recoveries.clone().subtract_assign(sector_nos)?;
+        self.recoveries.subtract_assign(sector_nos)?;
 
         Ok(())
     }
@@ -489,7 +491,9 @@ impl State {
         let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
         sectors.for_each(|i| {
             let key: SectorNumber = i;
-            let sector_on_chain = self.get_sector(store, key)?.ok_or("sector not found")?;
+            let sector_on_chain = self
+                .get_sector(store, key)?
+                .ok_or(format!("sector not found: {}", i))?;
             sector_infos.push(sector_on_chain);
             Ok(())
         })?;
@@ -544,7 +548,7 @@ impl State {
     ) -> Result<Vec<SectorOnChainInfo>, String> {
         let sector_on_chain = self
             .get_sector(store, fault_stand_in)?
-            .ok_or("unable to find sector")?;
+            .ok_or(format!("can't find stand-in sector {}", fault_stand_in))?;
 
         // Expand faults into a map for quick lookups.
         // The faults bitfield should already be a subset of the sectors bitfield.
@@ -555,11 +559,11 @@ impl State {
         let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
         sectors.for_each(|i| {
             let mut sector = sector_on_chain.clone();
-            let faulty = fault_set.get(&i).ok_or_else(|| {
+            let _faulty = fault_set.get(&i).ok_or_else(|| {
                 let new_sector_on_chain = self
                     .get_sector(store, fault_stand_in)
                     .unwrap()
-                    .ok_or("unable to find sector")
+                    .ok_or(format!("unable to find sector: {}", i))
                     .unwrap();
                 sector = new_sector_on_chain;
             });
@@ -576,7 +580,7 @@ impl State {
     }
     /// Removes all PoSt submissions
     pub fn clear_post_submissions(&mut self) -> Result<(), String> {
-        self.post_submissions = BitField::default();
+        self.post_submissions = BitField::new();
         Ok(())
     }
     pub fn load_deadlines<BS: BlockStore>(&self, store: &BS) -> Result<Deadlines, String> {
@@ -586,7 +590,7 @@ impl State {
         {
             Ok(deadlines)
         } else {
-            Err(format!("load deadlines err: {}", self.deadlines))
+            Err(format!("failed to load deadlines: {}", self.deadlines))
         }
     }
     pub fn save_deadlines<BS: BlockStore>(
@@ -621,9 +625,8 @@ impl State {
         // Nothing unlocks here, this is just the start of the clock
         let vest_begin = current_epoch + spec.initial_delay;
         let vest_period = BigUint::from(spec.vest_period);
-
+        let mut e = vest_begin + spec.step_duration;
         let mut vested_so_far = BigUint::zero();
-        let e = vest_begin + spec.step_duration;
 
         while &vested_so_far < vesting_sum {
             let vest_epoch = quantize_up(e, spec.quantization);
@@ -643,14 +646,17 @@ impl State {
             if let Some(locked_fund_entry) = vesting_funds.get(vest_epoch)? {
                 let mut locked_funds = BigUint::from(locked_fund_entry);
                 locked_funds += vest_this_time;
+
                 let num = ToPrimitive::to_u64(&locked_funds)
                     .ok_or("unable to convert to u64")
                     .unwrap();
                 vesting_funds.set(vest_epoch, num)?;
             }
+            e += spec.step_duration;
         }
         self.vesting_funds = vesting_funds.flush()?;
         self.locked_funds += vesting_sum;
+
         Ok(())
     }
 
@@ -666,7 +672,6 @@ impl State {
         let mut vesting_funds: Amt<BigUintDe, _> = Amt::load(&self.vesting_funds, store)?;
 
         let mut amount_unlocked = TokenAmount::default();
-        // let mut locked_entry = TokenAmount::default();
         let mut to_del: Vec<u64> = Vec::new();
 
         let mut set: Vec<(u64, BigUintDe)> = Vec::new();
@@ -686,10 +691,8 @@ impl State {
                     }
                 }
             } else {
-                return Err(format!(
-                    "amount unlocked is greater than target: {}, {}",
-                    amount_unlocked, target
-                ));
+                // stop iterating
+                return Err("finished".to_string());
             }
             Ok(())
         })?;
@@ -724,10 +727,8 @@ impl State {
                 amount_unlocked += locked_entry;
                 to_del.push(k);
             } else {
-                return Err(format!(
-                    "amount unlocked is greater than target: {}",
-                    amount_unlocked
-                ));
+                // stop iterating
+                return Err("finished".to_string());
             }
             Ok(())
         })?;
@@ -741,7 +742,7 @@ impl State {
     }
 
     /// CheckVestedFunds returns the amount of vested funds that have vested before the provided epoch.
-    fn check_vested_funds<BS: BlockStore>(
+    fn _check_vested_funds<BS: BlockStore>(
         &self,
         store: &BS,
         current_epoch: ChainEpoch,
@@ -754,10 +755,8 @@ impl State {
                 let BigUintDe(locked_entry) = v.clone();
                 amount_unlocked += locked_entry;
             } else {
-                return Err(format!(
-                    "amount unlocked is greater than target: {}",
-                    amount_unlocked
-                ));
+                // stop iterating
+                return Err("finished".to_string());
             }
             Ok(())
         })?;
@@ -810,7 +809,7 @@ pub struct MinerInfo {
 }
 
 impl SectorOnChainInfo {
-    fn new(
+    pub fn new(
         info: SectorPreCommitInfo,
         activation_epoch: ChainEpoch,
         deal_weight: BigUint,
@@ -863,18 +862,18 @@ impl Default for Deadlines {
 impl Deadlines {
     pub fn new() -> Self {
         Self {
-            due: vec![BitField::new(); WPOST_PERIOD_DEADLINES as usize],
+            due: vec![BitField::new(); WPOST_PERIOD_DEADLINES],
         }
     }
 
     /// Adds sector numbers to a deadline.
     /// The sector numbers are given as uint64 to avoid pointless conversions for bitfield use.
-    pub fn add_to_deadline(&mut self, deadline: u64, new_sectors: &[u64]) -> Result<(), String> {
+    pub fn add_to_deadline(&mut self, deadline: usize, new_sectors: &[u64]) -> Result<(), String> {
         let ns = BitField::new_from_set(new_sectors);
         let sec = self
             .due
-            .get_mut(deadline as usize)
-            .ok_or("unable to find deadline")?;
+            .get_mut(deadline)
+            .ok_or(format!("unable to find deadline: {}", deadline))?;
         sec.merge_assign(&ns)?;
         Ok(())
     }
@@ -922,6 +921,7 @@ mod tests {
             worker: Address::new_id(3),
             pending_worker_key: None,
             peer_id: PeerId::random().into_bytes(),
+            multi_address: PeerId::random().into_bytes(),
             sector_size: SectorSize::_2KiB,
             seal_proof_type: RegisteredProof::default(),
             window_post_partition_sectors: 0,
