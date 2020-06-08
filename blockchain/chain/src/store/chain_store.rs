@@ -323,7 +323,8 @@ fn draw_randomness(
     Ok(ret)
 }
 
-fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
+/// Returns the heaviest tipset
+pub fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
 where
     DB: BlockStore,
 {
@@ -411,7 +412,8 @@ where
     Ok(cids)
 }
 
-fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
+/// Returns the genesis block
+pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
 where
     DB: BlockStore,
 {
