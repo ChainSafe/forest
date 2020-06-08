@@ -58,7 +58,7 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Serialize, Deserialize)]
+        #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct MessageReceiptDe {
             exit_code: u64,

@@ -79,13 +79,13 @@ pub mod json {
             pub state: &'a Cid,
             #[serde(rename = "Nonce")]
             pub sequence: u64,
-            pub balance: &'a String,
+            pub balance: String,
         }
         ActorStateSer {
             code: &m.code,
             state: &m.state,
             sequence: m.sequence,
-            balance: &m.balance.to_str_radix(10),
+            balance: m.balance.to_str_radix(10),
         }
         .serialize(serializer)
     }
@@ -94,7 +94,7 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Serialize, Deserialize)]
+        #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct ActorStateDe {
             #[serde(with = "cid::json")]
