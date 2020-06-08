@@ -72,9 +72,9 @@ pub mod json {
             gas_used,
         } = Deserialize::deserialize(deserializer)?;
         Ok(MessageReceipt {
-            exit_code: ExitCode::from_u64(exit_code).ok_or(de::Error::custom(
-                "MessageReceipt deserialization: Could not turn u64 to ExitCode",
-            ))?,
+            exit_code: ExitCode::from_u64(exit_code).ok_or_else(|| {
+                de::Error::custom("MessageReceipt deserialization: Could not turn u64 to ExitCode")
+            })?,
             return_data: Serialized::new(return_data),
             gas_used,
         })
