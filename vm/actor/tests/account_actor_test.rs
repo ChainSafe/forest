@@ -22,8 +22,7 @@ macro_rules! account_tests {
                 let bs = MemoryDB::default();
                 let receiver = Address::new_id(100);
                 let message =  UnsignedMessage::builder().to(receiver.clone()).from(SYSTEM_ACTOR_ADDR.clone()).build().unwrap();
-                let default_syscalls = DefaultSyscalls::new(&bs);
-                let mut rt = MockRuntime::new(&bs, &default_syscalls, message);
+                let mut rt = MockRuntime::new(&bs, message);
                 rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
                 rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
 

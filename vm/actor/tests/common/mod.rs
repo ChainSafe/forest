@@ -18,13 +18,19 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 //use interpreter::gas_syscalls::GasSyscalls;
+use fil_types::{
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo, SectorInfo,
+    WindowPoStVerifyInfo,
+};
 use interpreter::{internal_send, ChainRand, DefaultRuntime, DefaultSyscalls, GasSyscalls};
 use interpreter::{price_list_by_epoch, GasTracker};
+use runtime::{ConsensusFault, ConsensusFaultType};
+use std::error::Error as StdError;
 
 use std::rc::Rc;
 //use super::gas_tracker::{price_list_by_epoch, GasTracker, PriceList};
 
-pub struct MockRuntime<'a, 'sys, BS, SYS> {
+pub struct MockRuntime<'a, BS: BlockStore> {
     pub epoch: ChainEpoch,
     pub caller_type: Cid,
     pub miner: Address,
@@ -33,7 +39,6 @@ pub struct MockRuntime<'a, 'sys, BS, SYS> {
     pub actor_code_cids: HashMap<Address, Cid>,
     pub new_actor_addr: Option<Address>,
     pub message: UnsignedMessage,
-    syscalls: GasSyscalls<'sys, SYS>,
 
     // TODO: syscalls: syscaller
 
@@ -80,20 +85,13 @@ pub struct ExpectedVerifySig {
     result: Option<String>,
 }
 
-impl<'a, 'sys, BS, SYS> MockRuntime<'a, 'sys, BS, SYS>
+impl<'a, BS> MockRuntime<'a, BS>
 where
     BS: BlockStore,
-    SYS: Syscalls,
 {
-    pub fn new(bs: &'a BS, default_syscalls: &'sys SYS, message: UnsignedMessage) -> Self {
+    pub fn new(bs: &'a BS, message: UnsignedMessage) -> Self {
         let price_list = price_list_by_epoch(0);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit() as i64, 0)));
-
-        let gas_syscalls = GasSyscalls {
-            price_list,
-            gas: Rc::clone(&gas_tracker),
-            syscalls: default_syscalls,
-        };
 
         MockRuntime {
             epoch: 0,
@@ -109,7 +107,6 @@ where
             state: None,
             balance: 0u8.into(),
             received: 0u8.into(),
-            syscalls: gas_syscalls,
 
             // VM Impl
             in_call: false,
@@ -307,10 +304,9 @@ where
     }
 }
 
-impl<BS, SYS> Runtime<BS> for MockRuntime<'_, '_, BS, SYS>
+impl<BS> Runtime<BS> for MockRuntime<'_, BS>
 where
     BS: BlockStore,
-    SYS: Syscalls,
 {
     fn message(&self) -> &UnsignedMessage {
         self.require_in_call();
@@ -569,6 +565,45 @@ where
     }
 
     fn syscalls(&self) -> &dyn Syscalls {
-        &self.syscalls
+        self
+    }
+}
+
+impl<BS> Syscalls for MockRuntime<'_, BS>
+where
+    BS: BlockStore,
+{
+    fn verify_signature(
+        &self,
+        _signature: &Signature,
+        _signer: &Address,
+        _plaintext: &[u8],
+    ) -> Result<(), Box<dyn StdError>> {
+        unimplemented!();
+    }
+    fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
+        unimplemented!();
+    }
+    fn compute_unsealed_sector_cid(
+        &self,
+        _reg: RegisteredProof,
+        _pieces: &[PieceInfo],
+    ) -> Result<Cid, Box<dyn StdError>> {
+        unimplemented!();
+    }
+    fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        unimplemented!();
+    }
+    fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        unimplemented!();
+    }
+    fn verify_consensus_fault(
+        &self,
+        _h1: &[u8],
+        _h2: &[u8],
+        _extra: &[u8],
+        _earliest: ChainEpoch,
+    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
+        unimplemented!();
     }
 }
