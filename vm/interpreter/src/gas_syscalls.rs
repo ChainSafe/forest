@@ -9,6 +9,7 @@ use crypto::Signature;
 use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use runtime::{ConsensusFault, Syscalls};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::rc::Rc;
 
@@ -81,9 +82,16 @@ where
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_consensus_fault())
             .unwrap();
-        Ok(self
-            .syscalls
-            .verify_consensus_fault(h1, h2, extra, earliest)?)
+        self.syscalls
+            .verify_consensus_fault(h1, h2, extra, earliest)
+    }
+
+    fn batch_verify_seals(
+        &self,
+        vis: &[(Address, Vec<SealVerifyInfo>)],
+    ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        // TODO revisit if gas ends up being charged (only used by cron actor)
+        self.syscalls.batch_verify_seals(vis)
     }
 }
 
@@ -131,6 +139,12 @@ mod tests {
                 epoch: 0,
                 fault_type: ConsensusFaultType::DoubleForkMining,
             }))
+        }
+        fn batch_verify_seals(
+            &self,
+            _vis: &[(Address, Vec<SealVerifyInfo>)],
+        ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+            Ok(Default::default())
         }
     }
 
