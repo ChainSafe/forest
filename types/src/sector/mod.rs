@@ -23,6 +23,7 @@ pub type SectorNumber = u64;
 /// Unit of storage power (measured in bytes)
 pub type StoragePower = BigUint;
 
+/// Unit of sector quality
 pub type SectorQuality = BigUint;
 
 /// SectorSize indicates one of a set of possible sizes in the network.
