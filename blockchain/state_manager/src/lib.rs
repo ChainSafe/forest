@@ -5,7 +5,7 @@ mod errors;
 
 pub use self::errors::*;
 use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR};
-use address::{Address, Protocol};
+use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
 use async_log::span;
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
@@ -224,15 +224,16 @@ where
         db: &Arc<DB>,
         addr: &Address,
         state_cid: &Cid,
-    ) -> Result<Vec<u8>, Error> {
+    ) -> Result<[u8; BLS_PUB_LEN], Error> {
         let state = StateTree::new_from_root(db.as_ref(), state_cid).map_err(Error::State)?;
         let kaddr = resolve_to_key_addr(&state, db.as_ref(), addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
-        if kaddr.protocol() != Protocol::BLS {
-            return Err("Address must be BLS address to load bls public key"
-                .to_owned()
-                .into());
+
+        match kaddr.into_payload() {
+            Payload::BLS(BLSPublicKey(key)) => Ok(key),
+            _ => Err(Error::State(
+                "Address must be BLS address to load bls public key".to_owned(),
+            )),
         }
-        Ok(kaddr.payload_bytes())
     }
 }
