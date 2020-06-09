@@ -62,12 +62,12 @@ pub struct State {
     /// Sector numbers indexed by expiry epoch (which are on proving period boundaries).
     /// Invariant: Keys(Sectors) == union(SectorExpirations.Values())
     /// Array, AMT[ChainEpoch]Bitfield
-    sector_expirations: Cid,
+    pub sector_expirations: Cid,
 
     /// The sector numbers due for PoSt at each deadline in the current proving period, frozen at period start.
     /// New sectors are added and expired ones removed at proving period boundary.
     /// Faults are not subtracted from this in state, but on the fly.
-    deadlines: Cid,
+    pub deadlines: Cid,
 
     /// All currently known faulty sectors, mutated eagerly.
     /// These sectors are exempt from inclusion in PoSt.
@@ -78,7 +78,7 @@ pub struct State {
     /// At most 14 entries, b/c sectors faulty longer expire.
     /// Invariant: Faults == union(FaultEpochs.Values())
     /// AMT[ChainEpoch]Bitfield
-    fault_epoch: Cid,
+    pub fault_epochs: Cid,
 
     /// Faulty sectors that will recover when next included in a valid PoSt.
     /// Invariant: Recoveries ⊆ Faults.
@@ -109,6 +109,7 @@ impl State {
         peer_id: Vec<u8>,
         multi_address: Vec<u8>,
         proof_type: RegisteredProof,
+        period_start: ChainEpoch,
     ) -> Self {
         let seal_proof_type = proof_type.registered_seal_proof();
         let sector_size = seal_proof_type.sector_size();
@@ -129,12 +130,12 @@ impl State {
             vesting_funds: empty_arr.clone(),
             pre_committed_sectors: empty_map,
             sectors: empty_arr.clone(),
-            proving_period_start: ChainEpoch::default(),
+            proving_period_start: period_start,
             new_sectors: BitField::default(),
             sector_expirations: empty_arr.clone(),
             deadlines: empty_deadlines,
             faults: BitField::default(),
-            fault_epoch: empty_arr,
+            fault_epochs: empty_arr,
             recoveries: BitField::default(),
             post_submissions: BitField::default(),
             next_deadline_to_process_faults: 0,
@@ -206,10 +207,7 @@ impl State {
         sector_num: SectorNumber,
     ) -> Result<bool, AmtError> {
         let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
-        match sectors.get(sector_num)? {
-            Some(_) => Ok(true),
-            None => Ok(false),
-        }
+        Ok(sectors.get(sector_num)?.is_some())
     }
     pub fn put_sector<BS: BlockStore>(
         &mut self,
@@ -278,7 +276,7 @@ impl State {
         Ok(())
     }
     /// Gets the sector numbers expiring at some epoch.
-    fn _get_sector_expirations<BS: BlockStore>(
+    pub fn get_sector_expirations<BS: BlockStore>(
         &self,
         store: &BS,
         expiry: ChainEpoch,
@@ -376,7 +374,7 @@ impl State {
             return Err(format!("too many faults {}, max {}", count, SECTORS_MAX));
         }
 
-        let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+        let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
         let mut bf: BitField = epoch_fault_arr
             .get(fault_epoch)?
             .ok_or("unable to find sector")?;
@@ -385,7 +383,7 @@ impl State {
 
         epoch_fault_arr.set(fault_epoch, bf)?;
 
-        self.fault_epoch = epoch_fault_arr.flush()?;
+        self.fault_epochs = epoch_fault_arr.flush()?;
 
         Ok(())
     }
@@ -401,7 +399,7 @@ impl State {
 
         self.faults.subtract_assign(sector_nos)?;
 
-        let mut sector_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+        let mut sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
 
         let mut changed: Vec<(u64, BitField)> = Vec::new();
 
@@ -423,7 +421,7 @@ impl State {
             sector_arr.set(k, v)?;
         }
 
-        self.fault_epoch = sector_arr.flush()?;
+        self.fault_epochs = sector_arr.flush()?;
 
         Ok(())
     }
@@ -436,7 +434,7 @@ impl State {
     where
         F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
     {
-        let sector_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+        let sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
 
         sector_arr.for_each(|i, v| f(i, v))
     }
@@ -445,13 +443,13 @@ impl State {
         store: &BS,
         epochs: &[ChainEpoch],
     ) -> Result<(), String> {
-        let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epoch, store)?;
+        let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
 
         for &exp in epochs {
             epoch_fault_arr.delete(exp)?;
         }
 
-        self.fault_epoch = epoch_fault_arr.flush()?;
+        self.fault_epochs = epoch_fault_arr.flush()?;
 
         Ok(())
     }
@@ -613,6 +611,10 @@ impl State {
         self.pre_commit_deposit += amount
     }
 
+    pub fn subtract_pre_commit_deposit(&mut self, amount: &TokenAmount) {
+        self.pre_commit_deposit -= amount
+    }
+
     pub fn add_locked_funds<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -742,7 +744,7 @@ impl State {
     }
 
     /// CheckVestedFunds returns the amount of vested funds that have vested before the provided epoch.
-    fn _check_vested_funds<BS: BlockStore>(
+    pub fn check_vested_funds<BS: BlockStore>(
         &self,
         store: &BS,
         current_epoch: ChainEpoch,
@@ -769,7 +771,7 @@ impl State {
     }
 
     pub fn assert_balance_invariants(&self, balance: &TokenAmount) {
-        assert!(balance > &(&self.pre_commit_deposit + &self.locked_funds))
+        assert!(balance > &(&self.pre_commit_deposit + &self.locked_funds));
     }
 }
 
@@ -822,7 +824,7 @@ impl SectorOnChainInfo {
             verified_deal_weight,
         }
     }
-    pub fn as_sector_info(&self) -> SectorInfo {
+    pub fn to_sector_info(&self) -> SectorInfo {
         SectorInfo {
             proof: self.info.registered_proof,
             sector_number: self.info.sector_number,
@@ -831,7 +833,7 @@ impl SectorOnChainInfo {
     }
 }
 
-pub fn as_storage_weight_desc(
+pub fn to_storage_weight_desc(
     sector_size: SectorSize,
     sector_info: &SectorOnChainInfo,
 ) -> power::SectorStorageWeightDesc {

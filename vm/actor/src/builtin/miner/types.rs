@@ -14,6 +14,7 @@ pub type CronEvent = i64;
 pub const CRON_EVENT_WORKER_KEY_CHANGE: CronEvent = 1;
 pub const CRON_EVENT_PRE_COMMIT_EXPIRY: CronEvent = 2;
 pub const CRON_EVENT_PROVING_PERIOD: CronEvent = 3;
+
 /// Storage miner actor constructor params are defined here so the power actor can send them to the init actor
 /// to instantiate miners.
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -29,7 +30,7 @@ pub struct MinerConstructorParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CronEventPayload {
     pub event_type: i64,
-    pub sectors: BitField,
+    pub sectors: Option<BitField>,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct GetControlAddressesReturn {
