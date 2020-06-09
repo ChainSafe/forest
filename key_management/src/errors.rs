@@ -13,8 +13,10 @@ pub enum Error {
     KeyExists,
     #[error("Key does not exist")]
     KeyNotExists,
-    #[error("key not found")]
+    #[error("Key not found")]
     NoKey,
     #[error("{0}")]
     Other(String),
+    #[error("Could not convert from KeyInfo to Key")]
+    KeyInfoConversion,
 }

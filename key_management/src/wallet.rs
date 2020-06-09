@@ -3,10 +3,10 @@
 
 use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
-use crate::MemKeyStore;
 use address::Address;
 use crypto::{Signature, SignatureType};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 /// A Key, this contains a key_info, address, and public_key which holds the key type and private key
@@ -18,16 +18,17 @@ pub struct Key {
     address: Address,
 }
 
-impl From<KeyInfo> for Key {
-    fn from(key_info: KeyInfo) -> Self {
-        let public_key =
-            wallet_helpers::to_public(*key_info.key_type(), key_info.private_key()).unwrap();
-        let address = wallet_helpers::new_address(*key_info.key_type(), &public_key).unwrap();
-        Key {
+impl TryFrom<KeyInfo> for Key {
+    type Error = crate::errors::Error;
+
+    fn try_from(key_info: KeyInfo) -> Result<Self, Self::Error> {
+        let public_key = wallet_helpers::to_public(*key_info.key_type(), key_info.private_key())?;
+        let address = wallet_helpers::new_address(*key_info.key_type(), &public_key)?;
+        Ok(Key {
             key_info,
             public_key,
             address,
-        }
+        })
     }
 }
 
@@ -38,22 +39,6 @@ impl From<KeyInfo> for Key {
 pub struct Wallet<T> {
     keys: HashMap<Address, Key>,
     keystore: T,
-}
-
-impl Wallet<MemKeyStore> {
-    /// Return a wallet from a given amount of keys. This wallet will not use the
-    /// generic keystore trait, but rather specifically use a MemKeyStore
-    pub fn new_from_keys(key_vec: impl IntoIterator<Item = Key>) -> Self {
-        let mut keys: HashMap<Address, Key> = HashMap::new();
-        for item in key_vec.into_iter() {
-            keys.insert(item.address, item);
-        }
-        let key_store = MemKeyStore::new();
-        Wallet {
-            keys,
-            keystore: key_store,
-        }
-    }
 }
 
 impl<T> Wallet<T>
@@ -68,6 +53,16 @@ where
         }
     }
 
+    /// Return a wallet from a given amount of keys. This wallet will not use the
+    /// generic keystore trait, but rather specifically use a MemKeyStore
+    pub fn new_from_keys(keystore: T, key_vec: impl IntoIterator<Item = Key>) -> Self {
+        let mut keys: HashMap<Address, Key> = HashMap::new();
+        for item in key_vec.into_iter() {
+            keys.insert(item.address, item);
+        }
+        Wallet { keys, keystore }
+    }
+
     /// Return the Key that is resolved by a given Address,
     /// If this key does not exist in the keys hashmap, check if this key is in
     /// the keystore, if it is, then add it to keys, otherwise return Error
@@ -77,7 +72,7 @@ where
         }
         let key_string = format!("wallet-{}", addr.to_string());
         let key_info = self.keystore.get(&key_string)?;
-        let new_key = Key::from(key_info.clone());
+        let new_key = Key::try_from(key_info)?;
         self.keys.insert(*addr, new_key.clone());
         Ok(new_key)
     }
@@ -97,8 +92,8 @@ where
     }
 
     /// Add Key_Info to the Wallet, return the Address that resolves to this newly added KeyInfo
-    pub fn import(&mut self, key_info: &KeyInfo) -> Result<Address, Error> {
-        let k = Key::from(key_info.clone());
+    pub fn import(&mut self, key_info: KeyInfo) -> Result<Address, Error> {
+        let k = Key::try_from(key_info)?;
         let addr = format!("wallet-{}", k.address.to_string());
         self.keystore.put(addr, k.key_info)?;
         Ok(k.address)
@@ -123,14 +118,14 @@ where
     /// Return the Address of the default KeyInfo in the Wallet
     pub fn get_default(&self) -> Result<Address, Error> {
         let key_info = self.keystore.get(&"default".to_string())?;
-        let k = Key::from(key_info.clone());
+        let k = Key::try_from(key_info)?;
         Ok(k.address)
     }
 
     /// Set a default KeyInfo to the Wallet
     pub fn set_default(&mut self, addr: Address) -> Result<(), Error> {
         let addr_string = format!("wallet-{}", addr.to_string());
-        let key_info = self.keystore.get(&addr_string)?.clone();
+        let key_info = self.keystore.get(&addr_string)?;
         self.keystore.remove("default".to_string()); // This line should unregister current default key then continue
         self.keystore.put("default".to_string(), key_info)?;
         Ok(())
@@ -162,13 +157,13 @@ where
 fn generate_key(typ: SignatureType) -> Result<Key, Error> {
     let private_key = wallet_helpers::generate(typ)?;
     let key_info = KeyInfo::new(typ, private_key);
-    Ok(Key::from(key_info))
+    Key::try_from(key_info)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generate;
+    use crate::{generate, MemKeyStore};
     use secp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     fn construct_priv_keys() -> Vec<Key> {
@@ -177,12 +172,12 @@ mod tests {
         for _ in 1..5 {
             let secp_priv_key = generate(SignatureType::Secp256).unwrap();
             let secp_key_info = KeyInfo::new(SignatureType::Secp256, secp_priv_key);
-            let secp_key = Key::from(secp_key_info);
+            let secp_key = Key::try_from(secp_key_info).unwrap();
             secp_keys.push(secp_key);
 
             let bls_priv_key = generate(SignatureType::BLS).unwrap();
             let bls_key_info = KeyInfo::new(SignatureType::BLS, bls_priv_key);
-            let bls_key = Key::from(bls_key_info);
+            let bls_key = Key::try_from(bls_key_info).unwrap();
             bls_keys.push(bls_key);
         }
 
@@ -192,7 +187,7 @@ mod tests {
 
     fn generate_wallet() -> Wallet<MemKeyStore> {
         let key_vec = construct_priv_keys();
-        let wallet = Wallet::new_from_keys(key_vec);
+        let wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
         wallet
     }
 
@@ -202,7 +197,7 @@ mod tests {
         let found_key = key_vec[0].clone();
         let addr = key_vec[0].address.clone();
 
-        let mut wallet = Wallet::new_from_keys(key_vec);
+        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
 
         // make sure that this address resolves to the right key
         assert_eq!(wallet.find_key(&addr).unwrap(), found_key);
@@ -228,7 +223,7 @@ mod tests {
         let key_vec = construct_priv_keys();
         let priv_key_bytes = key_vec[2].key_info.private_key().clone();
         let addr = key_vec[2].address.clone();
-        let mut wallet = Wallet::new_from_keys(key_vec);
+        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
         let msg: [u8; 32] = [
             1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
             1, 1, 1,
@@ -247,7 +242,7 @@ mod tests {
     fn import_export() {
         let key_vec = construct_priv_keys();
         let key = key_vec[0].clone();
-        let mut wallet = Wallet::new_from_keys(key_vec);
+        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
 
         let key_info = wallet.export(&key.address).unwrap();
         // test to see if export returns the correct key_info
@@ -263,9 +258,9 @@ mod tests {
 
         let test_key_info = KeyInfo::new(SignatureType::Secp256, new_priv_key);
         // make sure that key_info has been imported to wallet
-        assert!(wallet.import(&test_key_info).is_ok());
+        assert!(wallet.import(test_key_info.clone()).is_ok());
 
-        let duplicate_error = wallet.import(&test_key_info).unwrap_err();
+        let duplicate_error = wallet.import(test_key_info).unwrap_err();
         // make sure that error is thrown when attempted to re-import a duplicate key_info
         assert_eq!(duplicate_error, Error::KeyExists);
     }

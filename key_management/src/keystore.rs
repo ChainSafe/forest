@@ -36,9 +36,13 @@ impl KeyInfo {
 
 /// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
 pub trait KeyStore {
+    /// Return all of the keys that are stored in the KeyStore
     fn list(&self) -> Vec<String>;
-    fn get(&self, k: &str) -> Result<&KeyInfo, Error>;
+    /// Return Keyinfo that corresponds to a given key
+    fn get(&self, k: &str) -> Result<KeyInfo, Error>;
+    /// Save a key key_info pair to the KeyStore
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
+    /// Remove the Key and corresponding key_info from the KeyStore
     fn remove(&mut self, key: String) -> Option<KeyInfo>;
 }
 
@@ -57,17 +61,17 @@ impl MemKeyStore {
 }
 
 impl KeyStore for MemKeyStore {
-    /// Return all of the keys that are stored in the KeyStore
     fn list(&self) -> Vec<String> {
         self.key_info.iter().map(|(key, _)| key.clone()).collect()
     }
 
-    /// Return Keyinfo that corresponds to a given key
-    fn get(&self, k: &str) -> Result<&KeyInfo, Error> {
-        self.key_info.get(k).ok_or(Error::KeyInfo)
+    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
+        match self.key_info.get(k) {
+            Some(ki) => Ok(ki.clone()),
+            None => Err(Error::KeyInfo),
+        }
     }
 
-    /// Save a key key_info pair to the KeyStore
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
         if self.key_info.contains_key(&key) {
             return Err(Error::KeyExists);
@@ -76,7 +80,6 @@ impl KeyStore for MemKeyStore {
         Ok(())
     }
 
-    /// Remove the Key and corresponding key_info from the KeyStore
     fn remove(&mut self, key: String) -> Option<KeyInfo> {
         self.key_info.remove(&key)
     }
