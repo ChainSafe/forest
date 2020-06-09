@@ -58,7 +58,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
-    pub expect_verify_sig: Option<ExpectedVerifySig>,
+    pub expect_verify_sig: RefCell<Option<ExpectedVerifySig>>,
 }
 
 #[derive(Clone, Debug)]
@@ -82,7 +82,8 @@ pub struct ExpectedMessage {
 pub struct ExpectedVerifySig {
     sig: Signature,
     signer: Address,
-    result: Option<String>,
+    plaintext : Vec<u8>,
+    result: ExitCode
 }
 
 impl<'a, BS> MockRuntime<'a, BS>
@@ -119,7 +120,7 @@ where
             expect_validate_caller_type: RefCell::new(None),
             expect_sends: VecDeque::new(),
             expect_create_actor: None,
-            expect_verify_sig: None,
+            expect_verify_sig: RefCell::new(None),
         }
     }
     fn require_in_call(&self) {
@@ -159,17 +160,21 @@ where
         *self.expect_validate_caller_type.borrow_mut() = Some(ids.to_vec());
     }
 
+    #[allow(dead_code)]
     pub fn expect_verify_signature(
         &mut self,
         sig: Signature,
         signer: Address,
-        result: Option<String>,
+        plaintext: Vec<u8>,
+        result: ExitCode,
     ) {
-        self.expect_verify_sig = Some(ExpectedVerifySig {
+        println!("Plain text is {:?}", plaintext);
+        self.expect_verify_sig = RefCell::new( Some(ExpectedVerifySig {
             sig: sig,
             signer: signer,
+            plaintext: plaintext,
             result: result,
-        });
+        }));
     }
 
     #[allow(dead_code)]
@@ -262,7 +267,7 @@ where
         *self.expect_validate_caller_addr.borrow_mut() = None;
         *self.expect_validate_caller_type.borrow_mut() = None;
         self.expect_create_actor = None;
-        self.expect_verify_sig = None;
+        *self.expect_verify_sig.borrow_mut() = None;
     }
 
     #[allow(dead_code)]
@@ -579,8 +584,28 @@ where
         _signer: &Address,
         _plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
-        unimplemented!();
+
+        let op_exp = self.expect_verify_sig.replace(Option::None);
+
+        if let Some(exp) = op_exp{
+            
+            if exp.sig == *_signature && exp.signer == *_signer  && (exp.plaintext[..]) == *_plaintext{
+                if exp.result == ExitCode::Ok{
+                    return Ok(());
+                }
+                else{
+                    return Err(Box::new(ActorError::new(exp.result, "Expected failure".to_string())));
+                }
+            }
+            else{
+                return Err(Box::new(ActorError::new(ExitCode::ErrIllegalState, "Signatures did not matchcarg".to_string())));
+            }
+        }
+        else{
+            return Err(Box::new(ActorError::new(ExitCode::ErrPlaceholder, "Expected verify sig not there ".to_string())));
+        }
     }
+
     fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
         unimplemented!();
     }

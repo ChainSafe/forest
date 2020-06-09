@@ -24,7 +24,7 @@ use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use num_bigint::{BigInt, Sign};
 use runtime::{ActorCode, Runtime, Syscalls};
-
+use encoding::to_vec;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 struct lane_params {
@@ -330,16 +330,20 @@ fn redeem_voucher_one_lane() {
     let payer_addr = Address::new_id(102);
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), payee_addr);
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(sv.signature.unwrap(), payer_addr, None);
-    let v = rt
-        .call(
-            &PAYCH_ACTOR_CODE_ID.clone(),
-            Method::UpdateChannelState as u64,
-            &Serialized::serialize(ucp).unwrap(),
-        )
-        .unwrap_err();
+    let s = sv.signature.clone().unwrap();
+    
+    rt.expect_verify_signature(s.clone(), payer_addr, to_vec(&sv).unwrap() , ExitCode::Ok);
+    println!("line 334 it is {:?}",rt.expect_verify_sig);
 
-    println!("Error message is {}", v.msg());
+    assert!(rt
+            .call(
+                &PAYCH_ACTOR_CODE_ID.clone(),
+                Method::UpdateChannelState as u64,
+                &Serialized::serialize(ucp).unwrap(),
+            )
+            .is_ok()
+        );
+         
     rt.verify();
     let exp_ls = LaneState {
         id: 0,
@@ -372,7 +376,7 @@ fn redeem_voucher_correct_lane() {
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), payee_addr);
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(sv.clone().signature.unwrap(), payer_addr, None);
+    rt.expect_verify_signature(sv.clone().signature.unwrap(), payer_addr, vec![], ExitCode::Ok);
 
     let ucp = UpdateChannelStateParams {
         proof: vec![],
@@ -424,7 +428,7 @@ fn merge_success() {
     sv.merges = merges;
     let payee_addr = Address::new_id(103);
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(sv.clone().signature.unwrap(), payee_addr, None);
+    rt.expect_verify_signature(sv.clone().signature.unwrap(), payee_addr, vec![], ExitCode::Ok);
     let ucp = UpdateChannelStateParams {
         proof: vec![],
         secret: vec![],
@@ -509,7 +513,7 @@ fn merge_failue() {
 
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
         rt.expect_validate_caller_addr(&[state.from, state.to]);
-        rt.expect_verify_signature(sv.clone().signature.unwrap(), payee_addr, None);
+        rt.expect_verify_signature(sv.clone().signature.unwrap(), payee_addr, vec![], ExitCode::Ok);
         let v = rt
             .call(
                 &PAYCH_ACTOR_CODE_ID.clone(),
@@ -549,7 +553,7 @@ fn invalid_merge_lane_999() {
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(sv.clone().signature.unwrap(), payee_addr, None);
+    rt.expect_verify_signature(sv.clone().signature.unwrap(), payee_addr, vec![], ExitCode::Ok);
     let v = rt
         .call(
             &PAYCH_ACTOR_CODE_ID.clone(),
@@ -578,7 +582,7 @@ fn lane_limit_exceeded() {
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(sv.clone().signature.unwrap(), payee_addr, None);
+    rt.expect_verify_signature(sv.clone().signature.unwrap(), payee_addr, vec![], ExitCode::Ok);
     let v = rt
         .call(
             &PAYCH_ACTOR_CODE_ID.clone(),
@@ -603,7 +607,7 @@ fn extra_call_succeed() {
         data: Serialized::serialize([1, 2, 3, 4]).unwrap(),
     });
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(sv.clone().signature.unwrap(), state.to, None);
+    rt.expect_verify_signature(sv.clone().signature.unwrap(), state.to, vec![], ExitCode::Ok);
     let exp_send_params = PaymentVerifyParams {
         extra: Serialized::serialize(vec![1, 2, 3, 4]).unwrap(),
         proof: vec![],
@@ -657,7 +661,7 @@ fn extra_call_fail() {
         Serialized::default(),
         ExitCode::ErrPlaceholder,
     );
-    rt.expect_verify_signature(sv.clone().signature.unwrap(), state.to, None);
+    rt.expect_verify_signature(sv.clone().signature.unwrap(), state.to, vec![], ExitCode::Ok);
     let ucp = UpdateChannelStateParams {
         proof: vec![],
         secret: vec![],
@@ -708,7 +712,7 @@ fn update_channel_setting() {
         };
         ucp.sv.min_settle_height = min_settle_vec[i];
         rt.expect_validate_caller_addr(&[state.from, state.to]);
-        rt.expect_verify_signature(ucp.sv.clone().signature.unwrap(), state.to, None);
+        rt.expect_verify_signature(ucp.sv.clone().signature.unwrap(), state.to, vec![], ExitCode::Ok);
         assert!(rt
             .call(
                 &PAYCH_ACTOR_CODE_ID.clone(),
@@ -733,7 +737,7 @@ fn succeed_correct_secret() {
         sv: sv.clone(),
     };
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(ucp.sv.clone().signature.unwrap(), state.to, None);
+    rt.expect_verify_signature(ucp.sv.clone().signature.unwrap(), state.to, vec![], ExitCode::Ok);
     assert!(rt
         .call(
             &PAYCH_ACTOR_CODE_ID.clone(),
@@ -755,7 +759,7 @@ fn incorrect_secret() {
         sv: sv.clone(),
     };
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(ucp.sv.clone().signature.unwrap(), state.to, None);
+    rt.expect_verify_signature(ucp.sv.clone().signature.unwrap(), state.to, vec![], ExitCode::Ok);
     let v = rt
         .call(
             &PAYCH_ACTOR_CODE_ID.clone(),
@@ -803,7 +807,7 @@ fn settle_if_height_less() {
         sv: sv.clone(),
     };
     rt.expect_validate_caller_addr(&[state.from, state.to]);
-    rt.expect_verify_signature(ucp.sv.clone().signature.unwrap(), state.to, None);
+    rt.expect_verify_signature(ucp.sv.clone().signature.unwrap(), state.to, vec![], ExitCode::Ok);
     assert!(rt
         .call(
             &PAYCH_ACTOR_CODE_ID.clone(),
@@ -865,7 +869,7 @@ fn require_create_cannel_with_lanes<'a, BS: BlockStore>(
             from: payer_addr,
             to: payee_addr,
             amt: (i + 1) as i64,
-            lane: i,
+            lane: i as u64,
             nonce: i + 1,
         };
 
@@ -880,7 +884,8 @@ fn require_add_new_lane<BS: BlockStore>(
     param: lane_params,
 ) -> SignedVoucher {
     let payee_addr = Address::new_id(103);
-    let sig = Signature::new_bls(vec![0, 1, 2, 3, 4, 5, 67]);
+    let sig = Signature::new_bls(vec![0, 1, 2, 3, 4, 5, 6,7]);
+    // println!("sig is {:?}", sig.bytes());
     let sv = SignedVoucher {
         time_lock_min: param.epoch_num,
         time_lock_max: u64::MAX,
@@ -895,23 +900,25 @@ fn require_add_new_lane<BS: BlockStore>(
     };
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), param.from);
     rt.expect_validate_caller_addr(&[param.from, param.to]);
-    rt.expect_verify_signature(sig.clone(), payee_addr, None);
+    rt.expect_verify_signature(sig.clone(), payee_addr, to_vec(&sv).unwrap(), ExitCode::Ok);
+    println!(" sv vec bytes is {:?}",to_vec(&sv).unwrap());
+
     let ucp = UpdateChannelStateParams {
         proof: vec![],
         secret: vec![],
         sv: sv,
     };
 
-    let v = rt
+    
+    assert!( rt
         .call(
             &PAYCH_ACTOR_CODE_ID.clone(),
             Method::UpdateChannelState as u64,
             &Serialized::serialize(ucp).unwrap(),
         )
-        .unwrap_err();
-
-    println!("Failed becuase {:?}", v.msg());
-
+        .is_ok()
+    );
+        
     rt.verify();
     SignedVoucher {
         time_lock_min: param.epoch_num,
@@ -926,6 +933,7 @@ fn require_add_new_lane<BS: BlockStore>(
         signature: Some(sig.clone()),
     }
 }
+
 
 fn construct_and_verify<BS: BlockStore>(
     rt: &mut MockRuntime<'_, BS>,

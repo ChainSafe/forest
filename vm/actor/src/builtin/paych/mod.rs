@@ -98,7 +98,7 @@ impl Actor {
         // Pull signature from signed voucher
         let sig = sv
             .signature
-            .take()
+            .clone()
             .ok_or_else(|| rt.abort(ExitCode::ErrIllegalArgument, "voucher has no signature"))?;
 
         // Generate unsigned bytes
@@ -215,7 +215,7 @@ impl Actor {
             // 2. To prevent double counting, remove already redeemed amounts (from
             // voucher or other lanes) from the voucher amount
             st.lane_states[idx].nonce = sv.nonce;
-            let balance_delta = &sv.amount - redeemed + &st.lane_states[idx].redeemed;
+            let balance_delta = &sv.amount - (redeemed + &st.lane_states[idx].redeemed);
 
             // 3. set new redeemed value for merged-into lane
             st.lane_states[idx].redeemed = sv.amount;
