@@ -82,8 +82,8 @@ pub struct ExpectedMessage {
 pub struct ExpectedVerifySig {
     sig: Signature,
     signer: Address,
-    plaintext : Vec<u8>,
-    result: ExitCode
+    plaintext: Vec<u8>,
+    result: ExitCode,
 }
 
 impl<'a, BS> MockRuntime<'a, BS>
@@ -169,7 +169,7 @@ where
         result: ExitCode,
     ) {
         println!("Plain text is {:?}", plaintext);
-        self.expect_verify_sig = RefCell::new( Some(ExpectedVerifySig {
+        self.expect_verify_sig = RefCell::new(Some(ExpectedVerifySig {
             sig: sig,
             signer: signer,
             plaintext: plaintext,
@@ -584,25 +584,32 @@ where
         _signer: &Address,
         _plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
-
         let op_exp = self.expect_verify_sig.replace(Option::None);
 
-        if let Some(exp) = op_exp{
-            
-            if exp.sig == *_signature && exp.signer == *_signer  && (exp.plaintext[..]) == *_plaintext{
-                if exp.result == ExitCode::Ok{
+        if let Some(exp) = op_exp {
+            if exp.sig == *_signature
+                && exp.signer == *_signer
+                && (exp.plaintext[..]) == *_plaintext
+            {
+                if exp.result == ExitCode::Ok {
                     return Ok(());
+                } else {
+                    return Err(Box::new(ActorError::new(
+                        exp.result,
+                        "Expected failure".to_string(),
+                    )));
                 }
-                else{
-                    return Err(Box::new(ActorError::new(exp.result, "Expected failure".to_string())));
-                }
+            } else {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Signatures did not matchcarg".to_string(),
+                )));
             }
-            else{
-                return Err(Box::new(ActorError::new(ExitCode::ErrIllegalState, "Signatures did not matchcarg".to_string())));
-            }
-        }
-        else{
-            return Err(Box::new(ActorError::new(ExitCode::ErrPlaceholder, "Expected verify sig not there ".to_string())));
+        } else {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrPlaceholder,
+                "Expected verify sig not there ".to_string(),
+            )));
         }
     }
 
