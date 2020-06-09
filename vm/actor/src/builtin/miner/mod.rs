@@ -482,7 +482,7 @@ impl Actor {
                     format!("wrong proof type {:?}", params.registered_proof),
                 ));
             };
-            if st
+            let sec = st
                 .get_precommitted_sector(rt.store(), params.sector_number)
                 .map_err(|e| {
                     ActorError::new(
@@ -492,9 +492,8 @@ impl Actor {
                             params.sector_number, e
                         ),
                     )
-                })?
-                .is_some()
-            {
+                })?;
+            if sec.is_some() {
                 // Sector is currently precommitted but still not proven.
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
@@ -2225,7 +2224,7 @@ where
     }
 
     let weights = sectors
-        .into_iter()
+        .iter()
         .map(|s| to_storage_weight_desc(sector_size, s))
         .collect();
     let ser_params = Serialized::serialize(OnFaultBeginParams { weights })?;
@@ -2253,7 +2252,7 @@ where
     }
 
     let weights = sectors
-        .into_iter()
+        .iter()
         .map(|s| to_storage_weight_desc(sector_size, s))
         .collect();
     let ser_params = Serialized::serialize(OnFaultEndParams { weights })?;
@@ -2299,7 +2298,7 @@ where
     }
 
     let weights = sectors
-        .into_iter()
+        .iter()
         .map(|s| to_storage_weight_desc(sector_size, s))
         .collect();
     let ser_params = Serialized::serialize(OnSectorTerminateParams {
@@ -2337,7 +2336,7 @@ where
     let randomness: PoStRandomness =
         rt.get_randomness(WindowedPoStChallengeSeed, challenge_epoch, &entropy)?;
 
-    let challenged_sectors = sectors.into_iter().map(|s| s.to_sector_info()).collect();
+    let challenged_sectors = sectors.iter().map(|s| s.to_sector_info()).collect();
 
     // get public inputs
     let pv_info = WindowPoStVerifyInfo {

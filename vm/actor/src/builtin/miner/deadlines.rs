@@ -159,7 +159,7 @@ pub fn compute_partitions_sector(
         .get_mut(deadline_idx)
         .ok_or(format!("unable to find deadline: {}", deadline_idx))?;
     let partitions_sectors = partitions
-        .into_iter()
+        .iter()
         .map(|&p_idx| {
             if p_idx < deadline_first_partition
                 || p_idx >= deadline_first_partition + deadline_partition_count
@@ -249,7 +249,7 @@ pub fn assign_new_sectors(
     // and is unclear what functionality is intended.
     let sort_deadlines = |deadl: &[usize; WPOST_PERIOD_DEADLINES],
                           dl_idxs: &mut [usize; WPOST_PERIOD_DEADLINES]| {
-        let cloned_idxs = dl_idxs.clone();
+        let cloned_idxs = *dl_idxs;
         dl_idxs.sort_by(|i, j| {
             let (idx_i, idx_j) = (cloned_idxs[*i], cloned_idxs[*j]);
             let (count_i, count_j) = (deadl[idx_i], deadl[idx_j]);
