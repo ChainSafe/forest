@@ -85,15 +85,22 @@ pub mod json {
     #[serde(transparent)]
     pub struct SignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a SignedMessage);
 
+    impl From<SignedMessageJson> for SignedMessage {
+        fn from(wrapper: SignedMessageJson) -> Self {
+            wrapper.0
+        }
+    }
+
     pub fn serialize<S>(m: &SignedMessage, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
         struct SignedMessageSer<'a> {
-            #[serde(rename = "Message", with = "unsigned_message::json")]
+            #[serde(with = "unsigned_message::json")]
             message: &'a UnsignedMessage,
-            #[serde(rename = "Signature", with = "signature::json")]
+            #[serde(with = "signature::json")]
             signature: &'a Signature,
         }
         SignedMessageSer {
@@ -108,13 +115,38 @@ pub mod json {
         D: Deserializer<'de>,
     {
         #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "PascalCase")]
         struct SignedMessageDe {
-            #[serde(rename = "Message", with = "unsigned_message::json")]
+            #[serde(with = "unsigned_message::json")]
             message: UnsignedMessage,
-            #[serde(rename = "Signature", with = "signature::json")]
+            #[serde(with = "signature::json")]
             signature: Signature,
         }
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;
         Ok(SignedMessage { message, signature })
+    }
+
+    pub mod vec {
+        use super::*;
+        use forest_json_utils::GoVecVisitor;
+        use serde::ser::SerializeSeq;
+
+        pub fn serialize<S>(m: &[SignedMessage], serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq = serializer.serialize_seq(Some(m.len()))?;
+            for e in m {
+                seq.serialize_element(&SignedMessageJsonRef(e))?;
+            }
+            seq.end()
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<SignedMessage>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_any(GoVecVisitor::<SignedMessage, SignedMessageJson>::new())
+        }
     }
 }

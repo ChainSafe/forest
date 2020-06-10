@@ -13,6 +13,7 @@ use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{info, trace};
+use rpc::start_rpc;
 use std::sync::Arc;
 use structopt::StructOpt;
 use utils::write_to_file;
@@ -61,7 +62,7 @@ fn main() {
     let network_send = p2p_service.network_sender();
 
     // Get Drand Coefficients
-    let coeff = config.drand_dist_public.clone();
+    let coeff = config.drand_dist_public;
 
     // Start services
     let p2p_thread = task::spawn(async {
@@ -85,10 +86,16 @@ fn main() {
         chain_syncer.start().await.unwrap();
     });
 
+    let db_rpc = Arc::clone(&db);
+    let rpc_thread = task::spawn(async {
+        start_rpc(db_rpc).await;
+    });
+
     // Block until ctrl-c is hit
     block_until_sigint();
 
     // Drop threads
+    drop(rpc_thread);
     drop(p2p_thread);
     drop(sync_thread);
 

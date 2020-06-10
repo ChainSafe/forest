@@ -12,6 +12,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
+use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
@@ -31,10 +32,13 @@ const W_RATIO_DEN: u64 = 2;
 /// Blocks epoch allowed
 const BLOCKS_PER_EPOCH: u64 = 5;
 
+// A cap on the size of the future_sink
+const SINK_CAP: usize = 1000;
+
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
     // TODO add IPLD Store
-    // TODO add a pubsub channel that publishes an event every time the head changes.
+    publisher: Publisher<Arc<Tipset>>,
 
     // key-value datastore
     pub db: Arc<DB>,
@@ -57,16 +61,23 @@ where
             .map(Arc::new);
         Self {
             db,
+            publisher: Publisher::new(SINK_CAP),
             tip_index: TipIndex::new(),
             heaviest,
         }
     }
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
-    pub fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        self.heaviest = Some(ts);
+        self.heaviest = Some(ts.clone());
+        self.publisher.publish(ts).await;
         Ok(())
+    }
+
+    // subscribing returns a future sink that we can essentially iterate over using future streams
+    pub fn subscribe(&mut self) -> Subscriber<Arc<Tipset>> {
+        self.publisher.subscribe()
     }
 
     /// Sets tip_index tracker
@@ -87,10 +98,10 @@ where
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
-    pub fn put_tipsets(&mut self, ts: &Tipset) -> Result<(), Error> {
+    pub async fn put_tipsets(&mut self, ts: &Tipset) -> Result<(), Error> {
         persist_headers(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
-        self.update_heaviest(ts)?;
+        self.update_heaviest(ts).await?;
         Ok(())
     }
 
@@ -100,14 +111,16 @@ where
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    pub fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
+    pub async fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
         let heaviest_ts = get_heaviest_tipset(self.blockstore())?.ok_or_else(|| {
             warn!("No previous chain state found");
             Error::Other("No chain state found".to_owned())
         })?;
 
         // set as heaviest tipset
-        self.heaviest = Some(Arc::new(heaviest_ts));
+        let heaviest_ts = Arc::new(heaviest_ts);
+        self.heaviest = Some(heaviest_ts.clone());
+        self.publisher.publish(heaviest_ts).await;
         Ok(())
     }
 
@@ -151,41 +164,12 @@ where
         tipset_from_keys(self.blockstore(), tsk)
     }
 
-    /// Returns a tuple of cids for both Unsigned and Signed messages
-    fn read_msg_cids(&self, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error> {
-        if let Some(roots) = self
-            .blockstore()
-            .get::<TxMeta>(msg_cid)
-            .map_err(|e| Error::Other(e.to_string()))?
-        {
-            let bls_cids = read_amt_cids(self.blockstore(), &roots.bls_message_root)?;
-            let secpk_cids = read_amt_cids(self.blockstore(), &roots.secp_message_root)?;
-            Ok((bls_cids, secpk_cids))
-        } else {
-            Err(Error::UndefinedKey("no msgs with that key".to_string()))
-        }
-    }
-
-    /// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
-    /// of type SignedMessage
-    pub fn messages(
-        &self,
-        bh: &BlockHeader,
-    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        let (bls_cids, secpk_cids) = self.read_msg_cids(bh.messages())?;
-
-        let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(self.blockstore(), bls_cids)?;
-        let secp_msgs: Vec<SignedMessage> = messages_from_cids(self.blockstore(), secpk_cids)?;
-
-        Ok((bls_msgs, secp_msgs))
-    }
-
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
         let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
 
         for header in ts.into_blocks() {
-            let (bls_messages, secp_messages) = self.messages(&header)?;
+            let (bls_messages, secp_messages) = block_messages(self.blockstore(), &header)?;
             blocks.push(Block {
                 header,
                 bls_messages,
@@ -197,7 +181,7 @@ where
         Ok(FullTipset::new(blocks).unwrap())
     }
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
+    async fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
         match &self.heaviest {
             Some(heaviest) => {
                 let new_weight = weight(self.blockstore(), ts)?;
@@ -205,15 +189,64 @@ where
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset");
-                    self.set_heaviest_tipset(Arc::new(ts.clone()))?;
+                    self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
                 }
             }
             None => {
                 info!("set heaviest tipset");
-                self.set_heaviest_tipset(Arc::new(ts.clone()))?;
+                self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
             }
         }
         Ok(())
+    }
+}
+
+/// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
+/// of type SignedMessage
+pub fn block_messages<DB>(
+    db: &DB,
+    bh: &BlockHeader,
+) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+where
+    DB: BlockStore,
+{
+    let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
+
+    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, &bls_cids)?;
+    let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
+
+    Ok((bls_msgs, secp_msgs))
+}
+
+/// Returns a tuple of UnsignedMessage and SignedMessages from their Cid
+pub fn block_messages_from_cids<DB>(
+    db: &DB,
+    bls_cids: &[Cid],
+    secp_cids: &[Cid],
+) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+where
+    DB: BlockStore,
+{
+    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, bls_cids)?;
+    let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secp_cids)?;
+
+    Ok((bls_msgs, secp_msgs))
+}
+
+/// Returns a tuple of cids for both Unsigned and Signed messages
+pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
+where
+    DB: BlockStore,
+{
+    if let Some(roots) = db
+        .get::<TxMeta>(msg_cid)
+        .map_err(|e| Error::Other(e.to_string()))?
+    {
+        let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
+        let secpk_cids = read_amt_cids(db, &roots.secp_message_root)?;
+        Ok((bls_cids, secpk_cids))
+    } else {
+        Err(Error::UndefinedKey("no msgs with that key".to_string()))
     }
 }
 
@@ -242,7 +275,7 @@ where
     Ok(db.bulk_write(&keys, &raw_header_data)?)
 }
 
-fn put_messages<DB, T: Cbor>(db: &DB, msgs: &[T]) -> Result<(), Error>
+pub fn put_messages<DB, T: Cbor>(db: &DB, msgs: &[T]) -> Result<(), Error>
 where
     DB: BlockStore,
 {
@@ -290,7 +323,8 @@ fn draw_randomness(
     Ok(ret)
 }
 
-fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
+/// Returns the heaviest tipset
+pub fn get_heaviest_tipset<DB>(db: &DB) -> Result<Option<Tipset>, Error>
 where
     DB: BlockStore,
 {
@@ -304,7 +338,7 @@ where
 }
 
 /// Returns Tipset from key-value store from provided cids
-fn tipset_from_keys<DB>(db: &DB, tsk: &TipsetKeys) -> Result<Tipset, Error>
+pub fn tipset_from_keys<DB>(db: &DB, tsk: &TipsetKeys) -> Result<Tipset, Error>
 where
     DB: BlockStore,
 {
@@ -322,6 +356,43 @@ where
     // construct new Tipset to return
     let ts = Tipset::new(block_headers)?;
     Ok(ts)
+}
+/// Returns the tipset behind `tsk` at a given `height`. If the given height
+/// is a null round:
+/// if `prev` is `true`, the tipset before the null round is returned.
+/// If `prev` is `false`, the tipset following the null round is returned.
+pub fn tipset_by_height<DB>(
+    db: &DB,
+    height: ChainEpoch,
+    ts: Tipset,
+    prev: bool,
+) -> Result<Tipset, Error>
+where
+    DB: BlockStore,
+{
+    if height > ts.epoch() {
+        return Err(Error::Other(
+            "searching for tipset that has a height less than starting point".to_owned(),
+        ));
+    }
+    if height == ts.epoch() {
+        return Ok(ts);
+    }
+    // TODO: If ts.epoch()-h > Fork Length Threshold, it could be expensive to look up
+    let mut ts_temp = ts;
+    loop {
+        let pts = tipset_from_keys(db, ts_temp.parents())?;
+        if height > pts.epoch() {
+            if prev {
+                return Ok(pts);
+            }
+            return Ok(ts_temp);
+        }
+        if height == pts.epoch() {
+            return Ok(pts);
+        }
+        ts_temp = pts;
+    }
 }
 
 /// Returns a vector of cids from provided root cid
@@ -341,7 +412,8 @@ where
     Ok(cids)
 }
 
-fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
+/// Returns the genesis block
+pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
 where
     DB: BlockStore,
 {
@@ -352,7 +424,7 @@ where
 }
 
 /// Returns messages from key-value store
-fn messages_from_cids<DB, T>(db: &DB, keys: Vec<Cid>) -> Result<Vec<T>, Error>
+fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
     DB: BlockStore,
     T: DeserializeOwned,
@@ -381,7 +453,7 @@ where
             .get::<PowerState>(&act.state)
             .map_err(|e| e.to_string())?
         {
-            tpow = state.total_network_power;
+            tpow = state.total_quality_adj_power;
         }
     }
     let log2_p = if tpow > BigUint::zero() {

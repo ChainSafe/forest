@@ -11,9 +11,8 @@ use self::policy::*;
 pub use self::state::State;
 pub use self::types::*;
 use crate::{
-    make_map, request_miner_control_addrs, BalanceTable, DealID, DealWeight, OptionalEpoch,
-    SetMultimap, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, MINER_ACTOR_CODE_ID,
-    SYSTEM_ACTOR_ADDR,
+    make_map, request_miner_control_addrs, BalanceTable, DealID, OptionalEpoch, SetMultimap,
+    BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -23,8 +22,7 @@ use fil_types::PieceInfo;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::bigint_ser::BigIntSer;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -312,15 +310,15 @@ impl Actor {
     fn verify_deals_on_sector_prove_commit<BS, RT>(
         rt: &mut RT,
         params: VerifyDealsOnSectorProveCommitParams,
-    ) -> Result<DealWeight, ActorError>
+    ) -> Result<VerifyDealsOnSectorProveCommitReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().from();
-        let mut total_deal_space_time = BigInt::zero();
-        let mut deal_weight = BigInt::zero();
+        let mut total_deal_space_time = BigUint::zero();
+        let mut total_verified_deal_space_time = BigUint::zero();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector
@@ -365,24 +363,23 @@ impl Actor {
 
                 // compute deal weight
                 let deal_space_time = proposal.duration() * proposal.piece_size.0;
-                total_deal_space_time += deal_space_time;
+                if proposal.verified_deal {
+                    total_verified_deal_space_time += deal_space_time;
+                } else {
+                    total_deal_space_time += deal_space_time;
+                }
             }
             st.states = states
                 .flush()
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-            let epoch_value = params
-                .sector_expiry
-                .checked_sub(rt.curr_epoch())
-                .unwrap_or(1u64);
-
-            let sector_space_time = BigInt::from(params.sector_size as u64) * epoch_value;
-            deal_weight = total_deal_space_time / sector_space_time;
-
             Ok(())
         })??;
 
-        Ok(deal_weight)
+        Ok(VerifyDealsOnSectorProveCommitReturn {
+            deal_weight: total_deal_space_time,
+            verified_deal_weight: total_verified_deal_space_time,
+        })
     }
 
     /// Terminate a set of deals in response to their containing sector being terminated.
@@ -685,7 +682,7 @@ impl ActorCode for Actor {
             }
             Some(Method::VerifyDealsOnSectorProveCommit) => {
                 let res = Self::verify_deals_on_sector_prove_commit(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(BigIntSer(&res))?)
+                Ok(Serialized::serialize(&res)?)
             }
             Some(Method::OnMinerSectorsTerminate) => {
                 Self::on_miners_sector_terminate(rt, params.deserialize()?)?;

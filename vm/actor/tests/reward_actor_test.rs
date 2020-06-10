@@ -13,8 +13,9 @@ use db::MemoryDB;
 use interpreter::DefaultSyscalls;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
-use runtime::Syscalls;
-use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+
+use std::panic;
+use vm::{Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
     let message = UnsignedMessage::builder()
@@ -29,6 +30,7 @@ fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
 }
 
 #[test]
+#[should_panic(expected = "actor current balance 0 insufficient to pay gas reward 10")]
 fn balance_less_than_reward() {
     let bs = MemoryDB::default();
     let mut rt = construct_runtime(&bs);
@@ -47,15 +49,10 @@ fn balance_less_than_reward() {
     };
 
     //Expect call to fail because actor doesnt have enough tokens to reward
-    let call_result = rt.call(
+    let _res = rt.call(
         &*REWARD_ACTOR_CODE_ID,
         Method::AwardBlockReward as u64,
         &Serialized::serialize(&params).unwrap(),
-    );
-
-    assert_eq!(
-        ExitCode::ErrInsufficientFunds,
-        call_result.unwrap_err().exit_code()
     );
 
     rt.verify()

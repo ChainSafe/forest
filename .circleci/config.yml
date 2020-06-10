@@ -1,0 +1,145 @@
+version: 2.1
+
+executors:
+  test-executor:
+    machine:
+      image: ubuntu-1604:202004-01
+    resource_class: large
+
+commands:
+  install_rust:
+    description: Install Rust Toolchain
+    steps:
+      - run:
+          name: Install Rust Toolchain
+          command: |
+            curl -O https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && \
+            chmod +x rustup-init && \
+            ./rustup-init -y --no-modify-path --default-toolchain stable && \
+            rm rustup-init && \
+            echo 'export PATH=$HOME/.cargo/bin:$PATH' >> $BASH_ENV && \
+            source $BASH_ENV
+            rustc --version && \
+            cargo --version \
+  rust_setup:
+    description: Set rustc version
+    steps:
+      - run:
+          name: Set rustc version
+          command: |
+            rustup default stable
+            rustup update stable
+  print_versions:
+    description: Version Info
+    steps:
+      - run:
+          name: Version Info
+          command: rustc --version; cargo --version; rustup --version
+  env_setup:
+    description: Environment Setup
+    steps:
+      - run:
+          name: Setup Env
+          command: |
+            echo 'export TAG=0.1.${CIRCLE_BUILD_NUM}' >> $BASH_ENV
+            echo 'export IMAGE_NAME=forest' >> $BASH_ENV
+            echo 'export CARGO_INCREMENTAL=0' >> $BASH_ENV
+            echo 'export CI_TIMEOUT="timeout 40m"' >> $BASH_ENV
+            echo 'export CC=gcc' >> $BASH_ENV 
+  install_deps:
+    steps:
+      - run:
+          name: Install Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y clang  \
+                curl file gcc g++ git make openssh-client \
+                autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev \
+                libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+                xz-utils pkg-config python clang ocl-icd-opencl-dev libgflags-dev
+            rustup component add clippy rustfmt
+            git submodule update --init
+            PROTOC_ZIP=protoc-3.7.1-linux-x86_64.zip
+            curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/$PROTOC_ZIP
+            sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
+            sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
+            rm -f $PROTOC_ZIP
+  save_cargo_package_cache:
+    description: Save cargo package cache for subsequent jobs
+    steps:
+      - save_cache:
+          key: cargo-package-cache-{{ .Environment.CIRCLE_SHA1 }}
+          # paths are relative to /home/circleci/project/
+          paths:
+            - ../.cargo/git
+            - ../.cargo/registry
+            - ../.cargo/.package-cache
+  restore_cargo_package_cache:
+    description: Restore Cargo package cache from prev job
+    steps:
+      - run:
+          name: Print dir
+          command: |
+            ls -all /usr/local/include
+      - restore_cache:
+          key: cargo-package-cache-{{ .Environment.CIRCLE_SHA1 }}
+      - run:
+          name: Check cargo package cache
+          command: |
+            ls -all $HOME/.cargo
+            du -ssh $HOME/.cargo
+  build_setup:
+    description: Sets up environment for future jobs
+    steps:
+      - checkout
+      - install_rust
+      - rust_setup
+      - print_versions
+      - env_setup
+      - install_deps
+jobs:
+  prefetch-crates:
+    executor: test-executor
+    description: Prefetch cargo crates for subsequent jobs.
+    steps:
+      - build_setup
+      - restore_cargo_package_cache
+      - run:
+          name: Fetch workspace dependencies over network
+          command: cargo fetch
+      - save_cargo_package_cache
+  lint:
+    executor: test-executor
+    description: Run Rust linting tools.
+    steps:
+      - build_setup
+      - restore_cargo_package_cache
+      - run:
+          name: cargo clippy
+          command: cargo clippy -- -D warnings
+      - run:
+          name: cargo fmt
+          command: cargo fmt --all -- --check
+  test:
+    executor: test-executor
+    description: Run Rust tests
+    steps:
+      - build_setup
+      - restore_cargo_package_cache
+      - run:
+          name: Build Unit Tests
+          command: make test-all-no-run
+      - run:
+          name: Run Unit Tests
+          command: make test-all
+
+workflows:
+  setup_test:
+    jobs:
+      - prefetch-crates
+      - lint:
+          requires:
+            - prefetch-crates
+      - test:
+          requires:
+            - prefetch-crates
