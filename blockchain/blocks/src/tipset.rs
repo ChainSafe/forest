@@ -265,3 +265,67 @@ pub mod tipset_keys_json {
         })
     }
 }
+
+#[cfg(feature = "json")]
+pub mod tipset_json {
+    use super::*;
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct TipsetJson(#[serde(with = "self")] pub Tipset);
+
+    /// Wrapper for serializing a SignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
+
+    impl From<TipsetJson> for Tipset {
+        fn from(wrapper: TipsetJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    pub fn serialize<S>(m: &Tipset, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct TipsetSer<'a> {
+            #[serde(with = "super::super::header::json::vec")]
+            blocks: &'a [BlockHeader],
+            #[serde(with = "super::tipset_keys_json")]
+            cids: &'a TipsetKeys,
+            height: ChainEpoch,
+        }
+        TipsetSer {
+            blocks: &m.blocks,
+            cids: &m.key,
+            height: m.epoch(),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Tipset, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct TipsetDe {
+            #[serde(with = "super::super::header::json::vec")]
+            blocks: Vec<BlockHeader>,
+            #[serde(with = "super::tipset_keys_json")]
+            cids: TipsetKeys,
+            height: ChainEpoch,
+        }
+        let TipsetDe {
+            blocks,
+            cids,
+            height,
+        } = Deserialize::deserialize(deserializer)?;
+        Tipset::new(blocks).map_err(de::Error::custom)
+    }
+}
