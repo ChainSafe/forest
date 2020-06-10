@@ -108,8 +108,6 @@ impl Actor {
             )
         })?;
 
-        //println!("Passing sig line 112 sv_bz is {:?}", sv_bz.to_vec());
-
         // Validate signature
         rt.syscalls()
             .verify_signature(&sig, &signer, &sv_bz)
@@ -119,8 +117,6 @@ impl Actor {
                     format!("voucher signature invalid: {}", e),
                 )
             })?;
-
-        println!("Passing sig line 124");
 
         if rt.curr_epoch() < sv.time_lock_min {
             return Err(rt.abort(ExitCode::ErrIllegalArgument, "cannot use this voucher yet"));
@@ -186,7 +182,6 @@ impl Actor {
             // 1. (optional) sum already redeemed value of all merging lanes
             let mut redeemed = BigInt::default();
             for merge in sv.merges {
-                println!("IN for loop lanes are {:?} and {:?}", merge.lane, sv.lane);
                 if merge.lane == sv.lane {
                     return Err(ActorError::new(
                         ExitCode::ErrIllegalArgument,

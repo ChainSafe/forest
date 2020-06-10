@@ -30,7 +30,6 @@ where
         signer: &Address,
         plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
-        println!("In this func");
         self.gas
             .borrow_mut()
             .charge_gas(
@@ -38,7 +37,6 @@ where
                     .on_verify_signature(signature.signature_type(), plaintext.len()),
             )
             .unwrap();
-        println!("Passed this partr");
         self.syscalls.verify_signature(signature, signer, plaintext)
     }
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
