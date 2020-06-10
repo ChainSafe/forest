@@ -590,7 +590,6 @@ where
                 && exp.signer == *_signer
                 && (exp.plaintext[..]) == *_plaintext
             {
-                //println!("Exp is {:?}",exp);
                 if exp.result == ExitCode::Ok {
                     return Ok(());
                 } else {

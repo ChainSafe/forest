@@ -226,7 +226,6 @@ mod create_lane_tests {
         ];
 
         for test_case in test_cases {
-            println!("Executing the next test case ");
             let bs = MemoryDB::default();
             let message = UnsignedMessage::builder()
                 .from(*SYSTEM_ACTOR_ADDR)
@@ -320,7 +319,6 @@ mod create_lane_tests {
                         &Serialized::serialize(ucp).unwrap(),
                     )
                     .unwrap_err();
-                println!("error message is {}", error.msg());
                 assert_eq!(error.exit_code(), test_case.exp_exit_code);
                 verify_initial_state(&mut rt, payer_addr, payee_addr);
             }
@@ -549,7 +547,6 @@ fn merge_failue() {
                 &Serialized::serialize(ucp).unwrap(),
             )
             .unwrap_err();
-        println!("Message is {:?}", v.msg());
         assert_eq!(v.exit_code(), exit_vec[i]);
         rt.verify();
     }
@@ -1075,7 +1072,6 @@ fn require_add_new_lane<BS: BlockStore>(
 ) -> SignedVoucher {
     let payee_addr = Address::new_id(103);
     let sig = Signature::new_bls(vec![0, 1, 2, 3, 4, 5, 6, 7]);
-    // println!("sig is {:?}", sig.bytes());
     let sv = SignedVoucher {
         time_lock_min: param.epoch_num,
         time_lock_max: u64::MAX,
@@ -1091,7 +1087,6 @@ fn require_add_new_lane<BS: BlockStore>(
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), param.from);
     rt.expect_validate_caller_addr(&[param.from, param.to]);
     rt.expect_verify_signature(sig.clone(), payee_addr, to_vec(&sv).unwrap(), ExitCode::Ok);
-    println!(" sv vec bytes is {:?}", to_vec(&sv).unwrap());
 
     let ucp = UpdateChannelStateParams {
         proof: vec![],
