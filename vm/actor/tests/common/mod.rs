@@ -52,6 +52,8 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
     pub expect_verify_sig: RefCell<Option<ExpectedVerifySig>>,
+    pub expect_verify_seal: RefCell<Option<ExpectedVerifySeal>>,
+    pub expect_verify_post: RefCell<Option<ExpectedVerifyPost>>,
 }
 
 #[derive(Clone, Debug)]
@@ -76,6 +78,17 @@ pub struct ExpectedVerifySig {
     sig: Signature,
     signer: Address,
     plaintext: Vec<u8>,
+    result: ExitCode,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExpectedVerifySeal {
+    seal: SealVerifyInfo,
+    result: ExitCode,
+}
+#[derive(Clone, Debug)]
+pub struct ExpectedVerifyPost {
+    post: WindowPoStVerifyInfo,
     result: ExitCode,
 }
 
@@ -111,6 +124,8 @@ where
             expect_sends: VecDeque::new(),
             expect_create_actor: None,
             expect_verify_sig: RefCell::new(None),
+            expect_verify_seal: RefCell::new(None),
+            expect_verify_post: RefCell::new(None),
         }
     }
     fn require_in_call(&self) {
@@ -617,10 +632,65 @@ where
         unimplemented!();
     }
     fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        unimplemented!();
+        let op_exp = self.expect_verify_seal.replace(Option::None);
+        if let Some(exp) = op_exp {
+            if exp.seal == *_vi {
+                if exp.result == ExitCode::Ok {
+                    return Ok(());
+                } else {
+                    return Err(Box::new(ActorError::new(
+                        exp.result,
+                        "Expected failure".to_string(),
+                    )));
+                }
+            } else {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Seal did not match".to_string(),
+                )));
+            }
+        } else {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrPlaceholder,
+                "Expected verify seal not there ".to_string(),
+            )));
+        }
     }
+    fn batch_verify_seals(
+        &self,
+        vis: &[(Address, Vec<SealVerifyInfo>)],
+    ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        let mut out: HashMap<Address, Vec<bool>> = HashMap::new();
+        for (k, v) in vis {
+            out.insert(*k, vec![true; v.len()]);
+        }
+        Ok(out)
+    }
+
     fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        unimplemented!();
+        let op_exp = self.expect_verify_post.replace(Option::None);
+        if let Some(exp) = op_exp {
+            if exp.post == *_vi {
+                if exp.result == ExitCode::Ok {
+                    return Ok(());
+                } else {
+                    return Err(Box::new(ActorError::new(
+                        exp.result,
+                        "Expected failure".to_string(),
+                    )));
+                }
+            } else {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Post did not match".to_string(),
+                )));
+            }
+        } else {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrPlaceholder,
+                "Expected verify post not there ".to_string(),
+            )));
+        }
     }
     fn verify_consensus_fault(
         &self,
