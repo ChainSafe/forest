@@ -9,7 +9,7 @@ use actor::{
         SignedVoucher, State as PState, UpdateChannelStateParams, LANE_LIMIT, SETTLE_DELAY,
     },
     ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
-    PAYCH_ACTOR_CODE_ID,  SYSTEM_ACTOR_ADDR
+    PAYCH_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -1127,7 +1127,7 @@ fn construct_and_verify<BS: BlockStore>(
         to: receiver,
     };
     rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
-    assert!( rt
+    assert!(rt
         .call(
             &PAYCH_ACTOR_CODE_ID,
             METHOD_CONSTRUCTOR,
