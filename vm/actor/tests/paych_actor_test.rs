@@ -9,8 +9,7 @@ use actor::{
         SignedVoucher, State as PState, UpdateChannelStateParams, LANE_LIMIT, SETTLE_DELAY,
     },
     ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
-    PAYCH_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
-    SYSTEM_ACTOR_CODE_ID,
+    PAYCH_ACTOR_CODE_ID,  SYSTEM_ACTOR_ADDR
 };
 use address::Address;
 use cid::Cid;
@@ -20,14 +19,12 @@ use crypto::Signature;
 use db::MemoryDB;
 use derive_builder::Builder;
 use encoding::to_vec;
-use interpreter::{internal_send, ChainRand, DefaultRuntime, DefaultSyscalls, GasSyscalls};
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use num_bigint::{BigInt, Sign};
-use runtime::{ActorCode, Runtime, Syscalls};
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
-struct lane_params {
+struct LaneParams {
     epoch_num: ChainEpoch,
     from: Address,
     to: Address,
@@ -433,7 +430,7 @@ fn merge_success() {
     let num_lanes = 3;
     let bs = MemoryDB::default();
     let (mut rt, mut sv) = require_create_cannel_with_lanes(&bs, num_lanes);
-    let mut state: PState = rt.get_state().unwrap();
+    let state: PState = rt.get_state().unwrap();
     let state_2: PState = rt.get_state().unwrap();
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
@@ -733,7 +730,7 @@ fn extra_call_fail() {
 #[test]
 fn update_channel_setting() {
     let bs = MemoryDB::default();
-    let (mut rt, mut sv) = require_create_cannel_with_lanes(&bs, 1);
+    let (mut rt, sv) = require_create_cannel_with_lanes(&bs, 1);
     rt.epoch = 10;
     let state: PState = rt.get_state().unwrap();
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
@@ -786,9 +783,9 @@ fn update_channel_setting() {
 #[test]
 fn succeed_correct_secret() {
     let bs = MemoryDB::default();
-    let (mut rt, mut sv) = require_create_cannel_with_lanes(&bs, 1);
+    let (mut rt, sv) = require_create_cannel_with_lanes(&bs, 1);
     let state: PState = rt.get_state().unwrap();
-    let mut ucp = UpdateChannelStateParams {
+    let ucp = UpdateChannelStateParams {
         proof: vec![],
         secret: vec![],
         sv: sv.clone(),
@@ -813,7 +810,7 @@ fn succeed_correct_secret() {
 #[test]
 fn incorrect_secret() {
     let bs = MemoryDB::default();
-    let (mut rt, mut sv) = require_create_cannel_with_lanes(&bs, 1);
+    let (mut rt, sv) = require_create_cannel_with_lanes(&bs, 1);
     let state: PState = rt.get_state().unwrap();
     let mut ucp = UpdateChannelStateParams {
         proof: vec![],
@@ -845,7 +842,7 @@ fn incorrect_secret() {
 #[test]
 fn adjust_settling_at() {
     let bs = MemoryDB::default();
-    let (mut rt, mut sv) = require_create_cannel_with_lanes(&bs, 1);
+    let (mut rt, _sv) = require_create_cannel_with_lanes(&bs, 1);
     let ep = 10;
     rt.epoch = ep;
     let mut state: PState = rt.get_state().unwrap();
@@ -872,7 +869,7 @@ fn settle_if_height_less() {
     rt.epoch = ep;
     let mut state: PState = rt.get_state().unwrap();
     sv.min_settle_height = (ep + SETTLE_DELAY) + 1;
-    let mut ucp = UpdateChannelStateParams {
+    let ucp = UpdateChannelStateParams {
         proof: vec![],
         secret: vec![],
         sv: sv.clone(),
@@ -1057,7 +1054,7 @@ fn require_create_cannel_with_lanes<'a, BS: BlockStore>(
 
     let mut last_sv = SignedVoucher::default();
     for i in 0..num_lanes {
-        let lane_param = lane_params {
+        let lane_param = LaneParams {
             epoch_num: curr_epoch,
             from: payer_addr,
             to: payee_addr,
@@ -1074,7 +1071,7 @@ fn require_create_cannel_with_lanes<'a, BS: BlockStore>(
 
 fn require_add_new_lane<BS: BlockStore>(
     rt: &mut MockRuntime<'_, BS>,
-    param: lane_params,
+    param: LaneParams,
 ) -> SignedVoucher {
     let payee_addr = Address::new_id(103);
     let sig = Signature::new_bls(vec![0, 1, 2, 3, 4, 5, 6, 7]);
@@ -1135,13 +1132,13 @@ fn construct_and_verify<BS: BlockStore>(
         to: receiver,
     };
     rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
-    let v = rt
+    assert!( rt
         .call(
             &PAYCH_ACTOR_CODE_ID,
             METHOD_CONSTRUCTOR,
             &Serialized::serialize(&params).unwrap(),
         )
-        .unwrap();
+        .is_ok());
     rt.verify();
     verify_initial_state(rt, sender, receiver);
 }

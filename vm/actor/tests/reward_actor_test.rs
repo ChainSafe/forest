@@ -10,7 +10,6 @@ use actor::{
 use address::Address;
 use common::*;
 use db::MemoryDB;
-use interpreter::DefaultSyscalls;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 

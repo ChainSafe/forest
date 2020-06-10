@@ -9,10 +9,8 @@ use actor::{
 use address::Address;
 use common::*;
 use db::MemoryDB;
-use interpreter::DefaultSyscalls;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
-use runtime::Syscalls;
 use vm::{ExitCode, Serialized};
 
 fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {

@@ -13,10 +13,8 @@ use address::Address;
 use cid::Cid;
 use common::*;
 use db::MemoryDB;
-use interpreter::DefaultSyscalls;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use runtime::Syscalls;
 use serde::Serialize;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 

@@ -10,8 +10,6 @@ use db::MemoryDB;
 use message::UnsignedMessage;
 use vm::{ExitCode, Serialized};
 
-use interpreter::DefaultSyscalls;
-
 macro_rules! account_tests {
     ($($name:ident: $value:expr,)*) => {
         $(
