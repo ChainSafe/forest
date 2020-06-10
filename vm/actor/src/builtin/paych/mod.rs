@@ -93,8 +93,7 @@ impl Actor {
             st.from
         };
 
-        let mut sv = params.sv;
-
+        let sv = params.sv;
         // Pull signature from signed voucher
         let sig = sv
             .signature
@@ -109,7 +108,7 @@ impl Actor {
             )
         })?;
 
-        println!("Passing sig line 112 sv_bz is {:?}", sv_bz.to_vec());
+        //println!("Passing sig line 112 sv_bz is {:?}", sv_bz.to_vec());
 
         // Validate signature
         rt.syscalls()

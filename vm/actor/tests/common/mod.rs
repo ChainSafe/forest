@@ -18,6 +18,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 //use interpreter::gas_syscalls::GasSyscalls;
+use encoding::blake2b_256;
 use fil_types::{
     zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo, SectorInfo,
     WindowPoStVerifyInfo,
@@ -168,7 +169,6 @@ where
         plaintext: Vec<u8>,
         result: ExitCode,
     ) {
-        println!("Plain text is {:?}", plaintext);
         self.expect_verify_sig = RefCell::new(Some(ExpectedVerifySig {
             sig: sig,
             signer: signer,
@@ -591,6 +591,7 @@ where
                 && exp.signer == *_signer
                 && (exp.plaintext[..]) == *_plaintext
             {
+                //println!("Exp is {:?}",exp);
                 if exp.result == ExitCode::Ok {
                     return Ok(());
                 } else {
@@ -602,7 +603,7 @@ where
             } else {
                 return Err(Box::new(ActorError::new(
                     ExitCode::ErrIllegalState,
-                    "Signatures did not matchcarg".to_string(),
+                    "Signatures did not match".to_string(),
                 )));
             }
         } else {
@@ -614,7 +615,7 @@ where
     }
 
     fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
-        unimplemented!();
+        Ok(blake2b_256(&_data))
     }
     fn compute_unsealed_sector_cid(
         &self,
