@@ -66,10 +66,7 @@ impl KeyStore for MemKeyStore {
     }
 
     fn get(&self, k: &str) -> Result<KeyInfo, Error> {
-        match self.key_info.get(k) {
-            Some(ki) => Ok(ki.clone()),
-            None => Err(Error::KeyInfo),
-        }
+        self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
     }
 
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
