@@ -464,30 +464,26 @@ fn merge_success() {
         .is_ok());
     rt.verify();
 
-    let (sv_amount_sign, sv_amount_bytes) = &sv.amount.to_bytes_be();
-
     let exp_merge_to = LaneState {
         id: merge_to.id,
-        redeemed: BigInt::from_bytes_be(*sv_amount_sign, &sv_amount_bytes),
+        redeemed: sv.amount.clone(),
         nonce: sv.nonce,
     };
 
-    let (from_sign, from_bytes) = &merge_from.redeemed.to_bytes_be();
-
     let exp_merge_from = LaneState {
         id: merge_from.id,
-        redeemed: BigInt::from_bytes_be(*from_sign, &from_bytes),
+        redeemed: merge_from.redeemed.clone(),
         nonce: merge_nonce,
     };
 
-    let (to_sign, to_bytes) = &merge_to.redeemed.to_bytes_be();
+    let redeemed = &merge_from.redeemed + &merge_to.redeemed;
 
-    let redeemed =
-        BigInt::from_bytes_be(*from_sign, &from_bytes) + BigInt::from_bytes_be(*to_sign, &to_bytes);
-    let exp_delta = sv.amount - redeemed;
-    let exp_send_amt = BigInt::from_bytes_be(Sign::Plus, &state.to_send.to_bytes_be()) + exp_delta;
+    let exp_delta = &sv.amount - &redeemed;
+
     let mut exp_state = state_2;
-    exp_state.to_send = TokenAmount::from_bytes_be(&exp_send_amt.to_signed_bytes_be());
+
+    exp_state.to_send = exp_delta.to_biguint().unwrap() + &state.to_send;
+
     exp_state.lane_states = vec![
         exp_merge_to,
         exp_merge_from,

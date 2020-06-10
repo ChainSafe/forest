@@ -14,7 +14,7 @@ use std::error::Error as StdError;
 use std::rc::Rc;
 
 /// Syscall wrapper to charge gas on syscalls
-pub struct GasSyscalls<'sys, S> {
+pub(crate) struct GasSyscalls<'sys, S> {
     pub price_list: PriceList,
     pub gas: Rc<RefCell<GasTracker>>,
     pub syscalls: &'sys S,

@@ -10,16 +10,15 @@ use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
+use encoding::blake2b_256;
 use encoding::{de::DeserializeOwned, Cbor};
+use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use runtime::{ActorCode, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
-//use interpreter::gas_syscalls::GasSyscalls;
-use encoding::blake2b_256;
-use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 
 use runtime::ConsensusFault;
 use std::error::Error as StdError;
