@@ -15,7 +15,23 @@ use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 #[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
-    // TODO include other methods on impl
+    ControlAddresses = 2,
+    ChangeWorkerAddress = 3,
+    ChangePeerID = 4,
+    SubmitWindowedPoSt = 5,
+    PreCommitSector = 6,
+    ProveCommitSector = 7,
+    ExtendSectorExpiration = 8,
+    TerminateSectors = 9,
+    DeclareFaults = 10,
+    DeclareFaultsRecovered = 11,
+    OnDeferredCronEvent = 12,
+    CheckSectorProven = 13,
+    AddLockedFund = 14,
+    ReportConsensusFault = 15,
+    WithdrawBalance = 16,
+    ConfirmSectorProofsValid = 17,
+    ChangeMultiaddrs = 18,
 }
 
 /// Miner Actor
