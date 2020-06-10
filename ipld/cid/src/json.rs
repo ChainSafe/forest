@@ -14,6 +14,12 @@ pub struct CidJson(#[serde(with = "self")] pub Cid);
 #[serde(transparent)]
 pub struct CidJsonRef<'a>(#[serde(with = "self")] pub &'a Cid);
 
+impl From<CidJson> for Cid {
+    fn from(wrapper: CidJson) -> Self {
+        wrapper.0
+    }
+}
+
 pub fn serialize<S>(c: &Cid, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -34,4 +40,28 @@ where
 struct CidMap {
     #[serde(rename = "/")]
     cid: String,
+}
+
+pub mod vec {
+    use super::*;
+    use forest_json_utils::GoVecVisitor;
+    use serde::ser::SerializeSeq;
+
+    pub fn serialize<S>(m: &[Cid], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(m.len()))?;
+        for e in m {
+            seq.serialize_element(&CidJsonRef(e))?;
+        }
+        seq.end()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Cid>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(GoVecVisitor::<Cid, CidJson>::new())
+    }
 }

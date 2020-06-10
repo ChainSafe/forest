@@ -62,7 +62,7 @@ fn generate_signed_message() {
         .build()
         .unwrap();
 
-    let signed_msg = SignedMessage::new(&unsigned_msg, &DummySigner).unwrap();
+    let signed_msg = SignedMessage::new(unsigned_msg.clone(), &DummySigner).unwrap();
 
     // Assert message and signature are expected
     assert_eq!(signed_msg.message(), &unsigned_msg);

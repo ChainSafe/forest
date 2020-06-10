@@ -1,7 +1,10 @@
 [package]
-name = "rleplus"
+name = "bitfield"
 version = "0.1.0"
-authors = ["dignifiedquire <dignifiedquire@users.noreply.github.com>", "ChainSafe Systems <info@chainsafe.io>"]
+authors = [
+    "dignifiedquire <dignifiedquire@users.noreply.github.com>",
+    "ChainSafe Systems <info@chainsafe.io>"
+]
 edition = "2018"
 
 [dependencies]
@@ -9,6 +12,7 @@ bitvec = "0.17.3"
 unsigned-varint = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.3"
+fnv = "1.0.6"
 
 [dev-dependencies]
 rand_xorshift = "0.2.0"
