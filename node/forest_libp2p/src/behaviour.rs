@@ -177,13 +177,13 @@ impl ForestBehaviour {
         Poll::Pending
     }
 
-    pub fn new(local_key: &Keypair, config: &Libp2pConfig) -> Self {
+    pub fn new(local_key: &Keypair, _config: &Libp2pConfig) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
 
         // Kademlia config
         let store = MemoryStore::new(local_peer_id.to_owned());
-        let mut kademlia = Kademlia::new(local_peer_id.to_owned(), store);
+        let kademlia = Kademlia::new(local_peer_id.to_owned(), store);
         // TODO fix this (need peerIDs)
         // for (peer_id, addr) in &config.bootstrap_peers {
         //     kademlia.add_address(&addr.parse().unwrap(), addr.parse().unwrap());
