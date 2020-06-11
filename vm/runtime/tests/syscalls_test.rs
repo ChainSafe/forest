@@ -23,9 +23,9 @@ fn verify_seal_test() {
         data,
     );
 
-    vi.on_chain.sealed_cid = Cid::new_v1(Codec::Raw, mh_sealed);
+    vi.sealed_cid = Cid::new_v1(Codec::Raw, mh_sealed);
     vi.unsealed_cid = Cid::new_v1(Codec::Raw, mh_unsealed);
-    vi.on_chain.registered_proof = RegisteredProof::StackedDRG2KiBSeal;
+    vi.registered_proof = RegisteredProof::StackedDRG2KiBSeal;
     // TODO currently captures an error resulting from rust-fil-proofs; need to revisit
     assert_eq!(sys.verify_seal(&vi).is_err(), true);
 }

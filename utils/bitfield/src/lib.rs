@@ -14,7 +14,7 @@ type BitVec = bitvec::prelude::BitVec<Lsb0, u8>;
 type Result<T> = std::result::Result<T, &'static str>;
 
 /// Represents a bitfield to track bits set at indexes in the range of `u64`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BitField {
     Encoded {
         bv: BitVec,
@@ -134,7 +134,7 @@ impl BitField {
         }
 
         Ok((0..)
-            .zip(self.as_mut_flushed()?.iter())
+            .zip(flushed.iter())
             .filter_map(|(i, b)| if b == &true { Some(i) } else { None })
             .collect())
     }
@@ -147,6 +147,20 @@ impl BitField {
     /// Returns a Hash set of indexes of all set bits
     pub fn all_set(&mut self, max: usize) -> Result<FnvHashSet<u64>> {
         self.retrieve_set_indices(max)
+    }
+
+    pub fn for_each<F>(&mut self, mut callback: F) -> std::result::Result<(), String>
+    where
+        F: FnMut(u64) -> std::result::Result<(), String>,
+    {
+        let flushed = self.as_mut_flushed()?;
+
+        for (i, &b) in (0..).zip(flushed.iter()) {
+            if b {
+                callback(i)?;
+            }
+        }
+        Ok(())
     }
 
     /// Returns true if there are no bits set, false if the bitfield is empty.
@@ -295,9 +309,9 @@ impl BitField {
     }
 
     /// Creates a bitfield which is a union of a vector of bitfields.
-    pub fn union(bit_fields: &[Self]) -> Result<Self> {
+    pub fn union<'a>(bit_fields: impl IntoIterator<Item = &'a Self>) -> Result<Self> {
         let mut ret = Self::default();
-        for bf in bit_fields.iter() {
+        for bf in bit_fields.into_iter() {
             ret.merge_assign(bf)?;
         }
         Ok(ret)

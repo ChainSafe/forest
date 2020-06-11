@@ -13,12 +13,15 @@ pub type InteractiveSealRandomness = Randomness;
 /// Information needed to verify a seal proof.
 #[derive(Clone, Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct SealVerifyInfo {
+    pub registered_proof: RegisteredProof,
     pub sector_id: SectorID,
     // TODO revisit issue to remove this: https://github.com/filecoin-project/specs-actors/issues/276
-    pub on_chain: SealVerifyParams,
+    pub deal_ids: Vec<DealID>,
     pub randomness: SealRandomness,
     pub interactive_randomness: InteractiveSealRandomness,
-    pub unsealed_cid: Cid,
+    pub proof: Vec<u8>,
+    pub sealed_cid: Cid,   // Commr
+    pub unsealed_cid: Cid, // Commd
 }
 
 /// SealVerifyParams is the structure of information that must be sent with

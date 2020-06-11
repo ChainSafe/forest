@@ -72,11 +72,9 @@ where
         Ok(state.network_name)
     }
     /// Returns true if miner has been slashed or is considered invalid
+    // TODO update
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
-        let ms: miner::State = self.load_actor_state(addr, state_cid)?;
-        if ms.post_state.has_failed_post() {
-            return Ok(true);
-        }
+        let _ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
         match ps.get_claim(self.bs.as_ref(), addr)? {
