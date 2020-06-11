@@ -9,6 +9,7 @@ use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::Address;
+use address::Payload;
 use amt::Amt;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
@@ -16,9 +17,13 @@ use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
+use commcid::cid_to_replica_commitment_v1;
 use core::time::Duration;
 use crypto::verify_bls_aggregate;
+use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
+use fil_types::SectorInfo;
+use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
@@ -32,18 +37,14 @@ use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_traits::Zero;
-use state_manager::StateManager;
+use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::convert::TryFrom;
 use std::str::from_utf8;
 use std::sync::Arc;
 use vm::TokenAmount;
-use address::Payload;
-use blake2b_simd::Params;
-use crypto::DomainSeparationTag;
-use filecoin_proofs_api::post::verify_winning_post;
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -734,12 +735,11 @@ where
         Ok(())
     }
 
-    async fn verify_winning_posts_proof(
+    pub async fn verify_winning_posts_proof(
         &self,
         block: BlockHeader,
         prev_entry: BeaconEntry,
         lbst: Cid,
-        address: Address,
     ) -> Result<(), Error> {
         if block.win_post_proof().is_empty() {
             return Err(Error::Validation(
@@ -747,48 +747,84 @@ where
             ));
         }
 
-        if block
-            .win_post_proof()
-            .first()
-            .map(|s| {
-                from_utf8(&s.proof_bytes)
-                    .map(|buf| buf == "valid proof")
-                    .unwrap_or_default()
-            })
-            .unwrap_or_default()
-        {
-            return Ok(());
+        if let Some(first_proof) = block.win_post_proof().first() {
+            if from_utf8(&first_proof.proof_bytes)
+                .map(|buf| buf == "valid proof")
+                .unwrap_or_default()
+            {
+                return Ok(());
+            }
         }
 
-        let parent_tipset = self.chain_store.tipset_from_keys(block.parents())?;
-
-        let (state_root, _) = self
-        .state_manager
-        .tipset_state(&parent_tipset)
-        .await
-        .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
-
-        let work_addr_result = self
-        .state_manager
-        .get_miner_work_addr(&state_root, block.miner_address());
-        let buf : Vec<u8>= Vec::new();
+        let marshal_miner_work_addr = block.miner_address().marshal_cbor()?;
         let rbase = block.beacon_entries().iter().last().unwrap_or(&prev_entry);
-        let rand = chain::draw_randomness(rbase.data(),DomainSeparationTag::WinningPoStChallengeSeed,block.epoch(),&buf)?;
-
-        let mid = match block.miner_address().payload()
-        {
+        let rand = chain::draw_randomness(
+            rbase.data(),
+            DomainSeparationTag::WinningPoStChallengeSeed,
+            block.epoch(),
+            &marshal_miner_work_addr,
+        )
+        .map_err(|err| {
+            Error::Validation(format!(
+                "failed to get randomness for verifying winningPost proof: {:}",
+                err
+            ))
+        })?;
+        let miner_id = match block.miner_address().payload() {
             Payload::ID(new_id) => Address::new_id(*new_id),
-            _ => return  Err(Error::Validation("Could not update state".to_owned()))
+            _ => {
+                return Err(Error::Validation(format!(
+                    "failed to get ID from miner address {:}",
+                    block.miner_address()
+                )))
+            }
         };
+        let sectors = utils::get_sectors_winning_for_winning_post(
+            &self.state_manager,
+            &lbst,
+            &miner_id,
+            &rand,
+        )?;
 
-        let proofs = block.win_post_proof().iter().fold(Vec::new(), |mut proof, p| {
-            proof.extend_from_slice(&p.proof_bytes);
-            proof
-        });
+        let proofs = block
+            .win_post_proof()
+            .iter()
+            .fold(Vec::new(), |mut proof, p| {
+                proof.extend_from_slice(&p.proof_bytes);
+                proof
+            });
 
+        let replicas = sectors
+            .iter()
+            .map::<Result<(SectorId, PublicReplicaInfo), Error>, _>(|sector_info: &SectorInfo| {
+                let commr =
+                    cid_to_replica_commitment_v1(&sector_info.sealed_cid).map_err(|err| {
+                        Error::Validation(format!("failed to get replica commitment: {:}", err))
+                    })?;
+                let replica = PublicReplicaInfo::new(
+                    sector_info
+                        .proof
+                        .registered_window_post_proof()
+                        .map_err(|err| {
+                            Error::Validation(format!("failed to get registered proof: {:}", err))
+                        })?
+                        .into(),
+                    commr,
+                );
+                Ok((SectorId::from(sector_info.sector_number), replica))
+            })
+            .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
 
-        verify_winning_post(&rand, &proofs, &replicas, prover_id)?;
-        unimplemented!("verify_winning_posts_proof_not_implemented")
+        let mut prover_id = ProverId::default();
+        let prover_bytes = miner_id.to_bytes();
+        prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
+        if !verify_winning_post(&rand, &proofs, &replicas, prover_id)
+            .map_err(|err| Error::Validation(format!("failed to verify election post: {:}", err)))?
+        {
+            Err(Error::Validation("Winning post was invalid".to_string()))
+        } else {
+            Ok(())
+        }
     }
 
     /// Syncs chain data and persists it to blockstore

@@ -12,10 +12,10 @@ use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_comm
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
     zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo, SectorInfo,
-    WindowPoStVerifyInfo,WinningPoStVerifyInfo
+    WindowPoStVerifyInfo, WinningPoStVerifyInfo,
 };
 use filecoin_proofs_api::{
-    post::{verify_window_post,verify_winning_post},
+    post::{verify_window_post, verify_winning_post},
     seal::{compute_comm_d, verify_seal as proofs_verify_seal},
     PublicReplicaInfo,
 };
@@ -258,8 +258,11 @@ pub trait Syscalls {
         Ok(())
     }
 
-       /// Verifies a proof of spacetime.
-       fn verify_winning_post(&self, verify_info: &WinningPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+    /// Verifies a proof of spacetime.
+    fn verify_winning_post(
+        &self,
+        verify_info: &WinningPoStVerifyInfo,
+    ) -> Result<(), Box<dyn StdError>> {
         type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
 
         // collect proof bytes

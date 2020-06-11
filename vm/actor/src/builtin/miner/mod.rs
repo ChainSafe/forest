@@ -3,7 +3,7 @@
 
 mod state;
 
-pub use self::state::{MinerInfo, State};
+pub use self::state::{MinerInfo, SectorOnChainInfo, State};
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;

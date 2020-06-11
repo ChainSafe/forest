@@ -14,7 +14,6 @@ mod method;
 mod randomness;
 mod token;
 
-
 pub use self::actor_state::*;
 pub use self::code::*;
 pub use self::deal_id::*;
@@ -24,4 +23,3 @@ pub use self::invoc::*;
 pub use self::method::*;
 pub use self::randomness::*;
 pub use self::token::*;
-

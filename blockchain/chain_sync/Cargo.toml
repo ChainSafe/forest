@@ -30,6 +30,8 @@ thiserror = "1.0"
 num-traits = "0.2"
 blake2b_simd = "0.5.9"
 filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "0e1c7cb464707c7a7ad82b0f8303f000f6f3fc8a" }
+fil_types = { path = "../../types" }
+commcid = { path = "../../utils/commcid" }
 
 
 [dev-dependencies]
