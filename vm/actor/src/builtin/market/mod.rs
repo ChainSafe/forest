@@ -616,7 +616,7 @@ where
 
 // Resolves a provider or client address to the canonical form against which a balance should be held, and
 // the designated recipient address of withdrawals (which is the same, for simple account parties).
-fn escrow_address<BS, RT>(rt: &RT, addr: &Address) -> Result<(Address, Address), ActorError>
+fn escrow_address<BS, RT>(rt: &mut RT, addr: &Address) -> Result<(Address, Address), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
