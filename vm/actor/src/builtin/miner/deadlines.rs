@@ -136,11 +136,11 @@ pub fn deadline_count(
     }
 
     let sector_count = d.due.get_mut(deadline_idx).unwrap().count()?;
-    let mut paritition_count = sector_count / partition_size;
+    let mut partition_count = sector_count / partition_size;
     if sector_count % partition_size != 0 {
-        paritition_count += 1;
+        partition_count += 1;
     };
-    Ok((paritition_count, sector_count))
+    Ok((partition_count, sector_count))
 }
 /// Computes a bitfield of the sector numbers included in a sequence of partitions due at some deadline.
 /// Fails if any partition is not due at the provided deadline.

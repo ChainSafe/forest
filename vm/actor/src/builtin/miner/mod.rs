@@ -293,8 +293,7 @@ impl Actor {
                         ExitCode::ErrIllegalArgument,
                         format!(
                             "proving period {} not yet open at {}",
-                            deadline.period_started(),
-                            current_epoch
+                            deadline.period_start, current_epoch
                         ),
                     ));
                 }
@@ -400,27 +399,27 @@ impl Actor {
                     })?;
 
                 // Load info for recovered sectors for recovery of power outside this state transaction.
-                let empty = declared_recoveries.is_empty().map_err(|e| {
-                    ActorError::new(
+                match declared_recoveries.is_empty() {
+                    Ok(true) => Ok(st.info.sector_size),
+                    Ok(false) => {
+                        let mut sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> =
+                            HashMap::new();
+                        for sec in sector_infos {
+                            sectors_by_number.insert(sec.info.sector_number, sec);
+                        }
+                        let _ = declared_recoveries.for_each(|i| {
+                            let key: SectorNumber = i as u64;
+                            let s = sectors_by_number.get(&key).cloned().unwrap();
+                            recovered_sectors.push(s);
+                            Ok(())
+                        });
+                        Ok(st.info.sector_size)
+                    }
+                    Err(e) => Err(ActorError::new(
                         ExitCode::ErrIllegalState,
                         format!("failed to check if bitfield was empty: {}", e),
-                    )
-                })?;
-
-                if !empty {
-                    let mut sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> =
-                        HashMap::new();
-                    for sec in sector_infos {
-                        sectors_by_number.insert(sec.info.sector_number, sec);
-                    }
-                    let _ = declared_recoveries.for_each(|i| {
-                        let key: SectorNumber = i as u64;
-                        let s = sectors_by_number.get(&key).cloned().unwrap();
-                        recovered_sectors.push(s);
-                        Ok(())
-                    });
+                    )),
                 }
-                Ok(st.info.sector_size)
             })??;
         // Remove power for new faults, and burn penalties.
         request_begin_faults(rt, sec_size, &detected_faults_sector)?;
@@ -648,7 +647,7 @@ impl Actor {
             ));
         }
 
-        // will abort if seal invalidgetVerifyInfo
+        // will abort if seal invalid get_verify_info
         let svi = get_verify_info(
             rt,
             SealVerifyParams {
@@ -739,8 +738,6 @@ impl Actor {
             let expired_epoch = precommit.info.expiration;
             let info = precommit.info;
             let deposit = precommit.pre_commit_deposit;
-            // let verified_deal_weight = deal_weights.verified_deal_weight;
-            // let deal_weight = deal_weights.deal_weight;
 
             let vested_amount =
             rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
@@ -1020,98 +1017,100 @@ impl Actor {
                     format!("failed to subtract recoveries from sectors: {}", e),
                 )
             })?;
-            let empty = new_faults.is_empty().map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to check if bitfield was empty: {}", e),
-                )
-            })?;
 
-            if !empty {
-                // check new fault are really new
-                let contains = st.faults.contains_any(&mut new_faults).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to intersect existing faults: {}", e),
+            match new_faults.is_empty() {
+                Ok(true) => {
+                    // check new fault are really new
+                    let contains = st.faults.contains_any(&mut new_faults).map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to intersect existing faults: {}", e),
+                        )
+                    })?;
+                    if contains {
+                        // This could happen if attempting to declare a fault for a deadline that's already passed,
+                        // detected and added to Faults above.
+                        // The miner must for the fault detection at proving period end, or submit again omitting
+                        // sectors in deadlines that have passed.
+                        // Alternatively, we could subtract the just-detected faults from new faults.
+                        return Err(ActorError::new(
+                            ExitCode::ErrIllegalArgument,
+                            "attempted to re-declare fault".to_string(),
+                        ));
+                    }
+
+                    // Add new faults to state and charge fee.
+                    // Note: this sets the fault epoch for all declarations to be the beginning of this proving period,
+                    // even if some sectors have already been proven in this period.
+                    // It would better to use the target deadline's proving period start (which may be the one subsequent
+                    // to the current).
+                    st.add_faults(rt.store(), &mut new_faults, st.proving_period_start)
+                        .map_err(|e| {
+                            ActorError::new(
+                                ExitCode::ErrIllegalState,
+                                format!("failed to add faults: {}", e),
+                            )
+                        })?;
+                    // Note: this charges a fee for all declarations, even if the sectors have already been proven
+                    // in this proving period. This discourages early declaration compared with waiting for
+                    // the proving period to roll over.
+                    // It would be better to charge a fee for this proving period only if the target deadline has
+                    // not already passed. If it _has_ already passed then either:
+                    // - the miner submitted PoSt successfully and should not be penalised more relative to
+                    //   submitting this declaration after the proving period rolls over, or
+                    // - the miner failed to submit PoSt and will be penalised at the proving period end
+                    // In either case, the miner will pay a fee for the subsequent proving period at the start
+                    // of that period, unless faults are recovered sooner.
+
+                    // Load info for sectors.
+                    let declared_fault_sectors = st
+                        .load_sector_infos(rt.store(), &mut new_faults)
+                        .map_err(|e| {
+                            ActorError::new(
+                                ExitCode::ErrIllegalState,
+                                format!("failed to load fault sectors: {}", e),
+                            )
+                        })?;
+
+                    // Unlock penalty for declared faults.
+                    let declared_penalty = unlock_penalty(
+                        st,
+                        rt.store(),
+                        current_epoch,
+                        &declared_fault_sectors,
+                        &pledge_penalty_for_sector_declared_fault,
                     )
-                })?;
-                if contains {
-                    // This could happen if attempting to declare a fault for a deadline that's already passed,
-                    // detected and added to Faults above.
-                    // The miner must for the fault detection at proving period end, or submit again omitting
-                    // sectors in deadlines that have passed.
-                    // Alternatively, we could subtract the just-detected faults from new faults.
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        "attempted to re-declare fault".to_string(),
-                    ));
-                }
-
-                // Add new faults to state and charge fee.
-                // Note: this sets the fault epoch for all declarations to be the beginning of this proving period,
-                // even if some sectors have already been proven in this period.
-                // It would better to use the target deadline's proving period start (which may be the one subsequent
-                // to the current).
-                st.add_faults(rt.store(), &mut new_faults, st.proving_period_start)
                     .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
-                            format!("failed to add faults: {}", e),
+                            format!("failed to charge fault fee: {}", e),
                         )
                     })?;
-            }
+                    penalty += declared_penalty;
 
-            // Note: this charges a fee for all declarations, even if the sectors have already been proven
-            // in this proving period. This discourages early declaration compared with waiting for
-            // the proving period to roll over.
-            // It would be better to charge a fee for this proving period only if the target deadline has
-            // not already passed. If it _has_ already passed then either:
-            // - the miner submitted PoSt successfully and should not be penalised more relative to
-            //   submitting this declaration after the proving period rolls over, or
-            // - the miner failed to submit PoSt and will be penalised at the proving period end
-            // In either case, the miner will pay a fee for the subsequent proving period at the start
-            // of that period, unless faults are recovered sooner.
+                    let empty = recoveries.is_empty().map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to check if bitfield was empty: {}", e),
+                        )
+                    })?;
 
-            // Load info for sectors.
-            let declared_fault_sectors = st
-                .load_sector_infos(rt.store(), &mut new_faults)
-                .map_err(|e| {
-                    ActorError::new(
+                    if !empty {
+                        st.remove_recoveries(&mut recoveries).map_err(|e| {
+                            ActorError::new(
+                                ExitCode::ErrIllegalState,
+                                format!("failed to remove recoveries: {}", e),
+                            )
+                        })?;
+                    }
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    return Err(ActorError::new(
                         ExitCode::ErrIllegalState,
-                        format!("failed to load fault sectors: {}", e),
-                    )
-                })?;
-
-            // Unlock penalty for declared faults.
-            let declared_penalty = unlock_penalty(
-                st,
-                rt.store(),
-                current_epoch,
-                &declared_fault_sectors,
-                &pledge_penalty_for_sector_declared_fault,
-            )
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to charge fault fee: {}", e),
-                )
-            })?;
-            penalty += declared_penalty;
-
-            let empty = recoveries.is_empty().map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to check if bitfield was empty: {}", e),
-                )
-            })?;
-
-            if !empty {
-                st.remove_recoveries(&mut recoveries).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to remove recoveries: {}", e),
-                    )
-                })?;
+                        format!("failed to check if bitfield was empty: {}", e),
+                    ));
+                }
             }
 
             Ok((penalty, st.info.sector_size))

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::types::SectorOnChainInfo;
+use crate::network::*;
 use clock::ChainEpoch;
 use fil_types::{
     RegisteredProof, RegisteredProof::StackedDRG32GiBSeal, RegisteredProof::StackedDRG64GiBSeal,
@@ -11,12 +12,6 @@ use num_bigint::BigUint;
 use num_traits::{Pow, Zero};
 use vm::TokenAmount;
 
-/// The duration of a chain epoch.
-/// This is used for deriving epoch-denominated periods that are more naturally expressed in clock time.
-// TODO use consts from PR that came in
-pub const EPOCH_DURATION_SECONDS: u64 = 25;
-pub const SECONDS_IN_YEAR: u64 = 31_556_925;
-pub const SECONDS_IN_DAY: u64 = 86400;
 /// The period over which all a miner's active sectors will be challenged.
 pub const WPOST_PROVING_PERIOD: ChainEpoch = SECONDS_IN_DAY / EPOCH_DURATION_SECONDS;
 /// The duration of a deadline's challenge window, the period before a deadline when the challenge is available.
@@ -121,12 +116,12 @@ pub struct VestSpec {
     pub step_duration: ChainEpoch, // Duration between successive incremental vests (independent of vesting period).
     pub quantization: ChainEpoch, // Maximum precision of vesting table (limits cardinality of table).
 }
-// TODO update also when updating from PR that came in
+
 pub const PLEDGE_VESTING_SPEC: VestSpec = VestSpec {
-    initial_delay: SECONDS_IN_YEAR / EPOCH_DURATION_SECONDS, // 1 year, PARAM_FINISH
-    vest_period: SECONDS_IN_YEAR / EPOCH_DURATION_SECONDS,   // 1 year, PARAM_FINISH
-    step_duration: 7 * SECONDS_IN_YEAR / EPOCH_DURATION_SECONDS, // 1 week, PARAM_FINISH
-    quantization: SECONDS_IN_DAY / EPOCH_DURATION_SECONDS,   // 1 day, PARAM_FINISH
+    initial_delay: 7 * EPOCHS_IN_DAY, // 1 week for testnet, PARAM_FINISH
+    vest_period: 7 * EPOCHS_IN_DAY,   // 1 week for testnet, PARAM_FINISH
+    step_duration: EPOCHS_IN_DAY,     // 1 week for testnet, PARAM_FINISH
+    quantization: 12 * SECONDS_IN_HOUR, // 12 hours for testnet, PARAM_FINISH
 };
 pub fn reward_for_consensus_slash_report(
     elapsed_epoch: ChainEpoch,
