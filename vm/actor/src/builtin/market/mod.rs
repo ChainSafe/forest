@@ -506,7 +506,7 @@ impl Actor {
                         .get(id)
                         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))
                         .unwrap()
-                        .ok_or({ format!("could not find deal state: {}", id) })
+                        .ok_or(format!("could not find deal state: {}", id))
                         .unwrap();
 
                     let deal = st.must_get_deal(rt.store(), id).unwrap();
