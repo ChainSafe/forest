@@ -7,7 +7,7 @@ mod payload;
 mod protocol;
 pub use self::errors::Error;
 pub use self::network::Network;
-pub use self::payload::Payload;
+pub use self::payload::{BLSPublicKey, Payload};
 pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
@@ -118,6 +118,12 @@ impl Address {
     /// in an enum separated by protocol
     pub fn payload(&self) -> &Payload {
         &self.payload
+    }
+
+    /// Converts Address into `Payload` object, where the respective protocol data is kept
+    /// in an enum separated by protocol
+    pub fn into_payload(self) -> Payload {
+        self.payload
     }
 
     /// Returns the raw bytes data payload of the Address

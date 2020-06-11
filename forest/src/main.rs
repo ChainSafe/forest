@@ -62,7 +62,7 @@ fn main() {
     let network_send = p2p_service.network_sender();
 
     // Get Drand Coefficients
-    let coeff = config.drand_dist_public.clone();
+    let coeff = config.drand_dist_public;
 
     // Start services
     let p2p_thread = task::spawn(async {
