@@ -61,8 +61,6 @@ pub struct OnSectorProveCommitParams {
 pub struct OnSectorTerminateParams {
     pub termination_type: SectorTermination,
     pub weights: Vec<SectorStorageWeightDesc>,
-    #[serde(with = "biguint_ser")]
-    pub pledge: TokenAmount,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
