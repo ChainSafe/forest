@@ -33,6 +33,7 @@ use futures::{
 };
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
+use log::error;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -821,6 +822,7 @@ where
         if !verify_winning_post(&rand, &proofs, &replicas, prover_id)
             .map_err(|err| Error::Validation(format!("failed to verify election post: {:}", err)))?
         {
+            error!("invalid winning post ({:?}; {:?})", rand, sectors);
             Err(Error::Validation("Winning post was invalid".to_string()))
         } else {
             Ok(())
