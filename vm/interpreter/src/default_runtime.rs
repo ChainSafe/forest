@@ -259,7 +259,7 @@ where
     fn transaction<C, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
         C: Cbor,
-        F: FnOnce(&mut C, &Self) -> R,
+        F: FnOnce(&mut C, &mut Self) -> R,
     {
         // get actor
         let act = self.get_actor(self.message().to())?;
@@ -282,7 +282,7 @@ where
             })?;
 
         // Update the state
-        let r = f(&mut state, &self);
+        let r = f(&mut state, self);
 
         let c = self.store.put(&state, Blake2b256).map_err(|e| {
             self.abort(

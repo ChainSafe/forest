@@ -22,7 +22,7 @@ fn default_serializations() {
 
     let s = SealVerifyInfo {
         unsealed_cid: empty_cid(),
-        on_chain: ocs,
+        sealed_cid: empty_cid(),
         ..Default::default()
     };
     let bz = to_vec(&s).unwrap();
