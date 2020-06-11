@@ -42,7 +42,6 @@ pub struct State {
     /// SetMultimap<Address>
     pub deal_ops_by_epoch: Cid,
     pub last_cron: ChainEpoch,
-    pub deal_ids_by_party: Cid,
 }
 
 impl State {
@@ -53,7 +52,6 @@ impl State {
             escrow_table: empty_map.clone(),
             locked_table: empty_map,
             next_id: 0,
-            deal_ids_by_party: empty_mset,
             deal_ops_by_epoch: empty_mset,
             last_cron: ChainEpoch::default(),
         }
@@ -62,22 +60,20 @@ impl State {
     ////////////////////////////////////////////////////////////////////////////////
     // Deal state operations
     ////////////////////////////////////////////////////////////////////////////////
-
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn update_pending_deal_state<BS>(
         &mut self,
         store: &BS,
         state: DealState,
         deal: DealProposal,
         deal_id: DealID,
-        et: BalanceTable<BS>,
-        lt: BalanceTable<BS>,
+        et: &mut BalanceTable<BS>,
+        lt: &mut BalanceTable<BS>,
         epoch: ChainEpoch,
     ) -> Result<(TokenAmount, OptionalEpoch), ActorError>
     where
         BS: BlockStore,
     {
-        let mut amount_slashed = TokenAmount::zero();
-
         let ever_updated = state.last_updated_epoch.is_some();
         let ever_slashed = state.slash_epoch.is_some();
 
@@ -87,7 +83,7 @@ impl State {
         // This would be the case that the first callback somehow triggers before it is scheduled to
         // This is expected not to be able to happen
         if deal.start_epoch > epoch {
-            return Ok((amount_slashed, OptionalEpoch(None)));
+            return Ok((TokenAmount::zero(), OptionalEpoch(None)));
         }
 
         let deal_end = if ever_slashed {
@@ -127,7 +123,7 @@ impl State {
                 &deal.client,
                 &(payment_remaining + &deal.client_collateral),
             )
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
 
             // slash provider collateral
             let slashed = deal.provider_collateral.clone();
@@ -144,7 +140,7 @@ impl State {
         }
 
         if epoch >= deal.end_epoch {
-            self.process_deal_expired(store, deal_id, deal, state, lt)?;
+            self.process_deal_expired(store, deal_id, &deal, state, lt)?;
             return Ok((TokenAmount::zero(), OptionalEpoch(None)));
         }
 
@@ -156,19 +152,16 @@ impl State {
 
         Ok((TokenAmount::zero(), OptionalEpoch(Some(next))))
     }
-    pub(super) fn mutate_deal_states<BS, F>(
-        &mut self,
-        store: &BS,
-        mut f: F,
-    ) -> Result<(), ActorError>
+    // Unused but exists in spec
+    fn _mutate_deal_states<BS, F>(&mut self, store: &BS, f: F) -> Result<(), ActorError>
     where
-        F: FnOnce(Amt<Cid, BS>) -> Result<(), ActorError>,
+        F: FnOnce(&mut Amt<Cid, BS>) -> Result<(), ActorError>,
         BS: BlockStore,
     {
         let mut states = Amt::load(&self.states, store)
             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-        f(states)?;
+        f(&mut states)?;
 
         let r_cid = states.flush().map_err(|e| {
             ActorError::new(
@@ -181,12 +174,7 @@ impl State {
         Ok(())
     }
 
-    // TODO ask about fn return
-    pub(super) fn mutate_deal_proposals<BS, F>(
-        &mut self,
-        store: &BS,
-        mut f: F,
-    ) -> Result<(), ActorError>
+    fn mutate_deal_proposals<BS, F>(&mut self, store: &BS, f: F) -> Result<(), ActorError>
     where
         F: FnOnce(&mut Amt<Cid, BS>) -> Result<(), ActorError>,
         BS: BlockStore,
@@ -207,7 +195,7 @@ impl State {
         Ok(())
     }
 
-    pub(super) fn delete_deal<BS>(&mut self, store: &BS, deal_id: DealID) -> Result<(), ActorError>
+    fn delete_deal<BS>(&mut self, store: &BS, deal_id: DealID) -> Result<(), ActorError>
     where
         BS: BlockStore,
     {
@@ -219,7 +207,7 @@ impl State {
                 )
             })?;
             Ok(())
-        });
+        })?;
 
         Ok(())
     }
@@ -230,10 +218,10 @@ impl State {
     pub(super) fn process_deal_init_timed_out<BS>(
         &mut self,
         store: &BS,
-        lt: BalanceTable<BS>,
-        et: BalanceTable<BS>,
+        lt: &mut BalanceTable<BS>,
+        et: &mut BalanceTable<BS>,
         deal_id: DealID,
-        deal: DealProposal,
+        deal: &DealProposal,
         state: DealState,
     ) -> Result<TokenAmount, ActorError>
     where
@@ -246,11 +234,11 @@ impl State {
 
         // specs actors not handling this err
         self.unlock_balance(lt, &deal.client, &deal.client_balance_requirement())
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
 
         let amount_slashed =
             collateral_penalty_for_deal_activation_missed(deal.provider_collateral.clone());
-        let amount_remainging = deal.provider_balance_requirement() - &amount_slashed;
+        let amount_remaining = deal.provider_balance_requirement() - &amount_slashed;
 
         self.slash_balance(et, lt, &deal.provider, &amount_slashed)
             .map_err(|e| {
@@ -261,20 +249,20 @@ impl State {
             })?;
 
         // specs actors not handling this err
-        self.unlock_balance(lt, &deal.provider, &amount_remainging)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+        self.unlock_balance(lt, &deal.provider, &amount_remaining)
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
 
         self.delete_deal(store, deal_id)?;
         Ok(amount_slashed)
     }
 
-    pub(super) fn process_deal_expired<BS>(
+    fn process_deal_expired<BS>(
         &mut self,
         store: &BS,
         deal_id: DealID,
-        deal: DealProposal,
+        deal: &DealProposal,
         state: DealState,
-        mut lt: BalanceTable<BS>,
+        lt: &mut BalanceTable<BS>,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -285,14 +273,14 @@ impl State {
         );
 
         self.unlock_balance(lt, &deal.provider, &deal.provider_collateral)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
 
         self.unlock_balance(lt, &deal.client, &deal.client_collateral)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e.into()))?;
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
 
         self.delete_deal(store, deal_id)
     }
-    #[allow(dead_code)]
+
     pub(super) fn generate_storage_deal_id(&mut self) -> DealID {
         let ret = self.next_id;
         self.next_id += 1;
@@ -303,32 +291,20 @@ impl State {
     // Balance table operations
     ////////////////////////////////////////////////////////////////////////////////
 
-    pub fn mutate_balance_table<BS, F>(&mut self, store: &BS, c: &Cid, f: F) -> Result<(), String>
-    where
-        F: FnOnce(BalanceTable<BS>) -> Result<(), String>,
-        BS: BlockStore,
-    {
-        let mut t = BalanceTable::from_root(store, &c)?;
-
-        f(t)?;
-
-        let rc = t.root()?;
-
-        c = &rc;
-
-        Ok(())
-    }
-
     pub fn add_escrow_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
         a: &Address,
         amount: TokenAmount,
     ) -> Result<(), String> {
-        self.mutate_balance_table(store, &self.escrow_table, |et: BalanceTable<BS>| {
-            et.add_create(a, amount)?;
-            Ok(())
-        })?;
+        mutate_balance_table(
+            store,
+            &mut self.escrow_table,
+            |et: &mut BalanceTable<BS>| {
+                et.add_create(a, amount)?;
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }
@@ -338,14 +314,18 @@ impl State {
         a: &Address,
         amount: TokenAmount,
     ) -> Result<(), String> {
-        self.mutate_balance_table(store, &self.locked_table, |lt: BalanceTable<BS>| {
-            lt.add_create(a, amount)?;
-            Ok(())
-        })?;
+        mutate_balance_table(
+            store,
+            &mut self.locked_table,
+            |lt: &mut BalanceTable<BS>| {
+                lt.add_create(a, amount)?;
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }
-    pub fn get_escrow_balance<BS: BlockStore>(
+    fn get_escrow_balance<BS: BlockStore>(
         &self,
         store: &BS,
         a: &Address,
@@ -382,7 +362,7 @@ impl State {
         })
     }
 
-    pub(super) fn maybe_lock_balance<BS: BlockStore>(
+    fn maybe_lock_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
         addr: &Address,
@@ -391,26 +371,33 @@ impl State {
         let prev_locked = self.get_locked_balance(store, addr)?;
         let escrow_balance = self.get_escrow_balance(store, addr)?;
         if &prev_locked + amount > escrow_balance {
-
-            // Err(format!(
-            //     "not enough balance to lock for addr {}: {} <  {}",
-            //     addr,
-            //     prev_locked + amount,
-            //     escrow_balance
-            // ));
+            return Err(ActorError::new(
+                ExitCode::ErrPlaceholder,
+                format!(
+                    "not enough balance to lock for addr {}: {} <  {}",
+                    addr,
+                    prev_locked + amount,
+                    escrow_balance
+                ),
+            ));
         }
 
-        self.mutate_balance_table(store, &self.locked_table, |lt: BalanceTable<BS>| {
-            lt.add(addr, amount)?;
-            Ok(())
-        })?;
+        mutate_balance_table(
+            store,
+            &mut self.locked_table,
+            |lt: &mut BalanceTable<BS>| {
+                lt.add(addr, amount)?;
+                Ok(())
+            },
+        )
+        .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))?;
 
         Ok(())
     }
     /// TODO: all these balance table mutations need to happen at the top level and be batched (no flushing after each!)
-    pub(super) fn unlock_balance<BS: BlockStore>(
+    fn unlock_balance<BS: BlockStore>(
         &mut self,
-        mut lt: BalanceTable<BS>,
+        lt: &mut BalanceTable<BS>,
         addr: &Address,
         amount: &TokenAmount,
     ) -> Result<(), String> {
@@ -419,7 +406,7 @@ impl State {
         Ok(())
     }
     /// move funds from locked in client to available in provider
-    pub(super) fn transfer_balance<BS: BlockStore>(
+    fn transfer_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
         from_addr: &Address,
@@ -460,10 +447,10 @@ impl State {
         Ok(())
     }
 
-    pub(super) fn slash_balance<BS: BlockStore>(
+    fn slash_balance<BS: BlockStore>(
         &mut self,
-        et: BalanceTable<BS>,
-        lt: BalanceTable<BS>,
+        et: &mut BalanceTable<BS>,
+        lt: &mut BalanceTable<BS>,
         addr: &Address,
         amount: &TokenAmount,
     ) -> Result<(), String> {
@@ -500,8 +487,8 @@ impl State {
                 )
             })?)
     }
-
-    pub(super) fn must_get_deal_state<BS: BlockStore>(
+    // Unused but exists in spec
+    fn _must_get_deal_state<BS: BlockStore>(
         &self,
         store: &BS,
         deal_id: DealID,
@@ -541,7 +528,20 @@ impl State {
     }
 }
 
-fn deal_proposal_is_internally_valid<BS, RT>(
+fn mutate_balance_table<BS, F>(store: &BS, c: &mut Cid, f: F) -> Result<(), String>
+where
+    F: FnOnce(&mut BalanceTable<BS>) -> Result<(), String>,
+    BS: BlockStore,
+{
+    let mut t = BalanceTable::from_root(store, &c)?;
+
+    f(&mut t)?;
+
+    *c = t.root()?;
+    Ok(())
+}
+// Unused but exists in spec
+fn _deal_proposal_is_internally_valid<BS, RT>(
     rt: RT,
     proposal: ClientDealProposal,
 ) -> Result<(), String>
@@ -558,9 +558,13 @@ where
 
     // Note: we do not verify the provider signature here, since this is implicit in the
     // authenticity of the on-chain message publishing the deal.
-    let buf = proposal.proposal.marshal_cbor()?;
+    let buf = proposal
+        .proposal
+        .marshal_cbor()
+        .map_err(|e| e.to_string())?;
     rt.syscalls()
-        .verify_signature(&proposal.client_signature, &proposal.proposal.client, &buf)?;
+        .verify_signature(&proposal.client_signature, &proposal.proposal.client, &buf)
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }

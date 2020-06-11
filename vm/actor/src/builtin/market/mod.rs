@@ -126,7 +126,7 @@ impl Actor {
     {
         let (nominal, recipient) = escrow_address(rt, &params.provider_or_client)?;
 
-        let mut amount_slashed_total = TokenAmount::zero();
+        let amount_slashed_total = TokenAmount::zero();
         let amount_extracted =
             rt.transaction::<_, Result<TokenAmount, ActorError>, _>(|st: &mut State, rt| {
                 // The withdrawable amount might be slightly less than nominal
@@ -153,6 +153,7 @@ impl Actor {
                 Ok(ex)
             })??;
 
+        // TODO this will never be hit
         if amount_slashed_total > BigUint::zero() {
             rt.send(
                 &*BURNT_FUNDS_ACTOR_ADDR,
@@ -179,8 +180,6 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let mut amount_slashed_total = TokenAmount::zero();
-
         // Deal message must have a From field identical to the provider of all the deals.
         // This allows us to retain and verify only the client's signature in each deal proposal itself.
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
@@ -203,7 +202,7 @@ impl Actor {
             ));
         }
 
-        for deal in params.deals {
+        for deal in &params.deals {
             // Check VerifiedClient allowed cap and deduct PieceSize from cap.
             // Either the DealSize is within the available DataCap of the VerifiedClient
             // or this message will fail. We do not allow a deal that is partially verified.
@@ -229,7 +228,7 @@ impl Actor {
         rt.transaction(|st: &mut State, rt| {
             let mut prop = Amt::load(&st.proposals, rt.store())
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-            let mut dbp = SetMultimap::from_root(rt.store(), &st.deal_ids_by_party)
+            let mut dbp = SetMultimap::from_root(rt.store(), &st.deal_ops_by_epoch)
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
             for mut deal in params.deals {
@@ -261,7 +260,7 @@ impl Actor {
 
                 let id = st.generate_storage_deal_id();
 
-                prop.set(id, deal.proposal)
+                prop.set(id, deal.proposal.clone())
                     .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
                 dbp.put(deal.proposal.start_epoch, id)
                     .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
@@ -309,7 +308,7 @@ impl Actor {
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
             for id in &params.deal_ids {
-                let mut deal = states
+                let deal = states
                     .get(*id)
                     .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
@@ -481,12 +480,13 @@ impl Actor {
         let mut timed_out_verified_deals: Vec<DealProposal> = Vec::new();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-            let dbe = SetMultimap::from_root(rt.store(), &st.deal_ops_by_epoch).map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to load deal opts set: {}", e),
-                )
-            })?;
+            let mut dbe =
+                SetMultimap::from_root(rt.store(), &st.deal_ops_by_epoch).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deal opts set: {}", e),
+                    )
+                })?;
 
             let mut updates_needed: Vec<(ChainEpoch, DealID)> = Vec::new();
 
@@ -506,7 +506,7 @@ impl Actor {
                         .get(id)
                         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))
                         .unwrap()
-                        .ok_or({ format!("could not find deal state") })
+                        .ok_or({ format!("could not find deal state: {}", id) })
                         .unwrap();
 
                     let deal = st.must_get_deal(rt.store(), id).unwrap();
@@ -518,12 +518,19 @@ impl Actor {
                         );
 
                         let slashed = st
-                            .process_deal_init_timed_out(rt.store(), et, lt, id, deal, state)
+                            .process_deal_init_timed_out(
+                                rt.store(),
+                                &mut et,
+                                &mut lt,
+                                id,
+                                &deal,
+                                state,
+                            )
                             .unwrap();
                         amount_slashed += slashed;
 
                         if deal.verified_deal {
-                            timed_out_verified_deals.push(deal);
+                            timed_out_verified_deals.push(deal.clone());
                         }
                     }
 
@@ -533,8 +540,8 @@ impl Actor {
                             state,
                             deal,
                             id,
-                            et,
-                            lt,
+                            &mut et,
+                            &mut lt,
                             rt.curr_epoch(),
                         )
                         .unwrap();
@@ -555,8 +562,8 @@ impl Actor {
                                 )
                             })
                             .unwrap();
-
-                        *updates_needed.get_mut(next_epoch.unwrap() as usize) = id;
+                        let idx = next_epoch.unwrap();
+                        updates_needed.push((idx, id));
                     }
                     Ok(())
                 })
@@ -572,14 +579,15 @@ impl Actor {
                         format!("failed to delete deals from set: {}", e),
                     )
                 })?;
+                i += 1;
             }
 
             // NB: its okay that we're doing a 'random' golang map iteration here
             // because HAMTs and AMTs are insertion order independent, the same set of
             // data inserted will always produce the same structure, no matter the order
-            for (epoch, deals) in updates_needed.iter() {
+            for (epoch, deals) in updates_needed.into_iter() {
                 // TODO multimap should have put_many
-                dbe.put(*epoch, *deals).map_err(|e| {
+                dbe.put(epoch, deals).map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
                         format!("failed to reinsert deal IDs into epoch set: {}", e),
