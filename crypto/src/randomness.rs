@@ -10,10 +10,11 @@ use num_traits::FromPrimitive;
 pub enum DomainSeparationTag {
     TicketProduction = 1,
     ElectionPoStChallengeSeed = 2,
-    WindowedPoStChallengeSeed = 3,
-    SealRandomness = 4,
-    InteractiveSealChallengeSeed = 5,
-    WinningPoStChallengeSeed = 6,
+    WinningPoStChallengeSeed = 3,
+    WindowedPoStChallengeSeed = 4,
+    SealRandomness = 5,
+    InteractiveSealChallengeSeed = 6,
+    WindowedPoStDeadlineAssignment = 7,
 }
 
 impl DomainSeparationTag {
