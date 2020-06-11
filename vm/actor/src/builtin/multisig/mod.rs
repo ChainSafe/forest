@@ -14,6 +14,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use encoding::blake2b_256;
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -29,6 +30,21 @@ pub enum Method {
     RemoveSigner = 7,
     SwapSigner = 8,
     ChangeNumApprovalsThreshold = 9,
+}
+
+
+pub fn compute_proposal_hash(
+    txn : Transaction
+) -> [u8; 32] {
+    let hash_data = ProposalHashData {
+        requester : txn.approved[0],
+        to : txn.to,
+        value : txn.value,
+        method : txn.method,
+        params : txn.params.to_vec(),
+    };
+    let serial_data = Serialized::serialize(hash_data).unwrap();
+    blake2b_256(serial_data.bytes())
 }
 
 /// Multisig Actor
@@ -347,6 +363,7 @@ impl Actor {
 
                 // Check if number approvals is met
                 if txn.approved.len() >= st.num_approvals_threshold as usize {
+                    println!("IN HERE");
                     // Ensure sufficient funds
                     if let Err(e) = st.check_available(curr_bal, txn.value.clone(), curr_epoch) {
                         return Err(ActorError::new(

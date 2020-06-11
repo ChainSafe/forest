@@ -72,6 +72,14 @@ where
         Ok(())
     }
 
+    pub fn collect_keys(&self) -> Result<String,()>{
+        let mut out= String::new();
+        for (key,value) in self{
+            out.push_str(key);
+        }
+        Ok(out)
+    }
+
     /// Iterates through all values in the array at a given key.
     pub fn for_each<F, V>(&self, key: &[u8], f: F) -> Result<(), String>
     where
@@ -84,4 +92,6 @@ where
 
         Ok(())
     }
+
+
 }

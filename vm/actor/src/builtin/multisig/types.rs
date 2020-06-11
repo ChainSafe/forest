@@ -6,6 +6,7 @@ use address::Address;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use num_bigint::biguint_ser;
+use num_bigint::{BigInt};
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -17,9 +18,19 @@ pub struct TxnID(pub i64);
 
 impl TxnID {
     pub fn key(self) -> BytesKey {
-        // TODO
-        todo!();
+        let v = BigInt::from(self.0 as i64);
+        BytesKey(v.to_signed_bytes_be())
     }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct ProposalHashData {
+    pub requester: Address,
+    pub to: Address,
+    #[serde(with = "biguint_ser")]
+    pub value: TokenAmount,
+    pub method: u64,
+    pub params: Vec<u8>,
 }
 
 /// Transaction type used in multisig actor
@@ -56,6 +67,7 @@ pub struct ProposeParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TxnIDParams {
     pub id: TxnID,
+    pub proposal_hash: [u8; 32],
 }
 
 /// Add signer params
