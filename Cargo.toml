@@ -34,4 +34,5 @@ members = [
     "utils/commcid",
     "utils/json_utils",
     "types",
+    "key_management",
 ]
