@@ -11,7 +11,7 @@ use fil_types::{RegisteredProof, SectorInfo, SectorSize};
 use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
 use std::convert::TryInto;
 
-pub fn get_sectors_winning_for_winning_post<DB>(
+pub fn get_sectors_for_winning_post<DB>(
     state_manager: &StateManager<DB>,
     st: &Cid,
     address: &Address,
