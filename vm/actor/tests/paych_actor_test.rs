@@ -100,13 +100,22 @@ fn actor_constructor_fails() {
         expected_exit_code: ExitCode,
     }
 
-    let test_cases: Vec<TestCase> = vec![TestCase {
-        paych_addr: paych_addr,
-        caller_code: INIT_ACTOR_CODE_ID.clone(),
-        new_actor_code: MULTISIG_ACTOR_CODE_ID.clone(),
-        payer_code: ACCOUNT_ACTOR_CODE_ID.clone(),
-        expected_exit_code: ExitCode::ErrIllegalArgument,
-    }];
+    let test_cases: Vec<TestCase> = vec![
+        TestCase {
+            paych_addr: paych_addr,
+            caller_code: INIT_ACTOR_CODE_ID.clone(),
+            new_actor_code: MULTISIG_ACTOR_CODE_ID.clone(),
+            payer_code: ACCOUNT_ACTOR_CODE_ID.clone(),
+            expected_exit_code: ExitCode::ErrIllegalArgument,
+        },
+        TestCase {
+            paych_addr: Address::new_secp256k1(&vec![b'A'; 65][..]).unwrap(),
+            caller_code: INIT_ACTOR_CODE_ID.clone(),
+            new_actor_code: ACCOUNT_ACTOR_CODE_ID.clone(),
+            payer_code: ACCOUNT_ACTOR_CODE_ID.clone(),
+            expected_exit_code: ExitCode::ErrIllegalArgument,
+        },
+    ];
 
     for test_case in test_cases {
         let bs = MemoryDB::default();
@@ -141,6 +150,7 @@ mod create_lane_tests {
     #[derive(Builder, Debug)]
     #[builder(name = "TestCaseBuilder")]
     struct TestCase {
+        desc: String,
         #[builder(default = "ACCOUNT_ACTOR_CODE_ID.clone()")]
         target_code: Cid,
         #[builder(default)]
@@ -185,40 +195,51 @@ mod create_lane_tests {
 
         let test_cases: Vec<TestCase> = vec![
             TestCase::builder()
+                .desc("succeds".to_string())
                 .sig(sig.clone())
                 .exp_exit_code(ExitCode::Ok)
                 .build()
                 .unwrap(),
             TestCase::builder()
+                .desc("fails if new send balance is negative".to_string())
                 .amt(-1)
                 .sig(sig.clone())
                 .exp_exit_code(ExitCode::ErrIllegalState)
                 .build()
                 .unwrap(),
             TestCase::builder()
+                .desc("fails if balance too low".to_string())
                 .amt(10)
                 .sig(sig.clone())
                 .exp_exit_code(ExitCode::ErrIllegalState)
                 .build()
                 .unwrap(),
-            TestCase::builder().sig(Option::None).build().unwrap(),
             TestCase::builder()
+                .desc("fails is signature is not valid".to_string())
+                .sig(Option::None)
+                .build()
+                .unwrap(),
+            TestCase::builder()
+                .desc("fails if too early for a voucher".to_string())
                 .tl_min(10)
                 .sig(sig.clone())
                 .build()
                 .unwrap(),
             TestCase::builder()
+                .desc("fails is beyond timelockmax".to_string())
                 .epoch(10)
                 .tl_max(5)
                 .sig(sig.clone())
                 .build()
                 .unwrap(),
             TestCase::builder()
+                .desc("fails if signature is not verified".to_string())
                 .sig(sig.clone())
                 .verify_sig(false)
                 .build()
                 .unwrap(),
             TestCase::builder()
+                .desc("Fails if signing fails".to_string())
                 .sig(sig.clone())
                 .secret_preimage(vec![0; 2 << 21])
                 .build()
@@ -226,6 +247,7 @@ mod create_lane_tests {
         ];
 
         for test_case in test_cases {
+            println!("Test Description {}", test_case.desc);
             let bs = MemoryDB::default();
             let message = UnsignedMessage::builder()
                 .from(*SYSTEM_ACTOR_ADDR)

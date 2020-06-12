@@ -10,18 +10,15 @@ use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
-use encoding::blake2b_256;
-use encoding::{de::DeserializeOwned, Cbor};
+use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
 use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, ConsensusFault, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
-use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
-
-use runtime::ConsensusFault;
 use std::error::Error as StdError;
+use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 pub struct MockRuntime<'a, BS: BlockStore> {
     pub epoch: ChainEpoch,
@@ -150,7 +147,6 @@ where
         *self.expect_validate_caller_type.borrow_mut() = Some(ids.to_vec());
     }
 
-    #[allow(dead_code)]
     pub fn expect_verify_signature(
         &mut self,
         sig: Signature,
@@ -406,8 +402,13 @@ where
         if address.protocol() == address::Protocol::ID {
             return Ok(address.clone());
         }
-        let resolved = self.id_addresses.get(&address).unwrap();
-        return Ok(resolved.clone());
+        if let Some(resolved) = self.id_addresses.get(&address) {
+            return Ok(resolved.clone());
+        }
+        Err(ActorError::new(
+            ExitCode::ErrIllegalArgument,
+            "Address not found".to_string(),
+        ))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
@@ -573,17 +574,14 @@ where
 {
     fn verify_signature(
         &self,
-        _signature: &Signature,
-        _signer: &Address,
-        _plaintext: &[u8],
+        signature: &Signature,
+        signer: &Address,
+        plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
         let op_exp = self.expect_verify_sig.replace(Option::None);
 
         if let Some(exp) = op_exp {
-            if exp.sig == *_signature
-                && exp.signer == *_signer
-                && (exp.plaintext[..]) == *_plaintext
-            {
+            if exp.sig == *signature && exp.signer == *signer && (exp.plaintext[..]) == *plaintext {
                 if exp.result == ExitCode::Ok {
                     return Ok(());
                 } else {
@@ -606,8 +604,8 @@ where
         }
     }
 
-    fn hash_blake2b(&self, _data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
-        Ok(blake2b_256(&_data))
+    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
+        Ok(blake2b_256(&data))
     }
     fn compute_unsealed_sector_cid(
         &self,
