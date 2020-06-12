@@ -625,7 +625,6 @@ where
         _h1: &[u8],
         _h2: &[u8],
         _extra: &[u8],
-        _earliest: ChainEpoch,
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         unimplemented!();
     }
