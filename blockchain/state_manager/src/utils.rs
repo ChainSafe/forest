@@ -50,7 +50,7 @@ where
     let ids = generate_winning_post_sector_challenge(
         wpt.into(),
         &rand,
-        sector_set.len().try_into().map_err(|_|Error::Other("Could not convert sector set length to u64 for generate_winning_post_sector_Challenge".to_string()))?,
+        sector_set.len() as u64,
         prover_id,
     )
     .map_err(|err| Error::State(format!("generate winning posts challenge {:}", err)))?;
