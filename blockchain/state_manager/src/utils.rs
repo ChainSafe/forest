@@ -3,13 +3,12 @@
 
 use crate::errors::*;
 use crate::StateManager;
-use actor::miner::State;
-use address::{Address, Payload};
+use actor::miner;
+use address::{Address, Protocol};
 use blockstore::BlockStore;
 use cid::Cid;
 use fil_types::{RegisteredProof, SectorInfo, SectorSize};
 use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
-use std::convert::TryInto;
 
 pub fn get_sectors_for_winning_post<DB>(
     state_manager: &StateManager<DB>,
@@ -20,14 +19,16 @@ pub fn get_sectors_for_winning_post<DB>(
 where
     DB: BlockStore,
 {
-    let miner_actor_state: State = state_manager.load_actor_state(&address, &st)?;
-    let mut not_proving = miner_actor_state
-        .faults
-        .clone()
-        .merge(&miner_actor_state.recoveries)
-        .map_err(|_| Error::Other("Could not merge bitfield".to_string()))?;
-    let sector_set =
-        miner_actor_state.load_sector_infos(&*state_manager.get_block_store(), &mut not_proving)?;
+    let miner_actor_state: miner::State =
+        state_manager
+            .load_actor_state(&address, &st)
+            .map_err(|err| {
+                Error::State(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+    let sector_set = get_proving_set_raw(state_manager, &miner_actor_state)?;
     if sector_set.is_empty() {
         return Ok(Vec::new());
     }
@@ -40,12 +41,14 @@ where
     };
     let wpt = seal_proof_type.registered_winning_post_proof()?;
 
-    let mid = match address.payload() {
-        Payload::ID(new_id) => Address::new_id(*new_id),
-        _ => return Err(Error::Other(format!("getting miner id {:}", address))),
+    if address.protocol() != Protocol::ID {
+        return Err(Error::Other(format!(
+            "failed to get ID from miner address {:}",
+            address
+        )));
     };
     let mut prover_id = ProverId::default();
-    let prover_bytes = mid.to_bytes();
+    let prover_bytes = address.to_bytes();
     prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
     let ids = generate_winning_post_sector_challenge(
         wpt.into(),
@@ -81,4 +84,22 @@ where
             })
         })
         .collect::<Result<Vec<SectorInfo>, _>>()?)
+}
+
+fn get_proving_set_raw<DB>(
+    state_manager: &StateManager<DB>,
+    actor_state: &miner::State,
+) -> Result<Vec<miner::SectorOnChainInfo>, Error>
+where
+    DB: BlockStore,
+{
+    let mut not_proving = actor_state
+        .faults
+        .clone()
+        .merge(&actor_state.recoveries)
+        .map_err(|_| Error::Other("Could not merge bitfield".to_string()))?;
+
+    actor_state
+        .load_sector_infos(&*state_manager.get_block_store(), &mut not_proving)
+        .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
 }

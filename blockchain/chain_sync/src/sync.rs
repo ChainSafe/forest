@@ -8,8 +8,7 @@ use super::bucket::{SyncBucket, SyncBucketSet};
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
-use address::Address;
-use address::Payload;
+use address::{Address, Protocol};
 use amt::Amt;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
@@ -43,7 +42,6 @@ use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
 use std::convert::TryFrom;
-use std::str::from_utf8;
 use std::sync::Arc;
 use vm::TokenAmount;
 
@@ -742,21 +740,6 @@ where
         prev_entry: BeaconEntry,
         lbst: Cid,
     ) -> Result<(), Error> {
-        if block.win_post_proof().is_empty() {
-            return Err(Error::Validation(
-                "[TESTING] No winning post proof given".to_string(),
-            ));
-        }
-
-        if let Some(first_proof) = block.win_post_proof().first() {
-            if from_utf8(&first_proof.proof_bytes)
-                .map(|buf| buf == "valid proof")
-                .unwrap_or_default()
-            {
-                return Ok(());
-            }
-        }
-
         let marshal_miner_work_addr = block.miner_address().marshal_cbor()?;
         let rbase = block.beacon_entries().iter().last().unwrap_or(&prev_entry);
         let rand = chain::draw_randomness(
@@ -771,19 +754,16 @@ where
                 err
             ))
         })?;
-        let miner_id = match block.miner_address().payload() {
-            Payload::ID(new_id) => Address::new_id(*new_id),
-            _ => {
-                return Err(Error::Validation(format!(
-                    "failed to get ID from miner address {:}",
-                    block.miner_address()
-                )))
-            }
+        if block.miner_address().protocol() != Protocol::ID {
+            return Err(Error::Validation(format!(
+                "failed to get ID from miner address {:}",
+                block.miner_address()
+            )));
         };
-        let sectors = utils::get_sectors_winning_for_winning_post(
+        let sectors = utils::get_sectors_for_winning_post(
             &self.state_manager,
             &lbst,
-            &miner_id,
+            &block.miner_address(),
             &rand,
         )?;
 
@@ -817,7 +797,7 @@ where
             .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
 
         let mut prover_id = ProverId::default();
-        let prover_bytes = miner_id.to_bytes();
+        let prover_bytes = block.miner_address().to_bytes();
         prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
         if !verify_winning_post(&rand, &proofs, &replicas, prover_id)
             .map_err(|err| Error::Validation(format!("failed to verify election post: {:}", err)))?
