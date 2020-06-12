@@ -8,6 +8,7 @@ use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
 use std::borrow::Borrow;
+use vm::{ActorError, ExitCode};
 
 /// SetMultimap is a hamt with values that are also a hamt but are of the set variant.
 /// This allows hash sets to be indexable by an address.
@@ -35,9 +36,7 @@ where
     /// Puts the DealID in the hash set of the key.
     pub fn put(&mut self, key: ChainEpoch, value: DealID) -> Result<(), String> {
         // Get construct amt from retrieved cid or create new
-        let mut set = self
-            .get(u64_key(key))?
-            .unwrap_or_else(|| Set::new(self.0.store()));
+        let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
         set.put(u64_key(value))?;
 
@@ -50,8 +49,8 @@ where
 
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
-    pub fn get(&self, key: BytesKey) -> Result<Option<Set<'a, BS>>, String> {
-        match self.0.get(&key)? {
+    pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, String> {
+        match self.0.get(&u64_key(key))? {
             Some(cid) => Ok(Some(Set::from_root(self.0.store(), &cid)?)),
             None => Ok(None),
         }
@@ -61,7 +60,7 @@ where
     #[inline]
     pub fn remove(&mut self, key: ChainEpoch, v: DealID) -> Result<(), String> {
         // Get construct amt from retrieved cid and return if no set exists
-        let mut set = match self.get(u64_key(key))? {
+        let mut set = match self.get(key)? {
             Some(s) => s,
             None => return Ok(()),
         };
@@ -84,12 +83,15 @@ where
     }
 
     /// Iterates through keys and converts them to a DealID to call a function on each.
-    pub fn for_each<F>(&self, key: ChainEpoch, mut f: F) -> Result<(), String>
+    pub fn for_each<F>(&self, key: ChainEpoch, mut f: F) -> Result<(), ActorError>
     where
-        F: FnMut(DealID) -> Result<(), String>,
+        F: FnMut(DealID) -> Result<(), ActorError>,
     {
         // Get construct amt from retrieved cid and return if no set exists
-        let set = match self.get(u64_key(key))? {
+        let set = match self
+            .get(key)
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?
+        {
             Some(s) => s,
             None => return Ok(()),
         };
@@ -99,7 +101,8 @@ where
                 .map_err(|e| format!("Could not parse key: {:?}, ({})", &k.0, e))?;
 
             // Run function on all parsed keys
-            f(v)
+            f(v).map_err(|e| format!("Could parse all keys: ({})", e))
         })
+        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))
     }
 }

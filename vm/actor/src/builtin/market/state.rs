@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    collateral_penalty_for_deal_activation_missed, ClientDealProposal, DealProposal, DealState,
-    DEAL_UPDATED_INTERVAL,
+    collateral_penalty_for_deal_activation_missed, DealProposal, DealState, DEAL_UPDATED_INTERVAL,
 };
 use crate::{BalanceTable, DealID, OptionalEpoch};
 use address::Address;
@@ -14,14 +13,7 @@ use encoding::Cbor;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;
-use runtime::Runtime;
 use vm::{ActorError, ExitCode, TokenAmount};
-
-// Market mutations
-// add / rm balance
-// pub deal (always provider)
-// activate deal (miner)
-// end deal (miner terminate, expire(no activation))
 
 /// Market actor state
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
@@ -103,7 +95,7 @@ impl State {
             deal.start_epoch
         };
 
-        let elapsed_end = if epoch < deal_end { epoch } else { deal_end };
+        let elapsed_end = std::cmp::min(epoch, deal_end);
 
         let num_epochs_elapsed = elapsed_end - elapsed_start;
 
@@ -144,36 +136,10 @@ impl State {
             return Ok((TokenAmount::zero(), OptionalEpoch(None)));
         }
 
-        let next: ChainEpoch = if epoch + DEAL_UPDATED_INTERVAL > deal.end_epoch {
-            deal.end_epoch
-        } else {
-            epoch + DEAL_UPDATED_INTERVAL
-        };
+        let next: ChainEpoch = std::cmp::min(epoch + DEAL_UPDATED_INTERVAL, deal.end_epoch);
 
         Ok((TokenAmount::zero(), OptionalEpoch(Some(next))))
     }
-    // Unused but exists in spec
-    fn _mutate_deal_states<BS, F>(&mut self, store: &BS, f: F) -> Result<(), ActorError>
-    where
-        F: FnOnce(&mut Amt<Cid, BS>) -> Result<(), ActorError>,
-        BS: BlockStore,
-    {
-        let mut states = Amt::load(&self.states, store)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-        f(&mut states)?;
-
-        let r_cid = states.flush().map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("failed to load deal states: {}", e),
-            )
-        })?;
-
-        self.states = r_cid;
-        Ok(())
-    }
-
     fn mutate_deal_proposals<BS, F>(&mut self, store: &BS, f: F) -> Result<(), ActorError>
     where
         F: FnOnce(&mut Amt<Cid, BS>) -> Result<(), ActorError>,
@@ -372,7 +338,7 @@ impl State {
         let escrow_balance = self.get_escrow_balance(store, addr)?;
         if &prev_locked + amount > escrow_balance {
             return Err(ActorError::new(
-                ExitCode::ErrPlaceholder,
+                ExitCode::ErrInsufficientFunds,
                 format!(
                     "not enough balance to lock for addr {}: {} <  {}",
                     addr,
@@ -394,7 +360,6 @@ impl State {
 
         Ok(())
     }
-    /// TODO: all these balance table mutations need to happen at the top level and be batched (no flushing after each!)
     fn unlock_balance<BS: BlockStore>(
         &mut self,
         lt: &mut BalanceTable<BS>,
@@ -487,30 +452,6 @@ impl State {
                 )
             })?)
     }
-    // Unused but exists in spec
-    fn _must_get_deal_state<BS: BlockStore>(
-        &self,
-        store: &BS,
-        deal_id: DealID,
-    ) -> Result<DealState, ActorError> {
-        let states = Amt::load(&self.states, store)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        Ok(states
-            .get(deal_id)
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("get deal state for id {}: {}", deal_id, e),
-                )
-            })?
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("deal state not found for id {}", deal_id),
-                )
-            })?)
-    }
-
     pub(super) fn lock_balance_or_abort<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -538,34 +479,6 @@ where
     f(&mut t)?;
 
     *c = t.root()?;
-    Ok(())
-}
-// Unused but exists in spec
-fn _deal_proposal_is_internally_valid<BS, RT>(
-    rt: RT,
-    proposal: ClientDealProposal,
-) -> Result<(), String>
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
-    if proposal.proposal.end_epoch <= proposal.proposal.start_epoch {
-        return Err(format!(
-            "proposal end epoch before start epoch: {}, {}",
-            proposal.proposal.end_epoch, proposal.proposal.start_epoch
-        ));
-    }
-
-    // Note: we do not verify the provider signature here, since this is implicit in the
-    // authenticity of the on-chain message publishing the deal.
-    let buf = proposal
-        .proposal
-        .marshal_cbor()
-        .map_err(|e| e.to_string())?;
-    rt.syscalls()
-        .verify_signature(&proposal.client_signature, &proposal.proposal.client, &buf)
-        .map_err(|e| e.to_string())?;
-
     Ok(())
 }
 

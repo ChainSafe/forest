@@ -10,18 +10,18 @@ fn put_remove() {
     let mut smm = SetMultimap::new(&store);
 
     let epoch: ChainEpoch = 100;
-    assert_eq!(smm.get(u64_key(epoch)), Ok(None));
+    assert_eq!(smm.get(epoch), Ok(None));
 
     smm.put(epoch, 8).unwrap();
     smm.put(epoch, 2).unwrap();
     smm.remove(epoch, 2).unwrap();
 
-    let set = smm.get(u64_key(epoch)).unwrap().unwrap();
+    let set = smm.get(epoch).unwrap().unwrap();
     assert_eq!(set.has(&u64_key(8)), Ok(true));
     assert_eq!(set.has(&u64_key(2)), Ok(false));
 
     smm.remove_all(epoch).unwrap();
-    assert_eq!(smm.get(u64_key(epoch)), Ok(None));
+    assert_eq!(smm.get(epoch), Ok(None));
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn for_each() {
     let mut smm = SetMultimap::new(&store);
 
     let epoch: ChainEpoch = 100;
-    assert_eq!(smm.get(u64_key(epoch)), Ok(None));
+    assert_eq!(smm.get(epoch), Ok(None));
 
     smm.put(epoch, 8).unwrap();
     smm.put(epoch, 3).unwrap();

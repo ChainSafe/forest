@@ -12,7 +12,7 @@ pub use self::state::State;
 pub use self::types::*;
 use crate::{
     make_map, request_miner_control_addrs,
-    verifreg::{BytesParams, Method as VeriMethod},
+    verifreg::{BytesParams, Method as VerifregMethod},
     BalanceTable, DealID, OptionalEpoch, SetMultimap, BURNT_FUNDS_ACTOR_ADDR,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
     VERIFIED_REGISTRY_ACTOR_ADDR,
@@ -206,14 +206,14 @@ impl Actor {
             // Check VerifiedClient allowed cap and deduct PieceSize from cap.
             // Either the DealSize is within the available DataCap of the VerifiedClient
             // or this message will fail. We do not allow a deal that is partially verified.
-            let ser_params = Serialized::serialize(&BytesParams {
-                address: deal.proposal.client,
-                deal_size: BigUint::from(deal.proposal.piece_size.0),
-            })?;
             if deal.proposal.verified_deal {
+                let ser_params = Serialized::serialize(&BytesParams {
+                    address: deal.proposal.client,
+                    deal_size: BigUint::from(deal.proposal.piece_size.0),
+                })?;
                 rt.send(
                     &*VERIFIED_REGISTRY_ACTOR_ADDR,
-                    VeriMethod::UseBytes as u64,
+                    VerifregMethod::UseBytes as u64,
                     &ser_params,
                     &TokenAmount::zero(),
                 )?;
@@ -228,7 +228,7 @@ impl Actor {
         rt.transaction(|st: &mut State, rt| {
             let mut prop = Amt::load(&st.proposals, rt.store())
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-            let mut dbp = SetMultimap::from_root(rt.store(), &st.deal_ops_by_epoch)
+            let mut deal_ops = SetMultimap::from_root(rt.store(), &st.deal_ops_by_epoch)
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
             for mut deal in params.deals {
@@ -260,17 +260,19 @@ impl Actor {
 
                 let id = st.generate_storage_deal_id();
 
-                prop.set(id, deal.proposal.clone())
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-                dbp.put(deal.proposal.start_epoch, id)
+                deal_ops
+                    .put(deal.proposal.start_epoch, id)
                     .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
+
+                prop.set(id, deal.proposal)
+                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
                 new_deal_ids.push(id);
             }
             st.proposals = prop
                 .flush()
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-            st.deal_ops_by_epoch = dbp
+            st.deal_ops_by_epoch = deal_ops
                 .root()
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
@@ -504,12 +506,15 @@ impl Actor {
                 dbe.for_each(i, |id| {
                     let mut state: DealState = states
                         .get(id)
-                        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))
-                        .unwrap()
-                        .ok_or(format!("could not find deal state: {}", id))
-                        .unwrap();
+                        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?
+                        .ok_or_else(|| {
+                            ActorError::new(
+                                ExitCode::ErrIllegalState,
+                                format!("could not find deal state: {}", id),
+                            )
+                        })?;
 
-                    let deal = st.must_get_deal(rt.store(), id).unwrap();
+                    let deal = st.must_get_deal(rt.store(), id)?;
                     // Not yet appeared in proven sector; check for timeout.
                     if state.sector_start_epoch.is_none() {
                         assert!(
@@ -517,16 +522,14 @@ impl Actor {
                             "if sector start is not set, we must be in a timed out state"
                         );
 
-                        let slashed = st
-                            .process_deal_init_timed_out(
-                                rt.store(),
-                                &mut et,
-                                &mut lt,
-                                id,
-                                &deal,
-                                state,
-                            )
-                            .unwrap();
+                        let slashed = st.process_deal_init_timed_out(
+                            rt.store(),
+                            &mut et,
+                            &mut lt,
+                            id,
+                            &deal,
+                            state,
+                        )?;
                         amount_slashed += slashed;
 
                         if deal.verified_deal {
@@ -534,17 +537,15 @@ impl Actor {
                         }
                     }
 
-                    let (slash_amount, next_epoch) = st
-                        .update_pending_deal_state(
-                            rt.store(),
-                            state,
-                            deal,
-                            id,
-                            &mut et,
-                            &mut lt,
-                            rt.curr_epoch(),
-                        )
-                        .unwrap();
+                    let (slash_amount, next_epoch) = st.update_pending_deal_state(
+                        rt.store(),
+                        state,
+                        deal,
+                        id,
+                        &mut et,
+                        &mut lt,
+                        rt.curr_epoch(),
+                    )?;
                     amount_slashed += slash_amount;
 
                     if next_epoch.is_some() {
@@ -553,17 +554,15 @@ impl Actor {
                         // TODO: can we avoid having this field?
                         state.last_updated_epoch = OptionalEpoch(Some(rt.curr_epoch()));
 
-                        states
-                            .set(id, state)
-                            .map_err(|e| {
-                                ActorError::new(
-                                    ExitCode::ErrPlaceholder,
-                                    format!("failed to get deal: {}", e),
-                                )
-                            })
-                            .unwrap();
-                        let idx = next_epoch.unwrap();
-                        updates_needed.push((idx, id));
+                        states.set(id, state).map_err(|e| {
+                            ActorError::new(
+                                ExitCode::ErrPlaceholder,
+                                format!("failed to get deal: {}", e),
+                            )
+                        })?;
+                        if let OptionalEpoch(Some(idx)) = next_epoch {
+                            updates_needed.push((idx, id));
+                        }
                     }
                     Ok(())
                 })
@@ -582,9 +581,6 @@ impl Actor {
                 i += 1;
             }
 
-            // NB: its okay that we're doing a 'random' golang map iteration here
-            // because HAMTs and AMTs are insertion order independent, the same set of
-            // data inserted will always produce the same structure, no matter the order
             for (epoch, deals) in updates_needed.into_iter() {
                 // TODO multimap should have put_many
                 dbe.put(epoch, deals).map_err(|e| {
@@ -624,7 +620,7 @@ impl Actor {
             })?;
             rt.send(
                 &*VERIFIED_REGISTRY_ACTOR_ADDR,
-                VeriMethod::RestoreBytes as u64,
+                VerifregMethod::RestoreBytes as u64,
                 &ser_params,
                 &TokenAmount::zero(),
             )?;
