@@ -736,7 +736,7 @@ where
         Ok(())
     }
 
-    pub async fn verify_winning_posts_proof(
+    pub async fn verify_winning_post_proof(
         &self,
         block: BlockHeader,
         prev_entry: BeaconEntry,
