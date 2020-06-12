@@ -82,6 +82,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let value = rt.message().value().clone();
+        // TODO update this send, is now outdated
         let addresses: init::ExecReturn = rt
             .send(&INIT_ACTOR_ADDR, init::Method::Exec as u64, params, &value)?
             .deserialize()?;
@@ -367,6 +368,7 @@ impl Actor {
         Ok(())
     }
 
+    // TODO update this function from using unsigned delta (can be negative)
     fn update_pledge_total<BS, RT>(rt: &mut RT, pledge_delta: TokenAmount) -> Result<(), ActorError>
     where
         BS: BlockStore,

@@ -1,0 +1,13 @@
+[package]
+name = "key_management"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+thiserror = "1.0"
+address = { package = "forest_address", path = "../vm/address", version = "0.2" }
+crypto = { package = "forest_crypto", path = "../crypto" }
+bls-signatures = "0.6.0"
+libsecp256k1 = "0.3.4"
+rand = "0.7.3"
