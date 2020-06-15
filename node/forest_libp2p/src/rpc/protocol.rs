@@ -9,7 +9,6 @@ use futures::prelude::*;
 use futures::{AsyncRead, AsyncWrite};
 use futures_codec::{Encoder, Framed};
 use libp2p::core::UpgradeInfo;
-use libp2p::swarm::NegotiatedSubstream;
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use std::pin::Pin;
 

@@ -857,7 +857,7 @@ where
         // TODO change from using random peerID to managed
         let peer_id = PeerId::random();
         // pulled from Lotus: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L996
-        const FORK_LENGTH_THRESHOLD: u64 = 500;
+        const FORK_LENGTH_THRESHOLD: u64 = 1;
 
         // Load blocks from network using blocksync
         let tips: Vec<Tipset> = self

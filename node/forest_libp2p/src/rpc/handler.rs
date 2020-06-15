@@ -20,7 +20,7 @@ use std::{
 };
 
 /// The time (in seconds) before a substream that is awaiting a response from the user times out.
-pub const RESPONSE_TIMEOUT: u64 = 10;
+pub const RESPONSE_TIMEOUT: u64 = 20;
 
 pub struct RPCHandler {
     /// Upgrade configuration for RPC protocol.
@@ -350,43 +350,40 @@ impl ProtocolsHandler for RPCHandler {
                     mut substream,
                     event,
                     timeout,
-                } => match substream.poll_next_unpin(cx) {
-                    Poll::Ready(response) => {
-                        match response {
-                            Some(Ok(response)) => {
-                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
-                                    RPCEvent::Response(event.id(), response),
-                                ));
-                            }
-                            Some(Err(err)) => {
-                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
-                                    RPCEvent::Error(event.id(), RPCError::Custom(err.to_string())),
-                                ));
-                            }
-                            None => {
-                                // stream closed early or nothing was sent
-                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
-                                    RPCEvent::Error(
-                                        event.id(),
-                                        RPCError::Custom(
-                                            "Stream closed early. Empty response".to_owned(),
-                                        ),
-                                    ),
-                                ));
+                } => {
+                    // std::thread::sleep(std::time::Duration::from_secs(5));
+                    match substream.poll_next_unpin(cx) {
+                        Poll::Ready(Some(Ok(response))) => {
+                            return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Response(
+                                event.id(),
+                                response,
+                            )));
+                        }
+                        Poll::Ready(Some(Err(err))) => {
+                            return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Error(
+                                event.id(),
+                                RPCError::Custom(err.to_string()),
+                            )));
+                        }
+                        Poll::Ready(None) => {
+                            // stream closed early or nothing was sent
+                            return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Error(
+                                event.id(),
+                                RPCError::Custom("Stream closed early. Empty response".to_owned()),
+                            )));
+                        }
+                        Poll::Pending => {
+                            if Instant::now() < timeout {
+                                self.outbound_substreams
+                                    .push(SubstreamState::PendingResponse {
+                                        substream,
+                                        event,
+                                        timeout,
+                                    });
                             }
                         }
                     }
-                    Poll::Pending => {
-                        if Instant::now() < timeout {
-                            self.outbound_substreams
-                                .push(SubstreamState::PendingResponse {
-                                    substream,
-                                    event,
-                                    timeout,
-                                });
-                        }
-                    }
-                },
+                }
             }
         }
 
