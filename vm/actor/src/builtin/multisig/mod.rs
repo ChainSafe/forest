@@ -8,13 +8,13 @@ pub use self::state::State;
 pub use self::types::*;
 use crate::{make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
 use address::Address;
+use encoding::blake2b_256;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
-use encoding::blake2b_256;
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -32,16 +32,13 @@ pub enum Method {
     ChangeNumApprovalsThreshold = 9,
 }
 
-
-pub fn compute_proposal_hash(
-    txn : Transaction
-) -> [u8; 32] {
+pub fn compute_proposal_hash(txn: Transaction) -> [u8; 32] {
     let hash_data = ProposalHashData {
-        requester : txn.approved[0],
-        to : txn.to,
-        value : txn.value,
-        method : txn.method,
-        params : txn.params.to_vec(),
+        requester: txn.approved[0],
+        to: txn.to,
+        value: txn.value,
+        method: txn.method,
+        params: txn.params.to_vec(),
     };
     let serial_data = Serialized::serialize(hash_data).unwrap();
     blake2b_256(serial_data.bytes())
