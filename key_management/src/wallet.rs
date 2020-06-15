@@ -337,13 +337,24 @@ mod tests {
         assert_eq!(wallet.get_default().unwrap(), test_addr);
     }
 
+    #[test]
+    fn secp_verify() {
+        let key_vec = construct_priv_keys();
+        let addr = key_vec[0].address.clone();
+        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
+
+        let msg: [u8; 32] = [
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1,
+        ];
+        let sig = wallet.sign(&addr, &msg).unwrap();
+        let test = sig.verify(&msg, &addr).unwrap();
+    }
 
     #[test]
     fn bls_verify_test() {
         let key_vec = construct_priv_keys();
-        let priv_key = key_vec[6].key_info.private_key().clone();
         let addr = key_vec[6].address.clone();
-        let pub_key = key_vec[6].public_key.clone();
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
 
         let msg: [u8; 32] = [
