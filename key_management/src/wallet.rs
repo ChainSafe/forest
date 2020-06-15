@@ -164,6 +164,7 @@ fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 mod tests {
     use super::*;
     use crate::{generate, MemKeyStore};
+    use encoding::blake2b_256;
     use secp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     fn construct_priv_keys() -> Vec<Key> {
@@ -224,17 +225,18 @@ mod tests {
         let priv_key_bytes = key_vec[2].key_info.private_key().clone();
         let addr = key_vec[2].address.clone();
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
-        let msg: [u8; 32] = [
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1,
-        ];
+        let msg = [0u8; 64];
 
         let msg_sig = wallet.sign(&addr, &msg).unwrap();
 
+        let msg_complete = blake2b_256(&msg);
+        let message = SecpMessage::parse(&msg_complete);
         let priv_key = SecpPrivate::parse_slice(&priv_key_bytes).unwrap();
-        let message = SecpMessage::parse_slice(&msg).unwrap();
-        let (sig, _) = secp256k1::sign(&message, &priv_key);
-        let actual = Signature::new_secp256k1(sig.serialize().to_vec());
+        let (sig, recovery_id) = secp256k1::sign(&message, &priv_key);
+        let mut new_bytes = [0; 65];
+        new_bytes[..64].copy_from_slice(&sig.serialize());
+        new_bytes[64] = recovery_id.serialize();
+        let actual = Signature::new_secp256k1(new_bytes.to_vec());
         assert_eq!(msg_sig, actual)
     }
 
@@ -343,12 +345,10 @@ mod tests {
         let addr = key_vec[0].address.clone();
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
 
-        let msg: [u8; 32] = [
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1,
-        ];
+        let msg = [0u8; 64];
+
         let sig = wallet.sign(&addr, &msg).unwrap();
-        let test = sig.verify(&msg, &addr).unwrap();
+        sig.verify(&msg, &addr).unwrap();
     }
 
     #[test]
@@ -357,12 +357,9 @@ mod tests {
         let addr = key_vec[6].address.clone();
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
 
-        let msg: [u8; 32] = [
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1,
-        ];
+        let msg = [0u8; 64];
 
         let sig = wallet.sign(&addr, &msg).unwrap();
-        let test = sig.verify(&msg, &addr).unwrap();
+        sig.verify(&msg, &addr).unwrap();
     }
 }

@@ -5,6 +5,7 @@ use super::errors::Error;
 use address::Address;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use crypto::{Signature, SignatureType};
+use encoding::blake2b_256;
 use rand::rngs::OsRng;
 use secp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 
@@ -53,14 +54,12 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
         SignatureType::Secp256 => {
             let priv_key = SecpPrivate::parse_slice(private_key)
                 .map_err(|err| Error::Other(err.to_string()))?;
-            let message =
-                SecpMessage::parse_slice(msg).map_err(|err| Error::Other(err.to_string()))?;
-            // this returns a signature of secp256k1 type, next lines convert this sig to crypto signature type
+            let msg_complete = blake2b_256(msg);
+            let message = SecpMessage::parse(&msg_complete);
             let (sig, recovery_id) = secp256k1::sign(&message, &priv_key);
             let mut new_bytes = [0; 65];
             new_bytes[..64].copy_from_slice(&sig.serialize());
             new_bytes[64] = recovery_id.serialize();
-            println!("{}", recovery_id.serialize());
             let crypto_sig = Signature::new_secp256k1(new_bytes.to_vec());
             Ok(crypto_sig)
         }

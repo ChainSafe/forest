@@ -48,8 +48,8 @@ pub struct Signature {
 
 impl ser::Serialize for Signature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: ser::Serializer,
+    where
+        S: ser::Serializer,
     {
         let mut bytes = self.bytes.clone();
         // Insert signature type byte
@@ -61,8 +61,8 @@ impl ser::Serialize for Signature {
 
 impl<'de> de::Deserialize<'de> for Signature {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: de::Deserializer<'de>,
+    where
+        D: de::Deserializer<'de>,
     {
         let mut bytes: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
         if bytes.is_empty() {
@@ -148,8 +148,6 @@ impl Signature {
         if &rec_addr == addr {
             Ok(())
         } else {
-            println!("{:?}", rec_addr);
-            println!("{:?}", addr);
             Err("Secp signature verification failed".to_owned())
         }
     }
@@ -180,11 +178,10 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
     verify(&sig, &hashed_data[..], &pks[..])
 }
 
-// TODO: verify signature data format after signing implemented
+/// Return Address for a message given it's hash and signature
 pub fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
     // generate types to recover key from
     let rec_id = RecoveryId::parse(signature[64])?;
-    // let rec_id = RecoveryId::parse(2)?;
     let message = Message::parse(&hash);
 
     // Signature value without recovery byte
@@ -194,7 +191,6 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error
     let sig = EcsdaSignature::parse(&s);
 
     let key = recover(&message, &sig, &rec_id)?;
-    println!("pubkey test {:?}", key.serialize().to_vec());
     let ret = key.serialize();
     let addr = Address::new_secp256k1(&ret)?;
     Ok(addr)
@@ -203,36 +199,10 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
     use rand::rngs::mock::StepRng;
     use rand::Rng;
 
-    #[test]
-    fn bls_verify() {
-        let rng = &mut StepRng::new(8, 3);
-        let sk = PrivateKey::generate(rng);
-
-        let msg = (0..64).map(|_| rng.gen()).collect::<Vec<u8>>();
-        let signature = sk.sign(&msg);
-
-        let signature_bytes = signature.as_bytes();
-        assert_eq!(signature_bytes.len(), 96);
-        assert_eq!(
-            BlsSignature::from_bytes(&signature_bytes).unwrap(),
-            signature
-        );
-
-        let pk = sk.public_key();
-        let addr = Address::new_bls(&pk.as_bytes()).unwrap();
-
-        Signature::new_bls(signature_bytes.clone())
-            .verify(&msg, &addr)
-            .unwrap();
-        Signature::new_bls(signature_bytes.clone())
-            .verify_bls_sig(&msg, &addr)
-            .unwrap();
-    }
     #[test]
     fn bls_agg_verify() {
         // The number of signatures in aggregate
@@ -293,19 +263,19 @@ pub mod json {
     }
 
     pub fn serialize<S>(m: &Signature, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         JsonHelper {
             sig_type: m.sig_type,
             bytes: base64::encode(&m.bytes),
         }
-            .serialize(serializer)
+        .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Signature, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
         Ok(Signature {
@@ -319,8 +289,8 @@ pub mod json {
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 
         pub fn serialize<S>(v: &Option<Signature>, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: Serializer,
+        where
+            S: Serializer,
         {
             v.as_ref()
                 .map(|s| SignatureJsonRef(s))
@@ -328,8 +298,8 @@ pub mod json {
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
-            where
-                D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
         {
             let s: Option<SignatureJson> = Deserialize::deserialize(deserializer)?;
             Ok(s.map(|v| v.0))
