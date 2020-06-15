@@ -56,8 +56,12 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
             let message =
                 SecpMessage::parse_slice(msg).map_err(|err| Error::Other(err.to_string()))?;
             // this returns a signature of secp256k1 type, next lines convert this sig to crypto signature type
-            let (sig, _) = secp256k1::sign(&message, &priv_key);
-            let crypto_sig = Signature::new_secp256k1(sig.serialize().to_vec());
+            let (sig, recovery_id) = secp256k1::sign(&message, &priv_key);
+            let mut new_bytes = [0; 65];
+            new_bytes[..64].copy_from_slice(&sig.serialize());
+            new_bytes[64] = recovery_id.serialize();
+            println!("{}", recovery_id.serialize());
+            let crypto_sig = Signature::new_secp256k1(new_bytes.to_vec());
             Ok(crypto_sig)
         }
     }

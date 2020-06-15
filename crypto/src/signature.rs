@@ -48,8 +48,8 @@ pub struct Signature {
 
 impl ser::Serialize for Signature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: ser::Serializer,
+        where
+            S: ser::Serializer,
     {
         let mut bytes = self.bytes.clone();
         // Insert signature type byte
@@ -61,8 +61,8 @@ impl ser::Serialize for Signature {
 
 impl<'de> de::Deserialize<'de> for Signature {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
+        where
+            D: de::Deserializer<'de>,
     {
         let mut bytes: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
         if bytes.is_empty() {
@@ -148,6 +148,8 @@ impl Signature {
         if &rec_addr == addr {
             Ok(())
         } else {
+            println!("{:?}", rec_addr);
+            println!("{:?}", addr);
             Err("Secp signature verification failed".to_owned())
         }
     }
@@ -179,20 +181,16 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
 }
 
 // TODO: verify signature data format after signing implemented
-fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
-    /* Recovery id is the last big-endian byte. */
-    let v = (signature[64] as i8 - 27) as u8;
-    if v != 0 && v != 1 {
-        return Err(Error::InvalidRecovery("invalid recovery byte".to_owned()));
-    }
+pub fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
+    // generate types to recover key from
+    let rec_id = RecoveryId::parse(signature[64])?;
+    // let rec_id = RecoveryId::parse(2)?;
+    let message = Message::parse(&hash);
 
     // Signature value without recovery byte
     let mut s = [0u8; 64];
-    s[..64].clone_from_slice(signature.as_ref());
-
-    // generate types to recover key from
-    let message = Message::parse(&hash);
-    let rec_id = RecoveryId::parse(signature[64])?;
+    s.clone_from_slice(signature[..64].as_ref());
+    // generate Signature
     let sig = EcsdaSignature::parse(&s);
 
     let key = recover(&message, &sig, &rec_id)?;
@@ -294,19 +292,19 @@ pub mod json {
     }
 
     pub fn serialize<S>(m: &Signature, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         JsonHelper {
             sig_type: m.sig_type,
             bytes: base64::encode(&m.bytes),
         }
-        .serialize(serializer)
+            .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Signature, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
         Ok(Signature {
@@ -320,8 +318,8 @@ pub mod json {
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 
         pub fn serialize<S>(v: &Option<Signature>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+            where
+                S: Serializer,
         {
             v.as_ref()
                 .map(|s| SignatureJsonRef(s))
@@ -329,8 +327,8 @@ pub mod json {
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
-        where
-            D: Deserializer<'de>,
+            where
+                D: Deserializer<'de>,
         {
             let s: Option<SignatureJson> = Deserialize::deserialize(deserializer)?;
             Ok(s.map(|v| v.0))
