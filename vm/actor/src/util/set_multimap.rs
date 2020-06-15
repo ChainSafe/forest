@@ -101,7 +101,7 @@ where
                 .map_err(|e| format!("Could not parse key: {:?}, ({})", &k.0, e))?;
 
             // Run function on all parsed keys
-            f(v).map_err(|e| format!("Could parse all keys: ({})", e))
+            f(v).map_err(|e| e.to_string())
         })
         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))
     }
