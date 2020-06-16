@@ -131,8 +131,8 @@ where
         Ok(())
     }
 
-    /// Generate a new Key that fits the requirement of the given SignatureType
-    pub fn generate_key(&mut self, typ: SignatureType) -> Result<Address, Error> {
+    /// Generate a new Address that fits the requirement of the given SignatureType
+    pub fn generate_addr(&mut self, typ: SignatureType) -> Result<Address, Error> {
         let key = generate_key(typ)?;
         let addr = format!("wallet-{}", key.address.to_string());
         self.keystore.put(addr, key.key_info.clone())?;
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn generate_new_key() {
         let mut wallet = generate_wallet();
-        let addr = wallet.generate_key(SignatureType::BLS).unwrap();
+        let addr = wallet.generate_addr(SignatureType::BLS).unwrap();
         let key = wallet.keystore.get("default").unwrap();
         // make sure that the newly generated key is the default key - checking by key type
         assert_eq!(&SignatureType::BLS, key.key_type());
@@ -351,6 +351,10 @@ mod tests {
 
         let sig = wallet.sign(&addr, &msg).unwrap();
         sig.verify(&msg, &addr).unwrap();
+
+        // invalid verify check
+        let invalid_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        assert!(sig.verify(&msg, &invalid_addr).is_err())
     }
 
     #[test]
@@ -365,42 +369,9 @@ mod tests {
 
         let sig = wallet.sign(&addr, &msg).unwrap();
         sig.verify(&msg, &addr).unwrap();
-    }
 
-    #[test]
-    fn invalid_verify() {
-        // construct secp address to sign with
-        let secp_priv_key = generate(SignatureType::Secp256k1).unwrap();
-        let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
-        let secp_key = Key::try_from(secp_key_info).unwrap();
-        let secp_addr = secp_key.address.clone();
-
-        // construct random secp address to use in invalid verification
-        let invalid_secp_priv = generate(SignatureType::Secp256k1).unwrap();
-        let invalid_secp_key_info = KeyInfo::new(SignatureType::Secp256k1, invalid_secp_priv);
-        let invalid_secp_key = Key::try_from(invalid_secp_key_info).unwrap();
-        let invalid_secp_addr = invalid_secp_key.address;
-
-        // construct bls address to sign message with
-        let bls_priv_key = generate(SignatureType::BLS).unwrap();
-        let bls_key_info = KeyInfo::new(SignatureType::BLS, bls_priv_key);
-        let bls_key = Key::try_from(bls_key_info).unwrap();
-        let bls_addr = bls_key.address.clone();
-
-        // construct random bls address to use in invalid verification
-        let invalid_bls_priv = generate(SignatureType::BLS).unwrap();
-        let invalid_bls_key_info = KeyInfo::new(SignatureType::BLS, invalid_bls_priv);
-        let invalid_bls_key = Key::try_from(invalid_bls_key_info).unwrap();
-        let invalid_bls_addr = invalid_bls_key.address;
-
-        // construct wallet and sign 2 messages one with secp addr and one iwth bls addr
-        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), vec![secp_key, bls_key]);
-        let msg = [0u8; 64];
-        let secp_sig = wallet.sign(&secp_addr, &msg).unwrap();
-        let bls_sig = wallet.sign(&bls_addr, &msg).unwrap();
-
-        // assert verification failure with invalid address
-        assert!(secp_sig.verify(&msg, &invalid_secp_addr).is_err());
-        assert!(bls_sig.verify(&msg, &invalid_bls_addr).is_err());
+        // invalid verify check
+        let invalid_addr = wallet.generate_addr(SignatureType::BLS).unwrap();
+        assert!(sig.verify(&msg, &invalid_addr).is_err())
     }
 }
