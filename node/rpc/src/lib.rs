@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod chain_api;
+mod wallet_api;
+
+pub use wallet_api::*;
 
 use blockstore::BlockStore;
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
