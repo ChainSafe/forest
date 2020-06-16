@@ -383,34 +383,36 @@ impl Actor {
                 }
 
                 // Check if number approvals is met
-                if txn.approved.len() >= st.num_approvals_threshold as usize {
-                    println!("IN HERE");
-                    // Ensure sufficient funds
-                    if let Err(e) = st.check_available(curr_bal, txn.value.clone(), curr_epoch) {
-                        return Err(ActorError::new(
-                            ExitCode::ErrInsufficientFunds,
-                            format!("Insufficient funds unlocked: {}", e),
-                        ));
-                    }
-                    
-
-                    // Delete pending transaction
-                    if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to delete transaction for cleanup: {}", e),
-                        ));
-                    }
-
-                    Ok((txn, true))
-                } else {
-                    // Number of approvals required not met, do not relay message
-                    Ok((txn, false))
-                }
+              
+                
+                // Number of approvals required not met, do not relay message
+                Ok((txn, false))
+                
             })??;
 
+        let mut st : State = rt.state().unwrap();
+
         // Sufficient number of approvals have arrived, relay message
-        if threshold_met {
+        if tx.approved.len() >= st.num_approvals_threshold as usize {
+            println!("IN HERE");
+            // Ensure sufficient funds
+            if let Err(e) = st.check_available(curr_bal, tx.value.clone(), curr_epoch) {
+                return Err(ActorError::new(
+                    ExitCode::ErrInsufficientFunds,
+                    format!("Insufficient funds unlocked: {}", e),
+                ));
+            }
+
+            let v = rt.send(&tx.to, tx.method, &tx.params, &tx.value);
+            
+
+            // Delete pending transaction
+            if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to delete transaction for cleanup: {}", e),
+                ));
+            }
         }
 
         Ok(())
