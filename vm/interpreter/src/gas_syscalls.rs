@@ -4,7 +4,6 @@
 use super::gas_tracker::{GasTracker, PriceList};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
 use crypto::Signature;
 use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use runtime::{ConsensusFault, Syscalls};
@@ -76,14 +75,12 @@ where
         h1: &[u8],
         h2: &[u8],
         extra: &[u8],
-        earliest: ChainEpoch,
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_consensus_fault())
             .unwrap();
-        self.syscalls
-            .verify_consensus_fault(h1, h2, extra, earliest)
+        self.syscalls.verify_consensus_fault(h1, h2, extra)
     }
 
     fn batch_verify_seals(
@@ -132,7 +129,6 @@ mod tests {
             _h1: &[u8],
             _h2: &[u8],
             _extra: &[u8],
-            _earliest: ChainEpoch,
         ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
             Ok(Some(ConsensusFault {
                 target: Address::new_id(0),
@@ -185,7 +181,7 @@ mod tests {
         gsys.verify_post(&Default::default()).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 10);
 
-        gsys.verify_consensus_fault(&[], &[], &[], 0).unwrap();
+        gsys.verify_consensus_fault(&[], &[], &[]).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 11);
     }
 }

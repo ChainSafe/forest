@@ -25,6 +25,7 @@ unsigned-varint = "0.4"
 crypto = { package = "forest_crypto", path = "../../crypto" }
 bitfield = { path = "../../utils/bitfield" }
 fil_types = { path = "../../types" }
+byteorder = "1.3.4"
 
 [dev-dependencies]
 db = { path = "../../node/db" }
