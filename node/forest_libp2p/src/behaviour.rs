@@ -248,4 +248,9 @@ impl ForestBehaviour {
     pub fn remove_peer(&mut self, peer_id: &PeerId) {
         self.peers.remove(peer_id);
     }
+
+    /// Adds peer to the peer set.
+    pub fn peers(&self) -> &HashSet<PeerId> {
+        &self.peers
+    }
 }

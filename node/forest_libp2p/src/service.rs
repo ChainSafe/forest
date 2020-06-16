@@ -5,6 +5,7 @@ use super::blocksync::BlockSyncResponse;
 use super::hello::HelloMessage;
 use super::rpc::{RPCEvent, RPCRequest, RPCResponse};
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
+use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
@@ -103,6 +104,7 @@ impl Libp2pService {
     pub async fn run(self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
+        let mut interval = stream::interval(Duration::from_secs(10)).fuse();
 
         loop {
             select! {
@@ -166,6 +168,9 @@ impl Libp2pService {
                         }
                     }
                     None => {break;}
+                },
+                interval_event = interval.next() => if interval_event.is_some() {
+                    info!("Peers connected: {}", swarm_stream.get_ref().peers().len());
                 }
             };
         }
