@@ -547,6 +547,10 @@ mod test_vesting {
         rt.verify();
         rt.epoch = 1;
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
+        rt.expect_validate_caller_type(&[
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            MULTISIG_ACTOR_CODE_ID.clone(),
+        ]);
         let proposal_hashed_data = make_proposal_hash(
             vec![anne.clone()],
             darlene.clone(),
@@ -976,7 +980,7 @@ mod test_approve {
         );
         assert_eq!(
             ExitCode::ErrForbidden,
-            approve(&mut rt, 1, proposal_hash_data)
+            approve(&mut rt, TXN_ID, proposal_hash_data)
                 .unwrap_err()
                 .exit_code()
         );

@@ -393,14 +393,14 @@ where
             self.expect_validate_caller_type
         );
 
+        *self.expect_validate_caller_type.borrow_mut() = None;
+
         for expected in &types {
             if &self.caller_type == expected {
                 *self.expect_validate_caller_type.borrow_mut() = None;
                 return Ok(());
             }
         }
-
-        *self.expect_validate_caller_type.borrow_mut() = None;
 
         Err(self.abort(
             ExitCode::ErrForbidden,

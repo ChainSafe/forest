@@ -15,6 +15,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use std::error::Error as StdError;
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -32,17 +33,6 @@ pub enum Method {
     ChangeNumApprovalsThreshold = 9,
 }
 
-pub fn compute_proposal_hash(txn: Transaction) -> [u8; 32] {
-    let hash_data = ProposalHashData {
-        requester: txn.approved[0],
-        to: txn.to,
-        value: txn.value,
-        method: txn.method,
-        params: txn.params.to_vec(),
-    };
-    let serial_data = Serialized::serialize(hash_data).unwrap();
-    blake2b_256(serial_data.bytes())
-}
 
 /// Multisig Actor
 pub struct Actor;
@@ -126,7 +116,7 @@ impl Actor {
         })??;
 
         // Proposal implicitly includes approval of a transaction
-        Self::approve_transaction(rt, tx_id)?;
+        Self::approve_transaction(rt, tx_id, [0;32],false)?;
 
         // TODO revisit issue referenced in spec:
         // Note: this ID may not be stable across chain re-orgs.
@@ -145,10 +135,11 @@ impl Actor {
         let caller_addr: Address = *rt.message().from();
 
         // Validate signer
-        let st = rt.state()?;
-        Self::validate_signer(rt, &st, &caller_addr)?;
-
-        Self::approve_transaction(rt, params.id)
+       rt.transaction::<State, _, _>(|st, rt| {
+            Self::validate_signer(rt, &st, &caller_addr)
+        })??;
+  
+        Self::approve_transaction(rt, params.id, params.proposal_hash, true)
     }
 
     /// Multisig actor cancel function
@@ -179,6 +170,21 @@ impl Actor {
                 return Err(ActorError::new(
                     ExitCode::ErrForbidden,
                     "Cannot cancel another signers transaction".to_owned(),
+                ));
+            }
+
+            let result_hash = Self::compute_proposal_hash(rt, tx);
+            if result_hash .is_err(){
+                return Err( ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("Failed to compute proposal hash"),
+                ));
+            }
+
+            if !params.proposal_hash.eq(&result_hash.unwrap()) {
+                return Err( ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("Hash does  not match proposal params"),
                 ));
             }
 
@@ -317,7 +323,7 @@ impl Actor {
         })?
     }
 
-    fn approve_transaction<BS, RT>(rt: &mut RT, tx_id: TxnID) -> Result<(), ActorError>
+    fn approve_transaction<BS, RT>(rt: &mut RT, tx_id: TxnID, proposal_hash : [u8;32],  check_hash : bool) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -348,6 +354,24 @@ impl Actor {
                     }
                 }
 
+                if check_hash{
+                    let result_hash = Self::compute_proposal_hash(rt, txn.clone());
+                    if result_hash .is_err(){
+                        return Err( ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("Failed to compute proposal hash"),
+                        ));
+                    }
+        
+                    if !proposal_hash.eq(&result_hash.unwrap()) {
+                        return Err( ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("Hash does  not match proposal params"),
+                        ));
+                    }
+                }
+
+
                 // update approved on the transaction
                 txn.approved.push(from);
 
@@ -368,6 +392,7 @@ impl Actor {
                             format!("Insufficient funds unlocked: {}", e),
                         ));
                     }
+                    
 
                     // Delete pending transaction
                     if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
@@ -386,7 +411,6 @@ impl Actor {
 
         // Sufficient number of approvals have arrived, relay message
         if threshold_met {
-            rt.send(&tx.to, tx.method, &tx.params, &tx.value)?;
         }
 
         Ok(())
@@ -403,6 +427,22 @@ impl Actor {
 
         Ok(())
     }
+    pub fn compute_proposal_hash<BS, RT>(rt :&RT,txn: Transaction) ->  Result<[u8; 32], Box<dyn StdError>>
+    where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+    {
+        let hash_data = ProposalHashData {
+            requester: txn.approved[0],
+            to: txn.to,
+            value: txn.value,
+            method: txn.method,
+            params: txn.params.to_vec(),
+        };
+        let serial_data = Serialized::serialize(hash_data).unwrap();
+        rt.syscalls().hash_blake2b(serial_data.bytes())
+    }
+    
 }
 
 impl ActorCode for Actor {
