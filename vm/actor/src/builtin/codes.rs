@@ -23,3 +23,9 @@ lazy_static! {
 fn make_builtin(bz: &[u8]) -> Cid {
     Cid::new_v1(Codec::Raw, Identity::digest(bz))
 }
+
+// Tests whether a code CID represents an actor that can be an external principal: i.e. an account or multisig.
+// We could do something more sophisticated here: https://github.com/filecoin-project/specs-actors/issues/178
+pub fn is_principal(code: &Cid) -> bool {
+    CALLER_TYPES_SIGNABLE.iter().any(|c| c == code)
+}

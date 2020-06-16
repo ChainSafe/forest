@@ -26,6 +26,7 @@ pub type StoragePower = BigUint;
 /// The unit of spacetime committed to the network
 pub type Spacetime = BigUint;
 
+/// Unit of sector quality
 pub type SectorQuality = BigUint;
 
 /// SectorSize indicates one of a set of possible sizes in the network.
