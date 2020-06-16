@@ -60,7 +60,7 @@ listening_multiaddr = "<multiaddress>"
 bootstrap_peers = ["<multiaddress>"]
 ```
 
-Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347"`
+Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347/p2p/12D3K1oWKNF7vNFEhnvB45E9mw2B5z6t419W3ziZPLdUDVnLLKGs"`
 
 ### Logging
 
