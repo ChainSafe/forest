@@ -11,7 +11,7 @@ use libp2p::swarm::{
     ProtocolsHandlerUpgrErr, SubstreamProtocol,
 };
 use libp2p::{InboundUpgrade, OutboundUpgrade};
-use log::{debug, error};
+use log::debug;
 use smallvec::SmallVec;
 use std::{
     pin::Pin,
@@ -230,7 +230,7 @@ impl ProtocolsHandler for RPCHandler {
     > {
         if let Some(err) = self.pending_error.take() {
             // Log error, shouldn't necessarily return error and drop peer here
-            error!("{}", err);
+            debug!("{}", err);
         }
 
         // return any events that need to be reported
