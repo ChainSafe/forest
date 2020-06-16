@@ -21,7 +21,7 @@ pub const BLS_PUB_LEN: usize = 48;
 #[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum SignatureType {
-    Secp256 = 1,
+    Secp256k1 = 1,
     BLS = 2,
 }
 
@@ -81,7 +81,7 @@ impl Signature {
     /// Creates a SECP Signature given the raw bytes
     pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
         Self {
-            sig_type: SignatureType::Secp256,
+            sig_type: SignatureType::Secp256k1,
             bytes,
         }
     }
@@ -178,21 +178,16 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
     verify(&sig, &hashed_data[..], &pks[..])
 }
 
-// TODO: verify signature data format after signing implemented
-fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
-    /* Recovery id is the last big-endian byte. */
-    let v = (signature[64] as i8 - 27) as u8;
-    if v != 0 && v != 1 {
-        return Err(Error::InvalidRecovery("invalid recovery byte".to_owned()));
-    }
+/// Return Address for a message given it's hash and signature
+pub fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
+    // generate types to recover key from
+    let rec_id = RecoveryId::parse(signature[64])?;
+    let message = Message::parse(&hash);
 
     // Signature value without recovery byte
     let mut s = [0u8; 64];
-    s[..64].clone_from_slice(signature.as_ref());
-
-    // generate types to recover key from
-    let message = Message::parse(&hash);
-    let rec_id = RecoveryId::parse(signature[64])?;
+    s.clone_from_slice(signature[..64].as_ref());
+    // generate Signature
     let sig = EcsdaSignature::parse(&s);
 
     let key = recover(&message, &sig, &rec_id)?;
@@ -204,36 +199,10 @@ fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
     use rand::rngs::mock::StepRng;
     use rand::Rng;
 
-    #[test]
-    fn bls_verify() {
-        let rng = &mut StepRng::new(8, 3);
-        let sk = PrivateKey::generate(rng);
-
-        let msg = (0..64).map(|_| rng.gen()).collect::<Vec<u8>>();
-        let signature = sk.sign(&msg);
-
-        let signature_bytes = signature.as_bytes();
-        assert_eq!(signature_bytes.len(), 96);
-        assert_eq!(
-            BlsSignature::from_bytes(&signature_bytes).unwrap(),
-            signature
-        );
-
-        let pk = sk.public_key();
-        let addr = Address::new_bls(&pk.as_bytes()).unwrap();
-
-        Signature::new_bls(signature_bytes.clone())
-            .verify(&msg, &addr)
-            .unwrap();
-        Signature::new_bls(signature_bytes.clone())
-            .verify_bls_sig(&msg, &addr)
-            .unwrap();
-    }
     #[test]
     fn bls_agg_verify() {
         // The number of signatures in aggregate
