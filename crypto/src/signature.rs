@@ -21,7 +21,7 @@ pub const BLS_PUB_LEN: usize = 48;
 #[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum SignatureType {
-    Secp256 = 1,
+    Secp256k1 = 1,
     BLS = 2,
 }
 
@@ -81,7 +81,7 @@ impl Signature {
     /// Creates a SECP Signature given the raw bytes
     pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
         Self {
-            sig_type: SignatureType::Secp256,
+            sig_type: SignatureType::Secp256k1,
             bytes,
         }
     }
