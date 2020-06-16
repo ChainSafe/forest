@@ -1,0 +1,26 @@
+[package]
+name = "state_manager"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+address = { package = "forest_address", path = "../../vm/address/" }
+actor = { path = "../../vm/actor/" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+db = { path = "../../node/db/" }
+encoding = { package = "forest_encoding", path = "../../encoding/" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+state_tree = { path = "../../vm/state_tree/" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
+forest_blocks = { path = "../../blockchain/blocks" }
+thiserror = "1.0"
+interpreter = { path = "../../vm/interpreter/" }
+ipld_amt = { path = "../../ipld/amt/" }
+clock = { path = "../../node/clock" }
+chain = { path = "../chain" }
+async-std = "1.5.0"
+async-log = "2.0.0"
+log = "0.4.8"
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "0e1c7cb464707c7a7ad82b0f8303f000f6f3fc8a" }
+fil_types = { path = "../../types" }
