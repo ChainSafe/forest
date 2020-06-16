@@ -198,7 +198,7 @@ pub struct MessagePool<T> {
     bls_sig_cache: LruCache<Cid, Signature>,
     sig_val_cache: LruCache<String, ()>,
     // this will be a hashmap where the key is msg.cid.bytes.to_string and the value is a byte vec
-    local_msgs: HashMap<String, Vec<u8>>,
+    local_msgs: HashMap<Vec<u8>, SignedMessage>,
 }
 
 impl<T> MessagePool<T>
@@ -216,7 +216,7 @@ where
         let sig_val_cache = LruCache::new(32000);
         // TODO take in the local_msgs hashmap as a param and just apply a standard key
         // prefix to it
-        let local_msgs = HashMap::new();
+        // let local_msgs = HashMap::new();
 
         let mut mp = MessagePool {
             local_addrs: Vec::new(),
@@ -228,7 +228,7 @@ where
             network_name,
             bls_sig_cache,
             sig_val_cache,
-            local_msgs,
+            local_msgs: HashMap::new(),
         };
         mp.load_local()?;
         Ok(mp)
@@ -236,7 +236,7 @@ where
 
     fn add_local(&mut self, m: &SignedMessage, msgb: Vec<u8>) -> Result<(), Error> {
         self.local_addrs.push(m.from().clone());
-        self.local_msgs.insert(from_utf8(msgb.as_slice()).map_err(|err| Error::Other(err.to_string()))?.to_string(), msgb);
+        self.local_msgs.insert(msgb, m.clone());
         Ok(())
     }
 
@@ -269,7 +269,7 @@ where
             return Err(Error::MessageValueTooHigh);
         }
 
-        // self.verify_msg_sig(msg)?;
+        self.verify_msg_sig(msg)?;
 
         let tmp = msg.clone();
         self.add_tipset(tmp, &self.cur_tipset.clone())
@@ -283,7 +283,7 @@ where
     /// Return the string representation of the message signature
     pub(crate) fn sig_cache_key(&mut self, msg: &SignedMessage) -> Result<String, Error> {
         match msg.signature().signature_type() {
-            SignatureType::Secp256 => Ok(msg.cid().unwrap().to_string()),
+            SignatureType::Secp256k1 => Ok(msg.cid().unwrap().to_string()),
             SignatureType::BLS => {
                 if msg.signature().bytes().len() < 90 {
                     return Err(Error::BLSSigTooShort);
@@ -306,9 +306,10 @@ where
         match is_verif {
             Some(()) => Ok(()),
             None => {
+                let umsg = Cbor::marshal_cbor(msg.message()).map_err(|err| Error::Other(err.to_string()))?;
                 let verif = msg
                     .signature()
-                    .verify(&msg.message().cid().unwrap().to_bytes(), msg.from());
+                    .verify(umsg.as_slice(), msg.from());
                 match verif {
                     Ok(()) => {
                         self.sig_val_cache.put(sck, ());
@@ -331,7 +332,7 @@ where
 
         let balance = self.get_state_balance(msg.from(), cur_ts)?;
         let msg_balance = BigInt::from(msg.message().required_funds());
-        if balance > msg_balance {
+        if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
         self.add_locked(msg)
@@ -367,7 +368,6 @@ where
         Ok(())
     }
 
-    /// TODO uncomment the code for this function when subscribe new head changes has been implemented
     pub fn get_nonce(&self, addr: &Address) -> Result<u64, Error> {
         self.get_nonce_locked(addr, &self.cur_tipset)
     }
@@ -377,7 +377,7 @@ where
 
         match self.pending.get(addr) {
             Some(mset) => {
-                if state_nonce < mset.next_nonce {
+                if state_nonce > mset.next_nonce {
                     return Ok(state_nonce)
                 }
                 Ok(mset.next_nonce)
@@ -515,8 +515,8 @@ where
     /// local_message field, possibly implement this in the future?
     pub fn load_local(&mut self) -> Result<(), Error> {
         for (key, value) in self.local_msgs.clone() {
-            let value = SignedMessage::unmarshal_cbor(&value)
-                .map_err(|err| Error::Other(err.to_string()))?;
+            // let value = SignedMessage::unmarshal_cbor(msg.as_slice())
+            //     .map_err(|err| Error::Other(err.to_string()))?;
             match self.add(&value) {
                 Ok(()) => (),
                 Err(err) => {
@@ -535,21 +535,15 @@ where
 mod tests {
     use super::*;
     use address::Address;
-    use crypto::{Signer};
     use blocks::{BlockHeader, Tipset};
     use cid::Cid;
     use crypto::SignatureType;
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigUint;
-    use key_management::{MemKeyStore, Wallet, KeyStore};
+    use key_management::{MemKeyStore, Wallet};
     use crate::MessagePool;
     use std::borrow::BorrowMut;
-    use std::error::Error as Error;
     use super::Error as Errors;
-    use std::convert::{TryFrom, TryInto};
-    use secp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
-    use encoding;
-    use blake2b_simd::Params;
 
     struct TestApi {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
@@ -624,15 +618,6 @@ mod tests {
         }
     }
 
-    const DUMMY_SIG: [u8; 65] = [0u8; 65];
-
-    struct DummySigner;
-    impl Signer for DummySigner {
-        fn sign_bytes(&self, _: Vec<u8>, _: &Address) -> Result<Signature, Box<dyn Error>> {
-            Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-        }
-    }
-
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         let header = BlockHeader::builder()
             .weight(BigUint::from(weight))
@@ -643,24 +628,10 @@ mod tests {
             .unwrap();
         header
     }
-
-    fn get_digest(message: &[u8]) -> [u8; 32] {
-        let message_hashed = Params::new().hash_length(32).to_state().update(message).finalize();
-        let cid_hashed = Params::new().hash_length(32).to_state().update(&[0x01, 0x71, 0xa0, 0xe4, 0x02, 0x20]).update(message_hashed.as_bytes()).finalize();
-        cid_hashed.as_bytes().try_into().unwrap()
-    }
-
     fn create_smsg(to: &Address, from: &Address, wallet: &mut Wallet<MemKeyStore>) -> SignedMessage {
         let umsg: UnsignedMessage = UnsignedMessage::builder().to(to.clone()).from(from.clone()).build().unwrap();
         let message_cbor = Cbor::marshal_cbor(&umsg).unwrap();
-        let cid_hashed = get_digest(message_cbor.as_ref());
-        // let message_digest = SecpMessage::parse_slice(&cid_hashed).unwrap();
-        let mut sig = wallet.sign(&from, &cid_hashed).unwrap();
-        let bytes = sig.bytes();
-        // let slice = msg.as_slice();
-        // print!("{}", slice.len()); // prints 53, 32 is required for wallet sign
-        // let signer = wallet.sign(from, slice).unwrap();
-
+        let sig = wallet.sign(&from, message_cbor.as_slice()).unwrap();
         SignedMessage::new_from_fields(umsg, sig)
     }
 
@@ -668,8 +639,8 @@ mod tests {
     fn test_message_pool() {
         let keystore = MemKeyStore::new();
         let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_key(SignatureType::Secp256).unwrap();
-        let target = wallet.generate_key(SignatureType::Secp256).unwrap();
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let mut tma = TestApi::new();
         tma.set_state_nonce(&sender, 0);
@@ -679,66 +650,14 @@ mod tests {
 
         let mut smsg_vec = Vec::new();
         for _ in 1..4 {
-            let msg = create_smsg(&sender, &target, wallet.borrow_mut());
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut());
             smsg_vec.push(msg);
         }
 
-        let nonce = mempool.get_nonce(&sender).unwrap();
+        let mut nonce = mempool.get_nonce(&sender).unwrap();
         assert_eq!(nonce, 0);
-        // right now error is being thrown when trying to add to mempool, logic should be right though
-
-        // let thing = mempool.verify_msg_sig(&smsg_vec[0]).unwrap();
-        // let sck = mempool.sig_cache_key(&smsg_vec[0]).unwrap();
-        // let thing2 = mempool.sig_val_cache.get(&sck);
-
-        // let test = mempool.add(&smsg_vec[0]).unwrap();
-        // let temp = smsg_vec[0].signature().bytes().len();
-        // println!("{}", temp);
-        // let temp = &smsg_vec[0].message().cid().unwrap();
-        let verif = smsg_vec[0]
-            .signature()
-            .verify(&smsg_vec[0].message().cid().unwrap().to_bytes(), &smsg_vec[0].from()).unwrap();
-        // mempool.push(&smsg_vec[0]).unwrap();
-
-
-
-
-        // let api = MpoolProvider::new(cs);
-        // api.put_message(&smsg_vec[0]).unwrap();
-        // assert!(api.messages_for_tipset(&cur_tipset).is_ok());
-        // let mut mpool = MessagePool::new(api, "mptest".to_string()).unwrap();
-        // assert!(mpool.api.messages_for_tipset(&mpool.cur_tipset).is_ok());
-
-        // mpool.sig_cache_key(&smsg_vec[0]).unwrap();
-
-        // mpool.add(&smsg_vec[0]).unwrap();
-        // TODO need to set the state nonce of the address
-
-        // assert!(mpool.get_state_nonce(&sender, &mpool.cur_tipset).is_ok());
-        // assert!(mpool.pending.get(&sender).is_none());
-        // assert!(mpool.api.state_get_actor(&sender, &mpool.cur_tipset).is_ok());
-        // assert!(mpool.api.messages_for_tipset(&mpool.cur_tipset).is_ok());
-
-        // let test_api = MpoolProvider::new(ChainStore::new(Arc::new(db::MemoryDB::default())));
-        // let nonce = mpool.get_nonce(&sender).unwrap();
-        // println!("{}", nonce);
-
-        // check to make sure that the current tipset has been set up correctly in messagepool
-        // assert_eq!(mpool.cur_tipset, cur_tipset);
-
-
-        // need to create a wallet and get a sender address
-
-        // let a: BlockHeader = BlockHeader::builder().weight(1).build().unwrap(); // first mock block
-        // let tsk = a.
-        // let b = BlockHeader::builder().parents(); // second mock block
-        //
-        // let target = Address::new_id(1001);
-        //
-        // let mut msgs = Vec::new();
-        // for i in 0..5 {
-        //     let unsigned_temp = UnsignedMessage::builder().to(sender).from(target).sequence(i);
-        //     msgs.push(mock_msg(sender.clone(), target.clone(), i, w))
-        // }
+        mempool.push(&smsg_vec[0]).unwrap();
+        nonce = mempool.get_nonce(&sender).unwrap();
+        assert_eq!(nonce, 1);
     }
 }
