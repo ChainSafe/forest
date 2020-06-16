@@ -306,7 +306,7 @@ pub fn get_randomness<DB: BlockStore>(
 }
 
 /// Computes a pseudorandom 32 byte Vec
-fn draw_randomness(
+pub fn draw_randomness(
     rbase: &[u8],
     pers: DomainSeparationTag,
     round: ChainEpoch,

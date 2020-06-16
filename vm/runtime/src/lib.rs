@@ -237,6 +237,7 @@ pub trait Syscalls {
 
         Ok(())
     }
+
     /// Verifies that two block headers provide proof of a consensus fault:
     /// - both headers mined by the same actor
     /// - headers are different
