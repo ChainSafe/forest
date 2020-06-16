@@ -8,7 +8,7 @@ use self::cli::{block_until_sigint, initialize_genesis};
 use async_std::task;
 use beacon::DrandBeacon;
 use chain::ChainStore;
-use chain_sync::ChainSyncer;
+use chain_sync::{ChainSyncer};
 use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};

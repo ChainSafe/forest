@@ -15,6 +15,7 @@ use forest_libp2p::{
 use libp2p::core::PeerId;
 use log::trace;
 use std::time::Duration;
+use std::sync::atomic::{Ordering, AtomicUsize};
 
 /// Timeout for response from an RPC request
 const RPC_TIMEOUT: u64 = 5;
@@ -25,7 +26,7 @@ pub struct SyncNetworkContext {
     network_send: Sender<NetworkMessage>,
 
     /// Handles sequential request ID enumeration for requests
-    request_id: RequestId,
+    request_id: AtomicUsize,
 
     /// Receiver channel for BlockSync responses
     rpc_receiver: RPCReceiver,
@@ -44,13 +45,13 @@ impl SyncNetworkContext {
             network_send,
             rpc_receiver,
             receiver,
-            request_id: 1,
+            request_id: AtomicUsize::new(1),
         }
     }
 
     /// Send a blocksync request for only block headers (ignore messages)
     pub async fn blocksync_headers(
-        &mut self,
+        &self,
         peer_id: PeerId,
         tsk: &TipsetKeys,
         count: u64,
@@ -71,7 +72,7 @@ impl SyncNetworkContext {
     }
     /// Send a blocksync request for full tipsets (includes messages)
     pub async fn blocksync_fts(
-        &mut self,
+        &self,
         peer_id: PeerId,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
@@ -94,7 +95,7 @@ impl SyncNetworkContext {
 
     /// Send a blocksync request to the network and await response
     pub async fn blocksync_request(
-        &mut self,
+        &self,
         peer_id: PeerId,
         request: BlockSyncRequest,
     ) -> Result<BlockSyncResponse, &'static str> {
@@ -120,24 +121,23 @@ impl SyncNetworkContext {
 
     /// Send any RPC request to the network and await the response
     pub async fn send_rpc_request(
-        &mut self,
+        &self,
         peer_id: PeerId,
         rpc_request: RPCRequest,
     ) -> Result<RPCResponse, &'static str> {
-        let request_id = self.request_id;
-        self.request_id += 1;
+        let request_id = self.request_id.fetch_add(1, Ordering::Relaxed);
         self.send_rpc_event(peer_id, RPCEvent::Request(request_id, rpc_request))
             .await;
         loop {
-            match future::timeout(Duration::from_secs(RPC_TIMEOUT), self.rpc_receiver.next()).await
+            match future::timeout(Duration::from_secs(RPC_TIMEOUT), self.rpc_receiver.recv()).await
             {
-                Ok(Some((id, response))) => {
+                Ok(Ok((id, response))) => {
                     if id == request_id {
                         return Ok(response);
                     }
                     // Ignore any other RPC responses for now
                 }
-                Ok(None) => return Err("RPC Stream closed"),
+                Ok(Err(e)) => return Err("RPC Stream closed"),
                 Err(_) => return Err("Connection timeout"),
             }
         }
