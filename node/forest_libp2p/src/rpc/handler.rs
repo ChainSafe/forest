@@ -351,7 +351,7 @@ impl ProtocolsHandler for RPCHandler {
                     event,
                     timeout,
                 } => {
-                    // std::thread::sleep(std::time::Duration::from_secs(5));
+                    // TODO fix polling for response (polls partial written bytes in delayed cases)
                     match substream.poll_next_unpin(cx) {
                         Poll::Ready(Some(Ok(response))) => {
                             return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Response(

@@ -22,7 +22,6 @@ fnv = "1.0.6"
 smallvec = "1.1.0"
 clock = { path = "../clock" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-hex = "0.4.2"
 
 [dev-dependencies]
 forest_address = { path = "../../vm/address" }
