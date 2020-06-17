@@ -147,6 +147,7 @@ where
         *self.expect_validate_caller_type.borrow_mut() = Some(ids.to_vec());
     }
 
+    #[allow(dead_code)]
     pub fn expect_verify_signature(
         &mut self,
         sig: Signature,
@@ -154,12 +155,12 @@ where
         plaintext: Vec<u8>,
         result: ExitCode,
     ) {
-        self.expect_verify_sig = RefCell::new(Some(ExpectedVerifySig {
+        *(self.expect_verify_sig.get_mut()) = Some(ExpectedVerifySig {
             sig: sig,
             signer: signer,
             plaintext: plaintext,
             result: result,
-        }));
+        });
     }
 
     #[allow(dead_code)]
@@ -402,24 +403,26 @@ where
         if address.protocol() == address::Protocol::ID {
             return Ok(address.clone());
         }
-        if let Some(resolved) = self.id_addresses.get(&address) {
-            return Ok(resolved.clone());
-        }
-        Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Address not found".to_string(),
-        ))
+
+        self.id_addresses
+            .get(&address)
+            .map(|x| x.to_owned())
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Address not found".to_string(),
+            ))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
         self.require_in_call();
-        if let Some(ret) = self.actor_code_cids.get(&addr) {
-            return Ok(ret.clone());
-        }
-        Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Actor address is not found".to_string(),
-        ))
+
+        self.actor_code_cids
+            .get(&addr)
+            .map(|x| x.to_owned())
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Actor address is not found".to_string(),
+            ))
     }
 
     fn get_randomness(
