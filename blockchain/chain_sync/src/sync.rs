@@ -21,7 +21,7 @@ use core::time::Duration;
 use crypto::verify_bls_aggregate;
 use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
-use fil_types::SectorInfo;
+use fil_types::{RegisteredPoStProof, SectorInfo};
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
@@ -41,7 +41,7 @@ use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
 
@@ -783,13 +783,11 @@ where
                         Error::Validation(format!("failed to get replica commitment: {:}", err))
                     })?;
                 let replica = PublicReplicaInfo::new(
-                    sector_info
-                        .proof
-                        .registered_window_post_proof()
+                    RegisteredPoStProof::from_i64(sector_info.proof)
+                        .try_into()
                         .map_err(|err| {
                             Error::Validation(format!("failed to get registered proof: {:}", err))
-                        })?
-                        .into(),
+                        })?,
                     commr,
                 );
                 Ok((SectorId::from(sector_info.sector_number), replica))

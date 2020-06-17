@@ -3,7 +3,7 @@
 
 use clock::ChainEpoch;
 use crypto::SignatureType;
-use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
@@ -134,7 +134,7 @@ impl PriceList {
     #[inline]
     pub fn on_compute_unsealed_sector_cid(
         &self,
-        _proof: RegisteredProof,
+        _proof: RegisteredSealProof,
         _pieces: &[PieceInfo],
     ) -> i64 {
         self.compute_unsealed_sector_cid_base
