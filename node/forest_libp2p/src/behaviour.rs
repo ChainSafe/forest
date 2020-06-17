@@ -22,6 +22,9 @@ use std::collections::HashSet;
 use std::{task::Context, task::Poll};
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use forest_cid::Cid;
+use libipld_core::cid::Cid as Cid2;
+use std::str::FromStr;
+use std::error::Error;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
@@ -60,6 +63,7 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
             MdnsEvent::Discovered(list) => {
                 for (peer, _) in list {
                     trace!("mdns: Discovered peer {}", peer.to_base58());
+                    self.connect(peer.clone());
                     self.add_peer(peer);
                 }
             }
@@ -78,6 +82,7 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
             KademliaEvent::Discovered { peer_id, .. } => {
+                self.connect(peer_id.clone());
                 self.add_peer(peer_id);
             }
             event => {
@@ -269,5 +274,37 @@ impl ForestBehaviour {
     /// Adds peer to the peer set.
     pub fn peers(&self) -> &HashSet<PeerId> {
         &self.peers
+    }
+
+    /// Adds peer to bitswap peer set
+    pub fn connect(&mut self, peer_id: PeerId) {
+        self.bitswap.connect(peer_id);
+    }
+
+    /// Send a block to a peer over bitswap
+    pub fn send_block(&mut self, peer_id: &PeerId, cid: Cid, data: Box<[u8]>) -> Result<(),  Box<dyn Error>>{
+        let cid = cid.to_string();
+        log::debug!("send {}", cid.to_string());
+        let cid = Cid2::from_str(&cid)?;
+        self.bitswap.send_block(peer_id, cid, data);
+        Ok(())
+    }
+
+    /// Send a request for data over bitswap
+    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(),  Box<dyn Error>> {
+        let cid = cid.to_string();
+        log::debug!("want {}", cid.to_string());
+        let cid = Cid2::from_str(&cid)?;
+        self.bitswap.want_block(cid, priority);
+        Ok(())
+    }
+
+    /// Cancel a bitswap request
+    pub fn cancel_block(&mut self, cid: &Cid) -> Result<(),  Box<dyn Error>> {
+        let cid = cid.to_string();
+        log::debug!("cancel {}", cid.to_string());
+        let cid = Cid2::from_str(&cid)?;
+        self.bitswap.cancel_block(&cid);
+        Ok(())
     }
 }

@@ -23,6 +23,7 @@ smallvec = "1.1.0"
 clock = { path = "../clock" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 libp2p-bitswap = "0.4.1"
+libipld-core = "0.3.0"
 
 [dev-dependencies]
 forest_address = { path = "../../vm/address" }
