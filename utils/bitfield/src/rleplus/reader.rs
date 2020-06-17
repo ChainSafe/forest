@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::VARINT_MAX_BYTES;
+use super::{Result, VARINT_MAX_BYTES};
 
 /// A `BitReader` allows for efficiently reading bits to a byte buffer, up to a byte at a time.
 ///
@@ -73,7 +73,7 @@ impl<'a> BitReader<'a> {
 
     /// Reads a varint from the buffer. Returns an error if the
     /// current position on the buffer contains no valid varint.
-    fn read_varint(&mut self) -> Result<usize, &'static str> {
+    fn read_varint(&mut self) -> Result<usize> {
         let mut len = 0;
 
         for i in 0..VARINT_MAX_BYTES {
@@ -94,7 +94,7 @@ impl<'a> BitReader<'a> {
     }
 
     /// Reads a length from the buffer according to RLE+ encoding.
-    pub fn read_len(&mut self) -> Result<Option<usize>, &'static str> {
+    pub fn read_len(&mut self) -> Result<Option<usize>> {
         let prefix_0 = self.read(1);
 
         let len = if prefix_0 == 1 {
