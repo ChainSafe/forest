@@ -825,7 +825,7 @@ impl SectorOnChainInfo {
     }
     pub fn to_sector_info(&self) -> SectorInfo {
         SectorInfo {
-            proof: self.info.registered_proof.to_i64(),
+            proof: self.info.registered_proof,
             sector_number: self.info.sector_number,
             sealed_cid: self.info.sealed_cid.clone(),
         }
@@ -924,7 +924,7 @@ mod tests {
             peer_id: PeerId::random().into_bytes(),
             multi_address: PeerId::random().into_bytes(),
             sector_size: SectorSize::_2KiB,
-            seal_proof_type: RegisteredSealProof::from_i64(1),
+            seal_proof_type: RegisteredSealProof::from(1),
             window_post_partition_sectors: 0,
         };
         let bz = to_vec(&info).unwrap();

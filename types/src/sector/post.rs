@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{RegisteredPoStProof, SectorNumber};
+use super::{RegisteredPoStProof, RegisteredSealProof, SectorNumber};
 use cid::Cid;
 use encoding::{serde_bytes, tuple::*};
 use vm::{ActorID, Randomness};
@@ -12,7 +12,7 @@ pub type PoStRandomness = Randomness;
 #[derive(Debug, PartialEq, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorInfo {
     /// Used when sealing - needs to be mapped to PoSt registered proof when used to verify a PoSt
-    pub proof: i64,
+    pub proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     pub sealed_cid: Cid,
 }
@@ -85,7 +85,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            registered_proof: m.registered_proof.to_i64(),
+            registered_proof: i64::from(m.registered_proof),
             proof_bytes: base64::encode(&m.proof_bytes),
         }
         .serialize(serializer)
@@ -97,7 +97,7 @@ pub mod json {
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(PoStProof {
-            registered_proof: RegisteredPoStProof::from_i64(m.registered_proof),
+            registered_proof: RegisteredPoStProof::from(m.registered_proof),
             proof_bytes: base64::decode(m.proof_bytes).map_err(de::Error::custom)?,
         })
     }

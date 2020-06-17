@@ -6,23 +6,6 @@ use filecoin_proofs_api as proofs;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 
-macro_rules! i64_conversion {
-    ($( $var:ident => $val:expr, )*) => {
-        pub fn from_i64(value: i64) -> Self {
-            match value {
-                $( $val => Self::$var, )*
-                other => Self::Invalid(other),
-            }
-        }
-        pub fn to_i64(self) -> i64 {
-            match self {
-                $( Self::$var => $val, )*
-                Self::Invalid(other) => other,
-            }
-        }
-    }
-}
-
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
 pub enum RegisteredSealProof {
     StackedDRG2KiBV1,
@@ -49,19 +32,6 @@ pub enum RegisteredPoStProof {
 }
 
 impl RegisteredPoStProof {
-    i64_conversion! {
-        StackedDRGWinning2KiBV1 => 0,
-        StackedDRGWinning8MiBV1 => 1,
-        StackedDRGWinning512MiBV1 => 2,
-        StackedDRGWinning32GiBV1 => 3,
-        StackedDRGWinning64GiBV1 => 4,
-        StackedDRGWindow2KiBV1 => 5,
-        StackedDRGWindow8MiBV1 => 6,
-        StackedDRGWindow512MiBV1 => 7,
-        StackedDRGWindow32GiBV1 => 8,
-        StackedDRGWindow64GiBV1 => 9,
-    }
-
     /// Returns the sector size of the proof type, which is measured in bytes.
     pub fn sector_size(self) -> Result<SectorSize, String> {
         use RegisteredPoStProof::*;
@@ -101,14 +71,6 @@ impl RegisteredPoStProof {
 }
 
 impl RegisteredSealProof {
-    i64_conversion! {
-        StackedDRG2KiBV1 => 0,
-        StackedDRG512MiBV1 => 1,
-        StackedDRG8MiBV1 => 2,
-        StackedDRG32GiBV1 => 3,
-        StackedDRG64GiBV1 => 4,
-    }
-
     /// Returns the sector size of the proof type, which is measured in bytes.
     pub fn sector_size(self) -> Result<SectorSize, String> {
         use RegisteredSealProof::*;
@@ -172,6 +134,50 @@ impl RegisteredSealProof {
     }
 }
 
+macro_rules! i64_conversion {
+    ($ty:ident; $( $var:ident => $val:expr, )*) => {
+        impl From<i64> for $ty {
+            fn from(value: i64) -> Self {
+                match value {
+                    $( $val => $ty::$var, )*
+                    other => $ty::Invalid(other),
+                }
+            }
+        }
+        impl From<$ty> for i64 {
+            fn from(proof: $ty) -> Self {
+                match proof {
+                    $( $ty::$var => $val, )*
+                    $ty::Invalid(other) => other,
+                }
+            }
+        }
+    }
+}
+
+i64_conversion! {
+    RegisteredPoStProof;
+    StackedDRGWinning2KiBV1 => 0,
+    StackedDRGWinning8MiBV1 => 1,
+    StackedDRGWinning512MiBV1 => 2,
+    StackedDRGWinning32GiBV1 => 3,
+    StackedDRGWinning64GiBV1 => 4,
+    StackedDRGWindow2KiBV1 => 5,
+    StackedDRGWindow8MiBV1 => 6,
+    StackedDRGWindow512MiBV1 => 7,
+    StackedDRGWindow32GiBV1 => 8,
+    StackedDRGWindow64GiBV1 => 9,
+}
+
+i64_conversion! {
+    RegisteredSealProof;
+    StackedDRG2KiBV1 => 0,
+    StackedDRG512MiBV1 => 1,
+    StackedDRG8MiBV1 => 2,
+    StackedDRG32GiBV1 => 3,
+    StackedDRG64GiBV1 => 4,
+}
+
 impl TryFrom<RegisteredSealProof> for proofs::RegisteredSealProof {
     type Error = String;
     fn try_from(p: RegisteredSealProof) -> Result<Self, Self::Error> {
@@ -212,7 +218,7 @@ impl Serialize for RegisteredPoStProof {
     where
         S: Serializer,
     {
-        self.to_i64().serialize(serializer)
+        i64::from(*self).serialize(serializer)
     }
 }
 
@@ -222,7 +228,7 @@ impl<'de> Deserialize<'de> for RegisteredPoStProof {
         D: Deserializer<'de>,
     {
         let val = i64::deserialize(deserializer)?;
-        Ok(Self::from_i64(val))
+        Ok(Self::from(val))
     }
 }
 
@@ -231,7 +237,7 @@ impl Serialize for RegisteredSealProof {
     where
         S: Serializer,
     {
-        self.to_i64().serialize(serializer)
+        i64::from(*self).serialize(serializer)
     }
 }
 
@@ -241,6 +247,6 @@ impl<'de> Deserialize<'de> for RegisteredSealProof {
         D: Deserializer<'de>,
     {
         let val = i64::deserialize(deserializer)?;
-        Ok(Self::from_i64(val))
+        Ok(Self::from(val))
     }
 }

@@ -11,8 +11,8 @@ use clock::ChainEpoch;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
-    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredPoStProof, RegisteredSealProof,
-    SealVerifyInfo, SectorInfo, WindowPoStVerifyInfo,
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredSealProof, SealVerifyInfo,
+    SectorInfo, WindowPoStVerifyInfo,
 };
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
@@ -224,7 +224,10 @@ pub trait Syscalls {
             .map::<ReplicaMapResult, _>(|sector_info: &SectorInfo| {
                 let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
                 let replica = PublicReplicaInfo::new(
-                    RegisteredPoStProof::from_i64(sector_info.proof).try_into()?,
+                    sector_info
+                        .proof
+                        .registered_window_post_proof()?
+                        .try_into()?,
                     commr,
                 );
                 Ok((SectorId::from(sector_info.sector_number), replica))

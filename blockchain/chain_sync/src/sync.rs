@@ -21,7 +21,7 @@ use core::time::Duration;
 use crypto::verify_bls_aggregate;
 use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
-use fil_types::{RegisteredPoStProof, SectorInfo};
+use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
@@ -783,7 +783,10 @@ where
                         Error::Validation(format!("failed to get replica commitment: {:}", err))
                     })?;
                 let replica = PublicReplicaInfo::new(
-                    RegisteredPoStProof::from_i64(sector_info.proof)
+                    sector_info
+                        .proof
+                        .registered_winning_post_proof()
+                        .map_err(|err| Error::Validation(format!("Invalid proof code: {:}", err)))?
                         .try_into()
                         .map_err(|err| {
                             Error::Validation(format!("failed to get registered proof: {:}", err))

@@ -79,7 +79,7 @@ where
                 .sealed_cid
                 .clone();
             Ok(SectorInfo {
-                proof: wpt.to_i64(),
+                proof: seal_proof_type,
                 sector_number,
                 sealed_cid,
             })

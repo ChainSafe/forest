@@ -171,12 +171,12 @@ mod tests {
         gsys.hash_blake2b(&[0u8]).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 7);
 
-        gsys.compute_unsealed_sector_cid(RegisteredSealProof::from_i64(0), &[])
+        gsys.compute_unsealed_sector_cid(RegisteredSealProof::from(0), &[])
             .unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 8);
 
         gsys.verify_seal(&SealVerifyInfo {
-            registered_proof: RegisteredSealProof::from_i64(1),
+            registered_proof: RegisteredSealProof::from(1),
             sector_id: Default::default(),
             deal_ids: Vec::new(),
             randomness: Default::default(),
