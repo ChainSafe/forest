@@ -99,7 +99,6 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
             BitswapEvent::ReceivedWant(peer_id, cid, priority) => {},
             BitswapEvent::ReceivedCancel(peer_id, cid) => {},
         }
-        todo!();
     }
 }
 
