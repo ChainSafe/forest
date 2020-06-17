@@ -848,17 +848,7 @@ where
             // update sync state to Bootstrap indicating we are acquiring a 'secure enough' set of peers
             self.set_state(SyncState::Bootstrap);
 
-            // TODO change from using random peerID to managed
-            while self.peer_manager.is_empty().await {
-                warn!("No valid peers to sync, waiting for other nodes");
-                task::sleep(Duration::from_secs(5)).await;
-            }
-
-            let peer_id = self
-                .peer_manager
-                .get_peer()
-                .await
-                .expect("Peer set is not empty here");
+            let peer_id = self.get_peer().await;
 
             // checkpoint established
             self.set_state(SyncState::Checkpoint);
@@ -934,15 +924,14 @@ where
     }
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
     async fn sync_fork(&mut self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
-        // TODO change from using random peerID to managed
-        let peer_id = PeerId::random();
-        // pulled from Lotus: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L996
+        let peer_id = self.get_peer().await;
+        // TODO move to shared parameter (from actors crate most likely)
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
         // Load blocks from network using blocksync
         let tips: Vec<Tipset> = self
             .network
-            .blocksync_headers(peer_id.clone(), head.parents(), FORK_LENGTH_THRESHOLD)
+            .blocksync_headers(peer_id, head.parents(), FORK_LENGTH_THRESHOLD)
             .await
             .map_err(|_| Error::Other("Could not retrieve tipset".to_string()))?;
 
@@ -981,6 +970,18 @@ where
     /// Sets the managed sync status
     pub fn set_state(&mut self, new_state: SyncState) {
         self.state = new_state
+    }
+
+    async fn get_peer(&self) -> PeerId {
+        while self.peer_manager.is_empty().await {
+            warn!("No valid peers to sync, waiting for other nodes");
+            task::sleep(Duration::from_secs(5)).await;
+        }
+
+        self.peer_manager
+            .get_peer()
+            .await
+            .expect("Peer set is not empty here")
     }
 }
 
