@@ -20,6 +20,8 @@ use libp2p::NetworkBehaviour;
 use log::{debug, trace, warn};
 use std::collections::HashSet;
 use std::{task::Context, task::Poll};
+use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
+use forest_cid::Cid;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
@@ -31,6 +33,7 @@ pub struct ForestBehaviour {
     identify: Identify,
     rpc: RPC,
     kademlia: Kademlia<MemoryStore>,
+    bitswap: Bitswap,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
     #[behaviour(ignore)]
@@ -47,6 +50,8 @@ pub enum ForestBehaviourEvent {
         message: Vec<u8>,
     },
     RPC(PeerId, RPCEvent),
+    BitswapReceivedBlock(PeerId, Cid, Box<[u8]>),
+    BitswapReceivedWant(PeerId, Cid),
 }
 
 impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
@@ -79,6 +84,17 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
                 trace!("kad: {:?}", event);
             }
         }
+    }
+}
+
+impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
+    fn inject_event(&mut self, event: BitswapEvent) {
+        match event {
+            BitswapEvent::ReceivedBlock(peer_id, cid, data) => {},
+            BitswapEvent::ReceivedWant(peer_id, cid, priority) => {},
+            BitswapEvent::ReceivedCancel(peer_id, cid) => {},
+        }
+        todo!();
     }
 }
 
@@ -213,6 +229,7 @@ impl ForestBehaviour {
                 local_key.public(),
             ),
             kademlia,
+            bitswap: Bitswap::new(),
             rpc: RPC::default(),
             events: vec![],
             peers: Default::default(),

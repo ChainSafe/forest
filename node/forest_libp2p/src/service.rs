@@ -155,6 +155,8 @@ impl Libp2pService {
                                 RPCEvent::Error(req_id, err) => info!("Error with request {}: {:?}", req_id, err),
                             }
                         }
+                        ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {},
+                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => {},
                     }
                     None => {break;}
                 },
