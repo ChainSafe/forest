@@ -183,7 +183,7 @@ impl BitField {
     }
 
     /// Returns the union of the given bit fields as a new bit field.
-    pub fn multi_union<'a>(bitfields: impl IntoIterator<Item = &'a Self>) -> Self {
+    pub fn union<'a>(bitfields: impl IntoIterator<Item = &'a Self>) -> Self {
         bitfields.into_iter().fold(Self::new(), |a, b| &a | b)
     }
 

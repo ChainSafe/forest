@@ -108,7 +108,7 @@ fn subtract_more() {
     let s3 = &BitField::from_iter(vec![11, 13]) - &have;
     let s4 = &BitField::from_iter(vec![14, 17]) - &have;
 
-    let u = BitField::multi_union(&[s1, s2, s3, s4]);
+    let u = BitField::union(&[s1, s2, s3, s4]);
     assert_eq!(u.len(), 0);
 }
 

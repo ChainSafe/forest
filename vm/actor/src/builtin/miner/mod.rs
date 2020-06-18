@@ -335,7 +335,7 @@ impl Actor {
                     )
                 })?;
 
-                let proven_sectors = BitField::multi_union(&partitions_sectors);
+                let proven_sectors = BitField::union(&partitions_sectors);
 
                 let (sector_infos, declared_recoveries) = st
                     .load_sector_infos_for_proof(rt.store(), proven_sectors)
@@ -974,7 +974,7 @@ impl Actor {
                 })
                 .collect::<Result<Vec<BitField>, ActorError>>()?;
 
-            let all_declared = BitField::multi_union(&declared_sectors);
+            let all_declared = BitField::union(&declared_sectors);
 
             // Split declarations into declarations of new faults, and retraction of declared recoveries.
             let recoveries = &st.recoveries & &all_declared;
@@ -1129,7 +1129,7 @@ impl Actor {
                 })
                 .collect::<Result<Vec<BitField>, ActorError>>()?;
 
-            let all_recoveries = BitField::multi_union(&declared_sectors);
+            let all_recoveries = BitField::union(&declared_sectors);
 
             if !st.faults.contains_all(&all_recoveries) {
                 return Err(ActorError::new(
@@ -1734,8 +1734,8 @@ fn compute_faults_from_missing_posts(
         }
         deadline_first_partition += dl_part_count as u64;
     }
-    let detected_faults = BitField::multi_union(&f_groups);
-    let failed_recoveries = BitField::multi_union(&r_groups);
+    let detected_faults = BitField::union(&f_groups);
+    let failed_recoveries = BitField::union(&r_groups);
 
     Ok((detected_faults, failed_recoveries))
 }
@@ -1776,7 +1776,7 @@ where
 
     st.clear_sector_expirations(store, &expired_epochs)?;
 
-    let all_expiries = BitField::multi_union(&expired_sectors);
+    let all_expiries = BitField::union(&expired_sectors);
 
     Ok(all_expiries)
 }
