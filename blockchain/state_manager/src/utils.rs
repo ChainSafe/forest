@@ -7,8 +7,9 @@ use actor::miner;
 use address::{Address, Protocol};
 use blockstore::BlockStore;
 use cid::Cid;
-use fil_types::{RegisteredProof, SectorInfo, SectorSize};
+use fil_types::{RegisteredSealProof, SectorInfo, SectorSize};
 use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
+use std::convert::TryInto;
 
 pub fn get_sectors_for_winning_post<DB>(
     state_manager: &StateManager<DB>,
@@ -33,11 +34,11 @@ where
         return Ok(Vec::new());
     }
     let seal_proof_type = match miner_actor_state.info.sector_size {
-        SectorSize::_2KiB => RegisteredProof::StackedDRG2KiBSeal,
-        SectorSize::_8MiB => RegisteredProof::StackedDRG8MiBSeal,
-        SectorSize::_512MiB => RegisteredProof::StackedDRG512MiBSeal,
-        SectorSize::_32GiB => RegisteredProof::StackedDRG32GiBSeal,
-        SectorSize::_64GiB => RegisteredProof::StackedDRG64GiBSeal,
+        SectorSize::_2KiB => RegisteredSealProof::StackedDRG2KiBV1,
+        SectorSize::_8MiB => RegisteredSealProof::StackedDRG8MiBV1,
+        SectorSize::_512MiB => RegisteredSealProof::StackedDRG512MiBV1,
+        SectorSize::_32GiB => RegisteredSealProof::StackedDRG32GiBV1,
+        SectorSize::_64GiB => RegisteredSealProof::StackedDRG64GiBV1,
     };
     let wpt = seal_proof_type.registered_winning_post_proof()?;
 
@@ -51,7 +52,7 @@ where
     let prover_bytes = address.to_bytes();
     prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
     let ids = generate_winning_post_sector_challenge(
-        wpt.into(),
+        wpt.try_into()?,
         &rand,
         sector_set.len() as u64,
         prover_id,
@@ -78,7 +79,7 @@ where
                 .sealed_cid
                 .clone();
             Ok(SectorInfo {
-                proof: wpt,
+                proof: seal_proof_type,
                 sector_number,
                 sealed_cid,
             })

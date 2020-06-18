@@ -25,10 +25,10 @@ log = "0.4.8"
 async-std = { version = "1.6.0", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 futures = "0.3.5"
-lru = "0.4.3"
+lru = "0.5.1"
 thiserror = "1.0"
 num-traits = "0.2"
-filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "0e1c7cb464707c7a7ad82b0f8303f000f6f3fc8a" }
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "b863301780791cbf529dadf08c713e0a97408833" }
 fil_types = { path = "../../types" }
 commcid = { path = "../../utils/commcid" }
 
