@@ -508,15 +508,10 @@ impl State {
         let expected_faults = &declared_faults - &recoveries;
         let non_faults = &expected_faults - &proven_sectors;
 
-        if non_faults.is_empty() {
-            return Err(format!(
-                "failed to check if bitfield was empty: {:?}",
-                non_faults
-            ));
-        }
-
         // Select a non-faulty sector as a substitute for faulty ones.
-        let good_sector_no = non_faults.first().unwrap();
+        let good_sector_no = non_faults
+            .first()
+            .ok_or("no non-faulty sectors in partitions")?;
 
         // load sector infos
         let sector_infos = self.load_sector_infos_with_fault_mask(
