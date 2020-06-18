@@ -16,7 +16,6 @@ use crate::{
     BalanceTable, DealID, OptionalEpoch, SetMultimap, BURNT_FUNDS_ACTOR_ADDR,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
     VERIFREG_ACTOR_ADDR,
-
 };
 use address::Address;
 use cid::Cid;
@@ -293,7 +292,6 @@ impl Actor {
 
         let mut total_deal_space_time = BigUint::zero();
         let mut total_verified_deal_space_time = BigUint::zero();
-
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector
@@ -776,7 +774,6 @@ impl ActorCode for Actor {
             Some(Method::VerifyDealsOnSectorProveCommit) => {
                 let res = Self::verify_deals_on_sector_prove_commit(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(&res)?)
-
             }
             Some(Method::OnMinerSectorsTerminate) => {
                 Self::on_miners_sector_terminate(rt, params.deserialize()?)?;

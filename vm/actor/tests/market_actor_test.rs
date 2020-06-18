@@ -5,8 +5,10 @@ mod common;
 
 use actor::{
     market::{Method, State, WithdrawBalanceParams},
-    Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
-    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,CALLER_TYPES_SIGNABLE
+    miner::{GetControlAddressesReturn, Method as MinerMethod},
+    Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE, INIT_ACTOR_CODE_ID,
+    MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR,
+    SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use common::*;
@@ -15,13 +17,10 @@ use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
-enum TestId {
-    MarketActorId = 100,
-    OwnerId = 101,
-    ProviderId = 102,
-    WorkerId = 103,
-    ClientId = 104,
-}
+const OWNER_ID: u64 = 101;
+const PROVIDER_ID: u64 = 102;
+const WORKER_ID: u64 = 103;
+const CLIENT_ID: u64 = 104;
 
 //const caller_types_signable : Vec<Cid>= vec![ACCOUNT_ACTOR_CODE_ID.clone(), MULTISIG_ACTOR_CODE_ID.clone()];
 
@@ -36,22 +35,14 @@ fn setup<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
 
     rt.caller_type = INIT_ACTOR_CODE_ID.clone();
 
-    rt.actor_code_cids.insert(
-        Address::new_id(TestId::OwnerId as u64),
-        ACCOUNT_ACTOR_CODE_ID.clone(),
-    );
-    rt.actor_code_cids.insert(
-        Address::new_id(TestId::WorkerId as u64),
-        ACCOUNT_ACTOR_CODE_ID.clone(),
-    );
-    rt.actor_code_cids.insert(
-        Address::new_id(TestId::ProviderId as u64),
-        MINER_ACTOR_CODE_ID.clone(),
-    );
-    rt.actor_code_cids.insert(
-        Address::new_id(TestId::ClientId as u64),
-        ACCOUNT_ACTOR_CODE_ID.clone(),
-    );
+    rt.actor_code_cids
+        .insert(Address::new_id(OWNER_ID), ACCOUNT_ACTOR_CODE_ID.clone());
+    rt.actor_code_cids
+        .insert(Address::new_id(WORKER_ID), ACCOUNT_ACTOR_CODE_ID.clone());
+    rt.actor_code_cids
+        .insert(Address::new_id(PROVIDER_ID), MINER_ACTOR_CODE_ID.clone());
+    rt.actor_code_cids
+        .insert(Address::new_id(CLIENT_ID), ACCOUNT_ACTOR_CODE_ID.clone());
     construct_and_verify(&mut rt);
 
     rt
@@ -75,15 +66,15 @@ fn simple_construction() {
 
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
 
-    let call_result = rt
-        .call(
+    assert_eq!(
+        Serialized::default(),
+        rt.call(
             &*MARKET_ACTOR_CODE_ID,
             METHOD_CONSTRUCTOR,
             &Serialized::default(),
         )
-        .unwrap();
-
-    assert_eq!(call_result, Serialized::default());
+        .unwrap()
+    );
 
     rt.verify();
 
@@ -104,9 +95,9 @@ fn add_provider_escrow_funds() {
     // First element of tuple is the delta the second element is the total after the delta change
     let test_cases = vec![(10, 10), (20, 30), (40, 70)];
 
-    let owner_addr = Address::new_id(TestId::OwnerId as u64);
-    let worker_addr = Address::new_id(TestId::WorkerId as u64);
-    let provider_addr = Address::new_id(TestId::ProviderId as u64);
+    let owner_addr = Address::new_id(OWNER_ID);
+    let worker_addr = Address::new_id(WORKER_ID);
+    let provider_addr = Address::new_id(PROVIDER_ID);
 
     for caller_addr in vec![owner_addr, worker_addr] {
         let bs = MemoryDB::default();
@@ -121,11 +112,13 @@ fn add_provider_escrow_funds() {
 
             expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
 
-            let _v = rt.call(
-                &MARKET_ACTOR_CODE_ID.clone(),
-                Method::AddBalance as u64,
-                &Serialized::serialize(provider_addr.clone()).unwrap(),
-            );
+            assert!(rt
+                .call(
+                    &MARKET_ACTOR_CODE_ID.clone(),
+                    Method::AddBalance as u64,
+                    &Serialized::serialize(provider_addr.clone()).unwrap(),
+                )
+                .is_ok());
             rt.verify();
 
             let state_data: State = rt.get_state().unwrap();
@@ -147,22 +140,23 @@ fn account_actor_check() {
     let amount = TokenAmount::from(10u8);
     rt.set_value(amount);
 
-    let owner_addr = Address::new_id(TestId::OwnerId as u64);
-    let worker_addr = Address::new_id(TestId::WorkerId as u64);
-    let provider_addr = Address::new_id(TestId::ProviderId as u64);
+    let owner_addr = Address::new_id(OWNER_ID);
+    let worker_addr = Address::new_id(WORKER_ID);
+    let provider_addr = Address::new_id(PROVIDER_ID);
 
     expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
     rt.set_caller(MINER_ACTOR_CODE_ID.clone(), provider_addr.clone());
-    let error_code = rt
-        .call(
+
+    assert_eq!(
+        ExitCode::ErrForbidden,
+        rt.call(
             &MARKET_ACTOR_CODE_ID.clone(),
             Method::AddBalance as u64,
             &Serialized::serialize(provider_addr).unwrap(),
         )
         .unwrap_err()
-        .exit_code();
-
-    assert_eq!(error_code, ExitCode::ErrForbidden);
+        .exit_code()
+    );
 
     rt.verify();
 }
@@ -172,8 +166,8 @@ fn add_non_provider_funds() {
     // First element of tuple is the delta the second element is the total after the delta change
     let test_cases = vec![(10, 10), (20, 30), (40, 70)];
 
-    let client_addr = Address::new_id(TestId::ClientId as u64);
-    let worker_addr = Address::new_id(TestId::WorkerId as u64);
+    let client_addr = Address::new_id(CLIENT_ID);
+    let worker_addr = Address::new_id(WORKER_ID);
 
     for caller_addr in vec![client_addr, worker_addr] {
         let bs = MemoryDB::default();
@@ -187,11 +181,13 @@ fn add_non_provider_funds() {
             rt.set_value(amount);
             rt.expect_validate_caller_type(&CALLER_TYPES_SIGNABLE.clone());
 
-            let _v = rt.call(
-                &MARKET_ACTOR_CODE_ID.clone(),
-                Method::AddBalance as u64,
-                &Serialized::serialize(caller_addr.clone()).unwrap(),
-            );
+            assert!(rt
+                .call(
+                    &MARKET_ACTOR_CODE_ID.clone(),
+                    Method::AddBalance as u64,
+                    &Serialized::serialize(caller_addr.clone()).unwrap(),
+                )
+                .is_ok());
 
             rt.verify();
 
@@ -211,9 +207,9 @@ fn withdraw_provider_to_owner() {
     let bs = MemoryDB::default();
     let mut rt = setup(&bs);
 
-    let owner_addr = Address::new_id(TestId::OwnerId as u64);
-    let worker_addr = Address::new_id(TestId::WorkerId as u64);
-    let provider_addr = Address::new_id(TestId::ProviderId as u64);
+    let owner_addr = Address::new_id(OWNER_ID);
+    let worker_addr = Address::new_id(WORKER_ID);
+    let provider_addr = Address::new_id(PROVIDER_ID);
 
     let amount = TokenAmount::from(20u8);
     add_provider_funds(
@@ -251,11 +247,13 @@ fn withdraw_provider_to_owner() {
         amount: withdraw_amount.clone(),
     };
 
-    let call_result = rt.call(
-        &MARKET_ACTOR_CODE_ID.clone(),
-        Method::WithdrawBalance as u64,
-        &Serialized::serialize(params).unwrap(),
-    );
+    assert!(rt
+        .call(
+            &MARKET_ACTOR_CODE_ID.clone(),
+            Method::WithdrawBalance as u64,
+            &Serialized::serialize(params).unwrap(),
+        )
+        .is_ok());
 
     rt.verify();
 
@@ -275,7 +273,7 @@ fn withdraw_non_provider() {
     let bs = MemoryDB::default();
     let mut rt = setup(&bs);
 
-    let client_addr = Address::new_id(TestId::ClientId as u64);
+    let client_addr = Address::new_id(CLIENT_ID);
 
     let amount = TokenAmount::from(20u8);
     add_participant_funds(&mut rt, client_addr.clone(), amount.clone());
@@ -310,11 +308,13 @@ fn withdraw_non_provider() {
         amount: withdraw_amount.clone(),
     };
 
-    let _call_result = rt.call(
-        &MARKET_ACTOR_CODE_ID.clone(),
-        Method::WithdrawBalance as u64,
-        &Serialized::serialize(params).unwrap(),
-    );
+    assert!(rt
+        .call(
+            &MARKET_ACTOR_CODE_ID.clone(),
+            Method::WithdrawBalance as u64,
+            &Serialized::serialize(params).unwrap(),
+        )
+        .is_ok());
 
     rt.verify();
 
@@ -333,7 +333,7 @@ fn client_withdraw_more_than_available() {
     let bs = MemoryDB::default();
     let mut rt = setup(&bs);
 
-    let client_addr = Address::new_id(TestId::ClientId as u64);
+    let client_addr = Address::new_id(CLIENT_ID);
 
     let amount = TokenAmount::from(20u8);
     add_participant_funds(&mut rt, client_addr.clone(), amount.clone());
@@ -360,11 +360,13 @@ fn client_withdraw_more_than_available() {
         amount: withdraw_amount.clone(),
     };
 
-    let _call_result = rt.call(
-        &MARKET_ACTOR_CODE_ID.clone(),
-        Method::WithdrawBalance as u64,
-        &Serialized::serialize(params).unwrap(),
-    );
+    assert!(rt
+        .call(
+            &MARKET_ACTOR_CODE_ID.clone(),
+            Method::WithdrawBalance as u64,
+            &Serialized::serialize(params).unwrap(),
+        )
+        .is_ok());
 
     rt.verify();
 
@@ -383,9 +385,9 @@ fn worker_withdraw_more_than_available() {
     let bs = MemoryDB::default();
     let mut rt = setup(&bs);
 
-    let owner_addr = Address::new_id(TestId::OwnerId as u64);
-    let worker_addr = Address::new_id(TestId::WorkerId as u64);
-    let provider_addr = Address::new_id(TestId::ProviderId as u64);
+    let owner_addr = Address::new_id(OWNER_ID);
+    let worker_addr = Address::new_id(WORKER_ID);
+    let provider_addr = Address::new_id(PROVIDER_ID);
 
     let amount = TokenAmount::from(20u8);
     add_provider_funds(
@@ -423,11 +425,13 @@ fn worker_withdraw_more_than_available() {
         amount: withdraw_amount.clone(),
     };
 
-    let _call_result = rt.call(
-        &MARKET_ACTOR_CODE_ID.clone(),
-        Method::WithdrawBalance as u64,
-        &Serialized::serialize(params).unwrap(),
-    );
+    assert!(rt
+        .call(
+            &MARKET_ACTOR_CODE_ID.clone(),
+            Method::WithdrawBalance as u64,
+            &Serialized::serialize(params).unwrap(),
+        )
+        .is_ok());
 
     rt.verify();
 
@@ -450,13 +454,19 @@ fn expect_provider_control_address<BS: BlockStore>(
     rt.expect_validate_caller_addr(&[owner.clone(), worker.clone()]);
 
     // TODO Provide the right methjod number. THe right mehtod is controlAddress in go code
-    // rt.expect_send(provider.clone(),
-    //  METHOD_CONSTRUCTOR,
-    //  Serialized::default(),
-    //  TokenAmount::from(0u8),
-    //  Serialized::serialize((owner.clone(), worker.clone())).unwrap(),
-    //  ExitCode::Ok
-    // );
+    let return_value = GetControlAddressesReturn {
+        owner: owner.clone(),
+        worker: worker.clone(),
+    };
+
+    rt.expect_send(
+        provider.clone(),
+        MinerMethod::ControlAddresses as u64,
+        Serialized::default(),
+        TokenAmount::from(0u8),
+        Serialized::serialize(return_value).unwrap(),
+        ExitCode::Ok,
+    );
 }
 
 fn add_provider_funds<BS: BlockStore>(
@@ -471,11 +481,13 @@ fn add_provider_funds<BS: BlockStore>(
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), owner.clone());
     expect_provider_control_address(rt, provider, owner, worker);
 
-    let _v = rt.call(
-        &MARKET_ACTOR_CODE_ID.clone(),
-        Method::AddBalance as u64,
-        &Serialized::serialize(provider.clone()).unwrap(),
-    );
+    assert!(rt
+        .call(
+            &MARKET_ACTOR_CODE_ID.clone(),
+            Method::AddBalance as u64,
+            &Serialized::serialize(provider.clone()).unwrap(),
+        )
+        .is_ok());
 
     rt.verify();
 
@@ -496,11 +508,13 @@ fn add_participant_funds<BS: BlockStore>(
         MULTISIG_ACTOR_CODE_ID.clone(),
     ]);
 
-    let v = rt.call(
-        &MARKET_ACTOR_CODE_ID.clone(),
-        Method::AddBalance as u64,
-        &Serialized::serialize(addr.clone()).unwrap(),
-    );
+    assert!(rt
+        .call(
+            &MARKET_ACTOR_CODE_ID.clone(),
+            Method::AddBalance as u64,
+            &Serialized::serialize(addr.clone()).unwrap(),
+        )
+        .is_ok());
 
     rt.verify();
 
@@ -509,15 +523,14 @@ fn add_participant_funds<BS: BlockStore>(
 
 fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
-
-    let ret = rt
-        .call(
+    assert_eq!(
+        Serialized::default(),
+        rt.call(
             &*MARKET_ACTOR_CODE_ID,
             METHOD_CONSTRUCTOR,
             &Serialized::default(),
         )
-        .unwrap();
-
-    assert_eq!(Serialized::default(), ret);
+        .unwrap()
+    );
     rt.verify();
 }

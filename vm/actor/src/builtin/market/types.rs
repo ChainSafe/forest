@@ -7,7 +7,7 @@ use address::Address;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::RegisteredProof;
-use num_bigint::{bigint_ser, biguint_ser};
+use num_bigint::biguint_ser;
 
 use vm::{DealID, TokenAmount};
 
@@ -46,7 +46,6 @@ pub struct VerifyDealsOnSectorProveCommitParams {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct VerifyDealsOnSectorProveCommitReturn {
-
     #[serde(with = "biguint_ser")]
     pub deal_weight: DealWeight,
     #[serde(with = "biguint_ser")]
