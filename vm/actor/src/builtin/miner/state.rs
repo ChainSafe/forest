@@ -10,7 +10,7 @@ use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, Cbor};
-use fil_types::{RegisteredProof, SectorInfo, SectorNumber, SectorSize};
+use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize};
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
@@ -108,13 +108,12 @@ impl State {
         worker: Address,
         peer_id: Vec<u8>,
         multi_address: Vec<u8>,
-        proof_type: RegisteredProof,
+        seal_proof_type: RegisteredSealProof,
         period_start: ChainEpoch,
-    ) -> Self {
-        let seal_proof_type = proof_type.registered_seal_proof();
-        let sector_size = seal_proof_type.sector_size();
-        let partitions_sectors = seal_proof_type.window_post_partitions_sector();
-        Self {
+    ) -> Result<Self, String> {
+        let sector_size = seal_proof_type.sector_size()?;
+        let window_post_partition_sectors = seal_proof_type.window_post_partitions_sector()?;
+        Ok(Self {
             info: MinerInfo {
                 owner,
                 worker,
@@ -123,7 +122,7 @@ impl State {
                 multi_address,
                 seal_proof_type,
                 sector_size,
-                window_post_partition_sectors: partitions_sectors,
+                window_post_partition_sectors,
             },
             pre_commit_deposit: TokenAmount::default(),
             locked_funds: TokenAmount::default(),
@@ -139,7 +138,7 @@ impl State {
             recoveries: BitField::default(),
             post_submissions: BitField::default(),
             next_deadline_to_process_faults: 0,
-        }
+        })
     }
     /// Returns worker address
     pub fn get_worker(&self) -> &Address {
@@ -800,7 +799,7 @@ pub struct MinerInfo {
     pub multi_address: Vec<u8>,
 
     /// The proof type used by this miner for sealing sectors.
-    pub seal_proof_type: RegisteredProof,
+    pub seal_proof_type: RegisteredSealProof,
 
     /// Amount of space in each sector committed to the network by this miner
     pub sector_size: SectorSize,
@@ -925,7 +924,7 @@ mod tests {
             peer_id: PeerId::random().into_bytes(),
             multi_address: PeerId::random().into_bytes(),
             sector_size: SectorSize::_2KiB,
-            seal_proof_type: RegisteredProof::default(),
+            seal_proof_type: RegisteredSealProof::from(1),
             window_post_partition_sectors: 0,
         };
         let bz = to_vec(&info).unwrap();

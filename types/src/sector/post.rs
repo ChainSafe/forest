@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{RegisteredProof, SectorNumber};
+use super::{RegisteredPoStProof, RegisteredSealProof, SectorNumber};
 use cid::Cid;
 use encoding::{serde_bytes, tuple::*};
 use vm::{ActorID, Randomness};
@@ -9,18 +9,18 @@ use vm::{ActorID, Randomness};
 pub type PoStRandomness = Randomness;
 
 /// Information about a sector necessary for PoSt verification
-#[derive(Debug, PartialEq, Default, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, PartialEq, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorInfo {
     /// Used when sealing - needs to be mapped to PoSt registered proof when used to verify a PoSt
-    pub proof: RegisteredProof,
+    pub proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     pub sealed_cid: Cid,
 }
 
 // TODO docs
-#[derive(Debug, PartialEq, Default, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, PartialEq, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct PoStProof {
-    pub registered_proof: RegisteredProof,
+    pub registered_proof: RegisteredPoStProof,
     // TODO revisit if can be array in future
     #[serde(with = "serde_bytes")]
     pub proof_bytes: Vec<u8>,
@@ -76,7 +76,7 @@ pub mod json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
-        registered_proof: u8,
+        registered_proof: i64,
         proof_bytes: String,
     }
 
@@ -85,7 +85,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            registered_proof: m.registered_proof as u8,
+            registered_proof: i64::from(m.registered_proof),
             proof_bytes: base64::encode(&m.proof_bytes),
         }
         .serialize(serializer)
@@ -97,7 +97,7 @@ pub mod json {
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(PoStProof {
-            registered_proof: RegisteredProof::from_byte(m.registered_proof).unwrap(),
+            registered_proof: RegisteredPoStProof::from(m.registered_proof),
             proof_bytes: base64::decode(m.proof_bytes).map_err(de::Error::custom)?,
         })
     }
