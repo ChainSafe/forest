@@ -1,8 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{collateral_penalty_for_deal_activation_missed, DealProposal, DealState};
-use crate::{BalanceTable, DealID, OptionalEpoch, SetMultimap};
+use super::{
+    collateral_penalty_for_deal_activation_missed, DealProposal, DealState, DEAL_UPDATED_INTERVAL,
+};
+use crate::{BalanceTable, DealID, OptionalEpoch};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -11,7 +13,6 @@ use encoding::Cbor;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;
-use runtime::Runtime;
 use vm::{ActorError, ExitCode, TokenAmount};
 
 /// Market actor state
@@ -31,7 +32,8 @@ pub struct State {
     pub next_id: DealID,
     /// Metadata cached for efficient iteration over deals.
     /// SetMultimap<Address>
-    pub deal_ids_by_party: Cid,
+    pub deal_ops_by_epoch: Cid,
+    pub last_cron: ChainEpoch,
 }
 
 impl State {
@@ -42,8 +44,213 @@ impl State {
             escrow_table: empty_map.clone(),
             locked_table: empty_map,
             next_id: 0,
-            deal_ids_by_party: empty_mset,
+            deal_ops_by_epoch: empty_mset,
+            last_cron: ChainEpoch::default(),
         }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Deal state operations
+    ////////////////////////////////////////////////////////////////////////////////
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn update_pending_deal_state<BS>(
+        &mut self,
+        store: &BS,
+        state: DealState,
+        deal: DealProposal,
+        deal_id: DealID,
+        et: &mut BalanceTable<BS>,
+        lt: &mut BalanceTable<BS>,
+        epoch: ChainEpoch,
+    ) -> Result<(TokenAmount, OptionalEpoch), ActorError>
+    where
+        BS: BlockStore,
+    {
+        let ever_updated = state.last_updated_epoch.is_some();
+        let ever_slashed = state.slash_epoch.is_some();
+
+        // if the deal was ever updated, make sure it didn't happen in the future
+        assert!(!ever_updated || state.last_updated_epoch.unwrap() <= epoch);
+
+        // This would be the case that the first callback somehow triggers before it is scheduled to
+        // This is expected not to be able to happen
+        if deal.start_epoch > epoch {
+            return Ok((TokenAmount::zero(), OptionalEpoch(None)));
+        }
+
+        let deal_end = if ever_slashed {
+            assert!(
+                state.slash_epoch.unwrap() <= deal.end_epoch,
+                "Epoch slashed must be less or equal to the end epoch"
+            );
+            state.slash_epoch.unwrap()
+        } else {
+            deal.end_epoch
+        };
+
+        let elapsed_start = if ever_updated && state.last_updated_epoch.unwrap() > deal.start_epoch
+        {
+            state.last_updated_epoch.unwrap()
+        } else {
+            deal.start_epoch
+        };
+
+        let elapsed_end = std::cmp::min(epoch, deal_end);
+
+        let num_epochs_elapsed = elapsed_end - elapsed_start;
+
+        self.transfer_balance(
+            store,
+            &deal.client,
+            &deal.provider,
+            &(deal.storage_price_per_epoch.clone() * num_epochs_elapsed),
+        )?;
+
+        if ever_slashed {
+            // unlock client collateral and locked storage fee
+            let payment_remaining = deal_get_payment_remaining(&deal, state.slash_epoch.unwrap());
+            // specs actors are not handling this err
+            self.unlock_balance(
+                lt,
+                &deal.client,
+                &(payment_remaining + &deal.client_collateral),
+            )
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
+
+            // slash provider collateral
+            let slashed = deal.provider_collateral.clone();
+            self.slash_balance(et, lt, &deal.provider, &slashed)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("slashing balance: {}", e),
+                    )
+                })?;
+
+            self.delete_deal(store, deal_id)?;
+            return Ok((slashed, OptionalEpoch(None)));
+        }
+
+        if epoch >= deal.end_epoch {
+            self.process_deal_expired(store, deal_id, &deal, state, lt)?;
+            return Ok((TokenAmount::zero(), OptionalEpoch(None)));
+        }
+
+        let next: ChainEpoch = std::cmp::min(epoch + DEAL_UPDATED_INTERVAL, deal.end_epoch);
+
+        Ok((TokenAmount::zero(), OptionalEpoch(Some(next))))
+    }
+    fn mutate_deal_proposals<BS, F>(&mut self, store: &BS, f: F) -> Result<(), ActorError>
+    where
+        F: FnOnce(&mut Amt<Cid, BS>) -> Result<(), ActorError>,
+        BS: BlockStore,
+    {
+        let mut prop = Amt::load(&self.proposals, store)
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+
+        f(&mut prop)?;
+
+        let r_cid = prop.flush().map_err(|e| {
+            ActorError::new(
+                ExitCode::ErrIllegalState,
+                format!("flushing deal proposals set failed: {}", e),
+            )
+        })?;
+
+        self.proposals = r_cid;
+        Ok(())
+    }
+
+    fn delete_deal<BS>(&mut self, store: &BS, deal_id: DealID) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+    {
+        self.mutate_deal_proposals(store, |props: &mut Amt<Cid, BS>| {
+            props.delete(deal_id).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrPlaceholder,
+                    format!("failed to delete deal: {}", e),
+                )
+            })?;
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Deal start deadline elapsed without appearing in a proven sector.
+    /// Delete deal, slash a portion of provider's collateral, and unlock remaining collaterals
+    /// for both provider and client.
+    pub(super) fn process_deal_init_timed_out<BS>(
+        &mut self,
+        store: &BS,
+        lt: &mut BalanceTable<BS>,
+        et: &mut BalanceTable<BS>,
+        deal_id: DealID,
+        deal: &DealProposal,
+        state: DealState,
+    ) -> Result<TokenAmount, ActorError>
+    where
+        BS: BlockStore,
+    {
+        assert!(
+            state.sector_start_epoch.is_none(),
+            "Sector start epoch must be undefined"
+        );
+
+        // specs actors not handling this err
+        self.unlock_balance(lt, &deal.client, &deal.client_balance_requirement())
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
+
+        let amount_slashed =
+            collateral_penalty_for_deal_activation_missed(deal.provider_collateral.clone());
+        let amount_remaining = deal.provider_balance_requirement() - &amount_slashed;
+
+        self.slash_balance(et, lt, &deal.provider, &amount_slashed)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to slash balance: {}", e),
+                )
+            })?;
+
+        // specs actors not handling this err
+        self.unlock_balance(lt, &deal.provider, &amount_remaining)
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
+
+        self.delete_deal(store, deal_id)?;
+        Ok(amount_slashed)
+    }
+
+    fn process_deal_expired<BS>(
+        &mut self,
+        store: &BS,
+        deal_id: DealID,
+        deal: &DealProposal,
+        state: DealState,
+        lt: &mut BalanceTable<BS>,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+    {
+        assert!(
+            state.sector_start_epoch.is_some(),
+            "Sector start epoch must be initialized at this point"
+        );
+
+        self.unlock_balance(lt, &deal.provider, &deal.provider_collateral)
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
+
+        self.unlock_balance(lt, &deal.client, &deal.client_collateral)
+            .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
+
+        self.delete_deal(store, deal_id)
+    }
+
+    pub(super) fn generate_storage_deal_id(&mut self) -> DealID {
+        let ret = self.next_id;
+        self.next_id += 1;
+        ret
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -56,10 +263,15 @@ impl State {
         a: &Address,
         amount: TokenAmount,
     ) -> Result<(), String> {
-        let mut bt = BalanceTable::from_root(store, &self.escrow_table)?;
-        bt.add_create(a, amount)?;
+        mutate_balance_table(
+            store,
+            &mut self.escrow_table,
+            |et: &mut BalanceTable<BS>| {
+                et.add_create(a, amount)?;
+                Ok(())
+            },
+        )?;
 
-        self.escrow_table = bt.root()?;
         Ok(())
     }
     pub fn add_locked_balance<BS: BlockStore>(
@@ -68,13 +280,18 @@ impl State {
         a: &Address,
         amount: TokenAmount,
     ) -> Result<(), String> {
-        let mut bt = BalanceTable::from_root(store, &self.locked_table)?;
-        bt.add_create(a, amount)?;
+        mutate_balance_table(
+            store,
+            &mut self.locked_table,
+            |lt: &mut BalanceTable<BS>| {
+                lt.add_create(a, amount)?;
+                Ok(())
+            },
+        )?;
 
-        self.locked_table = bt.root()?;
         Ok(())
     }
-    pub fn get_escrow_balance<BS: BlockStore>(
+    fn get_escrow_balance<BS: BlockStore>(
         &self,
         store: &BS,
         a: &Address,
@@ -111,60 +328,50 @@ impl State {
         })
     }
 
-    pub(super) fn maybe_lock_balance<BS: BlockStore>(
+    fn maybe_lock_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
         addr: &Address,
         amount: &TokenAmount,
     ) -> Result<(), ActorError> {
         let prev_locked = self.get_locked_balance(store, addr)?;
-        let escrow_balance = self.get_locked_balance(store, addr)?;
+        let escrow_balance = self.get_escrow_balance(store, addr)?;
         if &prev_locked + amount > escrow_balance {
             return Err(ActorError::new(
                 ExitCode::ErrInsufficientFunds,
                 format!(
-                    "not enough balance to lock for addr {}: {} < {} + {}",
-                    addr, escrow_balance, prev_locked, amount
+                    "not enough balance to lock for addr {}: {} <  {}",
+                    addr,
+                    prev_locked + amount,
+                    escrow_balance
                 ),
             ));
         }
 
-        let mut bt = BalanceTable::from_root(store, &self.locked_table)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        bt.add(addr, amount).map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("adding locked balance {}", e),
-            )
-        })?;
-        self.locked_table = bt
-            .root()
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+        mutate_balance_table(
+            store,
+            &mut self.locked_table,
+            |lt: &mut BalanceTable<BS>| {
+                lt.add(addr, amount)?;
+                Ok(())
+            },
+        )
+        .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))?;
+
         Ok(())
     }
-
-    pub(super) fn unlock_balance<BS: BlockStore>(
+    fn unlock_balance<BS: BlockStore>(
         &mut self,
-        store: &BS,
+        lt: &mut BalanceTable<BS>,
         addr: &Address,
         amount: &TokenAmount,
-    ) -> Result<(), ActorError> {
-        let mut bt = BalanceTable::from_root(store, &self.locked_table)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+    ) -> Result<(), String> {
+        lt.must_subtract(addr, amount)?;
 
-        bt.must_subtract(addr, amount).map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("subtracting from locked balance: {}", e),
-            )
-        })?;
-        self.locked_table = bt
-            .root()
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
         Ok(())
     }
-
-    pub(super) fn transfer_balance<BS: BlockStore>(
+    /// move funds from locked in client to available in provider
+    fn transfer_balance<BS: BlockStore>(
         &mut self,
         store: &BS,
         from_addr: &Address,
@@ -186,7 +393,7 @@ impl State {
         lt.must_subtract(from_addr, &amount).map_err(|e| {
             ActorError::new(
                 ExitCode::ErrIllegalState,
-                format!("subtract from escrow: {}", e),
+                format!("subtract from locked: {}", e),
             )
         })?;
 
@@ -205,266 +412,18 @@ impl State {
         Ok(())
     }
 
-    pub(super) fn slash_balance<BS: BlockStore>(
+    fn slash_balance<BS: BlockStore>(
         &mut self,
-        store: &BS,
+        et: &mut BalanceTable<BS>,
+        lt: &mut BalanceTable<BS>,
         addr: &Address,
         amount: &TokenAmount,
-    ) -> Result<(), ActorError> {
-        let mut et = BalanceTable::from_root(store, &self.escrow_table)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        let mut lt = BalanceTable::from_root(store, &self.locked_table)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
+    ) -> Result<(), String> {
         // Subtract from locked and escrow tables
-        et.must_subtract(addr, &amount).map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("subtract from escrow: {}", e),
-            )
-        })?;
-        lt.must_subtract(addr, &amount).map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("subtract from escrow: {}", e),
-            )
-        })?;
+        et.must_subtract(addr, &amount)?;
+        lt.must_subtract(addr, &amount)?;
 
-        // Update locked and escrow roots
-        self.locked_table = lt
-            .root()
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        self.escrow_table = et
-            .root()
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
         Ok(())
-    }
-
-    ////////////////////////////////////////////////////////////////////////////////
-    // Deal state operations
-    ////////////////////////////////////////////////////////////////////////////////
-
-    pub(super) fn update_pending_deal_states_for_party<BS, RT>(
-        &mut self,
-        rt: &RT,
-        addr: &Address,
-    ) -> Result<TokenAmount, ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        // TODO check if rt curr_epoch can be 0
-        let epoch = rt.curr_epoch() - 1;
-        let dbp = SetMultimap::from_root(rt.store(), &self.deal_ids_by_party)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-        let mut extracted_ids = Vec::new();
-        dbp.for_each(addr, |id| {
-            extracted_ids.push(id);
-            Ok(())
-        })
-        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
-
-        self.update_pending_deal_states(rt.store(), extracted_ids, epoch)
-    }
-
-    pub(super) fn update_pending_deal_states<BS>(
-        &mut self,
-        store: &BS,
-        deal_ids: Vec<DealID>,
-        epoch: ChainEpoch,
-    ) -> Result<TokenAmount, ActorError>
-    where
-        BS: BlockStore,
-    {
-        let mut amount_slashed_total = TokenAmount::zero();
-
-        for deal in deal_ids {
-            amount_slashed_total += self.update_pending_deal_state(store, deal, epoch)?;
-        }
-
-        Ok(amount_slashed_total)
-    }
-
-    pub(super) fn update_pending_deal_state<BS>(
-        &mut self,
-        store: &BS,
-        deal_id: DealID,
-        epoch: ChainEpoch,
-    ) -> Result<TokenAmount, ActorError>
-    where
-        BS: BlockStore,
-    {
-        let deal = self.must_get_deal(store, deal_id)?;
-        let mut state = self.must_get_deal_state(store, deal_id)?;
-
-        let ever_updated = state.last_updated_epoch.is_some();
-        let ever_slashed = state.slash_epoch.is_some();
-
-        if ever_updated && state.last_updated_epoch.unwrap() > epoch {
-            return Err(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Deal was updated in the future".to_owned(),
-            ));
-        }
-
-        if state.sector_start_epoch.is_none() {
-            if epoch > deal.start_epoch {
-                return self.process_deal_init_timed_out(store, deal_id, deal, state);
-            }
-            return Ok(TokenAmount::zero());
-        }
-
-        assert!(
-            deal.start_epoch <= epoch,
-            "Deal start cannot exceed current epoch"
-        );
-
-        let deal_end = if ever_slashed {
-            assert!(
-                state.slash_epoch.unwrap() <= deal.end_epoch,
-                "Epoch slashed must be less or equal to the end epoch"
-            );
-            state.slash_epoch.unwrap()
-        } else {
-            deal.end_epoch
-        };
-
-        let elapsed_start = if ever_updated && state.last_updated_epoch.unwrap() > deal.start_epoch
-        {
-            state.last_updated_epoch.unwrap()
-        } else {
-            deal.start_epoch
-        };
-
-        let elapsed_end = if epoch < deal_end { epoch } else { deal_end };
-
-        let num_epochs_elapsed = elapsed_end - elapsed_start;
-
-        self.transfer_balance(
-            store,
-            &deal.client,
-            &deal.provider,
-            &(deal.storage_price_per_epoch.clone() * num_epochs_elapsed),
-        )?;
-
-        if ever_slashed {
-            let payment_remaining = deal_get_payment_remaining(&deal, state.slash_epoch.unwrap());
-            self.unlock_balance(
-                store,
-                &deal.client,
-                &(payment_remaining + &deal.client_collateral),
-            )?;
-
-            let slashed = deal.provider_collateral.clone();
-            self.slash_balance(store, &deal.provider, &slashed)?;
-
-            self.delete_deal(store, deal_id, deal)?;
-            return Ok(slashed);
-        }
-
-        if epoch >= deal.end_epoch {
-            self.process_deal_expired(store, deal_id, deal, state)?;
-            return Ok(TokenAmount::zero());
-        }
-
-        state.last_updated_epoch = OptionalEpoch(Some(epoch));
-
-        // Update states array
-        let mut states = Amt::<DealState, _>::load(&self.states, store)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        states
-            .set(deal_id, state)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        self.states = states
-            .flush()
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        Ok(TokenAmount::zero())
-    }
-
-    pub(super) fn delete_deal<BS>(
-        &mut self,
-        store: &BS,
-        deal_id: DealID,
-        deal: DealProposal,
-    ) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-    {
-        // let deal = self.must_get_deal(store, deal_id)?;
-
-        let mut proposals = Amt::<DealState, _>::load(&self.proposals, store)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        proposals
-            .delete(deal_id)
-            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.into()))?;
-
-        let mut dbp = SetMultimap::from_root(store, &self.deal_ids_by_party)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        dbp.remove(&deal.client, deal_id)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
-
-        // Update roots of update
-        self.proposals = proposals
-            .flush()
-            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.into()))?;
-        self.deal_ids_by_party = dbp
-            .root()
-            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.into()))?;
-        Ok(())
-    }
-
-    pub(super) fn process_deal_init_timed_out<BS>(
-        &mut self,
-        store: &BS,
-        deal_id: DealID,
-        deal: DealProposal,
-        state: DealState,
-    ) -> Result<TokenAmount, ActorError>
-    where
-        BS: BlockStore,
-    {
-        assert!(
-            state.sector_start_epoch.is_none(),
-            "Sector start epoch must be undefined"
-        );
-        self.unlock_balance(store, &deal.client, &deal.client_balance_requirement())?;
-
-        let amount_slashed =
-            collateral_penalty_for_deal_activation_missed(deal.provider_collateral.clone());
-        let amount_remainging = deal.provider_balance_requirement() - &amount_slashed;
-
-        self.slash_balance(store, &deal.provider, &amount_slashed)?;
-        self.unlock_balance(store, &deal.provider, &amount_remainging)?;
-        self.delete_deal(store, deal_id, deal)?;
-        Ok(amount_slashed)
-    }
-
-    pub(super) fn process_deal_expired<BS>(
-        &mut self,
-        store: &BS,
-        deal_id: DealID,
-        deal: DealProposal,
-        state: DealState,
-    ) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-    {
-        assert!(
-            state.sector_start_epoch.is_some(),
-            "Sector start epoch must be initialized at this point"
-        );
-
-        self.unlock_balance(store, &deal.provider, &deal.provider_collateral)?;
-        self.unlock_balance(store, &deal.client, &deal.client_collateral)?;
-
-        self.delete_deal(store, deal_id, deal)
-    }
-    #[allow(dead_code)]
-    pub(super) fn generate_storage_deal_id(&mut self) -> DealID {
-        let ret = self.next_id;
-        self.next_id += 1;
-        ret
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -493,30 +452,6 @@ impl State {
                 )
             })?)
     }
-
-    pub(super) fn must_get_deal_state<BS: BlockStore>(
-        &self,
-        store: &BS,
-        deal_id: DealID,
-    ) -> Result<DealState, ActorError> {
-        let states = Amt::load(&self.states, store)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        Ok(states
-            .get(deal_id)
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("get deal state for id {}: {}", deal_id, e),
-                )
-            })?
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("deal state not found for id {}", deal_id),
-                )
-            })?)
-    }
-
     pub(super) fn lock_balance_or_abort<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -532,6 +467,19 @@ impl State {
 
         self.maybe_lock_balance(store, addr, amount)
     }
+}
+
+fn mutate_balance_table<BS, F>(store: &BS, c: &mut Cid, f: F) -> Result<(), String>
+where
+    F: FnOnce(&mut BalanceTable<BS>) -> Result<(), String>,
+    BS: BlockStore,
+{
+    let mut t = BalanceTable::from_root(store, &c)?;
+
+    f(&mut t)?;
+
+    *c = t.root()?;
+    Ok(())
 }
 
 fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAmount {

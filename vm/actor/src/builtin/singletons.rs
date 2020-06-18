@@ -11,6 +11,8 @@ lazy_static! {
     pub static ref CRON_ACTOR_ADDR: Address           = Address::new_id(3);
     pub static ref STORAGE_POWER_ACTOR_ADDR: Address  = Address::new_id(4);
     pub static ref STORAGE_MARKET_ACTOR_ADDR: Address = Address::new_id(5);
+    pub static ref VERIFIED_REGISTRY_ACTOR_ADDR: Address = Address::new_id(6);
+
     // Distinguished AccountActor that is the destination of all burnt funds.
     pub static ref BURNT_FUNDS_ACTOR_ADDR: Address    = Address::new_id(99);
 }
