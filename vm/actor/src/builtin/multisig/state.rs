@@ -31,11 +31,18 @@ pub struct State {
 impl State {
     /// Returns amount locked in multisig contract
     pub fn amount_locked(&self, elapsed_epoch: ChainEpoch) -> TokenAmount {
+        //println!("Unlock duration is {}, elapsed epoch is {}", &self.unlock_duration, &elapsed_epoch);
         if elapsed_epoch >= self.unlock_duration {
             return TokenAmount::from(0u8);
         }
+        //println!("pass automatic zero");
+        //println!("Initial balance is {}", &self.initial_balance);
         let unit_locked = self.initial_balance.clone() / self.unlock_duration;
-        unit_locked * (self.unlock_duration - elapsed_epoch)
+        //println!("Unit locked is {}", unit_locked);
+        let f = unit_locked * (self.unlock_duration - elapsed_epoch);
+        //println!("Final amount is {}", f);
+        f
+        // unit_locked * (self.unlock_duration - elapsed_epoch)
     }
 
     pub(crate) fn is_signer(&self, addr: &Address) -> bool {
@@ -63,6 +70,7 @@ impl State {
 
         let remaining_balance = balance - amount_to_spend;
         let amount_locked = self.amount_locked(curr_epoch - self.start_epoch);
+        println!("Amount locked is {}", &amount_locked);
         if remaining_balance < amount_locked {
             return Err(format!(
                 "actor balance if spent {} would be less than required locked amount {}",

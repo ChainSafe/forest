@@ -70,6 +70,7 @@ impl Actor {
         };
 
         if params.unlock_duration != 0 {
+            //println!("Using message stufff nboiiiiiii, message value is {}", rt.message().value().clone());
             st.initial_balance = rt.message().value().clone();
             st.unlock_duration = params.unlock_duration;
             st.start_epoch = rt.curr_epoch();
@@ -244,18 +245,19 @@ impl Actor {
                 ));
             }
 
+            println!("Here nmum signer is {}", st.signers.len());
             if st.signers.len() == 1 {
-                ActorError::new(
+                return Err(ActorError::new(
                     ExitCode::ErrForbidden,
                     "Cannot remove only signer".to_owned(),
-                );
+                ));
             }
 
             // Remove signer from state
             st.signers.retain(|s| s != &params.signer);
 
             // Decrease approvals threshold if decrease param or below threshold
-            if params.decrease || st.signers.len() - 1 < st.num_approvals_threshold as usize {
+            if params.decrease || st.signers.len()  < (st.num_approvals_threshold +1) as usize {
                 st.num_approvals_threshold -= 1;
             }
             Ok(())
@@ -331,6 +333,8 @@ impl Actor {
         let from = *rt.message().from();
         let curr_bal = rt.current_balance()?;
         let curr_epoch = rt.curr_epoch();
+        let  fix_st : State = rt.state().unwrap();
+
         // Approval transaction
         let (tx, threshold_met): (Transaction, bool) =
             rt.transaction::<State, _, _>(|st, rt| {
@@ -338,7 +342,7 @@ impl Actor {
                     Ok(t) => t,
                     Err(e) => {
                         return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
+                            ExitCode::ErrNotFound,
                             format!("Failed to get transaction for approval: {}", e),
                         ));
                     }
@@ -389,20 +393,25 @@ impl Actor {
                 Ok((txn, false))
                 
             })??;
+            let  mut st : State = rt.state().unwrap();
+            //println!("State num approval threshold {} fixed state is {}", st.num_approvals_threshold, fix_st.num_approvals_threshold);
+            //println!("tx approved is {}", tx.approved.len());
 
-        let mut st : State = rt.state().unwrap();
+
 
         // Sufficient number of approvals have arrived, relay message
         if tx.approved.len() >= st.num_approvals_threshold as usize {
-            println!("IN HERE");
+            //println!("IN HERE");
+            //println!("Balance is {}, txn value is {}", rt.current_balance().unwrap(), tx.value.clone());
             // Ensure sufficient funds
-            if let Err(e) = st.check_available(curr_bal, tx.value.clone(), curr_epoch) {
+            if let Err(e) = st.check_available(rt.current_balance().unwrap(), tx.value.clone(), rt.curr_epoch()) {
                 return Err(ActorError::new(
                     ExitCode::ErrInsufficientFunds,
                     format!("Insufficient funds unlocked: {}", e),
                 ));
             }
 
+            //println!("About to send");
             let v = rt.send(&tx.to, tx.method, &tx.params, &tx.value);
             
 

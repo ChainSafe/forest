@@ -491,12 +491,14 @@ where
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError> {
         self.require_in_call();
+        //println!("IN the send func");
         if self.in_transaction {
             return Err(self.abort(
                 ExitCode::SysErrorIllegalActor,
                 "side-effect within transaction",
             ));
         }
+        //println!("The size is {}", self.expect_sends.len());
 
         assert!(
             !self.expect_sends.is_empty(),
@@ -506,6 +508,7 @@ where
             value,
             params
         );
+
 
         let expected_msg = self.expect_sends.pop_front().unwrap();
 
