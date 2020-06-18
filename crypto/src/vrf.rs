@@ -17,7 +17,7 @@ impl VRFProof {
     }
 
     /// Returns reference to underlying vector
-    pub fn bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 
@@ -30,5 +30,26 @@ impl VRFProof {
     pub fn max_value() -> Self {
         // TODO revisit if this is necessary
         Self::new([std::u8::MAX; BLS_SIG_LEN].to_vec())
+    }
+}
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(m: &VRFProof, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        base64::encode(&m.as_bytes()).serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<VRFProof, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Ok(VRFProof::new(base64::decode(s).map_err(de::Error::custom)?))
     }
 }

@@ -389,10 +389,11 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     }
 
     fn get_randomness(
+        &self,
         _personalization: DomainSeparationTag,
         _rand_epoch: ChainEpoch,
         _entropy: &[u8],
-    ) -> Randomness {
+    ) -> Result<Randomness, ActorError> {
         unimplemented!()
     }
 
@@ -417,14 +418,14 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
 
     fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
-        F: FnOnce(&mut C, &Self) -> R,
+        F: FnOnce(&mut C, &mut Self) -> R,
     {
         if self.in_transaction {
             return Err(self.abort(ExitCode::SysErrorIllegalActor, "nested transaction"));
         }
         let mut read_only = self.state()?;
         self.in_transaction = true;
-        let ret = f(&mut read_only, &self);
+        let ret = f(&mut read_only, self);
         self.state = Some(self.put(&read_only).unwrap());
         self.in_transaction = false;
         Ok(ret)
@@ -513,7 +514,7 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         Ok(())
     }
 
-    fn delete_actor(&mut self) -> Result<(), ActorError> {
+    fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
             return Err(self.abort(
@@ -525,6 +526,10 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
     }
 
     fn syscalls(&self) -> &dyn Syscalls {
+        unimplemented!()
+    }
+
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         unimplemented!()
     }
 }

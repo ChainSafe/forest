@@ -30,10 +30,11 @@ clean:
 	@cargo clean -p ipld_hamt
 	@cargo clean -p ipld_amt
 	@cargo clean -p forest_bigint
-	@cargo clean -p rleplus
+	@cargo clean -p bitfield
 	@cargo clean -p commcid
 	@cargo clean -p fil_types
 	@cargo clean -p ipld_blockstore
+	@cargo clean -p rpc
 	@echo "Done cleaning."
 
 lint: license clean

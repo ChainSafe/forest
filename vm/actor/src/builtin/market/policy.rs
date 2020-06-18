@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::time::EPOCHS_IN_YEAR;
+use crate::network::EPOCHS_IN_YEAR;
 use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
 use num_traits::Zero;

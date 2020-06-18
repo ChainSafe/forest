@@ -24,10 +24,13 @@ pub struct DealProposal {
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,
-
     pub client: Address,
     pub provider: Address,
 
+    // Nominal start epoch. Deal payment is linear between StartEpoch and EndEpoch,
+    // with total amount StoragePricePerEpoch * (EndEpoch - StartEpoch).
+    // Storage deal must appear in a sealed (proven) sector no later than StartEpoch,
+    // otherwise it is invalid.
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
     #[serde(with = "biguint_ser")]

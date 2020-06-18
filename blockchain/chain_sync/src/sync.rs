@@ -8,31 +8,39 @@ use super::bucket::{SyncBucket, SyncBucketSet};
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
-use address::Address;
+use address::{Address, Protocol};
 use amt::Amt;
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::task;
-use beacon::Beacon;
-use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
+use beacon::{Beacon, BeaconEntry};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
+use commcid::cid_to_replica_commitment_v1;
 use core::time::Duration;
 use crypto::verify_bls_aggregate;
+use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
+use fil_types::SectorInfo;
+use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures::{
+    executor::block_on,
+    stream::{FuturesUnordered, StreamExt},
+};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
+use log::error;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_traits::Zero;
-use state_manager::StateManager;
+use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use vm::TokenAmount;
@@ -65,7 +73,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     beacon: Arc<TBeacon>,
 
     /// manages retrieving and updates state objects
-    state_manager: StateManager<DB>,
+    state_manager: Arc<StateManager<DB>>,
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
@@ -98,9 +106,9 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<DB, TBeacon> ChainSyncer<DB, TBeacon>
+impl<DB, TBeacon: 'static> ChainSyncer<DB, TBeacon>
 where
-    TBeacon: Beacon,
+    TBeacon: Beacon + Send,
     DB: BlockStore + Sync + Send + 'static,
 {
     pub fn new(
@@ -110,7 +118,7 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = StateManager::new(chain_store.db.clone());
+        let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
@@ -208,7 +216,7 @@ where
         let tipsets = self.sync_headers_reverse(head.clone(), &heaviest).await?;
         self.set_state(SyncState::Catchup);
         // Persist header chain pulled from network
-        self.persist_headers(&tipsets)?;
+        self.persist_headers(&tipsets).await?;
 
         // Sync and validate messages from fetched tipsets
         self.sync_messages_check_state(&tipsets).await?;
@@ -474,7 +482,8 @@ where
         let ts = self.chain_store.tipset_from_keys(keys)?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) = self.chain_store.messages(&header)?;
+            let (bls_msgs, secp_msgs) =
+                chain::block_messages(self.chain_store.blockstore(), &header)?;
 
             // construct a full block
             let full_block = Block {
@@ -490,13 +499,21 @@ where
         Ok(fts)
     }
     // Block message validation checks
-    fn check_block_msgs(db: Arc<DB>, block: Block, tip: &Tipset) -> Result<(), Error> {
+    fn check_block_msgs(
+        state_manager: Arc<StateManager<DB>>,
+        block: Block,
+        tip: Tipset,
+    ) -> Result<(), Error> {
         //do the initial loop here
         // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
-            let pk = StateManager::get_bls_public_key(&db, m.from(), tip.parent_state())?;
+            let pk = StateManager::get_bls_public_key(
+                &state_manager.get_block_store(),
+                m.from(),
+                tip.parent_state(),
+            )?;
             pub_keys.push(pk);
             cids.push(m.cid()?.to_bytes());
         }
@@ -509,7 +526,7 @@ where
                     .as_slice(),
                 pub_keys
                     .iter()
-                    .map(|x| x.as_slice())
+                    .map(|x| &x[..])
                     .collect::<Vec<&[u8]>>()
                     .as_slice(),
                 &sig,
@@ -523,6 +540,7 @@ where
                 "No bls signature included in the block header".to_owned(),
             ));
         }
+
         // check msgs for validity
         fn check_msg<M, DB: BlockStore>(
             msg: &M,
@@ -572,9 +590,12 @@ where
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
-        // TODO retrieve tipset state and load state tree
-        // temporary
-        let tree = StateTree::new(db.as_ref());
+        let db = state_manager.get_block_store();
+        let (state_root, _) = block_on(state_manager.tipset_state(&tip))
+            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
+        let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
+            Error::Validation("Could not load from new state root in state manager".to_owned())
+        })?;
         // loop through bls messages and check msg validity
         for m in block.bls_msgs() {
             check_msg(m, &mut msg_meta_data, &tree)?;
@@ -600,7 +621,6 @@ where
     async fn validate(&self, block: &Block) -> Result<(), Error> {
         let mut error_vec: Vec<String> = Vec::new();
         let mut validations = FuturesUnordered::new();
-
         let header = block.header();
 
         // check if block has been signed
@@ -617,28 +637,36 @@ where
 
         let b = block.clone();
 
-        let db = Arc::clone(&self.chain_store.db);
         let parent_clone = parent_tipset.clone();
         // check messages to ensure valid state transitions
-        let x = task::spawn_blocking(move || Self::check_block_msgs(db, b, &parent_clone));
+        let sm = self.state_manager.clone();
+        let x = task::spawn_blocking(move || Self::check_block_msgs(sm, b, parent_clone));
         validations.push(x);
 
-        // TODO use computed state_root instead of parent_tipset.parent_state()
-
         // block signature check
+        let (state_root, _) = self
+            .state_manager
+            .tipset_state(&parent_tipset)
+            .await
+            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
         let work_addr_result = self
             .state_manager
-            .get_miner_work_addr(&parent_tipset.parent_state(), header.miner_address());
+            .get_miner_work_addr(&state_root, header.miner_address());
+
+        // temp header needs to live long enough in static context returned by task::spawn
+        let signature = block.header().signature().clone();
+        let cid_bytes = block.header().cid().to_bytes().clone();
         match work_addr_result {
-            Ok(work_addr) => {
-                let temp_header = header.clone();
-                let block_sig_task = task::spawn_blocking(move || {
-                    temp_header
-                        .check_block_signature(&work_addr)
-                        .map_err(Error::Blockchain)
-                });
-                validations.push(block_sig_task)
-            }
+            Ok(_) => validations.push(task::spawn_blocking(move || {
+                signature
+                    .ok_or_else(|| {
+                        Error::Blockchain(blocks::Error::InvalidSignature(
+                            "Signature is nil in header".to_owned(),
+                        ))
+                    })?
+                    .verify(&cid_bytes, &work_addr_result.unwrap())
+                    .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
+            })),
             Err(err) => error_vec.push(err.to_string()),
         }
 
@@ -697,13 +725,88 @@ where
         }
 
         for b in fts.blocks() {
-            if let Err(e) = self.validate(b).await {
+            if let Err(e) = self.validate(&b).await {
                 self.bad_blocks.put(b.cid().clone(), e.to_string());
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
             self.chain_store.set_tipset_tracker(b.header())?;
         }
         Ok(())
+    }
+
+    pub async fn verify_winning_post_proof(
+        &self,
+        block: BlockHeader,
+        prev_entry: BeaconEntry,
+        lbst: Cid,
+    ) -> Result<(), Error> {
+        let marshal_miner_work_addr = block.miner_address().marshal_cbor()?;
+        let rbase = block.beacon_entries().iter().last().unwrap_or(&prev_entry);
+        let rand = chain::draw_randomness(
+            rbase.data(),
+            DomainSeparationTag::WinningPoStChallengeSeed,
+            block.epoch(),
+            &marshal_miner_work_addr,
+        )
+        .map_err(|err| {
+            Error::Validation(format!(
+                "failed to get randomness for verifying winningPost proof: {:}",
+                err
+            ))
+        })?;
+        if block.miner_address().protocol() != Protocol::ID {
+            return Err(Error::Validation(format!(
+                "failed to get ID from miner address {:}",
+                block.miner_address()
+            )));
+        };
+        let sectors = utils::get_sectors_for_winning_post(
+            &self.state_manager,
+            &lbst,
+            &block.miner_address(),
+            &rand,
+        )?;
+
+        let proofs = block
+            .win_post_proof()
+            .iter()
+            .fold(Vec::new(), |mut proof, p| {
+                proof.extend_from_slice(&p.proof_bytes);
+                proof
+            });
+
+        let replicas = sectors
+            .iter()
+            .map::<Result<(SectorId, PublicReplicaInfo), Error>, _>(|sector_info: &SectorInfo| {
+                let commr =
+                    cid_to_replica_commitment_v1(&sector_info.sealed_cid).map_err(|err| {
+                        Error::Validation(format!("failed to get replica commitment: {:}", err))
+                    })?;
+                let replica = PublicReplicaInfo::new(
+                    sector_info
+                        .proof
+                        .registered_window_post_proof()
+                        .map_err(|err| {
+                            Error::Validation(format!("failed to get registered proof: {:}", err))
+                        })?
+                        .into(),
+                    commr,
+                );
+                Ok((SectorId::from(sector_info.sector_number), replica))
+            })
+            .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
+
+        let mut prover_id = ProverId::default();
+        let prover_bytes = block.miner_address().to_bytes();
+        prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
+        if !verify_winning_post(&rand, &proofs, &replicas, prover_id)
+            .map_err(|err| Error::Validation(format!("failed to verify election post: {:}", err)))?
+        {
+            error!("invalid winning post ({:?}; {:?})", rand, sectors);
+            Err(Error::Validation("Winning post was invalid".to_string()))
+        } else {
+            Ok(())
+        }
     }
 
     /// Syncs chain data and persists it to blockstore
@@ -745,17 +848,7 @@ where
             // update sync state to Bootstrap indicating we are acquiring a 'secure enough' set of peers
             self.set_state(SyncState::Bootstrap);
 
-            // TODO change from using random peerID to managed
-            while self.peer_manager.is_empty().await {
-                warn!("No valid peers to sync, waiting for other nodes");
-                task::sleep(Duration::from_secs(5)).await;
-            }
-
-            let peer_id = self
-                .peer_manager
-                .get_peer()
-                .await
-                .expect("Peer set is not empty here");
+            let peer_id = self.get_peer().await;
 
             // checkpoint established
             self.set_state(SyncState::Checkpoint);
@@ -831,15 +924,14 @@ where
     }
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
     async fn sync_fork(&mut self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
-        // TODO change from using random peerID to managed
-        let peer_id = PeerId::random();
-        // pulled from Lotus: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L996
+        let peer_id = self.get_peer().await;
+        // TODO move to shared parameter (from actors crate most likely)
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
         // Load blocks from network using blocksync
         let tips: Vec<Tipset> = self
             .network
-            .blocksync_headers(peer_id.clone(), head.parents(), FORK_LENGTH_THRESHOLD)
+            .blocksync_headers(peer_id, head.parents(), FORK_LENGTH_THRESHOLD)
             .await
             .map_err(|_| Error::Other("Could not retrieve tipset".to_string()))?;
 
@@ -865,10 +957,11 @@ where
     }
 
     /// Persists headers from tipset slice to chain store
-    fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
-        Ok(tipsets
-            .iter()
-            .try_for_each(|ts| self.chain_store.put_tipsets(ts))?)
+    async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
+        for tipset in tipsets.iter() {
+            self.chain_store.put_tipsets(tipset).await?
+        }
+        Ok(())
     }
     /// Returns the managed sync status
     pub fn get_state(&self) -> &SyncState {
@@ -877,6 +970,18 @@ where
     /// Sets the managed sync status
     pub fn set_state(&mut self, new_state: SyncState) {
         self.state = new_state
+    }
+
+    async fn get_peer(&self) -> PeerId {
+        while self.peer_manager.is_empty().await {
+            warn!("No valid peers to sync, waiting for other nodes");
+            task::sleep(Duration::from_secs(5)).await;
+        }
+
+        self.peer_manager
+            .get_peer()
+            .await
+            .expect("Peer set is not empty here")
     }
 }
 

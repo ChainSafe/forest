@@ -7,7 +7,7 @@ use bls_signatures::{
     hash as bls_hash, paired::bls12_381::G2, verify, PublicKey as BlsPubKey, Serialize,
     Signature as BlsSignature,
 };
-use encoding::{blake2b_256, de, ser, serde_bytes};
+use encoding::{blake2b_256, de, repr::*, ser, serde_bytes};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
@@ -18,9 +18,10 @@ pub const BLS_SIG_LEN: usize = 96;
 pub const BLS_PUB_LEN: usize = 48;
 
 /// Signature variants for Forest signatures
-#[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq)]
+#[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum SignatureType {
-    Secp256 = 1,
+    Secp256k1 = 1,
     BLS = 2,
 }
 
@@ -80,7 +81,7 @@ impl Signature {
     /// Creates a SECP Signature given the raw bytes
     pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
         Self {
-            sig_type: SignatureType::Secp256,
+            sig_type: SignatureType::Secp256k1,
             bytes,
         }
     }
@@ -177,21 +178,16 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
     verify(&sig, &hashed_data[..], &pks[..])
 }
 
-// TODO: verify signature data format after signing implemented
-fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
-    /* Recovery id is the last big-endian byte. */
-    let v = (signature[64] as i8 - 27) as u8;
-    if v != 0 && v != 1 {
-        return Err(Error::InvalidRecovery("invalid recovery byte".to_owned()));
-    }
+/// Return Address for a message given it's hash and signature
+pub fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
+    // generate types to recover key from
+    let rec_id = RecoveryId::parse(signature[64])?;
+    let message = Message::parse(&hash);
 
     // Signature value without recovery byte
     let mut s = [0u8; 64];
-    s[..64].clone_from_slice(signature.as_ref());
-
-    // generate types to recover key from
-    let message = Message::parse(&hash);
-    let rec_id = RecoveryId::parse(signature[64])?;
+    s.clone_from_slice(signature[..64].as_ref());
+    // generate Signature
     let sig = EcsdaSignature::parse(&s);
 
     let key = recover(&message, &sig, &rec_id)?;
@@ -203,36 +199,10 @@ fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
     use rand::rngs::mock::StepRng;
     use rand::Rng;
 
-    #[test]
-    fn bls_verify() {
-        let rng = &mut StepRng::new(8, 3);
-        let sk = PrivateKey::generate(rng);
-
-        let msg = (0..64).map(|_| rng.gen()).collect::<Vec<u8>>();
-        let signature = sk.sign(&msg);
-
-        let signature_bytes = signature.as_bytes();
-        assert_eq!(signature_bytes.len(), 96);
-        assert_eq!(
-            BlsSignature::from_bytes(&signature_bytes).unwrap(),
-            signature
-        );
-
-        let pk = sk.public_key();
-        let addr = Address::new_bls(&pk.as_bytes()).unwrap();
-
-        Signature::new_bls(signature_bytes.clone())
-            .verify(&msg, &addr)
-            .unwrap();
-        Signature::new_bls(signature_bytes.clone())
-            .verify_bls_sig(&msg, &addr)
-            .unwrap();
-    }
     #[test]
     fn bls_agg_verify() {
         // The number of signatures in aggregate
@@ -266,5 +236,73 @@ mod tests {
             verify_bls_aggregate(&data, &public_keys_slice, &calculated_bls_agg),
             true
         );
+    }
+}
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    // Wrapper for serializing and deserializing a Signature from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct SignatureJson(#[serde(with = "self")] pub Signature);
+
+    /// Wrapper for serializing a Signature reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct SignatureJsonRef<'a>(#[serde(with = "self")] pub &'a Signature);
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "Type")]
+        sig_type: SignatureType,
+        #[serde(rename = "Data")]
+        bytes: String,
+    }
+
+    pub fn serialize<S>(m: &Signature, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            sig_type: m.sig_type,
+            bytes: base64::encode(&m.bytes),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Signature, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
+        Ok(Signature {
+            sig_type,
+            bytes: base64::decode(bytes).map_err(de::Error::custom)?,
+        })
+    }
+
+    pub mod opt {
+        use super::{Signature, SignatureJson, SignatureJsonRef};
+        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        pub fn serialize<S>(v: &Option<Signature>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            v.as_ref()
+                .map(|s| SignatureJsonRef(s))
+                .serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s: Option<SignatureJson> = Deserialize::deserialize(deserializer)?;
+            Ok(s.map(|v| v.0))
+        }
     }
 }

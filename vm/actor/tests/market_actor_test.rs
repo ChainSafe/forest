@@ -6,7 +6,7 @@ mod common;
 use actor::{
     market::{Method, State, WithdrawBalanceParams},
     Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
-    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,CALLER_TYPES_SIGNABLE
 };
 use address::Address;
 use common::*;
@@ -185,7 +185,7 @@ fn add_non_provider_funds() {
             let amount = TokenAmount::from(test_case.0 as u64);
             //rt.balance = rt.balance + amount.clone();
             rt.set_value(amount);
-            rt.expect_validate_caller_type(&[]);
+            rt.expect_validate_caller_type(&CALLER_TYPES_SIGNABLE.clone());
 
             let _v = rt.call(
                 &MARKET_ACTOR_CODE_ID.clone(),

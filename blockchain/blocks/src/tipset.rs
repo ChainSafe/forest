@@ -86,14 +86,9 @@ impl Tipset {
             },
         })
     }
-    /// Returns the first block of the tipset
-    fn first_block(&self) -> &BlockHeader {
-        // `Tipset::new` guarantees that `blocks` isn't empty
-        self.blocks.first().unwrap()
-    }
     /// Returns epoch of the tipset
     pub fn epoch(&self) -> ChainEpoch {
-        self.first_block().epoch()
+        self.min_ticket_block().epoch()
     }
     /// Returns all blocks in tipset
     pub fn blocks(&self) -> &[BlockHeader] {
@@ -105,7 +100,12 @@ impl Tipset {
     }
     /// Returns the smallest ticket of all blocks in the tipset
     pub fn min_ticket(&self) -> Ticket {
-        self.first_block().ticket().clone()
+        self.min_ticket_block().ticket().clone()
+    }
+    /// Returns the block with the smallest ticket of all blocks in the tipset
+    pub fn min_ticket_block(&self) -> &BlockHeader {
+        // `Tipset::new` guarantees that `blocks` isn't empty
+        self.blocks.first().unwrap()
     }
     /// Returns the smallest timestamp of all blocks in the tipset
     pub fn min_timestamp(&self) -> u64 {
@@ -129,15 +129,15 @@ impl Tipset {
     }
     /// Returns the CIDs of the parents of the blocks in the tipset
     pub fn parents(&self) -> &TipsetKeys {
-        self.first_block().parents()
+        self.min_ticket_block().parents()
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
-        self.first_block().state_root()
+        self.min_ticket_block().state_root()
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigUint {
-        self.first_block().weight()
+        self.min_ticket_block().weight()
     }
 }
 
@@ -242,4 +242,90 @@ where
     }
 
     Ok(())
+}
+
+#[cfg(feature = "json")]
+pub mod tipset_keys_json {
+    use super::*;
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S>(m: &TipsetKeys, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        cid::json::vec::serialize(m.cids(), serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(TipsetKeys {
+            cids: cid::json::vec::deserialize(deserializer)?,
+        })
+    }
+}
+
+#[cfg(feature = "json")]
+pub mod tipset_json {
+    use super::*;
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct TipsetJson(#[serde(with = "self")] pub Tipset);
+
+    /// Wrapper for serializing a SignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
+
+    impl From<TipsetJson> for Tipset {
+        fn from(wrapper: TipsetJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    pub fn serialize<S>(m: &Tipset, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct TipsetSer<'a> {
+            #[serde(with = "super::super::header::json::vec")]
+            blocks: &'a [BlockHeader],
+            #[serde(with = "super::tipset_keys_json")]
+            cids: &'a TipsetKeys,
+            height: ChainEpoch,
+        }
+        TipsetSer {
+            blocks: &m.blocks,
+            cids: &m.key,
+            height: m.epoch(),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Tipset, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct TipsetDe {
+            #[serde(with = "super::super::header::json::vec")]
+            blocks: Vec<BlockHeader>,
+            #[serde(with = "super::tipset_keys_json")]
+            cids: TipsetKeys,
+            height: ChainEpoch,
+        }
+        let TipsetDe {
+            blocks,
+            cids,
+            height,
+        } = Deserialize::deserialize(deserializer)?;
+        Tipset::new(blocks).map_err(de::Error::custom)
+    }
 }

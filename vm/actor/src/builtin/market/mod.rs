@@ -16,6 +16,7 @@ use crate::{
     BalanceTable, DealID, OptionalEpoch, SetMultimap, BURNT_FUNDS_ACTOR_ADDR,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
     VERIFREG_ACTOR_ADDR,
+
 };
 use address::Address;
 use cid::Cid;
@@ -25,8 +26,7 @@ use fil_types::PieceInfo;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::bigint_ser::BigIntSer;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -290,8 +290,10 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().from();
-        let mut total_deal_space_time = BigInt::zero();
-        let mut total_verified_deal_space_time = BigInt::zero();
+
+        let mut total_deal_space_time = BigUint::zero();
+        let mut total_verified_deal_space_time = BigUint::zero();
+
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector
@@ -710,7 +712,7 @@ where
 
 // Resolves a provider or client address to the canonical form against which a balance should be held, and
 // the designated recipient address of withdrawals (which is the same, for simple account parties).
-fn escrow_address<BS, RT>(rt: &RT, addr: &Address) -> Result<(Address, Address), ActorError>
+fn escrow_address<BS, RT>(rt: &mut RT, addr: &Address) -> Result<(Address, Address), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
@@ -773,9 +775,8 @@ impl ActorCode for Actor {
             }
             Some(Method::VerifyDealsOnSectorProveCommit) => {
                 let res = Self::verify_deals_on_sector_prove_commit(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(&res)?)
 
-                // TODO Change this to return serialozed VerifyDealsOnSectorProveCommitReturn, should jsut be res
-                Ok(Serialized::serialize(BigIntSer(&res.deal_weight))?)
             }
             Some(Method::OnMinerSectorsTerminate) => {
                 Self::on_miners_sector_terminate(rt, params.deserialize()?)?;

@@ -13,6 +13,7 @@ use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{info, trace};
+use rpc::start_rpc;
 use std::sync::Arc;
 use structopt::StructOpt;
 use utils::write_to_file;
@@ -23,7 +24,7 @@ fn main() {
 
     // Capture CLI inputs
     let cli = cli::CLI::from_args();
-    let mut config = cli.get_config().expect("CLI error");
+    let config = cli.get_config().expect("CLI error");
 
     let net_keypair = match get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair")) {
         Some(kp) => kp,
@@ -55,13 +56,12 @@ fn main() {
         initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
 
     // Libp2p service setup
-    config.network.set_network_name(&network_name);
-    let p2p_service = Libp2pService::new(&config.network, net_keypair);
+    let p2p_service = Libp2pService::new(config.network, net_keypair, &network_name);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
     // Get Drand Coefficients
-    let coeff = config.drand_dist_public.clone();
+    let coeff = config.drand_dist_public;
 
     // Start services
     let p2p_thread = task::spawn(async {
@@ -85,10 +85,16 @@ fn main() {
         chain_syncer.start().await.unwrap();
     });
 
+    let db_rpc = Arc::clone(&db);
+    let rpc_thread = task::spawn(async {
+        start_rpc(db_rpc).await;
+    });
+
     // Block until ctrl-c is hit
     block_until_sigint();
 
     // Drop threads
+    drop(rpc_thread);
     drop(p2p_thread);
     drop(sync_thread);
 

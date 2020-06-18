@@ -6,12 +6,15 @@ use num_traits::FromPrimitive;
 
 /// Specifies a domain for randomness generation.
 #[derive(PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash)]
+#[repr(i64)]
 pub enum DomainSeparationTag {
     TicketProduction = 1,
-    ElectionPoStChallengeSeed = 2,
-    WindowedPoStChallengeSeed = 3,
-    SealRandomness = 4,
-    InteractiveSealChallengeSeed = 5,
+    ElectionProofProduction = 2,
+    WinningPoStChallengeSeed = 3,
+    WindowedPoStChallengeSeed = 4,
+    SealRandomness = 5,
+    InteractiveSealChallengeSeed = 6,
+    WindowPoStDeadlineAssignment = 7,
 }
 
 impl DomainSeparationTag {

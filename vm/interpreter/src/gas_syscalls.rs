@@ -4,11 +4,11 @@
 use super::gas_tracker::{GasTracker, PriceList};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
 use crypto::Signature;
 use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use runtime::{ConsensusFault, Syscalls};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::rc::Rc;
 
@@ -75,15 +75,20 @@ where
         h1: &[u8],
         h2: &[u8],
         extra: &[u8],
-        earliest: ChainEpoch,
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_consensus_fault())
             .unwrap();
-        Ok(self
-            .syscalls
-            .verify_consensus_fault(h1, h2, extra, earliest)?)
+        self.syscalls.verify_consensus_fault(h1, h2, extra)
+    }
+
+    fn batch_verify_seals(
+        &self,
+        vis: &[(Address, Vec<SealVerifyInfo>)],
+    ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        // TODO revisit if gas ends up being charged (only used by cron actor)
+        self.syscalls.batch_verify_seals(vis)
     }
 }
 
@@ -124,13 +129,18 @@ mod tests {
             _h1: &[u8],
             _h2: &[u8],
             _extra: &[u8],
-            _earliest: ChainEpoch,
         ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
             Ok(Some(ConsensusFault {
                 target: Address::new_id(0),
                 epoch: 0,
                 fault_type: ConsensusFaultType::DoubleForkMining,
             }))
+        }
+        fn batch_verify_seals(
+            &self,
+            _vis: &[(Address, Vec<SealVerifyInfo>)],
+        ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+            Ok(Default::default())
         }
     }
 
@@ -171,7 +181,7 @@ mod tests {
         gsys.verify_post(&Default::default()).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 10);
 
-        gsys.verify_consensus_fault(&[], &[], &[], 0).unwrap();
+        gsys.verify_consensus_fault(&[], &[], &[]).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 11);
     }
 }
