@@ -491,27 +491,21 @@ mod tests {
                 difference: &[4..6, 8..10],
             },
         ] {
-            assert_eq!(
-                ranges(lhs).union(ranges(rhs)).collect::<Vec<_>>(),
-                union.to_vec()
-            );
-            assert_eq!(
-                ranges(rhs).union(ranges(lhs)).collect::<Vec<_>>(),
-                union.to_vec()
-            );
+            assert_eq!(ranges(lhs).union(ranges(rhs)).collect::<Vec<_>>(), union);
+            assert_eq!(ranges(rhs).union(ranges(lhs)).collect::<Vec<_>>(), union);
 
             assert_eq!(
                 ranges(lhs).intersection(ranges(rhs)).collect::<Vec<_>>(),
-                intersection.to_vec()
+                intersection
             );
             assert_eq!(
                 ranges(rhs).intersection(ranges(lhs)).collect::<Vec<_>>(),
-                intersection.to_vec()
+                intersection
             );
 
             assert_eq!(
                 ranges(lhs).difference(ranges(rhs)).collect::<Vec<_>>(),
-                difference.to_vec()
+                difference
             );
         }
     }
@@ -538,7 +532,7 @@ mod tests {
         ] {
             assert_eq!(
                 ranges_from_bits(input.iter().copied()).collect::<Vec<_>>(),
-                output.to_vec()
+                output
             );
         }
     }
@@ -595,15 +589,8 @@ mod tests {
                 take: &[1..3, 4..5],
             },
         ] {
-            assert_eq!(
-                ranges(input).skip_bits(n).collect::<Vec<_>>(),
-                skip.to_vec()
-            );
-
-            assert_eq!(
-                ranges(input).take_bits(n).collect::<Vec<_>>(),
-                take.to_vec()
-            );
+            assert_eq!(ranges(input).skip_bits(n).collect::<Vec<_>>(), skip);
+            assert_eq!(ranges(input).take_bits(n).collect::<Vec<_>>(), take);
         }
     }
 }
