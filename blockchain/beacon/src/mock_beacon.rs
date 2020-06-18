@@ -38,7 +38,7 @@ impl Beacon for MockBeacon {
         Ok(Self::entry_for_index(round))
     }
 
-    fn max_beacon_round_for_epoch(&self, fil_epoch: u64) -> u64 {
-        fil_epoch
+    fn max_beacon_round_for_epoch(&self, fil_epoch: i64) -> u64 {
+        fil_epoch as u64
     }
 }

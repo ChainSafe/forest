@@ -8,7 +8,7 @@ use std::num::TryFromIntError;
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
 
-pub type ChainEpoch = u64;
+pub type ChainEpoch = i64;
 
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
 /// systems.
