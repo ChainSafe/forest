@@ -4,6 +4,7 @@
 use super::errors::Error;
 use crate::errors::Error::DuplicateNonce;
 use address::Address;
+use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use chain::ChainStore;
@@ -11,14 +12,14 @@ use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
 use encoding::Cbor;
+use futures::stream::StreamExt;
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
 use state_tree::StateTree;
-use std::{collections::HashMap, str::from_utf8};
+use std::borrow::BorrowMut;
+use std::collections::HashMap;
 use vm::ActorState;
-use async_std::task;
-use futures::stream::StreamExt;
 
 /// TODO after subscribe head changes is done, re-go over logic to make sure that all functions are
 /// connected where needed as well as implement all uses of subscribe head changes
@@ -43,6 +44,8 @@ impl MsgSet {
     /// Add a signed message to the MsgSet. Increase next_nonce if the message has a nonce greater
     /// than any existing message nonce.
     pub fn add(&mut self, m: &SignedMessage) -> Result<(), Error> {
+        println!("this is the sequence {}", m.sequence());
+        println!("this is the next nonce {}", self.next_nonce);
         if self.msgs.is_empty() || m.sequence() >= self.next_nonce {
             self.next_nonce = m.sequence() + 1;
         }
@@ -104,8 +107,8 @@ impl<DB> Provider for MpoolProvider<DB>
 where
     DB: BlockStore,
 {
-    // TODO don't know if this needs to be done, but will need to add a call to subscribe to
-    // return a new current tipset when the head changes
+    // TODO find a way to get this function to periodically check for head changes in cs and update
+    // msgpool accordingly
     fn subscribe_head_changes(&mut self) -> Tipset {
         if self.cs.heaviest_tipset().is_none() {
             task::block_on(async {
@@ -113,7 +116,12 @@ where
                 loop {
                     let sub = subscriber.next().await;
                     if sub.is_some() {
-                        if self.cs.set_heaviest_tipset(sub.unwrap().clone()).await.is_ok() {
+                        if self
+                            .cs
+                            .set_heaviest_tipset(sub.unwrap().clone())
+                            .await
+                            .is_ok()
+                        {
                             break;
                         }
                     }
@@ -145,11 +153,6 @@ where
         }
     }
 
-    /// TODO implement this method when we can resolve to key address given a temp StateManager
-    // fn state_account_key(&self, addr: &Address, ts: Tipset) -> Result<Address, Error> {
-    //     unimplemented!()
-    // }
-
     /// Return the signed messages for given blockheader
     fn messages_for_block(
         &self,
@@ -173,7 +176,6 @@ where
             umsg.push(msg.message().clone());
         }
         Ok(umsg)
-        // unimplemented!()
     }
 
     /// Return a tipset given the tipset keys from the ChainStore
@@ -190,8 +192,8 @@ pub struct MessagePool<T> {
     // need to inquire about closer in golang and rust equivalent
     local_addrs: Vec<Address>,
     pending: HashMap<Address, MsgSet>,
-    pub(crate) cur_tipset: Tipset,     // need to wait until pubsub is done
-    api: T, // will need to replace with provider type
+    pub(crate) cur_tipset: Tipset, // need to wait until pubsub is done
+    api: T,                        // will need to replace with provider type
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
     pub network_name: String,
@@ -214,10 +216,6 @@ where
         // LruCache sizes have been taken from the lotus implementation
         let bls_sig_cache = LruCache::new(40000);
         let sig_val_cache = LruCache::new(32000);
-        // TODO take in the local_msgs hashmap as a param and just apply a standard key
-        // prefix to it
-        // let local_msgs = HashMap::new();
-
         let mut mp = MessagePool {
             local_addrs: Vec::new(),
             pending: HashMap::new(),
@@ -242,13 +240,11 @@ where
 
     /// Push a signed message to the MessagePool
     pub fn push(&mut self, msg: &SignedMessage) -> Result<Cid, Error> {
-        // TODO will be used to addlocal which still needs to be implemented
         let msg_serial = msg
             .marshal_cbor()
             .map_err(|err| Error::Other(err.to_string()))?;
         self.add(msg)?;
         self.add_local(msg, msg_serial)?;
-        // TODO do pubsub publish with mp.netName and msg_serial
         msg.cid().map_err(|err| Error::Other(err.to_string()))
     }
 
@@ -288,11 +284,20 @@ where
                 if msg.signature().bytes().len() < 90 {
                     return Err(Error::BLSSigTooShort);
                 }
-                let slice = from_utf8(&msg.signature().bytes()[64..]).unwrap();
-                let mut beginning = from_utf8(&msg.cid().unwrap().to_bytes())
+                let mut beginning = String::new();
+                beginning += &msg
+                    .cid()
                     .unwrap()
-                    .to_string();
-                beginning.push_str(slice);
+                    .to_bytes()
+                    .into_iter()
+                    .map(|b| char::from(b))
+                    .collect::<String>();
+                beginning += &msg
+                    .signature()
+                    .bytes()
+                    .into_iter()
+                    .map(|b| char::from(b.clone()))
+                    .collect::<String>();
                 Ok(beginning)
             }
         }
@@ -306,10 +311,9 @@ where
         match is_verif {
             Some(()) => Ok(()),
             None => {
-                let umsg = Cbor::marshal_cbor(msg.message()).map_err(|err| Error::Other(err.to_string()))?;
-                let verif = msg
-                    .signature()
-                    .verify(umsg.as_slice(), msg.from());
+                let umsg = Cbor::marshal_cbor(msg.message())
+                    .map_err(|err| Error::Other(err.to_string()))?;
+                let verif = msg.signature().verify(umsg.as_slice(), msg.from());
                 match verif {
                     Ok(()) => {
                         self.sig_val_cache.put(sck, ());
@@ -357,14 +361,16 @@ where
 
         let msett = self.pending.get_mut(msg.message().from());
         match msett {
-            Some(mset) => mset.add(&msg).map_err(|err| Error::Other(err.to_string()))?,
+            Some(mset) => mset
+                .add(&msg)
+                .map_err(|err| Error::Other(err.to_string()))?,
             None => {
                 let mut mset = MsgSet::new();
-                mset.add(&msg).map_err(|err| Error::Other(err.to_string()))?;
+                mset.add(&msg)
+                    .map_err(|err| Error::Other(err.to_string()))?;
                 self.pending.insert(msg.message().from().clone(), mset);
             }
         }
-        // TODO pubsub msg
         Ok(())
     }
 
@@ -378,11 +384,11 @@ where
         match self.pending.get(addr) {
             Some(mset) => {
                 if state_nonce > mset.next_nonce {
-                    return Ok(state_nonce)
+                    return Ok(state_nonce);
                 }
                 Ok(mset.next_nonce)
-            },
-            None => Ok(state_nonce)
+            }
+            None => Ok(state_nonce),
         }
     }
 
@@ -396,10 +402,18 @@ where
         // of the params for this method and just use the chain head
         let msgs = self.api.messages_for_tipset(cur_ts)?;
         for m in msgs {
+            println!("this the base_nonce: {}", base_nonce);
             if m.from() == addr {
-                return Err(Error::Other("thipset has bad nonce ordering".to_string()));
+                if m.sequence() != base_nonce {
+                    println!(
+                        "this is the nonce: {} and this is the base_nonce: {}",
+                        m.sequence(),
+                        base_nonce
+                    );
+                    return Err(Error::Other("tipset has bad nonce ordering".to_string()));
+                }
+                base_nonce += 1;
             }
-            base_nonce += 1;
         }
         Ok(base_nonce)
     }
@@ -411,16 +425,8 @@ where
         Ok(BigInt::from(actor.balance))
     }
 
-    /// TODO this will need to be completed when state_account_key is implemented
-    // fn push_with_nonce(&self) {
-    //     unimplemented!()
-    // }
-
-    /// TODO need to add publish to the end of this once a way to publish has been figured out
     pub fn remove(&mut self, from: &Address, sequence: u64) -> Result<(), Error> {
         let mset = self.pending.get_mut(from).unwrap();
-        // TODO will use this to publish the removal of this message once implemented
-        // let m = mset.msgs.get(&sequence).unwrap();
         mset.msgs.remove(&sequence);
 
         if mset.msgs.is_empty() {
@@ -477,7 +483,10 @@ where
     }
 
     /// Return Vector of signed messages given a block header for self
-    pub fn messages_for_blocks(&mut self, blks: Vec<BlockHeader>) -> Result<Vec<SignedMessage>, Error> {
+    pub fn messages_for_blocks(
+        &mut self,
+        blks: Vec<BlockHeader>,
+    ) -> Result<Vec<SignedMessage>, Error> {
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
         for block in blks {
             let (umsg, mut smsgs) = self.api.messages_for_block(&block)?;
@@ -515,8 +524,6 @@ where
     /// local_message field, possibly implement this in the future?
     pub fn load_local(&mut self) -> Result<(), Error> {
         for (key, value) in self.local_msgs.clone() {
-            // let value = SignedMessage::unmarshal_cbor(msg.as_slice())
-            //     .map_err(|err| Error::Other(err.to_string()))?;
             match self.add(&value) {
                 Ok(()) => (),
                 Err(err) => {
@@ -529,26 +536,93 @@ where
         Ok(())
     }
 
+    fn rm(
+        &mut self,
+        from: &Address,
+        nonce: u64,
+        rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+    ) {
+        let s = rmsgs.get_mut(from);
+        if s.is_none() {
+            self.remove(from, nonce).map_err(|_| ());
+            return;
+        }
+        let temp = s.unwrap();
+        if temp.get_mut(&nonce).is_some() {
+            temp.remove(&nonce);
+            return;
+        }
+        self.remove(from, nonce);
+    }
+
+    /// this function will revert and/or apply tipsets to the message pool. This function should be
+    /// called every time that there is a head change in the message pool
+    pub fn head_change(&mut self, revert: Vec<Tipset>, apply: Vec<Tipset>) -> Result<(), Error> {
+        let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
+
+        for ts in revert {
+            let pts = self.api.load_tipset(ts.parents())?;
+            let msgs = self.messages_for_blocks(ts.blocks().to_vec())?;
+            self.cur_tipset = pts;
+            for msg in msgs {
+                add(msg, rmsgs.borrow_mut());
+            }
+        }
+
+        for ts in apply {
+            for b in ts.blocks() {
+                let (msgs, smsgs) = self.api.messages_for_block(b).unwrap();
+                for msg in smsgs {
+                    self.rm(msg.from(), msg.sequence(), rmsgs.borrow_mut());
+                }
+
+                for msg in msgs {
+                    self.rm(msg.from(), msg.sequence(), rmsgs.borrow_mut());
+                }
+            }
+            self.cur_tipset = ts;
+        }
+
+        for (_, hm) in rmsgs {
+            for (_, msg) in hm {
+                self.add_skip_checks(msg).map_err(|_| ());
+            }
+        }
+        Ok(())
+    }
+}
+
+fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
+    let s = rmsgs.get_mut(m.from());
+    if s.is_none() {
+        let mut temp = HashMap::new();
+        temp.insert(m.sequence(), m.clone());
+        rmsgs.insert(m.from().clone(), temp);
+        return;
+    }
+    let temp = s.unwrap();
+    temp.insert(m.sequence(), m.clone());
 }
 
 #[cfg(test)]
 mod tests {
+    use super::Error as Errors;
     use super::*;
+    use crate::MessagePool;
     use address::Address;
-    use blocks::{BlockHeader, Tipset};
+    use blocks::{BlockHeader, Ticket, Tipset};
     use cid::Cid;
-    use crypto::SignatureType;
+    use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
+    use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigUint;
-    use key_management::{MemKeyStore, Wallet};
-    use crate::MessagePool;
     use std::borrow::BorrowMut;
-    use super::Error as Errors;
+    use std::convert::TryFrom;
 
     struct TestApi {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
         state_nonce: HashMap<Address, u64>,
-        tipsets: Vec<Tipset>
+        tipsets: Vec<Tipset>,
     }
 
     impl TestApi {
@@ -556,7 +630,7 @@ mod tests {
             TestApi {
                 bmsgs: HashMap::new(),
                 state_nonce: HashMap::new(),
-                tipsets: Vec::new()
+                tipsets: Vec::new(),
             }
         }
 
@@ -564,15 +638,15 @@ mod tests {
             self.state_nonce.insert(addr.clone(), nonce);
         }
 
-        pub fn set_block_messages(&mut self, h: BlockHeader, msgs: Vec<SignedMessage>) {
+        pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
             self.bmsgs.insert(h.cid().clone(), msgs.clone());
+            self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
         }
     }
 
     impl Provider for TestApi {
         fn subscribe_head_changes(&mut self) -> Tipset {
             Tipset::new(vec![create_header(1, b"", b"")]).unwrap()
-            // return Tipset::new(vec![BlockHeader::builder().weight(BigUint::from(1 as u64)).build().unwrap()]).unwrap()
         }
 
         fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Errors> {
@@ -580,11 +654,24 @@ mod tests {
         }
 
         fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Errors> {
-            let actor = ActorState::new(Cid::default(), Cid::default(), BigUint::from(9_000_000 as u64), self.state_nonce.get(addr).unwrap().clone());
+            let s = self.state_nonce.get(addr);
+            let mut sequence = 0;
+            if s.is_some() {
+                sequence = s.unwrap().clone();
+            }
+            let actor = ActorState::new(
+                Cid::default(),
+                Cid::default(),
+                BigUint::from(9_000_000 as u64),
+                sequence,
+            );
             Ok(actor)
         }
 
-        fn messages_for_block(&self, h: &BlockHeader) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Errors> {
+        fn messages_for_block(
+            &self,
+            h: &BlockHeader,
+        ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Errors> {
             let v: Vec<UnsignedMessage> = Vec::new();
             let thing = self.bmsgs.get(h.cid());
             match thing {
@@ -610,8 +697,9 @@ mod tests {
 
         fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Errors> {
             for ts in &self.tipsets {
+                println!("{:?} ------- {:?}", tsk.cids, ts.cids());
                 if tsk.cids == ts.cids() {
-                    return Ok(ts.clone())
+                    return Ok(ts.clone());
                 }
             }
             Err(Errors::InvalidToAddr)
@@ -628,11 +716,74 @@ mod tests {
             .unwrap();
         header
     }
-    fn create_smsg(to: &Address, from: &Address, wallet: &mut Wallet<MemKeyStore>) -> SignedMessage {
-        let umsg: UnsignedMessage = UnsignedMessage::builder().to(to.clone()).from(from.clone()).build().unwrap();
+
+    fn create_smsg(
+        to: &Address,
+        from: &Address,
+        wallet: &mut Wallet<MemKeyStore>,
+        nonce: u64,
+    ) -> SignedMessage {
+        let umsg: UnsignedMessage = UnsignedMessage::builder()
+            .to(to.clone())
+            .from(from.clone())
+            .sequence(nonce)
+            .build()
+            .unwrap();
         let message_cbor = Cbor::marshal_cbor(&umsg).unwrap();
         let sig = wallet.sign(&from, message_cbor.as_slice()).unwrap();
         SignedMessage::new_from_fields(umsg, sig)
+    }
+
+    fn mock_block(weight: u64, ticket_nonce: u64) -> BlockHeader {
+        let addr = Address::new_id(1234561);
+        let c =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let fmt_str = format!("===={}=====", ticket_nonce);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigUint::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(ticket)
+            .message_receipts(c.clone())
+            .messages(c.clone())
+            .state_root(c)
+            .weight(weight_inc)
+            .build_and_validate()
+            .unwrap()
+    }
+
+    fn mock_block_with_parents(parents: Tipset, weight: u64, ticket_nonce: u64) -> BlockHeader {
+        let addr = Address::new_id(1234561);
+        let c =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        // let parents_of = parents.parents().clone();
+        let height = parents.epoch() + 1;
+
+        let mut weight_inc = BigUint::from(weight);
+        weight_inc = parents.blocks()[0].weight() + weight_inc;
+        let fmt_str = format!("===={}=====", ticket_nonce);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(ticket)
+            .parents(parents.key().clone())
+            .message_receipts(c.clone())
+            .messages(c.clone())
+            .state_root(c)
+            .weight(weight_inc)
+            .epoch(height)
+            .build_and_validate()
+            .unwrap()
     }
 
     #[test]
@@ -647,17 +798,83 @@ mod tests {
 
         let mut mempool = MessagePool::new(tma, "mptest".to_string()).unwrap();
 
-
         let mut smsg_vec = Vec::new();
-        for _ in 1..4 {
-            let msg = create_smsg(&target, &sender, wallet.borrow_mut());
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i);
             smsg_vec.push(msg);
         }
 
-        let mut nonce = mempool.get_nonce(&sender).unwrap();
-        assert_eq!(nonce, 0);
+        assert_eq!(mempool.get_nonce(&sender).unwrap(), 0);
         mempool.push(&smsg_vec[0]).unwrap();
-        nonce = mempool.get_nonce(&sender).unwrap();
-        assert_eq!(nonce, 1);
+        assert_eq!(mempool.get_nonce(&sender).unwrap(), 1);
+        mempool.push(&smsg_vec[1]).unwrap();
+        assert_eq!(mempool.get_nonce(&sender).unwrap(), 2);
+
+        let a = mock_block(1, 1);
+
+        mempool
+            .api
+            .set_block_messages(&a, vec![smsg_vec[0].clone(), smsg_vec[1].clone()]);
+        mempool
+            .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
+            .unwrap();
+
+        assert_eq!(mempool.get_nonce(&sender).unwrap(), 2);
+    }
+
+    #[test]
+    fn test_revert_messages() {
+        let tma = TestApi::new();
+        let mut wallet = Wallet::new(MemKeyStore::new());
+        let mut mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
+
+        let a = mock_block(1, 1);
+        let tipset = Tipset::new(vec![a.clone()]).unwrap();
+        println!("this is the cid {:?}", tipset.cids());
+        let b = mock_block_with_parents(tipset, 1, 1);
+
+        println!("{:?}", b.parents().cids);
+        let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
+        let target = Address::new_id(1001);
+
+        let mut smsg_vec = Vec::new();
+
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i);
+            smsg_vec.push(msg);
+        }
+
+        mpool.api.set_block_messages(&a, vec![smsg_vec[0].clone()]);
+        mpool
+            .api
+            .set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
+
+        mpool.api.set_state_nonce(&sender, 0);
+
+        mpool.add(&smsg_vec[0]).unwrap();
+        mpool.add(&smsg_vec[1]).unwrap();
+        mpool.add(&smsg_vec[2]).unwrap();
+        mpool.add(&smsg_vec[3]).unwrap();
+
+        mpool.api.set_state_nonce(&sender, 0);
+        mpool
+            .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
+            .unwrap();
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 4);
+
+        mpool.api.set_state_nonce(&sender, 1);
+        mpool
+            .head_change(Vec::new(), vec![Tipset::new(vec![b.clone()]).unwrap()])
+            .unwrap();
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 4);
+
+        mpool.api.set_state_nonce(&sender, 0);
+        mpool
+            .head_change(vec![Tipset::new(vec![b]).unwrap()], Vec::new())
+            .unwrap();
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 4);
+
+        let (p, _) = mpool.pending();
+        assert_eq!(p.len(), 3);
     }
 }
