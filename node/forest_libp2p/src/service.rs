@@ -5,6 +5,7 @@ use super::blocksync::BlockSyncResponse;
 use super::hello::HelloMessage;
 use super::rpc::{RPCEvent, RPCRequest, RPCResponse};
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
+use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
@@ -20,6 +21,8 @@ use log::{debug, info, trace, warn};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 use utils::read_file_to_vec;
+
+const PUBSUB_TOPICS: [&str; 2] = ["/fil/blocks", "/fil/msgs"];
 
 /// Events emitted by this Service
 #[derive(Clone, Debug)]
@@ -64,37 +67,26 @@ pub struct Libp2pService {
 
 impl Libp2pService {
     /// Constructs a Libp2pService
-    pub fn new(config: &Libp2pConfig, net_keypair: Keypair) -> Self {
+    pub fn new(config: Libp2pConfig, net_keypair: Keypair, network_name: &str) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
         let transport = build_transport(net_keypair.clone());
 
         let mut swarm = {
-            let be = ForestBehaviour::new(&net_keypair);
+            let be = ForestBehaviour::new(&net_keypair, &config, network_name);
             Swarm::new(transport, be, peer_id)
         };
 
-        for node in &config.bootstrap_peers {
-            match node.parse() {
-                Ok(to_dial) => match Swarm::dial_addr(&mut swarm, to_dial) {
-                    Ok(_) => debug!("Dialed {:?}", node),
-                    Err(e) => warn!("Dial {:?} failed: {:?}", node, e),
-                },
-                Err(err) => warn!("Failed to parse address to dial: {:?}", err),
-            }
+        Swarm::listen_on(&mut swarm, config.listening_multiaddr).unwrap();
+
+        // Subscribe to gossipsub topics with the network name suffix
+        for topic in PUBSUB_TOPICS.iter() {
+            swarm.subscribe(Topic::new(format!("{}/{}", topic, network_name)));
         }
 
-        Swarm::listen_on(
-            &mut swarm,
-            config
-                .listening_multiaddr
-                .parse()
-                .expect("Incorrect MultiAddr Format"),
-        )
-        .unwrap();
-
-        for topic in config.pubsub_topics.clone() {
-            swarm.subscribe(topic);
+        // Bootstrap with Kademlia
+        if let Err(e) = swarm.bootstrap() {
+            warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
         let (network_sender_in, network_receiver_in) = channel(20);
@@ -112,6 +104,7 @@ impl Libp2pService {
     pub async fn run(self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
+        let mut interval = stream::interval(Duration::from_secs(10)).fuse();
 
         loop {
             select! {
@@ -126,13 +119,6 @@ impl Libp2pService {
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
                             debug!("Peer disconnected, {:?}", peer_id);
                         }
-                        ForestBehaviourEvent::DiscoveredPeer(peer) => {
-                            debug!("Discovered: {:?}", peer);
-                            if let Err(e) = libp2p::Swarm::dial(&mut swarm_stream.get_mut(), &peer) {
-                                warn!("failed to dial peer: {:?}", peer);
-                            }
-                        }
-                        ForestBehaviourEvent::ExpiredPeer(_) => {}
                         ForestBehaviourEvent::GossipMessage {
                             source,
                             topics,
@@ -182,6 +168,9 @@ impl Libp2pService {
                         }
                     }
                     None => {break;}
+                },
+                interval_event = interval.next() => if interval_event.is_some() {
+                    info!("Peers connected: {}", swarm_stream.get_ref().peers().len());
                 }
             };
         }

@@ -6,10 +6,9 @@ use crate::blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKSYNC_PROTOCOL_I
 use crate::hello::{HelloMessage, HelloResponse, HELLO_PROTOCOL_ID};
 use bytes::BytesMut;
 use futures::prelude::*;
-use futures::{AsyncRead, AsyncReadExt, AsyncWrite};
-use futures_codec::{Decoder, Encoder, Framed};
+use futures::{AsyncRead, AsyncWrite};
+use futures_codec::{Encoder, Framed};
 use libp2p::core::UpgradeInfo;
-use libp2p::swarm::NegotiatedSubstream;
 use libp2p::{InboundUpgrade, OutboundUpgrade};
 use std::pin::Pin;
 
@@ -33,27 +32,17 @@ impl UpgradeInfo for RPCInbound {
     }
 }
 
-pub(crate) type InboundFramed<TSocket> = Framed<TSocket, InboundCodec>;
-pub(crate) type InboundOutput<TSocket> = (RPCRequest, InboundFramed<TSocket>);
-
 impl<TSocket> InboundUpgrade<TSocket> for RPCInbound
 where
     TSocket: AsyncWrite + AsyncRead + Unpin + Send + 'static,
 {
-    type Output = InboundOutput<TSocket>;
+    type Output = Framed<TSocket, InboundCodec>;
     type Error = RPCError;
     #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 
-    fn upgrade_inbound(self, mut socket: TSocket, protocol: Self::Info) -> Self::Future {
-        Box::pin(async move {
-            let mut buf = Vec::default();
-            socket.read_to_end(&mut buf).await?;
-            let mut bm = BytesMut::from(&buf[..]);
-            let mut codec = InboundCodec::new(protocol);
-            let req = codec.decode(&mut bm)?.unwrap();
-            Ok((req, Framed::new(socket, codec)))
-        })
+    fn upgrade_inbound(self, socket: TSocket, protocol: Self::Info) -> Self::Future {
+        Box::pin(future::ok(Framed::new(socket, InboundCodec::new(protocol))))
     }
 }
 
@@ -87,8 +76,6 @@ impl RPCRequest {
         }
     }
 }
-
-pub(crate) type OutboundFramed = Framed<NegotiatedSubstream, OutboundCodec>;
 
 impl<TSocket> OutboundUpgrade<TSocket> for RPCRequest
 where

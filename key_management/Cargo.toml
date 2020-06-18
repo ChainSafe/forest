@@ -11,3 +11,4 @@ crypto = { package = "forest_crypto", path = "../crypto" }
 bls-signatures = "0.6.0"
 libsecp256k1 = "0.3.4"
 rand = "0.7.3"
+encoding = { package = "forest_encoding", path = "../encoding", version = "0.1" }

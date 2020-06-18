@@ -122,7 +122,7 @@ impl PriceList {
     pub fn on_verify_signature(&self, sig_type: SignatureType, plain_text_size: usize) -> i64 {
         match sig_type {
             SignatureType::BLS => (3 * plain_text_size + 2) as i64,
-            SignatureType::Secp256 => (3 * plain_text_size + 2) as i64,
+            SignatureType::Secp256k1 => (3 * plain_text_size + 2) as i64,
         }
     }
     /// Returns gas required for hashing data
