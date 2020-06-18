@@ -148,7 +148,7 @@ pub fn reward_for_consensus_slash_report(
     };
     let max_reporter_share_num = BigUint::from(1 as u64);
     let max_reporter_share_den = BigUint::from(2 as u64);
-    let elapsed = BigUint::from(elapsed_epoch);
+    let elapsed = BigUint::from(elapsed_epoch as u64);
     let slasher_share_numerator = consensus_fault_reporter_share_growth_rate
         .numerator
         .pow(&elapsed);

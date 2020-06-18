@@ -32,7 +32,7 @@ pub struct DeadlineInfo {
 impl DeadlineInfo {
     pub fn new(period_start: ChainEpoch, deadline_idx: usize, current_epoch: ChainEpoch) -> Self {
         if deadline_idx < WPOST_PERIOD_DEADLINES {
-            let deadline_open = period_start + (deadline_idx as u64 * WPOST_CHALLENGE_WINDOW);
+            let deadline_open = period_start + (deadline_idx as i64 * WPOST_CHALLENGE_WINDOW);
             Self {
                 current_epoch,
                 period_start,

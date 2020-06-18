@@ -2492,11 +2492,11 @@ fn assign_proving_period_offset(
     blake2b: impl FnOnce(&[u8]) -> Result<[u8; 32], Box<dyn StdError>>,
 ) -> Result<ChainEpoch, Box<dyn StdError>> {
     let mut my_addr = addr.marshal_cbor()?;
-    BigEndian::write_u64(&mut my_addr, current_epoch);
+    BigEndian::write_i64(&mut my_addr, current_epoch);
 
     let digest = blake2b(&my_addr)?;
 
-    let mut offset: ChainEpoch = BigEndian::read_u64(&digest);
+    let mut offset: ChainEpoch = BigEndian::read_i64(&digest);
     offset %= WPOST_PROVING_PERIOD;
 
     Ok(offset)

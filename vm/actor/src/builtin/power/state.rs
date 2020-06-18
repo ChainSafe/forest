@@ -204,7 +204,7 @@ fn epoch_key(e: ChainEpoch) -> BytesKey {
     // and add tests for edge cases once decided
     let ux = e << 1;
     let mut bz = unsigned_varint::encode::u64_buffer();
-    unsigned_varint::encode::u64(ux, &mut bz);
+    unsigned_varint::encode::u64(ux as u64, &mut bz);
     bz.to_vec().into()
 }
 

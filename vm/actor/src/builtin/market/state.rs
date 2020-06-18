@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{collateral_penalty_for_deal_activation_missed, DealProposal, DealState};
-use crate::{BalanceTable, DealID, OptionalEpoch, SetMultimap};
+use crate::{BalanceTable, DealID, SetMultimap};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -13,6 +13,8 @@ use ipld_blockstore::BlockStore;
 use num_traits::Zero;
 use runtime::Runtime;
 use vm::{ActorError, ExitCode, TokenAmount};
+
+pub const EPOCH_UNDEFINED: ChainEpoch = -1;
 
 /// Market actor state
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
@@ -345,7 +347,7 @@ impl State {
             store,
             &deal.client,
             &deal.provider,
-            &(deal.storage_price_per_epoch.clone() * num_epochs_elapsed),
+            &(deal.storage_price_per_epoch.clone() * num_epochs_elapsed as u64),
         )?;
 
         if ever_slashed {
@@ -368,7 +370,7 @@ impl State {
             return Ok(TokenAmount::zero());
         }
 
-        state.last_updated_epoch = OptionalEpoch(Some(epoch));
+        state.last_updated_epoch = epoch;
 
         // Update states array
         let mut states = Amt::<DealState, _>::load(&self.states, store)
@@ -542,7 +544,7 @@ fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAm
 
     let duration_remaining = deal.end_epoch - (epoch - 1);
 
-    deal.storage_price_per_epoch.clone() * duration_remaining
+    deal.storage_price_per_epoch.clone() * duration_remaining as u64
 }
 
 impl Cbor for State {}

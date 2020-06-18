@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
-use std::convert::TryInto;
 use std::num::TryFromIntError;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
@@ -45,6 +44,6 @@ impl ChainEpochClock {
         let epochs = (difference / EPOCH_DURATION)
             .num_nanoseconds()
             .expect("Epoch_at_time failed");
-        Ok(epochs.try_into()?)
+        Ok(epochs)
     }
 }

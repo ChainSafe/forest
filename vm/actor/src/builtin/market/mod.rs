@@ -8,10 +8,10 @@ mod types;
 
 pub use self::deal::*;
 use self::policy::*;
-pub use self::state::State;
+pub use self::state::{State, EPOCH_UNDEFINED};
 pub use self::types::*;
 use crate::{
-    make_map, request_miner_control_addrs, BalanceTable, DealID, OptionalEpoch, SetMultimap,
+    make_map, request_miner_control_addrs, BalanceTable, DealID, SetMultimap,
     BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
@@ -356,13 +356,16 @@ impl Actor {
                     &proposal,
                 )?;
 
-                deal.sector_start_epoch = OptionalEpoch(Some(rt.curr_epoch()));
+                deal.sector_start_epoch = rt.curr_epoch();
+                deal.last_updated_epoch = EPOCH_UNDEFINED;
+                deal.slash_epoch = EPOCH_UNDEFINED;
+                
                 states
                     .set(*id, deal)
                     .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
                 // compute deal weight
-                let deal_space_time = proposal.duration() * proposal.piece_size.0;
+                let deal_space_time = proposal.duration() as u64 * proposal.piece_size.0;
                 if proposal.verified_deal {
                     total_verified_deal_space_time += deal_space_time;
                 } else {
@@ -428,7 +431,7 @@ impl Actor {
                 // to indicate that processDealSlashed should be called when the deferred state computation
                 // is performed. // TODO: Do that here
 
-                state.slash_epoch = OptionalEpoch(Some(rt.curr_epoch()));
+                state.slash_epoch = rt.curr_epoch();
                 states.set(id, state).map_err(|e| {
                     ActorError::new(ExitCode::ErrIllegalState, format!("Set deal error: {}", e))
                 })?;

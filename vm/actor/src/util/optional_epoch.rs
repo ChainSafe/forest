@@ -3,7 +3,6 @@
 
 use clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::convert::TryInto;
 use std::ops::Deref;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -34,7 +33,7 @@ impl<'de> Deserialize<'de> for OptionalEpoch {
         D: Deserializer<'de>,
     {
         let epoch: i64 = Deserialize::deserialize(deserializer)?;
-        Ok(Self(epoch.try_into().ok()))
+        Ok(Self(Some(epoch)))
     }
 }
 
