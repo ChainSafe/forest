@@ -8,7 +8,7 @@ use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
 use std::borrow::Borrow;
-use vm::{ActorError, ExitCode};
+use std::error::Error as StdError;
 
 /// SetMultimap is a hamt with values that are also a hamt but are of the set variant.
 /// This allows hash sets to be indexable by an address.
@@ -83,15 +83,12 @@ where
     }
 
     /// Iterates through keys and converts them to a DealID to call a function on each.
-    pub fn for_each<F>(&self, key: ChainEpoch, mut f: F) -> Result<(), ActorError>
+    pub fn for_each<F>(&self, key: ChainEpoch, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        F: FnMut(DealID) -> Result<(), ActorError>,
+        F: FnMut(DealID) -> Result<(), Box<dyn StdError>>,
     {
         // Get construct amt from retrieved cid and return if no set exists
-        let set = match self
-            .get(key)
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?
-        {
+        let set = match self.get(key)? {
             Some(s) => s,
             None => return Ok(()),
         };
@@ -101,8 +98,7 @@ where
                 .map_err(|e| format!("Could not parse key: {:?}, ({})", &k.0, e))?;
 
             // Run function on all parsed keys
-            f(v).map_err(|e| e.to_string())
+            f(v)
         })
-        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))
     }
 }

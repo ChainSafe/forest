@@ -566,11 +566,12 @@ impl Actor {
                     }
                     Ok(())
                 })
-                .map_err(|e| {
-                    ActorError::new(
+                .map_err(|e| match e.downcast::<ActorError>() {
+                    Ok(actor_err) => *actor_err,
+                    Err(other) => ActorError::new(
                         ExitCode::ErrIllegalState,
-                        format!("failed to iterate deals for epoch: {}", e),
-                    )
+                        format!("failed to iterate deals for epoch: {}", other),
+                    ),
                 })?;
                 dbe.remove_all(i).map_err(|e| {
                     ActorError::new(
