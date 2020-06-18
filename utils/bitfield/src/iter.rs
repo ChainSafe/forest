@@ -15,7 +15,7 @@ use std::{
 /// - the iterator must be fused, i.e. once it has returned `None`, it must keep returning `None`
 pub trait RangeIterator: FusedIterator<Item = Range<usize>> + Sized {
     /// Returns a new `RangeIterator` over the bits that are in `self`, in `other`, or in both.
-    fn union<R: RangeIterator>(self, other: R) -> Union<Self, R> {
+    fn merge<R: RangeIterator>(self, other: R) -> Union<Self, R> {
         Union {
             a_iter: self,
             b_iter: other,
@@ -491,8 +491,8 @@ mod tests {
                 difference: &[4..6, 8..10],
             },
         ] {
-            assert_eq!(ranges(lhs).union(ranges(rhs)).collect::<Vec<_>>(), union);
-            assert_eq!(ranges(rhs).union(ranges(lhs)).collect::<Vec<_>>(), union);
+            assert_eq!(ranges(lhs).merge(ranges(rhs)).collect::<Vec<_>>(), union);
+            assert_eq!(ranges(rhs).merge(ranges(lhs)).collect::<Vec<_>>(), union);
 
             assert_eq!(
                 ranges(lhs).intersection(ranges(rhs)).collect::<Vec<_>>(),

@@ -129,7 +129,7 @@ impl BitField {
 
         self.bitvec
             .ranges()
-            .union(ranges(&self.set))
+            .merge(ranges(&self.set))
             .difference(ranges(&self.unset))
     }
 
@@ -164,8 +164,8 @@ impl BitField {
     /// Returns a new `RangeIterator` over the bits that are in `self`, in `other`, or in both.
     ///
     /// The `|` operator is the eager version of this.
-    pub fn union<'a>(&'a self, other: &'a Self) -> impl RangeIterator + 'a {
-        self.ranges().union(other.ranges())
+    pub fn merge<'a>(&'a self, other: &'a Self) -> impl RangeIterator + 'a {
+        self.ranges().merge(other.ranges())
     }
 
     /// Returns a new `RangeIterator` over the bits that are in both `self` and `other`.
@@ -203,7 +203,7 @@ impl BitOr<&BitField> for &BitField {
 
     #[inline]
     fn bitor(self, rhs: &BitField) -> Self::Output {
-        BitField::from_ranges(self.union(rhs))
+        BitField::from_ranges(self.merge(rhs))
     }
 }
 
