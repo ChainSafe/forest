@@ -3,11 +3,12 @@
 
 use super::Set;
 use crate::{parse_uint_key, u64_key, BytesKey, DealID, HAMT_BIT_WIDTH};
-use address::Address;
 use cid::Cid;
+use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
 use std::borrow::Borrow;
+use std::error::Error as StdError;
 
 /// SetMultimap is a hamt with values that are also a hamt but are of the set variant.
 /// This allows hash sets to be indexable by an address.
@@ -33,7 +34,7 @@ where
     }
 
     /// Puts the DealID in the hash set of the key.
-    pub fn put(&mut self, key: &Address, value: DealID) -> Result<(), String> {
+    pub fn put(&mut self, key: ChainEpoch, value: DealID) -> Result<(), String> {
         // Get construct amt from retrieved cid or create new
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
@@ -43,13 +44,13 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(key.to_bytes().into(), &new_root)?)
+        Ok(self.0.set(u64_key(key), &new_root)?)
     }
 
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
-    pub fn get(&self, key: &Address) -> Result<Option<Set<'a, BS>>, String> {
-        match self.0.get(&key.to_bytes())? {
+    pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, String> {
+        match self.0.get(&u64_key(key))? {
             Some(cid) => Ok(Some(Set::from_root(self.0.store(), &cid)?)),
             None => Ok(None),
         }
@@ -57,7 +58,7 @@ where
 
     /// Removes a DealID from a key hash set.
     #[inline]
-    pub fn remove(&mut self, key: &Address, v: DealID) -> Result<(), String> {
+    pub fn remove(&mut self, key: ChainEpoch, v: DealID) -> Result<(), String> {
         // Get construct amt from retrieved cid and return if no set exists
         let mut set = match self.get(key)? {
             Some(s) => s,
@@ -69,22 +70,22 @@ where
         // Save and calculate new root
         let new_root = set.root()?;
 
-        Ok(self.0.set(key.to_bytes().into(), &new_root)?)
+        Ok(self.0.set(u64_key(key), &new_root)?)
     }
 
     /// Removes set at index.
     #[inline]
-    pub fn remove_all(&mut self, key: &Address) -> Result<(), String> {
+    pub fn remove_all(&mut self, key: ChainEpoch) -> Result<(), String> {
         // Remove entry from table
-        self.0.delete(&key.to_bytes())?;
+        self.0.delete(&u64_key(key))?;
 
         Ok(())
     }
 
     /// Iterates through keys and converts them to a DealID to call a function on each.
-    pub fn for_each<F>(&self, key: &Address, mut f: F) -> Result<(), String>
+    pub fn for_each<F>(&self, key: ChainEpoch, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        F: FnMut(DealID) -> Result<(), String>,
+        F: FnMut(DealID) -> Result<(), Box<dyn StdError>>,
     {
         // Get construct amt from retrieved cid and return if no set exists
         let set = match self.get(key)? {
