@@ -4,7 +4,7 @@
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
-    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
+    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFIED_ACTOR_CODE_ID,
 };
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
@@ -170,6 +170,9 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             }
             x if x == &*REWARD_ACTOR_CODE_ID => {
                 actor::reward::Actor.invoke_method(self, method_num, params)
+            }
+            x if x == &*VERIFIED_ACTOR_CODE_ID => {
+                actor::verifreg::Actor.invoke_method(self, method_num, params)
             }
             _ => Err(ActorError::new(
                 ExitCode::SysErrForbidden,
