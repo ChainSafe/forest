@@ -41,7 +41,7 @@ use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
 
@@ -785,11 +785,12 @@ where
                 let replica = PublicReplicaInfo::new(
                     sector_info
                         .proof
-                        .registered_window_post_proof()
+                        .registered_winning_post_proof()
+                        .map_err(|err| Error::Validation(format!("Invalid proof code: {:}", err)))?
+                        .try_into()
                         .map_err(|err| {
                             Error::Validation(format!("failed to get registered proof: {:}", err))
-                        })?
-                        .into(),
+                        })?,
                     commr,
                 );
                 Ok((SectorId::from(sector_info.sector_number), replica))

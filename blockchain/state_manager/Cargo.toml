@@ -22,5 +22,5 @@ chain = { path = "../chain" }
 async-std = "1.5.0"
 async-log = "2.0.0"
 log = "0.4.8"
-filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "0e1c7cb464707c7a7ad82b0f8303f000f6f3fc8a" }
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "b863301780791cbf529dadf08c713e0a97408833" }
 fil_types = { path = "../../types" }
