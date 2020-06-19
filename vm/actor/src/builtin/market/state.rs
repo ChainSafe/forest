@@ -15,8 +15,6 @@ use ipld_blockstore::BlockStore;
 use num_traits::Zero;
 use vm::{ActorError, ExitCode, TokenAmount};
 
-const DEAL_UPDATES_INTERVAL: ChainEpoch = 100;
-
 /// Market actor state
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
@@ -36,7 +34,6 @@ pub struct State {
     /// SetMultimap<Address>
     pub deal_ops_by_epoch: Cid,
     pub last_cron: OptionalEpoch,
-
 }
 
 impl State {
@@ -49,7 +46,6 @@ impl State {
             next_id: 0,
             deal_ops_by_epoch: empty_mset,
             last_cron: OptionalEpoch::default(),
-
         }
     }
 

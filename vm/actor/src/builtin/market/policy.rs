@@ -14,7 +14,6 @@ const TOKEN_PRECISION: u64 = 1_000_000_000_000_000_000;
 /// DealUpdatesInterval is the number of blocks between payouts for deals
 pub const DEAL_UPDATED_INTERVAL: u64 = 100;
 
-
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {
     (0, EPOCHS_IN_YEAR) // PARAM_FINISH
 }

@@ -12,7 +12,7 @@ pub use self::state::State;
 pub use self::types::*;
 use crate::{
     make_map, request_miner_control_addrs,
-    verifreg::{BytesParams, RestoreBytesParams, UseBytesParams, Method as VerifregMethod},
+    verifreg::{BytesParams, Method as VerifregMethod},
     BalanceTable, DealID, OptionalEpoch, SetMultimap, BURNT_FUNDS_ACTOR_ADDR,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
     VERIFIED_REGISTRY_ACTOR_ADDR,
@@ -29,7 +29,6 @@ use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
-use std::collections::HashMap;
 use vm::{
     ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
@@ -130,7 +129,6 @@ impl Actor {
         let amount_slashed_total = TokenAmount::zero();
         let amount_extracted =
             rt.transaction::<_, Result<TokenAmount, ActorError>, _>(|st: &mut State, rt| {
-
                 // The withdrawable amount might be slightly less than nominal
                 // depending on whether or not all relevant entries have been processed
                 // by cron
@@ -205,7 +203,6 @@ impl Actor {
         }
 
         for deal in &params.deals {
-
             // Check VerifiedClient allowed cap and deduct PieceSize from cap.
             // Either the DealSize is within the available DataCap of the VerifiedClient
             // or this message will fail. We do not allow a deal that is partially verified.
@@ -262,7 +259,6 @@ impl Actor {
                 )?;
 
                 let id = st.generate_storage_deal_id();
-
 
                 deal_ops
                     .put(deal.proposal.start_epoch, id)
@@ -506,7 +502,6 @@ impl Actor {
             let mut lt = BalanceTable::from_root(rt.store(), &st.locked_table)
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-
             let mut i = st.last_cron.unwrap() + 1;
             while i <= rt.curr_epoch() {
                 dbe.for_each(i, |id| {
@@ -556,7 +551,6 @@ impl Actor {
 
                     if next_epoch.is_some() {
                         assert!(next_epoch.unwrap() > rt.curr_epoch());
-
 
                         // TODO: can we avoid having this field?
                         state.last_updated_epoch = OptionalEpoch(Some(rt.curr_epoch()));
