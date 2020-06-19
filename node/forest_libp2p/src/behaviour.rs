@@ -95,8 +95,16 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
 impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: BitswapEvent) {
         match event {
-            BitswapEvent::ReceivedBlock(peer_id, cid, data) => {},
-            BitswapEvent::ReceivedWant(peer_id, cid, priority) => {},
+            BitswapEvent::ReceivedBlock(peer_id, cid, data) => {
+                let cid = cid.to_string();
+                let cid: Cid = Cid::from_str(&cid).unwrap();
+                self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, data));
+            },
+            BitswapEvent::ReceivedWant(peer_id, cid, priority) => {
+                let cid = cid.to_string();
+                let cid: Cid = Cid::from_str(&cid).unwrap();
+                self.events.push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid));
+            },
             BitswapEvent::ReceivedCancel(peer_id, cid) => {},
         }
     }

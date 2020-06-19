@@ -5,10 +5,13 @@ use super::peer_manager::PeerManager;
 use async_std::prelude::*;
 use async_std::sync::{Receiver, Sender};
 use async_std::task;
+use futures::channel::oneshot::{channel as oneshot_channel, Receiver as OneShotReceiver, Sender as OneShotSender};
 use forest_libp2p::rpc::{RPCResponse, RequestId};
 use forest_libp2p::NetworkEvent;
 use log::trace;
 use std::sync::Arc;
+use std::collections::HashMap;
+use async_std::sync::Mutex;
 
 pub(crate) type RPCReceiver = Receiver<(RequestId, RPCResponse)>;
 pub(crate) type RPCSender = Sender<(RequestId, RPCResponse)>;
@@ -18,6 +21,7 @@ pub(crate) struct NetworkHandler {
     rpc_send: RPCSender,
     event_send: Sender<NetworkEvent>,
     receiver: Receiver<NetworkEvent>,
+    request_table: Arc<Mutex<HashMap<usize, OneShotSender<RPCResponse>>>>,
 }
 
 impl NetworkHandler {
@@ -25,11 +29,13 @@ impl NetworkHandler {
         receiver: Receiver<NetworkEvent>,
         rpc_send: RPCSender,
         event_send: Sender<NetworkEvent>,
+        request_table: Arc<Mutex<HashMap<usize, OneShotSender<RPCResponse>>>>,
     ) -> Self {
         Self {
             receiver,
             rpc_send,
             event_send,
+            request_table,
         }
     }
 
@@ -37,13 +43,16 @@ impl NetworkHandler {
         let mut receiver = self.receiver.clone();
         let rpc_send = self.rpc_send.clone();
         let event_send = self.event_send.clone();
+        let request_table = self.request_table.clone();
 
         task::spawn(async move {
             loop {
                 match receiver.next().await {
                     // Handle specifically RPC responses and send to that channel
                     Some(NetworkEvent::RPCResponse { req_id, response }) => {
-                        rpc_send.send((req_id, response)).await
+                        // look up the request_table for the id and send through channel
+                        let tx = request_table.lock().await.remove(&req_id).unwrap();
+                        tx.send(response).unwrap();
                     }
                     // Pass any non RPC responses through event channel
                     Some(event) => {

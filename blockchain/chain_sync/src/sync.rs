@@ -10,7 +10,7 @@ use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
-use async_std::sync::{channel, Receiver, Sender};
+use async_std::sync::{channel, Receiver, Sender, Mutex};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -40,7 +40,7 @@ use num_traits::Zero;
 use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{HashMap, BTreeMap};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use vm::TokenAmount;
@@ -123,12 +123,12 @@ where
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
         let (event_send, event_rx) = channel(30);
-
-        let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx);
+        let req_table = Arc::new(Mutex::new(HashMap::new()));
+        let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx, req_table.clone());
 
         let peer_manager = Arc::new(PeerManager::default());
 
-        let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
+        let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send, req_table);
 
         Ok(Self {
             state: SyncState::Init,
