@@ -105,7 +105,27 @@ impl BitField {
 
     /// Returns an iterator over the indices of the bit field's set bits.
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
-        self.ranges().flatten()
+        // this code results in the same values as `self.ranges().flatten()`, but there's
+        // a key difference:
+        //
+        // `ranges()` needs to traverse both `self.set` and `self.unset` up front (so before
+        // iteration starts) in order to not have to visit each individual bit of `self.bitvec`
+        // during iteration, while here we can get away with only traversing `self.set` up
+        // front and checking `self.unset` containment for the candidate bits on the fly
+        // because we're visiting all bits either way
+        //
+        // consequently, `self.first()` is only linear in the length of `self.set`, not
+        // in the length of `self.unset` (as opposed to getting the first range with
+        // `self.ranges().next()` which is linear in both)
+
+        let mut set_bits: Vec<_> = self.set.iter().copied().collect();
+        set_bits.sort_unstable();
+
+        self.bitvec
+            .ranges()
+            .merge(ranges_from_bits(set_bits))
+            .flatten()
+            .filter(move |i| !self.unset.contains(i))
     }
 
     /// Returns an iterator over the indices of the bit field's set bits if the number
