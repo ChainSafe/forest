@@ -13,6 +13,7 @@ use actor::{
 use address::Address;
 use common::*;
 use db::MemoryDB;
+use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
@@ -81,9 +82,12 @@ fn simple_construction() {
     let store = rt.store;
     let empty_map = Multimap::new(store).root().unwrap();
     let empty_set = SetMultimap::new(store).root().unwrap();
+    let empty_array = Amt::<u64, _>::new(store).flush().unwrap();
 
     let state_data: State = rt.get_state().unwrap();
 
+    assert_eq!(empty_array, state_data.proposals);
+    assert_eq!(empty_array, state_data.states);
     assert_eq!(empty_map, state_data.escrow_table);
     assert_eq!(empty_map, state_data.locked_table);
     assert_eq!(empty_set, state_data.deal_ops_by_epoch);
@@ -453,7 +457,6 @@ fn expect_provider_control_address<BS: BlockStore>(
 ) {
     rt.expect_validate_caller_addr(&[owner.clone(), worker.clone()]);
 
-    // TODO Provide the right methjod number. THe right mehtod is controlAddress in go code
     let return_value = GetControlAddressesReturn {
         owner: owner.clone(),
         worker: worker.clone(),
