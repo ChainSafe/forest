@@ -11,7 +11,7 @@ features = ["json"]
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 commcid = { path = "../utils/commcid" }
-filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "0e1c7cb464707c7a7ad82b0f8303f000f6f3fc8a" }
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "b863301780791cbf529dadf08c713e0a97408833" }
 vm = { package = "forest_vm", path = "../vm" }
 cid = { package = "forest_cid", path = "../ipld/cid", features = ["cbor"] }
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }

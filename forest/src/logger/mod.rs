@@ -10,6 +10,7 @@ pub(crate) fn setup_logger() {
         logger_builder.parse_filters(&s);
     } else {
         // If no ENV variable specified, default to info
+        logger_builder.filter(Some("libp2p_gossipsub"), LevelFilter::Warn);
         logger_builder.filter(None, LevelFilter::Info);
     }
     let logger = logger_builder.build();

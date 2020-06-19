@@ -6,7 +6,7 @@ use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*};
-use fil_types::{PoStProof, RegisteredProof, SectorNumber};
+use fil_types::{PoStProof, RegisteredSealProof, SectorNumber};
 use num_bigint::{biguint_ser, BigUint};
 use vm::{DealID, TokenAmount};
 
@@ -21,7 +21,7 @@ pub const CRON_EVENT_PROVING_PERIOD: CronEvent = 3;
 pub struct MinerConstructorParams {
     pub owner: Address,
     pub worker: Address,
-    pub seal_proof_type: RegisteredProof,
+    pub seal_proof_type: RegisteredSealProof,
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
     #[serde(with = "serde_bytes")]
@@ -129,7 +129,7 @@ pub struct WorkerKeyChange {
 }
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorPreCommitInfo {
-    pub registered_proof: RegisteredProof,
+    pub registered_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     /// CommR
     pub sealed_cid: Cid,

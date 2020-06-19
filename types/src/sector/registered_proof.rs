@@ -2,111 +2,113 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::SectorSize;
-use encoding::repr::*;
-use filecoin_proofs_api::{RegisteredPoStProof, RegisteredSealProof};
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use filecoin_proofs_api as proofs;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::convert::TryFrom;
 
-/// This ordering, defines mappings to UInt in a way which MUST never change.
-#[derive(
-    PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash, Serialize_repr, Deserialize_repr,
-)]
-#[repr(u8)]
-pub enum RegisteredProof {
-    StackedDRG32GiBSeal = 1,
-    StackedDRG32GiBPoSt = 2, // TODO unused (revisit if being removed)
-    StackedDRG2KiBSeal = 3,
-    StackedDRG2KiBPoSt = 4, // TODO unused (revisit if being removed)
-    StackedDRG8MiBSeal = 5,
-    StackedDRG8MiBPoSt = 6, // TODO unused (revisit if being removed)
-    StackedDRG512MiBSeal = 7,
-    StackedDRG512MiBPoSt = 8, // TODO unused (revisit if being removed)
-
-    StackedDRG2KiBWinningPoSt = 9,
-    StackedDRG2KiBWindowPoSt = 10,
-
-    StackedDRG8MiBWinningPoSt = 11,
-    StackedDRG8MiBWindowPoSt = 12,
-
-    StackedDRG512MiBWinningPoSt = 13,
-    StackedDRG512MiBWindowPoSt = 14,
-
-    StackedDRG32GiBWinningPoSt = 15,
-    StackedDRG32GiBWindowPoSt = 16,
-
-    StackedDRG64GiBSeal = 17,
-
-    StackedDRG64GiBWinningPoSt = 18,
-    StackedDRG64GiBWindowPoSt = 19,
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
+pub enum RegisteredSealProof {
+    StackedDRG2KiBV1,
+    StackedDRG512MiBV1,
+    StackedDRG8MiBV1,
+    StackedDRG32GiBV1,
+    StackedDRG64GiBV1,
+    Invalid(i64),
 }
 
-impl RegisteredProof {
-    pub fn from_byte(b: u8) -> Option<Self> {
-        FromPrimitive::from_u8(b)
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
+pub enum RegisteredPoStProof {
+    StackedDRGWinning2KiBV1,
+    StackedDRGWinning8MiBV1,
+    StackedDRGWinning512MiBV1,
+    StackedDRGWinning32GiBV1,
+    StackedDRGWinning64GiBV1,
+    StackedDRGWindow2KiBV1,
+    StackedDRGWindow8MiBV1,
+    StackedDRGWindow512MiBV1,
+    StackedDRGWindow32GiBV1,
+    StackedDRGWindow64GiBV1,
+    Invalid(i64),
+}
+
+impl RegisteredPoStProof {
+    /// Returns the sector size of the proof type, which is measured in bytes.
+    pub fn sector_size(self) -> Result<SectorSize, String> {
+        use RegisteredPoStProof::*;
+        match self {
+            StackedDRGWindow2KiBV1 | StackedDRGWinning2KiBV1 => Ok(SectorSize::_2KiB),
+            StackedDRGWindow8MiBV1 | StackedDRGWinning8MiBV1 => Ok(SectorSize::_8MiB),
+            StackedDRGWindow512MiBV1 | StackedDRGWinning512MiBV1 => Ok(SectorSize::_512MiB),
+            StackedDRGWindow32GiBV1 | StackedDRGWinning32GiBV1 => Ok(SectorSize::_32GiB),
+            StackedDRGWindow64GiBV1 | StackedDRGWinning64GiBV1 => Ok(SectorSize::_64GiB),
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
+        }
     }
 
-    /// Returns the sector size of the proof type, which is measured in bytes.
-    pub fn sector_size(self) -> SectorSize {
-        use RegisteredProof::*;
+    /// RegisteredSealProof produces the seal-specific RegisteredProof corresponding
+    /// to the receiving RegisteredProof.
+    pub fn registered_seal_proof(self) -> Result<RegisteredSealProof, String> {
+        use RegisteredPoStProof::*;
         match self {
-            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => {
-                SectorSize::_64GiB
+            StackedDRGWindow64GiBV1 | StackedDRGWinning64GiBV1 => {
+                Ok(RegisteredSealProof::StackedDRG64GiBV1)
             }
-            StackedDRG32GiBSeal
-            | StackedDRG32GiBPoSt
-            | StackedDRG32GiBWindowPoSt
-            | StackedDRG32GiBWinningPoSt => SectorSize::_32GiB,
-            StackedDRG2KiBSeal
-            | StackedDRG2KiBPoSt
-            | StackedDRG2KiBWindowPoSt
-            | StackedDRG2KiBWinningPoSt => SectorSize::_2KiB,
-            StackedDRG8MiBSeal
-            | StackedDRG8MiBPoSt
-            | StackedDRG8MiBWindowPoSt
-            | StackedDRG8MiBWinningPoSt => SectorSize::_8MiB,
-            StackedDRG512MiBSeal
-            | StackedDRG512MiBPoSt
-            | StackedDRG512MiBWindowPoSt
-            | StackedDRG512MiBWinningPoSt => SectorSize::_512MiB,
+            StackedDRGWindow32GiBV1 | StackedDRGWinning32GiBV1 => {
+                Ok(RegisteredSealProof::StackedDRG32GiBV1)
+            }
+            StackedDRGWindow2KiBV1 | StackedDRGWinning2KiBV1 => {
+                Ok(RegisteredSealProof::StackedDRG2KiBV1)
+            }
+            StackedDRGWindow8MiBV1 | StackedDRGWinning8MiBV1 => {
+                Ok(RegisteredSealProof::StackedDRG8MiBV1)
+            }
+            StackedDRGWindow512MiBV1 | StackedDRGWinning512MiBV1 => {
+                Ok(RegisteredSealProof::StackedDRG512MiBV1)
+            }
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
+        }
+    }
+}
+
+impl RegisteredSealProof {
+    /// Returns the sector size of the proof type, which is measured in bytes.
+    pub fn sector_size(self) -> Result<SectorSize, String> {
+        use RegisteredSealProof::*;
+        match self {
+            StackedDRG2KiBV1 => Ok(SectorSize::_2KiB),
+            StackedDRG8MiBV1 => Ok(SectorSize::_8MiB),
+            StackedDRG512MiBV1 => Ok(SectorSize::_512MiB),
+            StackedDRG32GiBV1 => Ok(SectorSize::_32GiB),
+            StackedDRG64GiBV1 => Ok(SectorSize::_64GiB),
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
         }
     }
 
     /// Returns the partition size, in sectors, associated with a proof type.
     /// The partition size is the number of sectors proven in a single PoSt proof.
-    pub fn window_post_partitions_sector(self) -> u64 {
+    pub fn window_post_partitions_sector(self) -> Result<u64, String> {
         // Resolve to seal proof and then compute size from that.
-        use RegisteredProof::*;
+        use RegisteredSealProof::*;
         match self {
-            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => 2300,
-            StackedDRG32GiBSeal
-            | StackedDRG32GiBPoSt
-            | StackedDRG32GiBWindowPoSt
-            | StackedDRG32GiBWinningPoSt => 2349,
-            StackedDRG2KiBSeal
-            | StackedDRG2KiBPoSt
-            | StackedDRG2KiBWindowPoSt
-            | StackedDRG2KiBWinningPoSt => 2,
-            StackedDRG8MiBSeal
-            | StackedDRG8MiBPoSt
-            | StackedDRG8MiBWindowPoSt
-            | StackedDRG8MiBWinningPoSt => 2,
-            StackedDRG512MiBSeal
-            | StackedDRG512MiBPoSt
-            | StackedDRG512MiBWindowPoSt
-            | StackedDRG512MiBWinningPoSt => 2,
+            StackedDRG64GiBV1 => Ok(2300),
+            StackedDRG32GiBV1 => Ok(2349),
+            StackedDRG2KiBV1 => Ok(2),
+            StackedDRG8MiBV1 => Ok(2),
+            StackedDRG512MiBV1 => Ok(2),
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
         }
     }
 
     /// Produces the winning PoSt-specific RegisteredProof corresponding
     /// to the receiving RegisteredProof.
-    pub fn registered_winning_post_proof(self) -> Result<RegisteredProof, String> {
-        use RegisteredProof::*;
+    pub fn registered_winning_post_proof(self) -> Result<RegisteredPoStProof, String> {
+        use RegisteredPoStProof::*;
         match self {
-            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt => Ok(StackedDRG64GiBWindowPoSt),
-            StackedDRG32GiBSeal | StackedDRG32GiBWinningPoSt => Ok(StackedDRG32GiBWinningPoSt),
-            StackedDRG2KiBSeal | StackedDRG2KiBWinningPoSt => Ok(StackedDRG2KiBWinningPoSt),
-            StackedDRG8MiBSeal | StackedDRG8MiBWinningPoSt => Ok(StackedDRG8MiBWinningPoSt),
-            StackedDRG512MiBSeal | StackedDRG512MiBWinningPoSt => Ok(StackedDRG512MiBWinningPoSt),
+            Self::StackedDRG64GiBV1 => Ok(StackedDRGWinning64GiBV1),
+            Self::StackedDRG32GiBV1 => Ok(StackedDRGWinning32GiBV1),
+            Self::StackedDRG2KiBV1 => Ok(StackedDRGWinning2KiBV1),
+            Self::StackedDRG8MiBV1 => Ok(StackedDRGWinning8MiBV1),
+            Self::StackedDRG512MiBV1 => Ok(StackedDRGWinning512MiBV1),
             _ => Err(format!(
                 "Unsupported mapping from {:?} to PoSt-winning RegisteredProof",
                 self
@@ -116,120 +118,135 @@ impl RegisteredProof {
 
     /// Produces the windowed PoSt-specific RegisteredProof corresponding
     /// to the receiving RegisteredProof.
-    pub fn registered_window_post_proof(self) -> Result<RegisteredProof, String> {
-        use RegisteredProof::*;
+    pub fn registered_window_post_proof(self) -> Result<RegisteredPoStProof, String> {
+        use RegisteredPoStProof::*;
         match self {
-            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt => Ok(StackedDRG64GiBWindowPoSt),
-            StackedDRG32GiBSeal | StackedDRG32GiBWindowPoSt => Ok(StackedDRG32GiBWindowPoSt),
-            StackedDRG2KiBSeal | StackedDRG2KiBWindowPoSt => Ok(StackedDRG2KiBWindowPoSt),
-            StackedDRG8MiBSeal | StackedDRG8MiBWindowPoSt => Ok(StackedDRG8MiBWindowPoSt),
-            StackedDRG512MiBSeal | StackedDRG512MiBWindowPoSt => Ok(StackedDRG512MiBWindowPoSt),
+            Self::StackedDRG64GiBV1 => Ok(StackedDRGWindow64GiBV1),
+            Self::StackedDRG32GiBV1 => Ok(StackedDRGWindow32GiBV1),
+            Self::StackedDRG2KiBV1 => Ok(StackedDRGWindow2KiBV1),
+            Self::StackedDRG8MiBV1 => Ok(StackedDRGWindow8MiBV1),
+            Self::StackedDRG512MiBV1 => Ok(StackedDRGWindow512MiBV1),
             _ => Err(format!(
                 "Unsupported mapping from {:?} to PoSt-window RegisteredProof",
                 self
             )),
         }
     }
+}
 
-    /// RegisteredSealProof produces the seal-specific RegisteredProof corresponding
-    /// to the receiving RegisteredProof.
-    pub fn registered_seal_proof(self) -> RegisteredProof {
-        use RegisteredProof::*;
-        match self {
-            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => {
-                StackedDRG64GiBSeal
+macro_rules! i64_conversion {
+    ($ty:ident; $( $var:ident => $val:expr, )*) => {
+        impl From<i64> for $ty {
+            fn from(value: i64) -> Self {
+                match value {
+                    $( $val => $ty::$var, )*
+                    other => $ty::Invalid(other),
+                }
             }
-            StackedDRG32GiBSeal
-            | StackedDRG32GiBPoSt
-            | StackedDRG32GiBWindowPoSt
-            | StackedDRG32GiBWinningPoSt => StackedDRG32GiBSeal,
-            StackedDRG2KiBSeal
-            | StackedDRG2KiBPoSt
-            | StackedDRG2KiBWindowPoSt
-            | StackedDRG2KiBWinningPoSt => StackedDRG2KiBSeal,
-            StackedDRG8MiBSeal
-            | StackedDRG8MiBPoSt
-            | StackedDRG8MiBWindowPoSt
-            | StackedDRG8MiBWinningPoSt => StackedDRG8MiBSeal,
-            StackedDRG512MiBSeal
-            | StackedDRG512MiBPoSt
-            | StackedDRG512MiBWindowPoSt
-            | StackedDRG512MiBWinningPoSt => StackedDRG512MiBSeal,
+        }
+        impl From<$ty> for i64 {
+            fn from(proof: $ty) -> Self {
+                match proof {
+                    $( $ty::$var => $val, )*
+                    $ty::Invalid(other) => other,
+                }
+            }
         }
     }
 }
 
-impl Default for RegisteredProof {
-    fn default() -> Self {
-        RegisteredProof::StackedDRG2KiBPoSt
-    }
+i64_conversion! {
+    RegisteredPoStProof;
+    StackedDRGWinning2KiBV1 => 0,
+    StackedDRGWinning8MiBV1 => 1,
+    StackedDRGWinning512MiBV1 => 2,
+    StackedDRGWinning32GiBV1 => 3,
+    StackedDRGWinning64GiBV1 => 4,
+    StackedDRGWindow2KiBV1 => 5,
+    StackedDRGWindow8MiBV1 => 6,
+    StackedDRGWindow512MiBV1 => 7,
+    StackedDRGWindow32GiBV1 => 8,
+    StackedDRGWindow64GiBV1 => 9,
 }
 
-impl From<RegisteredProof> for RegisteredSealProof {
-    fn from(p: RegisteredProof) -> Self {
-        use RegisteredProof::*;
+i64_conversion! {
+    RegisteredSealProof;
+    StackedDRG2KiBV1 => 0,
+    StackedDRG512MiBV1 => 1,
+    StackedDRG8MiBV1 => 2,
+    StackedDRG32GiBV1 => 3,
+    StackedDRG64GiBV1 => 4,
+}
 
+impl TryFrom<RegisteredSealProof> for proofs::RegisteredSealProof {
+    type Error = String;
+    fn try_from(p: RegisteredSealProof) -> Result<Self, Self::Error> {
+        use RegisteredSealProof::*;
         match p {
-            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => {
-                RegisteredSealProof::StackedDrg64GiBV1
-            }
-            StackedDRG32GiBSeal
-            | StackedDRG32GiBPoSt
-            | StackedDRG32GiBWindowPoSt
-            | StackedDRG32GiBWinningPoSt => RegisteredSealProof::StackedDrg32GiBV1,
-            StackedDRG2KiBSeal
-            | StackedDRG2KiBPoSt
-            | StackedDRG2KiBWindowPoSt
-            | StackedDRG2KiBWinningPoSt => RegisteredSealProof::StackedDrg2KiBV1,
-            StackedDRG8MiBSeal
-            | StackedDRG8MiBPoSt
-            | StackedDRG8MiBWindowPoSt
-            | StackedDRG8MiBWinningPoSt => RegisteredSealProof::StackedDrg8MiBV1,
-            StackedDRG512MiBSeal
-            | StackedDRG512MiBPoSt
-            | StackedDRG512MiBWindowPoSt
-            | StackedDRG512MiBWinningPoSt => RegisteredSealProof::StackedDrg512MiBV1,
+            StackedDRG64GiBV1 => Ok(Self::StackedDrg64GiBV1),
+            StackedDRG32GiBV1 => Ok(Self::StackedDrg32GiBV1),
+            StackedDRG2KiBV1 => Ok(Self::StackedDrg2KiBV1),
+            StackedDRG8MiBV1 => Ok(Self::StackedDrg8MiBV1),
+            StackedDRG512MiBV1 => Ok(Self::StackedDrg512MiBV1),
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
         }
     }
 }
 
-impl From<RegisteredProof> for RegisteredPoStProof {
-    fn from(p: RegisteredProof) -> Self {
-        use RegisteredProof::*;
-
+impl TryFrom<RegisteredPoStProof> for proofs::RegisteredPoStProof {
+    type Error = String;
+    fn try_from(p: RegisteredPoStProof) -> Result<Self, Self::Error> {
+        use RegisteredPoStProof::*;
         match p {
-            StackedDRG64GiBSeal | StackedDRG64GiBWindowPoSt | StackedDRG64GiBWinningPoSt => {
-                RegisteredPoStProof::StackedDrgWindow64GiBV1
-            }
-            StackedDRG32GiBSeal
-            | StackedDRG32GiBPoSt
-            | StackedDRG32GiBWindowPoSt
-            | StackedDRG32GiBWinningPoSt => RegisteredPoStProof::StackedDrgWindow32GiBV1,
-            StackedDRG2KiBSeal
-            | StackedDRG2KiBPoSt
-            | StackedDRG2KiBWindowPoSt
-            | StackedDRG2KiBWinningPoSt => RegisteredPoStProof::StackedDrgWindow2KiBV1,
-            StackedDRG8MiBSeal
-            | StackedDRG8MiBPoSt
-            | StackedDRG8MiBWindowPoSt
-            | StackedDRG8MiBWinningPoSt => RegisteredPoStProof::StackedDrgWindow8MiBV1,
-            StackedDRG512MiBSeal
-            | StackedDRG512MiBPoSt
-            | StackedDRG512MiBWindowPoSt
-            | StackedDRG512MiBWinningPoSt => RegisteredPoStProof::StackedDrgWindow512MiBV1,
+            StackedDRGWinning2KiBV1 => Ok(Self::StackedDrgWinning2KiBV1),
+            StackedDRGWinning8MiBV1 => Ok(Self::StackedDrgWinning8MiBV1),
+            StackedDRGWinning512MiBV1 => Ok(Self::StackedDrgWinning512MiBV1),
+            StackedDRGWinning32GiBV1 => Ok(Self::StackedDrgWinning32GiBV1),
+            StackedDRGWinning64GiBV1 => Ok(Self::StackedDrgWinning64GiBV1),
+            StackedDRGWindow2KiBV1 => Ok(Self::StackedDrgWindow2KiBV1),
+            StackedDRGWindow8MiBV1 => Ok(Self::StackedDrgWindow8MiBV1),
+            StackedDRGWindow512MiBV1 => Ok(Self::StackedDrgWindow512MiBV1),
+            StackedDRGWindow32GiBV1 => Ok(Self::StackedDrgWindow32GiBV1),
+            StackedDRGWindow64GiBV1 => Ok(Self::StackedDrgWindow64GiBV1),
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use encoding::*;
+impl Serialize for RegisteredPoStProof {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        i64::from(*self).serialize(serializer)
+    }
+}
 
-    #[test]
-    fn round_trip_proof_ser() {
-        let bz = to_vec(&RegisteredProof::StackedDRG512MiBSeal).unwrap();
-        let proof: RegisteredProof = from_slice(&bz).unwrap();
-        assert_eq!(proof, RegisteredProof::StackedDRG512MiBSeal);
+impl<'de> Deserialize<'de> for RegisteredPoStProof {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let val = i64::deserialize(deserializer)?;
+        Ok(Self::from(val))
+    }
+}
+
+impl Serialize for RegisteredSealProof {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        i64::from(*self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for RegisteredSealProof {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let val = i64::deserialize(deserializer)?;
+        Ok(Self::from(val))
     }
 }
