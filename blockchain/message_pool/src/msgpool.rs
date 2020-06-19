@@ -21,12 +21,9 @@ use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use vm::ActorState;
 
-/// TODO after subscribe head changes is done, re-go over logic to make sure that all functions are
-/// connected where needed as well as implement all uses of subscribe head changes
-
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct MsgSet {
     msgs: HashMap<u64, SignedMessage>,
     next_nonce: u64,
@@ -44,13 +41,10 @@ impl MsgSet {
     /// Add a signed message to the MsgSet. Increase next_nonce if the message has a nonce greater
     /// than any existing message nonce.
     pub fn add(&mut self, m: &SignedMessage) -> Result<(), Error> {
-        println!("this is the sequence {}", m.sequence());
-        println!("this is the next nonce {}", self.next_nonce);
         if self.msgs.is_empty() || m.sequence() >= self.next_nonce {
             self.next_nonce = m.sequence() + 1;
         }
         if self.msgs.contains_key(&m.sequence()) {
-            // need to fix in the event that there's an err raised from calling this next line
             let exms = self.msgs.get(&m.sequence()).unwrap();
             if m.cid().map_err(|err| Error::Other(err.to_string()))?
                 != exms.cid().map_err(|err| Error::Other(err.to_string()))?
@@ -71,22 +65,29 @@ impl MsgSet {
     }
 }
 
+/// Trait documentation for
 pub trait Provider {
+    /// Return the tipset that will be used for the Messagepool cur_tipset during the creation of a
+    /// Messagepool
     fn subscribe_head_changes(&mut self) -> Tipset;
+    /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
+    /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
+    /// at. Return ActorState or Error depending on whether or not ActorState is found
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
-    // fn state_account_key(&self, addr: &Address, ts: Tipset) -> Result<Address, Error>; // TODO dunno how to do this
+    /// Return the signed messages for given blockheader
     fn messages_for_block(
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
+    /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>;
-    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>; // TODO dunno how to do this
+    /// Return a tipset given the tipset keys from the ChainStore
+    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>;
 }
 
 /// This is the mpool provider struct that will let us access and add messages to messagepool.
-/// future TODO is to add a pubsub field to allow for publishing updates. Future TODO is also to
-/// add a subscribe_head_change function in order to actually get a functioning messagepool
+/// future TODO is to add a pubsub field to allow for publishing updates.
 pub struct MpoolProvider<DB> {
     cs: ChainStore<DB>,
 }
@@ -107,23 +108,23 @@ impl<DB> Provider for MpoolProvider<DB>
 where
     DB: BlockStore,
 {
-    // TODO find a way to get this function to periodically check for head changes in cs and update
-    // msgpool accordingly
+    /// TODO find a way to get this function to periodically check for head changes in cs and update
+    /// msgpool accordingly or find a way to have an async function always running in the background
+    /// checking for newly published tipset and add it to msgpool
     fn subscribe_head_changes(&mut self) -> Tipset {
         if self.cs.heaviest_tipset().is_none() {
             task::block_on(async {
                 let mut subscriber = self.cs.subscribe();
                 loop {
                     let sub = subscriber.next().await;
-                    if sub.is_some() {
-                        if self
+                    if sub.is_some()
+                        && self
                             .cs
                             .set_heaviest_tipset(sub.unwrap().clone())
                             .await
                             .is_ok()
-                        {
-                            break;
-                        }
+                    {
+                        break;
                     }
                 }
             });
@@ -131,7 +132,6 @@ where
         self.cs.heaviest_tipset().unwrap().as_ref().clone()
     }
 
-    /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
         let cid = self
             .cs
@@ -141,8 +141,6 @@ where
         Ok(cid)
     }
 
-    /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
-    /// at. Return ActorState or Error depending on whether or not ActorState is found
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
             .map_err(Error::Other)?;
@@ -153,7 +151,6 @@ where
         }
     }
 
-    /// Return the signed messages for given blockheader
     fn messages_for_block(
         &self,
         h: &BlockHeader,
@@ -161,7 +158,6 @@ where
         chain::block_messages(self.cs.blockstore(), h).map_err(|err| Error::Other(err.to_string()))
     }
 
-    /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
         let mut umsg: Vec<UnsignedMessage> = Vec::new();
         let mut msg: Vec<SignedMessage> = Vec::new();
@@ -178,7 +174,6 @@ where
         Ok(umsg)
     }
 
-    /// Return a tipset given the tipset keys from the ChainStore
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
         self.cs
             .tipset_from_keys(tsk)
@@ -186,20 +181,17 @@ where
     }
 }
 
-/// This is the main MessagePool struct TODO async safety as well as get a tipset for the cur_tipset
-/// field. This can only be done when subscribe to new heads has been completed
+/// This is the main MessagePool struct TODO async safety
 pub struct MessagePool<T> {
-    // need to inquire about closer in golang and rust equivalent
     local_addrs: Vec<Address>,
     pending: HashMap<Address, MsgSet>,
-    pub(crate) cur_tipset: Tipset, // need to wait until pubsub is done
-    api: T,                        // will need to replace with provider type
+    pub(crate) cur_tipset: Tipset,
+    api: T,
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
     pub network_name: String,
     bls_sig_cache: LruCache<Cid, Signature>,
     sig_val_cache: LruCache<String, ()>,
-    // this will be a hashmap where the key is msg.cid.bytes.to_string and the value is a byte vec
     local_msgs: HashMap<Vec<u8>, SignedMessage>,
 }
 
@@ -207,7 +199,7 @@ impl<T> MessagePool<T>
 where
     T: Provider,
 {
-    /// Create a new MessagePool. This is not yet functioning as per the outlined TODO above
+    /// Create a new message pool
     pub fn new(mut api: T, network_name: String) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -232,8 +224,9 @@ where
         Ok(mp)
     }
 
+    /// Add a signed message to local_addrs and local_msgs
     fn add_local(&mut self, m: &SignedMessage, msgb: Vec<u8>) -> Result<(), Error> {
-        self.local_addrs.push(m.from().clone());
+        self.local_addrs.push(*m.from());
         self.local_msgs.insert(msgb, m.clone());
         Ok(())
     }
@@ -273,7 +266,7 @@ where
 
     /// Add a SignedMessage without doing any of the checks
     pub fn add_skip_checks(&mut self, m: SignedMessage) -> Result<(), Error> {
-        self.add_locked(m)
+        self.add_helper(m)
     }
 
     /// Return the string representation of the message signature
@@ -290,13 +283,13 @@ where
                     .unwrap()
                     .to_bytes()
                     .into_iter()
-                    .map(|b| char::from(b))
+                    .map(char::from)
                     .collect::<String>();
                 beginning += &msg
                     .signature()
                     .bytes()
-                    .into_iter()
-                    .map(|b| char::from(b.clone()))
+                    .iter()
+                    .map(|b| char::from(*b))
                     .collect::<String>();
                 Ok(beginning)
             }
@@ -339,13 +332,13 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_locked(msg)
+        self.add_helper(msg)
     }
 
     /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
     /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
     /// and push it to the pending hashmap
-    fn add_locked(&mut self, msg: SignedMessage) -> Result<(), Error> {
+    fn add_helper(&mut self, msg: SignedMessage) -> Result<(), Error> {
         if msg.signature().signature_type() == SignatureType::BLS {
             self.bls_sig_cache.put(
                 msg.cid().map_err(|err| Error::Other(err.to_string()))?,
@@ -368,17 +361,15 @@ where
                 let mut mset = MsgSet::new();
                 mset.add(&msg)
                     .map_err(|err| Error::Other(err.to_string()))?;
-                self.pending.insert(msg.message().from().clone(), mset);
+                self.pending.insert(*msg.message().from(), mset);
             }
         }
         Ok(())
     }
 
+    /// Get the nonce for a given address, return Error if there is a failure to retrieve nonce
     pub fn get_nonce(&self, addr: &Address) -> Result<u64, Error> {
-        self.get_nonce_locked(addr, &self.cur_tipset)
-    }
-
-    fn get_nonce_locked(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
+        let cur_ts = &self.cur_tipset;
         let state_nonce = self.get_state_nonce(addr, cur_ts)?;
 
         match self.pending.get(addr) {
@@ -402,14 +393,8 @@ where
         // of the params for this method and just use the chain head
         let msgs = self.api.messages_for_tipset(cur_ts)?;
         for m in msgs {
-            println!("this the base_nonce: {}", base_nonce);
             if m.from() == addr {
                 if m.sequence() != base_nonce {
-                    println!(
-                        "this is the nonce: {} and this is the base_nonce: {}",
-                        m.sequence(),
-                        base_nonce
-                    );
                     return Err(Error::Other("tipset has bad nonce ordering".to_string()));
                 }
                 base_nonce += 1;
@@ -425,6 +410,7 @@ where
         Ok(BigInt::from(actor.balance))
     }
 
+    /// Remove a message given a nonce and address from the messagepool
     pub fn remove(&mut self, from: &Address, sequence: u64) -> Result<(), Error> {
         let mset = self.pending.get_mut(from).unwrap();
         mset.msgs.remove(&sequence);
@@ -448,8 +434,6 @@ where
 
     /// Return a tuple that contains a vector of all signed messages and the current tipset for
     /// self.
-    /// TODO when subscribe head changes is completed, change the return type parameters and refactor
-    /// TODO need to see if after this function is run, clear out the pending field in self
     pub fn pending(&self) -> (Vec<SignedMessage>, Tipset) {
         let mut out: Vec<SignedMessage> = Vec::new();
         for (addr, _) in self.pending.clone() {
@@ -511,7 +495,7 @@ where
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
     /// most likely need to be implemented
     pub fn estimate_gas_price(&self, nblocksincl: u64) -> Result<BigInt, Error> {
-        // TODO: something different, this is what lotus has and there is a TODO there too
+        // TODO possibly come up with a smarter way to estimate the gas price
         let min_gas_price = 0;
         match nblocksincl {
             0 => Ok(BigInt::from(min_gas_price + 2)),
@@ -536,6 +520,8 @@ where
         Ok(())
     }
 
+    /// This is a helper method for head_change. This method will remove a nonce for a from address
+    /// from rmsgs
     fn rm(
         &mut self,
         from: &Address,
@@ -544,7 +530,7 @@ where
     ) {
         let s = rmsgs.get_mut(from);
         if s.is_none() {
-            self.remove(from, nonce).map_err(|_| ());
+            self.remove(from, nonce).ok();
             return;
         }
         let temp = s.unwrap();
@@ -552,10 +538,10 @@ where
             temp.remove(&nonce);
             return;
         }
-        self.remove(from, nonce);
+        self.remove(from, nonce).ok();
     }
 
-    /// this function will revert and/or apply tipsets to the message pool. This function should be
+    /// This function will revert and/or apply tipsets to the message pool. This function should be
     /// called every time that there is a head change in the message pool
     pub fn head_change(&mut self, revert: Vec<Tipset>, apply: Vec<Tipset>) -> Result<(), Error> {
         let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
@@ -585,19 +571,20 @@ where
 
         for (_, hm) in rmsgs {
             for (_, msg) in hm {
-                self.add_skip_checks(msg).map_err(|_| ());
+                self.add_skip_checks(msg).ok();
             }
         }
         Ok(())
     }
 }
 
+/// This function is a helper method for head_change. This method will add a signed message to rmsgs
 fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
     let s = rmsgs.get_mut(m.from());
     if s.is_none() {
         let mut temp = HashMap::new();
         temp.insert(m.sequence(), m.clone());
-        rmsgs.insert(m.from().clone(), temp);
+        rmsgs.insert(*m.from(), temp);
         return;
     }
     let temp = s.unwrap();
@@ -649,11 +636,11 @@ mod tests {
             Tipset::new(vec![create_header(1, b"", b"")]).unwrap()
         }
 
-        fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Errors> {
+        fn put_message(&self, _msg: &SignedMessage) -> Result<Cid, Errors> {
             Ok(Cid::default())
         }
 
-        fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Errors> {
+        fn state_get_actor(&self, addr: &Address, _ts: &Tipset) -> Result<ActorState, Errors> {
             let s = self.state_nonce.get(addr);
             let mut sequence = 0;
             if s.is_some() {
@@ -697,7 +684,6 @@ mod tests {
 
         fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Errors> {
             for ts in &self.tipsets {
-                println!("{:?} ------- {:?}", tsk.cids, ts.cids());
                 if tsk.cids == ts.cids() {
                     return Ok(ts.clone());
                 }
@@ -762,7 +748,6 @@ mod tests {
         let c =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
-        // let parents_of = parents.parents().clone();
         let height = parents.epoch() + 1;
 
         let mut weight_inc = BigUint::from(weight);
@@ -796,7 +781,7 @@ mod tests {
         let mut tma = TestApi::new();
         tma.set_state_nonce(&sender, 0);
 
-        let mut mempool = MessagePool::new(tma, "mptest".to_string()).unwrap();
+        let mut mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
 
         let mut smsg_vec = Vec::new();
         for i in 0..4 {
@@ -804,22 +789,24 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        assert_eq!(mempool.get_nonce(&sender).unwrap(), 0);
-        mempool.push(&smsg_vec[0]).unwrap();
-        assert_eq!(mempool.get_nonce(&sender).unwrap(), 1);
-        mempool.push(&smsg_vec[1]).unwrap();
-        assert_eq!(mempool.get_nonce(&sender).unwrap(), 2);
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 0);
+        mpool.push(&smsg_vec[0]).unwrap();
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 1);
+        mpool.push(&smsg_vec[1]).unwrap();
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 2);
+        mpool.push(&smsg_vec[2]).unwrap();
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 3);
+        mpool.push(&smsg_vec[3]).unwrap();
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 4);
 
         let a = mock_block(1, 1);
 
-        mempool
-            .api
-            .set_block_messages(&a, vec![smsg_vec[0].clone(), smsg_vec[1].clone()]);
-        mempool
+        mpool.api.set_block_messages(&a, smsg_vec);
+        mpool
             .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
             .unwrap();
 
-        assert_eq!(mempool.get_nonce(&sender).unwrap(), 2);
+        assert_eq!(mpool.get_nonce(&sender).unwrap(), 4);
     }
 
     #[test]
@@ -830,10 +817,8 @@ mod tests {
 
         let a = mock_block(1, 1);
         let tipset = Tipset::new(vec![a.clone()]).unwrap();
-        println!("this is the cid {:?}", tipset.cids());
         let b = mock_block_with_parents(tipset, 1, 1);
 
-        println!("{:?}", b.parents().cids);
         let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
         let target = Address::new_id(1001);
 
