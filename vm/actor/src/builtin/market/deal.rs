@@ -70,5 +70,5 @@ pub struct ClientDealProposal {
 pub struct DealState {
     pub sector_start_epoch: ChainEpoch, // -1 if not yet included in proven sector
     pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated
-    pub slash_epoch: ChainEpoch, // -1 if deal never slashed
+    pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
 }
