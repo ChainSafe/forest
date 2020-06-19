@@ -851,15 +851,14 @@ impl Actor {
 
         let old_expiration = sector.info.expiration;
         let storage_weight_desc_prev = to_storage_weight_desc(st.info.sector_size, &sector);
-        let extension_len = params
-            .new_expiration
-            .checked_sub(old_expiration)
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    "cannot reduce sector expiration".to_owned(),
-                )
-            })?;
+        let extension_len = params.new_expiration - old_expiration;
+
+        if extension_len < 0 {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!("cannot reduce sector expiration {}", extension_len),
+            ));
+        }
 
         let mut storage_weight_desc_new = storage_weight_desc_prev.clone();
         storage_weight_desc_new.duration = storage_weight_desc_prev.duration + extension_len;
@@ -1312,16 +1311,17 @@ impl Actor {
             })?;
 
         // Elapsed since the fault (i.e. since the higher of the two blocks)
-        let fault_age = rt.curr_epoch().checked_sub(fault.epoch).ok_or_else(|| {
-            ActorError::new(
+        let fault_age = rt.curr_epoch() - fault.epoch;
+        if fault_age <= 0 {
+            return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 format!(
                     "invalid fault epoch {} ahead of current {}",
                     fault.epoch,
                     rt.curr_epoch()
                 ),
-            )
-        })?;
+            ));
+        }
 
         let st: State = rt.state()?;
 
@@ -1566,12 +1566,8 @@ where
                 })?;
 
             if !new_sectors.is_empty() {
-                let randomness_epoch = std::cmp::min(
-                    deadline.period_end(),
-                    rt.curr_epoch()
-                        .checked_sub(ELECTION_LOOKBACK)
-                        .unwrap_or_default(),
-                );
+                let randomness_epoch =
+                    std::cmp::min(deadline.period_end(), rt.curr_epoch() - ELECTION_LOOKBACK);
                 let assignment_seed =
                     rt.get_randomness(WindowPoStDeadlineAssignment, randomness_epoch, &[])?;
                 assign_new_sectors(
