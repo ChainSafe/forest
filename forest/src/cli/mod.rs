@@ -31,6 +31,19 @@ pub struct CLI {
     pub cmd: Option<Subcommand>,
 }
 
+/// Forest binary subcommands available.
+#[derive(StructOpt)]
+pub enum Subcommand {
+    #[structopt(
+        name = "fetch-params",
+        about = "Download parameters for generating and verifying proofs for given size"
+    )]
+    FetchParams {
+        #[structopt(help = "Size in bytes")]
+        params_size: String,
+    },
+}
+
 /// Daemon process command line options.
 #[derive(StructOpt, Debug)]
 pub struct DaemonOpts {
@@ -58,19 +71,6 @@ impl DaemonOpts {
 
         Ok(cfg)
     }
-}
-
-/// Forest binary subcommands available.
-#[derive(StructOpt)]
-pub enum Subcommand {
-    #[structopt(
-        name = "fetch-params",
-        about = "Download parameters for generating and verifying proofs for given size"
-    )]
-    FetchParams {
-        #[structopt(help = "Size in bytes")]
-        params_size: i64,
-    },
 }
 
 /// Blocks current thread until ctrl-c is received
