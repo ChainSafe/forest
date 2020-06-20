@@ -2,10 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::Subcommand;
+use fil_types::SectorSize;
 
 /// Converts a human readable string to a u64 size.
-fn ram_to_int(_size: &str) -> Result<u64, String> {
-    todo!()
+fn ram_to_int(size: &str) -> Result<SectorSize, String> {
+    // TODO there is no library to do this, but if other sector sizes are supported in future
+    // this should probably be changed to parse from string to `SectorSize`
+    let mut trimmed = size.trim_end_matches("B");
+    trimmed = trimmed.trim_end_matches("b");
+
+    match trimmed {
+        "2048" | "2Ki" | "2ki" => Ok(SectorSize::_2KiB),
+        "8Mi" | "8mi" => Ok(SectorSize::_8MiB),
+        "512Mi" | "512mi" => Ok(SectorSize::_512MiB),
+        "32Gi" | "32gi" => Ok(SectorSize::_32GiB),
+        "64Gi" | "64gi" => Ok(SectorSize::_64GiB),
+        _ => Err(format!(
+            "Failed to parse: {}. Must be a valid sector size",
+            size
+        )),
+    }
 }
 
 /// Process CLI subcommand
@@ -24,12 +40,13 @@ mod tests {
 
     #[test]
     fn ram_str_conversions() {
-        assert_eq!(ram_to_int("2048").unwrap(), 2048);
-        assert_eq!(ram_to_int("2048B").unwrap(), 2048);
-        assert_eq!(ram_to_int("2kib").unwrap(), 2048);
-        assert_eq!(ram_to_int("2KB").unwrap(), 2000);
-        assert_eq!(ram_to_int("512MiB").unwrap(), 512 * 2 << 20);
-        assert_eq!(ram_to_int("32Gi").unwrap(), 2 << 30);
-        assert_eq!(ram_to_int("32GiB").unwrap(), 2 << 30);
+        assert_eq!(ram_to_int("2048").unwrap(), SectorSize::_2KiB);
+        assert_eq!(ram_to_int("2048B").unwrap(), SectorSize::_2KiB);
+        assert_eq!(ram_to_int("2kib").unwrap(), SectorSize::_2KiB);
+        assert_eq!(ram_to_int("8Mib").unwrap(), SectorSize::_8MiB);
+        assert_eq!(ram_to_int("512MiB").unwrap(), SectorSize::_512MiB);
+        assert_eq!(ram_to_int("32Gi").unwrap(), SectorSize::_32GiB);
+        assert_eq!(ram_to_int("32GiB").unwrap(), SectorSize::_32GiB);
+        assert_eq!(ram_to_int("64Gib").unwrap(), SectorSize::_64GiB);
     }
 }
