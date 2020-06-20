@@ -13,7 +13,7 @@ use num_traits::{Pow, Zero};
 use vm::TokenAmount;
 
 /// The period over which all a miner's active sectors will be challenged.
-pub const WPOST_PROVING_PERIOD: ChainEpoch = SECONDS_IN_DAY / EPOCH_DURATION_SECONDS;
+pub const WPOST_PROVING_PERIOD: ChainEpoch = EPOCHS_IN_DAY;
 /// The duration of a deadline's challenge window, the period before a deadline when the challenge is available.
 pub const WPOST_CHALLENGE_WINDOW: ChainEpoch = 40 * 60 / EPOCH_DURATION_SECONDS; // Half an hour (=48 per day)
 /// The number of non-overlapping PoSt deadlines in each proving period.

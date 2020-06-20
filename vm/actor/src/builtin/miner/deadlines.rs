@@ -11,7 +11,7 @@ use vm::Randomness;
 /// "Deadline" refers to the window during which proofs may be submitted.
 /// Windows are non-overlapping ranges [Open, Close), but the challenge epoch for a window occurs before
 /// the window opens.
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq)]
 pub struct DeadlineInfo {
     /// Epoch at which this info was calculated.
     pub current_epoch: ChainEpoch,
@@ -20,9 +20,9 @@ pub struct DeadlineInfo {
     /// Current deadline index, in [0..WPoStProvingPeriodDeadlines).
     pub index: usize,
     /// First epoch from which a proof may be submitted, inclusive (>= CurrentEpoch).
-    open: ChainEpoch,
+    pub open: ChainEpoch,
     /// First epoch from which a proof may no longer be submitted, exclusive (>= Open).
-    close: ChainEpoch,
+    pub close: ChainEpoch,
     /// Epoch at which to sample the chain for challenge (< Open).
     pub challenge: ChainEpoch,
     /// First epoch at which a fault declaration is rejected (< Open).
@@ -94,14 +94,17 @@ pub fn compute_proving_period_deadline(
         // Proving period has completely elapsed.
         return DeadlineInfo::new(period_start, WPOST_PERIOD_DEADLINES, current_epoch);
     }
-    let deadline_idx = period_progress / WPOST_CHALLENGE_WINDOW;
+    let mut deadline_idx = period_progress / WPOST_CHALLENGE_WINDOW;
+    if period_progress < 0 {
+        deadline_idx = 0;
+    }
     DeadlineInfo::new(period_start, deadline_idx as usize, current_epoch)
 }
 /// Computes the first partition index and number of sectors for a deadline.
 /// Partitions are numbered globally for the miner, not per-deadline.
 /// If the deadline has no sectors, the first partition index is the index that a partition at that deadline would
 /// have, if non-empty (and sectorCount is zero).
-fn parititions_for_deadline(
+pub fn partitions_for_deadline(
     d: &mut Deadlines,
     partition_size: usize,
     deadline_idx: usize,
@@ -151,7 +154,7 @@ pub fn compute_partitions_sector(
     partitions: &[u64],
 ) -> Result<Vec<BitField>, String> {
     let (deadline_first_partition, deadline_sector_count) =
-        parititions_for_deadline(&mut d, partition_size as usize, deadline_idx)?;
+        partitions_for_deadline(&mut d, partition_size as usize, deadline_idx)?;
     let deadline_partition_count = (deadline_sector_count + partition_size - 1) / partition_size;
     // Work out which sector numbers the partitions correspond to.
     let deadline_sectors = d
