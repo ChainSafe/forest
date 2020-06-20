@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::Subcommand;
+use super::paramfetch::get_params_default;
 use fil_types::SectorSize;
 
 /// Converts a human readable string to a u64 size.
@@ -13,10 +14,10 @@ fn ram_to_int(size: &str) -> Result<SectorSize, String> {
 
     match trimmed {
         "2048" | "2Ki" | "2ki" => Ok(SectorSize::_2KiB),
-        "8Mi" | "8mi" => Ok(SectorSize::_8MiB),
-        "512Mi" | "512mi" => Ok(SectorSize::_512MiB),
-        "32Gi" | "32gi" => Ok(SectorSize::_32GiB),
-        "64Gi" | "64gi" => Ok(SectorSize::_64GiB),
+        "8388608" | "8Mi" | "8mi" => Ok(SectorSize::_8MiB),
+        "536870912" | "512Mi" | "512mi" => Ok(SectorSize::_512MiB),
+        "34359738368" | "32Gi" | "32gi" => Ok(SectorSize::_32GiB),
+        "68719476736" | "64Gi" | "64gi" => Ok(SectorSize::_64GiB),
         _ => Err(format!(
             "Failed to parse: {}. Must be a valid sector size",
             size
@@ -28,7 +29,8 @@ fn ram_to_int(size: &str) -> Result<SectorSize, String> {
 pub(super) fn process(command: Subcommand) {
     match command {
         Subcommand::FetchParams { params_size } => {
-            let _sector_size = ram_to_int(&params_size).unwrap();
+            let sector_size = ram_to_int(&params_size).unwrap();
+            get_params_default(sector_size).unwrap();
             todo!()
         }
     }
