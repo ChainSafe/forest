@@ -11,7 +11,7 @@ use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
-use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use runtime::{ActorCode, ConsensusFault, Runtime, Syscalls};
@@ -615,7 +615,7 @@ where
     }
     fn compute_unsealed_sector_cid(
         &self,
-        _reg: RegisteredProof,
+        _reg: RegisteredSealProof,
         _pieces: &[PieceInfo],
     ) -> Result<Cid, Box<dyn StdError>> {
         unimplemented!();
