@@ -20,7 +20,7 @@ use derive_builder::Builder;
 use encoding::to_vec;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
-use num_bigint::{BigInt, Sign};
+use num_bigint::BigInt;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
 const R_PAYEE_ADDR: u64 = 103;
@@ -80,7 +80,6 @@ mod paych_constructor {
         let caller_addr = Address::new_id(TEST_CALLER_ADDR);
         let bs = MemoryDB::default();
         let mut rt = construct_runtime(&bs);
-
         rt.actor_code_cids
             .insert(caller_addr, ACCOUNT_ACTOR_CODE_ID.clone());
         construct_and_verify(&mut rt, Address::new_id(TEST_PAYER_ADDR), caller_addr);
@@ -90,13 +89,11 @@ mod paych_constructor {
     fn actor_doesnt_exist_test() {
         let bs = MemoryDB::default();
         let mut rt = construct_runtime(&bs);
-
         rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
         let params = ConstructorParams {
             to: Address::new_id(TEST_PAYCH_ADDR),
             from: Address::new_id(TEST_PAYER_ADDR),
         };
-
         expect_error(
             &mut rt,
             METHOD_CONSTRUCTOR,
@@ -427,14 +424,10 @@ mod update_channel_state_redeem {
 
         let state: PState = rt.get_state().unwrap();
         let ls_updated: &LaneState = &state.lane_states[1];
-        let big_delta =
-            &sv.amount - BigInt::from_signed_bytes_be(&ls_to_update.redeemed.to_signed_bytes_be());
+        let big_delta = &sv.amount - &ls_to_update.redeemed;
 
-        let exp_send = big_delta + BigInt::from_signed_bytes_be(&initial_amount.to_radix_be(10));
-        assert_eq!(
-            exp_send,
-            BigInt::from_radix_be(Sign::Plus, &state.to_send.to_radix_be(10), 10).unwrap()
-        );
+        let exp_send = big_delta.to_biguint().unwrap() + &initial_amount;
+        assert_eq!(exp_send, state.to_send);
         assert_eq!(sv.amount, ls_updated.redeemed);
         assert_eq!(sv.nonce, ls_updated.nonce);
     }
