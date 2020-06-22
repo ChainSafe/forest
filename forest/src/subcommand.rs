@@ -3,6 +3,7 @@
 
 use super::cli::Subcommand;
 use super::paramfetch::get_params_default;
+use async_std::task;
 use fil_types::SectorSize;
 
 /// Converts a human readable string to a u64 size.
@@ -30,7 +31,9 @@ pub(super) fn process(command: Subcommand) {
     match command {
         Subcommand::FetchParams { params_size } => {
             let sector_size = ram_to_int(&params_size).unwrap();
-            get_params_default(sector_size).unwrap();
+            task::block_on(async {
+                get_params_default(sector_size).await.unwrap();
+            });
             todo!()
         }
     }
