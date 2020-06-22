@@ -131,8 +131,8 @@ where
         Ok(())
     }
 
-    /// Generate a new Key that fits the requirement of the given SignatureType
-    pub fn generate_key(&mut self, typ: SignatureType) -> Result<Address, Error> {
+    /// Generate a new Address that fits the requirement of the given SignatureType
+    pub fn generate_addr(&mut self, typ: SignatureType) -> Result<Address, Error> {
         let key = generate_key(typ)?;
         let addr = format!("wallet-{}", key.address.to_string());
         self.keystore.put(addr, key.key_info.clone())?;
@@ -164,14 +164,15 @@ fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 mod tests {
     use super::*;
     use crate::{generate, MemKeyStore};
+    use encoding::blake2b_256;
     use secp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     fn construct_priv_keys() -> Vec<Key> {
         let mut secp_keys = Vec::new();
         let mut bls_keys = Vec::new();
         for _ in 1..5 {
-            let secp_priv_key = generate(SignatureType::Secp256).unwrap();
-            let secp_key_info = KeyInfo::new(SignatureType::Secp256, secp_priv_key);
+            let secp_priv_key = generate(SignatureType::Secp256k1).unwrap();
+            let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
             let secp_key = Key::try_from(secp_key_info).unwrap();
             secp_keys.push(secp_key);
 
@@ -224,17 +225,18 @@ mod tests {
         let priv_key_bytes = key_vec[2].key_info.private_key().clone();
         let addr = key_vec[2].address.clone();
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
-        let msg: [u8; 32] = [
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1,
-        ];
+        let msg = [0u8; 64];
 
         let msg_sig = wallet.sign(&addr, &msg).unwrap();
 
+        let msg_complete = blake2b_256(&msg);
+        let message = SecpMessage::parse(&msg_complete);
         let priv_key = SecpPrivate::parse_slice(&priv_key_bytes).unwrap();
-        let message = SecpMessage::parse_slice(&msg).unwrap();
-        let (sig, _) = secp256k1::sign(&message, &priv_key);
-        let actual = Signature::new_secp256k1(sig.serialize().to_vec());
+        let (sig, recovery_id) = secp256k1::sign(&message, &priv_key);
+        let mut new_bytes = [0; 65];
+        new_bytes[..64].copy_from_slice(&sig.serialize());
+        new_bytes[64] = recovery_id.serialize();
+        let actual = Signature::new_secp256k1(new_bytes.to_vec());
         assert_eq!(msg_sig, actual)
     }
 
@@ -248,15 +250,15 @@ mod tests {
         // test to see if export returns the correct key_info
         assert_eq!(key_info, key.key_info.clone());
 
-        let new_priv_key = generate(SignatureType::Secp256).unwrap();
+        let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
         let pub_key =
-            wallet_helpers::to_public(SignatureType::Secp256, new_priv_key.as_slice()).unwrap();
+            wallet_helpers::to_public(SignatureType::Secp256k1, new_priv_key.as_slice()).unwrap();
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
         let key_info_err = wallet.export(&test_addr).unwrap_err();
         // test to make sure that an error is raised when an incorrect address is added
         assert_eq!(key_info_err, Error::KeyInfo);
 
-        let test_key_info = KeyInfo::new(SignatureType::Secp256, new_priv_key);
+        let test_key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
         // make sure that key_info has been imported to wallet
         assert!(wallet.import(test_key_info.clone()).is_ok());
 
@@ -299,7 +301,7 @@ mod tests {
     #[test]
     fn generate_new_key() {
         let mut wallet = generate_wallet();
-        let addr = wallet.generate_key(SignatureType::BLS).unwrap();
+        let addr = wallet.generate_addr(SignatureType::BLS).unwrap();
         let key = wallet.keystore.get("default").unwrap();
         // make sure that the newly generated key is the default key - checking by key type
         assert_eq!(&SignatureType::BLS, key.key_type());
@@ -320,12 +322,12 @@ mod tests {
         // check to make sure that there is no default
         assert_eq!(wallet.get_default().unwrap_err(), Error::KeyInfo);
 
-        let new_priv_key = generate(SignatureType::Secp256).unwrap();
+        let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
         let pub_key =
-            wallet_helpers::to_public(SignatureType::Secp256, new_priv_key.as_slice()).unwrap();
+            wallet_helpers::to_public(SignatureType::Secp256k1, new_priv_key.as_slice()).unwrap();
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
 
-        let key_info = KeyInfo::new(SignatureType::Secp256, new_priv_key);
+        let key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
         let test_addr_string = format!("wallet-{}", test_addr.to_string());
 
         wallet.keystore.put(test_addr_string, key_info).unwrap();
@@ -335,5 +337,41 @@ mod tests {
 
         // check to make sure that the test_addr is actually the default addr for the wallet
         assert_eq!(wallet.get_default().unwrap(), test_addr);
+    }
+
+    #[test]
+    fn secp_verify() {
+        let secp_priv_key = generate(SignatureType::Secp256k1).unwrap();
+        let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
+        let secp_key = Key::try_from(secp_key_info).unwrap();
+        let addr = secp_key.address.clone();
+        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), vec![secp_key]);
+
+        let msg = [0u8; 64];
+
+        let sig = wallet.sign(&addr, &msg).unwrap();
+        sig.verify(&msg, &addr).unwrap();
+
+        // invalid verify check
+        let invalid_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        assert!(sig.verify(&msg, &invalid_addr).is_err())
+    }
+
+    #[test]
+    fn bls_verify_test() {
+        let bls_priv_key = generate(SignatureType::BLS).unwrap();
+        let bls_key_info = KeyInfo::new(SignatureType::BLS, bls_priv_key);
+        let bls_key = Key::try_from(bls_key_info).unwrap();
+        let addr = bls_key.address.clone();
+        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), vec![bls_key]);
+
+        let msg = [0u8; 64];
+
+        let sig = wallet.sign(&addr, &msg).unwrap();
+        sig.verify(&msg, &addr).unwrap();
+
+        // invalid verify check
+        let invalid_addr = wallet.generate_addr(SignatureType::BLS).unwrap();
+        assert!(sig.verify(&msg, &invalid_addr).is_err())
     }
 }

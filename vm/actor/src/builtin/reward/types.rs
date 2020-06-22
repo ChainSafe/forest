@@ -23,7 +23,7 @@ pub(super) const BASELINE_POWER: u64 = 1 << 50; // 1PiB for testnet, PARAM_FINIS
 pub(super) const MINTING_INPUT_FIXED_POINT: usize = 30;
 
 /// Fixed-point precision (in bits) used internally and for output
-const MINTING_OUTPUT_FIXED_POINT: usize = 97;
+const MINTING_OUTPUT_FIXED_POINT: u64 = 97;
 
 lazy_static! {
     /// Target reward released to each block winner.
@@ -145,7 +145,7 @@ mod tests {
 
     const SECONDS_IN_YEAR: u64 = 31556925;
     const TEST_EPOCH_DURATION_SECONDS: u64 = 30;
-    const MINTING_TEST_VECTOR_PRECISION: usize = 90;
+    const MINTING_TEST_VECTOR_PRECISION: u64 = 90;
 
     // Ported test from specs-actors
     #[test]

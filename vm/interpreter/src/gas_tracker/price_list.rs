@@ -3,7 +3,7 @@
 
 use clock::ChainEpoch;
 use crypto::SignatureType;
-use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
@@ -122,7 +122,7 @@ impl PriceList {
     pub fn on_verify_signature(&self, sig_type: SignatureType, plain_text_size: usize) -> i64 {
         match sig_type {
             SignatureType::BLS => (3 * plain_text_size + 2) as i64,
-            SignatureType::Secp256 => (3 * plain_text_size + 2) as i64,
+            SignatureType::Secp256k1 => (3 * plain_text_size + 2) as i64,
         }
     }
     /// Returns gas required for hashing data
@@ -134,7 +134,7 @@ impl PriceList {
     #[inline]
     pub fn on_compute_unsealed_sector_cid(
         &self,
-        _proof: RegisteredProof,
+        _proof: RegisteredSealProof,
         _pieces: &[PieceInfo],
     ) -> i64 {
         self.compute_unsealed_sector_cid_base

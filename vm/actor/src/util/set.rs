@@ -5,6 +5,7 @@ use crate::{BytesKey, EmptyType, EMPTY_VALUE, HAMT_BIT_WIDTH};
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
+use std::error::Error as StdError;
 
 /// Set is a Hamt with empty values for the purpose of acting as a hash set.
 #[derive(Debug)]
@@ -58,16 +59,20 @@ where
     }
 
     /// Iterates through all keys in the set.
-    pub fn for_each<F>(&self, mut f: F) -> Result<(), String>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        F: FnMut(&BytesKey) -> Result<(), String>,
+        F: FnMut(&BytesKey) -> Result<(), Box<dyn StdError>>,
     {
         // Calls the for each function on the hamt with ignoring the value
-        self.0.for_each(|s, _: EmptyType| f(s))
+        // TODO there are no actor errors used in the generic function yet, but the HAMT for_each
+        // iterator should be Box<dyn Error> to not convert to String and lose exit code
+        Ok(self
+            .0
+            .for_each(|s, _: EmptyType| f(s).map_err(|e| e.to_string()))?)
     }
 
     /// Collects all keys from the set into a vector.
-    pub fn collect_keys(&self) -> Result<Vec<BytesKey>, String> {
+    pub fn collect_keys(&self) -> Result<Vec<BytesKey>, Box<dyn StdError>> {
         let mut ret_keys = Vec::new();
 
         self.for_each(|k| {

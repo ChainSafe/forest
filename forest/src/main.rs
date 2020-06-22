@@ -24,7 +24,7 @@ fn main() {
 
     // Capture CLI inputs
     let cli = cli::CLI::from_args();
-    let mut config = cli.get_config().expect("CLI error");
+    let config = cli.get_config().expect("CLI error");
 
     let net_keypair = match get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair")) {
         Some(kp) => kp,
@@ -56,8 +56,7 @@ fn main() {
         initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
 
     // Libp2p service setup
-    config.network.set_network_name(&network_name);
-    let p2p_service = Libp2pService::new(&config.network, net_keypair);
+    let p2p_service = Libp2pService::new(config.network, net_keypair, &network_name);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 

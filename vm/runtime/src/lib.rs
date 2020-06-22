@@ -11,15 +11,15 @@ use clock::ChainEpoch;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
-    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo, SectorInfo,
-    WindowPoStVerifyInfo,
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredSealProof, SealVerifyInfo,
+    SectorInfo, WindowPoStVerifyInfo,
 };
+use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
     post::verify_window_post,
     seal::{compute_comm_d, verify_seal as proofs_verify_seal},
     PublicReplicaInfo,
 };
-use filecoin_proofs_api::{ProverId, SectorId};
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use log::warn;
@@ -27,7 +27,7 @@ use message::UnsignedMessage;
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
@@ -162,16 +162,16 @@ pub trait Syscalls {
     /// Computes an unsealed sector CID (CommD) from its constituent piece CIDs (CommPs) and sizes.
     fn compute_unsealed_sector_cid(
         &self,
-        proof_type: RegisteredProof,
+        proof_type: RegisteredSealProof,
         pieces: &[PieceInfo],
     ) -> Result<Cid, Box<dyn StdError>> {
         let sum: u64 = pieces.iter().map(|p| p.size.0).sum();
 
-        let ssize = proof_type.sector_size() as u64;
+        let ssize = proof_type.sector_size()? as u64;
 
-        let mut fcp_pieces: Vec<filecoin_proofs_api::PieceInfo> = pieces
+        let mut fcp_pieces: Vec<proofs::PieceInfo> = pieces
             .iter()
-            .map(filecoin_proofs_api::PieceInfo::try_from)
+            .map(proofs::PieceInfo::try_from)
             .collect::<Result<_, &'static str>>()
             .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))?;
 
@@ -191,7 +191,7 @@ pub trait Syscalls {
             }
         }
 
-        let comm_d = compute_comm_d(proof_type.into(), &fcp_pieces)
+        let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)
             .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))?;
 
         Ok(data_commitment_v1_to_cid(&comm_d))
@@ -206,10 +206,16 @@ pub trait Syscalls {
         type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
 
         // collect proof bytes
-        let proofs = &verify_info.proofs.iter().fold(Vec::new(), |mut proof, p| {
-            proof.extend_from_slice(&p.proof_bytes);
-            proof
-        });
+        let proofs: Vec<(proofs::RegisteredPoStProof, &[u8])> = verify_info
+            .proofs
+            .iter()
+            .map(|post| {
+                Ok((
+                    proofs::RegisteredPoStProof::try_from(post.registered_proof)?,
+                    post.proof_bytes.as_slice(),
+                ))
+            })
+            .collect::<Result<_, String>>()?;
 
         // collect replicas
         let replicas = verify_info
@@ -218,7 +224,10 @@ pub trait Syscalls {
             .map::<ReplicaMapResult, _>(|sector_info: &SectorInfo| {
                 let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
                 let replica = PublicReplicaInfo::new(
-                    sector_info.proof.registered_window_post_proof()?.into(),
+                    sector_info
+                        .proof
+                        .registered_window_post_proof()?
+                        .try_into()?,
                     commr,
                 );
                 Ok((SectorId::from(sector_info.sector_number), replica))
@@ -292,7 +301,7 @@ fn verify_seal(vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
     prover_id[..miner_payload.len()].copy_from_slice(&miner_payload);
 
     if !proofs_verify_seal(
-        vi.registered_proof.into(),
+        vi.registered_proof.try_into()?,
         commr,
         commd,
         prover_id,
