@@ -35,7 +35,7 @@ where
     }
     pub fn new_addr(&mut self, typ: SignatureType) -> Result<Address, Error> {
         self.wallet
-            .generate_key(typ)
+            .generate_addr(typ)
             .map_err(|err| Error::WalletError(err.to_string()))
     }
 
