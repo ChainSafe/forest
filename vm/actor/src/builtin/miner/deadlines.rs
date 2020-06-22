@@ -153,7 +153,7 @@ pub fn compute_partitions_sector(
     // Work out which sector numbers the partitions correspond to.
     let deadline_sectors = d
         .due
-        .get_mut(deadline_idx)
+        .get(deadline_idx)
         .ok_or(format!("unable to find deadline: {}", deadline_idx))?;
     let partitions_sectors = partitions
         .iter()
