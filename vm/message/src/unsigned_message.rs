@@ -138,8 +138,18 @@ impl Message for UnsignedMessage {
     fn gas_price(&self) -> &TokenAmount {
         &self.gas_price
     }
+    fn set_gas_price(&mut self,token_amount : TokenAmount)
+    {
+        self.gas_price = token_amount
+       
+    }
     fn gas_limit(&self) -> u64 {
         self.gas_limit
+    }
+
+    fn set_gas_limit(&mut self,token_amount : u64)
+    {
+        self.gas_limit = token_amount
     }
     fn required_funds(&self) -> TokenAmount {
         let total: TokenAmount = self.gas_price() * self.gas_limit();

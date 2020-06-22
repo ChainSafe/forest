@@ -1,0 +1,14 @@
+[package]
+name = "state_api"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+state_manager = { path = "../../blockchain/state_manager" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
+chain = { path = "../../blockchain/chain" }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
+address = { package = "forest_address", path = "../../vm/address" }
+bitfield = { path = "../../utils/bitfield" }
+actor = { path = "../../vm/actor/" }

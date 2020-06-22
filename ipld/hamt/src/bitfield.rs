@@ -87,6 +87,7 @@ impl Bitfield {
         self.0.iter().map(|a| a.count_ones() as usize).sum()
     }
 
+
     pub fn and(self, other: &Self) -> Self {
         Bitfield([
             self.0[0] & other.0[0],

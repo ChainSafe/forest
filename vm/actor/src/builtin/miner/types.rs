@@ -157,3 +157,10 @@ pub struct SectorOnChainInfo {
     #[serde(with = "biguint_ser")]
     pub verified_deal_weight: BigUint,
 }
+
+#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+pub struct ChainSectorInfo
+{
+    pub info : SectorPreCommitInfo,
+    pub id : SectorNumber
+}

@@ -32,3 +32,4 @@ impl From<String> for Error {
         Error::Other(e)
     }
 }
+

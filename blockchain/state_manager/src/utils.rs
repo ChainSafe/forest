@@ -9,6 +9,13 @@ use blockstore::BlockStore;
 use cid::Cid;
 use fil_types::{RegisteredProof, SectorInfo, SectorSize};
 use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
+use ipld_amt::Amt;
+use actor::miner::{MinerInfo,ChainSectorInfo,Deadlines};
+use forest_blocks::Tipset;
+use bitfield::BitField;
+use serde::de::DeserializeOwned;
+
+
 
 pub fn get_sectors_for_winning_post<DB>(
     state_manager: &StateManager<DB>,
@@ -86,7 +93,7 @@ where
         .collect::<Result<Vec<SectorInfo>, _>>()?)
 }
 
-fn get_proving_set_raw<DB>(
+pub fn get_proving_set_raw<DB>(
     state_manager: &StateManager<DB>,
     actor_state: &miner::State,
 ) -> Result<Vec<miner::SectorOnChainInfo>, Error>
@@ -102,4 +109,105 @@ where
     actor_state
         .load_sector_infos(&*state_manager.get_block_store(), &mut not_proving)
         .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
+}
+
+pub fn get_miner_sector_set<DB>(state_manager: &StateManager<DB>,tipset : &Tipset,address : &Address,mut filter : &mut Option<&mut BitField>,filter_out : bool) -> Result<Vec<ChainSectorInfo>, Error> where DB: BlockStore
+{
+    let miner_actor_state: miner::State =
+        state_manager
+            .load_actor_state(&address, &tipset.parent_state())
+            .map_err(|err| {
+                Error::State(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+    load_sectors_from_set(&*state_manager.get_block_store(),&miner_actor_state.sectors,filter,filter_out)
+    
+}
+
+fn load_sectors_from_set<DB>(block_store : &DB,ssc : &Cid,filter : &mut Option<&mut BitField>,filter_out : bool)-> Result<Vec<ChainSectorInfo>, Error> where DB: BlockStore
+{
+    let amt = Amt::load(ssc,block_store).map_err(|err| {
+        Error::State(
+            "Could not load AMT".to_string()
+        )
+    })?;
+
+    let mut sset : Vec<ChainSectorInfo> = Vec::new();
+    let for_each = |i,sector_chain : &miner::SectorOnChainInfo| -> Result<(),String>
+    {
+        if let Some(ref mut s) =filter
+        {
+            if s.get(i)?
+            {
+                return Ok(())
+            }
+            
+        }
+        sset.push(ChainSectorInfo
+        {
+            info : sector_chain.info.clone(),
+            id : i.clone()
+        });
+        Ok(())
+    };
+    amt.for_each(for_each)
+    .map_err(|err| {
+        Error::State(
+            "Could not process for each".to_string()
+        )
+    })?;
+
+    Ok(sset)
+}
+
+
+pub fn get_miner_info<DB>(state_manager: &StateManager<DB>,tipset : &Tipset,address : &Address) -> Result<MinerInfo, Error> where DB: BlockStore
+{
+    let miner_actor_state: miner::State =
+        state_manager
+            .load_actor_state(&address, &tipset.parent_state())
+            .map_err(|err| {
+                Error::State(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+    Ok(miner_actor_state.info)
+}
+
+pub fn get_miner_deadlines<DB>(state_manager: &StateManager<DB>,tipset : &Tipset,address : &Address) -> Result<Deadlines, Error> where DB: BlockStore
+{
+    let miner_actor_state: miner::State =
+        state_manager
+            .load_actor_state(&address, &tipset.parent_state())
+            .map_err(|err| {
+                Error::State(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+    miner_actor_state.load_deadlines(&*state_manager.get_block_store())
+    .map_err(|err| {
+        Error::State(format!(
+            "(get_miner_deadlines) could not load deadlines: {:}",
+            err
+        ))
+    })
+}
+
+
+pub fn get_miner_faults<DB>(state_manager: &StateManager<DB>,tipset : &Tipset,address : &Address) -> Result<BitField, Error> where DB: BlockStore
+{
+    let miner_actor_state: miner::State =
+        state_manager
+            .load_actor_state(&address, &tipset.parent_state())
+            .map_err(|err| {
+                Error::State(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+    Ok(miner_actor_state.faults)
 }

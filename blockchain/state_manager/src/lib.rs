@@ -3,6 +3,7 @@
 
 mod errors;
 pub mod utils;
+pub mod call;
 pub use self::errors::*;
 use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR};
 use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
@@ -14,7 +15,7 @@ use chain::{block_messages, ChainStore};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
-use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
+use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls,ApplyRet, VM};
 use ipld_amt::Amt;
 use log::trace;
 use num_bigint::BigUint;
@@ -22,9 +23,13 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use message::UnsignedMessage;
+
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
+
+
 
 pub struct StateManager<DB> {
     bs: Arc<DB>,
@@ -43,7 +48,7 @@ where
         }
     }
     /// Loads actor state from IPLD Store
-    fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
+    pub fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
     where
         D: DeserializeOwned,
     {
@@ -111,6 +116,7 @@ where
         &self,
         ts: &FullTipset,
         rand: &ChainRand,
+        mut call_back : Option<impl FnMut(Cid,UnsignedMessage,ApplyRet) -> Result<(),String> >
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
@@ -123,7 +129,7 @@ where
         )?;
 
         // Apply tipset messages
-        let receipts = vm.apply_tip_set_messages(ts)?;
+        let receipts = vm.apply_tip_set_messages(ts,call_back)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
@@ -166,7 +172,7 @@ where
 
             let block_headers = tipset.blocks();
             // generic constants are not implemented yet this is a lowcost method for now
-            let cid_pair = self.compute_tipset_state(&block_headers)?;
+            let cid_pair = self.compute_tipset_state(&block_headers,Some(|Cid,UnsignedMessage,ApplyRet|{Ok(())}))?;
             self.cache
                 .write()
                 .await
@@ -178,6 +184,7 @@ where
     pub fn compute_tipset_state<'a>(
         &'a self,
         blocks_headers: &[BlockHeader],
+        mut call_back : Option<impl FnMut(Cid,UnsignedMessage,ApplyRet) -> Result<(),String>>
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
             let check_for_duplicates = |s: &BlockHeader| {
@@ -213,7 +220,7 @@ where
                 .collect::<Result<Vec<Block>, _>>()?;
             // convert tipset to fulltipset
             let full_tipset = FullTipset::new(blocks)?;
-            self.apply_blocks(&full_tipset, &chain_rand)
+            self.apply_blocks(&full_tipset, &chain_rand,call_back)
         })
     }
 

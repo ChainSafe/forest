@@ -40,6 +40,8 @@ pub enum Error {
     Other(String),
 }
 
+
+
 impl From<EncErr> for Error {
     fn from(e: EncErr) -> Error {
         Error::Encoding(e.to_string())
