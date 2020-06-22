@@ -2241,7 +2241,7 @@ dependencies = [
  "forest_message",
  "futures 0.3.5",
  "futures-util",
- "futures_codec 0.4.1",
+ "futures_codec",
  "libp2p",
  "log",
  "serde",
@@ -2438,18 +2438,6 @@ dependencies = [
 
 [[package]]
 name = "futures_codec"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0a73299e4718f5452e45980fc1d6957a070abe308d3700b63b8673f47e1c2b3"
-dependencies = [
- "bytes",
- "futures 0.3.5",
- "memchr",
- "pin-project",
-]
-
-[[package]]
-name = "futures_codec"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce54d63f8b0c75023ed920d46fd71d0cbbb830b0ee012726b5b4f506fb6dea5b"
@@ -2596,7 +2584,7 @@ dependencies = [
  "forest_ipld",
  "futures 0.3.5",
  "futures-util",
- "futures_codec 0.4.1",
+ "futures_codec",
  "libp2p",
  "log",
  "multihash 0.10.1",
@@ -3205,9 +3193,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p"
-version = "0.19.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "057eba5432d3e740e313c6e13c9153d0cb76b4f71bfc2e5242ae5bdb7d41af67"
+checksum = "417a2d8d11086b6a6a7240e13d09d6a104279af0b906cd85d1e1fe71a643c697"
 dependencies = [
  "bytes",
  "futures 0.3.5",
@@ -3335,7 +3323,7 @@ dependencies = [
  "bytes",
  "fnv",
  "futures 0.3.5",
- "futures_codec 0.4.1",
+ "futures_codec",
  "libp2p-core",
  "libp2p-swarm",
  "log",
@@ -3367,16 +3355,16 @@ dependencies = [
 
 [[package]]
 name = "libp2p-kad"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d6c1d5100973527ae70d82687465b17049c1b717a7964de38b8e65000878ff"
+checksum = "76cd282729c0a07df203cca0bdb9f137794d92b7d47712c18901ada393e02652"
 dependencies = [
  "arrayvec",
  "bytes",
  "either",
  "fnv",
  "futures 0.3.5",
- "futures_codec 0.3.4",
+ "futures_codec",
  "libp2p-core",
  "libp2p-swarm",
  "log",
@@ -3387,7 +3375,7 @@ dependencies = [
  "sha2 0.8.2",
  "smallvec 1.4.0",
  "uint",
- "unsigned-varint 0.3.3",
+ "unsigned-varint 0.4.0",
  "void",
  "wasm-timer",
 ]
@@ -3423,7 +3411,7 @@ dependencies = [
  "bytes",
  "fnv",
  "futures 0.3.5",
- "futures_codec 0.4.1",
+ "futures_codec",
  "libp2p-core",
  "log",
  "parking_lot 0.10.2",
@@ -3474,7 +3462,7 @@ checksum = "1743dfb7817febee1545a21b327846ddae4162ac5dc1977ef1c823d4e9e89d44"
 dependencies = [
  "bytes",
  "futures 0.3.5",
- "futures_codec 0.4.1",
+ "futures_codec",
  "libp2p-core",
  "log",
  "prost",
@@ -3587,12 +3575,11 @@ dependencies = [
 
 [[package]]
 name = "libp2p-websocket"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "085fbe4c05c4116c2164ab4d5a521eb6e00516c444f61b3ee9f68c7b1e53580b"
+checksum = "7e4440551bf6519e0a684cd859ea809aec6d798f686e0d6ed03a28c3e76849b8"
 dependencies = [
  "async-tls",
- "bytes",
  "either",
  "futures 0.3.5",
  "libp2p-core",
@@ -5558,22 +5545,18 @@ dependencies = [
 
 [[package]]
 name = "soketto"
-version = "0.3.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c9dab3f95c9ebdf3a88268c19af668f637a3c5039c2c56ff2d40b1b2d64a25b"
+checksum = "85457366ae0c6ce56bf05a958aef14cd38513c236568618edbcd9a8c52cb80b0"
 dependencies = [
- "base64 0.11.0",
+ "base64 0.12.2",
  "bytes",
  "flate2",
  "futures 0.3.5",
- "http",
  "httparse",
  "log",
  "rand 0.7.3",
- "sha1",
- "smallvec 1.4.0",
- "static_assertions",
- "thiserror",
+ "sha-1",
 ]
 
 [[package]]
@@ -6367,10 +6350,6 @@ name = "unsigned-varint"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f67332660eb59a6f1eb24ff1220c9e8d01738a8503c6002e30bcfe4bd9f2b4a9"
-dependencies = [
- "bytes",
- "futures_codec 0.3.4",
-]
 
 [[package]]
 name = "unsigned-varint"
@@ -6379,7 +6358,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "669d776983b692a906c881fcd0cfb34271a48e197e4d6cb8df32b05bfc3d3fa5"
 dependencies = [
  "bytes",
- "futures_codec 0.4.1",
+ "futures_codec",
 ]
 
 [[package]]
