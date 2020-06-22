@@ -10,7 +10,7 @@ use async_log::span;
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, ChainStore};
+use chain::{block_messages, get_heaviest_tipset, ChainStore};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
@@ -233,5 +233,22 @@ where
                 "Address must be BLS address to load bls public key".to_owned(),
             )),
         }
+    }
+
+    /// Return the heaviest tipset's balance from self.db for a given address
+    pub fn get_heaviest_balance(&self, addr: &Address) -> Result<BigUint, Error> {
+        let ts_option =
+            get_heaviest_tipset(self.bs.as_ref()).map_err(|err| Error::Other(err.to_string()))?;
+        let ts =
+            ts_option.ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
+        let cid = ts.parent_state();
+        self.get_balance(addr, cid)
+    }
+
+    /// Return the balance of a given address and state_cid
+    pub fn get_balance(&self, addr: &Address, cid: &Cid) -> Result<BigUint, Error> {
+        let act = self.get_actor(addr, cid).unwrap();
+        let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
+        Ok(actor.balance)
     }
 }
