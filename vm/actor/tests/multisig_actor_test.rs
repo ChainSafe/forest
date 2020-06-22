@@ -17,6 +17,7 @@ use clock::ChainEpoch;
 use common::*;
 use db::MemoryDB;
 use encoding::blake2b_256;
+use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Hamt};
 use message::UnsignedMessage;
@@ -187,20 +188,15 @@ fn assert_transactions<'a, BS: BlockStore>(
     let state: State = rt.get_state().unwrap();
     let map: Hamt<BytesKey, _> = Hamt::load(&state.pending_txs, rt.store).unwrap();
 
-    let txns_set = Set::from_root(rt.store, &state.pending_txs).unwrap();
-    let txns_multi = Multimap::from_root(rt.store, &state.pending_txs).unwrap();
-
-    let keys = txns_set.collect_keys().unwrap();
-    assert_eq!(keys.len(), expected.len());
     let mut count = 0;
-    assert!(txns_set
-        .for_each(|k| {
-            let value: Transaction = map.get(k).unwrap().unwrap();
+    assert!(map
+        .for_each(|_, value: Transaction| {
             assert_eq!(value, expected[count]);
             count += 1;
             Ok(())
         })
         .is_ok());
+    assert_eq!(count, expected.len());
 }
 
 mod construction_tests {
@@ -633,13 +629,20 @@ mod test_propose {
         construct_and_verify(&mut rt, signers, num_approvals, NO_LOCK_DUR);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
 
-        rt.expect_send(Address::new_id(CHUCK), METHOD_SEND, fake_params.clone(), TokenAmount::from(SEND_VALUE), Serialized::default(), ExitCode::Ok);
+        rt.expect_send(
+            Address::new_id(CHUCK),
+            METHOD_SEND,
+            fake_params.clone(),
+            TokenAmount::from(SEND_VALUE),
+            Serialized::default(),
+            ExitCode::Ok,
+        );
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
         rt.expect_validate_caller_type(&[
             ACCOUNT_ACTOR_CODE_ID.clone(),
             MULTISIG_ACTOR_CODE_ID.clone(),
         ]);
-        
+
         assert!(propose(
             &mut rt,
             Address::new_id(CHUCK),
@@ -1490,7 +1493,7 @@ mod test_remove_signer {
                 );
                 let state: State = rt.get_state().unwrap();
                 assert_eq!(test_case.expect_signers, state.signers);
-                //assert_eq!(test_case.expect_approvals, state.num_approvals_threshold);
+            //assert_eq!(test_case.expect_approvals, state.num_approvals_threshold);
             } else {
                 assert_eq!(
                     test_case.code,
