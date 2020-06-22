@@ -8,7 +8,7 @@ pub mod rleplus;
 
 use ahash::AHashSet;
 use iter::{ranges_from_bits, RangeIterator};
-use rleplus::RLEPlus;
+use rleplus::RlePlus;
 use serde::{Deserialize, Serialize};
 use std::{
     iter::FromIterator,
@@ -30,7 +30,7 @@ type Result<T> = std::result::Result<T, &'static str>;
 #[serde(try_from = "UnverifiedBitField", into = "UnverifiedBitField")]
 pub struct BitField {
     /// The underlying RLE+ encoded bitvec.
-    bitvec: RLEPlus,
+    bitvec: RlePlus,
     /// Bits set to 1. Never overlaps with `unset`.
     set: AHashSet<usize>,
     /// Bits set to 0. Never overlaps with `set`.
@@ -51,8 +51,8 @@ impl FromIterator<usize> for BitField {
     }
 }
 
-impl From<RLEPlus> for BitField {
-    fn from(bitvec: RLEPlus) -> Self {
+impl From<RlePlus> for BitField {
+    fn from(bitvec: RlePlus) -> Self {
         Self {
             bitvec,
             ..Default::default()
@@ -60,7 +60,7 @@ impl From<RLEPlus> for BitField {
     }
 }
 
-impl From<BitField> for RLEPlus {
+impl From<BitField> for RlePlus {
     fn from(bitfield: BitField) -> Self {
         if bitfield.set.is_empty() && bitfield.unset.is_empty() {
             bitfield.bitvec
@@ -78,7 +78,7 @@ impl BitField {
 
     /// Creates a new bit field from a `RangeIterator`.
     pub fn from_ranges(iter: impl RangeIterator) -> Self {
-        RLEPlus::from_ranges(iter).into()
+        RlePlus::from_ranges(iter).into()
     }
 
     /// Adds the bit at a given index to the bit field.

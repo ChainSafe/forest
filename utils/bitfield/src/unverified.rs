@@ -1,4 +1,4 @@
-use super::{BitField, BitVec, RLEPlus, Result};
+use super::{BitField, BitVec, Result, RlePlus};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
@@ -11,14 +11,14 @@ impl UnverifiedBitField {
     /// Returns a verified `BitField` if the data has a valid RLE+ encoding,
     /// and an error otherwise.
     pub fn verify(self) -> Result<BitField> {
-        let bitvec = RLEPlus::new(BitVec::from(self.0))?;
+        let bitvec = RlePlus::new(BitVec::from(self.0))?;
         Ok(bitvec.into())
     }
 }
 
 impl From<BitField> for UnverifiedBitField {
     fn from(bit_field: BitField) -> Self {
-        Self(RLEPlus::from(bit_field).into_bytes())
+        Self(RlePlus::from(bit_field).into_bytes())
     }
 }
 

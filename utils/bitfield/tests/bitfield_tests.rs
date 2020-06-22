@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::AHashSet;
-use bitfield::{rleplus::RLEPlus, *};
+use bitfield::{rleplus::RlePlus, *};
 use bitvec::*;
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
@@ -27,7 +27,7 @@ fn bitfield_slice() {
 
 #[test]
 fn bitfield_slice_small() {
-    let bf = BitField::from(RLEPlus::encode(
+    let bf = BitField::from(RlePlus::encode(
         &bitvec![Lsb0, u8; 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0],
     ));
     let slice = bf.slice(1, 3).unwrap();
@@ -163,7 +163,7 @@ fn bit_ops() {
 #[test]
 fn ranges() {
     let bitvec = bitvec![Lsb0, u8; 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0];
-    let mut bit_field = BitField::from(RLEPlus::encode(&bitvec));
+    let mut bit_field = BitField::from(RlePlus::encode(&bitvec));
 
     assert_eq!(bit_field.ranges().count(), 4);
     bit_field.set(5);
@@ -177,7 +177,7 @@ fn ranges() {
 #[test]
 fn serialize_node_symmetric() {
     let bitvec = bitvec![Lsb0, u8; 0, 1, 0, 1, 1, 1, 1, 1, 1];
-    let bit_field = BitField::from(RLEPlus::encode(&bitvec));
+    let bit_field = BitField::from(RlePlus::encode(&bitvec));
     let cbor_bz = encoding::to_vec(&bit_field).unwrap();
     let deserialized: BitField = encoding::from_slice(&cbor_bz).unwrap();
     assert_eq!(deserialized.len(), 7);

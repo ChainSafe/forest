@@ -76,10 +76,10 @@ const VARINT_MAX_BYTES: usize = 9;
 
 /// An RLE+ encoded bit field.
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct RLEPlus(BitVec);
+pub struct RlePlus(BitVec);
 
-impl RLEPlus {
-    /// Creates a new `RLEPlus` instance with an already encoded bitvec. Returns an
+impl RlePlus {
+    /// Creates a new `RlePlus` instance with an already encoded bitvec. Returns an
     /// error if the given bitvec is not RLE+ encoded correctly.
     pub fn new(encoded: BitVec) -> Result<Self> {
         // iterating the ranges of the encoded bitvec ensures that it's encoded correctly
@@ -89,7 +89,7 @@ impl RLEPlus {
         Ok(Self(encoded))
     }
 
-    /// Encodes the given bitset into their RLE+ encoded representation.
+    /// Encodes the given bitset into its RLE+ encoded representation.
     pub fn encode(raw: &BitVec) -> Self {
         let bits = raw
             .iter()
@@ -221,13 +221,13 @@ mod tests {
 
         for (i, case) in cases.into_iter().enumerate() {
             assert_eq!(
-                RLEPlus::encode(&case.0),
-                RLEPlus::new(case.1.clone()).unwrap(),
+                RlePlus::encode(&case.0),
+                RlePlus::new(case.1.clone()).unwrap(),
                 "encoding case {}",
                 i
             );
             assert_eq!(
-                RLEPlus::new(case.1).unwrap().decode(),
+                RlePlus::new(case.1).unwrap().decode(),
                 case.0,
                 "decoding case: {}",
                 i
@@ -246,7 +246,7 @@ mod tests {
             bitvec.pop();
         }
 
-        let encoded = RLEPlus::encode(&bitvec);
+        let encoded = RlePlus::encode(&bitvec);
         let decoded = encoded.decode();
         assert_eq!(&bitvec, &decoded);
     }

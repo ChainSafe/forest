@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{BitReader, RLEPlus, RangeIterator, Result};
+use super::{BitReader, RangeIterator, Result, RlePlus};
 use std::{iter::FusedIterator, ops::Range};
 
 /// An iterator over the ranges of 1s of RLE+ encoded data.
@@ -73,7 +73,7 @@ impl Iterator for DecodedRanges<'_> {
 pub struct Ranges<'a>(DecodedRanges<'a>);
 
 impl<'a> Ranges<'a> {
-    pub(super) fn new(encoded: &'a RLEPlus) -> Self {
+    pub(super) fn new(encoded: &'a RlePlus) -> Self {
         // the data has already been verified, so this cannot fail
         Self(DecodedRanges::new(encoded.as_bytes()).unwrap())
     }
