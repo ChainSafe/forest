@@ -70,11 +70,11 @@ use reader::BitReader;
 use writer::BitWriter;
 
 use super::{ranges_from_bits, BitVec, RangeIterator, Result};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // https://github.com/multiformats/unsigned-varint#practical-maximum-of-9-bytes-for-security
 const VARINT_MAX_BYTES: usize = 9;
 
+/// An RLE+ encoded bit field.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct RLEPlus(BitVec);
 
@@ -103,7 +103,7 @@ impl RLEPlus {
     pub fn decode(&self) -> BitVec {
         // the underlying bitvec has already been validated, so nothing here can fail
         let mut bitvec = BitVec::new();
-        for range in DecodedRanges::new(self.0.as_slice()).unwrap() {
+        for range in DecodedRanges::new(self.as_bytes()).unwrap() {
             let range = range.unwrap();
             bitvec.resize(range.start, false);
             bitvec.resize(range.end, true);
@@ -163,24 +163,15 @@ impl RLEPlus {
         // no need to verify, this is valid RLE+ by construction
         Self(bitvec)
     }
-}
 
-impl Serialize for RLEPlus {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serde_bytes::serialize(&self.0.as_slice(), serializer)
+    // Returns a byte slice of the bit field's contents.
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_slice()
     }
-}
 
-impl<'de> Deserialize<'de> for RLEPlus {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
-        RLEPlus::new(bytes.into()).map_err(serde::de::Error::custom)
+    // Converts a bit field into a byte vector.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0.into()
     }
 }
 

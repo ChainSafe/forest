@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod iter;
+mod unverified;
 
 pub mod rleplus;
-pub use bitvec;
 
 use ahash::AHashSet;
 use iter::{ranges_from_bits, RangeIterator};
@@ -15,13 +15,19 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign},
 };
 
+pub use unverified::UnverifiedBitField;
+
 type BitVec = bitvec::prelude::BitVec<bitvec::prelude::Lsb0, u8>;
 type Result<T> = std::result::Result<T, &'static str>;
 
-/// A RLE+ encoded bit field with buffered insertion/removal. Essentially a memory-efficient
-/// `HashSet<usize>`, especially when long runs of 1s or 0s are present.
+/// An RLE+ encoded bit field with buffered insertion/removal. Similar to `HashSet<usize>`,
+/// but more memory-efficient when long runs of 1s and 0s are present.
+///
+/// When deserializing a bit field, in order to distinguish between an invalid RLE+ encoding
+/// and any other deserialization errors, deserialize into an `UnverifiedBitField` and
+/// call `verify` on it.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-#[serde(from = "RLEPlus", into = "RLEPlus")]
+#[serde(try_from = "UnverifiedBitField", into = "UnverifiedBitField")]
 pub struct BitField {
     /// The underlying RLE+ encoded bitvec.
     bitvec: RLEPlus,

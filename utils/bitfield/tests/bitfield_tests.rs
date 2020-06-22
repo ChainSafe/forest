@@ -177,11 +177,11 @@ fn ranges() {
 #[test]
 fn serialize_node_symmetric() {
     let bitvec = bitvec![Lsb0, u8; 0, 1, 0, 1, 1, 1, 1, 1, 1];
-    let bit_field = RLEPlus::encode(&bitvec);
+    let bit_field = BitField::from(RLEPlus::encode(&bitvec));
     let cbor_bz = encoding::to_vec(&bit_field).unwrap();
     let deserialized: BitField = encoding::from_slice(&cbor_bz).unwrap();
     assert_eq!(deserialized.len(), 7);
-    assert_eq!(deserialized, BitField::from(bit_field));
+    assert_eq!(deserialized, bit_field);
 }
 
 #[test]

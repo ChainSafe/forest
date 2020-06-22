@@ -75,7 +75,7 @@ pub struct Ranges<'a>(DecodedRanges<'a>);
 impl<'a> Ranges<'a> {
     pub(super) fn new(encoded: &'a RLEPlus) -> Self {
         // the data has already been verified, so this cannot fail
-        Self(DecodedRanges::new(encoded.0.as_slice()).unwrap())
+        Self(DecodedRanges::new(encoded.as_bytes()).unwrap())
     }
 }
 
