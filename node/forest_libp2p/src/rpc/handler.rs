@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::protocol::{OutboundFramed, RPCInbound};
-use super::{InboundCodec, RPCError, RPCEvent, RPCRequest, RPCResponse, RequestId};
+use super::protocol::RPCInbound;
+use super::{InboundCodec, OutboundCodec, RPCError, RPCEvent, RPCRequest, RPCResponse, RequestId};
 use fnv::FnvHashMap;
 use futures::prelude::*;
 use futures_codec::Framed;
@@ -11,7 +11,7 @@ use libp2p::swarm::{
     ProtocolsHandlerUpgrErr, SubstreamProtocol,
 };
 use libp2p::{InboundUpgrade, OutboundUpgrade};
-use log::error;
+use log::debug;
 use smallvec::SmallVec;
 use std::{
     pin::Pin,
@@ -20,7 +20,7 @@ use std::{
 };
 
 /// The time (in seconds) before a substream that is awaiting a response from the user times out.
-pub const RESPONSE_TIMEOUT: u64 = 10;
+pub const RESPONSE_TIMEOUT: u64 = 20;
 
 pub struct RPCHandler {
     /// Upgrade configuration for RPC protocol.
@@ -39,7 +39,7 @@ pub struct RPCHandler {
     dial_negotiated: u32,
 
     /// Map of current substreams awaiting a response to an RPC request.
-    inbound_substreams: FnvHashMap<RequestId, WaitingResponse>,
+    inbound_substreams: FnvHashMap<RequestId, InboundSubstreamState>,
 
     /// The vector of outbound substream states to progress.
     outbound_substreams: Vec<SubstreamState>,
@@ -94,12 +94,21 @@ impl Default for RPCHandler {
     }
 }
 
-/// An outbound substream is waiting a response from the user.
-struct WaitingResponse {
-    /// The framed negotiated substream.
-    substream: Framed<NegotiatedSubstream, InboundCodec>,
-    /// The time when the substream is closed.
-    timeout: Instant,
+/// State of inbound substreams.
+enum InboundSubstreamState {
+    /// Waiting for message from the remote.
+    WaitingInput(Framed<NegotiatedSubstream, InboundCodec>),
+    /// An outbound substream is waiting a response from the user.
+    WaitingResponse {
+        /// The framed negotiated substream.
+        substream: Framed<NegotiatedSubstream, InboundCodec>,
+        /// The time when the substream is closed.
+        timeout: Instant,
+    },
+    /// Substream is being closed.
+    Closing(Framed<NegotiatedSubstream, InboundCodec>),
+    /// Inserted to ensure no state remains unhandled.
+    Poisoned,
 }
 
 /// State of the outbound substream, opened either by us or by the remote.
@@ -111,7 +120,7 @@ enum SubstreamState {
     },
     /// Request has been sent, awaiting response
     PendingResponse {
-        substream: OutboundFramed,
+        substream: Framed<NegotiatedSubstream, OutboundCodec>,
         event: RPCEvent,
         timeout: Instant,
     },
@@ -131,20 +140,13 @@ impl ProtocolsHandler for RPCHandler {
 
     fn inject_fully_negotiated_inbound(
         &mut self,
-        out: <Self::InboundProtocol as InboundUpgrade<NegotiatedSubstream>>::Output,
+        substream: <Self::InboundProtocol as InboundUpgrade<NegotiatedSubstream>>::Output,
     ) {
-        let (req, substream) = out;
-
         // New inbound request. Store the stream and tag the output.
-        let awaiting_stream = WaitingResponse {
-            substream,
-            timeout: Instant::now() + Duration::from_secs(RESPONSE_TIMEOUT),
-        };
+        let awaiting_stream = InboundSubstreamState::WaitingInput(substream);
         self.inbound_substreams
             .insert(self.current_substream_id, awaiting_stream);
 
-        self.events_out
-            .push(RPCEvent::Request(self.current_substream_id, req));
         self.current_substream_id += 1;
     }
 
@@ -182,13 +184,15 @@ impl ProtocolsHandler for RPCHandler {
     fn inject_event(&mut self, event: Self::InEvent) {
         match event {
             RPCEvent::Request(_, _) => self.send_request(event),
-            RPCEvent::Response(rpc_id, res) => {
+            RPCEvent::Response(rpc_id, response) => {
                 // check if the stream matching the response still exists
-                if let Some(waiting_stream) = self.inbound_substreams.remove(&rpc_id) {
+                if let Some(InboundSubstreamState::WaitingResponse { substream, .. }) =
+                    self.inbound_substreams.remove(&rpc_id)
+                {
                     // only send one response per stream. This must be in the waiting state
                     self.outbound_substreams.push(SubstreamState::PendingSend {
-                        substream: waiting_stream.substream,
-                        response: res,
+                        substream,
+                        response,
                     });
                 }
             }
@@ -226,7 +230,7 @@ impl ProtocolsHandler for RPCHandler {
     > {
         if let Some(err) = self.pending_error.take() {
             // Log error, shouldn't necessarily return error and drop peer here
-            error!("{}", err);
+            debug!("{}", err);
         }
 
         // return any events that need to be reported
@@ -236,9 +240,72 @@ impl ProtocolsHandler for RPCHandler {
             self.events_out.shrink_to_fit();
         }
 
+        let mut remove_list: Vec<RequestId> = Vec::new();
+        for (req_id, state) in self.inbound_substreams.iter_mut() {
+            loop {
+                match std::mem::replace(state, InboundSubstreamState::Poisoned) {
+                    InboundSubstreamState::WaitingInput(mut substream) => {
+                        match substream.poll_next_unpin(cx) {
+                            Poll::Ready(Some(Ok(message))) => {
+                                *state = InboundSubstreamState::WaitingResponse {
+                                    substream,
+                                    timeout: Instant::now() + Duration::from_secs(RESPONSE_TIMEOUT),
+                                };
+                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
+                                    RPCEvent::Request(*req_id, message),
+                                ));
+                            }
+                            Poll::Ready(Some(Err(e))) => {
+                                debug!("Inbound substream error while awaiting input: {:?}", e);
+                                *state = InboundSubstreamState::Closing(substream);
+                            }
+                            // peer closed the stream
+                            Poll::Ready(None) => {
+                                *state = InboundSubstreamState::Closing(substream);
+                            }
+                            Poll::Pending => {
+                                *state = InboundSubstreamState::WaitingInput(substream);
+                                break;
+                            }
+                        }
+                    }
+                    InboundSubstreamState::Closing(mut substream) => {
+                        match Sink::poll_close(Pin::new(&mut substream), cx) {
+                            Poll::Ready(res) => {
+                                if let Err(e) = res {
+                                    // Don't close the connection but just drop the inbound substream.
+                                    // In case the remote has more to send, they will open up a new
+                                    // substream.
+                                    debug!("Inbound substream error while closing: {:?}", e);
+                                }
+                                remove_list.push(*req_id);
+                                break;
+                            }
+                            Poll::Pending => {
+                                *state = InboundSubstreamState::Closing(substream);
+                                break;
+                            }
+                        }
+                    }
+                    InboundSubstreamState::Poisoned => {
+                        panic!("Tried to process a poisoned substream state")
+                    }
+                    st @ InboundSubstreamState::WaitingResponse { .. } => {
+                        *state = st;
+                        break;
+                    }
+                }
+            }
+        }
+
         // remove expired inbound substreams
         self.inbound_substreams
-            .retain(|_, waiting_stream| Instant::now() <= waiting_stream.timeout);
+            .retain(|req_id, waiting_stream| match waiting_stream {
+                InboundSubstreamState::WaitingResponse { timeout, .. } => {
+                    Instant::now() <= *timeout
+                }
+                _ => !remove_list.contains(&req_id),
+            });
 
         // drive streams that need to be processed
         for n in (0..self.outbound_substreams.len()).rev() {
@@ -283,43 +350,40 @@ impl ProtocolsHandler for RPCHandler {
                     mut substream,
                     event,
                     timeout,
-                } => match substream.poll_next_unpin(cx) {
-                    Poll::Ready(response) => {
-                        match response {
-                            Some(Ok(response)) => {
-                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
-                                    RPCEvent::Response(event.id(), response),
-                                ));
-                            }
-                            Some(Err(err)) => {
-                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
-                                    RPCEvent::Error(event.id(), RPCError::Custom(err.to_string())),
-                                ));
-                            }
-                            None => {
-                                // stream closed early or nothing was sent
-                                return Poll::Ready(ProtocolsHandlerEvent::Custom(
-                                    RPCEvent::Error(
-                                        event.id(),
-                                        RPCError::Custom(
-                                            "Stream closed early. Empty response".to_owned(),
-                                        ),
-                                    ),
-                                ));
+                } => {
+                    // TODO fix polling for response (polls partial written bytes in delayed cases)
+                    match substream.poll_next_unpin(cx) {
+                        Poll::Ready(Some(Ok(response))) => {
+                            return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Response(
+                                event.id(),
+                                response,
+                            )));
+                        }
+                        Poll::Ready(Some(Err(err))) => {
+                            return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Error(
+                                event.id(),
+                                RPCError::Custom(err.to_string()),
+                            )));
+                        }
+                        Poll::Ready(None) => {
+                            // stream closed early or nothing was sent
+                            return Poll::Ready(ProtocolsHandlerEvent::Custom(RPCEvent::Error(
+                                event.id(),
+                                RPCError::Custom("Stream closed early. Empty response".to_owned()),
+                            )));
+                        }
+                        Poll::Pending => {
+                            if Instant::now() < timeout {
+                                self.outbound_substreams
+                                    .push(SubstreamState::PendingResponse {
+                                        substream,
+                                        event,
+                                        timeout,
+                                    });
                             }
                         }
                     }
-                    Poll::Pending => {
-                        if Instant::now() < timeout {
-                            self.outbound_substreams
-                                .push(SubstreamState::PendingResponse {
-                                    substream,
-                                    event,
-                                    timeout,
-                                });
-                        }
-                    }
-                },
+                }
             }
         }
 
