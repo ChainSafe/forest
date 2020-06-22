@@ -16,7 +16,6 @@ use super::{
 };
 use async_trait::async_trait;
 use cid::Cid;
-use forest_encoding;
 use forest_ipld::{selector::LinkResolver, Ipld};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
