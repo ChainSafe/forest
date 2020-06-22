@@ -169,7 +169,7 @@ impl BitField {
     pub fn slice(&self, start: usize, len: usize) -> Result<Self> {
         let slice = BitField::from_ranges(self.ranges().skip_bits(start).take_bits(len));
 
-        if slice.len() >= len {
+        if slice.len() == len {
             Ok(slice)
         } else {
             Err("Not enough bits")
