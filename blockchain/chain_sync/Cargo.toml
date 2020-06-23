@@ -12,7 +12,7 @@ blocks = { package = "forest_blocks", path = "../blocks" }
 beacon = { path = "../beacon" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-libp2p = "0.19"
+libp2p = "0.20"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 chain = { path = "../chain" }
@@ -28,7 +28,7 @@ futures = "0.3.5"
 lru = "0.5.1"
 thiserror = "1.0"
 num-traits = "0.2"
-filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "b863301780791cbf529dadf08c713e0a97408833" }
+filecoin-proofs-api = { git = "https://github.com/filecoin-project/rust-filecoin-proofs-api", rev = "e06075834b7df8b3618b13122176fa9a40c2b380" }
 fil_types = { path = "../../types" }
 commcid = { path = "../../utils/commcid" }
 
