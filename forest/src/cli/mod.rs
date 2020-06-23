@@ -39,8 +39,14 @@ pub enum Subcommand {
         about = "Download parameters for generating and verifying proofs for given size"
     )]
     FetchParams {
-        #[structopt(help = "Size in bytes")]
-        params_size: String,
+        #[structopt(short, long, help = "Download all proof parameters")]
+        all: bool,
+        #[structopt(short, long, help = "Download only verification keys")]
+        keys: bool,
+        #[structopt(required_ifs(&[("all", "false"), ("keys", "false")]), help = "Size in bytes")]
+        params_size: Option<String>,
+        #[structopt(short, long, help = "Show verbose logging")]
+        verbose: bool,
     },
 }
 

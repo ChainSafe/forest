@@ -22,27 +22,17 @@ const GATEWAY_ENV: &str = "IPFS_GATEWAY";
 const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
 const DEFAULT_PARAMETERS: &str = include_str!("parameters.json");
 
+/// Sector size options for fetching
+pub enum SectorSizeOpt {
+    /// All keys and proofs gen params
+    All,
+    /// Only verification params
+    Keys,
+    /// All keys and proofs gen params for a given size
+    Size(SectorSize),
+}
+
 type ParameterMap = HashMap<String, ParameterData>;
-
-struct FetchProgress<R> {
-    inner: R,
-    progress_bar: ProgressBar<pbr::Pipe>,
-}
-
-impl<R> FetchProgress<R> {
-    fn finish(&mut self) {
-        self.progress_bar.finish();
-    }
-}
-
-impl<R: Read> Read for FetchProgress<R> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.inner.read(buf).map(|n| {
-            self.progress_bar.add(n as u64);
-            n
-        })
-    }
-}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ParameterData {
@@ -60,21 +50,36 @@ fn param_dir() -> String {
 /// a param JSON manifest.
 pub async fn get_params(
     param_json: &str,
-    storage_size: SectorSize,
+    storage_size: SectorSizeOpt,
+    is_verbose: bool,
 ) -> Result<(), Box<dyn StdError>> {
     fs::create_dir_all(param_dir()).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
     let mut tasks = Vec::with_capacity(params.len());
 
-    let mb = Arc::new(MultiBar::new());
+    let mb = if is_verbose {
+        Some(Arc::new(MultiBar::new()))
+    } else {
+        None
+    };
 
     for (name, info) in params {
-        if storage_size as u64 != info.sector_size && name.ends_with(".params") {
-            continue;
+        match storage_size {
+            SectorSizeOpt::All => (),
+            SectorSizeOpt::Keys => {
+                if name.ends_with(".params") {
+                    continue;
+                }
+            }
+            SectorSizeOpt::Size(size) => {
+                if size as u64 != info.sector_size && name.ends_with(".params") {
+                    continue;
+                }
+            }
         }
 
-        let cmb = Arc::clone(&mb);
+        let cmb = mb.clone();
         tasks.push(task::spawn(async move {
             if let Err(e) = fetch_verify_params(&name, &info, cmb).await {
                 warn!("Error in validating params {}", e);
@@ -82,34 +87,42 @@ pub async fn get_params(
         }));
     }
 
-    let cmb = Arc::clone(&mb);
-    let (mb_send, mut mb_rx) = futures::channel::oneshot::channel();
-    let mb = task::spawn(async move {
-        while mb_rx.try_recv() == Ok(None) {
-            cmb.listen();
-            task::sleep(Duration::from_millis(1000)).await;
+    if let Some(multi_bar) = mb {
+        let cmb = multi_bar.clone();
+        let (mb_send, mut mb_rx) = futures::channel::oneshot::channel();
+        let mb = task::spawn(async move {
+            while mb_rx.try_recv() == Ok(None) {
+                cmb.listen();
+                task::sleep(Duration::from_millis(1000)).await;
+            }
+        });
+        for t in tasks {
+            t.await;
         }
-    });
-
-    for t in tasks {
-        t.await;
+        mb_send.send(()).unwrap();
+        mb.await;
+    } else {
+        for t in tasks {
+            t.await;
+        }
     }
-    mb_send.send(()).unwrap();
-    mb.await;
 
     Ok(())
 }
 
 /// Get proofs parameters and all verification keys for a given sector size using default manifest.
 #[inline]
-pub async fn get_params_default(storage_size: SectorSize) -> Result<(), Box<dyn StdError>> {
-    get_params(DEFAULT_PARAMETERS, storage_size).await
+pub async fn get_params_default(
+    storage_size: SectorSizeOpt,
+    is_verbose: bool,
+) -> Result<(), Box<dyn StdError>> {
+    get_params(DEFAULT_PARAMETERS, storage_size, is_verbose).await
 }
 
 async fn fetch_verify_params(
     name: &str,
     info: &ParameterData,
-    mb: Arc<MultiBar<Stdout>>,
+    mb: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), Box<dyn StdError>> {
     let mut path: PathBuf = param_dir().into();
     path.push(name);
@@ -131,10 +144,30 @@ async fn fetch_verify_params(
     })
 }
 
+struct FetchProgress<R> {
+    inner: R,
+    progress_bar: ProgressBar<pbr::Pipe>,
+}
+
+impl<R> FetchProgress<R> {
+    fn finish(&mut self) {
+        self.progress_bar.finish();
+    }
+}
+
+impl<R: Read> Read for FetchProgress<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.inner.read(buf).map(|n| {
+            self.progress_bar.add(n as u64);
+            n
+        })
+    }
+}
+
 async fn fetch_params(
     path: &Path,
     info: &ParameterData,
-    mb: Arc<MultiBar<Stdout>>,
+    multi_bar: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), Box<dyn StdError>> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     info!("Fetching {:?} from {}", path, gw);
@@ -161,17 +194,20 @@ async fn fetch_params(
 
     let req = client.get(url.as_str());
 
-    // TODO progress bar could be optional
-    let mut pb = mb.create_bar(total_size);
-    pb.set_units(Units::Bytes);
+    if let Some(mb) = multi_bar {
+        let mut pb = mb.create_bar(total_size);
+        pb.set_units(Units::Bytes);
 
-    let mut source = FetchProgress {
-        inner: req.send()?,
-        progress_bar: pb,
+        let mut source = FetchProgress {
+            inner: req.send()?,
+            progress_bar: pb,
+        };
+        copy(&mut source, &mut file)?;
+        source.finish();
+    } else {
+        let mut source = req.send()?;
+        copy(&mut source, &mut file)?;
     };
-
-    let _ = copy(&mut source, &mut file)?;
-    source.finish();
 
     Ok(())
 }

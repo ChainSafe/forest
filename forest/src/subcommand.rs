@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::Subcommand;
-use super::paramfetch::get_params_default;
+use super::paramfetch::{get_params_default, SectorSizeOpt};
 use async_std::task;
 use fil_types::SectorSize;
 
@@ -29,10 +29,27 @@ fn ram_to_int(size: &str) -> Result<SectorSize, String> {
 /// Process CLI subcommand
 pub(super) fn process(command: Subcommand) {
     match command {
-        Subcommand::FetchParams { params_size } => {
-            let sector_size = ram_to_int(&params_size).unwrap();
+        Subcommand::FetchParams {
+            params_size,
+            all,
+            keys,
+            verbose,
+        } => {
+            let sizes = if all {
+                SectorSizeOpt::All
+            } else if let Some(size) = params_size {
+                let sector_size = ram_to_int(&size).unwrap();
+                SectorSizeOpt::Size(sector_size)
+            } else if keys {
+                SectorSizeOpt::Keys
+            } else {
+                panic!(
+                    "Sector size option must be chosen. Choose between --all, --keys, or <size>"
+                );
+            };
+
             task::block_on(async {
-                get_params_default(sector_size).await.unwrap();
+                get_params_default(sizes, verbose).await.unwrap();
             });
         }
     }
