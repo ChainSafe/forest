@@ -117,6 +117,7 @@ pub fn partitions_for_deadline(
     }
     let mut partition_count_so_far: u64 = 0;
     for i in 0..WPOST_PERIOD_DEADLINES {
+        println!("deadline idx: {}", i);
         let (partition_count, sector_count) = deadline_count(d, partition_size, i)?;
         if i == deadline_idx {
             return Ok((partition_count_so_far, sector_count as u64));
@@ -137,8 +138,9 @@ pub fn deadline_count(
             deadline_idx, WPOST_PERIOD_DEADLINES
         ));
     }
-
+    // TODO update when bitfield comes in
     let sector_count = d.due.get_mut(deadline_idx).unwrap().count()?;
+    println!("sector count: {}", sector_count);
     let mut partition_count = sector_count / partition_size;
     if sector_count % partition_size != 0 {
         partition_count += 1;

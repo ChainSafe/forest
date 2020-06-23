@@ -153,28 +153,104 @@ fn empty_deadlines_test() {
 fn single_sector_test() {
     let single: &[u64] = &[1];
     let mut dl = build_deadlines(single);
-
     let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
     assert_eq!(0, first_idx);
     assert_eq!(1, sector_count);
 
-    let (sec_idx, sec_count) = partitions_for_deadline(&mut dl, PART_SIZE, 1).unwrap();
-    assert_eq!(1, sec_idx);
-    assert_eq!(0, sec_count);
+    let (second_idx, second_count) = partitions_for_deadline(&mut dl, PART_SIZE, 1).unwrap();
+    assert_eq!(1, second_idx);
+    assert_eq!(0, second_count);
+
+    let (third_idx, third_count) = partitions_for_deadline(&mut dl, PART_SIZE, WPOST_PERIOD_DEADLINES - 1).unwrap();
+    assert_eq!(1, third_idx);
+    assert_eq!(0, third_count);
 }
+
+#[test]
+fn single_sector_not_zero_deadline() {
+    let sector: &[u64] = &[0, 1];
+    let mut dl = build_deadlines(sector);
+    
+    let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
+    assert_eq!(0, first_idx);
+    assert_eq!(0, sector_count);
+
+    let (second_idx, second_count) = partitions_for_deadline(&mut dl, PART_SIZE, 1).unwrap();
+    assert_eq!(0, second_idx);
+    assert_eq!(1, second_count);
+
+    let (third_idx, third_count) = partitions_for_deadline(&mut dl, PART_SIZE, 2).unwrap();
+    assert_eq!(1, third_idx);
+    assert_eq!(0, third_count);
+
+    let (fourth_idx, fourth_count) = partitions_for_deadline(&mut dl, PART_SIZE, WPOST_PERIOD_DEADLINES - 1).unwrap();
+    assert_eq!(1, fourth_idx);
+    assert_eq!(0, fourth_count);
+}
+
+#[test]
+fn deadlines_full_partition_test() {
+    let mut dl = DeadlineBuilder::new(&[]).add_to_all(PART_SIZE).deadlines;
+    let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
+    assert_eq!(0, first_idx);
+    assert_eq!(PART_SIZE, sector_count as usize);
+
+    let (second_idx, second_count) = partitions_for_deadline(&mut dl, PART_SIZE, 1).unwrap();
+    assert_eq!(1, second_idx);
+    assert_eq!(PART_SIZE, second_count as usize);
+
+    let (third_idx, third_count) = partitions_for_deadline(&mut dl, PART_SIZE, WPOST_PERIOD_DEADLINES - 1).unwrap();
+    assert_eq!(WPOST_PERIOD_DEADLINES - 1, third_idx as usize);
+    assert_eq!(PART_SIZE, third_count as usize);
+}
+
+#[test]
+fn multiple_partitions_test() {
+    let mut dl = build_deadlines(&[PART_SIZE as u64, (PART_SIZE * 2) as u64, (PART_SIZE * 4 - 1) as u64, (PART_SIZE * 6) as u64, (PART_SIZE * 8 - 1) as u64, (PART_SIZE * 9) as u64]);
+
+    let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
+    assert_eq!(0, first_idx);
+    assert_eq!(PART_SIZE, sector_count as usize);
+
+    let (second_idx, second_count) = partitions_for_deadline(&mut dl, PART_SIZE, 1).unwrap();
+    assert_eq!(1, second_idx);
+    assert_eq!(PART_SIZE * 2, second_count as usize);
+
+    let (third_idx, third_count) = partitions_for_deadline(&mut dl, PART_SIZE, 2).unwrap();
+    assert_eq!(3, third_idx);
+    assert_eq!(PART_SIZE * 4 - 1, third_count as usize);
+
+    let (fourth_idx, fourth_count) = partitions_for_deadline(&mut dl, PART_SIZE, 3).unwrap();
+    assert_eq!(7, fourth_idx);
+    assert_eq!(PART_SIZE * 6, fourth_count as usize);
+
+    let (fifth_idx, fifth_count) = partitions_for_deadline(&mut dl, PART_SIZE, 4).unwrap();
+    assert_eq!(13, fifth_idx);
+    assert_eq!(PART_SIZE * 8 - 1, fifth_count as usize);
+
+    let (sixth_idx, sixth_count) = partitions_for_deadline(&mut dl, PART_SIZE, 5).unwrap();
+    assert_eq!(21, sixth_idx);
+    assert_eq!(PART_SIZE * 9, sixth_count as usize);
+
+    let (third_idx, third_count) = partitions_for_deadline(&mut dl, PART_SIZE, WPOST_PERIOD_DEADLINES - 1).unwrap();
+    assert_eq!(30, third_idx as usize);
+    assert_eq!(0, third_count as usize);
+}
+
 fn build_deadlines(gen: &[u64]) -> Deadlines {
     DeadlineBuilder::new(gen).deadlines
 }
 
-fn seq(first: usize, _count: usize) -> Vec<u64> {
-    let mut values: Vec<u64> = Vec::new();
+fn seq(first: usize, count: usize) -> Vec<u64> {
+    let mut values: Vec<u64> = vec![0; count];
+    // values.push(count as u64);
     for (i, val) in values.iter_mut().enumerate() {
         *val = first as u64 + i as u64;
     }
     return values
 }
 
-fn fb_seq(first: usize, count: usize) -> BitField {
+fn _fb_seq(first: usize, count: usize) -> BitField {
     let values = seq(first, count);
     BitField::new_from_set(&values)
 }
@@ -187,12 +263,10 @@ struct DeadlineBuilder {
 
 impl DeadlineBuilder {
     fn new(counts: &[u64]) -> Self {
-        let mut di = DeadlineBuilder {
+        DeadlineBuilder {
             deadlines: Deadlines::new(),
             next_sector_idx: 0
-        };
-        di.add_to_form(0, counts);
-        di
+        }.add_to_from(0, counts)
     }
     fn add_to(&mut self, idx: usize, count: usize) {
         let nums = seq(self.next_sector_idx, count);
@@ -200,17 +274,22 @@ impl DeadlineBuilder {
         self.deadlines.add_to_deadline(idx, &nums).unwrap();
     }
 
-    fn add_to_form(&mut self, first: usize, counts: &[u64]) {
+    fn add_to_from(mut self, first: usize, counts: &[u64]) -> Self {
         for (i, c) in counts.into_iter().enumerate() {
             self.add_to(first+i, *c as usize);
         }
+        self
     }
 
-    fn add_to_all(&mut self, count: usize) {
-        todo!();
+    fn add_to_all(mut self, count: usize) -> Self {
+        let len = self.deadlines.due.len();
+        for i in 0..len {
+            self.add_to(i, count);
+        }
+        self
     }
 
-    fn add_to_all_form(&mut self, first: usize, count:usize) {
+    fn _add_to_all_from(&mut self, first: usize, count:usize) {
         let mut i = first;
         while i < WPOST_PERIOD_DEADLINES {
             self.add_to(i, count);
