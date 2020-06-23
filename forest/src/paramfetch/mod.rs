@@ -1,14 +1,15 @@
-use async_std::fs;
-use blake2b_simd::blake2b;
+use async_std::{fs, sync::Arc, task};
+use blake2b_simd::State as Blake2b;
+use core::time::Duration;
 use fil_types::SectorSize;
 use log::{info, warn};
-use pbr::{ProgressBar, Units};
+use pbr::{MultiBar, ProgressBar, Units};
 use reqwest::{blocking::Client, header, Proxy, Url};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fs::File;
-use std::io::{self, copy, prelude::*, BufReader, ErrorKind, Stdout};
+use std::io::{self, copy, prelude::*, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
@@ -23,7 +24,13 @@ type ParameterMap = HashMap<String, ParameterData>;
 
 struct FetchProgress<R> {
     inner: R,
-    progress_bar: ProgressBar<Stdout>,
+    progress_bar: ProgressBar<pbr::Pipe>,
+}
+
+impl<R> FetchProgress<R> {
+    fn finish(&mut self) {
+        self.progress_bar.finish();
+    }
 }
 
 impl<R: Read> Read for FetchProgress<R> {
@@ -56,16 +63,33 @@ pub async fn get_params(
     fs::create_dir_all(param_dir()).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
+    let mut tasks = Vec::with_capacity(params.len());
 
-    // TODO make async lol
+    let mb = Arc::new(MultiBar::new());
+
     for (name, info) in params {
         if storage_size as u64 != info.sector_size && name.ends_with(".params") {
             continue;
         }
 
-        if let Err(e) = fetch_verify_params(&name, &info).await {
-            warn!("Error in validating params {}", e);
+        let cmb = Arc::clone(&mb);
+        tasks.push(task::spawn(async move {
+            if let Err(e) = fetch_verify_params(&name, &info, cmb).await {
+                warn!("Error in validating params {}", e);
+            }
+        }));
+    }
+
+    let cmb = Arc::clone(&mb);
+    task::spawn(async move {
+        loop {
+            let _ = cmb.listen();
+            task::sleep(Duration::from_millis(1000)).await;
         }
+    });
+
+    for t in tasks {
+        t.await;
     }
 
     Ok(())
@@ -77,16 +101,24 @@ pub async fn get_params_default(storage_size: SectorSize) -> Result<(), Box<dyn 
     get_params(DEFAULT_PARAMETERS, storage_size).await
 }
 
-async fn fetch_verify_params(name: &str, info: &ParameterData) -> Result<(), Box<dyn StdError>> {
+async fn fetch_verify_params(
+    name: &str,
+    info: &ParameterData,
+    mb: Arc<MultiBar<Stdout>>,
+) -> Result<(), Box<dyn StdError>> {
     let mut path: PathBuf = param_dir().into();
     path.push(name);
 
     match check_file(&path, info) {
         Ok(()) => return Ok(()),
-        Err(e) => warn!("{}", e),
+        Err(e) => {
+            if e.kind() != ErrorKind::NotFound {
+                warn!("{}", e)
+            }
+        }
     }
 
-    fetch_params(&path, info).await?;
+    fetch_params(&path, info, mb).await?;
 
     check_file(&path, info).map_err(|e| {
         // TODO remove invalid file
@@ -94,7 +126,11 @@ async fn fetch_verify_params(name: &str, info: &ParameterData) -> Result<(), Box
     })
 }
 
-async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), Box<dyn StdError>> {
+async fn fetch_params(
+    path: &Path,
+    info: &ParameterData,
+    mb: Arc<MultiBar<Stdout>>,
+) -> Result<(), Box<dyn StdError>> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or(GATEWAY.to_owned());
     info!("Fetching {:?} from {}", path, gw);
 
@@ -120,7 +156,8 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), Box<dyn S
 
     let req = client.get(url.as_str());
 
-    let mut pb = ProgressBar::new(total_size);
+    // TODO progress bar could be optional
+    let mut pb = mb.create_bar(total_size);
     pb.set_units(Units::Bytes);
 
     let mut source = FetchProgress {
@@ -129,6 +166,7 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), Box<dyn S
     };
 
     let _ = copy(&mut source, &mut file)?;
+    source.finish();
 
     Ok(())
 }
@@ -139,12 +177,13 @@ fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> {
         return Ok(());
     }
 
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
+    let mut file = File::open(path)?;
+    let mut hasher = Blake2b::new();
+    copy(&mut file, &mut hasher)?;
 
-    let sum = blake2b(reader.buffer());
-    let str_sum = sum.to_hex();
-    if &str_sum[..16] == info.digest {
+    let str_sum = hasher.finalize().to_hex();
+    let str_sum = &str_sum[..32];
+    if str_sum == info.digest {
         info!("Parameter file {:?} is ok", path);
         Ok(())
     } else {
