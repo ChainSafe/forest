@@ -8,14 +8,13 @@ pub use self::state::State;
 pub use self::types::*;
 use crate::{make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
 use address::Address;
-use encoding::blake2b_256;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 use std::error::Error as StdError;
+use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -32,7 +31,6 @@ pub enum Method {
     SwapSigner = 8,
     ChangeNumApprovalsThreshold = 9,
 }
-
 
 /// Multisig Actor
 pub struct Actor;
@@ -89,10 +87,11 @@ impl Actor {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: Address = *rt.message().from();
 
-        let st: State = rt.state()?;
-        Self::validate_signer(rt, &st, &caller_addr)?;
+        //let st: State = rt.state()?;
 
         let tx_id = rt.transaction::<State, _, _>(|st, rt| {
+            Self::validate_signer(rt, &st, &caller_addr)?;
+
             let t_id = st.next_tx_id;
             st.next_tx_id.0 += 1;
 
@@ -116,8 +115,9 @@ impl Actor {
             Ok(t_id)
         })??;
 
+        println!("Txn id is {:?}", tx_id.0);
         // Proposal implicitly includes approval of a transaction
-        Self::approve_transaction(rt, tx_id, [0;32],false)?;
+        Self::approve_transaction(rt, tx_id, [0; 32], false)?;
 
         // TODO revisit issue referenced in spec:
         // Note: this ID may not be stable across chain re-orgs.
@@ -136,10 +136,8 @@ impl Actor {
         let caller_addr: Address = *rt.message().from();
 
         // Validate signer
-       rt.transaction::<State, _, _>(|st, rt| {
-            Self::validate_signer(rt, &st, &caller_addr)
-        })??;
-  
+        rt.transaction::<State, _, _>(|st, rt| Self::validate_signer(rt, &st, &caller_addr))??;
+
         Self::approve_transaction(rt, params.id, params.proposal_hash, true)
     }
 
@@ -175,15 +173,15 @@ impl Actor {
             }
 
             let result_hash = Self::compute_proposal_hash(rt, tx);
-            if result_hash .is_err(){
-                return Err( ActorError::new(
+            if result_hash.is_err() {
+                return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("Failed to compute proposal hash"),
                 ));
             }
 
             if !params.proposal_hash.eq(&result_hash.unwrap()) {
-                return Err( ActorError::new(
+                return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("Hash does  not match proposal params"),
                 ));
@@ -257,7 +255,7 @@ impl Actor {
             st.signers.retain(|s| s != &params.signer);
 
             // Decrease approvals threshold if decrease param or below threshold
-            if params.decrease || st.signers.len()  < (st.num_approvals_threshold +1) as usize {
+            if params.decrease || st.signers.len() < (st.num_approvals_threshold + 1) as usize {
                 st.num_approvals_threshold -= 1;
             }
             Ok(())
@@ -325,7 +323,12 @@ impl Actor {
         })?
     }
 
-    fn approve_transaction<BS, RT>(rt: &mut RT, tx_id: TxnID, proposal_hash : [u8;32],  check_hash : bool) -> Result<(), ActorError>
+    fn approve_transaction<BS, RT>(
+        rt: &mut RT,
+        tx_id: TxnID,
+        proposal_hash: [u8; 32],
+        check_hash: bool,
+    ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -333,7 +336,7 @@ impl Actor {
         let from = *rt.message().from();
         let curr_bal = rt.current_balance()?;
         let curr_epoch = rt.curr_epoch();
-        let  fix_st : State = rt.state().unwrap();
+        let fix_st: State = rt.state().unwrap();
 
         // Approval transaction
         let (tx, threshold_met): (Transaction, bool) =
@@ -358,23 +361,22 @@ impl Actor {
                     }
                 }
 
-                if check_hash{
+                if check_hash {
                     let result_hash = Self::compute_proposal_hash(rt, txn.clone());
-                    if result_hash .is_err(){
-                        return Err( ActorError::new(
+                    if result_hash.is_err() {
+                        return Err(ActorError::new(
                             ExitCode::ErrIllegalState,
                             format!("Failed to compute proposal hash"),
                         ));
                     }
-        
+
                     if !proposal_hash.eq(&result_hash.unwrap()) {
-                        return Err( ActorError::new(
+                        return Err(ActorError::new(
                             ExitCode::ErrIllegalState,
                             format!("Hash does  not match proposal params"),
                         ));
                     }
                 }
-
 
                 // update approved on the transaction
                 txn.approved.push(from);
@@ -387,24 +389,26 @@ impl Actor {
                 }
 
                 // Check if number approvals is met
-              
-                
+
                 // Number of approvals required not met, do not relay message
                 Ok((txn, false))
-                
             })??;
-            let  mut st : State = rt.state().unwrap();
-            //println!("State num approval threshold {} fixed state is {}", st.num_approvals_threshold, fix_st.num_approvals_threshold);
-            //println!("tx approved is {}", tx.approved.len());
+        let mut st: State = rt.state().unwrap();
+        //println!("State num approval threshold {} fixed state is {}", st.num_approvals_threshold, fix_st.num_approvals_threshold);
+        //println!("tx approved is {}", tx.approved.len());
 
-
-
+        let mut code = ExitCode::Ok;
+        let mut out = Serialized::default();
         // Sufficient number of approvals have arrived, relay message
         if tx.approved.len() >= st.num_approvals_threshold as usize {
             //println!("IN HERE");
             //println!("Balance is {}, txn value is {}", rt.current_balance().unwrap(), tx.value.clone());
             // Ensure sufficient funds
-            if let Err(e) = st.check_available(rt.current_balance().unwrap(), tx.value.clone(), rt.curr_epoch()) {
+            if let Err(e) = st.check_available(
+                rt.current_balance().unwrap(),
+                tx.value.clone(),
+                rt.curr_epoch(),
+            ) {
                 return Err(ActorError::new(
                     ExitCode::ErrInsufficientFunds,
                     format!("Insufficient funds unlocked: {}", e),
@@ -412,10 +416,14 @@ impl Actor {
             }
 
             //println!("About to send");
-            let v = rt.send(&tx.to, tx.method, &tx.params, &tx.value);
-            
+            let ret = rt.send(&tx.to, tx.method, &tx.params, &tx.value);
+
+            if let Err(x) = ret {
+                code = x.exit_code();
+            }
 
             // Delete pending transaction
+            println!("tx id is {:?}", tx_id.0);
             if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
@@ -438,10 +446,13 @@ impl Actor {
 
         Ok(())
     }
-    pub fn compute_proposal_hash<BS, RT>(rt :&RT,txn: Transaction) ->  Result<[u8; 32], Box<dyn StdError>>
+    pub fn compute_proposal_hash<BS, RT>(
+        rt: &RT,
+        txn: Transaction,
+    ) -> Result<[u8; 32], Box<dyn StdError>>
     where
-    BS: BlockStore,
-    RT: Runtime<BS>,
+        BS: BlockStore,
+        RT: Runtime<BS>,
     {
         let hash_data = ProposalHashData {
             requester: txn.approved[0],
@@ -453,7 +464,6 @@ impl Actor {
         let serial_data = Serialized::serialize(hash_data).unwrap();
         rt.syscalls().hash_blake2b(serial_data.bytes())
     }
-    
 }
 
 impl ActorCode for Actor {

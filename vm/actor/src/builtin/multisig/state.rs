@@ -39,9 +39,8 @@ impl State {
         //println!("Initial balance is {}", &self.initial_balance);
         let unit_locked = self.initial_balance.clone() / self.unlock_duration;
         //println!("Unit locked is {}", unit_locked);
-        let f = unit_locked * (self.unlock_duration - elapsed_epoch);
+        unit_locked * (self.unlock_duration - elapsed_epoch)
         //println!("Final amount is {}", f);
-        f
         // unit_locked * (self.unlock_duration - elapsed_epoch)
     }
 
@@ -113,8 +112,12 @@ impl State {
         s: &BS,
         txn_id: TxnID,
     ) -> Result<(), String> {
+        println!("Calling delete pending func");
         let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
-        map.delete(&txn_id.key())?;
+        self.pending_txs = map.flush()?;
+        if map.delete(&txn_id.key())? {
+            println!("Sucessfully dleeted ");
+        }
         self.pending_txs = map.flush()?;
         Ok(())
     }

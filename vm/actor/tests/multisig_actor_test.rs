@@ -191,11 +191,13 @@ fn assert_transactions<'a, BS: BlockStore>(
     let mut count = 0;
     assert!(map
         .for_each(|_, value: Transaction| {
+            println!("Value is {:?}", value);
             assert_eq!(value, expected[count]);
             count += 1;
             Ok(())
         })
         .is_ok());
+
     assert_eq!(count, expected.len());
 }
 
@@ -625,7 +627,6 @@ mod test_propose {
         rt.balance = TokenAmount::from(20u8);
         rt.received = TokenAmount::from(0u8);
         let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        let chuck = Address::new_id(CHUCK);
         construct_and_verify(&mut rt, signers, num_approvals, NO_LOCK_DUR);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
 
@@ -756,7 +757,7 @@ mod test_approve {
             &mut rt,
             chuck.clone(),
             TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
+            FAKE_METHOD,
             fake_params.clone()
         )
         .is_ok());
@@ -766,7 +767,7 @@ mod test_approve {
             vec![Transaction {
                 to: chuck.clone(),
                 value: TokenAmount::from(SEND_VALUE),
-                method: METHOD_SEND,
+                method: FAKE_METHOD,
                 params: fake_params.clone(),
                 approved: vec![Address::new_id(ANNE)],
             }],
