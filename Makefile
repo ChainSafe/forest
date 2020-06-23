@@ -1,7 +1,7 @@
 SER_TESTS = "tests/serialization_tests"
 
 install:
-	cargo install --path forest --force --locked
+	cargo install --path forest --force
 
 clean-all:
 	cargo clean
