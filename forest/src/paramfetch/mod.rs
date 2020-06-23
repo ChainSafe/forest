@@ -22,7 +22,7 @@ const GATEWAY_ENV: &str = "IPFS_GATEWAY";
 const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
 const DEFAULT_PARAMETERS: &str = include_str!("parameters.json");
 
-/// Sector size options for fetching
+/// Sector size options for fetching.
 pub enum SectorSizeOpt {
     /// All keys and proofs gen params
     All,
@@ -35,10 +35,10 @@ pub enum SectorSizeOpt {
 type ParameterMap = HashMap<String, ParameterData>;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ParameterData {
-    pub cid: String,
-    pub digest: String,
-    pub sector_size: u64,
+struct ParameterData {
+    cid: String,
+    digest: String,
+    sector_size: u64,
 }
 
 #[inline]
