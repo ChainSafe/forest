@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use async_std::{fs, sync::Arc, task};
 use blake2b_simd::State as Blake2b;
 use core::time::Duration;
@@ -17,7 +20,6 @@ const PARAM_DIR: &str = "/var/tmp/filecoin-proof-parameters";
 const DIR_ENV: &str = "FIL_PROOFS_PARAMETER_CACHE";
 const GATEWAY_ENV: &str = "IPFS_GATEWAY";
 const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
-
 const DEFAULT_PARAMETERS: &str = include_str!("parameters.json");
 
 type ParameterMap = HashMap<String, ParameterData>;
@@ -51,7 +53,7 @@ pub struct ParameterData {
 
 #[inline]
 fn param_dir() -> String {
-    std::env::var(DIR_ENV).unwrap_or(PARAM_DIR.to_owned())
+    std::env::var(DIR_ENV).unwrap_or_else(|_| PARAM_DIR.to_owned())
 }
 
 /// Get proofs parameters and all verification keys for a given sector size given
@@ -81,9 +83,10 @@ pub async fn get_params(
     }
 
     let cmb = Arc::clone(&mb);
-    task::spawn(async move {
-        loop {
-            let _ = cmb.listen();
+    let (mb_send, mut mb_rx) = futures::channel::oneshot::channel();
+    let mb = task::spawn(async move {
+        while mb_rx.try_recv() == Ok(None) {
+            cmb.listen();
             task::sleep(Duration::from_millis(1000)).await;
         }
     });
@@ -91,6 +94,8 @@ pub async fn get_params(
     for t in tasks {
         t.await;
     }
+    mb_send.send(()).unwrap();
+    mb.await;
 
     Ok(())
 }
@@ -131,7 +136,7 @@ async fn fetch_params(
     info: &ParameterData,
     mb: Arc<MultiBar<Stdout>>,
 ) -> Result<(), Box<dyn StdError>> {
-    let gw = std::env::var(GATEWAY_ENV).unwrap_or(GATEWAY.to_owned());
+    let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     info!("Fetching {:?} from {}", path, gw);
 
     let mut file = File::create(path)?;
@@ -150,7 +155,7 @@ async fn fetch_params(
                 .and_then(|ct_len| ct_len.parse().ok())
                 .unwrap_or(0)
         } else {
-            Err(format!("failed to download file: {}", url))?
+            return Err(format!("failed to download file: {}", url).into());
         }
     };
 

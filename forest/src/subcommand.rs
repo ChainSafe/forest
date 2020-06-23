@@ -10,8 +10,8 @@ use fil_types::SectorSize;
 fn ram_to_int(size: &str) -> Result<SectorSize, String> {
     // TODO there is no library to do this, but if other sector sizes are supported in future
     // this should probably be changed to parse from string to `SectorSize`
-    let mut trimmed = size.trim_end_matches("B");
-    trimmed = trimmed.trim_end_matches("b");
+    let mut trimmed = size.trim_end_matches('B');
+    trimmed = trimmed.trim_end_matches('b');
 
     match trimmed {
         "2048" | "2Ki" | "2ki" => Ok(SectorSize::_2KiB),
