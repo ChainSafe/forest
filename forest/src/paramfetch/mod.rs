@@ -1,7 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::{fs, sync::Arc, task};
+use async_std::{
+    fs,
+    sync::{channel, Arc},
+    task,
+};
 use blake2b_simd::State as Blake2b;
 use core::time::Duration;
 use fil_types::SectorSize;
@@ -64,34 +68,29 @@ pub async fn get_params(
         None
     };
 
-    for (name, info) in params {
-        match storage_size {
-            SectorSizeOpt::All => (),
-            SectorSizeOpt::Keys => {
-                if name.ends_with(".params") {
-                    continue;
-                }
-            }
+    params
+        .into_iter()
+        .filter(|(name, info)| match storage_size {
+            SectorSizeOpt::Keys => !name.ends_with("params"),
             SectorSizeOpt::Size(size) => {
-                if size as u64 != info.sector_size && name.ends_with(".params") {
-                    continue;
+                size as u64 == info.sector_size || !name.ends_with(".params")
+            }
+            SectorSizeOpt::All => true,
+        })
+        .for_each(|(name, info)| {
+            let cmb = mb.clone();
+            tasks.push(task::spawn(async move {
+                if let Err(e) = fetch_verify_params(&name, &info, cmb).await {
+                    warn!("Error in validating params {}", e);
                 }
-            }
-        }
-
-        let cmb = mb.clone();
-        tasks.push(task::spawn(async move {
-            if let Err(e) = fetch_verify_params(&name, &info, cmb).await {
-                warn!("Error in validating params {}", e);
-            }
-        }));
-    }
+            }))
+        });
 
     if let Some(multi_bar) = mb {
         let cmb = multi_bar.clone();
-        let (mb_send, mut mb_rx) = futures::channel::oneshot::channel();
+        let (mb_send, mb_rx) = channel(1);
         let mb = task::spawn(async move {
-            while mb_rx.try_recv() == Ok(None) {
+            while mb_rx.try_recv().is_err() {
                 cmb.listen();
                 task::sleep(Duration::from_millis(1000)).await;
             }
@@ -99,7 +98,7 @@ pub async fn get_params(
         for t in tasks {
             t.await;
         }
-        mb_send.send(()).unwrap();
+        mb_send.send(()).await;
         mb.await;
     } else {
         for t in tasks {
@@ -186,7 +185,7 @@ async fn fetch_params(
                 .get(header::CONTENT_LENGTH)
                 .and_then(|ct_len| ct_len.to_str().ok())
                 .and_then(|ct_len| ct_len.parse().ok())
-                .unwrap_or(0)
+                .unwrap_or_default()
         } else {
             return Err(format!("failed to download file: {}", url).into());
         }

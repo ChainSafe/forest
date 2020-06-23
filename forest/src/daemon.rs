@@ -17,9 +17,8 @@ use utils::write_to_file;
 /// Starts daemon process
 pub(super) fn start(config: Config) {
     info!("Starting Forest daemon");
-    let net_keypair = match get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair")) {
-        Some(kp) => kp,
-        None => {
+    let net_keypair = get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair"))
+        .unwrap_or_else(|| {
             // Keypair not found, generate and save generated keypair
             let gen_keypair = ed25519::Keypair::generate();
             // Save Ed25519 keypair to file
@@ -33,8 +32,7 @@ pub(super) fn start(config: Config) {
                 trace!("Error {:?}", e);
             };
             Keypair::Ed25519(gen_keypair)
-        }
-    };
+        });
 
     // Initialize database
     let mut db = RocksDb::new(config.data_dir + "/db");
