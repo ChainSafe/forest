@@ -30,3 +30,6 @@ rpc = { path = "../node/rpc" }
 fil_types = { path = "../types" }
 serde_json = "1.0"
 blake2b_simd = "0.5.9"
+reqwest = { version = "0.10" }
+pbr = "1.0.3"
+env_proxy = "0.4"

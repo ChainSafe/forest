@@ -2,21 +2,38 @@ use async_std::fs;
 use blake2b_simd::blake2b;
 use fil_types::SectorSize;
 use log::{info, warn};
+use pbr::{ProgressBar, Units};
+use reqwest::{blocking::Client, header, Proxy, Url};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::error::Error as StdError;
 use std::fs::File;
-use std::io::{self, BufReader, ErrorKind};
+use std::io::{self, copy, prelude::*, BufReader, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "/var/tmp/filecoin-proof-parameters";
 const DIR_ENV: &str = "FIL_PROOFS_PARAMETER_CACHE";
 const GATEWAY_ENV: &str = "IPFS_GATEWAY";
-const TRUST_PARAMS: &str = "TRUST_PARAMS";
+const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
 
 const DEFAULT_PARAMETERS: &str = include_str!("parameters.json");
 
 type ParameterMap = HashMap<String, ParameterData>;
+
+struct FetchProgress<R> {
+    inner: R,
+    progress_bar: ProgressBar<Stdout>,
+}
+
+impl<R: Read> Read for FetchProgress<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.inner.read(buf).map(|n| {
+            self.progress_bar.add(n as u64);
+            n
+        })
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ParameterData {
@@ -32,7 +49,10 @@ fn param_dir() -> String {
 
 /// Get proofs parameters and all verification keys for a given sector size given
 /// a param JSON manifest.
-pub async fn get_params(param_json: &str, storage_size: SectorSize) -> Result<(), io::Error> {
+pub async fn get_params(
+    param_json: &str,
+    storage_size: SectorSize,
+) -> Result<(), Box<dyn StdError>> {
     fs::create_dir_all(param_dir()).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
@@ -53,11 +73,11 @@ pub async fn get_params(param_json: &str, storage_size: SectorSize) -> Result<()
 
 /// Get proofs parameters and all verification keys for a given sector size using default manifest.
 #[inline]
-pub async fn get_params_default(storage_size: SectorSize) -> Result<(), io::Error> {
+pub async fn get_params_default(storage_size: SectorSize) -> Result<(), Box<dyn StdError>> {
     get_params(DEFAULT_PARAMETERS, storage_size).await
 }
 
-async fn fetch_verify_params(name: &str, info: &ParameterData) -> Result<(), io::Error> {
+async fn fetch_verify_params(name: &str, info: &ParameterData) -> Result<(), Box<dyn StdError>> {
     let mut path: PathBuf = param_dir().into();
     path.push(name);
 
@@ -70,16 +90,51 @@ async fn fetch_verify_params(name: &str, info: &ParameterData) -> Result<(), io:
 
     check_file(&path, info).map_err(|e| {
         // TODO remove invalid file
-        e
+        e.into()
     })
 }
 
-async fn fetch_params(_path: &Path, _info: &ParameterData) -> Result<(), io::Error> {
-    todo!()
+async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), Box<dyn StdError>> {
+    let gw = std::env::var(GATEWAY_ENV).unwrap_or(GATEWAY.to_owned());
+    info!("Fetching {:?} from {}", path, gw);
+
+    let mut file = File::create(path)?;
+
+    let url = Url::parse(&format!("{}{}", gw, info.cid))?;
+
+    let client = Client::builder()
+        .proxy(Proxy::custom(move |url| env_proxy::for_url(&url).to_url()))
+        .build()?;
+    let total_size = {
+        let res = client.head(url.as_str()).send()?;
+        if res.status().is_success() {
+            res.headers()
+                .get(header::CONTENT_LENGTH)
+                .and_then(|ct_len| ct_len.to_str().ok())
+                .and_then(|ct_len| ct_len.parse().ok())
+                .unwrap_or(0)
+        } else {
+            Err(format!("failed to download file: {}", url))?
+        }
+    };
+
+    let req = client.get(url.as_str());
+
+    let mut pb = ProgressBar::new(total_size);
+    pb.set_units(Units::Bytes);
+
+    let mut source = FetchProgress {
+        inner: req.send()?,
+        progress_bar: pb,
+    };
+
+    let _ = copy(&mut source, &mut file)?;
+
+    Ok(())
 }
 
 fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> {
-    if std::env::var(TRUST_PARAMS) == Ok("1".to_owned()) {
+    if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
         warn!("Assuming parameter files are okay. DO NOT USE IN PRODUCTION");
         return Ok(());
     }

@@ -34,7 +34,6 @@ pub(super) fn process(command: Subcommand) {
             task::block_on(async {
                 get_params_default(sector_size).await.unwrap();
             });
-            todo!()
         }
     }
 }
