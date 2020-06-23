@@ -11,14 +11,14 @@ pub enum Error {
     MessageTooBig,
     #[error("Cannot send more Filecoin than will ever exist")]
     MessageValueTooHigh,
-    #[error("Message nonce too low")]
-    NonceTooLow,
+    #[error("Message sequence too low")]
+    SequenceTooLow,
     #[error("not enough funds to execute transaction")]
     NotEnoughFunds,
     #[error("invalid to address for message")]
     InvalidToAddr,
-    #[error("message with nonce already in mempool")]
-    DuplicateNonce,
+    #[error("message with sequence already in mempool")]
+    DuplicateSequence,
     #[error("signature validation failed")]
     SigVerification,
     #[error("Unknown signature type")]
