@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod iter;
-mod unverified;
 
 pub mod rleplus;
 
@@ -15,8 +14,6 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign},
 };
 
-pub use unverified::UnverifiedBitField;
-
 type BitVec = bitvec::prelude::BitVec<bitvec::prelude::Lsb0, u8>;
 type Result<T> = std::result::Result<T, &'static str>;
 
@@ -27,7 +24,7 @@ type Result<T> = std::result::Result<T, &'static str>;
 /// and any other deserialization errors, deserialize into an `UnverifiedBitField` and
 /// call `verify` on it.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-#[serde(try_from = "UnverifiedBitField", into = "UnverifiedBitField")]
+#[serde(from = "RlePlus", into = "RlePlus")]
 pub struct BitField {
     /// The underlying RLE+ encoded bitvec.
     bitvec: RlePlus,

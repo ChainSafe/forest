@@ -70,6 +70,7 @@ use reader::BitReader;
 use writer::BitWriter;
 
 use super::{ranges_from_bits, BitVec, RangeIterator, Result};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // https://github.com/multiformats/unsigned-varint#practical-maximum-of-9-bytes-for-security
 const VARINT_MAX_BYTES: usize = 9;
@@ -77,6 +78,25 @@ const VARINT_MAX_BYTES: usize = 9;
 /// An RLE+ encoded bit field.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct RlePlus(BitVec);
+
+impl Serialize for RlePlus {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serde_bytes::serialize(&self.0.as_slice(), serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for RlePlus {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
+        Self::new(bytes.into()).map_err(serde::de::Error::custom)
+    }
+}
 
 impl RlePlus {
     /// Creates a new `RlePlus` instance with an already encoded bitvec. Returns an
