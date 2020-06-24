@@ -880,13 +880,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blockchain"
-version = "0.1.0"
-dependencies = [
- "forest_message",
-]
-
-[[package]]
 name = "blocking"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2585,6 +2578,7 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "futures_codec",
+ "ipld_blockstore",
  "libp2p",
  "log",
  "multihash 0.10.1",
@@ -3981,10 +3975,6 @@ dependencies = [
  "libc",
  "void",
 ]
-
-[[package]]
-name = "node"
-version = "0.1.0"
 
 [[package]]
 name = "nodrop"
