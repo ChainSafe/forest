@@ -99,27 +99,21 @@ impl<'a> BitReader<'a> {
 
         let len = if prefix_0 == 1 {
             // Block Single (prefix 1)
-            Some(1)
+            1
         } else {
             let prefix_1 = self.read(1);
 
             if prefix_1 == 1 {
                 // Block Short (prefix 01)
-                Some(self.read(4) as usize)
+                self.read(4) as usize
             } else {
                 // Block Long (prefix 00)
-                let len = self.read_varint()?;
-
-                // if `len` is 0 here then that means we've been reading
-                // trailing 0s from the buffer
-                if len > 0 {
-                    Some(len)
-                } else {
-                    None
-                }
+                self.read_varint()?
             }
         };
 
-        Ok(len)
+        // decoding ends when a length of 0 is encountered, regardless of
+        // whether it is a short block or a long block
+        Ok(if len > 0 { Some(len) } else { None })
     }
 }

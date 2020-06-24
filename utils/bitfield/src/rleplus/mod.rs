@@ -215,7 +215,7 @@ mod tests {
                         0, 0, // version
                         1, // starts with 1
                         0, 1, // fits into 4 bits
-                        0, 0, 0, 1, // 8
+                        0, 0, 0, 1, // 8 - 1
                 ],
             ),
             (
@@ -236,7 +236,7 @@ mod tests {
                         0, 0, // version
                         1, // starts with 1
                         0, 0, // does not fit into 4 bits
-                        1, 0, 0, 1, 1, 0, 0, 0 // 25
+                        1, 0, 0, 1, 1, 0, 0, 0 // 25 - 1
                 ],
             ),
         ];
@@ -255,6 +255,23 @@ mod tests {
                 i
             );
         }
+    }
+
+    #[test]
+    fn test_zero_short_block() {
+        // decoding should end whenever a length of 0 is encountered
+
+        let encoded = bitvec![Lsb0, u8;
+            0, 0, // version
+            1, // starts with 1
+            1, // 1 - 1
+            0, 1, // fits into 4 bits
+            0, 0, 0, 0, // 0 - 0
+            1, // 1 - 1
+        ];
+
+        let decoded = RlePlus::new(encoded).unwrap().decode();
+        assert_eq!(decoded, bitvec![Lsb0, u8; 1]);
     }
 
     fn roundtrip(rng: &mut XorShiftRng, range: usize) {
