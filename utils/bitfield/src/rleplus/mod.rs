@@ -65,7 +65,7 @@ mod iter;
 mod reader;
 mod writer;
 
-pub use iter::{DecodedRanges, Ranges};
+pub use iter::{Ranges, Runs};
 use reader::BitReader;
 use writer::BitWriter;
 
@@ -102,10 +102,13 @@ impl RlePlus {
     /// Creates a new `RlePlus` instance with an already encoded bitvec. Returns an
     /// error if the given bitvec is not RLE+ encoded correctly.
     pub fn new(encoded: BitVec) -> Result<Self> {
-        // iterating the ranges of the encoded bitvec ensures that it's encoded correctly
-        for range in DecodedRanges::new(encoded.as_slice())? {
-            let _ = range?;
-        }
+        // iterating the runs of the encoded bitvec ensures that it's encoded correctly,
+        // and adding the lengths of the runs together ensures that the total length of
+        // 1s and 0s fits in a `usize`
+        Runs::new(encoded.as_slice())?.try_fold(0_usize, |total_len, run| {
+            let (_value, len) = run?;
+            total_len.checked_add(len).ok_or("RLE+ overflow")
+        })?;
         Ok(Self(encoded))
     }
 
@@ -123,10 +126,9 @@ impl RlePlus {
     pub fn decode(&self) -> BitVec {
         // the underlying bitvec has already been validated, so nothing here can fail
         let mut bitvec = BitVec::new();
-        for range in DecodedRanges::new(self.as_bytes()).unwrap() {
-            let range = range.unwrap();
-            bitvec.resize(range.start, false);
-            bitvec.resize(range.end, true);
+        for run in Runs::new(self.as_bytes()).unwrap() {
+            let (value, len) = run.unwrap();
+            bitvec.extend(std::iter::repeat(value).take(len));
         }
         bitvec
     }
