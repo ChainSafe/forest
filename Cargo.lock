@@ -1092,6 +1092,7 @@ dependencies = [
  "db",
  "fil_types",
  "filecoin-proofs-api",
+ "flo_stream",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -1123,6 +1124,17 @@ dependencies = [
  "num-integer",
  "num-traits 0.2.12",
  "time 0.1.43",
+]
+
+[[package]]
+name = "cid"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8709d481fb78b9808f34a1b4b4fadd08a15a0971052c18bc2b751faefaed595e"
+dependencies = [
+ "multibase",
+ "multihash 0.11.2",
+ "unsigned-varint 0.3.3",
 ]
 
 [[package]]
@@ -2242,7 +2254,10 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "futures_codec",
+ "ipld_blockstore",
+ "libipld-core",
  "libp2p",
+ "libp2p-bitswap",
  "log",
  "serde",
  "smallvec 1.4.0",
@@ -2585,6 +2600,7 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "futures_codec",
+ "ipld_blockstore",
  "libp2p",
  "log",
  "multihash 0.10.1",
@@ -3182,6 +3198,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9457b06509d27052635f90d6466700c65095fdf75409b3fbdd903e988b886f49"
 
 [[package]]
+name = "libipld-core"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55cb1d6e9195f4c088b65dd96b942efae068fbc49fd2ca9f15ac7f4407a9292d"
+dependencies = [
+ "cid",
+ "multibase",
+ "multihash 0.11.2",
+ "thiserror",
+]
+
+[[package]]
 name = "libloading"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3227,6 +3255,25 @@ dependencies = [
  "pin-project",
  "smallvec 1.4.0",
  "wasm-timer",
+]
+
+[[package]]
+name = "libp2p-bitswap"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cd3b0f2b726da59b8fdabb79fd0355d467508b0f7b4ded0f05113a63e2c735f"
+dependencies = [
+ "async-std",
+ "fnv",
+ "futures 0.3.5",
+ "libipld-core",
+ "libp2p-core",
+ "libp2p-swarm",
+ "log",
+ "prost",
+ "prost-build",
+ "thiserror",
+ "unsigned-varint 0.3.3",
 ]
 
 [[package]]
