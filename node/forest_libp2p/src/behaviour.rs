@@ -301,7 +301,7 @@ impl ForestBehaviour {
         data: Box<[u8]>,
     ) -> Result<(), Box<dyn Error>> {
         let cid = cid.to_string();
-        log::debug!("send {}", cid.to_string());
+        log::debug!("send {}", cid);
         let cid = Cid2::from_str(&cid)?;
         self.bitswap.send_block(peer_id, cid, data);
         Ok(())
@@ -310,7 +310,7 @@ impl ForestBehaviour {
     /// Send a request for data over bitswap
     pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
         let cid = cid.to_string();
-        log::debug!("want {}", cid.to_string());
+        log::debug!("want {}", cid);
         let cid = Cid2::from_str(&cid)?;
         self.bitswap.want_block(cid, priority);
         Ok(())
@@ -319,7 +319,7 @@ impl ForestBehaviour {
     /// Cancel a bitswap request
     pub fn cancel_block(&mut self, cid: &Cid) -> Result<(), Box<dyn Error>> {
         let cid = cid.to_string();
-        log::debug!("cancel {}", cid.to_string());
+        log::debug!("cancel {}", cid);
         let cid = Cid2::from_str(&cid)?;
         self.bitswap.cancel_block(&cid);
         Ok(())

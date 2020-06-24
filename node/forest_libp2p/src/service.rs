@@ -7,6 +7,7 @@ use super::rpc::{RPCEvent, RPCRequest, RPCResponse};
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
+use forest_cid::{multihash::Blake2b256, Cid};
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
@@ -23,7 +24,6 @@ use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
-use forest_cid::{multihash::Blake2b256, Cid};
 
 const PUBSUB_TOPICS: [&str; 2] = ["/fil/blocks", "/fil/msgs"];
 
@@ -52,7 +52,7 @@ pub enum NetworkEvent {
     },
     BitswapBlock {
         cid: Cid,
-    }
+    },
 }
 
 /// Events into this Service

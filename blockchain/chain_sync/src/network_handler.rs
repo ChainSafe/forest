@@ -4,18 +4,15 @@
 use super::peer_manager::PeerManager;
 use async_std::prelude::*;
 use async_std::sync::Mutex;
-use async_std::sync::{Receiver};
+use async_std::sync::Receiver;
 use async_std::task;
+use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::rpc::{RPCResponse, RequestId};
 use forest_libp2p::NetworkEvent;
-use futures::channel::oneshot::{
-  Sender as OneShotSender,
-};
+use futures::channel::oneshot::Sender as OneShotSender;
 use log::trace;
 use std::collections::HashMap;
 use std::sync::Arc;
-use flo_stream::{MessagePublisher, Publisher};
-
 
 /// Handles network events from channel and splits based on request
 pub(crate) struct NetworkHandler {

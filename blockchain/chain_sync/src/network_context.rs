@@ -4,6 +4,7 @@
 use async_std::future;
 use async_std::sync::{Mutex, Sender};
 use blocks::{FullTipset, Tipset, TipsetKeys};
+use flo_stream::Subscriber;
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
     hello::HelloMessage,
@@ -18,7 +19,6 @@ use log::trace;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use flo_stream::{Subscriber};
 
 /// Timeout for response from an RPC request
 const RPC_TIMEOUT: u64 = 5;
@@ -141,13 +141,13 @@ impl SyncNetworkContext {
             .await;
         match future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await {
             Ok(Ok(resp)) => {
-                return Ok(resp);
+                 Ok(resp)
             }
             Ok(Err(e)) => {
-                return Err(e.to_string());
+               Err(e.to_string())
             }
             Err(_) => {
-                return Err("Request timed out".to_owned());
+               Err("Request timed out".to_owned())
             }
         }
     }

@@ -23,6 +23,7 @@ use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
+use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
@@ -44,7 +45,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
-use flo_stream::{Publisher, MessagePublisher};
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -124,7 +124,8 @@ where
         // Split incoming channel to handle blocksync requests
         let mut event_send = Publisher::new(30);
         let req_table = Arc::new(Mutex::new(HashMap::new()));
-        let network = SyncNetworkContext::new(network_send, event_send.subscribe(), req_table.clone());
+        let network =
+            SyncNetworkContext::new(network_send, event_send.subscribe(), req_table.clone());
 
         let peer_manager = Arc::new(PeerManager::default());
 
