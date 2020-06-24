@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use chain::Error as ChainError;
+use encoding::Error as EncodeError;
 use thiserror::Error;
 
 // /// MessagePool error
@@ -27,4 +29,16 @@ pub enum Error {
     BLSSigTooShort,
     #[error("{0}")]
     Other(String),
+}
+
+impl From<ChainError> for Error {
+    fn from(ce: ChainError) -> Self {
+        Error::Other(ce.to_string())
+    }
+}
+
+impl From<EncodeError> for Error {
+    fn from(ee: EncodeError) -> Self {
+        Error::Other(ee.to_string())
+    }
 }

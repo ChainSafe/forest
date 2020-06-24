@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use address::Address;
-use async_std::task;
+// use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use chain::ChainStore;
@@ -11,14 +11,19 @@ use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
 use encoding::Cbor;
-use futures::stream::StreamExt;
+// use futures::stream::StreamExt;
+use log::warn;
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
+use num_bigint::{BigInt, BigUint};
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use vm::ActorState;
+
+const REPLACE_BY_FEE_RATIO: f32 = 1.25;
+const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
+const RBF_DENOM: u64 = 256;
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
@@ -43,15 +48,11 @@ impl MsgSet {
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
             self.next_sequence = m.sequence() + 1;
         }
-        if self.msgs.contains_key(&m.sequence()) {
-            let exms = self.msgs.get(&m.sequence()).unwrap();
-            if m.cid().map_err(|err| Error::Other(err.to_string()))?
-                != exms.cid().map_err(|err| Error::Other(err.to_string()))?
-            {
+        if let Some(exms) = self.msgs.get(&m.sequence()) {
+            if m.cid()? != exms.cid()? {
                 let gas_price = exms.message().gas_price();
-                let replace_by_fee_ratio: f32 = 1.25;
-                let rbf_num = BigUint::from(((replace_by_fee_ratio - 1_f32) * 256_f32) as u64);
-                let rbf_denom = BigUint::from(256 as u64);
+                let rbf_num = BigUint::from(RBF_NUM);
+                let rbf_denom = BigUint::from(RBF_DENOM);
                 let min_price =
                     gas_price.clone() + (gas_price / &rbf_num) + rbf_denom + BigUint::from(1_u64);
                 if m.message().gas_price() <= &min_price {
@@ -70,7 +71,7 @@ impl MsgSet {
 pub trait Provider {
     /// Return the tipset that will be used for the Messagepool cur_tipset during the creation of a
     /// Messagepool
-    fn subscribe_head_changes(&mut self) -> Tipset;
+    fn subscribe_head_changes(&mut self) -> Option<Tipset>;
     /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
@@ -112,25 +113,9 @@ where
     /// TODO find a way to get this function to periodically check for head changes in cs and update
     /// msgpool accordingly or find a way to have an async function always running in the background
     /// checking for newly published tipset and add it to msgpool
-    fn subscribe_head_changes(&mut self) -> Tipset {
-        if self.cs.heaviest_tipset().is_none() {
-            task::block_on(async {
-                let mut subscriber = self.cs.subscribe();
-                loop {
-                    let sub = subscriber.next().await;
-                    if sub.is_some()
-                        && self
-                            .cs
-                            .set_heaviest_tipset(sub.unwrap().clone())
-                            .await
-                            .is_ok()
-                    {
-                        break;
-                    }
-                }
-            });
-        }
-        self.cs.heaviest_tipset().unwrap().as_ref().clone()
+    fn subscribe_head_changes(&mut self) -> Option<Tipset> {
+        let ts = self.cs.heaviest_tipset()?;
+        Some(ts.as_ref().clone())
     }
 
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
@@ -146,39 +131,22 @@ where
         let state = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
             .map_err(Error::Other)?;
         let actor = state.get_actor(addr).map_err(Error::Other)?;
-        match actor {
-            Some(actor_state) => Ok(actor_state),
-            None => Err(Error::Other("No actor state".to_string())),
-        }
+        actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
     }
 
     fn messages_for_block(
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        chain::block_messages(self.cs.blockstore(), h).map_err(|err| Error::Other(err.to_string()))
+        chain::block_messages(self.cs.blockstore(), h).map_err(|err| err.into())
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        let mut umsg: Vec<UnsignedMessage> = Vec::new();
-        let mut msg: Vec<SignedMessage> = Vec::new();
-        for bh in h.blocks().iter() {
-            let (mut bh_umsg_tmp, mut bh_msg_tmp) = self.messages_for_block(bh)?;
-            let bh_umsg = bh_umsg_tmp.as_mut();
-            let bh_msg = bh_msg_tmp.as_mut();
-            umsg.append(bh_umsg);
-            msg.append(bh_msg);
-        }
-        for msg in &msg {
-            umsg.push(msg.message().clone());
-        }
-        Ok(umsg)
+        self.cs.messages_for_tipset(h).map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        self.cs
-            .tipset_from_keys(tsk)
-            .map_err(|err| Error::Other(err.to_string()))
+        self.cs.tipset_from_keys(tsk).map_err(|err| err.into())
     }
 }
 
@@ -186,13 +154,13 @@ where
 pub struct MessagePool<T> {
     local_addrs: Vec<Address>,
     pending: HashMap<Address, MsgSet>,
-    pub(crate) cur_tipset: Tipset,
+    pub cur_tipset: Tipset,
     api: T,
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
     pub network_name: String,
     bls_sig_cache: LruCache<Cid, Signature>,
-    sig_val_cache: LruCache<String, ()>,
+    sig_val_cache: LruCache<Cid, ()>,
     local_msgs: HashMap<Vec<u8>, SignedMessage>,
 }
 
@@ -205,8 +173,11 @@ where
     where
         T: Provider,
     {
-        let tipset = api.subscribe_head_changes();
+        // let tipset = api.subscribe_head_changes();
         // LruCache sizes have been taken from the lotus implementation
+        let tipset = api
+            .subscribe_head_changes()
+            .ok_or_else(|| Error::Other("No ts in api to set as cur_tipset".to_owned()))?;
         let bls_sig_cache = LruCache::new(40000);
         let sig_val_cache = LruCache::new(32000);
         let mut mp = MessagePool {
@@ -214,7 +185,7 @@ where
             pending: HashMap::new(),
             cur_tipset: tipset,
             api,
-            min_gas_price: ToBigInt::to_bigint(&0).unwrap(),
+            min_gas_price: Default::default(),
             max_tx_pool_size: 5000,
             network_name,
             bls_sig_cache,
@@ -234,28 +205,20 @@ where
 
     /// Push a signed message to the MessagePool
     pub fn push(&mut self, msg: &SignedMessage) -> Result<Cid, Error> {
-        let msg_serial = msg
-            .marshal_cbor()
-            .map_err(|err| Error::Other(err.to_string()))?;
+        let msg_serial = msg.marshal_cbor()?;
         self.add(msg)?;
         self.add_local(msg, msg_serial)?;
-        msg.cid().map_err(|err| Error::Other(err.to_string()))
+        msg.cid().map_err(|err| err.into())
     }
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
     /// to be pushed to the MessagePool
     pub fn add(&mut self, msg: &SignedMessage) -> Result<(), Error> {
-        let size = msg
-            .marshal_cbor()
-            .map_err(|err| Error::Other(err.to_string()))?
-            .len();
+        let size = msg.marshal_cbor()?.len();
         if size > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        if msg
-            .value()
-            .gt(&ToBigUint::to_biguint(&2_000_000_000).unwrap())
-        {
+        if msg.value() > &BigUint::from(2_000_000_000u64) {
             return Err(Error::MessageValueTooHigh);
         }
 
@@ -270,53 +233,19 @@ where
         self.add_helper(m)
     }
 
-    /// Return the string representation of the message signature
-    pub(crate) fn sig_cache_key(&mut self, msg: &SignedMessage) -> Result<String, Error> {
-        match msg.signature().signature_type() {
-            SignatureType::Secp256k1 => Ok(msg.cid().unwrap().to_string()),
-            SignatureType::BLS => {
-                if msg.signature().bytes().len() < 90 {
-                    return Err(Error::BLSSigTooShort);
-                }
-                let mut beginning = String::new();
-                beginning += &msg
-                    .cid()
-                    .unwrap()
-                    .to_bytes()
-                    .into_iter()
-                    .map(char::from)
-                    .collect::<String>();
-                beginning += &msg
-                    .signature()
-                    .bytes()
-                    .iter()
-                    .map(|b| char::from(*b))
-                    .collect::<String>();
-                Ok(beginning)
-            }
-        }
-    }
-
     /// Verify the message signature. first check if it has already been verified and put into
     /// cache. If it has not, then manually verify it then put it into cache for future use
     fn verify_msg_sig(&mut self, msg: &SignedMessage) -> Result<(), Error> {
-        let sck = self.sig_cache_key(msg)?;
-        let is_verif = self.sig_val_cache.get(&sck);
-        match is_verif {
-            Some(()) => Ok(()),
-            None => {
-                let umsg = Cbor::marshal_cbor(msg.message())
-                    .map_err(|err| Error::Other(err.to_string()))?;
-                let verif = msg.signature().verify(umsg.as_slice(), msg.from());
-                match verif {
-                    Ok(()) => {
-                        self.sig_val_cache.put(sck, ());
-                        Ok(())
-                    }
-                    Err(value) => Err(Error::Other(value)),
-                }
-            }
+        let cid = msg.cid()?;
+        if let Some(()) = self.sig_val_cache.get(&cid) {
+            return Ok(());
         }
+        let umsg = msg.message().marshal_cbor()?;
+        msg.signature()
+            .verify(umsg.as_slice(), msg.from())
+            .map_err(Error::Other)?;
+        self.sig_val_cache.put(cid, ());
+        Ok(())
     }
 
     /// Verify the state_sequence and balance for the sender of the message given then call add_locked
@@ -341,10 +270,7 @@ where
     /// and push it to the pending hashmap
     fn add_helper(&mut self, msg: SignedMessage) -> Result<(), Error> {
         if msg.signature().signature_type() == SignatureType::BLS {
-            self.bls_sig_cache.put(
-                msg.cid().map_err(|err| Error::Other(err.to_string()))?,
-                msg.signature().clone(),
-            );
+            self.bls_sig_cache.put(msg.cid()?, msg.signature().clone());
         }
         if msg.message().gas_limit() > 100_000_000 {
             return Err(Error::Other(
@@ -355,13 +281,10 @@ where
 
         let msett = self.pending.get_mut(msg.message().from());
         match msett {
-            Some(mset) => mset
-                .add(&msg)
-                .map_err(|err| Error::Other(err.to_string()))?,
+            Some(mset) => mset.add(&msg)?,
             None => {
                 let mut mset = MsgSet::new();
-                mset.add(&msg)
-                    .map_err(|err| Error::Other(err.to_string()))?;
+                mset.add(&msg)?;
                 self.pending.insert(*msg.message().from(), mset);
             }
         }
@@ -486,11 +409,8 @@ where
 
     /// Attempt to get the signed message given an unsigned message in message pool
     pub fn recover_sig(&mut self, msg: UnsignedMessage) -> Result<SignedMessage, Error> {
-        let val = self
-            .bls_sig_cache
-            .get(&msg.cid().map_err(|err| Error::Other(err.to_string()))?)
-            .unwrap();
-        Ok(SignedMessage::new_from_fields(msg, val.clone()))
+        let val = self.bls_sig_cache.get(&msg.cid()?).unwrap();
+        Ok(SignedMessage::new_from_parts(msg, val.clone()))
     }
 
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
@@ -509,20 +429,18 @@ where
     /// local_message field, possibly implement this in the future?
     pub fn load_local(&mut self) -> Result<(), Error> {
         for (key, value) in self.local_msgs.clone() {
-            match self.add(&value) {
-                Ok(()) => (),
-                Err(err) => {
-                    if err == Error::SequenceTooLow {
-                        self.local_msgs.remove(&key);
-                    }
+            self.add(&value).unwrap_or_else(|err| {
+                if err == Error::SequenceTooLow {
+                    warn!("error adding message: {:?}", err);
+                    self.local_msgs.remove(&key);
                 }
-            }
+            });
         }
         Ok(())
     }
 
     /// This is a helper method for head_change. This method will remove a sequence for a from address
-    /// from rmsgs
+    /// from the rmsgs hashmap. Also remove the from address and sequence from the mmessagepool.
     fn rm(
         &mut self,
         from: &Address,
@@ -579,7 +497,7 @@ where
     }
 }
 
-/// This function is a helper method for head_change. This method will add a signed message to rmsgs
+/// This function is a helper method for head_change. This method will add a signed message to the given rmsgs HashMap
 fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
     let s = rmsgs.get_mut(m.from());
     if s.is_none() {
@@ -633,8 +551,8 @@ mod tests {
     }
 
     impl Provider for TestApi {
-        fn subscribe_head_changes(&mut self) -> Tipset {
-            Tipset::new(vec![create_header(1, b"", b"")]).unwrap()
+        fn subscribe_head_changes(&mut self) -> Option<Tipset> {
+            Tipset::new(vec![create_header(1, b"", b"")]).ok()
         }
 
         fn put_message(&self, _msg: &SignedMessage) -> Result<Cid, Errors> {
@@ -718,7 +636,7 @@ mod tests {
             .unwrap();
         let message_cbor = Cbor::marshal_cbor(&umsg).unwrap();
         let sig = wallet.sign(&from, message_cbor.as_slice()).unwrap();
-        SignedMessage::new_from_fields(umsg, sig)
+        SignedMessage::new_from_parts(umsg, sig)
     }
 
     fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {

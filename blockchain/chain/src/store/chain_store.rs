@@ -180,6 +180,7 @@ where
         // the given tipset has already been verified, so this cannot fail
         Ok(FullTipset::new(blocks).unwrap())
     }
+
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     async fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
         match &self.heaviest {
@@ -198,6 +199,23 @@ where
             }
         }
         Ok(())
+    }
+
+    /// Return the messages in the chainstore for a given tipset
+    pub fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
+        let mut umsg: Vec<UnsignedMessage> = Vec::new();
+        let mut msgs: Vec<SignedMessage> = Vec::new();
+        for bh in h.blocks().iter() {
+            let (mut bh_umsg_tmp, mut bh_msg_tmp) = block_messages(self.blockstore(), bh)?;
+            let bh_umsg = &mut bh_umsg_tmp;
+            let bh_msg = &mut bh_msg_tmp;
+            umsg.append(bh_umsg);
+            msgs.append(bh_msg);
+        }
+        for msg in msgs {
+            umsg.push(msg.into_message());
+        }
+        Ok(umsg)
     }
 }
 

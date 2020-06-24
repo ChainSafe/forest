@@ -25,7 +25,8 @@ impl SignedMessage {
         Ok(SignedMessage { message, signature })
     }
 
-    pub fn new_from_fields(message: UnsignedMessage, signature: Signature) -> Self {
+    /// Construct a new SignedMessage given an UnsignedMessage and Signature
+    pub fn new_from_parts(message: UnsignedMessage, signature: Signature) -> Self {
         SignedMessage { message, signature }
     }
     /// Returns reference to the unsigned message.
@@ -36,6 +37,11 @@ impl SignedMessage {
     /// Returns signature of the signed message.
     pub fn signature(&self) -> &Signature {
         &self.signature
+    }
+
+    /// Consumes self and returns it's unsigned message
+    pub fn into_message(self) -> UnsignedMessage {
+        self.message
     }
 }
 
