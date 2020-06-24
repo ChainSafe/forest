@@ -1317,7 +1317,7 @@ impl Actor {
 
     fn on_deferred_cron_event<BS, RT>(
         rt: &mut RT,
-        mut payload: CronEventPayload,
+        payload: CronEventPayload,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -1325,7 +1325,7 @@ impl Actor {
     {
         match payload.event_type {
             CRON_EVENT_PROVING_PERIOD => handle_proving_period(rt)?,
-            CRON_EVENT_PRE_COMMIT_EXPIRY => check_precommit_expiry(rt, &mut payload.sectors)?,
+            CRON_EVENT_PRE_COMMIT_EXPIRY => check_precommit_expiry(rt, &payload.sectors)?,
             CRON_EVENT_WORKER_KEY_CHANGE => commit_worker_key_change(rt)?,
             _ => (),
         };
@@ -1812,7 +1812,7 @@ where
 
 fn check_precommit_expiry<BS, RT>(
     rt: &mut RT,
-    optional_sectors: &mut Option<BitField>,
+    optional_sectors: &Option<BitField>,
 ) -> Result<(), ActorError>
 where
     BS: BlockStore,
