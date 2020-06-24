@@ -181,11 +181,11 @@ where
                                     warn!("failed to save bitswap block: {:?}", e.to_string());
                                 }
                             }
-                            self.network_sender_out.send(NetworkEvent::BitswapBlock{cid});
+                            self.network_sender_out.send(NetworkEvent::BitswapBlock{cid}).await;
                         },
                         ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) =>  match self.db.get(&cid) {
                             Ok(Some(data)) => {
-                                swarm_stream.get_mut().send_block(&peer_id, cid, data);
+                                swarm_stream.get_mut().send_block(&peer_id, cid, data).unwrap();
                             }
                             Ok(None) => {
                                 trace!("Don't have data for: {}", cid);

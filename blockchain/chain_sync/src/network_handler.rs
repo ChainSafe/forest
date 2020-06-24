@@ -4,7 +4,7 @@
 use super::peer_manager::PeerManager;
 use async_std::prelude::*;
 use async_std::sync::Mutex;
-use async_std::sync::{Receiver, Sender};
+use async_std::sync::{Receiver};
 use async_std::task;
 use forest_libp2p::rpc::{RPCResponse, RequestId};
 use forest_libp2p::NetworkEvent;
@@ -16,26 +16,23 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use flo_stream::{MessagePublisher, Publisher};
 
-pub(crate) type RPCSender = Sender<(RequestId, RPCResponse)>;
 
 /// Handles network events from channel and splits based on request
 pub(crate) struct NetworkHandler {
-    rpc_send: RPCSender,
     event_send: Publisher<NetworkEvent>,
     receiver: Receiver<NetworkEvent>,
-    request_table: Arc<Mutex<HashMap<usize, OneShotSender<RPCResponse>>>>,
+    /// keeps track of a mapping from rpc request id to oneshot senders
+    request_table: Arc<Mutex<HashMap<RequestId, OneShotSender<RPCResponse>>>>,
 }
 
 impl NetworkHandler {
     pub(crate) fn new(
         receiver: Receiver<NetworkEvent>,
-        rpc_send: RPCSender,
         event_send: Publisher<NetworkEvent>,
-        request_table: Arc<Mutex<HashMap<usize, OneShotSender<RPCResponse>>>>,
+        request_table: Arc<Mutex<HashMap<RequestId, OneShotSender<RPCResponse>>>>,
     ) -> Self {
         Self {
             receiver,
-            rpc_send,
             event_send,
             request_table,
         }
@@ -62,8 +59,9 @@ impl NetworkHandler {
                             // TODO should probably add peer with their tipset/ not handled seperately
                             peer_manager.add_peer(source.clone(), None).await;
                         }
-
-                        event_send.publish(event).await
+                        if let NetworkEvent::BitswapBlock { .. } = &event {
+                            event_send.publish(event).await
+                        }
                     }
                     None => break,
                 }

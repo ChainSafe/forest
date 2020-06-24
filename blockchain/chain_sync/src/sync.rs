@@ -10,7 +10,7 @@ use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
-use async_std::sync::{channel, Mutex, Receiver, Sender};
+use async_std::sync::{Mutex, Receiver, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -122,14 +122,13 @@ where
         let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
         // Split incoming channel to handle blocksync requests
-        let (rpc_send, rpc_rx) = channel(20);
         let mut event_send = Publisher::new(30);
         let req_table = Arc::new(Mutex::new(HashMap::new()));
         let network = SyncNetworkContext::new(network_send, event_send.subscribe(), req_table.clone());
 
         let peer_manager = Arc::new(PeerManager::default());
 
-        let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send, req_table);
+        let net_handler = NetworkHandler::new(network_rx, event_send, req_table);
 
         Ok(Self {
             state: SyncState::Init,

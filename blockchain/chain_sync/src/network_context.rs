@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::future;
-use async_std::sync::{Mutex, Receiver, Sender};
+use async_std::sync::{Mutex, Sender};
 use blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
