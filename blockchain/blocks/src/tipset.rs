@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused_variables)]
-#![allow(dead_code)]
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
@@ -321,11 +319,7 @@ pub mod tipset_json {
             cids: TipsetKeys,
             height: ChainEpoch,
         }
-        let TipsetDe {
-            blocks,
-            cids,
-            height,
-        } = Deserialize::deserialize(deserializer)?;
+        let TipsetDe { blocks, .. } = Deserialize::deserialize(deserializer)?;
         Tipset::new(blocks).map_err(de::Error::custom)
     }
 }
