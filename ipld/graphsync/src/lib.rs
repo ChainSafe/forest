@@ -10,7 +10,6 @@ mod response_manager;
 mod test_utils;
 
 pub use self::message::*;
-pub use response_manager::PeerResponseSender;
 
 use cid::Cid;
 use serde::{Deserialize, Serialize};
