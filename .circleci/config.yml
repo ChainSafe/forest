@@ -45,7 +45,7 @@ commands:
             echo 'export IMAGE_NAME=forest' >> $BASH_ENV
             echo 'export CARGO_INCREMENTAL=0' >> $BASH_ENV
             echo 'export CI_TIMEOUT="timeout 40m"' >> $BASH_ENV
-            echo 'export CC=gcc' >> $BASH_ENV 
+            echo 'export CC=gcc' >> $BASH_ENV
   install_deps:
     steps:
       - run:
