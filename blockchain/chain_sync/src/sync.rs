@@ -10,7 +10,7 @@ use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
-use async_std::sync::{channel, Receiver, Sender, Mutex};
+use async_std::sync::{channel, Mutex, Receiver, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -40,10 +40,11 @@ use num_traits::Zero;
 use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
-use std::collections::{HashMap, BTreeMap};
-use std::convert::TryFrom;
+use std::collections::{BTreeMap, HashMap};
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
+use flo_stream::{Publisher, MessagePublisher};
 
 #[derive(PartialEq, Debug, Clone)]
 /// Current state of the ChainSyncer
@@ -122,9 +123,9 @@ where
 
         // Split incoming channel to handle blocksync requests
         let (rpc_send, rpc_rx) = channel(20);
-        let (event_send, event_rx) = channel(30);
+        let mut event_send = Publisher::new(30);
         let req_table = Arc::new(Mutex::new(HashMap::new()));
-        let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx, req_table.clone());
+        let network = SyncNetworkContext::new(network_send, event_send.subscribe(), req_table.clone());
 
         let peer_manager = Arc::new(PeerManager::default());
 
@@ -785,11 +786,12 @@ where
                 let replica = PublicReplicaInfo::new(
                     sector_info
                         .proof
-                        .registered_window_post_proof()
+                        .registered_winning_post_proof()
+                        .map_err(|err| Error::Validation(format!("Invalid proof code: {:}", err)))?
+                        .try_into()
                         .map_err(|err| {
                             Error::Validation(format!("failed to get registered proof: {:}", err))
-                        })?
-                        .into(),
+                        })?,
                     commr,
                 );
                 Ok((SectorId::from(sector_info.sector_number), replica))

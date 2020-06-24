@@ -56,7 +56,7 @@ fn main() {
         initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
 
     // Libp2p service setup
-    let p2p_service = Libp2pService::new(config.network, net_keypair, &network_name);
+    let p2p_service = Libp2pService::new(config.network, db.clone(), net_keypair, &network_name);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 

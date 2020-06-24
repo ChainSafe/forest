@@ -3,23 +3,25 @@
 
 use super::peer_manager::PeerManager;
 use async_std::prelude::*;
+use async_std::sync::Mutex;
 use async_std::sync::{Receiver, Sender};
 use async_std::task;
-use futures::channel::oneshot::{channel as oneshot_channel, Receiver as OneShotReceiver, Sender as OneShotSender};
 use forest_libp2p::rpc::{RPCResponse, RequestId};
 use forest_libp2p::NetworkEvent;
+use futures::channel::oneshot::{
+  Sender as OneShotSender,
+};
 use log::trace;
-use std::sync::Arc;
 use std::collections::HashMap;
-use async_std::sync::Mutex;
+use std::sync::Arc;
+use flo_stream::{MessagePublisher, Publisher};
 
-pub(crate) type RPCReceiver = Receiver<(RequestId, RPCResponse)>;
 pub(crate) type RPCSender = Sender<(RequestId, RPCResponse)>;
 
 /// Handles network events from channel and splits based on request
 pub(crate) struct NetworkHandler {
     rpc_send: RPCSender,
-    event_send: Sender<NetworkEvent>,
+    event_send: Publisher<NetworkEvent>,
     receiver: Receiver<NetworkEvent>,
     request_table: Arc<Mutex<HashMap<usize, OneShotSender<RPCResponse>>>>,
 }
@@ -28,7 +30,7 @@ impl NetworkHandler {
     pub(crate) fn new(
         receiver: Receiver<NetworkEvent>,
         rpc_send: RPCSender,
-        event_send: Sender<NetworkEvent>,
+        event_send: Publisher<NetworkEvent>,
         request_table: Arc<Mutex<HashMap<usize, OneShotSender<RPCResponse>>>>,
     ) -> Self {
         Self {
@@ -41,8 +43,7 @@ impl NetworkHandler {
 
     pub(crate) fn spawn(&self, peer_manager: Arc<PeerManager>) {
         let mut receiver = self.receiver.clone();
-        let rpc_send = self.rpc_send.clone();
-        let event_send = self.event_send.clone();
+        let mut event_send = self.event_send.republish();
         let request_table = self.request_table.clone();
 
         task::spawn(async move {
@@ -62,10 +63,7 @@ impl NetworkHandler {
                             peer_manager.add_peer(source.clone(), None).await;
                         }
 
-                        // TODO revisit, doing this to avoid blocking this thread but can handle better
-                        if !event_send.is_full() {
-                            event_send.send(event).await
-                        }
+                        event_send.publish(event).await
                     }
                     None => break,
                 }

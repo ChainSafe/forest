@@ -3,6 +3,8 @@
 
 use super::rpc::{RPCEvent, RPCMessage, RPC};
 use crate::config::Libp2pConfig;
+use forest_cid::Cid;
+use libipld_core::cid::Cid as Cid2;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -17,14 +19,12 @@ use libp2p::ping::{
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
+use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
 use std::collections::HashSet;
-use std::{task::Context, task::Poll};
-use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
-use forest_cid::Cid;
-use libipld_core::cid::Cid as Cid2;
-use std::str::FromStr;
 use std::error::Error;
+use std::str::FromStr;
+use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
@@ -98,14 +98,19 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
             BitswapEvent::ReceivedBlock(peer_id, cid, data) => {
                 let cid = cid.to_string();
                 let cid: Cid = Cid::from_str(&cid).unwrap();
-                self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, data));
-            },
-            BitswapEvent::ReceivedWant(peer_id, cid, priority) => {
+                self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
+                    peer_id, cid, data,
+                ));
+            }
+            BitswapEvent::ReceivedWant(peer_id, cid, _priority) => {
                 let cid = cid.to_string();
                 let cid: Cid = Cid::from_str(&cid).unwrap();
-                self.events.push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid));
-            },
-            BitswapEvent::ReceivedCancel(peer_id, cid) => {},
+                self.events
+                    .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid));
+            }
+            BitswapEvent::ReceivedCancel(_peer_id, _cid) => {
+                // TODO: Determine how to handle cancel
+            }
         }
     }
 }
@@ -289,7 +294,12 @@ impl ForestBehaviour {
     }
 
     /// Send a block to a peer over bitswap
-    pub fn send_block(&mut self, peer_id: &PeerId, cid: Cid, data: Box<[u8]>) -> Result<(),  Box<dyn Error>>{
+    pub fn send_block(
+        &mut self,
+        peer_id: &PeerId,
+        cid: Cid,
+        data: Box<[u8]>,
+    ) -> Result<(), Box<dyn Error>> {
         let cid = cid.to_string();
         log::debug!("send {}", cid.to_string());
         let cid = Cid2::from_str(&cid)?;
@@ -298,7 +308,7 @@ impl ForestBehaviour {
     }
 
     /// Send a request for data over bitswap
-    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(),  Box<dyn Error>> {
+    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
         let cid = cid.to_string();
         log::debug!("want {}", cid.to_string());
         let cid = Cid2::from_str(&cid)?;
@@ -307,7 +317,7 @@ impl ForestBehaviour {
     }
 
     /// Cancel a bitswap request
-    pub fn cancel_block(&mut self, cid: &Cid) -> Result<(),  Box<dyn Error>> {
+    pub fn cancel_block(&mut self, cid: &Cid) -> Result<(), Box<dyn Error>> {
         let cid = cid.to_string();
         log::debug!("cancel {}", cid.to_string());
         let cid = Cid2::from_str(&cid)?;

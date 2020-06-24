@@ -9,6 +9,7 @@ use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
+use ipld_blockstore::BlockStore;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -19,8 +20,10 @@ use libp2p::{
 };
 use log::{debug, info, trace, warn};
 use std::io::{Error, ErrorKind};
+use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
+use forest_cid::{multihash::Blake2b256, Cid};
 
 const PUBSUB_TOPICS: [&str; 2] = ["/fil/blocks", "/fil/msgs"];
 
@@ -47,6 +50,9 @@ pub enum NetworkEvent {
     PeerDialed {
         peer_id: PeerId,
     },
+    BitswapBlock {
+        cid: Cid,
+    }
 }
 
 /// Events into this Service
@@ -56,8 +62,10 @@ pub enum NetworkMessage {
     RPC { peer_id: PeerId, event: RPCEvent },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
-pub struct Libp2pService {
+pub struct Libp2pService<DB: BlockStore> {
     pub swarm: Swarm<ForestBehaviour>,
+
+    db: Arc<DB>,
 
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
@@ -65,9 +73,17 @@ pub struct Libp2pService {
     network_sender_out: Sender<NetworkEvent>,
 }
 
-impl Libp2pService {
+impl<DB> Libp2pService<DB>
+where
+    DB: BlockStore,
+{
     /// Constructs a Libp2pService
-    pub fn new(config: Libp2pConfig, net_keypair: Keypair, network_name: &str) -> Self {
+    pub fn new(
+        config: Libp2pConfig,
+        db: Arc<DB>,
+        net_keypair: Keypair,
+        network_name: &str,
+    ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
         let transport = build_transport(net_keypair.clone());
@@ -93,6 +109,7 @@ impl Libp2pService {
         let (network_sender_out, network_receiver_out) = channel(20);
         Libp2pService {
             swarm,
+            db,
             network_receiver_in,
             network_sender_in,
             network_receiver_out,
@@ -155,8 +172,28 @@ impl Libp2pService {
                                 RPCEvent::Error(req_id, err) => info!("Error with request {}: {:?}", req_id, err),
                             }
                         }
-                        ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {},
-                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => {},
+                        ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {
+                            match self.db.put(&block, Blake2b256) {
+                                Ok(actual_cid) => {
+                                    trace!("saved bitswap block with returned cid {:?}, expected cid: {:?}", actual_cid, cid);
+                                }
+                                Err(e) => {
+                                    warn!("failed to save bitswap block: {:?}", e.to_string());
+                                }
+                            }
+                            self.network_sender_out.send(NetworkEvent::BitswapBlock{cid});
+                        },
+                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) =>  match self.db.get(&cid) {
+                            Ok(Some(data)) => {
+                                swarm_stream.get_mut().send_block(&peer_id, cid, data);
+                            }
+                            Ok(None) => {
+                                trace!("Don't have data for: {}", cid);
+                            }
+                            Err(e) => {
+                                trace!("Failed to get data: {}", e.to_string());
+                            }
+                        },
                     }
                     None => {break;}
                 },

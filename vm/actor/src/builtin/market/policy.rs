@@ -6,6 +6,9 @@ use fil_types::PaddedPieceSize;
 use num_traits::Zero;
 use vm::TokenAmount;
 
+/// DealUpdatesInterval is the number of blocks between payouts for deals
+pub const DEAL_UPDATED_INTERVAL: u64 = 100;
+
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {
     (0, 10000) // PARAM_FINISH
 }

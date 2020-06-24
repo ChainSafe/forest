@@ -8,7 +8,7 @@ use super::ChainRand;
 use actor::{
     self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
     MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
-    POWER_ACTOR_CODE_ID, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
+    POWER_ACTOR_CODE_ID, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFIED_ACTOR_CODE_ID,
 };
 use address::{Address, Protocol};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -475,6 +475,9 @@ where
                 }
                 x if x == *REWARD_ACTOR_CODE_ID => {
                     actor::reward::Actor.invoke_method(runtime, method_num, msg.params())
+                }
+                x if x == *VERIFIED_ACTOR_CODE_ID => {
+                    actor::verifreg::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 _ => Err(ActorError::new(
                     ExitCode::SysErrorIllegalActor,

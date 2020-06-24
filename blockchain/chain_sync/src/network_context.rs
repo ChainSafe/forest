@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::network_handler::RPCReceiver;
-use async_std::prelude::*;
-use async_std::sync::{Receiver, Sender, Mutex};
+use async_std::future;
+use async_std::sync::{Mutex, Receiver, Sender};
 use blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
@@ -11,12 +10,15 @@ use forest_libp2p::{
     rpc::{RPCEvent, RPCRequest, RPCResponse, RequestId},
     NetworkEvent, NetworkMessage,
 };
-use futures::channel::oneshot::{channel as oneshot_channel, Receiver as OneShotReceiver, Sender as OneShotSender};
+use futures::channel::oneshot::{
+    channel as oneshot_channel, Receiver as OneShotReceiver, Sender as OneShotSender,
+};
 use libp2p::core::PeerId;
 use log::trace;
-use std::time::Duration;
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use flo_stream::{Subscriber};
 
 /// Timeout for response from an RPC request
 const RPC_TIMEOUT: u64 = 5;
@@ -29,25 +31,19 @@ pub struct SyncNetworkContext {
     /// Handles sequential request ID enumeration for requests
     rpc_request_id: RequestId,
 
-    /// Receiver channel for BlockSync responses
-    rpc_receiver: RPCReceiver,
-
     /// Receiver channel for network events
-    pub receiver: Receiver<NetworkEvent>,
+    pub receiver: Subscriber<NetworkEvent>,
     request_table: Arc<Mutex<HashMap<RequestId, OneShotSender<RPCResponse>>>>,
-
 }
 
 impl SyncNetworkContext {
     pub fn new(
         network_send: Sender<NetworkMessage>,
-        rpc_receiver: RPCReceiver,
-        receiver: Receiver<NetworkEvent>,
+        receiver: Subscriber<NetworkEvent>,
         request_table: Arc<Mutex<HashMap<RequestId, OneShotSender<RPCResponse>>>>,
     ) -> Self {
         Self {
             network_send,
-            rpc_receiver,
             receiver,
             rpc_request_id: 1,
             request_table,
@@ -120,7 +116,11 @@ impl SyncNetworkContext {
     pub async fn hello_request(&self, peer_id: PeerId, request: HelloMessage) {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
-        self.network_send.send(NetworkMessage::RPC{peer_id,  event: RPCEvent::Request(0, RPCRequest::Hello(request))})
+        self.network_send
+            .send(NetworkMessage::RPC {
+                peer_id,
+                event: RPCEvent::Request(0, RPCRequest::Hello(request)),
+            })
             .await;
     }
 
@@ -132,16 +132,38 @@ impl SyncNetworkContext {
     ) -> Result<RPCResponse, String> {
         let request_id = self.rpc_request_id;
         self.rpc_request_id += 1;
-        let rx = self.send_rpc_event(request_id, peer_id, RPCEvent::Request(request_id, rpc_request)).await;
-        rx.await.map_err(|e| e.to_string())
+        let rx = self
+            .send_rpc_event(
+                request_id,
+                peer_id,
+                RPCEvent::Request(request_id, rpc_request),
+            )
+            .await;
+        match future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await {
+            Ok(Ok(resp)) => {
+                return Ok(resp);
+            }
+            Ok(Err(e)) => {
+                return Err(e.to_string());
+            }
+            Err(_) => {
+                return Err("Request timed out".to_owned());
+            }
+        }
     }
 
     /// Handles sending the base event to the network service
-    async fn send_rpc_event(&self, req_id: RequestId, peer_id: PeerId, event: RPCEvent) -> OneShotReceiver<RPCResponse>{
+    async fn send_rpc_event(
+        &self,
+        req_id: RequestId,
+        peer_id: PeerId,
+        event: RPCEvent,
+    ) -> OneShotReceiver<RPCResponse> {
         let (tx, rx) = oneshot_channel();
         self.request_table.lock().await.insert(req_id, tx);
         self.network_send
-            .send(NetworkMessage::RPC { peer_id, event }).await;
+            .send(NetworkMessage::RPC { peer_id, event })
+            .await;
         rx
     }
 }
