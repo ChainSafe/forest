@@ -23,8 +23,6 @@ const PROVIDER_ID: u64 = 102;
 const WORKER_ID: u64 = 103;
 const CLIENT_ID: u64 = 104;
 
-//const caller_types_signable : Vec<Cid>= vec![ACCOUNT_ACTOR_CODE_ID.clone(), MULTISIG_ACTOR_CODE_ID.clone()];
-
 fn setup<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
     let message = UnsignedMessage::builder()
         .to(*STORAGE_MARKET_ACTOR_ADDR)

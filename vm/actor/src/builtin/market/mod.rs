@@ -191,7 +191,7 @@ impl Actor {
         }
 
         // All deals should have the same provider so get worker once
-        let provider_raw = &params.deals[0].proposal.provider.clone();
+        let provider_raw = &params.deals[0].proposal.provider;
         let provider = rt.resolve_address(&provider_raw)?;
 
         let (_, worker) = request_miner_control_addrs(rt, &provider)?;
@@ -298,10 +298,8 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().from();
-
         let mut total_deal_space_time = BigUint::zero();
         let mut total_verified_deal_space_time = BigUint::zero();
-
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector
             // and the totalDealSpaceTime should be zero
@@ -502,6 +500,7 @@ impl Actor {
             let mut lt = BalanceTable::from_root(rt.store(), &st.locked_table)
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
+            // TODO Adjust when Epoch becomes i32
             let mut i = st.last_cron.unwrap() + 1;
             while i <= rt.curr_epoch() {
                 dbe.for_each(i, |id| {

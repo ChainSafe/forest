@@ -420,10 +420,8 @@ impl State {
         amount: &TokenAmount,
     ) -> Result<(), String> {
         // Subtract from locked and escrow tables
-
         et.must_subtract(addr, &amount)?;
         lt.must_subtract(addr, &amount)?;
-
         Ok(())
     }
 

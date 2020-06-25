@@ -6,14 +6,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryInto;
 use std::ops::Deref;
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Default)]
 pub struct OptionalEpoch(pub Option<ChainEpoch>);
-
-impl Default for OptionalEpoch {
-    fn default() -> Self {
-        OptionalEpoch(None)
-    }
-}
 
 impl Deref for OptionalEpoch {
     type Target = Option<ChainEpoch>;
