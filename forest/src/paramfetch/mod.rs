@@ -2,22 +2,27 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::{
-    fs,
+    fs::{self, File},
+    io::{copy, BufRead},
     sync::{channel, Arc},
     task,
 };
 use blake2b_simd::State as Blake2b;
 use core::time::Duration;
 use fil_types::SectorSize;
+use futures::prelude::*;
 use log::{info, warn};
 use pbr::{MultiBar, ProgressBar, Units};
-use reqwest::{blocking::Client, header, Proxy, Url};
+use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error as StdError;
-use std::fs::File;
-use std::io::{self, copy, prelude::*, ErrorKind, Stdout};
+use std::fs::File as SyncFile;
+use std::io::{self, copy as sync_copy, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use surf::Client;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "/var/tmp/filecoin-proof-parameters";
@@ -143,9 +148,12 @@ async fn fetch_verify_params(
     })
 }
 
-struct FetchProgress<R> {
-    inner: R,
-    progress_bar: ProgressBar<pbr::Pipe>,
+pin_project! {
+    struct FetchProgress<R> {
+        #[pin]
+        inner: R,
+        progress_bar: ProgressBar<pbr::Pipe>,
+    }
 }
 
 impl<R> FetchProgress<R> {
@@ -154,12 +162,28 @@ impl<R> FetchProgress<R> {
     }
 }
 
-impl<R: Read> Read for FetchProgress<R> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.inner.read(buf).map(|n| {
-            self.progress_bar.add(n as u64);
-            n
-        })
+impl<R: AsyncRead + Unpin> AsyncRead for FetchProgress<R> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<usize, io::Error>> {
+        let r = Pin::new(&mut self.inner).poll_read(cx, buf);
+        if let Poll::Ready(Ok(size)) = r {
+            self.progress_bar.add(size as u64);
+        }
+        r
+    }
+}
+
+impl<R: BufRead + Unpin> BufRead for FetchProgress<R> {
+    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&'_ [u8]>> {
+        let this = self.project();
+        this.inner.poll_fill_buf(cx)
+    }
+
+    fn consume(mut self: Pin<&mut Self>, amt: usize) {
+        Pin::new(&mut self.inner).consume(amt)
     }
 }
 
@@ -171,20 +195,16 @@ async fn fetch_params(
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     info!("Fetching {:?} from {}", path, gw);
 
-    let mut file = File::create(path)?;
+    let mut file = File::create(path).await?;
 
-    let url = Url::parse(&format!("{}{}", gw, info.cid))?;
+    let url = format!("{}{}", gw, info.cid);
 
-    let client = Client::builder()
-        .proxy(Proxy::custom(move |url| env_proxy::for_url(&url).to_url()))
-        .build()?;
-    let total_size = {
-        let res = client.head(url.as_str()).send()?;
+    let client = Client::new();
+    let total_size: u64 = {
+        let res = client.head(&url).await?;
         if res.status().is_success() {
-            res.headers()
-                .get(header::CONTENT_LENGTH)
-                .and_then(|ct_len| ct_len.to_str().ok())
-                .and_then(|ct_len| ct_len.parse().ok())
+            res.header("Content-Length")
+                .and_then(|len| len.as_str().parse().ok())
                 .unwrap_or_default()
         } else {
             return Err(format!("failed to download file: {}", url).into());
@@ -198,14 +218,14 @@ async fn fetch_params(
         pb.set_units(Units::Bytes);
 
         let mut source = FetchProgress {
-            inner: req.send()?,
+            inner: req.await?,
             progress_bar: pb,
         };
-        copy(&mut source, &mut file)?;
+        copy(&mut source, &mut file).await?;
         source.finish();
     } else {
-        let mut source = req.send()?;
-        copy(&mut source, &mut file)?;
+        let mut source = req.await?;
+        copy(&mut source, &mut file).await?;
     };
 
     Ok(())
@@ -217,9 +237,9 @@ fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> {
         return Ok(());
     }
 
-    let mut file = File::open(path)?;
+    let mut file = SyncFile::open(path)?;
     let mut hasher = Blake2b::new();
-    copy(&mut file, &mut hasher)?;
+    sync_copy(&mut file, &mut hasher)?;
 
     let str_sum = hasher.finalize().to_hex();
     let str_sum = &str_sum[..32];
