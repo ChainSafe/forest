@@ -124,7 +124,7 @@ struct TestLinkResolver(MemoryDB);
 
 #[async_trait]
 impl LinkResolver for TestLinkResolver {
-    async fn load_link(&self, link: &Cid) -> Result<Option<Ipld>, String> {
+    async fn load_link(&mut self, link: &Cid) -> Result<Option<Ipld>, String> {
         self.0.get(link).map_err(|e| e.to_string())
     }
 }
