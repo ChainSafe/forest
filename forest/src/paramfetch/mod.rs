@@ -7,7 +7,7 @@ use async_std::{
     sync::{channel, Arc},
     task,
 };
-use blake2b_simd::State as Blake2b;
+use blake2b_simd::{Hash, State as Blake2b};
 use core::time::Duration;
 use fil_types::SectorSize;
 use futures::prelude::*;
@@ -239,26 +239,28 @@ async fn check_file(path: Arc<PathBuf>, info: Arc<ParameterData>) -> Result<(), 
         return Ok(());
     }
 
-    task::spawn_blocking(move || -> Result<(), io::Error> {
-        let file = SyncFile::open(path.as_ref())?;
+    let cloned_path = path.clone();
+    let hash = task::spawn_blocking(move || -> Result<Hash, io::Error> {
+        let file = SyncFile::open(cloned_path.as_ref())?;
         let mut reader = SyncBufReader::new(file);
         let mut hasher = Blake2b::new();
         sync_copy(&mut reader, &mut hasher)?;
-
-        let str_sum = hasher.finalize().to_hex();
-        let str_sum = &str_sum[..32];
-        if str_sum == info.digest {
-            info!("Parameter file {:?} is ok", path);
-            Ok(())
-        } else {
-            Err(io::Error::new(
-                ErrorKind::Other,
-                format!(
-                    "Checksum mismatch in param file {:?}. ({} != {})",
-                    path, str_sum, info.digest
-                ),
-            ))
-        }
+        Ok(hasher.finalize())
     })
-    .await
+    .await?;
+
+    let str_sum = hash.to_hex();
+    let str_sum = &str_sum[..32];
+    if str_sum == info.digest {
+        info!("Parameter file {:?} is ok", path);
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            ErrorKind::Other,
+            format!(
+                "Checksum mismatch in param file {:?}. ({} != {})",
+                path, str_sum, info.digest
+            ),
+        ))
+    }
 }
