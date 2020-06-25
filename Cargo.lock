@@ -358,7 +358,7 @@ checksum = "cfd7e7ae3f9a1fb5c03b389fc6bb9a51400d0c13053f0dca698c832bfd893a0d"
 dependencies = [
  "block-cipher-trait",
  "byteorder 1.3.4",
- "opaque-debug 0.2.3",
+ "opaque-debug",
 ]
 
 [[package]]
@@ -368,7 +368,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f70a6b5f971e473091ab7cfb5ffac6cde81666c4556751d8d5620ead8abf100"
 dependencies = [
  "block-cipher-trait",
- "opaque-debug 0.2.3",
+ "opaque-debug",
  "stream-cipher",
 ]
 
@@ -684,37 +684,8 @@ dependencies = [
  "protoc-rust-grpc",
  "serde",
  "serde_json",
- "sha2 0.9.1",
+ "sha2 0.9.0",
  "tls-api-rustls",
-]
-
-[[package]]
-name = "bellperson"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "456f414c8f0b64da2797f6635b5f586ed3e349d4d5d9c1880f09c8eddf8b5e80"
-dependencies = [
- "ahash 0.3.8",
- "bit-vec",
- "blake2s_simd",
- "byteorder 1.3.4",
- "crossbeam",
- "fff",
- "fil-ocl",
- "fs2",
- "futures 0.1.29",
- "futures-cpupool",
- "groupy",
- "itertools 0.9.0",
- "lazy_static",
- "log",
- "memmap",
- "num_cpus",
- "paired",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "rayon",
- "thiserror",
 ]
 
 [[package]]
@@ -748,9 +719,9 @@ dependencies = [
 
 [[package]]
 name = "bincode"
-version = "1.3.1"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f30d3a39baa26f9651f17b375061f3233dde33424a8b72b0dbe93a68a0bc896d"
+checksum = "5753e2a71534719bf3f4e57006c3a4f0d2c672a4b676eec84161f763eca87dbf"
 dependencies = [
  "byteorder 1.3.4",
  "serde",
@@ -831,7 +802,7 @@ dependencies = [
  "byte-tools",
  "crypto-mac",
  "digest 0.8.1",
- "opaque-debug 0.2.3",
+ "opaque-debug",
 ]
 
 [[package]]
@@ -870,10 +841,13 @@ dependencies = [
 
 [[package]]
 name = "block-buffer"
-version = "0.9.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
+checksum = "dbcf92448676f82bb7a334c58bbce8b0d43580fb5362a9d608b18879d12a3d31"
 dependencies = [
+ "block-padding",
+ "byte-tools",
+ "byteorder 1.3.4",
  "generic-array 0.14.2",
 ]
 
@@ -1336,12 +1310,6 @@ name = "core-foundation-sys"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
-
-[[package]]
-name = "cpuid-bool"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d375c433320f6c5057ae04a04376eef4d04ce2801448cf8863a78da99107be4"
 
 [[package]]
 name = "crc32fast"
@@ -1904,11 +1872,11 @@ dependencies = [
 
 [[package]]
 name = "fil-sapling-crypto"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d87c795e358b21d9f7c6162f2bca19d4521cb3e35f3b9a44b870e8ac5a66e60"
+checksum = "0293e244dcb3045a6c48abe9476866551ca5d614660ff8ff6c86e780c4918656"
 dependencies = [
- "bellperson 0.8.0",
+ "bellperson",
  "blake2b_simd",
  "blake2s_simd",
  "byteorder 1.3.4",
@@ -1952,10 +1920,10 @@ dependencies = [
 [[package]]
 name = "filecoin-proofs"
 version = "4.0.0"
-source = "git+https://github.com/filecoin-project/rust-fil-proofs#7b656ce270d795cbe7705d70f1fa3bead41a577c"
+source = "git+https://github.com/filecoin-project/rust-fil-proofs#6383bb44e9ea577073ffae7abdcb2dda2ef95d85"
 dependencies = [
  "anyhow",
- "bellperson 0.9.1",
+ "bellperson",
  "bincode",
  "bitintr",
  "bitvec",
@@ -2160,7 +2128,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2 0.9.1",
+ "sha2 0.9.0",
  "test_utils",
  "thiserror",
 ]
@@ -2825,7 +2793,7 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
- "serde_qs 0.6.1",
+ "serde_qs 0.6.0",
  "serde_urlencoded",
  "url",
 ]
@@ -3961,11 +3929,11 @@ dependencies = [
 
 [[package]]
 name = "neptune"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59196390ea16f7c7abc4e808fffc92c906cda20f12583d469c735360d5c08111"
+checksum = "3189544485f00de01baa07873ffc51e5fadacd79827d50c0edb262b133399ccf"
 dependencies = [
- "bellperson 0.8.0",
+ "bellperson",
  "blake2s_simd",
  "byteorder 1.3.4",
  "fff",
@@ -4204,12 +4172,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2839e79665f131bdb5782e51f2c6c9599c133c6098982a54c794358bf432529c"
 
 [[package]]
-name = "opaque-debug"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
-
-[[package]]
 name = "openssl"
 version = "0.10.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4418,11 +4380,11 @@ dependencies = [
 
 [[package]]
 name = "phase21"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28978844bebfbad2f9e775214b13d676a5af8fa2e49736490b115265e33389ee"
+checksum = "364b5d0a35ca07f141f3f637b87f1d4223dee938b2318d3342b7eafbb598ee78"
 dependencies = [
- "bellperson 0.8.0",
+ "bellperson",
  "blake2b_simd",
  "byteorder 1.3.4",
  "crossbeam",
@@ -4586,7 +4548,7 @@ version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "beae6331a816b1f65d04c45b078fd8e6c93e8071771f41b8163255bbd8d7c8fa"
 dependencies = [
- "unicode-xid 0.2.1",
+ "unicode-xid 0.2.0",
 ]
 
 [[package]]
@@ -4908,9 +4870,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.3.7"
+version = "1.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6020f034922e3194c711b82a627453881bc4682166cabb07134a10c26ba7692"
+checksum = "9c3780fcf44b193bc4d09f36d2a3c87b251da4a046c87795a0d35f4f927ad8e6"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -5317,9 +5279,9 @@ dependencies = [
 
 [[package]]
 name = "serde_qs"
-version = "0.6.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6f3acf84e23ab27c01cb5917551765c01c50b2000089db8fa47fe018a3260cf"
+checksum = "b6e32b85107a5c8062643265a90575cc6e798cec0906ea58519b42175062ba27"
 dependencies = [
  "data-encoding",
  "error-chain",
@@ -5399,7 +5361,7 @@ dependencies = [
  "block-buffer 0.7.3",
  "digest 0.8.1",
  "fake-simd",
- "opaque-debug 0.2.3",
+ "opaque-debug",
 ]
 
 [[package]]
@@ -5417,20 +5379,19 @@ dependencies = [
  "block-buffer 0.7.3",
  "digest 0.8.1",
  "fake-simd",
- "opaque-debug 0.2.3",
+ "opaque-debug",
 ]
 
 [[package]]
 name = "sha2"
-version = "0.9.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2933378ddfeda7ea26f48c555bdad8bb446bf8a3d17832dc83e380d444cfb8c1"
+checksum = "72377440080fd008550fe9b441e854e43318db116f90181eef92e9ae9aedab48"
 dependencies = [
- "block-buffer 0.9.0",
- "cfg-if",
- "cpuid-bool",
+ "block-buffer 0.8.0",
  "digest 0.9.0",
- "opaque-debug 0.3.0",
+ "fake-simd",
+ "opaque-debug",
 ]
 
 [[package]]
@@ -5443,20 +5404,20 @@ dependencies = [
  "digest 0.8.1",
  "fake-simd",
  "lazy_static",
- "opaque-debug 0.2.3",
+ "opaque-debug",
  "raw-cpuid",
 ]
 
 [[package]]
 name = "sha2raw"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/rust-fil-proofs#7b656ce270d795cbe7705d70f1fa3bead41a577c"
+source = "git+https://github.com/filecoin-project/rust-fil-proofs#6383bb44e9ea577073ffae7abdcb2dda2ef95d85"
 dependencies = [
  "block-buffer 0.7.3",
  "digest 0.8.1",
  "fake-simd",
  "lazy_static",
- "opaque-debug 0.2.3",
+ "opaque-debug",
  "raw-cpuid",
 ]
 
@@ -5470,7 +5431,7 @@ dependencies = [
  "byte-tools",
  "digest 0.8.1",
  "keccak",
- "opaque-debug 0.2.3",
+ "opaque-debug",
 ]
 
 [[package]]
@@ -5708,7 +5669,7 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 [[package]]
 name = "storage-proofs"
 version = "4.0.0"
-source = "git+https://github.com/filecoin-project/rust-fil-proofs#7b656ce270d795cbe7705d70f1fa3bead41a577c"
+source = "git+https://github.com/filecoin-project/rust-fil-proofs#6383bb44e9ea577073ffae7abdcb2dda2ef95d85"
 dependencies = [
  "storage-proofs-core",
  "storage-proofs-porep",
@@ -5718,11 +5679,11 @@ dependencies = [
 [[package]]
 name = "storage-proofs-core"
 version = "4.0.0"
-source = "git+https://github.com/filecoin-project/rust-fil-proofs#7b656ce270d795cbe7705d70f1fa3bead41a577c"
+source = "git+https://github.com/filecoin-project/rust-fil-proofs#6383bb44e9ea577073ffae7abdcb2dda2ef95d85"
 dependencies = [
  "aes",
  "anyhow",
- "bellperson 0.9.1",
+ "bellperson",
  "blake2b_simd",
  "blake2s_simd",
  "block-modes",
@@ -5755,10 +5716,10 @@ dependencies = [
 [[package]]
 name = "storage-proofs-porep"
 version = "4.0.0"
-source = "git+https://github.com/filecoin-project/rust-fil-proofs#7b656ce270d795cbe7705d70f1fa3bead41a577c"
+source = "git+https://github.com/filecoin-project/rust-fil-proofs#6383bb44e9ea577073ffae7abdcb2dda2ef95d85"
 dependencies = [
  "anyhow",
- "bellperson 0.9.1",
+ "bellperson",
  "byteorder 1.3.4",
  "fff",
  "fil-sapling-crypto",
@@ -5785,10 +5746,10 @@ dependencies = [
 [[package]]
 name = "storage-proofs-post"
 version = "4.0.0"
-source = "git+https://github.com/filecoin-project/rust-fil-proofs#7b656ce270d795cbe7705d70f1fa3bead41a577c"
+source = "git+https://github.com/filecoin-project/rust-fil-proofs#6383bb44e9ea577073ffae7abdcb2dda2ef95d85"
 dependencies = [
  "anyhow",
- "bellperson 0.9.1",
+ "bellperson",
  "blake2b_simd",
  "blake2s_simd",
  "byteorder 1.3.4",
@@ -5885,7 +5846,7 @@ checksum = "e8d5d96e8cbb005d6959f119f773bfaebb5684296108fb32600c00cde305b2cd"
 dependencies = [
  "proc-macro2 1.0.18",
  "quote 1.0.7",
- "unicode-xid 0.2.1",
+ "unicode-xid 0.2.0",
 ]
 
 [[package]]
@@ -5908,7 +5869,7 @@ dependencies = [
  "proc-macro2 1.0.18",
  "quote 1.0.7",
  "syn 1.0.33",
- "unicode-xid 0.2.1",
+ "unicode-xid 0.2.0",
 ]
 
 [[package]]
@@ -6282,7 +6243,7 @@ checksum = "712d261e83e727c8e2dbb75dacac67c36e35db36a958ee504f2164fc052434e1"
 dependencies = [
  "block-cipher-trait",
  "byteorder 1.3.4",
- "opaque-debug 0.2.3",
+ "opaque-debug",
 ]
 
 [[package]]
@@ -6350,9 +6311,9 @@ checksum = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
 
 [[package]]
 name = "unicode-xid"
-version = "0.2.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
+checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 
 [[package]]
 name = "universal-hash"
