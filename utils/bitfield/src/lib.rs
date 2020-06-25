@@ -14,8 +14,14 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign},
 };
 
-type BitVec = bitvec::prelude::BitVec<bitvec::prelude::Lsb0, u8>;
 type Result<T> = std::result::Result<T, &'static str>;
+
+#[macro_export]
+macro_rules! bitfield {
+    ($($val:literal),*) => {
+        BitField::from($crate::rleplus!($($val),*))
+    };
+}
 
 /// An RLE+ encoded bit field with buffered insertion/removal. Similar to `HashSet<usize>`,
 /// but more memory-efficient when long runs of 1s and 0s are present.
@@ -42,9 +48,13 @@ impl PartialEq for BitField {
 
 impl FromIterator<usize> for BitField {
     fn from_iter<I: IntoIterator<Item = usize>>(iter: I) -> Self {
-        let mut vec: Vec<_> = iter.into_iter().collect();
-        vec.sort_unstable();
-        Self::from_ranges(ranges_from_bits(vec))
+        RlePlus::from_iter(iter).into()
+    }
+}
+
+impl FromIterator<bool> for BitField {
+    fn from_iter<I: IntoIterator<Item = bool>>(iter: I) -> Self {
+        RlePlus::from_iter(iter).into()
     }
 }
 
@@ -134,7 +144,7 @@ impl BitField {
     /// Returns an iterator over the indices of the bit field's set bits if the number
     /// of set bits in the bit field does not exceed `max`. Returns an error otherwise.
     pub fn bounded_iter(&self, max: usize) -> Result<impl Iterator<Item = usize> + '_> {
-        if max <= self.len() {
+        if self.len() <= max {
             Ok(self.iter())
         } else {
             Err("Bits set exceeds max in retrieval")
