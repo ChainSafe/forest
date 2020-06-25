@@ -53,7 +53,7 @@ pub enum Subcommand {
 /// Daemon process command line options.
 #[derive(StructOpt, Debug)]
 pub struct DaemonOpts {
-    #[structopt(short, long, help = "A toml file containing relevant configurations.")]
+    #[structopt(short, long, help = "A toml file containing relevant configurations")]
     pub config: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
     pub genesis: Option<String>,
