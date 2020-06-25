@@ -85,7 +85,7 @@ pub async fn get_params(
         .for_each(|(name, info)| {
             let cmb = mb.clone();
             tasks.push(task::spawn(async move {
-                if let Err(e) = fetch_verify_params(&name, &info, cmb).await {
+                if let Err(e) = fetch_verify_params(&name, Arc::new(info), cmb).await {
                     warn!("Error in validating params {}", e);
                 }
             }))
@@ -125,11 +125,12 @@ pub async fn get_params_default(
 
 async fn fetch_verify_params(
     name: &str,
-    info: &ParameterData,
+    info: Arc<ParameterData>,
     mb: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), Box<dyn StdError>> {
     let mut path: PathBuf = param_dir().into();
     path.push(name);
+    let path = Arc::new(path);
 
     match check_file(path.clone(), info.clone()).await {
         Ok(()) => return Ok(()),
@@ -140,9 +141,9 @@ async fn fetch_verify_params(
         }
     }
 
-    fetch_params(&path, info, mb).await?;
+    fetch_params(&path, &info, mb).await?;
 
-    check_file(path.clone(), info.clone()).await.map_err(|e| {
+    check_file(path, info).await.map_err(|e| {
         // TODO remove invalid file
         e.into()
     })
@@ -232,17 +233,18 @@ async fn fetch_params(
     Ok(())
 }
 
-async fn check_file(path: PathBuf, info: ParameterData) -> Result<(), io::Error> {
+async fn check_file(path: Arc<PathBuf>, info: Arc<ParameterData>) -> Result<(), io::Error> {
     if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
         warn!("Assuming parameter files are okay. DO NOT USE IN PRODUCTION");
         return Ok(());
     }
 
     task::spawn_blocking(move || -> Result<(), io::Error> {
-        let file = SyncFile::open(&path)?;
+        let file = SyncFile::open(path.as_ref())?;
         let mut reader = SyncBufReader::new(file);
         let mut hasher = Blake2b::new();
         sync_copy(&mut reader, &mut hasher)?;
+
         let str_sum = hasher.finalize().to_hex();
         let str_sum = &str_sum[..32];
         if str_sum == info.digest {
