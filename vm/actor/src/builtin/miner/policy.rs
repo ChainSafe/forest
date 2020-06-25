@@ -4,10 +4,7 @@
 use super::types::SectorOnChainInfo;
 use crate::network::*;
 use clock::ChainEpoch;
-use fil_types::{
-    RegisteredProof, RegisteredProof::StackedDRG32GiBSeal, RegisteredProof::StackedDRG64GiBSeal,
-    SectorSize,
-};
+use fil_types::{RegisteredSealProof, SectorSize};
 use num_bigint::BigUint;
 use num_traits::{Pow, Zero};
 use vm::TokenAmount;
@@ -47,22 +44,22 @@ pub enum SupportedProofTypes {
 }
 
 /// List of proof types which can be used when creating new miner actors
-pub fn check_supported_proof_types(proof: RegisteredProof) -> bool {
+pub fn check_supported_proof_types(proof: RegisteredSealProof) -> bool {
     match proof {
-        StackedDRG32GiBSeal => true,
-        StackedDRG64GiBSeal => true,
+        RegisteredSealProof::StackedDRG32GiBV1 => true,
+        RegisteredSealProof::StackedDRG64GiBV1 => true,
         _ => false,
     }
 }
 /// Maximum duration to allow for the sealing process for seal algorithms.
 /// Dependent on algorithm and sector size
-pub fn max_seal_duration(proof: RegisteredProof) -> Option<ChainEpoch> {
+pub fn max_seal_duration(proof: RegisteredSealProof) -> Option<ChainEpoch> {
     match proof {
-        RegisteredProof::StackedDRG32GiBSeal => Some(10000),
-        RegisteredProof::StackedDRG2KiBSeal => Some(10000),
-        RegisteredProof::StackedDRG8MiBSeal => Some(10000),
-        RegisteredProof::StackedDRG512MiBSeal => Some(10000),
-        RegisteredProof::StackedDRG64GiBSeal => Some(10000),
+        RegisteredSealProof::StackedDRG32GiBV1 => Some(10000),
+        RegisteredSealProof::StackedDRG2KiBV1 => Some(10000),
+        RegisteredSealProof::StackedDRG8MiBV1 => Some(10000),
+        RegisteredSealProof::StackedDRG512MiBV1 => Some(10000),
+        RegisteredSealProof::StackedDRG64GiBV1 => Some(10000),
         _ => None,
     }
 }
