@@ -70,10 +70,10 @@ pub struct ExpectedMessage {
 
 #[derive(Clone, Debug)]
 pub struct ExpectedVerifySig {
-    sig: Signature,
-    signer: Address,
-    plaintext: Vec<u8>,
-    result: ExitCode,
+    pub sig: Signature,
+    pub signer: Address,
+    pub plaintext: Vec<u8>,
+    pub result: ExitCode,
 }
 
 impl<'a, BS> MockRuntime<'a, BS>
@@ -141,6 +141,12 @@ where
     pub fn expect_validate_caller_addr(&self, addr: &[Address]) {
         assert!(addr.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_verify_signature(&self, exp: ExpectedVerifySig) {
+        //assert!(addr.len() > 0, "addrs must be non-empty");
+        *self.expect_verify_sig.borrow_mut() = Some(exp);
     }
 
     #[allow(dead_code)]

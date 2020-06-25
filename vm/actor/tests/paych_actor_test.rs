@@ -308,12 +308,12 @@ mod create_lane_tests {
                 } else {
                     ExitCode::Ok
                 };
-                rt.expect_verify_signature(
-                    sv.clone().signature.unwrap(),
-                    payer_addr,
-                    to_vec(&sv).unwrap(),
-                    exp_exit_code,
-                );
+                rt.expect_verify_signature(ExpectedVerifySig {
+                    sig: sv.clone().signature.unwrap(),
+                    signer: payer_addr,
+                    plaintext: to_vec(&sv).unwrap(),
+                    result: exp_exit_code,
+                });
             }
 
             if test_case.exp_exit_code == ExitCode::Ok {
@@ -360,12 +360,12 @@ mod update_channel_state_redeem {
 
         let payer_addr = Address::new_id(R_PAYER_ADDR);
 
-        rt.expect_verify_signature(
-            sv.signature.clone().unwrap(),
-            payer_addr,
-            to_vec(&sv).unwrap(),
-            ExitCode::Ok,
-        );
+        rt.expect_verify_signature(ExpectedVerifySig {
+            sig: sv.clone().signature.unwrap(),
+            signer: payer_addr,
+            plaintext: to_vec(&sv).unwrap(),
+            result: ExitCode::Ok,
+        });
 
         is_ok(
             &mut rt,
@@ -407,12 +407,12 @@ mod update_channel_state_redeem {
         sv.nonce = ls_to_update.nonce + 1;
         let payer_addr = Address::new_id(R_PAYER_ADDR);
 
-        rt.expect_verify_signature(
-            sv.clone().signature.unwrap(),
-            payer_addr,
-            to_vec(&sv).unwrap(),
-            ExitCode::Ok,
-        );
+        rt.expect_verify_signature(ExpectedVerifySig {
+            sig: sv.clone().signature.unwrap(),
+            signer: payer_addr,
+            plaintext: to_vec(&sv).unwrap(),
+            result: ExitCode::Ok,
+        });
 
         is_ok(
             &mut rt,
@@ -453,12 +453,12 @@ mod merge_tests {
         exp_exit_code: ExitCode,
     ) {
         let payee_addr = Address::new_id(R_PAYEE_ADDR);
-        rt.expect_verify_signature(
-            sv.clone().signature.unwrap(),
-            payee_addr,
-            to_vec(&sv).unwrap(),
-            ExitCode::Ok,
-        );
+        rt.expect_verify_signature(ExpectedVerifySig {
+            sig: sv.clone().signature.unwrap(),
+            signer: payee_addr,
+            plaintext: to_vec(&sv).unwrap(),
+            result: ExitCode::Ok,
+        });
         expect_error(
             rt,
             Method::UpdateChannelState as u64,
@@ -484,12 +484,12 @@ mod merge_tests {
             nonce: merge_nonce,
         }];
         let payee_addr = Address::new_id(R_PAYEE_ADDR);
-        rt.expect_verify_signature(
-            sv.clone().signature.unwrap(),
-            payee_addr,
-            to_vec(&sv).unwrap(),
-            ExitCode::Ok,
-        );
+        rt.expect_verify_signature(ExpectedVerifySig {
+            sig: sv.clone().signature.unwrap(),
+            signer: payee_addr,
+            plaintext: to_vec(&sv).unwrap(),
+            result: ExitCode::Ok,
+        });
 
         is_ok(
             &mut rt,
@@ -633,12 +633,12 @@ mod update_channel_state_extra {
             method: Method::UpdateChannelState as u64,
             data: Serialized::serialize(fake_params.clone()).unwrap(),
         });
-        rt.expect_verify_signature(
-            sv.clone().signature.unwrap(),
-            state.to,
-            to_vec(&sv).unwrap(),
-            ExitCode::Ok,
-        );
+        rt.expect_verify_signature(ExpectedVerifySig {
+            sig: sv.clone().signature.unwrap(),
+            signer: state.to,
+            plaintext: to_vec(&sv).unwrap(),
+            result: ExitCode::Ok,
+        });
         let exp_send_params = PaymentVerifyParams {
             extra: Serialized::serialize(fake_params.to_vec()).unwrap(),
             proof: vec![],
@@ -723,12 +723,12 @@ mod update_channel_state_settling {
             let mut ucp = UpdateChannelStateParams::from(sv.clone());
             ucp.sv.min_settle_height = tc.min_settle;
             rt.expect_validate_caller_addr(&[state.from, state.to]);
-            rt.expect_verify_signature(
-                ucp.sv.clone().signature.unwrap(),
-                state.to,
-                to_vec(&ucp.sv).unwrap(),
-                ExitCode::Ok,
-            );
+            rt.expect_verify_signature(ExpectedVerifySig {
+                sig: sv.clone().signature.unwrap(),
+                signer: state.to,
+                plaintext: to_vec(&ucp.sv).unwrap(),
+                result: ExitCode::Ok,
+            });
             is_ok(
                 &mut rt,
                 Method::UpdateChannelState as u64,
@@ -751,12 +751,12 @@ mod secret_preimage {
 
         let ucp = UpdateChannelStateParams::from(sv.clone());
 
-        rt.expect_verify_signature(
-            ucp.sv.clone().signature.unwrap(),
-            state.to,
-            to_vec(&sv).unwrap(),
-            ExitCode::Ok,
-        );
+        rt.expect_verify_signature(ExpectedVerifySig {
+            sig: sv.clone().signature.unwrap(),
+            signer: state.to,
+            plaintext: to_vec(&sv).unwrap(),
+            result: ExitCode::Ok,
+        });
 
         is_ok(
             &mut rt,
@@ -784,12 +784,12 @@ mod secret_preimage {
         mag.append(&mut vec![0; 25]);
         ucp.sv.secret_pre_image = mag;
 
-        rt.expect_verify_signature(
-            ucp.sv.clone().signature.unwrap(),
-            state.to,
-            to_vec(&ucp.sv).unwrap(),
-            ExitCode::Ok,
-        );
+        rt.expect_verify_signature(ExpectedVerifySig {
+            sig: sv.clone().signature.unwrap(),
+            signer: state.to,
+            plaintext: to_vec(&sv).unwrap(),
+            result: ExitCode::Ok,
+        });
         expect_error(
             &mut rt,
             Method::UpdateChannelState as u64,
@@ -851,12 +851,12 @@ mod actor_settle {
         let ucp = UpdateChannelStateParams::from(sv.clone());
 
         rt.expect_validate_caller_addr(&[state.from, state.to]);
-        rt.expect_verify_signature(
-            ucp.sv.clone().signature.unwrap(),
-            state.to,
-            to_vec(&sv).unwrap(),
-            ExitCode::Ok,
-        );
+        rt.expect_verify_signature(ExpectedVerifySig {
+            sig: ucp.sv.clone().signature.unwrap(),
+            signer: state.to,
+            plaintext: to_vec(&sv).unwrap(),
+            result: ExitCode::Ok,
+        });
         is_ok(
             &mut rt,
             Method::UpdateChannelState as u64,
@@ -1048,7 +1048,12 @@ fn require_add_new_lane<BS: BlockStore>(
     };
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), param.from);
     rt.expect_validate_caller_addr(&[param.from, param.to]);
-    rt.expect_verify_signature(sig.clone(), payee_addr, to_vec(&sv).unwrap(), ExitCode::Ok);
+    rt.expect_verify_signature(ExpectedVerifySig {
+        sig: sig.clone(),
+        signer: payee_addr,
+        plaintext: to_vec(&sv).unwrap(),
+        result: ExitCode::Ok,
+    });
     is_ok(
         rt,
         Method::UpdateChannelState as u64,
