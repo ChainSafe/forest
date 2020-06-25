@@ -85,7 +85,7 @@ impl From<SignedVoucher> for UpdateChannelStateParams {
         UpdateChannelStateParams {
             proof: vec![],
             secret: vec![],
-            sv: sv,
+            sv,
         }
     }
 }
