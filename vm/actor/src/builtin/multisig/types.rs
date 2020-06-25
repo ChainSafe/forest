@@ -22,6 +22,12 @@ impl TxnID {
     }
 }
 
+/// Proposal Hash
+// Blake2b 32 hash 
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ProposalHash(pub [u8; 32]);
+
 /// Transaction type used in multisig actor
 #[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Transaction {
@@ -56,6 +62,7 @@ pub struct ProposeParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TxnIDParams {
     pub id: TxnID,
+    pub proposal_hash: ProposalHash,
 }
 
 /// Add signer params
