@@ -298,7 +298,7 @@ mod create_lane_tests {
                 ..SignedVoucher::default()
             };
 
-            let ucp = UpdateChannelStateParams::from(&sv);
+            let ucp = UpdateChannelStateParams::from(sv.clone());
             rt.set_caller(test_case.target_code, payee_addr);
             rt.expect_validate_caller_addr(&[payer_addr, payee_addr]);
 
@@ -370,7 +370,7 @@ mod update_channel_state_redeem {
         is_ok(
             &mut rt,
             Method::UpdateChannelState as u64,
-            &Serialized::serialize(UpdateChannelStateParams::from(&sv)).unwrap(),
+            &Serialized::serialize(UpdateChannelStateParams::from(sv.clone())).unwrap(),
         );
 
         rt.verify();
@@ -417,7 +417,7 @@ mod update_channel_state_redeem {
         is_ok(
             &mut rt,
             Method::UpdateChannelState as u64,
-            &Serialized::serialize(UpdateChannelStateParams::from(&sv)).unwrap(),
+            &Serialized::serialize(UpdateChannelStateParams::from(sv.clone())).unwrap(),
         );
 
         rt.verify();
@@ -462,7 +462,7 @@ mod merge_tests {
         expect_error(
             rt,
             Method::UpdateChannelState as u64,
-            &Serialized::serialize(UpdateChannelStateParams::from(&sv)).unwrap(),
+            &Serialized::serialize(UpdateChannelStateParams::from(sv.clone())).unwrap(),
             exp_exit_code,
         );
         rt.verify();
@@ -494,7 +494,7 @@ mod merge_tests {
         is_ok(
             &mut rt,
             Method::UpdateChannelState as u64,
-            &Serialized::serialize(UpdateChannelStateParams::from(&sv)).unwrap(),
+            &Serialized::serialize(UpdateChannelStateParams::from(sv.clone())).unwrap(),
         );
         rt.verify();
         let exp_merge_to = LaneState {
@@ -661,7 +661,7 @@ mod update_channel_state_extra {
         is_ok(
             &mut rt,
             Method::UpdateChannelState as u64,
-            &Serialized::serialize(UpdateChannelStateParams::from(&sv)).unwrap(),
+            &Serialized::serialize(UpdateChannelStateParams::from(sv.clone())).unwrap(),
         );
         rt.verify();
     }
@@ -673,7 +673,7 @@ mod update_channel_state_extra {
         expect_error(
             &mut rt,
             Method::UpdateChannelState as u64,
-            &Serialized::serialize(UpdateChannelStateParams::from(&sv)).unwrap(),
+            &Serialized::serialize(UpdateChannelStateParams::from(sv.clone())).unwrap(),
             ExitCode::ErrPlaceholder,
         );
         rt.verify();
@@ -720,7 +720,7 @@ mod update_channel_state_settling {
         ];
 
         for tc in test_cases {
-            let mut ucp = UpdateChannelStateParams::from(&sv);
+            let mut ucp = UpdateChannelStateParams::from(sv.clone());
             ucp.sv.min_settle_height = tc.min_settle;
             rt.expect_validate_caller_addr(&[state.from, state.to]);
             rt.expect_verify_signature(
@@ -749,7 +749,7 @@ mod secret_preimage {
         let state: PState = rt.get_state().unwrap();
         rt.expect_validate_caller_addr(&[state.from, state.to]);
 
-        let ucp = UpdateChannelStateParams::from(&sv);
+        let ucp = UpdateChannelStateParams::from(sv.clone());
 
         rt.expect_verify_signature(
             ucp.sv.clone().signature.unwrap(),
@@ -848,7 +848,7 @@ mod actor_settle {
         let mut state: PState = rt.get_state().unwrap();
 
         sv.min_settle_height = (EP + SETTLE_DELAY) + 1;
-        let ucp = UpdateChannelStateParams::from(&sv);
+        let ucp = UpdateChannelStateParams::from(sv.clone());
 
         rt.expect_validate_caller_addr(&[state.from, state.to]);
         rt.expect_verify_signature(
@@ -1052,7 +1052,7 @@ fn require_add_new_lane<BS: BlockStore>(
     is_ok(
         rt,
         Method::UpdateChannelState as u64,
-        &Serialized::serialize(UpdateChannelStateParams::from(&sv)).unwrap(),
+        &Serialized::serialize(UpdateChannelStateParams::from(sv.clone())).unwrap(),
     );
     rt.verify();
     SignedVoucher {

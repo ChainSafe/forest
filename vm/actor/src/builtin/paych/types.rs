@@ -80,12 +80,12 @@ pub struct UpdateChannelStateParams {
     pub proof: Vec<u8>,
 }
 
-impl From<&SignedVoucher> for UpdateChannelStateParams {
-    fn from(sv: &SignedVoucher) -> Self {
+impl From<SignedVoucher> for UpdateChannelStateParams {
+    fn from(sv: SignedVoucher) -> Self {
         UpdateChannelStateParams {
             proof: vec![],
             secret: vec![],
-            sv: sv.clone(),
+            sv: sv,
         }
     }
 }

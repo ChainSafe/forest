@@ -142,6 +142,8 @@ where
         assert!(addr.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
     }
+
+    #[allow(dead_code)]
     pub fn expect_validate_caller_type(&self, ids: &[Cid]) {
         assert!(ids.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_type.borrow_mut() = Some(ids.to_vec());
@@ -409,7 +411,7 @@ where
 
         self.id_addresses
             .get(&address)
-            .map(|x| x.to_owned())
+            .cloned()
             .ok_or(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 "Address not found".to_string(),
@@ -587,7 +589,7 @@ where
         let op_exp = self.expect_verify_sig.replace(Option::None);
 
         if let Some(exp) = op_exp {
-            if exp.sig == *signature && exp.signer == *signer && (exp.plaintext[..]) == *plaintext {
+            if exp.sig == *signature && exp.signer == *signer && &exp.plaintext[..] == plaintext {
                 if exp.result == ExitCode::Ok {
                     return Ok(());
                 } else {
