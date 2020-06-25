@@ -3,7 +3,7 @@
 
 use async_std::{
     fs::{self, File},
-    io::{copy, BufRead},
+    io::{copy, BufRead, BufWriter},
     sync::{channel, Arc},
     task,
 };
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fs::File as SyncFile;
-use std::io::{self, copy as sync_copy, ErrorKind, Stdout};
+use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -43,7 +43,7 @@ pub enum SectorSizeOpt {
 
 type ParameterMap = HashMap<String, ParameterData>;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct ParameterData {
     cid: String,
     digest: String,
@@ -131,7 +131,7 @@ async fn fetch_verify_params(
     let mut path: PathBuf = param_dir().into();
     path.push(name);
 
-    match check_file(&path, info) {
+    match check_file(path.clone(), info.clone()).await {
         Ok(()) => return Ok(()),
         Err(e) => {
             if e.kind() != ErrorKind::NotFound {
@@ -142,7 +142,7 @@ async fn fetch_verify_params(
 
     fetch_params(&path, info, mb).await?;
 
-    check_file(&path, info).map_err(|e| {
+    check_file(path.clone(), info.clone()).await.map_err(|e| {
         // TODO remove invalid file
         e.into()
     })
@@ -195,7 +195,8 @@ async fn fetch_params(
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     info!("Fetching {:?} from {}", path, gw);
 
-    let mut file = File::create(path).await?;
+    let file = File::create(path).await?;
+    let mut writer = BufWriter::new(file);
 
     let url = format!("{}{}", gw, info.cid);
 
@@ -221,38 +222,41 @@ async fn fetch_params(
             inner: req.await?,
             progress_bar: pb,
         };
-        copy(&mut source, &mut file).await?;
+        copy(&mut source, &mut writer).await?;
         source.finish();
     } else {
         let mut source = req.await?;
-        copy(&mut source, &mut file).await?;
+        copy(&mut source, &mut writer).await?;
     };
 
     Ok(())
 }
 
-fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> {
+async fn check_file(path: PathBuf, info: ParameterData) -> Result<(), io::Error> {
     if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
         warn!("Assuming parameter files are okay. DO NOT USE IN PRODUCTION");
         return Ok(());
     }
 
-    let mut file = SyncFile::open(path)?;
-    let mut hasher = Blake2b::new();
-    sync_copy(&mut file, &mut hasher)?;
-
-    let str_sum = hasher.finalize().to_hex();
-    let str_sum = &str_sum[..32];
-    if str_sum == info.digest {
-        info!("Parameter file {:?} is ok", path);
-        Ok(())
-    } else {
-        Err(io::Error::new(
-            ErrorKind::Other,
-            format!(
-                "Checksum mismatch in param file {:?}. ({} != {})",
-                path, str_sum, info.digest
-            ),
-        ))
-    }
+    task::spawn_blocking(move || -> Result<(), io::Error> {
+        let file = SyncFile::open(&path)?;
+        let mut reader = SyncBufReader::new(file);
+        let mut hasher = Blake2b::new();
+        sync_copy(&mut reader, &mut hasher)?;
+        let str_sum = hasher.finalize().to_hex();
+        let str_sum = &str_sum[..32];
+        if str_sum == info.digest {
+            info!("Parameter file {:?} is ok", path);
+            Ok(())
+        } else {
+            Err(io::Error::new(
+                ErrorKind::Other,
+                format!(
+                    "Checksum mismatch in param file {:?}. ({} != {})",
+                    path, str_sum, info.digest
+                ),
+            ))
+        }
+    })
+    .await
 }
