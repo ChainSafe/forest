@@ -13,7 +13,6 @@ use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
 use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
 use forest_libp2p::rpc::RPCResponse;
-
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::error::Error;
