@@ -2179,6 +2179,7 @@ dependencies = [
  "num-derive",
  "num-traits 0.2.12",
  "rand 0.7.3",
+ "rand_chacha",
  "serde",
  "thiserror",
 ]
