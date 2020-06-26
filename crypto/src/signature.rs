@@ -214,9 +214,8 @@ mod tests {
         let msg = (0..message_length).map(|_| rng.gen()).collect::<Vec<u8>>();
         let data: Vec<&[u8]> = (0..num_sigs).map(|x| &msg[x * 64..(x + 1) * 64]).collect();
 
-        let private_keys: Vec<PrivateKey> = (0..num_sigs)
-            .map(|_| PrivateKey::generate(rng))
-            .collect();
+        let private_keys: Vec<PrivateKey> =
+            (0..num_sigs).map(|_| PrivateKey::generate(rng)).collect();
         let public_keys: Vec<_> = private_keys
             .iter()
             .map(|x| x.public_key().as_bytes())
