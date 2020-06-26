@@ -292,7 +292,7 @@ impl State {
 
         Ok(())
     }
-    fn get_escrow_balance<BS: BlockStore>(
+    pub fn get_escrow_balance<BS: BlockStore>(
         &self,
         store: &BS,
         a: &Address,
@@ -423,7 +423,6 @@ impl State {
         // Subtract from locked and escrow tables
         et.must_subtract(addr, &amount)?;
         lt.must_subtract(addr, &amount)?;
-
         Ok(())
     }
 

@@ -9,10 +9,8 @@ clean-all:
 clean:
 	@echo "Cleaning local packages..."
 	@cargo clean -p forest
-	@cargo clean -p node
 	@cargo clean -p clock
 	@cargo clean -p forest_libp2p
-	@cargo clean -p blockchain
 	@cargo clean -p forest_blocks
 	@cargo clean -p chain_sync
 	@cargo clean -p forest_vm
@@ -35,6 +33,9 @@ clean:
 	@cargo clean -p fil_types
 	@cargo clean -p ipld_blockstore
 	@cargo clean -p rpc
+	@cargo clean -p key_management
+	@cargo clean -p forest_json_utils
+	@cargo clean -p test_utils
 	@echo "Done cleaning."
 
 lint: license clean

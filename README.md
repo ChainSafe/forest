@@ -3,7 +3,7 @@
 </p>
 
 
-![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?event=push&branch=master)
+![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?event=push&branch=main)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Discord](https://img.shields.io/discord/593655374469660673.svg?label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
@@ -93,4 +93,4 @@ https://chainsafe.github.io/forest/
 - Have questions? Say hi on [Discord](https://discord.gg/Q6A3YA2)!
 
 ## License 
-Forest is dual licensed under [MIT](https://github.com/ChainSafe/forest/blob/master/LICENSE-MIT) + [Apache 2.0](https://github.com/ChainSafe/forest/blob/master/LICENSE-APACHE).
+Forest is dual licensed under [MIT](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT) + [Apache 2.0](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE).

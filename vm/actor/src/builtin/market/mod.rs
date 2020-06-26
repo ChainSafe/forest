@@ -299,7 +299,6 @@ impl Actor {
         let miner_addr = *rt.message().from();
         let mut total_deal_space_time = BigUint::zero();
         let mut total_verified_deal_space_time = BigUint::zero();
-
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector
             // and the totalDealSpaceTime should be zero
@@ -366,7 +365,6 @@ impl Actor {
             st.states = states
                 .flush()
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
             Ok(())
         })??;
 
@@ -477,6 +475,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR))?;
+
         let mut amount_slashed = BigUint::zero();
         let mut timed_out_verified_deals: Vec<DealProposal> = Vec::new();
 
@@ -500,6 +499,7 @@ impl Actor {
             let mut lt = BalanceTable::from_root(rt.store(), &st.locked_table)
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
+            // TODO Adjust when Epoch becomes i32
             let mut i = st.last_cron + 1;
             while i <= rt.curr_epoch() {
                 dbe.for_each(i, |id| {
@@ -630,7 +630,6 @@ impl Actor {
             &Serialized::default(),
             &amount_slashed,
         )?;
-
         Ok(())
     }
 }
