@@ -263,6 +263,7 @@ dependencies = [
 name = "actor"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.3.8",
  "bitfield",
  "byteorder 1.3.4",
  "clock",
@@ -761,8 +762,8 @@ checksum = "5f0dc55f2d8a1a85650ac47858bb001b4c0dd73d79e3c455a842925e68d29cd3"
 name = "bitfield"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.3.8",
  "bitvec",
- "fnv",
  "forest_encoding",
  "rand 0.7.3",
  "rand_xorshift",
