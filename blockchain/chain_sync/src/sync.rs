@@ -1020,6 +1020,7 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std::sync::channel;
     use async_std::sync::Sender;
     use beacon::MockBeacon;
     use blocks::BlockHeader;
@@ -1093,8 +1094,6 @@ mod tests {
         let (mut cs, event_sender) = chain_syncer_setup(db);
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
-        // send blocksync response to channel
-        send_blocksync_response(event_sender);
 
         // params for sync_headers_reverse
         let source = PeerId::random();
@@ -1104,9 +1103,12 @@ mod tests {
         task::block_on(async move {
             cs.peer_manager.add_peer(source.clone(), None).await;
             assert_eq!(cs.peer_manager.len().await, 1);
-
-            let return_set = cs.sync_headers_reverse(head, &to).await;
-            assert_eq!(return_set.unwrap().len(), 4);
+            // make blocksync request
+            let return_set = task::spawn(async move { cs.sync_headers_reverse(head, &to).await });
+            task::sleep(Duration::from_secs(2)).await;
+            // send blocksync response to channel
+            send_blocksync_response(event_sender);
+            assert_eq!(return_set.await.unwrap().len(), 4);
         });
     }
 

@@ -140,15 +140,9 @@ impl SyncNetworkContext {
             )
             .await;
         match future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await {
-            Ok(Ok(resp)) => {
-                 Ok(resp)
-            }
-            Ok(Err(e)) => {
-               Err(e.to_string())
-            }
-            Err(_) => {
-               Err("Request timed out".to_owned())
-            }
+            Ok(Ok(resp)) => Ok(resp),
+            Ok(Err(e)) => Err(e.to_string()),
+            Err(_) => Err("Request timed out".to_owned()),
         }
     }
 
