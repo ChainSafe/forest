@@ -256,7 +256,6 @@ impl Actor {
             // Remove signer from state
             st.signers.retain(|s| s != &params.signer);
 
-
             // Decrease approvals threshold if decrease param or below threshold
             if params.decrease {
                 st.num_approvals_threshold -= 1;
