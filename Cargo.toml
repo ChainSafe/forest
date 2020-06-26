@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "forest",
-    "blockchain",
     "blockchain/beacon",
     "blockchain/blocks",
     "blockchain/chain",
@@ -15,7 +14,6 @@ members = [
     "vm/runtime",
     "vm/state_tree",
     "vm/interpreter",
-    "node",
     "node/clock",
     "node/rpc",
     "crypto",

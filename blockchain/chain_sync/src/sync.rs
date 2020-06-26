@@ -8,17 +8,21 @@ use super::bucket::{SyncBucket, SyncBucketSet};
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
-use address::Address;
+use address::{Address, Protocol};
 use amt::Amt;
 use async_std::sync::{Mutex, RwLock, channel, Receiver, Sender};
 use async_std::task;
-use beacon::Beacon;
-use blocks::{Block,BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use beacon::{Beacon, BeaconEntry};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
+use commcid::cid_to_replica_commitment_v1;
 use core::time::Duration;
 use crypto::verify_bls_aggregate;
+use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
+use fil_types::SectorInfo;
+use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::{
     hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
@@ -28,15 +32,16 @@ use futures::{
 };
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
+use log::error;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_traits::Zero;
-use state_manager::StateManager;
+use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
-use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::collections::{BTreeMap, HashMap};
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
 
@@ -749,6 +754,82 @@ where
         Ok(())
     }
 
+    pub async fn verify_winning_post_proof(
+        &self,
+        block: BlockHeader,
+        prev_entry: BeaconEntry,
+        lbst: Cid,
+    ) -> Result<(), Error> {
+        let marshal_miner_work_addr = block.miner_address().marshal_cbor()?;
+        let rbase = block.beacon_entries().iter().last().unwrap_or(&prev_entry);
+        let rand = chain::draw_randomness(
+            rbase.data(),
+            DomainSeparationTag::WinningPoStChallengeSeed,
+            block.epoch(),
+            &marshal_miner_work_addr,
+        )
+        .map_err(|err| {
+            Error::Validation(format!(
+                "failed to get randomness for verifying winningPost proof: {:}",
+                err
+            ))
+        })?;
+        if block.miner_address().protocol() != Protocol::ID {
+            return Err(Error::Validation(format!(
+                "failed to get ID from miner address {:}",
+                block.miner_address()
+            )));
+        };
+        let sectors = utils::get_sectors_for_winning_post(
+            &self.state_manager,
+            &lbst,
+            &block.miner_address(),
+            &rand,
+        )?;
+
+        let proofs = block
+            .win_post_proof()
+            .iter()
+            .fold(Vec::new(), |mut proof, p| {
+                proof.extend_from_slice(&p.proof_bytes);
+                proof
+            });
+
+        let replicas = sectors
+            .iter()
+            .map::<Result<(SectorId, PublicReplicaInfo), Error>, _>(|sector_info: &SectorInfo| {
+                let commr =
+                    cid_to_replica_commitment_v1(&sector_info.sealed_cid).map_err(|err| {
+                        Error::Validation(format!("failed to get replica commitment: {:}", err))
+                    })?;
+                let replica = PublicReplicaInfo::new(
+                    sector_info
+                        .proof
+                        .registered_winning_post_proof()
+                        .map_err(|err| Error::Validation(format!("Invalid proof code: {:}", err)))?
+                        .try_into()
+                        .map_err(|err| {
+                            Error::Validation(format!("failed to get registered proof: {:}", err))
+                        })?,
+                    commr,
+                );
+                Ok((SectorId::from(sector_info.sector_number), replica))
+            })
+            .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
+
+        let mut prover_id = ProverId::default();
+        let prover_bytes = block.miner_address().to_bytes();
+        prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
+        if !verify_winning_post(&rand, &proofs, &replicas, prover_id)
+            .map_err(|err| Error::Validation(format!("failed to verify election post: {:}", err)))?
+        {
+            error!("invalid winning post ({:?}; {:?})", rand, sectors);
+            Err(Error::Validation("Winning post was invalid".to_string()))
+        } else {
+            Ok(())
+        }
+    }
+
     /// Syncs chain data and persists it to blockstore
     async fn sync_headers_reverse(
         &self,
@@ -788,17 +869,7 @@ where
             // update sync state to Bootstrap indicating we are acquiring a 'secure enough' set of peers
             self.set_state(SyncState::Bootstrap).await;
 
-            // TODO change from using random peerID to managed
-            while self.peer_manager.is_empty().await {
-                warn!("No valid peers to sync, waiting for other nodes");
-                task::sleep(Duration::from_secs(5)).await;
-            }
-
-            let peer_id = self
-                .peer_manager
-                .get_peer()
-                .await
-                .expect("Peer set is not empty here");
+            let peer_id = self.get_peer().await;
 
             // checkpoint established
             self.set_state(SyncState::Checkpoint).await;
@@ -874,15 +945,14 @@ where
     }
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
     async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
-        // TODO change from using random peerID to managed
-        let peer_id = PeerId::random();
-        // pulled from Lotus: https://github.com/filecoin-project/lotus/blob/master/chain/sync.go#L996
+        let peer_id = self.get_peer().await;
+        // TODO move to shared parameter (from actors crate most likely)
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
         // Load blocks from network using blocksync
         let tips: Vec<Tipset> = self
             .network
-            .blocksync_headers(peer_id.clone(), head.parents(), FORK_LENGTH_THRESHOLD)
+            .blocksync_headers(peer_id, head.parents(), FORK_LENGTH_THRESHOLD)
             .await
             .map_err(|_| Error::Other("Could not retrieve tipset".to_string()))?;
 
@@ -922,6 +992,18 @@ where
     pub async fn set_state(&self, new_state: SyncState) {
         let mut state = self.state.write().await;
         *state = new_state;
+    }
+
+    async fn get_peer(&self) -> PeerId {
+        while self.peer_manager.is_empty().await {
+            warn!("No valid peers to sync, waiting for other nodes");
+            task::sleep(Duration::from_secs(5)).await;
+        }
+
+        self.peer_manager
+            .get_peer()
+            .await
+            .expect("Peer set is not empty here")
     }
 }
 

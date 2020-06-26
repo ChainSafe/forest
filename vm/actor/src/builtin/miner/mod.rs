@@ -39,7 +39,7 @@ use crypto::DomainSeparationTag::{
 };
 use encoding::Cbor;
 use fil_types::{
-    InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredProof,
+    InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredSealProof,
     SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorNumber,
     SectorSize, WindowPoStVerifyInfo,
 };
@@ -142,7 +142,6 @@ impl Actor {
         let period_start = next_proving_period_start(current_epoch, offset);
         assert!(period_start > current_epoch);
 
-        // TODO exit code will not match in the case of invalid registered proofs
         let st = State::new(
             empty_array,
             empty_map,
@@ -153,7 +152,8 @@ impl Actor {
             params.multi_address,
             params.seal_proof_type,
             period_start,
-        );
+        )
+        .map_err(|e| ActorError::new(ExitCode::ErrIllegalArgument, e))?;
         rt.create(&st)?;
 
         // Register cron callback for epoch before the first proving period starts.
@@ -2296,7 +2296,7 @@ where
 /// Requests the storage market actor compute the unsealed sector CID from a sector's deals.
 fn request_unsealed_sector_cid<BS, RT>(
     rt: &mut RT,
-    sector_type: RegisteredProof,
+    sector_type: RegisteredSealProof,
     deal_ids: Vec<DealID>,
 ) -> Result<Cid, ActorError>
 where
@@ -2589,7 +2589,7 @@ where
 }
 
 /// The oldest seal challenge epoch that will be accepted in the current epoch.
-fn seal_challenge_earliest(current_epoch: ChainEpoch, proof: RegisteredProof) -> ChainEpoch {
+fn seal_challenge_earliest(current_epoch: ChainEpoch, proof: RegisteredSealProof) -> ChainEpoch {
     current_epoch - CHAIN_FINALITYISH - max_seal_duration(proof).unwrap_or_default()
 }
 
