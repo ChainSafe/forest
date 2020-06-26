@@ -2128,7 +2128,6 @@ dependencies = [
  "chain_sync",
  "ctrlc",
  "db",
- "env_proxy",
  "fil_types",
  "forest_blocks",
  "forest_car",
