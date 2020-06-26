@@ -12,7 +12,7 @@ use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use encoding::blake2b_256;
 use encoding::{de::DeserializeOwned, Cbor};
-use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use runtime::{ActorCode, Runtime, Syscalls};
@@ -641,7 +641,7 @@ where
     }
     fn compute_unsealed_sector_cid(
         &self,
-        _reg: RegisteredProof,
+        _reg: RegisteredSealProof,
         _pieces: &[PieceInfo],
     ) -> Result<Cid, Box<dyn StdError>> {
         unimplemented!();
@@ -709,10 +709,9 @@ where
     }
     fn verify_consensus_fault(
         &self,
-        _h1: &[u8],
-        _h2: &[u8],
-        _extra: &[u8],
-        _earliest: ChainEpoch,
+        h1: &[u8],
+        h2: &[u8],
+        extra: &[u8],
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         unimplemented!();
     }
