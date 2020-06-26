@@ -3,7 +3,7 @@
 </p>
 
 
-![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?event=push&branch=master)
+![](https://github.com/ChainSafe/forest/workflows/Rust%20CI/badge.svg?event=push&branch=main)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Discord](https://img.shields.io/discord/593655374469660673.svg?label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
@@ -60,7 +60,7 @@ listening_multiaddr = "<multiaddress>"
 bootstrap_peers = ["<multiaddress>"]
 ```
 
-Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347"`
+Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347/p2p/12D3K1oWKNF7vNFEhnvB45E9mw2B5z6t419W3ziZPLdUDVnLLKGs"`
 
 ### Logging
 
@@ -93,4 +93,4 @@ https://chainsafe.github.io/forest/
 - Have questions? Say hi on [Discord](https://discord.gg/Q6A3YA2)!
 
 ## License 
-Forest is dual licensed under [MIT](https://github.com/ChainSafe/forest/blob/master/LICENSE-MIT) + [Apache 2.0](https://github.com/ChainSafe/forest/blob/master/LICENSE-APACHE).
+Forest is dual licensed under [MIT](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT) + [Apache 2.0](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE).

@@ -7,6 +7,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
 use encoding::tuple::*;
+use encoding::Cbor;
 use fil_types::PaddedPieceSize;
 use num_bigint::biguint_ser;
 use vm::TokenAmount;
@@ -41,6 +42,8 @@ pub struct DealProposal {
     #[serde(with = "biguint_ser")]
     pub client_collateral: TokenAmount,
 }
+
+impl Cbor for DealProposal {}
 
 impl DealProposal {
     pub fn duration(&self) -> ChainEpoch {

@@ -14,6 +14,7 @@ lazy_static! {
     pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/paymentchannel");
     pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/multisig");
     pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/reward");
+    pub static ref VERIFIED_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/verifiedregistry");
 
     // Set of actor code types that can represent external signing parties.
     pub static ref CALLER_TYPES_SIGNABLE: [Cid; 2] =
@@ -22,4 +23,10 @@ lazy_static! {
 
 fn make_builtin(bz: &[u8]) -> Cid {
     Cid::new_v1(Codec::Raw, Identity::digest(bz))
+}
+
+// Tests whether a code CID represents an actor that can be an external principal: i.e. an account or multisig.
+// We could do something more sophisticated here: https://github.com/filecoin-project/specs-actors/issues/178
+pub fn is_principal(code: &Cid) -> bool {
+    CALLER_TYPES_SIGNABLE.iter().any(|c| c == code)
 }

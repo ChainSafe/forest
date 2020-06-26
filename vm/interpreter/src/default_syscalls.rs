@@ -4,7 +4,6 @@
 use crate::resolve_to_key_addr;
 use actor::miner;
 use blocks::BlockHeader;
-use clock::ChainEpoch;
 use forest_encoding::from_slice;
 use ipld_blockstore::BlockStore;
 use runtime::{ConsensusFault, ConsensusFaultType, Syscalls};
@@ -42,7 +41,6 @@ where
         h1: &[u8],
         h2: &[u8],
         extra: &[u8],
-        _earliest: ChainEpoch, // unused in lotus
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         // Note that block syntax is not validated. Any validly signed block will be accepted pursuant to the below conditions.
         // Whether or not it could ever have been accepted in a chain is not checked/does not matter here.

@@ -11,15 +11,15 @@ use clock::ChainEpoch;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
-    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredProof, SealVerifyInfo, SectorInfo,
-    WindowPoStVerifyInfo,
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredSealProof, SealVerifyInfo,
+    SectorInfo, WindowPoStVerifyInfo,
 };
+use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
     post::verify_window_post,
     seal::{compute_comm_d, verify_seal as proofs_verify_seal},
     PublicReplicaInfo,
 };
-use filecoin_proofs_api::{ProverId, SectorId};
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use log::warn;
@@ -27,7 +27,7 @@ use message::UnsignedMessage;
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
@@ -90,7 +90,7 @@ pub trait Runtime<BS: BlockStore> {
     /// The gas cost of this method is that of a Store.Put of the mutated state object.
     fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
-        F: FnOnce(&mut C, &Self) -> R;
+        F: FnOnce(&mut C, &mut Self) -> R;
 
     /// Returns reference to blockstore
     fn store(&self) -> &BS;
@@ -162,16 +162,16 @@ pub trait Syscalls {
     /// Computes an unsealed sector CID (CommD) from its constituent piece CIDs (CommPs) and sizes.
     fn compute_unsealed_sector_cid(
         &self,
-        proof_type: RegisteredProof,
+        proof_type: RegisteredSealProof,
         pieces: &[PieceInfo],
     ) -> Result<Cid, Box<dyn StdError>> {
         let sum: u64 = pieces.iter().map(|p| p.size.0).sum();
 
-        let ssize = proof_type.sector_size() as u64;
+        let ssize = proof_type.sector_size()? as u64;
 
-        let mut fcp_pieces: Vec<filecoin_proofs_api::PieceInfo> = pieces
+        let mut fcp_pieces: Vec<proofs::PieceInfo> = pieces
             .iter()
-            .map(filecoin_proofs_api::PieceInfo::try_from)
+            .map(proofs::PieceInfo::try_from)
             .collect::<Result<_, &'static str>>()
             .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))?;
 
@@ -191,12 +191,13 @@ pub trait Syscalls {
             }
         }
 
-        let comm_d = compute_comm_d(proof_type.into(), &fcp_pieces)
+        let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)
             .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))?;
 
         Ok(data_commitment_v1_to_cid(&comm_d))
     }
     /// Verifies a sector seal proof.
+    // TODO needs to be updated to reflect changes
     fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
         verify_seal(vi)
     }
@@ -205,10 +206,16 @@ pub trait Syscalls {
         type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
 
         // collect proof bytes
-        let proofs = &verify_info.proofs.iter().fold(Vec::new(), |mut proof, p| {
-            proof.extend_from_slice(&p.proof_bytes);
-            proof
-        });
+        let proofs: Vec<(proofs::RegisteredPoStProof, &[u8])> = verify_info
+            .proofs
+            .iter()
+            .map(|post| {
+                Ok((
+                    proofs::RegisteredPoStProof::try_from(post.registered_proof)?,
+                    post.proof_bytes.as_slice(),
+                ))
+            })
+            .collect::<Result<_, String>>()?;
 
         // collect replicas
         let replicas = verify_info
@@ -217,7 +224,10 @@ pub trait Syscalls {
             .map::<ReplicaMapResult, _>(|sector_info: &SectorInfo| {
                 let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
                 let replica = PublicReplicaInfo::new(
-                    sector_info.proof.registered_window_post_proof()?.into(),
+                    sector_info
+                        .proof
+                        .registered_window_post_proof()?
+                        .try_into()?,
                     commr,
                 );
                 Ok((SectorId::from(sector_info.sector_number), replica))
@@ -236,6 +246,7 @@ pub trait Syscalls {
 
         Ok(())
     }
+
     /// Verifies that two block headers provide proof of a consensus fault:
     /// - both headers mined by the same actor
     /// - headers are different
@@ -251,7 +262,6 @@ pub trait Syscalls {
         h1: &[u8],
         h2: &[u8],
         extra: &[u8],
-        _earliest: ChainEpoch,
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>>;
 
     fn batch_verify_seals(
@@ -284,27 +294,23 @@ pub trait Syscalls {
 
 fn verify_seal(vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
     let commd = cid_to_data_commitment_v1(&vi.unsealed_cid)?;
-    let commr = cid_to_replica_commitment_v1(&vi.on_chain.sealed_cid)?;
+    let commr = cid_to_replica_commitment_v1(&vi.sealed_cid)?;
     let miner_addr = Address::new_id(vi.sector_id.miner);
     let miner_payload = miner_addr.payload_bytes();
     let mut prover_id = ProverId::default();
     prover_id[..miner_payload.len()].copy_from_slice(&miner_payload);
 
     if !proofs_verify_seal(
-        vi.on_chain.registered_proof.into(),
+        vi.registered_proof.try_into()?,
         commr,
         commd,
         prover_id,
         SectorId::from(vi.sector_id.number),
         vi.randomness.0,
         vi.interactive_randomness.0,
-        &vi.on_chain.proof,
+        &vi.proof,
     )? {
-        return Err(format!(
-            "Invalid proof detected: {:?}",
-            base64::encode(&vi.on_chain.proof)
-        )
-        .into());
+        return Err(format!("Invalid proof detected: {:?}", base64::encode(&vi.proof)).into());
     }
 
     Ok(())

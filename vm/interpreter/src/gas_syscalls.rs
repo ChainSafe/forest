@@ -4,9 +4,8 @@
 use super::gas_tracker::{GasTracker, PriceList};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
 use crypto::Signature;
-use fil_types::{PieceInfo, RegisteredProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use runtime::{ConsensusFault, Syscalls};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -48,7 +47,7 @@ where
     }
     fn compute_unsealed_sector_cid(
         &self,
-        reg: RegisteredProof,
+        reg: RegisteredSealProof,
         pieces: &[PieceInfo],
     ) -> Result<Cid, Box<dyn StdError>> {
         self.gas
@@ -76,14 +75,12 @@ where
         h1: &[u8],
         h2: &[u8],
         extra: &[u8],
-        earliest: ChainEpoch,
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_consensus_fault())
             .unwrap();
-        self.syscalls
-            .verify_consensus_fault(h1, h2, extra, earliest)
+        self.syscalls.verify_consensus_fault(h1, h2, extra)
     }
 
     fn batch_verify_seals(
@@ -116,7 +113,7 @@ mod tests {
         }
         fn compute_unsealed_sector_cid(
             &self,
-            _reg: RegisteredProof,
+            _reg: RegisteredSealProof,
             _pieces: &[PieceInfo],
         ) -> Result<Cid, Box<dyn StdError>> {
             Ok(Default::default())
@@ -132,7 +129,6 @@ mod tests {
             _h1: &[u8],
             _h2: &[u8],
             _extra: &[u8],
-            _earliest: ChainEpoch,
         ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
             Ok(Some(ConsensusFault {
                 target: Address::new_id(0),
@@ -175,17 +171,27 @@ mod tests {
         gsys.hash_blake2b(&[0u8]).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 7);
 
-        gsys.compute_unsealed_sector_cid(Default::default(), &[])
+        gsys.compute_unsealed_sector_cid(RegisteredSealProof::from(0), &[])
             .unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 8);
 
-        gsys.verify_seal(&Default::default()).unwrap();
+        gsys.verify_seal(&SealVerifyInfo {
+            registered_proof: RegisteredSealProof::from(1),
+            sector_id: Default::default(),
+            deal_ids: Vec::new(),
+            randomness: Default::default(),
+            interactive_randomness: Default::default(),
+            proof: Default::default(),
+            sealed_cid: Default::default(),
+            unsealed_cid: Default::default(),
+        })
+        .unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 9);
 
         gsys.verify_post(&Default::default()).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 10);
 
-        gsys.verify_consensus_fault(&[], &[], &[], 0).unwrap();
+        gsys.verify_consensus_fault(&[], &[], &[]).unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 11);
     }
 }

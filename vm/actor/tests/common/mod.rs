@@ -4,7 +4,7 @@
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
-    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID,
+    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFIED_ACTOR_CODE_ID,
 };
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
@@ -228,6 +228,9 @@ where
             x if x == &*REWARD_ACTOR_CODE_ID => {
                 actor::reward::Actor.invoke_method(self, method_num, params)
             }
+            x if x == &*VERIFIED_ACTOR_CODE_ID => {
+                actor::verifreg::Actor.invoke_method(self, method_num, params)
+            }
             _ => Err(ActorError::new(
                 ExitCode::SysErrForbidden,
                 "invalid method id".to_owned(),
@@ -313,6 +316,16 @@ where
             .unwrap();
         self.caller_type = code_id.clone();
         self.actor_code_cids.insert(address, code_id);
+    }
+
+    #[allow(dead_code)]
+    pub fn set_value(&mut self, value: TokenAmount) {
+        self.message = UnsignedMessage::builder()
+            .to(self.message.to().clone())
+            .from(self.message.from().clone())
+            .value(value)
+            .build()
+            .unwrap();
     }
 }
 
@@ -469,14 +482,14 @@ where
 
     fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
     where
-        F: FnOnce(&mut C, &Self) -> R,
+        F: FnOnce(&mut C, &mut Self) -> R,
     {
         if self.in_transaction {
             return Err(self.abort(ExitCode::SysErrorIllegalActor, "nested transaction"));
         }
         let mut read_only = self.state()?;
         self.in_transaction = true;
-        let ret = f(&mut read_only, &self);
+        let ret = f(&mut read_only, self);
         self.state = Some(self.put(&read_only).unwrap());
         self.in_transaction = false;
         Ok(ret)

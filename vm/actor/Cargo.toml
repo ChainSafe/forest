@@ -26,8 +26,9 @@ crypto = { package = "forest_crypto", path = "../../crypto" }
 bitfield = { path = "../../utils/bitfield" }
 fil_types = { path = "../../types" }
 derive_builder = "0.9"
+byteorder = "1.3.4"
 
 [dev-dependencies]
 db = { path = "../../node/db" }
 hex = "0.4.2"
-libp2p = "0.19"
+libp2p = "0.20"

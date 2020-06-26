@@ -6,7 +6,7 @@ use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::tuple::*;
-use fil_types::RegisteredProof;
+use fil_types::RegisteredSealProof;
 use num_bigint::biguint_ser;
 use vm::{DealID, TokenAmount};
 
@@ -54,5 +54,5 @@ pub struct VerifyDealsOnSectorProveCommitReturn {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ComputeDataCommitmentParams {
     pub deal_ids: Vec<DealID>,
-    pub sector_type: RegisteredProof,
+    pub sector_type: RegisteredSealProof,
 }

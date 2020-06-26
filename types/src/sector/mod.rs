@@ -5,9 +5,6 @@ pub mod post;
 mod registered_proof;
 mod seal;
 
-#[cfg(test)]
-mod serde_tests;
-
 pub use self::post::*;
 pub use self::registered_proof::*;
 pub use self::seal::*;
@@ -26,6 +23,7 @@ pub type StoragePower = BigUint;
 /// The unit of spacetime committed to the network
 pub type Spacetime = BigUint;
 
+/// Unit of sector quality
 pub type SectorQuality = BigUint;
 
 /// SectorSize indicates one of a set of possible sizes in the network.
