@@ -5,7 +5,6 @@ use super::policy::*;
 use super::state::Deadlines;
 use bitfield::BitField;
 use clock::ChainEpoch;
-use vm::Randomness;
 
 /// Deadline calculations with respect to a current epoch.
 /// "Deadline" refers to the window during which proofs may be submitted.
@@ -117,7 +116,6 @@ pub fn partitions_for_deadline(
     }
     let mut partition_count_so_far: u64 = 0;
     for i in 0..WPOST_PERIOD_DEADLINES {
-        println!("deadline idx: {}", i);
         let (partition_count, sector_count) = deadline_count(d, partition_size, i)?;
         if i == deadline_idx {
             return Ok((partition_count_so_far, sector_count as u64));
@@ -140,7 +138,6 @@ pub fn deadline_count(
     }
     // TODO update when bitfield comes in
     let sector_count = d.due.get_mut(deadline_idx).unwrap().count()?;
-    println!("sector count: {}", sector_count);
     let mut partition_count = sector_count / partition_size;
     if sector_count % partition_size != 0 {
         partition_count += 1;
@@ -191,7 +188,6 @@ pub fn assign_new_sectors(
     deadlines: &mut Deadlines,
     partition_size: usize,
     new_sectors: &[u64],
-    _seed: Randomness,
 ) -> Result<(), String> {
     let mut next_new_sector: usize = 0;
     // The first deadline is left empty since it's more difficult for a miner to orchestrate proofs.
@@ -221,10 +217,13 @@ pub fn assign_new_sectors(
     // Meanwhile, record the partition count at each deadline.
     let mut deadline_partitions_counts = [0usize; WPOST_PERIOD_DEADLINES];
     let mut i: usize = 0;
+    
+    //println!("i:: {}, WPOST_PERIOD_DEADLINES:: {}, next_new_sector:: {}, new_sectors.len():: {}", i,WPOST_PERIOD_DEADLINES ,next_new_sector,new_sectors.len());
     while i < WPOST_PERIOD_DEADLINES && next_new_sector < new_sectors.len() {
         if i < first_assignable_deadline {
             // Mark unassignable deadlines as "full" so nothing more will be assigned.
             deadline_partitions_counts[i] = u64::max_value() as usize;
+            i += 1;
             continue;
         }
         let (partition_count, sector_count) = deadline_count(deadlines, partition_size, i)?;
@@ -244,17 +243,17 @@ pub fn assign_new_sectors(
     // A miner onboarding a monumental 1EiB of 32GiB sectors uniformly throughout a year will fill 40 partitions
     // per proving period (40^2=1600). With 64GiB sectors, half that (20^2=400).
     // TODO: randomize assignment among equally-full deadlines https://github.com/filecoin-project/specs-actors/issues/432
-
     let mut dl_idxs = [0usize; WPOST_PERIOD_DEADLINES];
     for (i, v) in (0..).zip(dl_idxs.iter_mut()) {
         *v = i;
     }
-
     // TODO revisit this, go function is sorting while also indexing the slice being sorted
     // and is unclear what functionality is intended.
     let sort_deadlines = |deadl: &[usize; WPOST_PERIOD_DEADLINES],
                           dl_idxs: &mut [usize; WPOST_PERIOD_DEADLINES]| {
-        let cloned_idxs = *dl_idxs;
+        let mut cloned_idxs = *dl_idxs;
+        // TODO remove reverse
+        cloned_idxs.reverse();
         dl_idxs.sort_by(|i, j| {
             let (idx_i, idx_j) = (cloned_idxs[*i], cloned_idxs[*j]);
             let (count_i, count_j) = (deadl[idx_i], deadl[idx_j]);
@@ -264,8 +263,8 @@ pub fn assign_new_sectors(
                 count_i.cmp(&count_j)
             }
         })
+        //dl_idxs.sort_by_key(|i| deadl[cloned_idxs[*i as usize] as usize])
     };
-
     sort_deadlines(&deadline_partitions_counts, &mut dl_idxs);
     while next_new_sector < new_sectors.len() {
         // Assign a full partition to the least-full deadline.
@@ -283,5 +282,6 @@ pub fn assign_new_sectors(
         // the hood this will be linear.
         sort_deadlines(&deadline_partitions_counts, &mut dl_idxs);
     }
+    
     Ok(())
 }

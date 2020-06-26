@@ -876,12 +876,14 @@ impl Deadlines {
     /// Adds sector numbers to a deadline.
     /// The sector numbers are given as uint64 to avoid pointless conversions for bitfield use.
     pub fn add_to_deadline(&mut self, deadline: usize, new_sectors: &[u64]) -> Result<(), String> {
+        println!("new sectors:::: {:?}", new_sectors);
         let ns = BitField::new_from_set(new_sectors);
         let sec = self
             .due
             .get_mut(deadline)
             .ok_or(format!("unable to find deadline: {}", deadline))?;
         sec.merge_assign(&ns)?;
+        println!("addded to deadline: {:?}", ns);
         Ok(())
     }
     /// Removes sector numbers from all deadlines.

@@ -1568,13 +1568,12 @@ where
             if !new_sectors.is_empty() {
                 let randomness_epoch =
                     std::cmp::min(deadline.period_end(), rt.curr_epoch() - ELECTION_LOOKBACK);
-                let assignment_seed =
+                let _assignment_seed =
                     rt.get_randomness(WindowPoStDeadlineAssignment, randomness_epoch, &[])?;
                 assign_new_sectors(
                     &mut deadlines,
                     st.info.window_post_partition_sectors as usize,
                     &new_sectors,
-                    assignment_seed,
                 )
                 .map_err(|e| {
                     ActorError::new(
