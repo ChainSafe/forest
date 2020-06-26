@@ -305,7 +305,7 @@ impl State {
     ) -> Result<(), String> {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
         let mut bf: BitField = sector_arr
-            .get(expiry as i64)?
+            .get(expiry as u64)?
             .ok_or("unable to find sector")?;
         for &sector in sectors {
             bf.set(sector as usize);
@@ -333,7 +333,7 @@ impl State {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
 
         let mut bf = sector_arr
-            .get(expiry as i64)?
+            .get(expiry as u64)?
             .ok_or("unable to find sector")?;
         for &sector in sectors {
             bf.unset(sector as usize);

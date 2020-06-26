@@ -4,7 +4,7 @@
 mod common;
 
 use actor::{
-    market::{Method, State, WithdrawBalanceParams},
+    market::{Method, State, WithdrawBalanceParams, EPOCH_UNDEFINED},
     miner::{GetControlAddressesReturn, Method as MinerMethod},
     Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE, INIT_ACTOR_CODE_ID,
     MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR,
@@ -89,7 +89,7 @@ fn simple_construction() {
     assert_eq!(empty_map, state_data.escrow_table);
     assert_eq!(empty_map, state_data.locked_table);
     assert_eq!(empty_set, state_data.deal_ops_by_epoch);
-    assert_eq!(state_data.last_cron.is_none(), true);
+    assert_eq!(state_data.last_cron, EPOCH_UNDEFINED);
 }
 
 #[test]

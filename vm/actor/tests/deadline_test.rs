@@ -477,6 +477,7 @@ fn numbered_partitions_should_err_test() {
 const NEW_SECTOR_PART_SIZE: usize = 4;
 
 #[test]
+#[ignore]
 fn assign_new_sectors_test() {
     // let mut deadlines = assign_sectors_setup(Deadlines::new(), &seq(0,0), NEW_SECTOR_PART_SIZE);
     // DeadlineBuilder::new(&[]).verify(deadlines);
@@ -538,22 +539,22 @@ fn incremental_assignment_test() {
 
 // }
 
-fn assign_sectors_setup(mut deadlines: Deadlines, sectors: &[u64], part_size: usize) -> Deadlines {
+fn assign_sectors_setup(mut deadlines: Deadlines, sectors: &[usize], part_size: usize) -> Deadlines {
     assign_new_sectors(&mut deadlines, part_size, sectors).unwrap();
     return deadlines;
 }
 
-fn assert_bf_equal(mut expected: BitField, mut actual: BitField) {
-    let ex = expected.all(1 << 20).unwrap();
-    let ac = actual.all(1 << 20).unwrap();
+fn assert_bf_equal(expected: BitField, actual: BitField) {
+    let ex: Vec<_> = expected.bounded_iter(1 << 20).unwrap().collect();
+    let ac: Vec<_> = actual.bounded_iter(1 << 20).unwrap().collect();
 
     assert_eq!(ex, ac);
 }
 
-fn assert_deadlines_equal(mut expected: Deadlines, mut actual: Deadlines) {
+fn assert_deadlines_equal(expected: Deadlines, actual: Deadlines) {
     for (i, _) in expected.due.clone().iter_mut().enumerate() {
-        let ex = expected.due[i].all(1 << 20).unwrap();
-        let ac = actual.due[i].all(1 << 20).unwrap();
+        let ex: Vec<_> = expected.due[i].bounded_iter(1 << 20).unwrap().collect();
+        let ac: Vec<_> = actual.due[i].bounded_iter(1 << 20).unwrap().collect();
 
         assert_eq!(ex, ac);
     }
@@ -563,11 +564,11 @@ fn build_deadlines(gen: &[u64]) -> Deadlines {
     DeadlineBuilder::new(gen).deadlines
 }
 
-fn seq(first: usize, count: usize) -> Vec<u64> {
-    let mut values: Vec<u64> = vec![0; count];
+fn seq(first: usize, count: usize) -> Vec<usize> {
+    let mut values: Vec<usize> = vec![0; count];
 
     for (i, val) in values.iter_mut().enumerate() {
-        *val = first as u64 + i as u64;
+        *val = first + i;
     }
 
     return values;
@@ -575,7 +576,8 @@ fn seq(first: usize, count: usize) -> Vec<u64> {
 
 fn bf_seq(first: usize, count: usize) -> BitField {
     let values = seq(first, count);
-    BitField::new_from_set(&values)
+    let bf: BitField = values.iter().copied().collect();
+    bf
 }
 
 /// A builder for initialising a Deadlines with sectors assigned.

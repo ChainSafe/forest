@@ -138,10 +138,7 @@ pub fn deadline_count(
     }
 
     let sector_count = d.due[deadline_idx].len();
-    let mut partition_count = (sector_count + partition_size - 1) / partition_size;
-    if sector_count % partition_size != 0 {
-        partition_count += 1;
-    };
+    let partition_count = (sector_count + partition_size - 1) / partition_size;
     Ok((partition_count, sector_count))
 }
 /// Computes a bitfield of the sector numbers included in a sequence of partitions due at some deadline.
@@ -188,7 +185,7 @@ pub fn compute_partitions_sector(
 pub fn assign_new_sectors(
     deadlines: &mut Deadlines,
     partition_size: usize,
-    new_sectors: &[u64],
+    new_sectors: &[usize],
 ) -> Result<(), String> {
     let mut next_new_sector: usize = 0;
     // The first deadline is left empty since it's more difficult for a miner to orchestrate proofs.
@@ -209,7 +206,7 @@ pub fn assign_new_sectors(
         let count_to_add = std::cmp::min(count, new_sectors.len() - *next_new_sector);
         let limit = *next_new_sector + count_to_add;
         let sectors_to_add = &new_sectors[*next_new_sector..limit];
-        deadlines.add_to_deadline(deadline, sectors_to_add as usize)?;
+        deadlines.add_to_deadline(deadline, sectors_to_add)?;
         *next_new_sector += count_to_add;
         Ok(())
     };

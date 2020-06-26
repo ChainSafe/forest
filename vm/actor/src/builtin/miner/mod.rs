@@ -1474,7 +1474,7 @@ where
             })?;
 
             // assign new sectors to deadlines
-            let new_sectors:<_> = st
+            let new_sectors: Vec<_> = st
                 .new_sectors
                 .bounded_iter(NEW_SECTORS_PER_PERIOD_MAX)
                 .map_err(|e| {
@@ -1490,6 +1490,7 @@ where
                     std::cmp::min(deadline.period_end(), rt.curr_epoch() - ELECTION_LOOKBACK);
                 let _assignment_seed =
                     rt.get_randomness(WindowPoStDeadlineAssignment, randomness_epoch, &[])?;
+
                 assign_new_sectors(
                     &mut deadlines,
                     st.info.window_post_partition_sectors as usize,
@@ -1502,7 +1503,7 @@ where
                     )
                 })?;
 
-            // store updated deadline state
+                // store updated deadline state
                 st.save_deadlines(rt.store(), deadlines).map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
