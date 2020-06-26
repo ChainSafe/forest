@@ -160,6 +160,8 @@ where
         assert!(addr.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
     }
+
+    #[allow(dead_code)]
     pub fn expect_validate_caller_type(&self, ids: &[Cid]) {
         assert!(ids.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_type.borrow_mut() = Some(ids.to_vec());
@@ -272,6 +274,7 @@ where
         *self.expect_validate_caller_type.borrow_mut() = None;
         self.expect_create_actor = None;
         *self.expect_verify_sig.borrow_mut() = None;
+        self.expect_sends.clear();
     }
 
     #[allow(dead_code)]
@@ -491,15 +494,12 @@ where
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError> {
         self.require_in_call();
-        //println!("IN the send func");
         if self.in_transaction {
             return Err(self.abort(
                 ExitCode::SysErrorIllegalActor,
                 "side-effect within transaction",
             ));
         }
-        //println!("The size is {}", self.expect_sends.len());
-
         assert!(
             !self.expect_sends.is_empty(),
             "unexpected expectedMessage to: {:?} method: {:?}, value: {:?}, params: {:?}",

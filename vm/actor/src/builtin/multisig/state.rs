@@ -31,17 +31,11 @@ pub struct State {
 impl State {
     /// Returns amount locked in multisig contract
     pub fn amount_locked(&self, elapsed_epoch: ChainEpoch) -> TokenAmount {
-        //println!("Unlock duration is {}, elapsed epoch is {}", &self.unlock_duration, &elapsed_epoch);
         if elapsed_epoch >= self.unlock_duration {
             return TokenAmount::from(0u8);
         }
-        //println!("pass automatic zero");
-        //println!("Initial balance is {}", &self.initial_balance);
         let unit_locked = self.initial_balance.clone() / self.unlock_duration;
-        //println!("Unit locked is {}", unit_locked);
         unit_locked * (self.unlock_duration - elapsed_epoch)
-        //println!("Final amount is {}", f);
-        // unit_locked * (self.unlock_duration - elapsed_epoch)
     }
 
     pub(crate) fn is_signer(&self, addr: &Address) -> bool {
@@ -69,7 +63,6 @@ impl State {
 
         let remaining_balance = balance - amount_to_spend;
         let amount_locked = self.amount_locked(curr_epoch - self.start_epoch);
-        println!("Amount locked is {}", &amount_locked);
         if remaining_balance < amount_locked {
             return Err(format!(
                 "actor balance if spent {} would be less than required locked amount {}",
@@ -112,12 +105,9 @@ impl State {
         s: &BS,
         txn_id: TxnID,
     ) -> Result<(), String> {
-        println!("Calling delete pending func");
         let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
         self.pending_txs = map.flush()?;
-        if map.delete(&txn_id.key())? {
-            println!("Sucessfully dleeted ");
-        }
+        map.delete(&txn_id.key())?;
         self.pending_txs = map.flush()?;
         Ok(())
     }

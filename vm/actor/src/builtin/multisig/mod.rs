@@ -68,7 +68,6 @@ impl Actor {
         };
 
         if params.unlock_duration != 0 {
-            //println!("Using message stufff nboiiiiiii, message value is {}", rt.message().value().clone());
             st.initial_balance = rt.message().value().clone();
             st.unlock_duration = params.unlock_duration;
             st.start_epoch = rt.curr_epoch();
@@ -114,8 +113,6 @@ impl Actor {
             // Return the tx id
             Ok(t_id)
         })??;
-
-        println!("Txn id is {:?}", tx_id.0);
         // Proposal implicitly includes approval of a transaction
         Self::approve_transaction(rt, tx_id, [0; 32], false)?;
 
@@ -176,14 +173,14 @@ impl Actor {
             if result_hash.is_err() {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
-                    format!("Failed to compute proposal hash"),
+                    "Failed to compute proposal hash".to_string(),
                 ));
             }
 
             if !params.proposal_hash.eq(&result_hash.unwrap()) {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
-                    format!("Hash does  not match proposal params"),
+                    "Hash does  not match proposal params".to_string(),
                 ));
             }
 
@@ -242,8 +239,6 @@ impl Actor {
                     "Party not found".to_owned(),
                 ));
             }
-
-            println!("Here nmum signer is {}", st.signers.len());
             if st.signers.len() == 1 {
                 return Err(ActorError::new(
                     ExitCode::ErrForbidden,
@@ -251,13 +246,22 @@ impl Actor {
                 ));
             }
 
+            if !params.decrease && st.signers.len() < (st.num_approvals_threshold + 1) as usize {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    "Cant reduce signers to below threshold with decrease set to false".to_owned(),
+                ));
+            }
+
             // Remove signer from state
             st.signers.retain(|s| s != &params.signer);
 
+
             // Decrease approvals threshold if decrease param or below threshold
-            if params.decrease || st.signers.len() < (st.num_approvals_threshold + 1) as usize {
+            if params.decrease {
                 st.num_approvals_threshold -= 1;
             }
+
             Ok(())
         })?
     }
@@ -334,75 +338,64 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let from = *rt.message().from();
-        let curr_bal = rt.current_balance()?;
-        let curr_epoch = rt.curr_epoch();
-        let fix_st: State = rt.state().unwrap();
 
         // Approval transaction
-        let (tx, threshold_met): (Transaction, bool) =
-            rt.transaction::<State, _, _>(|st, rt| {
-                let mut txn = match st.get_pending_transaction(rt.store(), tx_id) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        return Err(ActorError::new(
-                            ExitCode::ErrNotFound,
-                            format!("Failed to get transaction for approval: {}", e),
-                        ));
-                    }
-                };
-
-                // abort duplicate approval
-                for previous_approver in &txn.approved {
-                    if previous_approver == &from {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            "Already approved this message".to_owned(),
-                        ));
-                    }
+        let (tx, _): (Transaction, bool) = rt.transaction::<State, _, _>(|st, rt| {
+            let mut txn = match st.get_pending_transaction(rt.store(), tx_id) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(ActorError::new(
+                        ExitCode::ErrNotFound,
+                        format!("Failed to get transaction for approval: {}", e),
+                    ));
                 }
+            };
 
-                if check_hash {
-                    let result_hash = Self::compute_proposal_hash(rt, txn.clone());
-                    if result_hash.is_err() {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("Failed to compute proposal hash"),
-                        ));
-                    }
-
-                    if !proposal_hash.eq(&result_hash.unwrap()) {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("Hash does  not match proposal params"),
-                        ));
-                    }
-                }
-
-                // update approved on the transaction
-                txn.approved.push(from);
-
-                if let Err(e) = st.put_pending_transaction(rt.store(), tx_id, txn.clone()) {
+            // abort duplicate approval
+            for previous_approver in &txn.approved {
+                if previous_approver == &from {
                     return Err(ActorError::new(
                         ExitCode::ErrIllegalState,
-                        format!("Failed to put transaction for approval: {}", e),
+                        "Already approved this message".to_owned(),
+                    ));
+                }
+            }
+
+            if check_hash {
+                let result_hash = Self::compute_proposal_hash(rt, txn.clone());
+                if result_hash.is_err() {
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        "Failed to compute proposal hash".to_owned(),
                     ));
                 }
 
-                // Check if number approvals is met
+                if !proposal_hash.eq(&result_hash.unwrap()) {
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        "Hash does  not match proposal params".to_owned(),
+                    ));
+                }
+            }
 
-                // Number of approvals required not met, do not relay message
-                Ok((txn, false))
-            })??;
-        let mut st: State = rt.state().unwrap();
-        //println!("State num approval threshold {} fixed state is {}", st.num_approvals_threshold, fix_st.num_approvals_threshold);
-        //println!("tx approved is {}", tx.approved.len());
+            // update approved on the transaction
+            txn.approved.push(from);
 
-        let mut code = ExitCode::Ok;
-        let mut out = Serialized::default();
+            if let Err(e) = st.put_pending_transaction(rt.store(), tx_id, txn.clone()) {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("Failed to put transaction for approval: {}", e),
+                ));
+            }
+
+            // Check if number approvals is met
+
+            // Number of approvals required not met, do not relay message
+            Ok((txn, false))
+        })??;
+        let st: State = rt.state().unwrap();
         // Sufficient number of approvals have arrived, relay message
         if tx.approved.len() >= st.num_approvals_threshold as usize {
-            //println!("IN HERE");
-            //println!("Balance is {}, txn value is {}", rt.current_balance().unwrap(), tx.value.clone());
             // Ensure sufficient funds
             if let Err(e) = st.check_available(
                 rt.current_balance().unwrap(),
@@ -414,22 +407,24 @@ impl Actor {
                     format!("Insufficient funds unlocked: {}", e),
                 ));
             }
-
-            //println!("About to send");
-            let ret = rt.send(&tx.to, tx.method, &tx.params, &tx.value);
-
-            if let Err(x) = ret {
-                code = x.exit_code();
-            }
+            let _ret = rt.send(&tx.to, tx.method, &tx.params, &tx.value);
 
             // Delete pending transaction
-            println!("tx id is {:?}", tx_id.0);
-            if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to delete transaction for cleanup: {}", e),
-                ));
-            }
+            let _v = rt.transaction::<State, _, _>(|st, rt| {
+                if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to delete transaction for cleanup: {}", e),
+                    ));
+                }
+                Ok(())
+            })??;
+            // if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
+            //     return Err(ActorError::new(
+            //         ExitCode::ErrIllegalState,
+            //         format!("failed to delete transaction for cleanup: {}", e),
+            //     ));
+            // }
         }
 
         Ok(())

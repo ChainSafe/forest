@@ -9,15 +9,14 @@ use actor::{
         ProposalHashData, ProposeParams, RemoveSignerParams, State, SwapSignerParams, Transaction,
         TxnID, TxnIDParams,
     },
-    Multimap, Set, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID,
-    MULTISIG_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
+    Set, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
+    SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use clock::ChainEpoch;
 use common::*;
 use db::MemoryDB;
 use encoding::blake2b_256;
-use forest_ipld::Ipld;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Hamt};
 use message::UnsignedMessage;
@@ -191,7 +190,6 @@ fn assert_transactions<'a, BS: BlockStore>(
     let mut count = 0;
     assert!(map
         .for_each(|_, value: Transaction| {
-            println!("Value is {:?}", value);
             assert_eq!(value, expected[count]);
             count += 1;
             Ok(())
@@ -1398,7 +1396,7 @@ mod test_remove_signer {
     fn test() {
         let test_cases = vec![
             SignerTestCase {
-                desc: "happy path add signer".to_string(),
+                desc: "happy path remove signer".to_string(),
                 initial_signers: vec![
                     Address::new_id(ANNE),
                     Address::new_id(BOB),
@@ -1426,7 +1424,7 @@ mod test_remove_signer {
                 code: ExitCode::Ok,
             },
             SignerTestCase {
-                desc: "Remove signer with automatic threhold decrease".to_string(),
+                desc: "fail remove signer if decrease set to false and number of signers below threshold".to_string(),
                 initial_signers: vec![
                     Address::new_id(ANNE),
                     Address::new_id(BOB),
@@ -1437,7 +1435,7 @@ mod test_remove_signer {
                 decrease: false,
                 expect_signers: vec![Address::new_id(ANNE), Address::new_id(BOB)],
                 expect_approvals: 2,
-                code: ExitCode::Ok,
+                code: ExitCode::ErrIllegalArgument,
             },
             SignerTestCase {
                 desc: "Remove signer from single signer list".to_string(),
@@ -1494,7 +1492,7 @@ mod test_remove_signer {
                 );
                 let state: State = rt.get_state().unwrap();
                 assert_eq!(test_case.expect_signers, state.signers);
-            //assert_eq!(test_case.expect_approvals, state.num_approvals_threshold);
+                assert_eq!(test_case.expect_approvals, state.num_approvals_threshold);
             } else {
                 assert_eq!(
                     test_case.code,
@@ -1595,7 +1593,7 @@ mod test_change_treshold {
     struct Threshold {
         desc: String,
         initial_threshold: i64,
-        setThreshold: i64,
+        set_threshold: i64,
         code: ExitCode,
     }
 
@@ -1610,31 +1608,31 @@ mod test_change_treshold {
             Threshold {
                 desc: "happy path decrease threshold".to_string(),
                 initial_threshold: 2,
-                setThreshold: 1,
+                set_threshold: 1,
                 code: ExitCode::Ok,
             },
             Threshold {
                 desc: "happy path simple increase threshold".to_string(),
                 initial_threshold: 2,
-                setThreshold: 3,
+                set_threshold: 3,
                 code: ExitCode::Ok,
             },
             Threshold {
                 desc: "fail to set threshold to zero".to_string(),
                 initial_threshold: 2,
-                setThreshold: 0,
+                set_threshold: 0,
                 code: ExitCode::ErrIllegalArgument,
             },
             Threshold {
                 desc: "fail to set threshold less than zero".to_string(),
                 initial_threshold: 2,
-                setThreshold: -1,
+                set_threshold: -1,
                 code: ExitCode::ErrIllegalArgument,
             },
             Threshold {
                 desc: "fail to set threshold above number of signers".to_string(),
                 initial_threshold: 2,
-                setThreshold: initial_signer.len() as i64 + 1,
+                set_threshold: initial_signer.len() as i64 + 1,
                 code: ExitCode::ErrIllegalArgument,
             },
         ];
@@ -1658,13 +1656,13 @@ mod test_change_treshold {
             rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), receiver.clone());
             rt.expect_validate_caller_addr(&[receiver.clone()]);
             if test_case.code == ExitCode::Ok {
-                assert!(change_num_approvals_threshold(&mut rt, test_case.setThreshold).is_ok());
+                assert!(change_num_approvals_threshold(&mut rt, test_case.set_threshold).is_ok());
                 let state: State = rt.get_state().unwrap();
-                assert_eq!(test_case.setThreshold, state.num_approvals_threshold);
+                assert_eq!(test_case.set_threshold, state.num_approvals_threshold);
             } else {
                 assert_eq!(
                     test_case.code,
-                    change_num_approvals_threshold(&mut rt, test_case.setThreshold)
+                    change_num_approvals_threshold(&mut rt, test_case.set_threshold)
                         .unwrap_err()
                         .exit_code()
                 );
