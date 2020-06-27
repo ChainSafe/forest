@@ -4,7 +4,10 @@
 mod errors;
 pub mod utils;
 pub use self::errors::*;
-use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR, STORAGE_MARKET_ACTOR_ADDR, market, BalanceTable};
+use actor::{
+    init, market, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
+    STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
+};
 use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
 use async_log::span;
 use async_std::sync::RwLock;
@@ -17,7 +20,7 @@ use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::trace;
-use num_bigint::{BigUint};
+use num_bigint::BigUint;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -27,9 +30,9 @@ use std::sync::Arc;
 pub type CidPair = (Cid, Cid);
 
 #[derive(Default)]
-pub struct MarketBalance{
-    escrow : BigUint,
-    locked : BigUint
+pub struct MarketBalance {
+    escrow: BigUint,
+    locked: BigUint,
 }
 
 pub struct StateManager<DB> {
@@ -241,13 +244,18 @@ where
         }
     }
 
-    pub fn lookup_id<'a>(&'a self, addr : &Address, ts : &Tipset) -> Result<Address, Error> {
+    pub fn lookup_id<'a>(&'a self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
         let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())?;
-        state_tree.lookup_id(addr).map_err(|message| Error::State(message))
+        state_tree.lookup_id(addr).map_err(Error::State)
     }
 
-    pub fn market_balance<'a>(&'a mut self, addr : &Address, ts : &Tipset  ) -> Result<MarketBalance, Error> {
-        let market_state : market::State = self.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
+    pub fn market_balance<'a>(
+        &'a mut self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> Result<MarketBalance, Error> {
+        let market_state: market::State =
+            self.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
 
         let new_addr = self.lookup_id(addr, ts)?;
 
@@ -255,16 +263,15 @@ where
 
         let mut out = MarketBalance::default();
 
-        if et.has(&new_addr).is_ok(){
+        if et.has(&new_addr).is_ok() {
             out.escrow = et.get(&new_addr)?;
         }
-      
+
         let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table).unwrap();
 
-        if lt.has(&new_addr).is_ok(){
+        if lt.has(&new_addr).is_ok() {
             out.locked = lt.get(&new_addr)?;
         }
         Ok(out)
     }
-
 }
