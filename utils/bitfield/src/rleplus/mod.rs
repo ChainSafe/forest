@@ -190,12 +190,12 @@ impl RlePlus {
 
     // Returns a byte slice of the bit field's contents.
     pub fn as_bytes(&self) -> &[u8] {
-        self.0.as_slice()
+        &self.0
     }
 
     // Converts a bit field into a byte vector.
     pub fn into_bytes(self) -> Vec<u8> {
-        self.0.into()
+        self.0
     }
 }
 
