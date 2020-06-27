@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use address::Address;
-// use async_std::task;
+use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use chain::ChainStore;
@@ -11,7 +11,8 @@ use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
 use encoding::Cbor;
-// use futures::stream::StreamExt;
+use flo_stream::Subscriber;
+use futures::StreamExt;
 use log::warn;
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -19,6 +20,9 @@ use num_bigint::{BigInt, BigUint};
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::thread::sleep;
+use std::time::Duration;
 use vm::ActorState;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
@@ -69,9 +73,10 @@ impl MsgSet {
 /// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
 /// the operations that are listed below that are required for the messagepool.
 pub trait Provider {
-    /// Return the tipset that will be used for the Messagepool cur_tipset during the creation of a
-    /// Messagepool
-    fn subscribe_head_changes(&mut self) -> Option<Tipset>;
+    /// Update Mpool's cur_tipset whenever there is a chnge to the provider
+    fn subscribe_head_changes(&mut self) -> Subscriber<Arc<Tipset>>;
+    /// Get the heaviest Tipset in the provider
+    fn get_heaviest_tipset(&mut self) -> Option<Tipset>;
     /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
@@ -89,7 +94,7 @@ pub trait Provider {
 }
 
 /// This is the mpool provider struct that will let us access and add messages to messagepool.
-/// future TODO is to add a pubsub field to allow for publishing updates.
+/// future
 pub struct MpoolProvider<DB> {
     cs: ChainStore<DB>,
 }
@@ -110,10 +115,11 @@ impl<DB> Provider for MpoolProvider<DB>
 where
     DB: BlockStore,
 {
-    /// TODO find a way to get this function to periodically check for head changes in cs and update
-    /// msgpool accordingly or find a way to have an async function always running in the background
-    /// checking for newly published tipset and add it to msgpool
-    fn subscribe_head_changes(&mut self) -> Option<Tipset> {
+    fn subscribe_head_changes(&mut self) -> Subscriber<Arc<Tipset>> {
+        self.cs.subscribe()
+    }
+
+    fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
         let ts = self.cs.heaviest_tipset()?;
         Some(ts.as_ref().clone())
     }
@@ -150,12 +156,12 @@ where
     }
 }
 
-/// This is the main MessagePool struct TODO async safety
-pub struct MessagePool<T> {
+/// This is the main MessagePool struct
+pub struct MessagePool<T: 'static> {
     local_addrs: Vec<Address>,
     pending: HashMap<Address, MsgSet>,
-    pub cur_tipset: Tipset,
-    api: T,
+    pub cur_tipset: Mutex<Tipset>,
+    api: Arc<Mutex<T>>,
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
     pub network_name: String,
@@ -166,33 +172,53 @@ pub struct MessagePool<T> {
 
 impl<T> MessagePool<T>
 where
-    T: Provider,
+    T: Provider + std::marker::Send,
 {
     /// Create a new message pool
-    pub fn new(mut api: T, network_name: String) -> Result<MessagePool<T>, Error>
+    pub fn new(mut api: T, network_name: String) -> Result<Arc<Mutex<MessagePool<T>>>, Error>
     where
         T: Provider,
     {
-        // let tipset = api.subscribe_head_changes();
         // LruCache sizes have been taken from the lotus implementation
-        let tipset = api
-            .subscribe_head_changes()
-            .ok_or_else(|| Error::Other("No ts in api to set as cur_tipset".to_owned()))?;
+        let tipset = Mutex::new(
+            api.get_heaviest_tipset()
+                .ok_or_else(|| Error::Other("No ts in api to set as cur_tipset".to_owned()))?,
+        );
         let bls_sig_cache = LruCache::new(40000);
         let sig_val_cache = LruCache::new(32000);
-        let mut mp = MessagePool {
+        let api_mutex = Arc::new(Mutex::new(api));
+        let mp = Arc::new(Mutex::new(MessagePool {
             local_addrs: Vec::new(),
             pending: HashMap::new(),
             cur_tipset: tipset,
-            api,
+            api: api_mutex,
             min_gas_price: Default::default(),
             max_tx_pool_size: 5000,
             network_name,
             bls_sig_cache,
             sig_val_cache,
             local_msgs: HashMap::new(),
-        };
-        mp.load_local()?;
+        }));
+
+        let mut mp_lock = mp.lock().unwrap();
+        mp_lock
+            .load_local()?;
+        let mut api = mp_lock.api.lock().unwrap();
+        let mut subscriber = api.subscribe_head_changes();
+        drop(api);
+        drop(mp_lock);
+
+        let mpool = mp.clone();
+        task::spawn(async move {
+            loop {
+                if let Some(ts) = subscriber.next().await {
+                    let mut lock = mpool.lock().unwrap();
+                    lock.head_change(Vec::new(), vec![ts.as_ref().clone()])
+                        .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
+                }
+                sleep(Duration::new(1, 0));
+            }
+        });
         Ok(mp)
     }
 
@@ -225,7 +251,8 @@ where
         self.verify_msg_sig(msg)?;
 
         let tmp = msg.clone();
-        self.add_tipset(tmp, &self.cur_tipset.clone())
+        let tip = self.cur_tipset.lock().unwrap().clone();
+        self.add_tipset(tmp, &tip)
     }
 
     /// Add a SignedMessage without doing any of the checks
@@ -269,6 +296,10 @@ where
     /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
     /// and push it to the pending hashmap
     fn add_helper(&mut self, msg: SignedMessage) -> Result<(), Error> {
+        let api = self
+            .api
+            .lock()
+            .map_err(|err| Error::Other(err.to_string()))?;
         if msg.signature().signature_type() == SignatureType::BLS {
             self.bls_sig_cache.put(msg.cid()?, msg.signature().clone());
         }
@@ -277,7 +308,7 @@ where
                 "given message has too high of a gas limit".to_string(),
             ));
         }
-        self.api.put_message(&msg)?;
+        api.put_message(&msg)?;
 
         let msett = self.pending.get_mut(msg.message().from());
         match msett {
@@ -293,7 +324,7 @@ where
 
     /// Get the sequence for a given address, return Error if there is a failure to retrieve sequence
     pub fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
-        let cur_ts = &self.cur_tipset;
+        let cur_ts = &self.cur_tipset.lock().unwrap();
         let sequence = self.get_state_sequence(addr, cur_ts)?;
 
         match self.pending.get(addr) {
@@ -309,13 +340,17 @@ where
 
     /// Get the state of the base_sequence for a given address in cur_ts
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let actor = self.api.state_get_actor(&addr, cur_ts)?;
+        let api = self
+            .api
+            .lock()
+            .map_err(|err| Error::Other(err.to_string()))?;
+        let actor = api.state_get_actor(&addr, cur_ts)?;
 
         let mut base_sequence = actor.sequence;
 
         // TODO here lotus has a todo, so I guess we should eventually remove cur_ts from one
         // of the params for this method and just use the chain head
-        let msgs = self.api.messages_for_tipset(cur_ts)?;
+        let msgs = api.messages_for_tipset(cur_ts)?;
         for m in msgs {
             if m.from() == addr {
                 if m.sequence() != base_sequence {
@@ -330,7 +365,11 @@ where
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error
     fn get_state_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
-        let actor = self.api.state_get_actor(&addr, &ts)?;
+        let api = self
+            .api
+            .lock()
+            .map_err(|err| Error::Other(err.to_string()))?;
+        let actor = api.state_get_actor(&addr, &ts)?;
         Ok(BigInt::from(actor.balance))
     }
 
@@ -363,7 +402,7 @@ where
         for (addr, _) in self.pending.clone() {
             out.append(self.pending_for(&addr).unwrap().as_mut())
         }
-        (out, self.cur_tipset.clone())
+        (out, self.cur_tipset.lock().unwrap().clone())
     }
 
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
@@ -393,11 +432,11 @@ where
     /// Return Vector of signed messages given a block header for self
     pub fn messages_for_blocks(
         &mut self,
-        blks: Vec<BlockHeader>,
+        blks: &[BlockHeader],
     ) -> Result<Vec<SignedMessage>, Error> {
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
         for block in blks {
-            let (umsg, mut smsgs) = self.api.messages_for_block(&block)?;
+            let (umsg, mut smsgs) = self.api.lock().unwrap().messages_for_block(&block)?;
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
                 let smsg = self.recover_sig(msg)?;
@@ -464,11 +503,11 @@ where
     /// called every time that there is a head change in the message pool
     pub fn head_change(&mut self, revert: Vec<Tipset>, apply: Vec<Tipset>) -> Result<(), Error> {
         let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
-
         for ts in revert {
-            let pts = self.api.load_tipset(ts.parents())?;
-            let msgs = self.messages_for_blocks(ts.blocks().to_vec())?;
-            self.cur_tipset = pts;
+            let pts = self.api.lock().unwrap().load_tipset(ts.parents())?;
+            let msgs = self.messages_for_blocks(ts.blocks())?;
+            let parent = pts.clone();
+            *self.cur_tipset.lock().unwrap() = parent;
             for msg in msgs {
                 add(msg, rmsgs.borrow_mut());
             }
@@ -476,7 +515,7 @@ where
 
         for ts in apply {
             for b in ts.blocks() {
-                let (msgs, smsgs) = self.api.messages_for_block(b).unwrap();
+                let (msgs, smsgs) = self.api.lock().unwrap().messages_for_block(b).unwrap();
                 for msg in smsgs {
                     self.rm(msg.from(), msg.sequence(), rmsgs.borrow_mut());
                 }
@@ -485,7 +524,7 @@ where
                     self.rm(msg.from(), msg.sequence(), rmsgs.borrow_mut());
                 }
             }
-            self.cur_tipset = ts;
+            *self.cur_tipset.lock().unwrap() = ts;
         }
 
         for (_, hm) in rmsgs {
@@ -516,9 +555,11 @@ mod tests {
     use super::*;
     use crate::MessagePool;
     use address::Address;
+    use async_std::task;
     use blocks::{BlockHeader, Ticket, Tipset};
     use cid::Cid;
     use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
+    use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigUint;
@@ -529,6 +570,7 @@ mod tests {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
         state_sequence: HashMap<Address, u64>,
         tipsets: Vec<Tipset>,
+        publisher: Publisher<Arc<Tipset>>,
     }
 
     impl TestApi {
@@ -537,6 +579,7 @@ mod tests {
                 bmsgs: HashMap::new(),
                 state_sequence: HashMap::new(),
                 tipsets: Vec::new(),
+                publisher: Publisher::new(1),
             }
         }
 
@@ -548,10 +591,18 @@ mod tests {
             self.bmsgs.insert(h.cid().clone(), msgs.clone());
             self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
         }
+
+        pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> () {
+            self.publisher.publish(ts).await
+        }
     }
 
     impl Provider for TestApi {
-        fn subscribe_head_changes(&mut self) -> Option<Tipset> {
+        fn subscribe_head_changes(&mut self) -> Subscriber<Arc<Tipset>> {
+            self.publisher.subscribe()
+        }
+
+        fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
             Tipset::new(vec![create_header(1, b"", b"")]).ok()
         }
 
@@ -700,7 +751,8 @@ mod tests {
         let mut tma = TestApi::new();
         tma.set_state_sequence(&sender, 0);
 
-        let mut mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
+        let mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
+        let mut mpool_locked = mpool.lock().unwrap();
 
         let mut smsg_vec = Vec::new();
         for i in 0..4 {
@@ -708,31 +760,39 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
-        mpool.push(&smsg_vec[0]).unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
-        mpool.push(&smsg_vec[1]).unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
-        mpool.push(&smsg_vec[2]).unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 3);
-        mpool.push(&smsg_vec[3]).unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 0);
+        mpool_locked.push(&smsg_vec[0]).unwrap();
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 1);
+        mpool_locked.push(&smsg_vec[1]).unwrap();
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 2);
+        mpool_locked.push(&smsg_vec[2]).unwrap();
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 3);
+        mpool_locked.push(&smsg_vec[3]).unwrap();
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
 
         let a = mock_block(1, 1);
 
-        mpool.api.set_block_messages(&a, smsg_vec);
-        mpool
+        mpool_locked
+            .api
+            .lock()
+            .unwrap()
+            .set_block_messages(&a, smsg_vec);
+        mpool_locked
             .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
             .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
+
+        drop(mpool_locked);
+        assert_eq!(mpool.lock().unwrap().get_sequence(&sender).unwrap(), 4);
     }
 
     #[test]
     fn test_revert_messages() {
         let tma = TestApi::new();
         let mut wallet = Wallet::new(MemKeyStore::new());
-        let mut mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
+        let mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
+        let mut mpool_locked = mpool.lock().unwrap();
 
         let a = mock_block(1, 1);
         let tipset = Tipset::new(vec![a.clone()]).unwrap();
@@ -748,37 +808,110 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        mpool.api.set_block_messages(&a, vec![smsg_vec[0].clone()]);
-        mpool
+        mpool_locked
             .api
+            .lock()
+            .unwrap()
+            .set_block_messages(&a, vec![smsg_vec[0].clone()]);
+        mpool_locked
+            .api
+            .lock()
+            .unwrap()
             .set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
 
-        mpool.api.set_state_sequence(&sender, 0);
+        mpool_locked
+            .api
+            .lock()
+            .unwrap()
+            .set_state_sequence(&sender, 0);
 
-        mpool.add(&smsg_vec[0]).unwrap();
-        mpool.add(&smsg_vec[1]).unwrap();
-        mpool.add(&smsg_vec[2]).unwrap();
-        mpool.add(&smsg_vec[3]).unwrap();
+        mpool_locked.add(&smsg_vec[0]).unwrap();
+        mpool_locked.add(&smsg_vec[1]).unwrap();
+        mpool_locked.add(&smsg_vec[2]).unwrap();
+        mpool_locked.add(&smsg_vec[3]).unwrap();
 
-        mpool.api.set_state_sequence(&sender, 0);
-        mpool
+        mpool_locked
+            .api
+            .lock()
+            .unwrap()
+            .set_state_sequence(&sender, 0);
+        mpool_locked
             .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
             .unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
 
-        mpool.api.set_state_sequence(&sender, 1);
-        mpool
+        mpool_locked
+            .api
+            .lock()
+            .unwrap()
+            .set_state_sequence(&sender, 1);
+        mpool_locked
             .head_change(Vec::new(), vec![Tipset::new(vec![b.clone()]).unwrap()])
             .unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
 
-        mpool.api.set_state_sequence(&sender, 0);
-        mpool
+        mpool_locked
+            .api
+            .lock()
+            .unwrap()
+            .set_state_sequence(&sender, 0);
+        mpool_locked
             .head_change(vec![Tipset::new(vec![b]).unwrap()], Vec::new())
             .unwrap();
-        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
 
-        let (p, _) = mpool.pending();
+        let (p, _) = mpool_locked.pending();
         assert_eq!(p.len(), 3);
+    }
+
+    #[test]
+    fn test_async_message_pool() {
+        let keystore = MemKeyStore::new();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let mut tma = TestApi::new();
+        tma.set_state_sequence(&sender, 0);
+
+        let mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
+        let mut mpool_locked = mpool.lock().unwrap();
+
+        let mut smsg_vec = Vec::new();
+        for i in 0..3 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i);
+            smsg_vec.push(msg);
+        }
+
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 0);
+        mpool_locked.push(&smsg_vec[0]).unwrap();
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 1);
+        mpool_locked.push(&smsg_vec[1]).unwrap();
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 2);
+        mpool_locked.push(&smsg_vec[2]).unwrap();
+        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 3);
+
+        drop(mpool_locked);
+
+        let header = mock_block(1, 1);
+        let tipset = Tipset::new(vec![header.clone()]).unwrap();
+
+        let updater = mpool.lock().unwrap();
+        let temp = updater.api.clone();
+        let mut api = temp.lock().unwrap();
+        drop(updater);
+
+        let ts = tipset.clone();
+        task::block_on(async move {
+            // updater.api.lock().unwrap().set_block_messages(&header, vec![message]);
+            api.set_heaviest_tipset(Arc::new(ts)).await;
+        });
+
+        // sleep allows for async block to update mpool's cur_tipset
+        sleep(Duration::new(2, 0));
+
+        let locked = mpool.lock().unwrap();
+        let cur_ts = locked.cur_tipset.lock().unwrap().clone();
+        assert_eq!(cur_ts, tipset);
     }
 }

@@ -29,6 +29,8 @@ pub enum Error {
     BLSSigTooShort,
     #[error("{0}")]
     Other(String),
+    #[error("{0}")]
+    MutexPoisonError(String),
 }
 
 impl From<ChainError> for Error {
