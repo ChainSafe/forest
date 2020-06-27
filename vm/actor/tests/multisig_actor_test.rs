@@ -211,7 +211,31 @@ mod construction_tests {
             .unwrap();
         let mut rt = MockRuntime::new(bs, message);
         rt.set_caller(INIT_ACTOR_CODE_ID.clone(), INIT_ACTOR_ADDR.clone());
+        rt.expect_validate_caller_addr(&[*INIT_ACTOR_ADDR]);
+
         return rt;
+    }
+
+    fn check_construct_state<'a, BS: BlockStore>(
+        rt: &mut MockRuntime<BS>,
+        params: ConstructorParams,
+    ) -> State {
+        assert!(rt
+            .call(
+                &*MULTISIG_ACTOR_CODE_ID,
+                Method::Constructor as u64,
+                &Serialized::serialize(&params).unwrap()
+            )
+            .is_ok());
+        rt.verify();
+        let state: State = rt.get_state().unwrap();
+        assert_eq!(params.signers, state.signers);
+        assert_eq!(params.signers, state.signers);
+        assert_eq!(
+            params.num_approvals_threshold,
+            state.num_approvals_threshold
+        );
+        state
     }
 
     #[test]
@@ -227,34 +251,18 @@ mod construction_tests {
             num_approvals_threshold: 2,
             unlock_duration: 0,
         };
+        let state = check_construct_state(&mut rt, params);
 
-        rt.expect_validate_caller_addr(&[*INIT_ACTOR_ADDR]);
-        assert!(rt
-            .call(
-                &*MULTISIG_ACTOR_CODE_ID,
-                Method::Constructor as u64,
-                &Serialized::serialize(&params).unwrap()
-            )
-            .is_ok());
-        rt.verify();
-
-        let state: State = rt.get_state().unwrap();
-        assert_eq!(params.signers, state.signers);
-        assert_eq!(params.signers, state.signers);
-        assert_eq!(
-            params.num_approvals_threshold,
-            state.num_approvals_threshold
-        );
         assert_eq!(TokenAmount::from(0u8), state.initial_balance);
         assert_eq!(0, state.unlock_duration);
         assert_eq!(0, state.start_epoch);
-
         let txns = Set::from_root(rt.store, &state.pending_txs)
             .unwrap()
             .collect_keys()
             .unwrap();
         assert_eq!(txns.len(), 0);
     }
+
     #[test]
     fn vesting() {
         let bs = MemoryDB::default();
@@ -269,23 +277,9 @@ mod construction_tests {
             num_approvals_threshold: 3,
             unlock_duration: 100,
         };
-        rt.expect_validate_caller_addr(&[*INIT_ACTOR_ADDR]);
-        assert!(rt
-            .call(
-                &*MULTISIG_ACTOR_CODE_ID,
-                Method::Constructor as u64,
-                &Serialized::serialize(&params).unwrap()
-            )
-            .is_ok());
-        rt.verify();
 
-        let state: State = rt.get_state().unwrap();
-        assert_eq!(params.signers, state.signers);
-        assert_eq!(params.signers, state.signers);
-        assert_eq!(
-            params.num_approvals_threshold,
-            state.num_approvals_threshold
-        );
+        let state = check_construct_state(&mut rt, params);
+
         assert_eq!(TokenAmount::from(0u8), state.initial_balance);
         assert_eq!(100, state.unlock_duration);
         assert_eq!(1234, state.start_epoch);
@@ -300,15 +294,16 @@ mod construction_tests {
             num_approvals_threshold: 1,
             unlock_duration: 1,
         };
-        rt.expect_validate_caller_addr(&[*INIT_ACTOR_ADDR]);
-        let error = rt
-            .call(
+        assert_eq!(
+            ExitCode::ErrIllegalArgument,
+            rt.call(
                 &*MULTISIG_ACTOR_CODE_ID,
                 Method::Constructor as u64,
                 &Serialized::serialize(&params).unwrap(),
             )
-            .unwrap_err();
-        assert_eq!(error.exit_code(), ExitCode::ErrIllegalArgument);
+            .unwrap_err()
+            .exit_code()
+        );
         rt.verify();
     }
 }
@@ -319,7 +314,10 @@ mod test_vesting {
     const INITIAL_BALANCE: u64 = 100;
     const DARLENE: u64 = 103;
 
-    fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
+    fn construct_runtime<'a, BS: BlockStore>(
+        bs: &'a BS,
+        num_approvals: i64,
+    ) -> MockRuntime<'a, BS> {
         let receiver = Address::new_id(RECEIVER);
         let initial_balance = TokenAmount::from(INITIAL_BALANCE);
         let message = UnsignedMessage::builder()
@@ -332,13 +330,6 @@ mod test_vesting {
         rt.set_caller(INIT_ACTOR_CODE_ID.clone(), INIT_ACTOR_ADDR.clone());
         rt.balance = initial_balance.clone();
         rt.received = initial_balance;
-        return rt;
-    }
-
-    #[test]
-    fn happy_path() {
-        let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
         construct_and_verify(
             &mut rt,
             vec![
@@ -346,7 +337,7 @@ mod test_vesting {
                 Address::new_id(BOB),
                 Address::new_id(CHARLIE),
             ],
-            2,
+            num_approvals,
             UNLOCK_DURATION,
         );
         let anne = Address::new_id(ANNE);
@@ -356,28 +347,47 @@ mod test_vesting {
             ACCOUNT_ACTOR_CODE_ID.clone(),
             MULTISIG_ACTOR_CODE_ID.clone(),
         ]);
+        return rt;
+    }
+
+    fn darlene_propose<'a, BS: BlockStore>(
+        rt: &mut MockRuntime<BS>,
+        init_bal: u64,
+    ) -> Result<Serialized, ActorError> {
         let darlene = Address::new_id(DARLENE);
-        let initial_balance = TokenAmount::from(INITIAL_BALANCE);
+        let initial_balance = TokenAmount::from(init_bal);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        assert!(propose(
-            &mut rt,
+        let v = propose(
+            rt,
             darlene,
             initial_balance.clone(),
             METHOD_SEND,
             fake_params.clone(),
-        )
-        .is_ok());
-        rt.verify();
-        rt.epoch = UNLOCK_DURATION;
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
-        rt.expect_send(
-            darlene.clone(),
-            METHOD_SEND,
-            fake_params.clone(),
-            initial_balance.clone(),
-            Serialized::default(),
-            ExitCode::Ok,
         );
+        rt.verify();
+        v
+    }
+
+    fn approve_call<'a, BS: BlockStore>(
+        rt: &mut MockRuntime<BS>,
+        init_bal: u64,
+        exp_send: bool,
+    ) -> Result<Serialized, ActorError> {
+        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
+        let darlene = Address::new_id(DARLENE);
+        let initial_balance = TokenAmount::from(init_bal);
+        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
+
+        if exp_send {
+            rt.expect_send(
+                darlene.clone(),
+                METHOD_SEND,
+                fake_params.clone(),
+                initial_balance.clone(),
+                Serialized::default(),
+                ExitCode::Ok,
+            );
+        }
         rt.expect_validate_caller_type(&[
             ACCOUNT_ACTOR_CODE_ID.clone(),
             MULTISIG_ACTOR_CODE_ID.clone(),
@@ -389,101 +399,50 @@ mod test_vesting {
             METHOD_SEND,
             fake_params.bytes(),
         );
-        assert!(approve(&mut rt, 0, proposal_hash_data).is_ok());
+        let v = approve(rt, 0, proposal_hash_data);
         rt.verify();
+        v
+    }
+
+    #[test]
+    fn happy_path() {
+        let bs = MemoryDB::default();
+        let mut rt = construct_runtime(&bs, 2);
+
+        assert!(darlene_propose(&mut rt, INITIAL_BALANCE).is_ok());
+
+        rt.epoch = UNLOCK_DURATION;
+
+        assert!(approve_call(&mut rt, INITIAL_BALANCE, true).is_ok());
     }
 
     #[test]
     fn partial_vesting() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        construct_and_verify(
-            &mut rt,
-            vec![
-                Address::new_id(ANNE),
-                Address::new_id(BOB),
-                Address::new_id(CHARLIE),
-            ],
-            2,
-            UNLOCK_DURATION,
-        );
-        let anne = Address::new_id(ANNE);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne.clone());
-        rt.received = TokenAmount::from(0u8);
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let darlene = Address::new_id(DARLENE);
-        let half_initial_balance = TokenAmount::from(INITIAL_BALANCE / 2);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        assert!(propose(
-            &mut rt,
-            darlene,
-            half_initial_balance.clone(),
-            METHOD_SEND,
-            fake_params.clone(),
-        )
-        .is_ok());
-        rt.verify();
+        let mut rt = construct_runtime(&bs, 2);
+        assert!(darlene_propose(&mut rt, INITIAL_BALANCE / 2).is_ok());
+
         rt.epoch = UNLOCK_DURATION / 2;
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
-        rt.expect_send(
-            darlene.clone(),
-            METHOD_SEND,
-            fake_params.clone(),
-            half_initial_balance.clone(),
-            Serialized::default(),
-            ExitCode::Ok,
-        );
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let proposal_hash_data = make_proposal_hash(
-            vec![Address::new_id(ANNE)],
-            darlene,
-            half_initial_balance,
-            METHOD_SEND,
-            fake_params.bytes(),
-        );
-        assert!(approve(&mut rt, 0, proposal_hash_data).is_ok());
-        rt.verify();
+
+        assert!(approve_call(&mut rt, INITIAL_BALANCE / 2, true).is_ok());
     }
 
     #[test]
     fn auto_approve_above_locked_fail() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        construct_and_verify(
-            &mut rt,
-            vec![
-                Address::new_id(ANNE),
-                Address::new_id(BOB),
-                Address::new_id(CHARLIE),
-            ],
-            1,
-            UNLOCK_DURATION,
-        );
+        let mut rt = construct_runtime(&bs, 1);
+
         let anne = Address::new_id(ANNE);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne.clone());
-        rt.received = TokenAmount::from(0u8);
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
+
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
         let darlene = Address::new_id(DARLENE);
-        let error = propose(
-            &mut rt,
-            darlene.clone(),
-            TokenAmount::from(100u8),
-            METHOD_SEND,
-            fake_params.clone(),
-        )
-        .unwrap_err();
-        assert_eq!(error.exit_code(), ExitCode::ErrInsufficientFunds);
-        rt.verify();
+        assert_eq!(
+            ExitCode::ErrInsufficientFunds,
+            darlene_propose(&mut rt, INITIAL_BALANCE)
+                .unwrap_err()
+                .exit_code()
+        );
+
         rt.epoch = 1;
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne.clone());
         rt.expect_validate_caller_type(&[
@@ -498,70 +457,25 @@ mod test_vesting {
             Serialized::default(),
             ExitCode::Ok,
         );
-        assert!(propose(
-            &mut rt,
-            darlene,
-            TokenAmount::from(10u8),
-            METHOD_SEND,
-            fake_params
-        )
-        .is_ok());
-        rt.verify();
+
+        assert!(darlene_propose(&mut rt, 10).is_ok());
     }
 
     #[test]
     fn more_than_locked() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        construct_and_verify(
-            &mut rt,
-            vec![
-                Address::new_id(ANNE),
-                Address::new_id(BOB),
-                Address::new_id(CHARLIE),
-            ],
-            2,
-            UNLOCK_DURATION,
-        );
+        let mut rt = construct_runtime(&bs, 2);
         rt.received = TokenAmount::from(0u8);
-        let anne = Address::new_id(ANNE);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne.clone());
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let darlene = Address::new_id(DARLENE);
-        let tk_amount = TokenAmount::from(INITIAL_BALANCE / 2);
-        assert!(propose(
-            &mut rt,
-            darlene.clone(),
-            tk_amount.clone(),
-            METHOD_SEND,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.verify();
+        assert!(darlene_propose(&mut rt, INITIAL_BALANCE / 2).is_ok());
+
         rt.epoch = 1;
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let proposal_hashed_data = make_proposal_hash(
-            vec![anne.clone()],
-            darlene.clone(),
-            tk_amount.clone(),
-            METHOD_SEND,
-            &fake_params.clone(),
-        );
+
         assert_eq!(
-            approve(&mut rt, 0, proposal_hashed_data)
+            ExitCode::ErrInsufficientFunds,
+            approve_call(&mut rt, INITIAL_BALANCE / 2, false)
                 .unwrap_err()
-                .exit_code(),
-            ExitCode::ErrInsufficientFunds
+                .exit_code()
         );
-        rt.verify();
     }
 }
 
@@ -570,7 +484,10 @@ mod test_propose {
     const SEND_VALUE: u64 = 10;
     const NO_LOCK_DUR: u64 = 0;
     const CHUCK: u64 = 103;
-    fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
+    fn construct_runtime<'a, BS: BlockStore>(
+        bs: &'a BS,
+        num_approvals: i64,
+    ) -> MockRuntime<'a, BS> {
         let receiver = Address::new_id(RECEIVER);
         let message = UnsignedMessage::builder()
             .to(receiver.clone())
@@ -579,55 +496,60 @@ mod test_propose {
             .unwrap();
         let mut rt = MockRuntime::new(bs, message);
         rt.set_caller(INIT_ACTOR_CODE_ID.clone(), INIT_ACTOR_ADDR.clone());
+        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
+        construct_and_verify(&mut rt, signers, num_approvals, NO_LOCK_DUR);
         return rt;
     }
 
-    #[test]
-    fn simple() {
-        let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let num_approvals = 2;
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, num_approvals, NO_LOCK_DUR);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
+    fn propose_call<BS: BlockStore>(
+        rt: &mut MockRuntime<BS>,
+        caller_id: u64,
+        expected: Vec<Transaction>,
+    ) -> Result<Serialized, ActorError> {
+        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(caller_id));
         rt.expect_validate_caller_type(&[
             ACCOUNT_ACTOR_CODE_ID.clone(),
             MULTISIG_ACTOR_CODE_ID.clone(),
         ]);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        assert!(propose(
-            &mut rt,
+        let v = propose(
+            rt,
             Address::new_id(CHUCK),
             TokenAmount::from(SEND_VALUE),
             METHOD_SEND,
-            fake_params
-        )
-        .is_ok());
+            fake_params.clone(),
+        );
+        assert_transactions(rt, expected);
+        rt.verify();
+        v
+    }
 
+    #[test]
+    fn simple() {
+        let bs = MemoryDB::default();
+        let mut rt = construct_runtime(&bs, 2);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        assert_transactions(
+        assert!(propose_call(
             &mut rt,
+            ANNE,
             vec![Transaction {
                 to: Address::new_id(CHUCK),
                 value: TokenAmount::from(SEND_VALUE),
                 method: METHOD_SEND,
                 params: fake_params,
                 approved: vec![Address::new_id(ANNE)],
-            }],
-        );
+            }]
+        )
+        .is_ok());
     }
 
     #[test]
     fn with_threshold_met() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let num_approvals = 1;
+        let mut rt = construct_runtime(&bs, 1);
         rt.balance = TokenAmount::from(20u8);
         rt.received = TokenAmount::from(0u8);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, num_approvals, NO_LOCK_DUR);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-
         rt.expect_send(
             Address::new_id(CHUCK),
             METHOD_SEND,
@@ -636,84 +558,32 @@ mod test_propose {
             Serialized::default(),
             ExitCode::Ok,
         );
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-
-        assert!(propose(
-            &mut rt,
-            Address::new_id(CHUCK),
-            TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
-            fake_params
-        )
-        .is_ok());
-        assert_transactions(&mut rt, vec![]);
-        rt.verify();
+        assert!(propose_call(&mut rt, ANNE, vec![]).is_ok());
     }
 
     #[test]
     fn fail_insufficent_balance() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let num_approvals = 1;
+        let mut rt = construct_runtime(&bs, 1);
         rt.balance = TokenAmount::from(0u8);
         rt.received = TokenAmount::from(0u8);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, num_approvals, NO_LOCK_DUR);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
         assert_eq!(
             ExitCode::ErrInsufficientFunds,
-            propose(
-                &mut rt,
-                Address::new_id(CHUCK),
-                TokenAmount::from(SEND_VALUE),
-                METHOD_SEND,
-                fake_params
-            )
-            .unwrap_err()
-            .exit_code()
+            propose_call(&mut rt, ANNE, vec![]).unwrap_err().exit_code()
         );
-
-        assert_transactions(&mut rt, vec![]);
-        rt.verify();
     }
 
     #[test]
     fn fail_non_signer() {
-        let richard = Address::new_id(105);
+        let richard = 105;
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let num_approvals = 2;
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, num_approvals, NO_LOCK_DUR);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), richard);
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
+        let mut rt = construct_runtime(&bs, 2);
         assert_eq!(
             ExitCode::ErrForbidden,
-            propose(
-                &mut rt,
-                Address::new_id(CHUCK),
-                TokenAmount::from(SEND_VALUE),
-                METHOD_SEND,
-                fake_params
-            )
-            .unwrap_err()
-            .exit_code()
+            propose_call(&mut rt, richard, vec![])
+                .unwrap_err()
+                .exit_code()
         );
-        assert_transactions(&mut rt, vec![]);
-        rt.verify();
     }
 }
 
@@ -726,7 +596,10 @@ mod test_approve {
     const FAKE_METHOD: u64 = 42;
     const SEND_VALUE: u64 = 10;
 
-    fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
+    fn construct_and_propose<'a, BS: BlockStore>(
+        bs: &'a BS,
+        method_num: u64,
+    ) -> MockRuntime<'a, BS> {
         let receiver = Address::new_id(RECEIVER);
         let message = UnsignedMessage::builder()
             .to(receiver.clone())
@@ -735,13 +608,6 @@ mod test_approve {
             .unwrap();
         let mut rt = MockRuntime::new(bs, message);
         rt.set_caller(INIT_ACTOR_CODE_ID.clone(), INIT_ACTOR_ADDR.clone());
-        return rt;
-    }
-
-    #[test]
-    fn simple() {
-        let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
         let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
         construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
@@ -750,32 +616,63 @@ mod test_approve {
             MULTISIG_ACTOR_CODE_ID.clone(),
         ]);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
         assert!(propose(
             &mut rt,
-            chuck.clone(),
+            Address::new_id(CHUCK),
             TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
+            method_num,
             fake_params.clone()
         )
         .is_ok());
         rt.verify();
-        assert_transactions(
-            &mut rt,
-            vec![Transaction {
-                to: chuck.clone(),
-                value: TokenAmount::from(SEND_VALUE),
-                method: FAKE_METHOD,
-                params: fake_params.clone(),
-                approved: vec![Address::new_id(ANNE)],
-            }],
-        );
-        rt.balance = TokenAmount::from(SEND_VALUE);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
+        rt
+    }
+
+    fn approve_call<BS: BlockStore>(
+        rt: &mut MockRuntime<BS>,
+        approved: u64,
+        receiver: u64,
+        method_num: u64,
+        txn_id: i64,
+    ) -> Result<Serialized, ActorError> {
         rt.expect_validate_caller_type(&[
             ACCOUNT_ACTOR_CODE_ID.clone(),
             MULTISIG_ACTOR_CODE_ID.clone(),
         ]);
+        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
+        let proposal_hash_data = make_proposal_hash(
+            vec![Address::new_id(approved)],
+            Address::new_id(receiver),
+            TokenAmount::from(SEND_VALUE),
+            method_num,
+            fake_params.bytes(),
+        );
+        approve(rt, txn_id, proposal_hash_data)
+    }
+
+    fn chuck_assert_transaction<BS: BlockStore>(rt: &mut MockRuntime<BS>, method_num: u64) {
+        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
+        assert_transactions(
+            rt,
+            vec![Transaction {
+                to: Address::new_id(CHUCK),
+                value: TokenAmount::from(SEND_VALUE),
+                method: method_num,
+                params: fake_params.clone(),
+                approved: vec![Address::new_id(ANNE)],
+            }],
+        );
+    }
+
+    #[test]
+    fn simple() {
+        let bs = MemoryDB::default();
+        let mut rt = construct_and_propose(&bs, FAKE_METHOD);
+        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
+        let chuck = Address::new_id(CHUCK);
+        chuck_assert_transaction(&mut rt, FAKE_METHOD);
+        rt.balance = TokenAmount::from(SEND_VALUE);
+        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
         rt.expect_send(
             chuck.clone(),
             FAKE_METHOD,
@@ -784,14 +681,7 @@ mod test_approve {
             Serialized::default(),
             ExitCode::Ok,
         );
-        let proposal_hash_data = make_proposal_hash(
-            vec![Address::new_id(ANNE)],
-            chuck,
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.bytes(),
-        );
-        assert!(approve(&mut rt, 0, proposal_hash_data).is_ok());
+        assert!(approve_call(&mut rt, ANNE, CHUCK, FAKE_METHOD, 0).is_ok());
         rt.verify();
         assert_transactions(&mut rt, vec![]);
     }
@@ -799,41 +689,12 @@ mod test_approve {
     #[test]
     fn fail_with_bad_proposal() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
+        let mut rt = construct_and_propose(&bs, METHOD_SEND);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
         let chuck = Address::new_id(CHUCK);
-        assert!(propose(
-            &mut rt,
-            chuck.clone(),
-            TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.verify();
-        assert_transactions(
-            &mut rt,
-            vec![Transaction {
-                to: chuck.clone(),
-                value: TokenAmount::from(SEND_VALUE),
-                method: METHOD_SEND,
-                params: fake_params.clone(),
-                approved: vec![Address::new_id(ANNE)],
-            }],
-        );
+        chuck_assert_transaction(&mut rt, METHOD_SEND);
         rt.balance = TokenAmount::from(SEND_VALUE);
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
         rt.expect_send(
             chuck.clone(),
             FAKE_METHOD,
@@ -842,16 +703,9 @@ mod test_approve {
             Serialized::default(),
             ExitCode::Ok,
         );
-        let proposal_hash_data = make_proposal_hash(
-            vec![Address::new_id(ANNE)],
-            chuck,
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.bytes(),
-        );
         assert_eq!(
             ExitCode::ErrIllegalState,
-            approve(&mut rt, TXN_ID, proposal_hash_data)
+            approve_call(&mut rt, ANNE, CHUCK, FAKE_METHOD, TXN_ID)
                 .unwrap_err()
                 .exit_code()
         );
@@ -860,39 +714,10 @@ mod test_approve {
     #[test]
     fn fail_transaction_more_than_once() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
-        assert!(propose(
-            &mut rt,
-            chuck.clone(),
-            TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.verify();
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let proposal_hash_data = make_proposal_hash(
-            vec![Address::new_id(ANNE)],
-            chuck,
-            TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
-            fake_params.bytes(),
-        );
+        let mut rt = construct_and_propose(&bs, METHOD_SEND);
         assert_eq!(
             ExitCode::ErrIllegalState,
-            approve(&mut rt, TXN_ID, proposal_hash_data)
+            approve_call(&mut rt, ANNE, CHUCK, METHOD_SEND, TXN_ID)
                 .unwrap_err()
                 .exit_code()
         );
@@ -901,107 +726,32 @@ mod test_approve {
     #[test]
     fn approve_transaction_that_doesnt_exist() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
-        assert!(propose(
-            &mut rt,
-            chuck.clone(),
-            TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.verify();
+        let mut rt = construct_and_propose(&bs, METHOD_SEND);
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let proposal_hash_data = make_proposal_hash(
-            vec![Address::new_id(BOB)],
-            chuck,
-            TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
-            fake_params.bytes(),
-        );
         assert_eq!(
             ExitCode::ErrNotFound,
-            approve(&mut rt, 1, proposal_hash_data)
+            approve_call(&mut rt, BOB, CHUCK, METHOD_SEND, 1)
                 .unwrap_err()
                 .exit_code()
         );
         rt.verify();
-        assert_transactions(
-            &mut rt,
-            vec![Transaction {
-                to: Address::new_id(CHUCK),
-                value: TokenAmount::from(SEND_VALUE),
-                method: METHOD_SEND,
-                params: fake_params,
-                approved: vec![Address::new_id(ANNE)],
-            }],
-        );
+        chuck_assert_transaction(&mut rt, METHOD_SEND);
     }
 
     #[test]
     fn fail_non_signer() {
-        let richard = Address::new_id(105);
+        let richard = 105;
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
-        assert!(propose(
-            &mut rt,
-            chuck.clone(),
-            TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), richard.clone());
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let proposal_hash_data = make_proposal_hash(
-            vec![richard.clone()],
-            chuck,
-            TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
-            fake_params.bytes(),
-        );
+        let mut rt = construct_and_propose(&bs, METHOD_SEND);
+        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(richard));
         assert_eq!(
             ExitCode::ErrForbidden,
-            approve(&mut rt, TXN_ID, proposal_hash_data)
+            approve_call(&mut rt, richard, CHUCK, METHOD_SEND, TXN_ID)
                 .unwrap_err()
                 .exit_code()
         );
         rt.verify();
-        assert_transactions(
-            &mut rt,
-            vec![Transaction {
-                to: Address::new_id(CHUCK),
-                value: TokenAmount::from(SEND_VALUE),
-                method: METHOD_SEND,
-                params: fake_params,
-                approved: vec![Address::new_id(ANNE)],
-            }],
-        );
+        chuck_assert_transaction(&mut rt, METHOD_SEND);
     }
 }
 
@@ -1015,7 +765,10 @@ mod test_cancel {
     const FAKE_METHOD: u64 = 42;
     const SEND_VALUE: u64 = 10;
 
-    fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
+    fn construct_and_propose<'a, BS: BlockStore>(
+        bs: &'a BS,
+        method_num: u64,
+    ) -> MockRuntime<'a, BS> {
         let receiver = Address::new_id(RECEIVER);
         let message = UnsignedMessage::builder()
             .to(receiver.clone())
@@ -1024,13 +777,6 @@ mod test_cancel {
             .unwrap();
         let mut rt = MockRuntime::new(bs, message);
         rt.set_caller(INIT_ACTOR_CODE_ID.clone(), INIT_ACTOR_ADDR.clone());
-        return rt;
-    }
-
-    #[test]
-    fn simple() {
-        let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
         let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
         construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
@@ -1039,24 +785,60 @@ mod test_cancel {
             MULTISIG_ACTOR_CODE_ID.clone(),
         ]);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
         assert!(propose(
             &mut rt,
-            chuck.clone(),
+            Address::new_id(CHUCK),
             TokenAmount::from(SEND_VALUE),
-            METHOD_SEND,
+            method_num,
             fake_params.clone()
         )
         .is_ok());
         rt.verify();
-        rt.balance = TokenAmount::from(SEND_VALUE);
         rt.expect_validate_caller_type(&[
             ACCOUNT_ACTOR_CODE_ID.clone(),
             MULTISIG_ACTOR_CODE_ID.clone(),
         ]);
+        return rt;
+    }
+
+    fn cancel_and_assert<BS: BlockStore>(
+        rt: &mut MockRuntime<BS>,
+        txn_id: i64,
+    ) -> Result<Serialized, ActorError> {
+        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
         let proposal_hash_data = make_proposal_hash(
             vec![Address::new_id(ANNE)],
-            chuck,
+            Address::new_id(CHUCK),
+            TokenAmount::from(SEND_VALUE),
+            FAKE_METHOD,
+            fake_params.bytes(),
+        );
+        let v = cancel(rt, txn_id, proposal_hash_data);
+        rt.verify();
+        assert_transactions(
+            rt,
+            vec![Transaction {
+                to: Address::new_id(CHUCK),
+                value: TokenAmount::from(SEND_VALUE),
+                method: FAKE_METHOD,
+                params: fake_params,
+                approved: vec![Address::new_id(ANNE)],
+            }],
+        );
+        v
+    }
+
+    #[test]
+    fn simple() {
+        let bs = MemoryDB::default();
+        let mut rt = construct_and_propose(&bs, METHOD_SEND);
+        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
+
+        rt.balance = TokenAmount::from(SEND_VALUE);
+
+        let proposal_hash_data = make_proposal_hash(
+            vec![Address::new_id(ANNE)],
+            Address::new_id(CHUCK),
             TokenAmount::from(SEND_VALUE),
             METHOD_SEND,
             fake_params.bytes(),
@@ -1070,38 +852,18 @@ mod test_cancel {
     #[test]
     fn cancel_with_bad_proposal() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
+        let mut rt = construct_and_propose(&bs, FAKE_METHOD);
         let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
-        assert!(propose(
-            &mut rt,
-            chuck.clone(),
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.verify();
+
         rt.balance = TokenAmount::from(SEND_VALUE);
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
+
         let proposal_hash_data = make_proposal_hash(
-            vec![chuck],
+            vec![Address::new_id(CHUCK)],
             Address::new_id(BOB),
             TokenAmount::from(SEND_VALUE),
             FAKE_METHOD,
             fake_params.bytes(),
         );
-
         assert_eq!(
             ExitCode::ErrIllegalState,
             cancel(&mut rt, TXN_ID, proposal_hash_data)
@@ -1113,159 +875,38 @@ mod test_cancel {
     #[test]
     fn fail_to_cancel_transaction() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
-        assert!(propose(
-            &mut rt,
-            chuck.clone(),
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.verify();
+
+        let mut rt = construct_and_propose(&bs, FAKE_METHOD);
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(BOB));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let proposal_hash_data = make_proposal_hash(
-            vec![Address::new_id(ANNE)],
-            chuck,
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.bytes(),
-        );
+
         assert_eq!(
             ExitCode::ErrForbidden,
-            cancel(&mut rt, TXN_ID, proposal_hash_data)
-                .unwrap_err()
-                .exit_code()
-        );
-        rt.verify();
-        assert_transactions(
-            &mut rt,
-            vec![Transaction {
-                to: Address::new_id(CHUCK),
-                value: TokenAmount::from(SEND_VALUE),
-                method: FAKE_METHOD,
-                params: fake_params,
-                approved: vec![Address::new_id(ANNE)],
-            }],
+            cancel_and_assert(&mut rt, TXN_ID).unwrap_err().exit_code()
         );
     }
 
     #[test]
     fn fail_when_not_signer() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
-        assert!(propose(
-            &mut rt,
-            chuck.clone(),
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.verify();
+        let mut rt = construct_and_propose(&bs, FAKE_METHOD);
+
         let richard = Address::new_id(RICHARD);
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), richard.clone());
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let proposal_hash_data = make_proposal_hash(
-            vec![Address::new_id(ANNE)],
-            chuck,
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.bytes(),
-        );
+
         assert_eq!(
             ExitCode::ErrForbidden,
-            cancel(&mut rt, TXN_ID, proposal_hash_data)
-                .unwrap_err()
-                .exit_code()
-        );
-        rt.verify();
-        assert_transactions(
-            &mut rt,
-            vec![Transaction {
-                to: Address::new_id(CHUCK),
-                value: TokenAmount::from(SEND_VALUE),
-                method: FAKE_METHOD,
-                params: fake_params,
-                approved: vec![Address::new_id(ANNE)],
-            }],
+            cancel_and_assert(&mut rt, TXN_ID).unwrap_err().exit_code()
         );
     }
 
     #[test]
     fn cancel_transition_doesnt_exist() {
         let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
-        let signers = vec![Address::new_id(ANNE), Address::new_id(BOB)];
-        construct_and_verify(&mut rt, signers, NUM_APPROVALS, NO_UNLOCK_DURATION);
-        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), Address::new_id(ANNE));
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let fake_params = Serialized::serialize([1, 2, 3, 4]).unwrap();
-        let chuck = Address::new_id(CHUCK);
-        assert!(propose(
-            &mut rt,
-            chuck.clone(),
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.clone()
-        )
-        .is_ok());
-        rt.verify();
-        rt.expect_validate_caller_type(&[
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            MULTISIG_ACTOR_CODE_ID.clone(),
-        ]);
-        let proposal_hash_data = make_proposal_hash(
-            vec![Address::new_id(ANNE)],
-            chuck,
-            TokenAmount::from(SEND_VALUE),
-            FAKE_METHOD,
-            fake_params.bytes(),
-        );
+        let mut rt = construct_and_propose(&bs, FAKE_METHOD);
+
         assert_eq!(
             ExitCode::ErrNotFound,
-            cancel(&mut rt, 1, proposal_hash_data)
-                .unwrap_err()
-                .exit_code()
-        );
-        rt.verify();
-        assert_transactions(
-            &mut rt,
-            vec![Transaction {
-                to: Address::new_id(CHUCK),
-                value: TokenAmount::from(SEND_VALUE),
-                method: FAKE_METHOD,
-                params: fake_params,
-                approved: vec![Address::new_id(ANNE)],
-            }],
+            cancel_and_assert(&mut rt, 1).unwrap_err().exit_code()
         );
     }
 }
