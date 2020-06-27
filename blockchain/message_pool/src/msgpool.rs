@@ -201,8 +201,7 @@ where
         }));
 
         let mut mp_lock = mp.lock().unwrap();
-        mp_lock
-            .load_local()?;
+        mp_lock.load_local()?;
         let mut api = mp_lock.api.lock().unwrap();
         let mut subscriber = api.subscribe_head_changes();
         drop(api);
