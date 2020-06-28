@@ -27,6 +27,7 @@ bitfield = { path = "../../utils/bitfield" }
 fil_types = { path = "../../types" }
 derive_builder = "0.9"
 byteorder = "1.3.4"
+ahash = "0.3"
 
 [dev-dependencies]
 db = { path = "../../node/db" }
