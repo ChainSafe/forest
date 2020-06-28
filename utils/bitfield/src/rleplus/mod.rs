@@ -70,28 +70,20 @@ use reader::BitReader;
 use writer::BitWriter;
 
 use super::{ranges_from_bits, RangeIterator, Result};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::{fmt, iter::FromIterator};
 
 // https://github.com/multiformats/unsigned-varint#practical-maximum-of-9-bytes-for-security
 const VARINT_MAX_BYTES: usize = 9;
 
 /// An RLE+ encoded bit field.
-#[derive(Default, Clone)]
-pub struct RlePlus(Vec<u8>);
+#[derive(Default, Clone, Serialize)]
+#[serde(transparent)]
+pub struct RlePlus(#[serde(with = "serde_bytes")] Vec<u8>);
 
 impl PartialEq for RlePlus {
     fn eq(&self, other: &Self) -> bool {
         Iterator::eq(self.ranges(), other.ranges())
-    }
-}
-
-impl Serialize for RlePlus {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serde_bytes::serialize(&self.0.as_slice(), serializer)
     }
 }
 
