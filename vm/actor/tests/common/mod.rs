@@ -423,7 +423,7 @@ where
 
         self.actor_code_cids
             .get(&addr)
-            .map(|x| x.to_owned())
+            .cloned()
             .ok_or(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 "Actor address is not found".to_string(),
