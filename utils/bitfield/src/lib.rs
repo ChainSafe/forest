@@ -1,462 +1,270 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod bitvec_serde;
+mod iter;
+
 pub mod rleplus;
-pub use bitvec;
 
-use bitvec::prelude::*;
-use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
-use fnv::FnvHashSet;
-use std::iter::FromIterator;
+use ahash::AHashSet;
+use iter::{ranges_from_bits, RangeIterator};
+use rleplus::RlePlus;
+use serde::{Deserialize, Serialize};
+use std::{
+    iter::FromIterator,
+    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign},
+};
 
-type BitVec = bitvec::prelude::BitVec<Lsb0, u8>;
+type BitVec = bitvec::prelude::BitVec<bitvec::prelude::Lsb0, u8>;
 type Result<T> = std::result::Result<T, &'static str>;
 
-/// Represents a bitfield to track bits set at indexes in the range of `u64`.
-#[derive(Debug, Clone)]
-pub enum BitField {
-    Encoded {
-        bv: BitVec,
-        set: FnvHashSet<u64>,
-        unset: FnvHashSet<u64>,
-    },
-    // TODO would be beneficial in future to only keep encoded bitvec in memory, but comes at a cost
-    Decoded(BitVec),
+/// An RLE+ encoded bit field with buffered insertion/removal. Similar to `HashSet<usize>`,
+/// but more memory-efficient when long runs of 1s and 0s are present.
+///
+/// When deserializing a bit field, in order to distinguish between an invalid RLE+ encoding
+/// and any other deserialization errors, deserialize into an `UnverifiedBitField` and
+/// call `verify` on it.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(from = "RlePlus", into = "RlePlus")]
+pub struct BitField {
+    /// The underlying RLE+ encoded bitvec.
+    bitvec: RlePlus,
+    /// Bits set to 1. Never overlaps with `unset`.
+    set: AHashSet<usize>,
+    /// Bits set to 0. Never overlaps with `set`.
+    unset: AHashSet<usize>,
 }
 
-impl Default for BitField {
-    fn default() -> Self {
-        Self::Decoded(BitVec::new())
+impl PartialEq for BitField {
+    fn eq(&self, other: &Self) -> bool {
+        Iterator::eq(self.ranges(), other.ranges())
+    }
+}
+
+impl FromIterator<usize> for BitField {
+    fn from_iter<I: IntoIterator<Item = usize>>(iter: I) -> Self {
+        let mut vec: Vec<_> = iter.into_iter().collect();
+        vec.sort_unstable();
+        Self::from_ranges(ranges_from_bits(vec))
+    }
+}
+
+impl From<RlePlus> for BitField {
+    fn from(bitvec: RlePlus) -> Self {
+        Self {
+            bitvec,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<BitField> for RlePlus {
+    fn from(bitfield: BitField) -> Self {
+        if bitfield.set.is_empty() && bitfield.unset.is_empty() {
+            bitfield.bitvec
+        } else {
+            Self::from_ranges(bitfield.ranges())
+        }
     }
 }
 
 impl BitField {
+    /// Creates an empty bit field.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Generates a new bitfield with a slice of all indexes to set.
-    pub fn new_from_set(set_bits: &[u64]) -> Self {
-        let mut vec = match set_bits.iter().max() {
-            Some(&max) => bitvec![_, u8; 0; max as usize + 1],
-            None => return Self::new(),
+    /// Creates a new bit field from a `RangeIterator`.
+    pub fn from_ranges(iter: impl RangeIterator) -> Self {
+        RlePlus::from_ranges(iter).into()
+    }
+
+    /// Adds the bit at a given index to the bit field.
+    pub fn set(&mut self, bit: usize) {
+        self.unset.remove(&bit);
+        self.set.insert(bit);
+    }
+
+    /// Removes the bit at a given index from the bit field.
+    pub fn unset(&mut self, bit: usize) {
+        self.set.remove(&bit);
+        self.unset.insert(bit);
+    }
+
+    /// Returns `true` if the bit field contains the bit at a given index.
+    pub fn get(&self, index: usize) -> bool {
+        if self.set.contains(&index) {
+            true
+        } else if self.unset.contains(&index) {
+            false
+        } else {
+            self.bitvec.get(index)
+        }
+    }
+
+    /// Returns the index of the lowest bit present in the bit field.
+    pub fn first(&self) -> Option<usize> {
+        self.iter().next()
+    }
+
+    /// Returns an iterator over the indices of the bit field's set bits.
+    pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
+        // this code results in the same values as `self.ranges().flatten()`, but there's
+        // a key difference:
+        //
+        // `ranges()` needs to traverse both `self.set` and `self.unset` up front (so before
+        // iteration starts) in order to not have to visit each individual bit of `self.bitvec`
+        // during iteration, while here we can get away with only traversing `self.set` up
+        // front and checking `self.unset` containment for the candidate bits on the fly
+        // because we're visiting all bits either way
+        //
+        // consequently, `self.first()` is only linear in the length of `self.set`, not
+        // in the length of `self.unset` (as opposed to getting the first range with
+        // `self.ranges().next()` which is linear in both)
+
+        let mut set_bits: Vec<_> = self.set.iter().copied().collect();
+        set_bits.sort_unstable();
+
+        self.bitvec
+            .ranges()
+            .merge(ranges_from_bits(set_bits))
+            .flatten()
+            .filter(move |i| !self.unset.contains(i))
+    }
+
+    /// Returns an iterator over the indices of the bit field's set bits if the number
+    /// of set bits in the bit field does not exceed `max`. Returns an error otherwise.
+    pub fn bounded_iter(&self, max: usize) -> Result<impl Iterator<Item = usize> + '_> {
+        if max <= self.len() {
+            Ok(self.iter())
+        } else {
+            Err("Bits set exceeds max in retrieval")
+        }
+    }
+
+    /// Returns an iterator over the ranges of set bits that make up the bit field. The
+    /// ranges are in ascending order, are non-empty, and don't overlap.
+    pub fn ranges(&self) -> impl RangeIterator + '_ {
+        let ranges = |set: &AHashSet<usize>| {
+            let mut vec: Vec<_> = set.iter().copied().collect();
+            vec.sort_unstable();
+            ranges_from_bits(vec)
         };
 
-        // Set all bits in bitfield
-        for b in set_bits {
-            vec.set(*b as usize, true);
-        }
-
-        Self::Decoded(vec)
+        self.bitvec
+            .ranges()
+            .merge(ranges(&self.set))
+            .difference(ranges(&self.unset))
     }
 
-    /// Sets bit at bit index provided
-    pub fn set(&mut self, bit: u64) {
-        match self {
-            BitField::Encoded { set, unset, .. } => {
-                unset.remove(&bit);
-                set.insert(bit);
-            }
-            BitField::Decoded(bv) => {
-                let index = bit as usize;
-                if bv.len() <= index {
-                    bv.resize(index + 1, false);
-                }
-                bv.set(index, true);
-            }
-        }
+    /// Returns `true` if the bit field is empty.
+    pub fn is_empty(&self) -> bool {
+        self.set.is_empty()
+            && self
+                .bitvec
+                .ranges()
+                .flatten()
+                .all(|bit| self.unset.contains(&bit))
     }
 
-    /// Removes bit at bit index provided
-    pub fn unset(&mut self, bit: u64) {
-        match self {
-            BitField::Encoded { set, unset, .. } => {
-                set.remove(&bit);
-                unset.insert(bit);
-            }
-            BitField::Decoded(bv) => {
-                let index = bit as usize;
-                if bv.len() <= index {
-                    return;
-                }
-                bv.set(index, false);
-            }
+    /// Returns a slice of the bit field with the start index of set bits
+    /// and number of bits to include in the slice. Returns an error if the
+    /// bit field contains fewer than `start + len` set bits.
+    pub fn slice(&self, start: usize, len: usize) -> Result<Self> {
+        let slice = BitField::from_ranges(self.ranges().skip_bits(start).take_bits(len));
+
+        if slice.len() == len {
+            Ok(slice)
+        } else {
+            Err("Not enough bits")
         }
     }
 
-    /// Gets the bit at the given index.
-    // TODO this probably should not require mut self and RLE decode bits
-    pub fn get(&mut self, index: u64) -> Result<bool> {
-        match self {
-            BitField::Encoded { set, unset, .. } => {
-                if set.contains(&index) {
-                    return Ok(true);
-                }
-
-                if unset.contains(&index) {
-                    return Ok(false);
-                }
-
-                // Check in encoded for the given bit
-                // This can be changed to not flush changes
-                if let Some(true) = self.as_mut_flushed()?.get(index as usize) {
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
-            }
-            BitField::Decoded(bv) => {
-                if let Some(true) = bv.get(index as usize) {
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
-            }
-        }
+    /// Returns the number of set bits in the bit field.
+    pub fn len(&self) -> usize {
+        self.ranges().map(|range| range.len()).sum()
     }
 
-    /// Retrieves the index of the first set bit, and error if invalid encoding or no bits set.
-    pub fn first(&mut self) -> Result<u64> {
-        for (i, b) in (0..).zip(self.as_mut_flushed()?.iter()) {
-            if b == &true {
-                return Ok(i);
-            }
-        }
-        // Return error if none found, not ideal but no reason not to match
-        Err("Bitfield has no set bits")
-    }
-
-    fn retrieve_set_indices<B: FromIterator<u64>>(&mut self, max: usize) -> Result<B> {
-        let flushed = self.as_mut_flushed()?;
-        if flushed.count_ones() > max {
-            return Err("Bits set exceeds max in retrieval");
-        }
-
-        Ok((0..)
-            .zip(flushed.iter())
-            .filter_map(|(i, b)| if b == &true { Some(i) } else { None })
-            .collect())
-    }
-
-    /// Returns a vector of indexes of all set bits
-    pub fn all(&mut self, max: usize) -> Result<Vec<u64>> {
-        self.retrieve_set_indices(max)
-    }
-
-    /// Returns a Hash set of indexes of all set bits
-    pub fn all_set(&mut self, max: usize) -> Result<FnvHashSet<u64>> {
-        self.retrieve_set_indices(max)
-    }
-
-    pub fn for_each<F>(&mut self, mut callback: F) -> std::result::Result<(), String>
-    where
-        F: FnMut(u64) -> std::result::Result<(), String>,
-    {
-        let flushed = self.as_mut_flushed()?;
-
-        for (i, &b) in (0..).zip(flushed.iter()) {
-            if b {
-                callback(i)?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Returns true if there are no bits set, false if the bitfield is empty.
-    pub fn is_empty(&mut self) -> Result<bool> {
-        for b in self.as_mut_flushed()?.iter() {
-            if b == &true {
-                return Ok(false);
-            }
-        }
-
-        Ok(true)
-    }
-
-    /// Returns a slice of the bitfield with the start index of set bits
-    /// and number of bits to include in slice.
-    pub fn slice(&mut self, start: u64, count: u64) -> Result<BitField> {
-        if count == 0 {
-            return Ok(BitField::default());
-        }
-
-        // These conversions aren't ideal, but we aren't supporting 32 bit targets
-        let mut start = start as usize;
-        let mut count = count as usize;
-
-        let bitvec = self.as_mut_flushed()?;
-        let mut start_idx: usize = 0;
-        let mut range: usize = 0;
-        if start != 0 {
-            for (i, v) in bitvec.iter().enumerate() {
-                if v == &true {
-                    start -= 1;
-                    if start == 0 {
-                        start_idx = i + 1;
-                        break;
-                    }
-                }
-            }
-        }
-
-        for (i, v) in bitvec[start_idx..].iter().enumerate() {
-            if v == &true {
-                count -= 1;
-                if count == 0 {
-                    range = i + 1;
-                    break;
-                }
-            }
-        }
-
-        if count > 0 {
-            return Err("Not enough bits to index the slice");
-        }
-
-        let mut slice = BitVec::with_capacity(start_idx + range);
-        slice.resize(start_idx, false);
-        slice.extend_from_slice(&bitvec[start_idx..start_idx + range]);
-        Ok(BitField::Decoded(slice))
-    }
-
-    /// Retrieves number of set bits in the bitfield
+    /// Returns a new `RangeIterator` over the bits that are in `self`, in `other`, or in both.
     ///
-    /// This function requires a mutable reference for now to be able to handle the cached
-    /// changes in the case of an RLE encoded bitfield.
-    pub fn count(&mut self) -> Result<usize> {
-        Ok(self.as_mut_flushed()?.count_ones())
+    /// The `|` operator is the eager version of this.
+    pub fn merge<'a>(&'a self, other: &'a Self) -> impl RangeIterator + 'a {
+        self.ranges().merge(other.ranges())
     }
 
-    fn flush(&mut self) -> Result<()> {
-        if let BitField::Encoded { bv, set, unset } = self {
-            *self = BitField::Decoded(decode_and_apply_cache(bv, set, unset)?);
-        }
-
-        Ok(())
+    /// Returns a new `RangeIterator` over the bits that are in both `self` and `other`.
+    ///
+    /// The `&` operator is the eager version of this.
+    pub fn intersection<'a>(&'a self, other: &'a Self) -> impl RangeIterator + 'a {
+        self.ranges().intersection(other.ranges())
     }
 
-    fn into_flushed(mut self) -> Result<BitVec> {
-        self.flush()?;
-        match self {
-            BitField::Decoded(bv) => Ok(bv),
-            // Unreachable because flushed before this.
-            _ => unreachable!(),
-        }
+    /// Returns a new `RangeIterator` over the bits that are in `self` but not in `other`.
+    ///
+    /// The `-` operator is the eager version of this.
+    pub fn difference<'a>(&'a self, other: &'a Self) -> impl RangeIterator + 'a {
+        self.ranges().difference(other.ranges())
     }
 
-    fn as_mut_flushed(&mut self) -> Result<&mut BitVec> {
-        self.flush()?;
-        match self {
-            BitField::Decoded(bv) => Ok(bv),
-            // Unreachable because flushed before this.
-            _ => unreachable!(),
-        }
+    /// Returns the union of the given bit fields as a new bit field.
+    pub fn union<'a>(bitfields: impl IntoIterator<Item = &'a Self>) -> Self {
+        bitfields.into_iter().fold(Self::new(), |a, b| &a | b)
     }
 
-    /// Merges to bitfields together (equivalent of bitwise OR `|` operator)
-    pub fn merge(mut self, other: &Self) -> Result<Self> {
-        self.merge_assign(other)?;
-        Ok(self)
+    /// Returns true if `self` overlaps with `other`.
+    pub fn contains_any(&self, other: &BitField) -> bool {
+        self.intersection(other).next().is_some()
     }
 
-    /// Merges to bitfields into `self` (equivalent of bitwise OR `|` operator)
-    pub fn merge_assign(&mut self, other: &Self) -> Result<()> {
-        let a = self.as_mut_flushed()?;
-        match other {
-            BitField::Encoded { bv, set, unset } => {
-                let v = decode_and_apply_cache(bv, set, unset)?;
-                bit_or(a, v.into_iter())
-            }
-            BitField::Decoded(bv) => bit_or(a, bv.iter().copied()),
-        }
-
-        Ok(())
-    }
-
-    /// Intersection of two bitfields (equivalent of bit AND `&`)
-    pub fn intersect(mut self, other: &Self) -> Result<Self> {
-        self.intersect_assign(other)?;
-        Ok(self)
-    }
-
-    /// Intersection of two bitfields and assigns to self (equivalent of bit AND `&`)
-    pub fn intersect_assign(&mut self, other: &Self) -> Result<()> {
-        match other {
-            BitField::Encoded { bv, set, unset } => {
-                *self.as_mut_flushed()? &= decode_and_apply_cache(bv, set, unset)?
-            }
-            BitField::Decoded(bv) => *self.as_mut_flushed()? &= bv.iter().copied(),
-        }
-        Ok(())
-    }
-
-    /// Subtract other bitfield from self (equivalent of `a & !b`)
-    pub fn subtract(mut self, other: &Self) -> Result<Self> {
-        self.subtract_assign(other)?;
-        Ok(self)
-    }
-
-    /// Subtract other bitfield from self (equivalent of `a & !b`)
-    pub fn subtract_assign(&mut self, other: &Self) -> Result<()> {
-        match other {
-            BitField::Encoded { bv, set, unset } => {
-                *self.as_mut_flushed()? &= !decode_and_apply_cache(bv, set, unset)?
-            }
-            BitField::Decoded(bv) => *self.as_mut_flushed()? &= bv.iter().copied().map(|b| !b),
-        }
-        Ok(())
-    }
-
-    /// Creates a bitfield which is a union of a vector of bitfields.
-    pub fn union<'a>(bit_fields: impl IntoIterator<Item = &'a Self>) -> Result<Self> {
-        let mut ret = Self::default();
-        for bf in bit_fields.into_iter() {
-            ret.merge_assign(bf)?;
-        }
-        Ok(ret)
-    }
-
-    /// Returns true if BitFields have any overlapping bits.
-    pub fn contains_any(&mut self, other: &mut BitField) -> Result<bool> {
-        for (&a, &b) in self
-            .as_mut_flushed()?
-            .iter()
-            .zip(other.as_mut_flushed()?.iter())
-        {
-            if a && b {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    }
-
-    /// Returns true if the self `BitField` has all the bits set in the other `BitField`.
-    pub fn contains_all(&mut self, other: &mut BitField) -> Result<bool> {
-        let a_bf = self.as_mut_flushed()?;
-        let b_bf = other.as_mut_flushed()?;
-
-        // Checking lengths should be sufficient in most cases, but does not take into account
-        // decoded bitfields with extra 0 bits. This makes sure there are no extra bits in the
-        // extension.
-        if b_bf.len() > a_bf.len() && b_bf[a_bf.len()..].count_ones() > 0 {
-            return Ok(false);
-        }
-
-        for (a, b) in a_bf.iter().zip(b_bf.iter()) {
-            if *b && !a {
-                return Ok(false);
-            }
-        }
-
-        Ok(true)
+    /// Returns true if the `self` is a superset of `other`.
+    pub fn contains_all(&self, other: &BitField) -> bool {
+        other.difference(self).next().is_none()
     }
 }
 
-fn bit_or<I>(a: &mut BitVec, mut b: I)
-where
-    I: Iterator<Item = bool>,
-{
-    for mut a_i in a.iter_mut() {
-        match b.next() {
-            Some(true) => *a_i = true,
-            Some(false) => (),
-            None => return,
-        }
-    }
-
-    a.extend(b);
-}
-
-fn decode_and_apply_cache(
-    bit_vec: &BitVec,
-    set: &FnvHashSet<u64>,
-    unset: &FnvHashSet<u64>,
-) -> Result<BitVec> {
-    let mut decoded = rleplus::decode(bit_vec)?;
-
-    // Resize before setting any values
-    if let Some(&max) = set.iter().max() {
-        let max = max as usize;
-        if max >= bit_vec.len() {
-            decoded.resize(max + 1, false);
-        }
-    };
-
-    // Set all values in the cache
-    for &b in set.iter() {
-        decoded.set(b as usize, true);
-    }
-
-    // Unset all values from the encoded cache
-    for &b in unset.iter() {
-        decoded.set(b as usize, false);
-    }
-
-    Ok(decoded)
-}
-
-impl AsRef<BitField> for BitField {
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-
-impl From<BitVec> for BitField {
-    fn from(b: BitVec) -> Self {
-        Self::Decoded(b)
-    }
-}
-
-impl<B> BitOr<B> for BitField
-where
-    B: AsRef<Self>,
-{
-    type Output = Self;
+impl BitOr<&BitField> for &BitField {
+    type Output = BitField;
 
     #[inline]
-    fn bitor(self, rhs: B) -> Self {
-        self.merge(rhs.as_ref()).unwrap()
+    fn bitor(self, rhs: &BitField) -> Self::Output {
+        BitField::from_ranges(self.merge(rhs))
     }
 }
 
-impl<B> BitOrAssign<B> for BitField
-where
-    B: AsRef<Self>,
-{
+impl BitOrAssign<&BitField> for BitField {
     #[inline]
-    fn bitor_assign(&mut self, rhs: B) {
-        self.merge_assign(rhs.as_ref()).unwrap()
+    fn bitor_assign(&mut self, rhs: &BitField) {
+        *self = &*self | rhs;
     }
 }
 
-impl<B> BitAnd<B> for BitField
-where
-    B: AsRef<Self>,
-{
-    type Output = Self;
+impl BitAnd<&BitField> for &BitField {
+    type Output = BitField;
 
     #[inline]
-    fn bitand(self, rhs: B) -> Self::Output {
-        self.intersect(rhs.as_ref()).unwrap()
+    fn bitand(self, rhs: &BitField) -> Self::Output {
+        BitField::from_ranges(self.intersection(rhs))
     }
 }
 
-impl<B> BitAndAssign<B> for BitField
-where
-    B: AsRef<Self>,
-{
+impl BitAndAssign<&BitField> for BitField {
     #[inline]
-    fn bitand_assign(&mut self, rhs: B) {
-        self.intersect_assign(rhs.as_ref()).unwrap()
+    fn bitand_assign(&mut self, rhs: &BitField) {
+        *self = &*self & rhs;
     }
 }
 
-impl Not for BitField {
-    type Output = Self;
+impl Sub<&BitField> for &BitField {
+    type Output = BitField;
 
     #[inline]
-    fn not(self) -> Self::Output {
-        Self::Decoded(!self.into_flushed().unwrap())
+    fn sub(self, rhs: &BitField) -> Self::Output {
+        BitField::from_ranges(self.difference(rhs))
+    }
+}
+
+impl SubAssign<&BitField> for BitField {
+    #[inline]
+    fn sub_assign(&mut self, rhs: &BitField) {
+        *self = &*self - rhs;
     }
 }

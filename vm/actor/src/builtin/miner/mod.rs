@@ -29,6 +29,7 @@ use crate::{
     STORAGE_POWER_ACTOR_ADDR,
 };
 use address::{Address, Payload, Protocol};
+use ahash::AHashSet;
 use bitfield::BitField;
 use byteorder::{BigEndian, ByteOrder};
 use cid::{multihash::Blake2b256, Cid};
@@ -334,14 +335,9 @@ impl Actor {
                     )
                 })?;
 
-                let proven_sectors = BitField::union(&partitions_sectors).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to union partitions of sectors: {}", e),
-                    )
-                })?;
+                let proven_sectors = BitField::union(&partitions_sectors);
 
-                let (sector_infos, mut declared_recoveries) = st
+                let (sector_infos, declared_recoveries) = st
                     .load_sector_infos_for_proof(rt.store(), proven_sectors)
                     .map_err(|e| {
                         ActorError::new(
@@ -355,16 +351,9 @@ impl Actor {
                 verify_windowed_post(rt, deadline.challenge, &sector_infos, params.proofs.clone())?;
 
                 // Record the successful submission
-                let mut posted_partitions = BitField::new_from_set(&params.partitions);
-                let contains = st
-                    .post_submissions
-                    .contains_any(&mut posted_partitions)
-                    .map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to intersect post partitions: {}", e),
-                        )
-                    })?;
+                let posted_partitions: BitField =
+                    params.partitions.iter().map(|&i| i as usize).collect();
+                let contains = st.post_submissions.contains_any(&posted_partitions);
                 if contains {
                     return Err(ActorError::new(
                         ExitCode::ErrIllegalArgument,
@@ -382,7 +371,7 @@ impl Actor {
                 })?;
 
                 // If the PoSt was successful, the declared recoveries should be restored
-                st.remove_faults(rt.store(), &mut declared_recoveries)
+                st.remove_faults(rt.store(), &declared_recoveries)
                     .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
@@ -390,35 +379,28 @@ impl Actor {
                         )
                     })?;
 
-                st.remove_recoveries(&mut declared_recoveries)
-                    .map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to remove recoveries: {}", e),
-                        )
-                    })?;
+                st.remove_recoveries(&declared_recoveries).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to remove recoveries: {}", e),
+                    )
+                })?;
 
                 // Load info for recovered sectors for recovery of power outside this state transaction.
-                match declared_recoveries.is_empty() {
-                    Ok(true) => Ok(st.info.sector_size),
-                    Ok(false) => {
-                        let mut sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> =
-                            HashMap::new();
-                        for sec in sector_infos {
-                            sectors_by_number.insert(sec.info.sector_number, sec);
-                        }
-                        let _ = declared_recoveries.for_each(|i| {
-                            let key: SectorNumber = i as u64;
-                            let s = sectors_by_number.get(&key).cloned().unwrap();
-                            recovered_sectors.push(s);
-                            Ok(())
-                        });
-                        Ok(st.info.sector_size)
+                if declared_recoveries.is_empty() {
+                    Ok(st.info.sector_size)
+                } else {
+                    let mut sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> =
+                        HashMap::new();
+                    for sec in sector_infos {
+                        sectors_by_number.insert(sec.info.sector_number, sec);
                     }
-                    Err(e) => Err(ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to check if bitfield was empty: {}", e),
-                    )),
+                    declared_recoveries.iter().for_each(|i| {
+                        let key = i as u64;
+                        let s = sectors_by_number.get(&key).cloned().unwrap();
+                        recovered_sectors.push(s);
+                    });
+                    Ok(st.info.sector_size)
                 }
             })??;
         // Remove power for new faults, and burn penalties.
@@ -571,7 +553,7 @@ impl Actor {
 
         notify_pledge_change(rt, &BigInt::from(newly_vested_amount).neg())?;
         let mut bf = BitField::new();
-        bf.set(params.sector_number);
+        bf.set(params.sector_number as usize);
 
         // Request deferred Cron check for PreCommit expiry check.
         let cron_payload = CronEventPayload {
@@ -914,7 +896,7 @@ impl Actor {
 
     fn terminate_sectors<BS, RT>(
         rt: &mut RT,
-        mut params: TerminateSectorsParams,
+        params: TerminateSectorsParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -925,7 +907,7 @@ impl Actor {
 
         // Note: this cannot terminate pre-committed but un-proven sectors.
         // They must be allowed to expire (and deposit burnt).
-        terminate_sectors(rt, &mut params.sectors, SECTOR_TERMINATION_MANUAL)?;
+        terminate_sectors(rt, &params.sectors, SECTOR_TERMINATION_MANUAL)?;
         Ok(())
     }
 
@@ -969,7 +951,7 @@ impl Actor {
             let declared_sectors = params
                 .faults
                 .into_iter()
-                .map(|mut decl| {
+                .map(|decl| {
                     let target_deadline: DeadlineInfo = declaration_deadline_info(
                         st.proving_period_start,
                         decl.deadline as usize,
@@ -981,7 +963,7 @@ impl Actor {
                             format!("invalid fault declaration deadline: {}", e),
                         )
                     })?;
-                    validate_fr_declaration(&mut deadlines, &target_deadline, &mut decl.sectors)
+                    validate_fr_declaration(&mut deadlines, &target_deadline, &decl.sectors)
                         .map_err(|e| {
                             ActorError::new(
                                 ExitCode::ErrIllegalArgument,
@@ -992,124 +974,81 @@ impl Actor {
                 })
                 .collect::<Result<Vec<BitField>, ActorError>>()?;
 
-            let all_declared = BitField::union(&declared_sectors).map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to union faults: {}", e),
-                )
-            })?;
+            let all_declared = BitField::union(&declared_sectors);
 
             // Split declarations into declarations of new faults, and retraction of declared recoveries.
-            let mut recoveries = st
-                .recoveries
-                .clone()
-                .intersect(&all_declared)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to intersect sectors with recoveries: {}", e),
-                    )
-                })?;
+            let recoveries = &st.recoveries & &all_declared;
+            let new_faults = &all_declared - &recoveries;
 
-            let mut new_faults = all_declared.subtract(&recoveries).map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to subtract recoveries from sectors: {}", e),
-                )
-            })?;
+            if !new_faults.is_empty() {
+                // check new fault are really new
+                if st.faults.contains_any(&new_faults) {
+                    // This could happen if attempting to declare a fault for a deadline that's already passed,
+                    // detected and added to Faults above.
+                    // The miner must for the fault detection at proving period end, or submit again omitting
+                    // sectors in deadlines that have passed.
+                    // Alternatively, we could subtract the just-detected faults from new faults.
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        "attempted to re-declare fault".to_string(),
+                    ));
+                }
 
-            match new_faults.is_empty() {
-                Ok(true) => {
-                    // check new fault are really new
-                    let contains = st.faults.contains_any(&mut new_faults).map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to intersect existing faults: {}", e),
-                        )
-                    })?;
-                    if contains {
-                        // This could happen if attempting to declare a fault for a deadline that's already passed,
-                        // detected and added to Faults above.
-                        // The miner must for the fault detection at proving period end, or submit again omitting
-                        // sectors in deadlines that have passed.
-                        // Alternatively, we could subtract the just-detected faults from new faults.
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalArgument,
-                            "attempted to re-declare fault".to_string(),
-                        ));
-                    }
-
-                    // Add new faults to state and charge fee.
-                    // Note: this sets the fault epoch for all declarations to be the beginning of this proving period,
-                    // even if some sectors have already been proven in this period.
-                    // It would better to use the target deadline's proving period start (which may be the one subsequent
-                    // to the current).
-                    st.add_faults(rt.store(), &mut new_faults, st.proving_period_start)
-                        .map_err(|e| {
-                            ActorError::new(
-                                ExitCode::ErrIllegalState,
-                                format!("failed to add faults: {}", e),
-                            )
-                        })?;
-                    // Note: this charges a fee for all declarations, even if the sectors have already been proven
-                    // in this proving period. This discourages early declaration compared with waiting for
-                    // the proving period to roll over.
-                    // It would be better to charge a fee for this proving period only if the target deadline has
-                    // not already passed. If it _has_ already passed then either:
-                    // - the miner submitted PoSt successfully and should not be penalised more relative to
-                    //   submitting this declaration after the proving period rolls over, or
-                    // - the miner failed to submit PoSt and will be penalised at the proving period end
-                    // In either case, the miner will pay a fee for the subsequent proving period at the start
-                    // of that period, unless faults are recovered sooner.
-
-                    // Load info for sectors.
-                    let declared_fault_sectors = st
-                        .load_sector_infos(rt.store(), &mut new_faults)
-                        .map_err(|e| {
-                            ActorError::new(
-                                ExitCode::ErrIllegalState,
-                                format!("failed to load fault sectors: {}", e),
-                            )
-                        })?;
-
-                    // Unlock penalty for declared faults.
-                    let declared_penalty = unlock_penalty(
-                        st,
-                        rt.store(),
-                        current_epoch,
-                        &declared_fault_sectors,
-                        &pledge_penalty_for_sector_declared_fault,
-                    )
+                // Add new faults to state and charge fee.
+                // Note: this sets the fault epoch for all declarations to be the beginning of this proving period,
+                // even if some sectors have already been proven in this period.
+                // It would better to use the target deadline's proving period start (which may be the one subsequent
+                // to the current).
+                st.add_faults(rt.store(), &new_faults, st.proving_period_start)
                     .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
-                            format!("failed to charge fault fee: {}", e),
+                            format!("failed to add faults: {}", e),
                         )
                     })?;
-                    penalty += declared_penalty;
+                // Note: this charges a fee for all declarations, even if the sectors have already been proven
+                // in this proving period. This discourages early declaration compared with waiting for
+                // the proving period to roll over.
+                // It would be better to charge a fee for this proving period only if the target deadline has
+                // not already passed. If it _has_ already passed then either:
+                // - the miner submitted PoSt successfully and should not be penalised more relative to
+                //   submitting this declaration after the proving period rolls over, or
+                // - the miner failed to submit PoSt and will be penalised at the proving period end
+                // In either case, the miner will pay a fee for the subsequent proving period at the start
+                // of that period, unless faults are recovered sooner.
 
-                    let empty = recoveries.is_empty().map_err(|e| {
+                // Load info for sectors.
+                let declared_fault_sectors =
+                    st.load_sector_infos(rt.store(), &new_faults).map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
-                            format!("failed to check if bitfield was empty: {}", e),
+                            format!("failed to load fault sectors: {}", e),
                         )
                     })?;
 
-                    if !empty {
-                        st.remove_recoveries(&mut recoveries).map_err(|e| {
-                            ActorError::new(
-                                ExitCode::ErrIllegalState,
-                                format!("failed to remove recoveries: {}", e),
-                            )
-                        })?;
-                    }
-                }
-                Ok(false) => {}
-                Err(e) => {
-                    return Err(ActorError::new(
+                // Unlock penalty for declared faults.
+                let declared_penalty = unlock_penalty(
+                    st,
+                    rt.store(),
+                    current_epoch,
+                    &declared_fault_sectors,
+                    &pledge_penalty_for_sector_declared_fault,
+                )
+                .map_err(|e| {
+                    ActorError::new(
                         ExitCode::ErrIllegalState,
-                        format!("failed to check if bitfield was empty: {}", e),
-                    ));
+                        format!("failed to charge fault fee: {}", e),
+                    )
+                })?;
+                penalty += declared_penalty;
+
+                if !recoveries.is_empty() {
+                    st.remove_recoveries(&recoveries).map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to remove recoveries: {}", e),
+                        )
+                    })?;
                 }
             }
 
@@ -1166,7 +1105,7 @@ impl Actor {
             let declared_sectors = params
                 .recoveries
                 .into_iter()
-                .map(|mut decl| {
+                .map(|decl| {
                     let target_deadline = declaration_deadline_info(
                         st.proving_period_start,
                         decl.deadline as usize,
@@ -1179,7 +1118,7 @@ impl Actor {
                         )
                     })?;
 
-                    validate_fr_declaration(&mut deadlines, &target_deadline, &mut decl.sectors)
+                    validate_fr_declaration(&mut deadlines, &target_deadline, &decl.sectors)
                         .map_err(|e| {
                             ActorError::new(
                                 ExitCode::ErrIllegalArgument,
@@ -1190,42 +1129,23 @@ impl Actor {
                 })
                 .collect::<Result<Vec<BitField>, ActorError>>()?;
 
-            let mut all_recoveries = BitField::union(&declared_sectors).map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to union recoveries: {}", e),
-                )
-            })?;
+            let all_recoveries = BitField::union(&declared_sectors);
 
-            let mut contains = st.faults.contains_all(&mut all_recoveries).map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to check recoveries are faulty: {}", e),
-                )
-            })?;
-            if !contains {
+            if !st.faults.contains_all(&all_recoveries) {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
                     "declared recoveries not currently faulty".to_string(),
                 ));
             }
-            contains = st
-                .recoveries
-                .contains_any(&mut all_recoveries)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to intersect new recoveries: {}", e),
-                    )
-                })?;
-            if contains {
+
+            if st.recoveries.contains_any(&all_recoveries) {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalArgument,
                     "sector already declared recovered".to_string(),
                 ));
             }
 
-            st.add_recoveries(&mut all_recoveries).map_err(|e| {
+            st.add_recoveries(&all_recoveries).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalArgument,
                     format!("invalid recoveries: {}", e),
@@ -1397,7 +1317,7 @@ impl Actor {
 
     fn on_deferred_cron_event<BS, RT>(
         rt: &mut RT,
-        mut payload: CronEventPayload,
+        payload: CronEventPayload,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -1405,7 +1325,7 @@ impl Actor {
     {
         match payload.event_type {
             CRON_EVENT_PROVING_PERIOD => handle_proving_period(rt)?,
-            CRON_EVENT_PRE_COMMIT_EXPIRY => check_precommit_expiry(rt, &mut payload.sectors)?,
+            CRON_EVENT_PRE_COMMIT_EXPIRY => check_precommit_expiry(rt, &payload.sectors)?,
             CRON_EVENT_WORKER_KEY_CHANGE => commit_worker_key_change(rt)?,
             _ => (),
         };
@@ -1483,27 +1403,26 @@ where
 
     {
         // Expire sectors that are due.
-        let mut expired_sectors =
-            rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
-                Ok(
-                    pop_sector_expirations(st, rt.store(), deadline.period_end()).map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to load expired sectors {:}", e),
-                        )
-                    })?,
-                )
-            })??;
+        let expired_sectors = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+            Ok(
+                pop_sector_expirations(st, rt.store(), deadline.period_end()).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load expired sectors {:}", e),
+                    )
+                })?,
+            )
+        })??;
 
         // Terminate expired sectors (sends messages to power and market actors).
-        terminate_sectors(rt, &mut expired_sectors, SECTOR_TERMINATION_EXPIRED)?;
+        terminate_sectors(rt, &expired_sectors, SECTOR_TERMINATION_EXPIRED)?;
     }
 
     {
         // Terminate sectors with faults that are too old, and pay fees for ongoing faults.
-        let (mut expired_faults, ongoing_fault_penalty) = rt
+        let (expired_faults, ongoing_fault_penalty) = rt
             .transaction::<State, Result<_, ActorError>, _>(|st, rt| {
-                let (expired_faults, mut ongoing_faults) =
+                let (expired_faults, ongoing_faults) =
                     pop_expired_faults(st, rt.store(), deadline.period_end() - FAULT_MAX_AGE)
                         .map_err(|e| {
                             ActorError::new(
@@ -1515,7 +1434,7 @@ where
                 // Load info for ongoing faults.
                 // TODO: this is potentially super expensive for a large miner with ongoing faults
                 let ongoing_fault_info = st
-                    .load_sector_infos(rt.store(), &mut ongoing_faults)
+                    .load_sector_infos(rt.store(), &ongoing_faults)
                     .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
@@ -1540,7 +1459,7 @@ where
                 Ok((expired_faults, ongoing_fault_penalty))
             })??;
 
-        terminate_sectors(rt, &mut expired_faults, SECTOR_TERMINATION_FAULTY)?;
+        terminate_sectors(rt, &expired_faults, SECTOR_TERMINATION_FAULTY)?;
         burn_funds_and_notify_pledge_change(rt, &ongoing_fault_penalty)?;
     }
 
@@ -1555,15 +1474,16 @@ where
             })?;
 
             // assign new sectors to deadlines
-            let new_sectors = st
+            let new_sectors: Vec<_> = st
                 .new_sectors
-                .all(NEW_SECTORS_PER_PERIOD_MAX)
+                .bounded_iter(NEW_SECTORS_PER_PERIOD_MAX)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
                         format!("failed to expand new sectors {:}", e),
                     )
-                })?;
+                })?
+                .collect();
 
             if !new_sectors.is_empty() {
                 let randomness_epoch = std::cmp::min(
@@ -1691,7 +1611,7 @@ where
         )
     );
 
-    let (mut detected_faults, mut failed_recoveries) = compute_faults_from_missing_posts(
+    let (detected_faults, failed_recoveries) = compute_faults_from_missing_posts(
         st,
         deadlines,
         st.next_deadline_to_process_faults,
@@ -1705,7 +1625,7 @@ where
     })?;
     st.next_deadline_to_process_faults = before_deadline % WPOST_PERIOD_DEADLINES;
 
-    st.add_faults(store, &mut detected_faults, period_start)
+    st.add_faults(store, &detected_faults, period_start)
         .map_err(|e| {
             ActorError::new(
                 ExitCode::ErrIllegalState,
@@ -1713,7 +1633,7 @@ where
             )
         })?;
 
-    st.remove_recoveries(&mut failed_recoveries).map_err(|e| {
+    st.remove_recoveries(&failed_recoveries).map_err(|e| {
         ActorError::new(
             ExitCode::ErrIllegalState,
             format!("failed to record failed recoveries: {}", e),
@@ -1722,21 +1642,20 @@ where
 
     // Load info for sectors.
     let mut detected_fault_sectors =
-        st.load_sector_infos(store, &mut detected_faults)
+        st.load_sector_infos(store, &detected_faults).map_err(|e| {
+            ActorError::new(
+                ExitCode::ErrIllegalState,
+                format!("failed to load fault sectors: {}", e),
+            )
+        })?;
+    let mut failed_recovery_sectors =
+        st.load_sector_infos(store, &failed_recoveries)
             .map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
-                    format!("failed to load fault sectors: {}", e),
+                    format!("failed to load failed recovery sectors: {}", e),
                 )
             })?;
-    let mut failed_recovery_sectors = st
-        .load_sector_infos(store, &mut failed_recoveries)
-        .map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("failed to load failed recovery sectors: {}", e),
-            )
-        })?;
 
     // unlock sector penalty for all undeclared faults
     detected_fault_sectors.append(&mut failed_recovery_sectors);
@@ -1769,9 +1688,10 @@ fn compute_faults_from_missing_posts(
     // TODO: Iterating this bitfield and keeping track of what partitions we're expecting could remove the
     // need to expand this into a potentially-giant map. But it's tricksy.
     let partition_size = st.info.window_post_partition_sectors;
-    let submissions = st
+    let submissions: AHashSet<_> = st
         .post_submissions
-        .all_set(active_partitions_max(partition_size))?;
+        .bounded_iter(active_partitions_max(partition_size))?
+        .collect();
 
     let mut f_groups: Vec<BitField> = Vec::new();
     let mut r_groups: Vec<BitField> = Vec::new();
@@ -1789,10 +1709,10 @@ fn compute_faults_from_missing_posts(
 
         let deadline_sectors = deadlines
             .due
-            .get_mut(dl_idx)
+            .get(dl_idx)
             .expect("Should be able to index due deadlines");
         for dl_part_idx in 0..dl_part_count {
-            if !submissions.contains(&(deadline_first_partition + dl_part_idx as u64)) {
+            if !submissions.contains(&(deadline_first_partition as usize + dl_part_idx)) {
                 // no PoSt received in prior period
                 let part_first_sector_idx = dl_part_idx * partition_size as usize;
                 let part_sector_count = std::cmp::min(
@@ -1800,22 +1720,22 @@ fn compute_faults_from_missing_posts(
                     dl_sector_count - part_first_sector_idx,
                 );
 
-                let partition_sectors = deadline_sectors
-                    .slice(part_first_sector_idx as u64, part_sector_count as u64)?;
+                let partition_sectors =
+                    deadline_sectors.slice(part_first_sector_idx, part_sector_count)?;
 
                 // record newly-faulty sectors
-                let new_faults = st.faults.clone().subtract(&partition_sectors)?;
+                let new_faults = &st.faults - &partition_sectors;
                 f_groups.push(new_faults);
 
                 // record failed recoveries
-                let failed_recovery = st.recoveries.clone().intersect(&partition_sectors)?;
+                let failed_recovery = &st.recoveries & &partition_sectors;
                 r_groups.push(failed_recovery);
             }
         }
         deadline_first_partition += dl_part_count as u64;
     }
-    let detected_faults = BitField::union(&f_groups)?;
-    let failed_recoveries = BitField::union(&r_groups)?;
+    let detected_faults = BitField::union(&f_groups);
+    let failed_recoveries = BitField::union(&r_groups);
 
     Ok((detected_faults, failed_recoveries))
 }
@@ -1856,7 +1776,7 @@ where
 
     st.clear_sector_expirations(store, &expired_epochs)?;
 
-    let all_expiries = BitField::union(&expired_sectors)?;
+    let all_expiries = BitField::union(&expired_sectors);
 
     Ok(all_expiries)
 }
@@ -1877,10 +1797,10 @@ where
 
     st.for_each_fault_epoch(store, |fault_start: ChainEpoch, faults: &BitField| {
         if fault_start <= latest_termination {
-            all_expiries.merge_assign(faults)?;
+            all_expiries |= faults;
             expired_epochs.push(fault_start);
         } else {
-            all_ongoing_faults.merge_assign(faults)?;
+            all_ongoing_faults |= faults;
         }
         Ok(())
     })?;
@@ -1892,7 +1812,7 @@ where
 
 fn check_precommit_expiry<BS, RT>(
     rt: &mut RT,
-    optional_sectors: &mut Option<BitField>,
+    optional_sectors: &Option<BitField>,
 ) -> Result<(), ActorError>
 where
     BS: BlockStore,
@@ -1903,7 +1823,9 @@ where
     rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
         if let Some(sectors) = optional_sectors {
             sectors
-                .for_each(|sec_num| {
+                .iter()
+                .try_for_each(|i| {
+                    let sec_num = i as u64;
                     let sector = match st.get_precommitted_sector(rt.store(), sec_num)? {
                         Some(sec) => sec,
                         // Already committed/deleted
@@ -1918,7 +1840,7 @@ where
 
                     Ok(())
                 })
-                .map_err(|e| {
+                .map_err(|e: String| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
                         format!("failed to check precommit expires: {}", e),
@@ -1936,21 +1858,14 @@ where
 
 fn terminate_sectors<BS, RT>(
     rt: &mut RT,
-    sector_nos: &mut BitField,
+    sector_nos: &BitField,
     termination_type: SectorTermination,
 ) -> Result<(), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let empty = sector_nos.is_empty().map_err(|_| {
-        ActorError::new(
-            ExitCode::ErrIllegalState,
-            "failed to count sectors".to_string(),
-        )
-    })?;
-
-    if empty {
+    if sector_nos.is_empty() {
         return Ok(());
     }
 
@@ -1970,22 +1885,23 @@ where
         })?;
 
         // narrow faults to just the set that are expiring, before expanding to a map
-        let mut faults = st.faults.clone().intersect(&sector_nos).map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("failed to load faults: {}", e),
-            )
-        })?;
+        let faults = &st.faults & sector_nos;
 
-        let faults_map = faults.all_set(max_allowed_faults as usize).map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("failed to expand faults: {}", e),
-            )
-        })?;
+        let faults_map: AHashSet<_> = faults
+            .bounded_iter(max_allowed_faults as usize)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to expand faults: {}", e),
+                )
+            })?
+            .map(|i| i as u64)
+            .collect();
 
         sector_nos
-            .for_each(|i| {
+            .iter()
+            .try_for_each(|i| {
+                let i = i as u64;
                 let sector = st
                     .get_sector(rt.store(), i)?
                     .ok_or_else(|| format!("no sector found: {}", i))?;
@@ -1999,7 +1915,7 @@ where
                 all_sectors.push(sector);
                 Ok(())
             })
-            .map_err(|e| {
+            .map_err(|e: String| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
                     format!("failed to load sector metadata: {}", e),
@@ -2048,13 +1964,13 @@ fn remove_terminated_sectors<BS>(
     st: &mut State,
     store: &BS,
     deadlines: &mut Deadlines,
-    sectors: &mut BitField,
+    sectors: &BitField,
 ) -> Result<(), String>
 where
     BS: BlockStore,
 {
     st.delete_sector(store, sectors)?;
-    st.remove_new_sectors(sectors)?;
+    st.remove_new_sectors(sectors);
     deadlines.remove_from_all_deadlines(sectors)?;
     st.remove_faults(store, sectors)?;
     st.remove_recoveries(sectors)?;
@@ -2547,7 +2463,7 @@ fn declaration_deadline_info(
 fn validate_fr_declaration(
     deadlines: &mut Deadlines,
     deadline: &DeadlineInfo,
-    mut declared_sectors: &mut BitField,
+    declared_sectors: &BitField,
 ) -> Result<(), String> {
     if deadline.fault_cutoff_passed() {
         return Err("late fault or recovery declaration".to_string());
@@ -2556,10 +2472,9 @@ fn validate_fr_declaration(
     // check that the declared sectors are actually due at the deadline
     let deadline_sectors = deadlines
         .due
-        .get_mut(deadline.index as usize)
+        .get(deadline.index)
         .ok_or("deadline not found")?;
-    let contains = deadline_sectors.contains_all(&mut declared_sectors)?;
-    if !contains {
+    if !deadline_sectors.contains_all(&declared_sectors) {
         return Err(format!(
             "sectors not all due at deadline {}",
             deadline.index
