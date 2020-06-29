@@ -259,7 +259,7 @@ where
         let out = MarketBalance {
             escrow: {
                 let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
-                    .map_err(|_x| Error::State("Failed to build Escrow Table".to_owned()))?;
+                    .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
                 et.get(&new_addr).unwrap_or_default()
             },
             locked: {
