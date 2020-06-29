@@ -86,8 +86,6 @@ impl Actor {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: Address = *rt.message().from();
 
-        //let st: State = rt.state()?;
-
         let tx_id = rt.transaction::<State, _, _>(|st, rt| {
             Self::validate_signer(rt, &st, &caller_addr)?;
 
@@ -418,12 +416,6 @@ impl Actor {
                 }
                 Ok(())
             })??;
-            // if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
-            //     return Err(ActorError::new(
-            //         ExitCode::ErrIllegalState,
-            //         format!("failed to delete transaction for cleanup: {}", e),
-            //     ));
-            // }
         }
 
         Ok(())

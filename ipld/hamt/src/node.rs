@@ -311,10 +311,8 @@ where
     {
         let idx = hashed_key.next(bit_width)?;
 
-        println!("IN the rm_value_func");
         // No existing values at this point.
         if !self.bitfield.test_bit(idx) {
-            println!("Exited at bitfield test");
             return Ok(None);
         }
 
@@ -358,8 +356,6 @@ where
                         return Ok(Some((old.0, old.1)));
                     }
                 }
-
-                println!("Exit here fam");
                 Ok(None)
             }
         }
