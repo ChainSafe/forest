@@ -477,12 +477,12 @@ fn numbered_partitions_should_err_test() {
 const NEW_SECTOR_PART_SIZE: usize = 4;
 
 #[test]
-#[ignore]
 fn assign_new_sectors_test() {
     // let mut deadlines = assign_sectors_setup(Deadlines::new(), &seq(0,0), NEW_SECTOR_PART_SIZE);
     // DeadlineBuilder::new(&[]).verify(deadlines);
 
     let deadlines = assign_sectors_setup(Deadlines::new(), &seq(0, 1), NEW_SECTOR_PART_SIZE);
+    assert_eq!(&seq(0,1), &[0]);
     DeadlineBuilder::new(&[0, 1]).verify(deadlines);
 
     // deadlines = assign(Deadlines::new(), &seq(0,15));
@@ -555,7 +555,7 @@ fn assert_deadlines_equal(expected: Deadlines, actual: Deadlines) {
     for (i, _) in expected.due.clone().iter_mut().enumerate() {
         let ex: Vec<_> = expected.due[i].bounded_iter(1 << 20).unwrap().collect();
         let ac: Vec<_> = actual.due[i].bounded_iter(1 << 20).unwrap().collect();
-
+        // exp: [0], ac: []
         assert_eq!(ex, ac);
     }
 }
@@ -565,12 +565,13 @@ fn build_deadlines(gen: &[u64]) -> Deadlines {
 }
 
 fn seq(first: usize, count: usize) -> Vec<usize> {
+    println!("first:: {}, count:: {}", first, count);
     let mut values: Vec<usize> = vec![0; count];
-
     for (i, val) in values.iter_mut().enumerate() {
         *val = first + i;
     }
-
+    println!("THIS NEEDS TO BE CONTAIN ELEMENTS");
+    println!("values:: {:?}", values);
     return values;
 }
 

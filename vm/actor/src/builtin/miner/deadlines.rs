@@ -187,6 +187,7 @@ pub fn assign_new_sectors(
     partition_size: usize,
     new_sectors: &[usize],
 ) -> Result<(), String> {
+    println!("ASSIGN_NEW_SECTORS FUNC, new_sectors:: {:?}", new_sectors);
     let mut next_new_sector: usize = 0;
     // The first deadline is left empty since it's more difficult for a miner to orchestrate proofs.
     // The set of sectors due at the deadline isn't known until the proving period actually starts and any
