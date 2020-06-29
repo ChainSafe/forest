@@ -33,7 +33,7 @@ pub struct State {
     /// Metadata cached for efficient iteration over deals.
     /// SetMultimap<Address>
     pub deal_ops_by_epoch: Cid,
-    pub last_cron: ChainEpoch,
+    pub last_cron: OptionalEpoch,
 }
 
 impl State {
@@ -45,7 +45,7 @@ impl State {
             locked_table: empty_map,
             next_id: 0,
             deal_ops_by_epoch: empty_mset,
-            last_cron: ChainEpoch::default(),
+            last_cron: OptionalEpoch::default(),
         }
     }
 
@@ -291,7 +291,7 @@ impl State {
 
         Ok(())
     }
-    fn get_escrow_balance<BS: BlockStore>(
+    pub fn get_escrow_balance<BS: BlockStore>(
         &self,
         store: &BS,
         a: &Address,
@@ -422,7 +422,6 @@ impl State {
         // Subtract from locked and escrow tables
         et.must_subtract(addr, &amount)?;
         lt.must_subtract(addr, &amount)?;
-
         Ok(())
     }
 

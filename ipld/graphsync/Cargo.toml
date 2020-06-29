@@ -10,7 +10,7 @@ cid = { package = "forest_cid", path = "../cid", version = "0.1" }
 forest_ipld = { path = "../" }
 fnv = "1.0.6"
 forest_encoding = { path = "../../encoding", version = "0.1" }
-libp2p = "0.19"
+libp2p = "0.20"
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures_codec = "0.4.0"
@@ -20,6 +20,7 @@ unsigned-varint = { version = "0.4", features = ["futures-codec"] }
 smallvec = "1.1.0"
 async-trait = "0.1"
 serde = { version = "1.0", features = ["derive"] }
+ipld_blockstore = { path = "../blockstore" }
 
 [build-dependencies]
 protoc-rust = "2.14.0"

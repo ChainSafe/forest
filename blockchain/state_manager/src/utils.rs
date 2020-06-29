@@ -94,13 +94,9 @@ fn get_proving_set_raw<DB>(
 where
     DB: BlockStore,
 {
-    let mut not_proving = actor_state
-        .faults
-        .clone()
-        .merge(&actor_state.recoveries)
-        .map_err(|_| Error::Other("Could not merge bitfield".to_string()))?;
+    let not_proving = &actor_state.faults | &actor_state.recoveries;
 
     actor_state
-        .load_sector_infos(&*state_manager.get_block_store(), &mut not_proving)
+        .load_sector_infos(&*state_manager.get_block_store(), &not_proving)
         .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
 }
