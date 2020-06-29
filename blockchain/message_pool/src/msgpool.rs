@@ -200,9 +200,9 @@ where
             local_msgs: HashMap::new(),
         }));
 
-        let mut mp_lock = mp.lock().unwrap();
+        let mut mp_lock = mp.lock().map_err(|_| Error::MutexPoisonError)?;
         mp_lock.load_local()?;
-        let mut api = mp_lock.api.lock().unwrap();
+        let mut api = mp_lock.api.lock().map_err(|_| Error::MutexPoisonError)?;
         let mut subscriber = api.subscribe_head_changes();
         drop(api);
         drop(mp_lock);
@@ -211,9 +211,10 @@ where
         task::spawn(async move {
             loop {
                 if let Some(ts) = subscriber.next().await {
-                    let mut lock = mpool.lock().unwrap();
-                    lock.head_change(Vec::new(), vec![ts.as_ref().clone()])
-                        .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
+                    if let Ok(mut lock) = mpool.lock() {
+                        lock.head_change(Vec::new(), vec![ts.as_ref().clone()])
+                            .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
+                    }
                 }
                 sleep(Duration::new(1, 0));
             }
@@ -250,7 +251,11 @@ where
         self.verify_msg_sig(msg)?;
 
         let tmp = msg.clone();
-        let tip = self.cur_tipset.lock().unwrap().clone();
+        let tip = self
+            .cur_tipset
+            .lock()
+            .map_err(|_| Error::MutexPoisonError)?
+            .clone();
         self.add_tipset(tmp, &tip)
     }
 
@@ -323,7 +328,10 @@ where
 
     /// Get the sequence for a given address, return Error if there is a failure to retrieve sequence
     pub fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
-        let cur_ts = &self.cur_tipset.lock().unwrap();
+        let cur_ts = &self
+            .cur_tipset
+            .lock()
+            .map_err(|_| Error::MutexPoisonError)?;
         let sequence = self.get_state_sequence(addr, cur_ts)?;
 
         match self.pending.get(addr) {
@@ -339,10 +347,7 @@ where
 
     /// Get the state of the base_sequence for a given address in cur_ts
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let api = self
-            .api
-            .lock()
-            .map_err(|err| Error::Other(err.to_string()))?;
+        let api = self.api.lock().map_err(|_| Error::MutexPoisonError)?;
         let actor = api.state_get_actor(&addr, cur_ts)?;
 
         let mut base_sequence = actor.sequence;
@@ -364,17 +369,17 @@ where
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error
     fn get_state_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
-        let api = self
-            .api
-            .lock()
-            .map_err(|err| Error::Other(err.to_string()))?;
+        let api = self.api.lock().map_err(|_| Error::MutexPoisonError)?;
         let actor = api.state_get_actor(&addr, &ts)?;
         Ok(BigInt::from(actor.balance))
     }
 
     /// Remove a message given a sequence and address from the messagepool
     pub fn remove(&mut self, from: &Address, sequence: u64) -> Result<(), Error> {
-        let mset = self.pending.get_mut(from).unwrap();
+        let mset = self
+            .pending
+            .get_mut(from)
+            .ok_or_else(|| Error::InvalidFromAddr)?;
         mset.msgs.remove(&sequence);
 
         if mset.msgs.is_empty() {
@@ -396,12 +401,21 @@ where
 
     /// Return a tuple that contains a vector of all signed messages and the current tipset for
     /// self.
-    pub fn pending(&self) -> (Vec<SignedMessage>, Tipset) {
+    pub fn pending(&self) -> Result<(Vec<SignedMessage>, Tipset), Error> {
         let mut out: Vec<SignedMessage> = Vec::new();
         for (addr, _) in self.pending.clone() {
-            out.append(self.pending_for(&addr).unwrap().as_mut())
+            out.append(
+                self.pending_for(&addr)
+                    .ok_or_else(|| Error::InvalidFromAddr)?
+                    .as_mut(),
+            )
         }
-        (out, self.cur_tipset.lock().unwrap().clone())
+        let cur_ts = self
+            .cur_tipset
+            .lock()
+            .map_err(|_| Error::MutexPoisonError)?
+            .clone();
+        Ok((out, cur_ts))
     }
 
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
@@ -435,7 +449,11 @@ where
     ) -> Result<Vec<SignedMessage>, Error> {
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
         for block in blks {
-            let (umsg, mut smsgs) = self.api.lock().unwrap().messages_for_block(&block)?;
+            let (umsg, mut smsgs) = self
+                .api
+                .lock()
+                .map_err(|_| Error::MutexPoisonError)?
+                .messages_for_block(&block)?;
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
                 let smsg = self.recover_sig(msg)?;
@@ -447,7 +465,10 @@ where
 
     /// Attempt to get the signed message given an unsigned message in message pool
     pub fn recover_sig(&mut self, msg: UnsignedMessage) -> Result<SignedMessage, Error> {
-        let val = self.bls_sig_cache.get(&msg.cid()?).unwrap();
+        let val = self
+            .bls_sig_cache
+            .get(&msg.cid()?)
+            .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
         Ok(SignedMessage::new_from_parts(msg, val.clone()))
     }
 
@@ -503,10 +524,17 @@ where
     pub fn head_change(&mut self, revert: Vec<Tipset>, apply: Vec<Tipset>) -> Result<(), Error> {
         let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
         for ts in revert {
-            let pts = self.api.lock().unwrap().load_tipset(ts.parents())?;
+            let pts = self
+                .api
+                .lock()
+                .map_err(|_| Error::MutexPoisonError)?
+                .load_tipset(ts.parents())?;
             let msgs = self.messages_for_blocks(ts.blocks())?;
             let parent = pts.clone();
-            *self.cur_tipset.lock().unwrap() = parent;
+            *self
+                .cur_tipset
+                .lock()
+                .map_err(|_| Error::MutexPoisonError)? = parent;
             for msg in msgs {
                 add(msg, rmsgs.borrow_mut());
             }
@@ -514,7 +542,11 @@ where
 
         for ts in apply {
             for b in ts.blocks() {
-                let (msgs, smsgs) = self.api.lock().unwrap().messages_for_block(b).unwrap();
+                let (msgs, smsgs) = self
+                    .api
+                    .lock()
+                    .map_err(|_| Error::MutexPoisonError)?
+                    .messages_for_block(b)?;
                 for msg in smsgs {
                     self.rm(msg.from(), msg.sequence(), rmsgs.borrow_mut());
                 }
@@ -523,7 +555,10 @@ where
                     self.rm(msg.from(), msg.sequence(), rmsgs.borrow_mut());
                 }
             }
-            *self.cur_tipset.lock().unwrap() = ts;
+            *self
+                .cur_tipset
+                .lock()
+                .map_err(|_| Error::MutexPoisonError)? = ts;
         }
 
         for (_, hm) in rmsgs {
@@ -859,7 +894,7 @@ mod tests {
             .unwrap();
         assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
 
-        let (p, _) = mpool_locked.pending();
+        let (p, _) = mpool_locked.pending().unwrap();
         assert_eq!(p.len(), 3);
     }
 

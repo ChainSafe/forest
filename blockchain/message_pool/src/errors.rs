@@ -15,13 +15,15 @@ pub enum Error {
     MessageValueTooHigh,
     #[error("Message sequence too low")]
     SequenceTooLow,
-    #[error("not enough funds to execute transaction")]
+    #[error("Not enough funds to execute transaction")]
     NotEnoughFunds,
-    #[error("invalid to address for message")]
+    #[error("Invalid to address for message")]
     InvalidToAddr,
-    #[error("message with sequence already in mempool")]
+    #[error("Invalid from address")]
+    InvalidFromAddr,
+    #[error("Message with sequence already in mempool")]
     DuplicateSequence,
-    #[error("signature validation failed")]
+    #[error("Signature validation failed")]
     SigVerification,
     #[error("Unknown signature type")]
     UnknownSigType,
@@ -29,8 +31,8 @@ pub enum Error {
     BLSSigTooShort,
     #[error("{0}")]
     Other(String),
-    #[error("{0}")]
-    MutexPoisonError(String),
+    #[error("Mutex is either poisoned or data inside could not be accessed at this current time")]
+    MutexPoisonError,
 }
 
 impl From<ChainError> for Error {
