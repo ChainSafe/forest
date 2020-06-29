@@ -80,9 +80,9 @@ pub(super) async fn start(config: Config) {
     });
 
     // Block until ctrl-c is hit
-    block_until_sigint();
+    block_until_sigint().await;
 
-    // Drop threads
+    // Cancel all async services
     rpc_thread.cancel().await;
     p2p_thread.cancel().await;
     sync_thread.cancel().await;
