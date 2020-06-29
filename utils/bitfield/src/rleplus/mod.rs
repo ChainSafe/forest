@@ -191,6 +191,18 @@ impl RlePlus {
     }
 }
 
+/// Constructs an `RlePlus` from a given list of 1s and 0s.
+///
+/// # Examples
+///
+/// ```
+/// use bitfield::rleplus;
+///
+/// let rleplus = rleplus![0, 1, 1, 0, 1, 0, 0, 0, 1, 1];
+/// assert!(rleplus.get(1));
+/// assert!(!rleplus.get(3));
+/// assert_eq!(rleplus.ranges().next(), Some(1..3));
+/// ```
 #[macro_export]
 macro_rules! rleplus {
     (@iter) => {

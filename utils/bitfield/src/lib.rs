@@ -16,13 +16,6 @@ use std::{
 
 type Result<T> = std::result::Result<T, &'static str>;
 
-#[macro_export]
-macro_rules! bitfield {
-    ($($val:literal),*) => {
-        BitField::from($crate::rleplus!($($val),*))
-    };
-}
-
 /// An RLE+ encoded bit field with buffered insertion/removal. Similar to `HashSet<usize>`,
 /// but more memory-efficient when long runs of 1s and 0s are present.
 ///
@@ -277,4 +270,25 @@ impl SubAssign<&BitField> for BitField {
     fn sub_assign(&mut self, rhs: &BitField) {
         *self = &*self - rhs;
     }
+}
+
+/// Constructs a `BitField` from a given list of 1s and 0s.
+///
+/// # Examples
+///
+/// ```
+/// use bitfield::{bitfield, rleplus};
+///
+/// let mut bf = bitfield![0, 1, 1, 0, 1, 0, 0, 0, 1, 1];
+/// assert!(bf.get(1));
+/// assert!(!bf.get(3));
+/// bf.set(3);
+/// assert_eq!(bf.len(), 6);
+/// assert_eq!(bf.ranges().next(), Some(1..5));
+/// ```
+#[macro_export]
+macro_rules! bitfield {
+    ($($val:literal),*) => {
+        $crate::BitField::from($crate::rleplus!($($val),*))
+    };
 }
