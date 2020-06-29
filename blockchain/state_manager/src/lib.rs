@@ -29,6 +29,7 @@ use std::sync::Arc;
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
+#[allow(dead_code)]
 #[derive(Default)]
 pub struct MarketBalance {
     escrow: BigUint,
@@ -244,34 +245,30 @@ where
         }
     }
 
-    pub fn lookup_id<'a>(&'a self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+    pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
         let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())?;
         state_tree.lookup_id(addr).map_err(Error::State)
     }
 
-    pub fn market_balance<'a>(
-        &'a mut self,
-        addr: &Address,
-        ts: &Tipset,
-    ) -> Result<MarketBalance, Error> {
+    pub fn market_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
         let market_state: market::State =
             self.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
 
         let new_addr = self.lookup_id(addr, ts)?;
 
-        let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table).unwrap();
+        let out = MarketBalance {
+            escrow: {
+                let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
+                    .map_err(|_x| Error::State("Failed to build Escrow Table".to_owned()))?;
+                et.get(&new_addr).unwrap_or_else(|_| BigUint::from(0u8))
+            },
+            locked: {
+                let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
+                    .map_err(|_x| Error::State("Failed to build Locked Table".to_owned()))?;
+                lt.get(&new_addr).unwrap_or_else(|_| BigUint::from(0u8))
+            },
+        };
 
-        let mut out = MarketBalance::default();
-
-        if et.has(&new_addr).is_ok() {
-            out.escrow = et.get(&new_addr)?;
-        }
-
-        let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table).unwrap();
-
-        if lt.has(&new_addr).is_ok() {
-            out.locked = lt.get(&new_addr)?;
-        }
         Ok(out)
     }
 }
