@@ -135,11 +135,8 @@ pub fn deadline_count(
         ));
     }
 
-    let sector_count = d.due.get_mut(deadline_idx).unwrap().count()?;
-    let mut partition_count = sector_count / partition_size;
-    if sector_count % partition_size != 0 {
-        partition_count += 1;
-    };
+    let sector_count = d.due[deadline_idx].len();
+    let partition_count = (sector_count + partition_size - 1) / partition_size;
     Ok((partition_count, sector_count))
 }
 /// Computes a bitfield of the sector numbers included in a sequence of partitions due at some deadline.
@@ -156,7 +153,7 @@ pub fn compute_partitions_sector(
     // Work out which sector numbers the partitions correspond to.
     let deadline_sectors = d
         .due
-        .get_mut(deadline_idx)
+        .get(deadline_idx)
         .ok_or(format!("unable to find deadline: {}", deadline_idx))?;
     let partitions_sectors = partitions
         .iter()
@@ -172,7 +169,8 @@ pub fn compute_partitions_sector(
             // Slice out the sectors corresponding to this partition from the deadline's sector bitfield.
             let sector_offset = (p_idx - deadline_first_partition) * partition_size;
             let sector_count = std::cmp::min(partition_size, deadline_sector_count - sector_offset);
-            let partition_sectors = deadline_sectors.slice(sector_offset, sector_count)?;
+            let partition_sectors =
+                deadline_sectors.slice(sector_offset as usize, sector_count as usize)?;
             Ok(partition_sectors)
         })
         .collect::<Result<_, _>>()?;
@@ -185,7 +183,7 @@ pub fn compute_partitions_sector(
 pub fn assign_new_sectors(
     deadlines: &mut Deadlines,
     partition_size: usize,
-    new_sectors: &[u64],
+    new_sectors: &[usize],
     _seed: Randomness,
 ) -> Result<(), String> {
     let mut next_new_sector: usize = 0;
