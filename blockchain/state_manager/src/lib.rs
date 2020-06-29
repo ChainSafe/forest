@@ -265,7 +265,7 @@ where
             locked: {
                 let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
                     .map_err(|_x| Error::State("Failed to build Locked Table".to_owned()))?;
-                lt.get(&new_addr).unwrap_or_else(|_| BigUint::from(0u8))
+                lt.get(&new_addr).unwrap_or_default()
             },
         };
 
