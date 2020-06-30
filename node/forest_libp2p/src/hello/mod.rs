@@ -13,6 +13,7 @@ use std::io;
 
 pub const HELLO_PROTOCOL_ID: &[u8] = b"/fil/hello/1.0.0";
 
+/// Type to satisfy `ProtocolName` interface for BlockSync RPC.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct HelloProtocolName;
 

@@ -13,6 +13,7 @@ use std::io;
 
 pub const BLOCKSYNC_PROTOCOL_ID: &[u8] = b"/fil/sync/blk/0.0.1";
 
+/// Type to satisfy `ProtocolName` interface for BlockSync RPC.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct BlockSyncProtocolName;
 

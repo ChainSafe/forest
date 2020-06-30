@@ -1,13 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod codec;
-mod error;
-mod protocol;
-
-pub use self::codec::{InboundCodec, OutboundCodec};
-pub use self::error::RPCError;
-pub use self::protocol::{RPCRequest, RPCResponse};
 use crate::blocksync::{BlockSyncRequest, BlockSyncResponse};
 use crate::hello::{HelloRequest, HelloResponse};
 pub use libp2p::request_response::{RequestId, ResponseChannel};
@@ -31,4 +24,18 @@ pub enum RPCEvent {
         request_id: RequestId,
         response: BlockSyncResponse,
     },
+}
+
+/// RPCResponse payloads for request/response calls
+#[derive(Debug, Clone, PartialEq)]
+pub enum RPCResponse {
+    BlockSync(BlockSyncResponse),
+    Hello(HelloResponse),
+}
+
+/// RPCRequest payloads for request/response calls
+#[derive(Debug, Clone, PartialEq)]
+pub enum RPCRequest {
+    BlockSync(BlockSyncRequest),
+    Hello(HelloRequest),
 }
