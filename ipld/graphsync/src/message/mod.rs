@@ -11,18 +11,20 @@ use forest_ipld::selector::Selector;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
+/// The data associated with a new graphsync request.
+#[derive(Debug, PartialEq, Clone)]
+pub struct NewRequestPayload {
+    pub root: Cid,
+    pub selector: Selector,
+    pub priority: Priority,
+    pub extensions: Extensions,
+}
+
 /// Defines the data associated with each request type.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Payload {
-    New {
-        root: Cid,
-        selector: Selector,
-        priority: Priority,
-        extensions: Extensions,
-    },
-    Update {
-        extensions: Extensions,
-    },
+    New(NewRequestPayload),
+    Update { extensions: Extensions },
     Cancel,
 }
 
@@ -43,12 +45,12 @@ impl GraphSyncRequest {
     ) -> Self {
         Self {
             id,
-            payload: Payload::New {
+            payload: Payload::New(NewRequestPayload {
                 root,
                 selector,
                 priority,
                 extensions: extensions.unwrap_or_default(),
-            },
+            }),
         }
     }
     /// Generate a GraphSyncRequest to update an in progress request with extensions.
@@ -134,12 +136,12 @@ impl TryFrom<GraphSyncMessage> for proto::Message {
             .requests
             .into_iter()
             .map(|(_, req)| match req.payload {
-                Payload::New {
+                Payload::New(NewRequestPayload {
                     root,
                     selector,
                     priority,
                     extensions,
-                } => Ok(proto::Message_Request {
+                }) => Ok(proto::Message_Request {
                     id: req.id,
                     // Cid bytes format (not cbor encoded)
                     root: root.to_bytes(),

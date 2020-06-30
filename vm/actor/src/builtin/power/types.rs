@@ -5,7 +5,7 @@ use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, Cbor};
-use fil_types::{RegisteredProof, SectorSize};
+use fil_types::{RegisteredSealProof, SectorSize};
 use num_bigint::biguint_ser;
 use vm::{Serialized, TokenAmount};
 
@@ -22,7 +22,7 @@ pub const SECTOR_TERMINATION_FAULTY: SectorTermination = 3;
 pub struct CreateMinerParams {
     owner_addr: Address,
     worker_addr: Address,
-    seal_proof_type: RegisteredProof,
+    seal_proof_type: RegisteredSealProof,
     #[serde(with = "serde_bytes")]
     peer_id: Vec<u8>,
 }

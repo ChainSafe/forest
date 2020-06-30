@@ -74,7 +74,6 @@ impl ResponseBuilder {
     }
 
     /// Returns true if there is no content to send.
-    #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.blocks.is_empty() && self.outgoing_responses.is_empty()
     }
