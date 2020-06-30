@@ -4,6 +4,7 @@
 use super::errors::Error;
 use address::Address;
 use async_std::task;
+use async_std::sync::RwLock;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use chain::ChainStore;
@@ -20,10 +21,12 @@ use num_bigint::{BigInt, BigUint};
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::Duration;
 use vm::ActorState;
+
+// use blake2b_simd::Hash;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -159,13 +162,13 @@ where
 /// This is the main MessagePool struct
 pub struct MessagePool<T: 'static> {
     local_addrs: Vec<Address>,
-    pending: HashMap<Address, MsgSet>,
-    pub cur_tipset: Mutex<Tipset>,
+    pending: Arc<Mutex<HashMap<Address, MsgSet>>>, // mutex this
+    pub cur_tipset: Arc<Mutex<Tipset>>,
     api: Arc<Mutex<T>>,
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
     pub network_name: String,
-    bls_sig_cache: LruCache<Cid, Signature>,
+    bls_sig_cache: Arc<Mutex<LruCache<Cid, Signature>>>, // mutex this
     sig_val_cache: LruCache<Cid, ()>,
     local_msgs: HashMap<Vec<u8>, SignedMessage>,
 }
@@ -175,21 +178,21 @@ where
     T: Provider + std::marker::Send,
 {
     /// Create a new message pool
-    pub fn new(mut api: T, network_name: String) -> Result<Arc<Mutex<MessagePool<T>>>, Error>
+    pub fn new(mut api: T, network_name: String) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
     {
         // LruCache sizes have been taken from the lotus implementation
-        let tipset = Mutex::new(
-            api.get_heaviest_tipset()
-                .ok_or_else(|| Error::Other("No ts in api to set as cur_tipset".to_owned()))?,
-        );
-        let bls_sig_cache = LruCache::new(40000);
+        let pending = Arc::new(Mutex::new(HashMap::new()));
+        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset().ok_or_else(|| {
+            Error::Other("No ts in api to set as cur_tipset".to_owned())
+        })?));
+        let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(40000)));
         let sig_val_cache = LruCache::new(32000);
         let api_mutex = Arc::new(Mutex::new(api));
-        let mp = Arc::new(Mutex::new(MessagePool {
+        let mut mp = MessagePool {
             local_addrs: Vec::new(),
-            pending: HashMap::new(),
+            pending,
             cur_tipset: tipset,
             api: api_mutex,
             min_gas_price: Default::default(),
@@ -198,23 +201,32 @@ where
             bls_sig_cache,
             sig_val_cache,
             local_msgs: HashMap::new(),
-        }));
+        };
 
-        let mut mp_lock = mp.lock().map_err(|_| Error::MutexPoisonError)?;
-        mp_lock.load_local()?;
-        let mut api = mp_lock.api.lock().map_err(|_| Error::MutexPoisonError)?;
+        mp.load_local()?;
+        // let mut mp_lock = mp.lock().map_err(|_| Error::MutexPoisonError)?;
+        // mp_lock.load_local()?;
+        let mut api = mp.api.lock().map_err(|_| Error::MutexPoisonError)?;
         let mut subscriber = api.subscribe_head_changes();
         drop(api);
-        drop(mp_lock);
 
-        let mpool = mp.clone();
+        let api = mp.api.clone();
+        let bls_sig_cache = mp.bls_sig_cache.clone();
+        let pending = mp.pending.clone();
+        let cur_tipset = mp.cur_tipset.clone();
+
         task::spawn(async move {
             loop {
                 if let Some(ts) = subscriber.next().await {
-                    if let Ok(mut lock) = mpool.lock() {
-                        lock.head_change(Vec::new(), vec![ts.as_ref().clone()])
-                            .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
-                    }
+                    head_change(
+                        api.clone(),
+                        bls_sig_cache.clone(),
+                        pending.clone(),
+                        cur_tipset.clone(),
+                        Vec::new(),
+                        vec![ts.as_ref().clone()],
+                    )
+                    .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
                 }
                 sleep(Duration::new(1, 0));
             }
@@ -249,7 +261,6 @@ where
         }
 
         self.verify_msg_sig(msg)?;
-
         let tmp = msg.clone();
         let tip = self
             .cur_tipset
@@ -289,6 +300,7 @@ where
         }
 
         let balance = self.get_state_balance(msg.from(), cur_ts)?;
+
         let msg_balance = BigInt::from(msg.message().required_funds());
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
@@ -298,14 +310,17 @@ where
 
     /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
     /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
-    /// and push it to the pending hashmap
+    /// and push it to the pending phashmap
     fn add_helper(&mut self, msg: SignedMessage) -> Result<(), Error> {
         let api = self
             .api
             .lock()
             .map_err(|err| Error::Other(err.to_string()))?;
         if msg.signature().signature_type() == SignatureType::BLS {
-            self.bls_sig_cache.put(msg.cid()?, msg.signature().clone());
+            self.bls_sig_cache
+                .lock()
+                .map_err(|_| Error::MutexPoisonError)?
+                .put(msg.cid()?, msg.signature().clone());
         }
         if msg.message().gas_limit() > 100_000_000 {
             return Err(Error::Other(
@@ -314,13 +329,15 @@ where
         }
         api.put_message(&msg)?;
 
-        let msett = self.pending.get_mut(msg.message().from());
+        let mut pending = self.pending.lock().map_err(|_| Error::MutexPoisonError)?;
+        let msett = pending.get_mut(msg.message().from());
+        // let msett = self.pending.get_mut(msg.message().from());
         match msett {
             Some(mset) => mset.add(&msg)?,
             None => {
                 let mut mset = MsgSet::new();
                 mset.add(&msg)?;
-                self.pending.insert(*msg.message().from(), mset);
+                pending.insert(*msg.message().from(), mset);
             }
         }
         Ok(())
@@ -334,7 +351,10 @@ where
             .map_err(|_| Error::MutexPoisonError)?;
         let sequence = self.get_state_sequence(addr, cur_ts)?;
 
-        match self.pending.get(addr) {
+        let pending = self.pending.lock().map_err(|_| Error::MutexPoisonError)?;
+        let msgset = pending.get(addr);
+
+        match msgset {
             Some(mset) => {
                 if sequence > mset.next_sequence {
                     return Ok(sequence);
@@ -376,34 +396,18 @@ where
 
     /// Remove a message given a sequence and address from the messagepool
     pub fn remove(&mut self, from: &Address, sequence: u64) -> Result<(), Error> {
-        let mset = self
-            .pending
-            .get_mut(from)
-            .ok_or_else(|| Error::InvalidFromAddr)?;
-        mset.msgs.remove(&sequence);
-
-        if mset.msgs.is_empty() {
-            self.pending.remove(from);
-        } else {
-            let mut max_sequence: u64 = 0;
-            for sequence_temp in mset.msgs.keys().cloned() {
-                if max_sequence < sequence_temp {
-                    max_sequence = sequence_temp;
-                }
-            }
-            if max_sequence < sequence {
-                max_sequence = sequence;
-            }
-            mset.next_sequence = max_sequence + 1;
-        }
-        Ok(())
+        let pending = self.pending.lock().map_err(|_| Error::MutexPoisonError)?;
+        remove(from, pending, sequence)
     }
 
     /// Return a tuple that contains a vector of all signed messages and the current tipset for
     /// self.
     pub fn pending(&self) -> Result<(Vec<SignedMessage>, Tipset), Error> {
         let mut out: Vec<SignedMessage> = Vec::new();
-        for (addr, _) in self.pending.clone() {
+        let pending = self.pending.lock().map_err(|_| Error::MutexPoisonError)?;
+        let pending_hm = pending.clone();
+        drop(pending);
+        for (addr, _) in pending_hm {
             out.append(
                 self.pending_for(&addr)
                     .ok_or_else(|| Error::InvalidFromAddr)?
@@ -421,7 +425,12 @@ where
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
     /// each messsage's sequence. If no corresponding messages found, return None result type
     fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
-        let mset = self.pending.get(a);
+        let pending = self
+            .pending
+            .lock()
+            .map_err(|_| Error::MutexPoisonError)
+            .ok()?;
+        let mset = pending.get(a);
         match mset {
             Some(msgset) => {
                 if msgset.msgs.is_empty() {
@@ -465,8 +474,11 @@ where
 
     /// Attempt to get the signed message given an unsigned message in message pool
     pub fn recover_sig(&mut self, msg: UnsignedMessage) -> Result<SignedMessage, Error> {
-        let val = self
+        let mut bls_sig_cache = self
             .bls_sig_cache
+            .lock()
+            .map_err(|_| Error::MutexPoisonError)?;
+        let val = bls_sig_cache
             .get(&msg.cid()?)
             .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
         Ok(SignedMessage::new_from_parts(msg, val.clone()))
@@ -497,77 +509,183 @@ where
         }
         Ok(())
     }
+}
 
-    /// This is a helper method for head_change. This method will remove a sequence for a from address
-    /// from the rmsgs hashmap. Also remove the from address and sequence from the mmessagepool.
-    fn rm(
-        &mut self,
-        from: &Address,
-        sequence: u64,
-        rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-    ) {
-        let s = rmsgs.get_mut(from);
-        if s.is_none() {
-            self.remove(from, sequence).ok();
-            return;
+pub fn remove(
+    from: &Address,
+    mut pending: MutexGuard<HashMap<Address, MsgSet>>,
+    sequence: u64,
+) -> Result<(), Error> {
+    let mset = pending
+        .get_mut(from)
+        .ok_or_else(|| Error::InvalidFromAddr)?;
+    mset.msgs.remove(&sequence);
+
+    if mset.msgs.is_empty() {
+        pending.remove(from);
+    } else {
+        let mut max_sequence: u64 = 0;
+        for sequence_temp in mset.msgs.keys().cloned() {
+            if max_sequence < sequence_temp {
+                max_sequence = sequence_temp;
+            }
         }
-        let temp = s.unwrap();
-        if temp.get_mut(&sequence).is_some() {
-            temp.remove(&sequence);
-            return;
+        if max_sequence < sequence {
+            max_sequence = sequence;
         }
-        self.remove(from, sequence).ok();
+        mset.next_sequence = max_sequence + 1;
+    }
+    Ok(())
+}
+
+fn recover_sig(
+    mut bls_sig_cache: MutexGuard<LruCache<Cid, Signature>>,
+    msg: UnsignedMessage,
+) -> Result<SignedMessage, Error> {
+    let val = bls_sig_cache
+        .get(&msg.cid()?)
+        .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
+    Ok(SignedMessage::new_from_parts(msg, val.clone()))
+}
+
+/// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
+/// in the hashmap does not yet exist, create a new mset that will correspond to the from message
+/// and push it to the pending hashmap
+fn add_helper<T>(
+    api: MutexGuard<T>,
+    mut bls_sig_cache: MutexGuard<LruCache<Cid, Signature>>,
+    mut pending: MutexGuard<HashMap<Address, MsgSet>>,
+    msg: SignedMessage,
+) -> Result<(), Error>
+where
+    T: Provider,
+{
+    if msg.signature().signature_type() == SignatureType::BLS {
+        bls_sig_cache.put(msg.cid()?, msg.signature().clone());
+    }
+    if msg.message().gas_limit() > 100_000_000 {
+        return Err(Error::Other(
+            "given message has too high of a gas limit".to_string(),
+        ));
+    }
+    api.put_message(&msg)?;
+    let msett = pending.get_mut(msg.message().from());
+    match msett {
+        Some(mset) => mset.add(&msg)?,
+        None => {
+            let mut mset = MsgSet::new();
+            mset.add(&msg)?;
+            pending.insert(*msg.message().from(), mset);
+        }
+    }
+    Ok(())
+}
+
+/// This function will revert and/or apply tipsets to the message pool. This function should be
+/// called every time that there is a head change in the message pool
+pub fn head_change<T>(
+    api: Arc<Mutex<T>>,
+    bls_sig_cache: Arc<Mutex<LruCache<Cid, Signature>>>,
+    pending: Arc<Mutex<HashMap<Address, MsgSet>>>,
+    cur_tipset: Arc<Mutex<Tipset>>,
+    revert: Vec<Tipset>,
+    apply: Vec<Tipset>,
+) -> Result<(), Error>
+where
+    T: Provider,
+{
+    let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
+    for ts in revert {
+        let api_locked = api.lock().map_err(|_| Error::MutexPoisonError)?;
+        let pts = api_locked.load_tipset(ts.parents())?;
+        drop(api_locked);
+
+        let mut msgs: Vec<SignedMessage> = Vec::new();
+        for block in ts.blocks() {
+            let api_locked = api.lock().map_err(|_| Error::MutexPoisonError)?;
+            let (umsg, mut smsgs) = api_locked.messages_for_block(&block)?;
+            drop(api_locked);
+            msgs.append(smsgs.as_mut());
+            for msg in umsg {
+                let smsg = recover_sig(
+                    bls_sig_cache.lock().map_err(|_| Error::MutexPoisonError)?,
+                    msg,
+                )?;
+                msgs.push(smsg)
+            }
+        }
+        // let msgs = self.messages_for_blocks(ts.blocks())?;
+        let parent = pts.clone();
+        let mut cur_ts_locked = cur_tipset.lock().map_err(|_| Error::MutexPoisonError)?;
+        *cur_ts_locked = parent;
+        drop(cur_ts_locked);
+
+        for msg in msgs {
+            add(msg, rmsgs.borrow_mut());
+        }
     }
 
-    /// This function will revert and/or apply tipsets to the message pool. This function should be
-    /// called every time that there is a head change in the message pool
-    pub fn head_change(&mut self, revert: Vec<Tipset>, apply: Vec<Tipset>) -> Result<(), Error> {
-        let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
-        for ts in revert {
-            let pts = self
-                .api
-                .lock()
-                .map_err(|_| Error::MutexPoisonError)?
-                .load_tipset(ts.parents())?;
-            let msgs = self.messages_for_blocks(ts.blocks())?;
-            let parent = pts.clone();
-            *self
-                .cur_tipset
-                .lock()
-                .map_err(|_| Error::MutexPoisonError)? = parent;
+    for ts in apply {
+        for b in ts.blocks() {
+            let api_locked = api.lock().map_err(|_| Error::MutexPoisonError)?;
+            let (msgs, smsgs) = api_locked.messages_for_block(b)?;
+            drop(api_locked);
+            for msg in smsgs {
+                rm(
+                    msg.from(),
+                    pending.lock().map_err(|_| Error::MutexPoisonError)?,
+                    msg.sequence(),
+                    rmsgs.borrow_mut(),
+                );
+            }
             for msg in msgs {
-                add(msg, rmsgs.borrow_mut());
+                rm(
+                    msg.from(),
+                    pending.lock().map_err(|_| Error::MutexPoisonError)?,
+                    msg.sequence(),
+                    rmsgs.borrow_mut(),
+                );
             }
         }
-
-        for ts in apply {
-            for b in ts.blocks() {
-                let (msgs, smsgs) = self
-                    .api
-                    .lock()
-                    .map_err(|_| Error::MutexPoisonError)?
-                    .messages_for_block(b)?;
-                for msg in smsgs {
-                    self.rm(msg.from(), msg.sequence(), rmsgs.borrow_mut());
-                }
-
-                for msg in msgs {
-                    self.rm(msg.from(), msg.sequence(), rmsgs.borrow_mut());
-                }
-            }
-            *self
-                .cur_tipset
-                .lock()
-                .map_err(|_| Error::MutexPoisonError)? = ts;
-        }
-
-        for (_, hm) in rmsgs {
-            for (_, msg) in hm {
-                self.add_skip_checks(msg).ok();
-            }
-        }
-        Ok(())
+        let mut cur_ts_locked = cur_tipset.lock().map_err(|_| Error::MutexPoisonError)?;
+        *cur_ts_locked = ts;
+        drop(cur_ts_locked);
     }
+    for (_, hm) in rmsgs {
+        for (_, msg) in hm {
+            let api_locked = api.lock().map_err(|_| Error::MutexPoisonError)?;
+            let pending = pending.lock().map_err(|_| Error::MutexPoisonError)?;
+            add_helper(
+                api_locked,
+                bls_sig_cache.lock().map_err(|_| Error::MutexPoisonError)?,
+                pending,
+                msg.clone(),
+            )
+            .ok();
+        }
+    }
+    Ok(())
+}
+
+/// This is a helper method for head_change. This method will remove a sequence for a from address
+/// from the rmsgs hashmap. Also remove the from address and sequence from the mmessagepool.
+fn rm(
+    from: &Address,
+    pending: MutexGuard<HashMap<Address, MsgSet>>,
+    sequence: u64,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+) {
+    let s = rmsgs.get_mut(from);
+    if s.is_none() {
+        remove(from, pending, sequence).ok();
+        return;
+    }
+    let temp = s.unwrap();
+    if temp.get_mut(&sequence).is_some() {
+        temp.remove(&sequence);
+        return;
+    }
+    remove(from, pending, sequence).ok();
 }
 
 /// This function is a helper method for head_change. This method will add a signed message to the given rmsgs HashMap
@@ -785,8 +903,7 @@ mod tests {
         let mut tma = TestApi::new();
         tma.set_state_sequence(&sender, 0);
 
-        let mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
-        let mut mpool_locked = mpool.lock().unwrap();
+        let mut mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
 
         let mut smsg_vec = Vec::new();
         for i in 0..4 {
@@ -794,39 +911,47 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 0);
-        mpool_locked.push(&smsg_vec[0]).unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 1);
-        mpool_locked.push(&smsg_vec[1]).unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 2);
-        mpool_locked.push(&smsg_vec[2]).unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 3);
-        mpool_locked.push(&smsg_vec[3]).unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
+        mpool.push(&smsg_vec[0]).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
+        mpool.push(&smsg_vec[1]).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
+        mpool.push(&smsg_vec[2]).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 3);
+        mpool.push(&smsg_vec[3]).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
         let a = mock_block(1, 1);
 
-        mpool_locked
-            .api
-            .lock()
-            .unwrap()
-            .set_block_messages(&a, smsg_vec);
-        mpool_locked
-            .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
-            .unwrap();
+        mpool.api.lock().unwrap().set_block_messages(&a, smsg_vec);
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
 
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
+        head_change(
+            api,
+            bls_sig_cache,
+            pending,
+            cur_tipset,
+            Vec::new(),
+            vec![Tipset::new(vec![a]).unwrap()],
+        )
+        .unwrap();
+        // mpool
+        //     .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
+        //     .unwrap();
 
-        drop(mpool_locked);
-        assert_eq!(mpool.lock().unwrap().get_sequence(&sender).unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
     }
 
     #[test]
     fn test_revert_messages() {
         let tma = TestApi::new();
         let mut wallet = Wallet::new(MemKeyStore::new());
-        let mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
-        let mut mpool_locked = mpool.lock().unwrap();
+        let mut mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
 
         let a = mock_block(1, 1);
         let tipset = Tipset::new(vec![a.clone()]).unwrap();
@@ -842,59 +967,82 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        mpool_locked
-            .api
-            .lock()
-            .unwrap()
-            .set_block_messages(&a, vec![smsg_vec[0].clone()]);
-        mpool_locked
-            .api
-            .lock()
-            .unwrap()
-            .set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
+        let mut api_temp = mpool.api.lock().unwrap();
+        api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
+        api_temp.set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
+        api_temp.set_state_sequence(&sender, 0);
 
-        mpool_locked
-            .api
-            .lock()
-            .unwrap()
-            .set_state_sequence(&sender, 0);
+        drop(api_temp);
 
-        mpool_locked.add(&smsg_vec[0]).unwrap();
-        mpool_locked.add(&smsg_vec[1]).unwrap();
-        mpool_locked.add(&smsg_vec[2]).unwrap();
-        mpool_locked.add(&smsg_vec[3]).unwrap();
+        mpool.add(&smsg_vec[0]).unwrap();
+        mpool.add(&smsg_vec[1]).unwrap();
+        mpool.add(&smsg_vec[2]).unwrap();
+        mpool.add(&smsg_vec[3]).unwrap();
 
-        mpool_locked
-            .api
-            .lock()
-            .unwrap()
-            .set_state_sequence(&sender, 0);
-        mpool_locked
-            .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
-            .unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
+        mpool.api.lock().unwrap().set_state_sequence(&sender, 0);
 
-        mpool_locked
-            .api
-            .lock()
-            .unwrap()
-            .set_state_sequence(&sender, 1);
-        mpool_locked
-            .head_change(Vec::new(), vec![Tipset::new(vec![b.clone()]).unwrap()])
-            .unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
 
-        mpool_locked
-            .api
-            .lock()
-            .unwrap()
-            .set_state_sequence(&sender, 0);
-        mpool_locked
-            .head_change(vec![Tipset::new(vec![b]).unwrap()], Vec::new())
-            .unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 4);
+        head_change(
+            api.clone(),
+            bls_sig_cache.clone(),
+            pending.clone(),
+            cur_tipset.clone(),
+            Vec::new(),
+            vec![Tipset::new(vec![a]).unwrap()],
+        )
+        .unwrap();
 
-        let (p, _) = mpool_locked.pending().unwrap();
+        // mpool
+        //     .head_change(Vec::new(), vec![Tipset::new(vec![a]).unwrap()])
+        //     .unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+
+        mpool.api.lock().unwrap().set_state_sequence(&sender, 1);
+
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+
+        head_change(
+            api.clone(),
+            bls_sig_cache.clone(),
+            pending.clone(),
+            cur_tipset.clone(),
+            Vec::new(),
+            vec![Tipset::new(vec![b.clone()]).unwrap()],
+        )
+        .unwrap();
+
+        // mpool
+        //     .head_change(Vec::new(), vec![Tipset::new(vec![b.clone()]).unwrap()])
+        //     .unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+
+        let mut api_temp = mpool.api.lock().unwrap();
+        api_temp.set_state_sequence(&sender, 0);
+        drop(api_temp);
+
+        head_change(
+            api,
+            bls_sig_cache,
+            pending,
+            cur_tipset,
+            vec![Tipset::new(vec![b]).unwrap()],
+            Vec::new(),
+        )
+        .unwrap();
+
+        // mpool
+        //     .head_change(vec![Tipset::new(vec![b]).unwrap()], Vec::new())
+        //     .unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
+
+        let (p, _) = mpool.pending().unwrap();
         assert_eq!(p.len(), 3);
     }
 
@@ -908,8 +1056,7 @@ mod tests {
         let mut tma = TestApi::new();
         tma.set_state_sequence(&sender, 0);
 
-        let mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
-        let mut mpool_locked = mpool.lock().unwrap();
+        let mut mpool = MessagePool::new(tma, "mptest".to_string()).unwrap();
 
         let mut smsg_vec = Vec::new();
         for i in 0..3 {
@@ -917,23 +1064,19 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 0);
-        mpool_locked.push(&smsg_vec[0]).unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 1);
-        mpool_locked.push(&smsg_vec[1]).unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 2);
-        mpool_locked.push(&smsg_vec[2]).unwrap();
-        assert_eq!(mpool_locked.get_sequence(&sender).unwrap(), 3);
-
-        drop(mpool_locked);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
+        mpool.push(&smsg_vec[0]).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
+        mpool.push(&smsg_vec[1]).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
+        mpool.push(&smsg_vec[2]).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 3);
 
         let header = mock_block(1, 1);
         let tipset = Tipset::new(vec![header.clone()]).unwrap();
 
-        let updater = mpool.lock().unwrap();
-        let temp = updater.api.clone();
+        let temp = mpool.api.clone();
         let mut api = temp.lock().unwrap();
-        drop(updater);
 
         let ts = tipset.clone();
         task::block_on(async move {
@@ -944,8 +1087,7 @@ mod tests {
         // sleep allows for async block to update mpool's cur_tipset
         sleep(Duration::new(2, 0));
 
-        let locked = mpool.lock().unwrap();
-        let cur_ts = locked.cur_tipset.lock().unwrap().clone();
+        let cur_ts = mpool.cur_tipset.lock().unwrap().clone();
         assert_eq!(cur_ts, tipset);
     }
 }
