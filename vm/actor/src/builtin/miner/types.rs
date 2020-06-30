@@ -159,8 +159,13 @@ pub struct SectorOnChainInfo {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
-pub struct ChainSectorInfo
-{
-    pub info : SectorPreCommitInfo,
-    pub id : SectorNumber
+pub struct ChainSectorInfo {
+    pub info: SectorPreCommitInfo,
+    pub id: SectorNumber,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+pub struct Fault {
+    pub miner: Address,
+    pub fault: ChainEpoch,
 }

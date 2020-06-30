@@ -69,7 +69,7 @@ where
     pub fn apply_tip_set_messages(
         &mut self,
         tipset: &FullTipset,
-        mut call_back : Option<impl FnMut(Cid,UnsignedMessage,ApplyRet) -> Result<(),String> >
+        mut call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -143,9 +143,8 @@ where
             }
 
             // Add callback here for reward message if needed
-            if let Some(call_back) = &mut call_back
-            {
-                call_back(rew_msg.cid()?,rew_msg,ret)?;
+            if let Some(call_back) = &mut call_back {
+                call_back(rew_msg.cid()?, rew_msg, ret)?;
             }
         }
 
@@ -172,9 +171,8 @@ where
         }
 
         // Add callback here for cron message if needed
-        if let Some(mut call_back) = call_back
-        {
-            call_back(cron_msg.cid()?,cron_msg,ret)?;
+        if let Some(mut call_back) = call_back {
+            call_back(cron_msg.cid()?, cron_msg, ret)?;
         }
         Ok(receipts)
     }
@@ -402,13 +400,11 @@ impl ApplyRet {
         }
     }
 
-    pub fn msg_receipt(&self) -> &MessageReceipt
-    {
+    pub fn msg_receipt(&self) -> &MessageReceipt {
         &self.msg_receipt
     }
 
-    pub fn act_error(&self) -> Option<&ActorError>
-    {
+    pub fn act_error(&self) -> Option<&ActorError> {
         self.act_error.as_ref()
     }
 }

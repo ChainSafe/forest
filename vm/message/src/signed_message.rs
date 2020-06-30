@@ -3,6 +3,7 @@
 
 use super::{Message, UnsignedMessage};
 use address::Address;
+use cid::{Cid, Error};
 use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::tuple::*;
 use encoding::Cbor;
@@ -57,20 +58,22 @@ impl Message for SignedMessage {
     }
     fn gas_price(&self) -> &TokenAmount {
         self.message.gas_price()
-    } 
-    fn set_gas_price(&mut self,token_amount : TokenAmount)
-    {
+    }
+    fn set_gas_price(&mut self, token_amount: TokenAmount) {
         self.message.set_gas_price(token_amount)
     }
     fn gas_limit(&self) -> u64 {
         self.message.gas_limit()
     }
-    fn set_gas_limit(&mut self,token_amount : u64)
-    {
+    fn set_gas_limit(&mut self, token_amount: u64) {
         self.message.set_gas_limit(token_amount)
     }
     fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()
+    }
+
+    fn to_cid(&self) -> Result<Cid, String> {
+        self.message.to_cid()
     }
 }
 

@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::ExitCode;
 
 /// The error type that gets returned by actor method calls.
-#[derive(Error, Debug,Clone)]
+#[derive(Error, Debug, Clone)]
 #[error("ActorError(fatal: {fatal}, exit_code: {exit_code:?}, msg: {msg})")]
 pub struct ActorError {
     /// Is this a fatal error.

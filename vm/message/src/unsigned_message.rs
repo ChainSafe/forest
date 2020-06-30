@@ -3,12 +3,12 @@
 
 use super::Message;
 use address::Address;
+use cid::{Cid, Error};
 use derive_builder::Builder;
 use encoding::Cbor;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
-
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
 /// Usage:
@@ -138,22 +138,23 @@ impl Message for UnsignedMessage {
     fn gas_price(&self) -> &TokenAmount {
         &self.gas_price
     }
-    fn set_gas_price(&mut self,token_amount : TokenAmount)
-    {
+    fn set_gas_price(&mut self, token_amount: TokenAmount) {
         self.gas_price = token_amount
-       
     }
     fn gas_limit(&self) -> u64 {
         self.gas_limit
     }
 
-    fn set_gas_limit(&mut self,token_amount : u64)
-    {
+    fn set_gas_limit(&mut self, token_amount: u64) {
         self.gas_limit = token_amount
     }
     fn required_funds(&self) -> TokenAmount {
         let total: TokenAmount = self.gas_price() * self.gas_limit();
         total + self.value()
+    }
+
+    fn to_cid(&self) -> Result<Cid, String> {
+        self.cid().map_err(|e| e.to_string())
     }
 }
 

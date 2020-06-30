@@ -13,6 +13,7 @@ pub use signed_message::SignedMessage;
 pub use unsigned_message::UnsignedMessage;
 
 use address::Address;
+use cid::{Cid, Error};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 pub trait Message {
@@ -31,11 +32,13 @@ pub trait Message {
     /// gas_price returns gas price for the message
     fn gas_price(&self) -> &TokenAmount;
     //sets the gas price
-    fn set_gas_price(&mut self,_:TokenAmount);
+    fn set_gas_price(&mut self, _: TokenAmount);
     //sets the gas limit
-    fn set_gas_limit(&mut self,_:u64);
+    fn set_gas_limit(&mut self, _: u64);
     /// Returns the gas limit for the message
     fn gas_limit(&self) -> u64;
     /// Returns the required funds for the message
     fn required_funds(&self) -> TokenAmount;
+    //turns message into cid
+    fn to_cid(&self) -> Result<Cid, String>;
 }

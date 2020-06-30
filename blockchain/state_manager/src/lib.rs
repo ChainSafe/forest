@@ -1,39 +1,45 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod call;
 mod errors;
 pub mod utils;
-pub mod call;
 pub use self::errors::*;
-use actor::{init, miner, power, ActorState, INIT_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR};
+use actor::{
+    init, market, market::MarketBalance, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
+    STORAGE_POWER_ACTOR_ADDR,
+};
 use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
 use async_log::span;
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, ChainStore};
+use chain::{block_messages, ChainMessage, ChainStore};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
+use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
-use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls,ApplyRet, VM};
+use futures::stream;
+use futures::*;
+use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::trace;
+use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigUint;
+use num_traits::Zero;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use message::UnsignedMessage;
-
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
-
-
 pub struct StateManager<DB> {
     bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
+    subscriber: Option<Subscriber<ChainMessage>>,
+    back_search_wait: Option<Subscriber<()>>,
 }
 
 impl<DB> StateManager<DB>
@@ -45,6 +51,33 @@ where
         Self {
             bs,
             cache: RwLock::new(HashMap::new()),
+            subscriber: None,
+            back_search_wait: None,
+        }
+    }
+
+    pub fn new_with_chain_meessage_subscriber(
+        bs: Arc<DB>,
+        chain_sub: Subscriber<ChainMessage>,
+    ) -> Self {
+        Self {
+            bs,
+            cache: RwLock::new(HashMap::new()),
+            subscriber: Some(chain_sub),
+            back_search_wait: None,
+        }
+    }
+
+    pub fn new_with_subscribers(
+        bs: Arc<DB>,
+        chain_subs: Subscriber<ChainMessage>,
+        back_search_sub: Subscriber<()>,
+    ) -> Self {
+        Self {
+            bs,
+            cache: RwLock::new(HashMap::new()),
+            subscriber: Some(chain_subs),
+            back_search_wait: Some(back_search_sub),
         }
     }
     /// Loads actor state from IPLD Store
@@ -69,6 +102,10 @@ where
 
     pub fn get_block_store(&self) -> Arc<DB> {
         self.bs.clone()
+    }
+
+    pub fn get_block_store_ref(&self) -> &DB {
+        &self.bs
     }
 
     /// Returns the network name from the init actor state
@@ -116,7 +153,7 @@ where
         &self,
         ts: &FullTipset,
         rand: &ChainRand,
-        mut call_back : Option<impl FnMut(Cid,UnsignedMessage,ApplyRet) -> Result<(),String> >
+        mut call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
@@ -129,7 +166,7 @@ where
         )?;
 
         // Apply tipset messages
-        let receipts = vm.apply_tip_set_messages(ts,call_back)?;
+        let receipts = vm.apply_tip_set_messages(ts, call_back)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
@@ -172,7 +209,10 @@ where
 
             let block_headers = tipset.blocks();
             // generic constants are not implemented yet this is a lowcost method for now
-            let cid_pair = self.compute_tipset_state(&block_headers,Some(|Cid,UnsignedMessage,ApplyRet|{Ok(())}))?;
+            let cid_pair = self.compute_tipset_state(
+                &block_headers,
+                Some(|Cid, UnsignedMessage, ApplyRet| Ok(())),
+            )?;
             self.cache
                 .write()
                 .await
@@ -184,7 +224,7 @@ where
     pub fn compute_tipset_state<'a>(
         &'a self,
         blocks_headers: &[BlockHeader],
-        mut call_back : Option<impl FnMut(Cid,UnsignedMessage,ApplyRet) -> Result<(),String>>
+        mut call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
             let check_for_duplicates = |s: &BlockHeader| {
@@ -220,8 +260,284 @@ where
                 .collect::<Result<Vec<Block>, _>>()?;
             // convert tipset to fulltipset
             let full_tipset = FullTipset::new(blocks)?;
-            self.apply_blocks(&full_tipset, &chain_rand,call_back)
+            self.apply_blocks(&full_tipset, &chain_rand, call_back)
         })
+    }
+
+    pub fn look_up_id(&self, addr: &Address, tipset: &Tipset) -> Result<Address, Error> {
+        let tipset = ChainStore::new(self.get_block_store())
+            .tipset_from_keys(tipset.key())
+            .map_err(|e| {
+                Error::Other(format!(
+                    "Could not get chain store from root {:}",
+                    e.to_string()
+                ))
+            })?;
+        let state_tree =
+            StateTree::new_from_root(self.get_block_store_ref(), tipset.parent_state())?;
+        state_tree.lookup_id(addr).map_err(Error::State)
+    }
+    pub fn market_balance(&self, addr: &Address, tipset: &Tipset) -> Result<MarketBalance, Error> {
+        let ms: market::State =
+            self.load_actor_state(&actor::STORAGE_MARKET_ACTOR_ADDR, tipset.parent_state())?;
+        let look_up = self.look_up_id(addr, tipset)?;
+        let escrow_balance_table =
+            BalanceTable::from_root(self.get_block_store_ref(), &ms.escrow_table).map_err(|e| {
+                Error::Other(format!(
+                    "Could not get balance from root {:}",
+                    e.to_string()
+                ))
+            })?;
+
+        let escrow = if escrow_balance_table.has(addr).map_err(|e| {
+            Error::Other(format!(
+                "Could not check for balance balance {:}",
+                e.to_string()
+            ))
+        })? {
+            escrow_balance_table
+                .get(addr)
+                .map_err(|e| Error::Other(format!("Could not get balance {:}", e.to_string())))?
+        } else {
+            BigUint::zero()
+        };
+
+        let locked_balance_table =
+            BalanceTable::from_root(self.get_block_store_ref(), &ms.locked_table).map_err(|e| {
+                Error::Other(format!(
+                    "Could not get balance from root {:}",
+                    e.to_string()
+                ))
+            })?;
+        let locked = if locked_balance_table.has(addr).map_err(|e| {
+            Error::Other(format!(
+                "Could not check for balance balance {:}",
+                e.to_string()
+            ))
+        })? {
+            locked_balance_table
+                .get(addr)
+                .map_err(|e| Error::Other(format!("Could not get balance {:}", e.to_string())))?
+        } else {
+            BigUint::zero()
+        };
+
+        Ok(MarketBalance { escrow, locked })
+    }
+
+    fn search_back_for_message(
+        &self,
+        tipset: &Tipset,
+        message: &Message,
+    ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
+        let current = tipset.to_owned();
+
+        if current.epoch() == 0 {
+            return Ok(None);
+        }
+
+        if let Some(actor_state) = self.get_actor(message.from(), tipset.parent_state())? {
+            if actor_state.sequence == 0 || actor_state.sequence < message.sequence() {
+                return Ok(None);
+            }
+        }
+
+        let tipset = chain::tipset_from_keys(self.get_block_store_ref(), current.parents())
+            .map_err(|err| {
+                Error::Other(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+        let cid = message.to_cid()?;
+        let r = self.tipset_executed_message(&tipset, &cid, message)?;
+
+        if let Some(receipt) = r {
+            return Ok(Some((tipset, receipt)));
+        }
+        self.search_back_for_message(&tipset, message)
+    }
+
+    fn tipset_executed_message(
+        &self,
+        tipset: &Tipset,
+        cid: &Cid,
+        message: &Message,
+    ) -> Result<Option<MessageReceipt>, Error> {
+        if tipset.epoch() == 0 {
+            return Ok(None);
+        }
+
+        let tipset = chain::tipset_from_keys(self.get_block_store_ref(), tipset.parents())
+            .map_err(|err| {
+                Error::Other(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+        let messages =
+            chain::message_for_tipset(self.get_block_store_ref(), &tipset).map_err(|err| {
+                Error::Other(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+        messages
+            .iter()
+            .zip(0..messages.len())
+            .find(|(s, index)| s.from() == message.from())
+            .map(|(s, index)| {
+                if s.sequence() == message.sequence() {
+                    if &s.to_cid()? == cid {
+                        return chain::get_parent_reciept(
+                            self.get_block_store_ref(),
+                            tipset.blocks().first().unwrap(),
+                            index as u64,
+                        )
+                        .map_err(|err| {
+                            Error::Other(format!(
+                                "(get sectors) failed to load miner actor state: %{:}",
+                                err
+                            ))
+                        });
+                    }
+
+                    return Err(Error::Other("Could not get sequence".to_string()));
+                }
+
+                Ok(None)
+            })
+            .unwrap_or_else(|| Ok(None))
+    }
+
+    pub async fn wait_for_message(
+        &self,
+        cid: &Cid,
+        confidence: u64,
+    ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Error> {
+        let mut subscribers = self.subscriber.clone().ok_or_else(|| {
+            Error::Other("State Manager not subscribed to tipset head changes".to_string())
+        })?;
+        let mut back_search_wait = self.back_search_wait.clone().ok_or_else(|| {
+            Error::Other("State manager not subscribed to back search wait".to_string())
+        })?;
+        let message = chain::get_chain_message(self.get_block_store_ref(), cid).map_err(|_| {
+            Error::Other("(get sectors) failed to load miner actor state".to_string())
+        })?;
+
+        let subscribers: Vec<ChainMessage> = subscribers.collect().await;
+        if subscribers.is_empty() {
+            return Err(Error::Other(
+                "SubHeadChanges first entry should have been one item".to_string(),
+            ));
+        }
+
+        let first_subscriber = subscribers.iter().nth(0).ok_or_else(|| {
+            Error::Other("(get sectors) failed to load miner actor state".to_string())
+        })?;
+
+        let tipset = match first_subscriber {
+            ChainMessage::HcCurrent(tipset) => tipset,
+            _ => {
+                return Err(Error::Other(
+                    "(get sectors) failed to load miner actor state".to_string(),
+                ))
+            }
+        };
+        let maybe_message_reciept = self.tipset_executed_message(&tipset, cid, &*message)?;
+        if let Some(r) = maybe_message_reciept {
+            if let ChainMessage::HcCurrent(current) = first_subscriber {
+                return Ok(Some((current.clone(), r)));
+            }
+        }
+
+        let (back_tipset, back_receipt) = self
+            .search_back_for_message(&tipset, &*message)?
+            .ok_or_else(|| {
+                Error::Other("State manager not subscribed to back search wait".to_string())
+            })?;
+
+        let mut candidate_tipset: Option<Arc<Tipset>> = None;
+        let mut candidate_receipt: Option<MessageReceipt> = None;
+        let mut height_of_head = tipset.epoch();
+        let mut reverts: HashMap<TipsetKeys, bool> = HashMap::new();
+        loop {
+            while let Some(subscriber) = self
+                .subscriber
+                .clone()
+                .ok_or_else(|| {
+                    Error::Other("State Manager not subscribed to tipset head changes".to_string())
+                })?
+                .next()
+                .await
+            {
+                match subscriber {
+                    ChainMessage::HcRevert(tipset) => {
+                        if let Some(_) = candidate_tipset {
+                            candidate_tipset = None;
+                            candidate_receipt = None;
+                        }
+                    }
+                    ChainMessage::HcApply(tipset) => {
+                        if candidate_tipset
+                            .as_ref()
+                            .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
+                            .unwrap_or_default()
+                        {
+                            let ts = candidate_tipset.ok_or_else(|| {
+                                Error::Other(
+                                    "(get sectors) failed to load miner actor state".to_string(),
+                                )
+                            })?;
+
+                            let rs = candidate_receipt.ok_or_else(|| {
+                                Error::Other(
+                                    "(get sectors) failed to load miner actor state".to_string(),
+                                )
+                            })?;
+
+                            return Ok(Some((ts, rs)));
+                        }
+
+                        reverts.insert(tipset.key().to_owned(), true);
+
+                        let maybe_receipt =
+                            self.tipset_executed_message(&tipset, cid, &*message)?;
+                        if let Some(receipt) = maybe_receipt {
+                            if confidence == 0 {
+                                return Ok(Some((tipset.clone(), receipt)));
+                            }
+                            candidate_tipset = Some(tipset);
+                            candidate_receipt = Some(receipt)
+                        }
+                    }
+                    _ => continue,
+                }
+            }
+
+            match back_search_wait.next().await {
+                Some(_) => {
+                    if !reverts.get(back_tipset.key()).unwrap_or(&false) {
+                        if height_of_head > back_tipset.epoch() + confidence {
+                            let ts = candidate_tipset.ok_or_else(|| {
+                                Error::Other(
+                                    "(get sectors) failed to load miner actor state".to_string(),
+                                )
+                            })?;
+
+                            let rs = candidate_receipt.ok_or_else(|| {
+                                Error::Other(
+                                    "(get sectors) failed to load miner actor state".to_string(),
+                                )
+                            })?;
+
+                            return Ok(Some((ts, rs)));
+                        }
+                    }
+                }
+                _ => continue,
+            }
+        }
     }
 
     /// Returns a bls public key from provided address

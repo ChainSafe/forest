@@ -8,6 +8,7 @@ use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::RegisteredProof;
 use num_bigint::biguint_ser;
+use num_bigint::BigUint;
 use vm::{DealID, TokenAmount};
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -55,4 +56,9 @@ pub struct VerifyDealsOnSectorProveCommitReturn {
 pub struct ComputeDataCommitmentParams {
     pub deal_ids: Vec<DealID>,
     pub sector_type: RegisteredProof,
+}
+#[derive(Clone, PartialEq)]
+pub struct MarketBalance {
+    pub escrow: BigUint,
+    pub locked: BigUint,
 }
