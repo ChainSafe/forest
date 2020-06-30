@@ -864,13 +864,13 @@ impl Deadlines {
         deadline: usize,
         new_sectors: &[usize],
     ) -> Result<(), String> {
-        println!("NEW_SECTORS:: {:?}", new_sectors);
         let ns: BitField = new_sectors.iter().copied().collect();
         let sec = self
             .due
             .get_mut(deadline)
             .ok_or(format!("unable to find deadline: {}", deadline))?;
         *sec |= &ns;
+        println!("sector:::: {:?}", sec.iter().collect::<Vec<usize>>());
         Ok(())
     }
     /// Removes sector numbers from all deadlines.

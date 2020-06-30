@@ -144,13 +144,13 @@ pub fn deadline_count(
 /// Computes a bitfield of the sector numbers included in a sequence of partitions due at some deadline.
 /// Fails if any partition is not due at the provided deadline.
 pub fn compute_partitions_sector(
-    mut d: Deadlines,
+    d: &mut Deadlines,
     partition_size: u64,
     deadline_idx: usize,
     partitions: &[u64],
 ) -> Result<Vec<BitField>, String> {
     let (deadline_first_partition, deadline_sector_count) =
-        partitions_for_deadline(&mut d, partition_size as usize, deadline_idx)?;
+        partitions_for_deadline(d, partition_size as usize, deadline_idx)?;
     let deadline_partition_count = (deadline_sector_count + partition_size - 1) / partition_size;
     // Work out which sector numbers the partitions correspond to.
     let deadline_sectors = d
@@ -187,7 +187,6 @@ pub fn assign_new_sectors(
     partition_size: usize,
     new_sectors: &[usize],
 ) -> Result<(), String> {
-    println!("ASSIGN_NEW_SECTORS FUNC, new_sectors:: {:?}", new_sectors);
     let mut next_new_sector: usize = 0;
     // The first deadline is left empty since it's more difficult for a miner to orchestrate proofs.
     // The set of sectors due at the deadline isn't known until the proving period actually starts and any
@@ -217,7 +216,6 @@ pub fn assign_new_sectors(
     let mut deadline_partitions_counts = [0usize; WPOST_PERIOD_DEADLINES];
     let mut i: usize = 0;
 
-    //println!("i:: {}, WPOST_PERIOD_DEADLINES:: {}, next_new_sector:: {}, new_sectors.len():: {}", i,WPOST_PERIOD_DEADLINES ,next_new_sector,new_sectors.len());
     while i < WPOST_PERIOD_DEADLINES && next_new_sector < new_sectors.len() {
         if i < first_assignable_deadline {
             // Mark unassignable deadlines as "full" so nothing more will be assigned.
@@ -250,9 +248,7 @@ pub fn assign_new_sectors(
     // and is unclear what functionality is intended.
     let sort_deadlines = |deadl: &[usize; WPOST_PERIOD_DEADLINES],
                           dl_idxs: &mut [usize; WPOST_PERIOD_DEADLINES]| {
-        let mut cloned_idxs = *dl_idxs;
-        // TODO remove reverse
-        cloned_idxs.reverse();
+        let cloned_idxs = *dl_idxs;
         dl_idxs.sort_by(|i, j| {
             let (idx_i, idx_j) = (cloned_idxs[*i], cloned_idxs[*j]);
             let (count_i, count_j) = (deadl[idx_i], deadl[idx_j]);
@@ -262,7 +258,6 @@ pub fn assign_new_sectors(
                 count_i.cmp(&count_j)
             }
         })
-        //dl_idxs.sort_by_key(|i| deadl[cloned_idxs[*i as usize] as usize])
     };
     sort_deadlines(&deadline_partitions_counts, &mut dl_idxs);
     while next_new_sector < new_sectors.len() {

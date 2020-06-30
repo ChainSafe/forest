@@ -320,7 +320,7 @@ impl Actor {
 
                 // Work out which sectors are due in the declared partitions at this deadline.
                 let partitions_sectors = compute_partitions_sector(
-                    deadlines,
+                    &mut deadlines,
                     partition_size,
                     deadline.index,
                     &params.partitions,
