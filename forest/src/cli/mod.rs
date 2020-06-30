@@ -7,7 +7,6 @@ mod genesis;
 pub use self::config::Config;
 pub(super) use self::genesis::initialize_genesis;
 
-use async_std::task;
 use std::cell::RefCell;
 use std::io;
 use std::process;
@@ -80,7 +79,7 @@ impl DaemonOpts {
 }
 
 /// Blocks current thread until ctrl-c is received
-pub(super) fn block_until_sigint() {
+pub(super) async fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
     let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
 
@@ -99,5 +98,5 @@ pub(super) fn block_until_sigint() {
     })
     .expect("Error setting Ctrl-C handler");
 
-    task::block_on(ctrlc_oneshot).unwrap();
+    ctrlc_oneshot.await.unwrap();
 }
