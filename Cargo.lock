@@ -775,7 +775,6 @@ name = "bitfield"
 version = "0.1.0"
 dependencies = [
  "ahash 0.3.8",
- "bitvec",
  "forest_encoding",
  "rand 0.7.3",
  "rand_xorshift",
