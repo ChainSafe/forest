@@ -12,7 +12,7 @@ blocks = { package = "forest_blocks", path = "../blocks" }
 beacon = { path = "../beacon" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-libp2p = "0.20"
+libp2p = { path = "../../../../libp2p/rust-libp2p" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 chain = { path = "../chain" }

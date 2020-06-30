@@ -3,7 +3,7 @@
 
 use super::{InboundCodec, OutboundCodec, RPCError};
 use crate::blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKSYNC_PROTOCOL_ID};
-use crate::hello::{HelloMessage, HelloResponse, HELLO_PROTOCOL_ID};
+use crate::hello::{HelloRequest, HelloResponse, HELLO_PROTOCOL_ID};
 use bytes::BytesMut;
 use futures::prelude::*;
 use futures::{AsyncRead, AsyncWrite};
@@ -50,7 +50,7 @@ where
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPCRequest {
     BlockSync(BlockSyncRequest),
-    Hello(HelloMessage),
+    Hello(HelloRequest),
 }
 
 impl UpgradeInfo for RPCRequest {

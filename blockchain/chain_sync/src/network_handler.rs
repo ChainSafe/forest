@@ -5,7 +5,7 @@ use super::peer_manager::PeerManager;
 use async_std::prelude::*;
 use async_std::sync::{Receiver, Sender};
 use async_std::task;
-use forest_libp2p::rpc::{RPCResponse, RequestId};
+use forest_libp2p::rpc::{RPCEvent, RPCResponse, RequestId};
 use forest_libp2p::NetworkEvent;
 use log::trace;
 use std::sync::Arc;
@@ -42,15 +42,20 @@ impl NetworkHandler {
             loop {
                 match receiver.next().await {
                     // Handle specifically RPC responses and send to that channel
-                    Some(NetworkEvent::RPCResponse { req_id, response }) => {
-                        rpc_send.send((req_id, response)).await
+                    Some(NetworkEvent::RPC(RPCEvent::BlockSyncResponse {
+                        request_id,
+                        response,
+                    })) => {
+                        rpc_send
+                            .send((request_id, RPCResponse::BlockSync(response)))
+                            .await
                     }
                     // Pass any non RPC responses through event channel
                     Some(event) => {
                         // Update peer on this thread before sending hello
-                        if let NetworkEvent::Hello { source, .. } = &event {
+                        if let NetworkEvent::RPC(RPCEvent::HelloRequest { channel, .. }) = &event {
                             // TODO should probably add peer with their tipset/ not handled seperately
-                            peer_manager.add_peer(source.clone(), None).await;
+                            peer_manager.add_peer(channel.peer.clone(), None).await;
                         }
 
                         // TODO revisit, doing this to avoid blocking this thread but can handle better

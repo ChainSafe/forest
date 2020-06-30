@@ -31,4 +31,4 @@ ahash = "0.3"
 [dev-dependencies]
 db = { path = "../../node/db" }
 hex = "0.4.2"
-libp2p = "0.20"
+libp2p = { path = "../../../../libp2p/rust-libp2p" }
