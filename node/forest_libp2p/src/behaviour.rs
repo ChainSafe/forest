@@ -1,12 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocksync::{BlockSyncProtocolName, BlockSyncRequest, BlockSyncResponse};
+use crate::blocksync::{
+    BlockSyncCodec, BlockSyncProtocolName, BlockSyncRequest, BlockSyncResponse,
+};
 use crate::config::Libp2pConfig;
-use crate::hello::{HelloProtocolName, HelloRequest, HelloResponse};
+use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
 use crate::rpc::{RPCEvent, RPCRequest};
-use async_trait::async_trait;
-use futures::prelude::*;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -20,129 +20,13 @@ use libp2p::ping::{
     Ping, PingEvent,
 };
 use libp2p::request_response::{
-    ProtocolSupport, RequestId, RequestResponse, RequestResponseCodec, RequestResponseEvent,
-    RequestResponseMessage,
+    ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
 use log::{debug, trace, warn};
 use std::collections::HashSet;
-use std::io;
 use std::{task::Context, task::Poll};
-
-// TODO move
-#[derive(Debug, Clone, Default)]
-pub struct HelloCodec;
-
-#[async_trait]
-impl RequestResponseCodec for HelloCodec {
-    type Protocol = HelloProtocolName;
-    type Request = HelloRequest;
-    type Response = HelloResponse;
-
-    async fn read_request<T>(
-        &mut self,
-        protocol: &Self::Protocol,
-        io: &mut T,
-    ) -> io::Result<Self::Request>
-    where
-        T: AsyncRead + Unpin + Send,
-    {
-        todo!()
-    }
-
-    async fn read_response<T>(
-        &mut self,
-        protocol: &Self::Protocol,
-        io: &mut T,
-    ) -> io::Result<Self::Response>
-    where
-        T: AsyncRead + Unpin + Send,
-    {
-        todo!()
-    }
-
-    async fn write_request<T>(
-        &mut self,
-        protocol: &Self::Protocol,
-        io: &mut T,
-        req: Self::Request,
-    ) -> io::Result<()>
-    where
-        T: AsyncWrite + Unpin + Send,
-    {
-        todo!()
-    }
-
-    async fn write_response<T>(
-        &mut self,
-        protocol: &Self::Protocol,
-        io: &mut T,
-        res: Self::Response,
-    ) -> io::Result<()>
-    where
-        T: AsyncWrite + Unpin + Send,
-    {
-        todo!()
-    }
-}
-
-// TODO move
-#[derive(Debug, Clone, Default)]
-pub struct BlockSyncCodec;
-
-#[async_trait]
-impl RequestResponseCodec for BlockSyncCodec {
-    type Protocol = BlockSyncProtocolName;
-    type Request = BlockSyncRequest;
-    type Response = BlockSyncResponse;
-
-    async fn read_request<T>(
-        &mut self,
-        protocol: &Self::Protocol,
-        io: &mut T,
-    ) -> io::Result<Self::Request>
-    where
-        T: AsyncRead + Unpin + Send,
-    {
-        todo!()
-    }
-
-    async fn read_response<T>(
-        &mut self,
-        protocol: &Self::Protocol,
-        io: &mut T,
-    ) -> io::Result<Self::Response>
-    where
-        T: AsyncRead + Unpin + Send,
-    {
-        todo!()
-    }
-
-    async fn write_request<T>(
-        &mut self,
-        protocol: &Self::Protocol,
-        io: &mut T,
-        req: Self::Request,
-    ) -> io::Result<()>
-    where
-        T: AsyncWrite + Unpin + Send,
-    {
-        todo!()
-    }
-
-    async fn write_response<T>(
-        &mut self,
-        protocol: &Self::Protocol,
-        io: &mut T,
-        res: Self::Response,
-    ) -> io::Result<()>
-    where
-        T: AsyncWrite + Unpin + Send,
-    {
-        todo!()
-    }
-}
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
@@ -196,8 +80,8 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
 impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
-            KademliaEvent::Discovered { peer_id, .. } => {
-                self.add_peer(peer_id);
+            KademliaEvent::RoutingUpdated { peer, .. } => {
+                self.add_peer(peer);
             }
             event => {
                 trace!("kad: {:?}", event);

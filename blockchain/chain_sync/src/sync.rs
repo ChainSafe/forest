@@ -164,8 +164,8 @@ where
                         .await
                     {
                         Ok(fts) => {
-                            if self.inform_new_head(source.clone(), &fts).await.is_err() {
-                                warn!("Failed to sync with provided tipset",);
+                            if let Err(e) = self.inform_new_head(source.clone(), &fts).await {
+                                warn!("Failed to sync with provided tipset: {}", e);
                             };
                         }
                         Err(e) => {

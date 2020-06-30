@@ -3308,6 +3308,7 @@ dependencies = [
 [[package]]
 name = "libp2p"
 version = "0.20.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "bytes 0.5.5",
  "futures 0.3.5",
@@ -3345,6 +3346,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core"
 version = "0.19.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "asn1_der",
  "bs58",
@@ -3377,6 +3379,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core-derive"
 version = "0.19.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "quote 1.0.7",
  "syn 1.0.33",
@@ -3385,6 +3388,7 @@ dependencies = [
 [[package]]
 name = "libp2p-deflate"
 version = "0.19.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "flate2",
  "futures 0.3.5",
@@ -3394,6 +3398,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.19.0"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "futures 0.3.5",
  "libp2p-core",
@@ -3403,6 +3408,7 @@ dependencies = [
 [[package]]
 name = "libp2p-floodsub"
 version = "0.19.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "cuckoofilter",
  "fnv",
@@ -3418,6 +3424,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.19.3"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "base64 0.11.0",
  "byteorder 1.3.4",
@@ -3441,6 +3448,7 @@ dependencies = [
 [[package]]
 name = "libp2p-identify"
 version = "0.19.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "futures 0.3.5",
  "libp2p-core",
@@ -3455,6 +3463,7 @@ dependencies = [
 [[package]]
 name = "libp2p-kad"
 version = "0.20.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "arrayvec",
  "bytes 0.5.5",
@@ -3480,6 +3489,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.19.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "async-std",
  "data-encoding",
@@ -3500,6 +3510,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mplex"
 version = "0.19.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "bytes 0.5.5",
  "fnv",
@@ -3514,6 +3525,7 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.19.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "curve25519-dalek",
  "futures 0.3.5",
@@ -3533,6 +3545,7 @@ dependencies = [
 [[package]]
 name = "libp2p-ping"
 version = "0.19.3"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "futures 0.3.5",
  "libp2p-core",
@@ -3546,6 +3559,7 @@ dependencies = [
 [[package]]
 name = "libp2p-plaintext"
 version = "0.19.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "bytes 0.5.5",
  "futures 0.3.5",
@@ -3562,6 +3576,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.19.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "futures 0.3.5",
  "log",
@@ -3574,6 +3589,7 @@ dependencies = [
 [[package]]
 name = "libp2p-request-response"
 version = "0.1.0"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "async-trait",
  "futures 0.3.5",
@@ -3586,6 +3602,7 @@ dependencies = [
 [[package]]
 name = "libp2p-secio"
 version = "0.19.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "aes-ctr",
  "ctr",
@@ -3614,6 +3631,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.19.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "futures 0.3.5",
  "libp2p-core",
@@ -3627,6 +3645,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.19.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "async-std",
  "futures 0.3.5",
@@ -3641,6 +3660,7 @@ dependencies = [
 [[package]]
 name = "libp2p-uds"
 version = "0.19.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "async-std",
  "futures 0.3.5",
@@ -3651,6 +3671,7 @@ dependencies = [
 [[package]]
 name = "libp2p-wasm-ext"
 version = "0.19.0"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "futures 0.3.5",
  "js-sys",
@@ -3663,6 +3684,7 @@ dependencies = [
 [[package]]
 name = "libp2p-websocket"
 version = "0.20.0"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "async-tls",
  "either",
@@ -3681,6 +3703,7 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.19.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "futures 0.3.5",
  "libp2p-core",
@@ -3979,6 +4002,7 @@ checksum = "d8883adfde9756c1d30b0f519c9b8c502a94b41ac62f696453c37c7fc0a958ce"
 [[package]]
 name = "multistream-select"
 version = "0.8.2"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "bytes 0.5.5",
  "futures 0.3.5",
@@ -4354,6 +4378,7 @@ dependencies = [
 [[package]]
 name = "parity-multiaddr"
 version = "0.9.1"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=3661071120d3c07eb9e56932204efcd12cdffc49#3661071120d3c07eb9e56932204efcd12cdffc49"
 dependencies = [
  "arrayref",
  "bs58",
