@@ -387,7 +387,8 @@ impl<I> FusedIterator for Ranges<I> where I: Iterator<Item = Range<usize>> {}
 impl<I> RangeIterator for Ranges<I> where I: Iterator<Item = Range<usize>> {}
 
 /// Returns a `RangeIterator` which ranges contain the values from the provided iterator.
-/// The values need to be in ascending order.
+/// The values need to be in ascending order — if not, the returned iterator may not satisfy
+/// all `RangeIterator` requirements.
 pub fn ranges_from_bits(bits: impl IntoIterator<Item = usize>) -> impl RangeIterator {
     let mut iter = bits.into_iter().peekable();
 
