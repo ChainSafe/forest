@@ -4,10 +4,10 @@
 use super::errors::Error;
 use address::Address;
 use async_std::task;
-use async_std::sync::RwLock;
+// use async_std::sync::RwLock;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
-use chain::ChainStore;
+use chain::{messages_for_tipset, ChainStore};
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
@@ -151,7 +151,7 @@ where
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        self.cs.messages_for_tipset(h).map_err(|err| err.into())
+        messages_for_tipset(self.cs.blockstore(), h).map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
