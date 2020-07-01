@@ -24,7 +24,7 @@ use encoding::{Cbor, Error as EncodingError};
 use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::{
-    hello::HelloRequest, rpc::RPCEvent, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
+    hello::HelloRequest, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
 use futures::{
     executor::block_on,
@@ -150,7 +150,7 @@ where
 
         while let Some(event) = self.network.receiver.next().await {
             match event {
-                NetworkEvent::RPC(RPCEvent::HelloRequest { request, channel }) => {
+                NetworkEvent::HelloRequest { request, channel } => {
                     let source = channel.peer.clone();
                     info!(
                         "Message inbound, heaviest tipset cid: {:?}",
@@ -1060,11 +1060,11 @@ mod tests {
 
         task::block_on(async {
             event_sender
-                .send(NetworkEvent::RPC(RPCEvent::BlockSyncResponse {
+                .send(NetworkEvent::BlockSyncResponse {
                     // TODO update this, only matching first index of requestId
                     request_id: RequestId(1),
                     response: rpc_response,
-                }))
+                })
                 .await;
         });
     }

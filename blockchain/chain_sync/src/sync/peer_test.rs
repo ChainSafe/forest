@@ -53,13 +53,13 @@ fn peer_manager_update() {
 
     task::block_on(async {
         event_sender
-            .send(NetworkEvent::RPC(RPCEvent::HelloRequest {
+            .send(NetworkEvent::HelloRequest {
                 request: HelloRequest::default(),
                 channel: ResponseChannel {
                     peer: source,
                     sender,
                 },
-            }))
+            })
             .await;
 
         // Would be ideal to not have to sleep here and have it deterministic

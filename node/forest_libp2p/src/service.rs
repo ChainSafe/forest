@@ -1,14 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::blocksync::BlockSyncResponse;
-use super::rpc::{RPCEvent, RPCRequest};
+use super::blocksync::{BlockSyncRequest, BlockSyncResponse};
+use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
+use crate::hello::{HelloRequest, HelloResponse};
 use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
-use libp2p::request_response::RequestId;
+use libp2p::request_response::{RequestId, ResponseChannel};
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -32,7 +33,22 @@ pub enum NetworkEvent {
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
-    RPC(RPCEvent),
+    HelloRequest {
+        request: HelloRequest,
+        channel: ResponseChannel<HelloResponse>,
+    },
+    HelloResponse {
+        request_id: RequestId,
+        response: HelloResponse,
+    },
+    BlockSyncRequest {
+        request: BlockSyncRequest,
+        channel: ResponseChannel<BlockSyncResponse>,
+    },
+    BlockSyncResponse {
+        request_id: RequestId,
+        response: BlockSyncResponse,
+    },
     PeerDialed {
         peer_id: PeerId,
     },
@@ -127,22 +143,34 @@ impl Libp2pService {
                                 message
                             }).await;
                         }
-                        ForestBehaviourEvent::RPC(source, event) => {
-                            debug!("RPC event {:?}", event);
-                            match event {
-                                RPCEvent::BlockSyncRequest { request, channel } => {
-                                    // TODO implement blocksync provider
-                                    let _ = channel.send(BlockSyncResponse {
-                                        chain: vec![],
-                                        status: 203,
-                                        message: "handling requests not implemented".to_owned(),
-                                    });
-                                },
-                                _ => {
-                                    self.network_sender_out
-                                        .send(NetworkEvent::RPC(event)).await;
-                                },
-                            }
+                        ForestBehaviourEvent::HelloRequest { request, channel, .. } => {
+                            debug!("Received hello request: {:?}", request);
+                            self.network_sender_out.send(NetworkEvent::HelloRequest {
+                                request,
+                                channel,
+                            }).await;
+                        }
+                        ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
+                            debug!("Received hello response (id: {:?}): {:?}", request_id, response);
+                            self.network_sender_out.send(NetworkEvent::HelloResponse {
+                                request_id,
+                                response,
+                            }).await;
+                        }
+                        ForestBehaviourEvent::BlockSyncRequest { channel, .. } => {
+                            // TODO implement blocksync provider
+                            let _ = channel.send(BlockSyncResponse {
+                                chain: vec![],
+                                status: 203,
+                                message: "handling requests not implemented".to_owned(),
+                            });
+                        }
+                        ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
+                            debug!("Received blocksync response (id: {:?}): {:?}", request_id, response);
+                            self.network_sender_out.send(NetworkEvent::BlockSyncResponse {
+                                request_id,
+                                response,
+                            }).await;
                         }
                     }
                     None => { break; }

@@ -6,7 +6,7 @@ use crate::blocksync::{
 };
 use crate::config::Libp2pConfig;
 use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
-use crate::rpc::{RPCEvent, RPCRequest};
+use crate::rpc::RPCRequest;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -21,6 +21,7 @@ use libp2p::ping::{
 };
 use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
+    ResponseChannel,
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
@@ -54,7 +55,26 @@ pub enum ForestBehaviourEvent {
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
-    RPC(PeerId, RPCEvent),
+    HelloRequest {
+        peer: PeerId,
+        request: HelloRequest,
+        channel: ResponseChannel<HelloResponse>,
+    },
+    HelloResponse {
+        peer: PeerId,
+        request_id: RequestId,
+        response: HelloResponse,
+    },
+    BlockSyncRequest {
+        peer: PeerId,
+        request: BlockSyncRequest,
+        channel: ResponseChannel<BlockSyncResponse>,
+    },
+    BlockSyncResponse {
+        peer: PeerId,
+        request_id: RequestId,
+        response: BlockSyncResponse,
+    },
 }
 
 impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
@@ -152,19 +172,21 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
     fn inject_event(&mut self, event: RequestResponseEvent<HelloRequest, HelloResponse>) {
         match event {
             RequestResponseEvent::Message { peer, message } => match message {
-                RequestResponseMessage::Request { request, channel } => self.events.push(
-                    ForestBehaviourEvent::RPC(peer, RPCEvent::HelloRequest { request, channel }),
-                ),
+                RequestResponseMessage::Request { request, channel } => {
+                    self.events.push(ForestBehaviourEvent::HelloRequest {
+                        peer,
+                        request,
+                        channel,
+                    })
+                }
                 RequestResponseMessage::Response {
                     request_id,
                     response,
-                } => self.events.push(ForestBehaviourEvent::RPC(
+                } => self.events.push(ForestBehaviourEvent::HelloResponse {
                     peer,
-                    RPCEvent::HelloResponse {
-                        request_id,
-                        response,
-                    },
-                )),
+                    request_id,
+                    response,
+                }),
             },
             RequestResponseEvent::OutboundFailure {
                 peer,
@@ -188,21 +210,20 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<BlockSyncRequest, BlockSy
         match event {
             RequestResponseEvent::Message { peer, message } => match message {
                 RequestResponseMessage::Request { request, channel } => {
-                    self.events.push(ForestBehaviourEvent::RPC(
+                    self.events.push(ForestBehaviourEvent::BlockSyncRequest {
                         peer,
-                        RPCEvent::BlockSyncRequest { request, channel },
-                    ))
+                        request,
+                        channel,
+                    })
                 }
                 RequestResponseMessage::Response {
                     request_id,
                     response,
-                } => self.events.push(ForestBehaviourEvent::RPC(
+                } => self.events.push(ForestBehaviourEvent::BlockSyncResponse {
                     peer,
-                    RPCEvent::BlockSyncResponse {
-                        request_id,
-                        response,
-                    },
-                )),
+                    request_id,
+                    response,
+                }),
             },
             RequestResponseEvent::OutboundFailure {
                 peer,
