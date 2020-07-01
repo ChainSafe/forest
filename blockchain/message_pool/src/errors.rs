@@ -31,8 +31,6 @@ pub enum Error {
     BLSSigTooShort,
     #[error("{0}")]
     Other(String),
-    #[error("Mutex is either poisoned or data inside could not be accessed at this current time")]
-    MutexPoisonError,
 }
 
 impl From<ChainError> for Error {
