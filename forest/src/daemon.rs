@@ -75,9 +75,29 @@ pub(super) async fn start(config: Config) {
     });
 
     let db_rpc = Arc::clone(&db);
-    let rpc_thread = task::spawn(async {
-        start_rpc(db_rpc).await;
-    });
+
+    // Use the provided RPC port and listener or use the default one
+    let rpc_port = config
+        .rpc_port
+        .unwrap_or_else(|| "/api".to_string())
+        .to_owned();
+    let rpc_listen = config
+        .rpc_listen
+        .unwrap_or_else(|| "127.0.0.1:8080".to_string())
+        .to_owned();
+
+    let rpc_thread = if config.enable_rpc {
+        task::spawn(async {
+            info!("RPC enabled");
+            info!("Using {} as RPC port", rpc_port);
+            info!("Using {} as RPC listen", rpc_listen);
+            start_rpc(db_rpc, rpc_port, rpc_listen).await;
+        })
+    } else {
+        task::spawn(async {
+            info!("RPC disabled");
+        })
+    };
 
     // Block until ctrl-c is hit
     block_until_sigint().await;
