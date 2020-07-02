@@ -3,7 +3,7 @@
 
 use super::{Result, VARINT_MAX_BYTES};
 
-/// A `BitReader` allows for efficiently reading bits to a byte buffer, up to a byte at a time.
+/// A `BitReader` allows for efficiently reading bits from a byte buffer, up to a byte at a time.
 ///
 /// It works by always storing at least the next 8 bits in `bits`, which lets us conveniently
 /// and efficiently read bits that cross a byte boundary. It's filled with the bits from `next_byte`
@@ -115,5 +115,79 @@ impl<'a> BitReader<'a> {
         // decoding ends when a length of 0 is encountered, regardless of
         // whether it is a short block or a long block
         Ok(if len > 0 { Some(len) } else { None })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BitReader;
+
+    #[test]
+    fn read() {
+        let bytes = &[0b1011_1110, 0b0111_0010, 0b0010_1010];
+        let mut reader = BitReader::new(bytes);
+
+        assert_eq!(reader.read(0), 0);
+        assert_eq!(reader.read(1), 0);
+        assert_eq!(reader.read(3), 0b111);
+        assert_eq!(reader.read(6), 0b101011);
+        assert_eq!(reader.read(1), 0);
+        assert_eq!(reader.read(4), 0b1110);
+        assert_eq!(reader.read(3), 0b100);
+        assert_eq!(reader.read(2), 0b10);
+        assert_eq!(reader.read(3), 0b010);
+        assert_eq!(reader.read(4), 0);
+        assert_eq!(reader.read(8), 0);
+        assert_eq!(reader.read(0), 0);
+    }
+
+    #[test]
+    fn read_len() {
+        let bytes = &[0b0_001010_1, 0b110_10111, 0b01100_111, 0b00110010];
+        let mut reader = BitReader::new(bytes);
+
+        assert_eq!(reader.read_len().unwrap(), Some(1)); // prefix: 1
+        assert_eq!(reader.read_len().unwrap(), Some(2)); // prefix: 01, value: 0100 (LSB to MSB)
+        assert_eq!(reader.read_len().unwrap(), Some(11)); // prefix: 01, value: 1101
+        assert_eq!(reader.read_len().unwrap(), Some(15)); // prefix: 01, value: 1111
+        assert_eq!(reader.read_len().unwrap(), Some(147)); // prefix: 00, value: 11001001 10000000
+        assert_eq!(reader.read_len().unwrap(), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed")]
+    fn too_many_bits_at_once() {
+        let mut reader = BitReader::new(&[]);
+        reader.read(16);
+    }
+
+    #[test]
+    fn roundtrip() {
+        use super::super::BitWriter;
+        use rand::{Rng, SeedableRng};
+        use rand_xorshift::XorShiftRng;
+
+        let mut rng = XorShiftRng::seed_from_u64(5);
+
+        for _ in 0..100 {
+            let lengths: Vec<_> = std::iter::repeat_with(|| rng.gen_range(1, 200))
+                .take(100)
+                .collect();
+
+            let mut writer = BitWriter::new();
+
+            for &len in &lengths {
+                writer.write_len(len);
+            }
+
+            let bytes = writer.finish();
+            let mut reader = BitReader::new(&bytes);
+
+            for &len in &lengths {
+                assert_eq!(reader.read_len().unwrap(), Some(len));
+            }
+
+            assert_eq!(reader.read_len().unwrap(), None);
+        }
     }
 }
