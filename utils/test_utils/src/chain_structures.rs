@@ -12,7 +12,6 @@ use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
 use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
-use forest_libp2p::rpc::RPCResponse;
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigUint;
 use std::error::Error;
@@ -193,9 +192,9 @@ pub fn construct_tipset_bundle(epoch: u64, weight: u64) -> TipsetBundle {
 }
 
 /// Returns a RPCResponse used for testing
-pub fn construct_blocksync_response() -> RPCResponse {
+pub fn construct_blocksync_response() -> BlockSyncResponse {
     // construct block sync response
-    RPCResponse::BlockSync(BlockSyncResponse {
+    BlockSyncResponse {
         chain: vec![
             construct_tipset_bundle(3, 10),
             construct_tipset_bundle(2, 10),
@@ -203,5 +202,5 @@ pub fn construct_blocksync_response() -> RPCResponse {
         ],
         status: 0,
         message: "message".to_owned(),
-    })
+    }
 }
