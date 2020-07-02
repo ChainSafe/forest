@@ -3,10 +3,10 @@ name: Rust CI
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   test:
@@ -24,13 +24,13 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@master
         with:
-          version: '3.9.1'
+          version: "3.9.1"
 
       - name: Toolchain setup
         uses: actions-rs/toolchain@v1
-        with:	
-          profile: minimal	
-          toolchain: stable	
+        with:
+          profile: minimal
+          toolchain: stable
           override: true
 
       - name: Cargo Build Tests
@@ -68,15 +68,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
 
       - name: Install OpenCL
-        run: sudo apt install ocl-icd-opencl-dev	
+        run: sudo apt install ocl-icd-opencl-dev
 
       - name: Install Protoc
         uses: arduino/setup-protoc@master
         with:
-          version: '3.9.1'
+          version: "3.9.1"
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -98,25 +98,25 @@ jobs:
           args: -p forest
 
   publish_docs:
-    if: github.event_name == 'push' && github.event.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.event.ref == 'refs/heads/main'
     name: Publish Documentation
     needs: [clippy, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
 
       - name: Install Rust
         run: rustup update beta && rustup default beta
 
       - name: Install OpenCL
         run: sudo apt install ocl-icd-opencl-dev
-      
+
       - name: Install Protoc
         uses: arduino/setup-protoc@master
         with:
-          version: '3.9.1'
+          version: "3.9.1"
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features
@@ -124,7 +124,7 @@ jobs:
         run: |
           cd target/doc
           git init
-          echo '<meta http-equiv="refresh" content="0; url=https://chainsafe.github.io/forest/node/index.html">' > index.html
+          echo '<meta http-equiv="refresh" content="0; url=https://chainsafe.github.io/forest/forest_vm/index.html">' > index.html
           git add .
           git -c user.name='ci' -c user.email='ci' commit -m 'Deploy documentation'
           git push -f -q https://git:${{ secrets.github_token }}@github.com/${{ github.repository }} HEAD:gh-pages

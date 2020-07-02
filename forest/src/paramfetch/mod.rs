@@ -1,0 +1,266 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+use async_std::{
+    fs::{self, File},
+    io::{copy, BufRead, BufWriter},
+    sync::{channel, Arc},
+    task,
+};
+use blake2b_simd::{Hash, State as Blake2b};
+use core::time::Duration;
+use fil_types::SectorSize;
+use futures::prelude::*;
+use log::{info, warn};
+use pbr::{MultiBar, ProgressBar, Units};
+use pin_project_lite::pin_project;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::error::Error as StdError;
+use std::fs::File as SyncFile;
+use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind, Stdout};
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use surf::Client;
+
+const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
+const PARAM_DIR: &str = "/var/tmp/filecoin-proof-parameters";
+const DIR_ENV: &str = "FIL_PROOFS_PARAMETER_CACHE";
+const GATEWAY_ENV: &str = "IPFS_GATEWAY";
+const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
+const DEFAULT_PARAMETERS: &str = include_str!("parameters.json");
+
+/// Sector size options for fetching.
+pub enum SectorSizeOpt {
+    /// All keys and proofs gen params
+    All,
+    /// Only verification params
+    Keys,
+    /// All keys and proofs gen params for a given size
+    Size(SectorSize),
+}
+
+type ParameterMap = HashMap<String, ParameterData>;
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+struct ParameterData {
+    cid: String,
+    digest: String,
+    sector_size: u64,
+}
+
+#[inline]
+fn param_dir() -> String {
+    std::env::var(DIR_ENV).unwrap_or_else(|_| PARAM_DIR.to_owned())
+}
+
+/// Get proofs parameters and all verification keys for a given sector size given
+/// a param JSON manifest.
+pub async fn get_params(
+    param_json: &str,
+    storage_size: SectorSizeOpt,
+    is_verbose: bool,
+) -> Result<(), Box<dyn StdError>> {
+    fs::create_dir_all(param_dir()).await?;
+
+    let params: ParameterMap = serde_json::from_str(param_json)?;
+    let mut tasks = Vec::with_capacity(params.len());
+
+    let mb = if is_verbose {
+        Some(Arc::new(MultiBar::new()))
+    } else {
+        None
+    };
+
+    params
+        .into_iter()
+        .filter(|(name, info)| match storage_size {
+            SectorSizeOpt::Keys => !name.ends_with("params"),
+            SectorSizeOpt::Size(size) => {
+                size as u64 == info.sector_size || !name.ends_with(".params")
+            }
+            SectorSizeOpt::All => true,
+        })
+        .for_each(|(name, info)| {
+            let cmb = mb.clone();
+            tasks.push(task::spawn(async move {
+                if let Err(e) = fetch_verify_params(&name, Arc::new(info), cmb).await {
+                    warn!("Error in validating params {}", e);
+                }
+            }))
+        });
+
+    if let Some(multi_bar) = mb {
+        let cmb = multi_bar.clone();
+        let (mb_send, mb_rx) = channel(1);
+        let mb = task::spawn(async move {
+            while mb_rx.try_recv().is_err() {
+                cmb.listen();
+                task::sleep(Duration::from_millis(1000)).await;
+            }
+        });
+        for t in tasks {
+            t.await;
+        }
+        mb_send.send(()).await;
+        mb.await;
+    } else {
+        for t in tasks {
+            t.await;
+        }
+    }
+
+    Ok(())
+}
+
+/// Get proofs parameters and all verification keys for a given sector size using default manifest.
+#[inline]
+pub async fn get_params_default(
+    storage_size: SectorSizeOpt,
+    is_verbose: bool,
+) -> Result<(), Box<dyn StdError>> {
+    get_params(DEFAULT_PARAMETERS, storage_size, is_verbose).await
+}
+
+async fn fetch_verify_params(
+    name: &str,
+    info: Arc<ParameterData>,
+    mb: Option<Arc<MultiBar<Stdout>>>,
+) -> Result<(), Box<dyn StdError>> {
+    let mut path: PathBuf = param_dir().into();
+    path.push(name);
+    let path = Arc::new(path);
+
+    match check_file(path.clone(), info.clone()).await {
+        Ok(()) => return Ok(()),
+        Err(e) => {
+            if e.kind() != ErrorKind::NotFound {
+                warn!("{}", e)
+            }
+        }
+    }
+
+    fetch_params(&path, &info, mb).await?;
+
+    check_file(path, info).await.map_err(|e| {
+        // TODO remove invalid file
+        e.into()
+    })
+}
+
+pin_project! {
+    struct FetchProgress<R> {
+        #[pin]
+        inner: R,
+        progress_bar: ProgressBar<pbr::Pipe>,
+    }
+}
+
+impl<R> FetchProgress<R> {
+    fn finish(&mut self) {
+        self.progress_bar.finish();
+    }
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for FetchProgress<R> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<usize, io::Error>> {
+        let r = Pin::new(&mut self.inner).poll_read(cx, buf);
+        if let Poll::Ready(Ok(size)) = r {
+            self.progress_bar.add(size as u64);
+        }
+        r
+    }
+}
+
+impl<R: BufRead + Unpin> BufRead for FetchProgress<R> {
+    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&'_ [u8]>> {
+        let this = self.project();
+        this.inner.poll_fill_buf(cx)
+    }
+
+    fn consume(mut self: Pin<&mut Self>, amt: usize) {
+        Pin::new(&mut self.inner).consume(amt)
+    }
+}
+
+async fn fetch_params(
+    path: &Path,
+    info: &ParameterData,
+    multi_bar: Option<Arc<MultiBar<Stdout>>>,
+) -> Result<(), Box<dyn StdError>> {
+    let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
+    info!("Fetching {:?} from {}", path, gw);
+
+    let file = File::create(path).await?;
+    let mut writer = BufWriter::new(file);
+
+    let url = format!("{}{}", gw, info.cid);
+
+    let client = Client::new();
+    let total_size: u64 = {
+        let res = client.head(&url).await?;
+        if res.status().is_success() {
+            res.header("Content-Length")
+                .and_then(|len| len.as_str().parse().ok())
+                .unwrap_or_default()
+        } else {
+            return Err(format!("failed to download file: {}", url).into());
+        }
+    };
+
+    let req = client.get(url.as_str());
+
+    if let Some(mb) = multi_bar {
+        let mut pb = mb.create_bar(total_size);
+        pb.set_units(Units::Bytes);
+
+        let mut source = FetchProgress {
+            inner: req.await?,
+            progress_bar: pb,
+        };
+        copy(&mut source, &mut writer).await?;
+        source.finish();
+    } else {
+        let mut source = req.await?;
+        copy(&mut source, &mut writer).await?;
+    };
+
+    Ok(())
+}
+
+async fn check_file(path: Arc<PathBuf>, info: Arc<ParameterData>) -> Result<(), io::Error> {
+    if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
+        warn!("Assuming parameter files are okay. DO NOT USE IN PRODUCTION");
+        return Ok(());
+    }
+
+    let cloned_path = path.clone();
+    let hash = task::spawn_blocking(move || -> Result<Hash, io::Error> {
+        let file = SyncFile::open(cloned_path.as_ref())?;
+        let mut reader = SyncBufReader::new(file);
+        let mut hasher = Blake2b::new();
+        sync_copy(&mut reader, &mut hasher)?;
+        Ok(hasher.finalize())
+    })
+    .await?;
+
+    let str_sum = hash.to_hex();
+    let str_sum = &str_sum[..32];
+    if str_sum == info.digest {
+        info!("Parameter file {:?} is ok", path);
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            ErrorKind::Other,
+            format!(
+                "Checksum mismatch in param file {:?}. ({} != {})",
+                path, str_sum, info.digest
+            ),
+        ))
+    }
+}

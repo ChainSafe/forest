@@ -200,8 +200,8 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error
 mod tests {
     use super::*;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
-    use rand::rngs::mock::StepRng;
-    use rand::Rng;
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
 
     #[test]
     fn bls_agg_verify() {
@@ -209,7 +209,7 @@ mod tests {
         let num_sigs = 10;
         let message_length = num_sigs * 64;
 
-        let rng = &mut StepRng::new(8, 3);
+        let rng = &mut ChaCha8Rng::seed_from_u64(11);
 
         let msg = (0..message_length).map(|_| rng.gen()).collect::<Vec<u8>>();
         let data: Vec<&[u8]> = (0..num_sigs).map(|x| &msg[x * 64..(x + 1) * 64]).collect();
@@ -231,7 +231,7 @@ mod tests {
         }
 
         let calculated_bls_agg =
-            Signature::new_bls(bls_signatures::aggregate(&signatures).as_bytes());
+            Signature::new_bls(bls_signatures::aggregate(&signatures).unwrap().as_bytes());
         assert_eq!(
             verify_bls_aggregate(&data, &public_keys_slice, &calculated_bls_agg),
             true
