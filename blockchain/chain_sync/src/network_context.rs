@@ -8,8 +8,8 @@ use async_std::sync::{Receiver, Sender};
 use blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
-    hello::HelloMessage,
-    rpc::{RPCEvent, RPCRequest, RPCResponse, RequestId},
+    hello::HelloRequest,
+    rpc::{RPCRequest, RPCResponse, RequestId},
     NetworkEvent, NetworkMessage,
 };
 use libp2p::core::PeerId;
@@ -44,7 +44,7 @@ impl SyncNetworkContext {
             network_send,
             rpc_receiver,
             receiver,
-            request_id: 1,
+            request_id: RequestId(1),
         }
     }
 
@@ -111,22 +111,33 @@ impl SyncNetworkContext {
     }
 
     /// Send a hello request to the network (does not await response)
-    pub async fn hello_request(&self, peer_id: PeerId, request: HelloMessage) {
+    pub async fn hello_request(&mut self, peer_id: PeerId, request: HelloRequest) {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
-        self.send_rpc_event(peer_id, RPCEvent::Request(0, RPCRequest::Hello(request)))
+        self.network_send
+            .send(NetworkMessage::RPC {
+                peer_id,
+                request: RPCRequest::Hello(request),
+                id: self.request_id,
+            })
             .await;
+        self.request_id.0 += 1;
     }
 
     /// Send any RPC request to the network and await the response
     pub async fn send_rpc_request(
         &mut self,
         peer_id: PeerId,
-        rpc_request: RPCRequest,
+        request: RPCRequest,
     ) -> Result<RPCResponse, &'static str> {
         let request_id = self.request_id;
-        self.request_id += 1;
-        self.send_rpc_event(peer_id, RPCEvent::Request(request_id, rpc_request))
+        self.request_id.0 += 1;
+        self.network_send
+            .send(NetworkMessage::RPC {
+                peer_id,
+                request,
+                id: request_id,
+            })
             .await;
         loop {
             match future::timeout(Duration::from_secs(RPC_TIMEOUT), self.rpc_receiver.next()).await
@@ -141,12 +152,5 @@ impl SyncNetworkContext {
                 Err(_) => return Err("Connection timeout"),
             }
         }
-    }
-
-    /// Handles sending the base event to the network service
-    async fn send_rpc_event(&self, peer_id: PeerId, event: RPCEvent) {
-        self.network_send
-            .send(NetworkMessage::RPC { peer_id, event })
-            .await
     }
 }

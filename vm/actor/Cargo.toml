@@ -31,4 +31,4 @@ ahash = "0.3"
 [dev-dependencies]
 db = { path = "../../node/db" }
 hex = "0.4.2"
-libp2p = "0.20"
+libp2p = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "3661071120d3c07eb9e56932204efcd12cdffc49" }
