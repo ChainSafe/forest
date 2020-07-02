@@ -3,11 +3,12 @@
 
 use super::errors::Error;
 use crypto::SignatureType;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
-#[derive(Clone, PartialEq, Debug, Eq)]
+#[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct KeyInfo {
     key_type: SignatureType,
     // Vec<u8> is used because The private keys for BLS and SECP256K1 are not of the same type

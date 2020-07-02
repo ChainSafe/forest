@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, initialize_genesis, Config};
+use async_std::sync::RwLock;
 use async_std::task;
 use beacon::DrandBeacon;
 use chain::ChainStore;
@@ -13,6 +14,7 @@ use log::{info, trace};
 use rpc::start_rpc;
 use std::sync::Arc;
 use utils::write_to_file;
+use wallet::MemKeyStore;
 
 /// Starts daemon process
 pub(super) fn start(config: Config) {
@@ -76,7 +78,8 @@ pub(super) fn start(config: Config) {
 
     let db_rpc = Arc::clone(&db);
     let rpc_thread = task::spawn(async {
-        start_rpc(db_rpc).await;
+        let keystore = Arc::new(RwLock::new(MemKeyStore::new()));
+        start_rpc(db_rpc, keystore).await;
     });
 
     // Block until ctrl-c is hit

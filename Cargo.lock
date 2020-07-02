@@ -2136,6 +2136,7 @@ dependencies = [
  "futures 0.3.5",
  "hex",
  "ipld_blockstore",
+ "key_management",
  "libp2p",
  "log",
  "pbr",
@@ -3226,6 +3227,7 @@ dependencies = [
  "forest_encoding",
  "libsecp256k1",
  "rand 0.7.3",
+ "serde",
  "thiserror",
 ]
 
@@ -5102,15 +5104,22 @@ dependencies = [
  "async-std",
  "chain",
  "clock",
+ "forest_address",
+ "forest_bigint",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
+ "forest_encoding",
  "forest_message",
  "ipld_blockstore",
  "jsonrpc-v2",
+ "key_management",
  "num-traits 0.2.12",
  "serde",
  "serde_json",
+ "state_manager",
+ "state_tree",
+ "thiserror",
  "tide",
 ]
 

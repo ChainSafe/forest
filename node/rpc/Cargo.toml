@@ -24,3 +24,4 @@ address = { package = "forest_address", path = "../../vm/address" }
 encoding = { package = "forest_encoding",  path = "../../encoding/"}
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 thiserror = "1.0"
+state_tree = { path = "../../vm/state_tree" }

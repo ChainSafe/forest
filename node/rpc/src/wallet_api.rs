@@ -1,103 +1,252 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::State;
+
 use address::Address;
 use blockstore::BlockStore;
+use chain::get_heaviest_tipset;
 use crypto::{Signature, SignatureType};
 use encoding::Cbor;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{SignedMessage, UnsignedMessage};
+use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use num_bigint::BigUint;
-use state_manager::StateManager;
-use thiserror::Error;
-use wallet::{KeyInfo, KeyStore, Wallet};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use state_tree::StateTree;
+use std::convert::TryFrom;
+use wallet::{Key, KeyInfo, KeyStore};
 
-#[derive(Debug, Error, PartialEq)]
-pub enum Error {
-    #[error("{0}")]
-    WalletError(String),
+pub struct Balance {
+    pub balance: BigUint,
 }
 
-pub struct WalletApi<DB, T> {
-    state_manager: StateManager<DB>,
-    wallet: Wallet<T>,
+impl Serialize for Balance {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (BigUintSer(&self.balance)).serialize(s)
+    }
 }
 
-impl<DB, T> WalletApi<DB, T>
-where
-    DB: BlockStore,
-    T: KeyStore,
-{
-    pub fn new(state_manager: StateManager<DB>, wallet: Wallet<T>) -> Self {
-        WalletApi {
-            state_manager,
-            wallet,
-        }
+impl<'de> Deserialize<'de> for Balance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let BigUintDe(balance) = Deserialize::deserialize(deserializer)?;
+        Ok(Self { balance })
     }
-    pub fn new_addr(&mut self, typ: SignatureType) -> Result<Address, Error> {
-        self.wallet
-            .generate_addr(typ)
-            .map_err(|err| Error::WalletError(err.to_string()))
+}
+
+/// Generate a new Address that is stored in the wallet
+pub(crate) async fn wallet_new<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(SignatureType,)>,
+) -> Result<Address, JsonRpcError> {
+    let (sig_type,) = params;
+    let mut keystore = data.keystore.write().await;
+    let key = wallet::generate_key(sig_type)?;
+
+    let addr = format!("wallet-{}", key.address.to_string());
+    keystore.put(addr, key.key_info.clone())?;
+    let value = keystore.get(&"default".to_string());
+    if value.is_err() {
+        keystore.put("default".to_string(), key.key_info)?
     }
 
-    pub fn wallet_has_key(&mut self, addr: &Address) -> bool {
-        self.wallet.has_key(addr)
-    }
+    Ok(key.address)
+}
 
-    pub fn wallet_list_addrs(&mut self) -> Result<Vec<Address>, Error> {
-        self.wallet
-            .list_addrs()
-            .map_err(|err| Error::WalletError(err.to_string()))
-    }
+/// Return the balance from state manager for a given address
+pub(crate) async fn wallet_get_balance<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(Address,)>,
+) -> Result<Balance, JsonRpcError> {
+    let (addr,) = params;
 
-    pub fn wallet_balance(&mut self, addr: &Address) -> Result<BigUint, Error> {
-        self.state_manager
-            .get_heaviest_balance(addr)
-            .map_err(|err| Error::WalletError(err.to_string()))
-    }
+    let heaviest_ts = get_heaviest_tipset(data.store.as_ref())?.unwrap();
+    let cid = heaviest_ts.parent_state();
 
-    pub fn wallet_sign(&mut self, addr: &Address, msg: &[u8]) -> Result<Signature, Error> {
-        self.wallet
-            .sign(addr, msg)
-            .map_err(|err| Error::WalletError(err.to_string()))
-    }
+    let state = StateTree::new_from_root(data.store.as_ref(), cid)?;
+    let actor = state.get_actor(&addr)?.unwrap();
+    let actor_balance = actor.balance;
+    let balance = Balance {
+        balance: actor_balance,
+    };
+    Ok(balance)
+}
 
-    pub fn wallet_sign_message(
-        &mut self,
-        addr: &Address,
-        msg: &UnsignedMessage,
-    ) -> Result<SignedMessage, Error> {
-        let msg_cid = msg
-            .cid()
-            .map_err(|err| Error::WalletError(err.to_string()))?;
-        let sig = self.wallet_sign(addr, &msg_cid.to_bytes())?;
-        Ok(SignedMessage::new_from_fields(msg.clone(), sig))
-    }
+pub(crate) async fn wallet_get_default<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+) -> Result<Address, JsonRpcError> {
+    let keystore = data.keystore.read().await;
 
-    pub fn wallet_verify(&mut self, addr: &Address, msg: &[u8], sig: Signature) -> bool {
-        sig.verify(msg, addr).is_ok()
-    }
+    let addr = wallet::get_default(&*keystore)?;
+    Ok(addr)
+}
 
-    pub fn wallet_default(&self) -> Result<Address, Error> {
-        self.wallet
-            .get_default()
-            .map_err(|err| Error::WalletError(err.to_string()))
-    }
+pub(crate) async fn wallet_list_addrs<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+) -> Result<Vec<Address>, JsonRpcError> {
+    let keystore = data.keystore.read().await;
+    let addr_vec = wallet::list_addrs(&*keystore)?;
+    Ok(addr_vec)
+}
 
-    pub fn wallet_set_default(&mut self, addr: Address) -> Result<(), Error> {
-        self.wallet
-            .set_default(addr)
-            .map_err(|err| Error::WalletError(err.to_string()))
-    }
+pub(crate) async fn wallet_export<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(Address,)>,
+) -> Result<KeyInfo, JsonRpcError> {
+    let (addr,) = params;
 
-    pub fn wallet_export(&mut self, addr: &Address) -> Result<KeyInfo, Error> {
-        self.wallet
-            .export(addr)
-            .map_err(|err| Error::WalletError(err.to_string()))
-    }
+    let keystore = data.keystore.read().await;
 
-    pub fn wallet_import(&mut self, key_info: KeyInfo) -> Result<Address, Error> {
-        self.wallet
-            .import(key_info)
-            .map_err(|err| Error::WalletError(err.to_string()))
-    }
+    let key_info = wallet::export_key_info(&addr, &*keystore)?;
+    Ok(key_info)
+}
+
+pub(crate) async fn wallet_has_key<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(Address,)>,
+) -> Result<bool, JsonRpcError> {
+    let (addr,) = params;
+
+    let keystore = data.keystore.read().await;
+
+    let key = wallet::find_key(&addr, &*keystore).is_ok();
+    Ok(key)
+}
+
+pub(crate) async fn wallet_import<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(KeyInfo,)>,
+) -> Result<Address, JsonRpcError> {
+    let (key_info,) = params;
+
+    let key = Key::try_from(key_info)?;
+
+    let addr = format!("wallet-{}", key.address.to_string());
+
+    let mut keystore = data.keystore.write().await;
+
+    keystore.put(addr, key.key_info)?;
+
+    Ok(key.address)
+}
+
+pub(crate) async fn wallet_sign<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(Address, Vec<u8>)>,
+) -> Result<Signature, JsonRpcError> {
+    let (address, msg) = params;
+
+    let keystore = data.keystore.write().await;
+
+    let key = wallet::find_key(&address, &*keystore)?;
+
+    let sig = wallet::sign(
+        *key.key_info.key_type(),
+        key.key_info.private_key(),
+        msg.as_slice(),
+    )?;
+
+    Ok(sig)
+}
+
+pub(crate) async fn wallet_sign_message<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(Address, UnsignedMessage)>,
+) -> Result<SignedMessage, JsonRpcError> {
+    let (address, msg) = params;
+    let msg_cid = msg.cid()?;
+
+    let keystore = data.keystore.write().await;
+
+    let key = wallet::find_key(&address, &*keystore)?;
+
+    let sig = wallet::sign(
+        *key.key_info.key_type(),
+        key.key_info.private_key(),
+        msg_cid.to_bytes().as_slice(),
+    )?;
+
+    let smsg = SignedMessage::new_from_fields(msg, sig);
+
+    Ok(smsg)
+}
+
+pub(crate) async fn wallet_verify<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    _data: Data<State<DB, T>>,
+    Params(params): Params<(Address, Vec<u8>, Signature)>,
+) -> Result<bool, JsonRpcError> {
+    let (address, msg, sig) = params;
+
+    let ret = sig.verify(&msg, &address).is_ok();
+    Ok(ret)
+}
+
+pub(crate) async fn wallet_set_default<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(Address,)>,
+) -> Result<(), JsonRpcError> {
+    let (address,) = params;
+    let mut keystore = data.keystore.write().await;
+
+    let addr_string = format!("wallet-{}", address.to_string());
+    let key_info = keystore.get(&addr_string)?;
+    keystore.remove("default".to_string()); // This line should unregister current default key then continue
+    keystore.put("default".to_string(), key_info)?;
+    Ok(())
+}
+
+pub(crate) async fn wallet_delete<
+    DB: BlockStore + Send + Sync + 'static,
+    T: KeyStore + Send + Sync + 'static,
+>(
+    data: Data<State<DB, T>>,
+    Params(params): Params<(Address,)>,
+) -> Result<(), JsonRpcError> {
+    let (address,) = params;
+    let mut keystore = data.keystore.write().await;
+
+    let addr_string = format!("wallet-{}", address.to_string());
+
+    keystore.remove(addr_string);
+
+    Ok(())
 }
