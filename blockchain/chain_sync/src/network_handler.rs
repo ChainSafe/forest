@@ -44,8 +44,11 @@ impl NetworkHandler {
             loop {
                 match receiver.next().await {
                     // Handle specifically RPC responses and send to that channel
-                    Some(NetworkEvent::RPCResponse { req_id, response }) => {
-                        // look up the request_table for the id and send through channel
+
+                    Some(NetworkEvent::BlockSyncResponse {
+                        request_id,
+                        response,
+                    }) => {
                         let tx = request_table.lock().await.remove(&req_id);
                         if tx.is_none() {
                             debug!("RPCResponse receive failed: channel not found");
@@ -61,9 +64,9 @@ impl NetworkHandler {
                     // Pass any non RPC responses through event channel
                     Some(event) => {
                         // Update peer on this thread before sending hello
-                        if let NetworkEvent::Hello { source, .. } = &event {
+                        if let NetworkEvent::HelloRequest { channel, .. } = &event {
                             // TODO should probably add peer with their tipset/ not handled seperately
-                            peer_manager.add_peer(source.clone(), None).await;
+                            peer_manager.add_peer(channel.peer.clone(), None).await;
                         }
                         if let NetworkEvent::BitswapBlock { .. } = &event {
                             event_send.publish(event).await
