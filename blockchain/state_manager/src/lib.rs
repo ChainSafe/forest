@@ -277,52 +277,11 @@ where
             StateTree::new_from_root(self.get_block_store_ref(), tipset.parent_state())?;
         state_tree.lookup_id(addr).map_err(Error::State)
     }
-    pub fn market_balance(&self, addr: &Address, tipset: &Tipset) -> Result<MarketBalance, Error> {
-        let ms: market::State =
-            self.load_actor_state(&actor::STORAGE_MARKET_ACTOR_ADDR, tipset.parent_state())?;
-        let look_up = self.look_up_id(addr, tipset)?;
-        let escrow_balance_table =
-            BalanceTable::from_root(self.get_block_store_ref(), &ms.escrow_table).map_err(|e| {
-                Error::Other(format!(
-                    "Could not get balance from root {:}",
-                    e.to_string()
-                ))
-            })?;
 
-        let escrow = if escrow_balance_table.has(addr).map_err(|e| {
-            Error::Other(format!(
-                "Could not check for balance balance {:}",
-                e.to_string()
-            ))
-        })? {
-            escrow_balance_table
-                .get(addr)
-                .map_err(|e| Error::Other(format!("Could not get balance {:}", e.to_string())))?
-        } else {
-            BigUint::zero()
-        };
-
-        let locked_balance_table =
-            BalanceTable::from_root(self.get_block_store_ref(), &ms.locked_table).map_err(|e| {
-                Error::Other(format!(
-                    "Could not get balance from root {:}",
-                    e.to_string()
-                ))
-            })?;
-        let locked = if locked_balance_table.has(addr).map_err(|e| {
-            Error::Other(format!(
-                "Could not check for balance balance {:}",
-                e.to_string()
-            ))
-        })? {
-            locked_balance_table
-                .get(addr)
-                .map_err(|e| Error::Other(format!("Could not get balance {:}", e.to_string())))?
-        } else {
-            BigUint::zero()
-        };
-
-        Ok(MarketBalance { escrow, locked })
+    
+    pub fn market_balance(&self, _addr: &Address, _tipset: &Tipset) -> Result<MarketBalance, Error> {
+        //will merge rupan's implementation
+        unimplemented!("market balance fn not implemented in current build")
     }
 
     fn search_back_for_message(
@@ -345,7 +304,7 @@ where
         let tipset = chain::tipset_from_keys(self.get_block_store_ref(), current.parents())
             .map_err(|err| {
                 Error::Other(format!(
-                    "(get sectors) failed to load miner actor state: %{:}",
+                    "failed to load tipset during msg wait searchback: {:}",
                     err
                 ))
             })?;
@@ -356,6 +315,21 @@ where
             return Ok(Some((tipset, receipt)));
         }
         self.search_back_for_message(&tipset, message)
+    }
+
+    pub fn get_receipt(&self,tipset : &Tipset,msg:&Cid) -> Result<MessageReceipt, Error>
+    {
+        let m = chain::get_chain_message(self.get_block_store_ref(),msg).map_err(|e|Error::Other(e.to_string()))?;
+        let message_receipt = self.tipset_executed_message(tipset,msg,&*m)?;
+
+        if let Some(receipt) = message_receipt
+        {
+            return Ok(receipt)
+        }
+
+        let maybe_tuple = self.search_back_for_message(tipset,&*m)?;
+        let message_receipt = maybe_tuple.ok_or_else(||Error::Other("Could not get receipt from search back message".to_string()))?.1;
+        Ok(message_receipt)
     }
 
     fn tipset_executed_message(
@@ -369,44 +343,45 @@ where
         }
 
         let tipset = chain::tipset_from_keys(self.get_block_store_ref(), tipset.parents())
-            .map_err(|err| {
-                Error::Other(format!(
-                    "(get sectors) failed to load miner actor state: %{:}",
-                    err
-                ))
-            })?;
-        let messages =
-            chain::message_for_tipset(self.get_block_store_ref(), &tipset).map_err(|err| {
-                Error::Other(format!(
-                    "(get sectors) failed to load miner actor state: %{:}",
-                    err
-                ))
-            })?;
+            .map_err(|err| Error::Other(err.to_string()))?;
+        let messages = chain::message_for_tipset(self.get_block_store_ref(), &tipset)
+            .map_err(|err| Error::Other(err.to_string()))?;
         messages
             .iter()
             .zip(0..messages.len())
-            .find(|(s, index)| s.from() == message.from())
-            .map(|(s, index)| {
+            .rev()
+            .filter(|(s, index)| s.from() == message.from())
+            .filter_map(|(s, index)| {
                 if s.sequence() == message.sequence() {
-                    if &s.to_cid()? == cid {
-                        return chain::get_parent_reciept(
-                            self.get_block_store_ref(),
-                            tipset.blocks().first().unwrap(),
-                            index as u64,
-                        )
-                        .map_err(|err| {
-                            Error::Other(format!(
-                                "(get sectors) failed to load miner actor state: %{:}",
-                                err
-                            ))
-                        });
+                    if s.to_cid().map(|s| &s == cid).unwrap_or_default() {
+                        return Some(
+                            chain::get_parent_reciept(
+                                self.get_block_store_ref(),
+                                tipset.blocks().first().unwrap(),
+                                index as u64,
+                            )
+                            .map_err(|err| {
+                                Error::Other(err.to_string())
+                            }),
+                        );
                     }
-
-                    return Err(Error::Other("Could not get sequence".to_string()));
+                    if let Ok(m_cid) = s.to_cid()
+                    {
+                        return Some(Err(Error::Other(format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: {:} n{:})",cid,message.sequence(),m_cid,s.sequence()))))
+                    }
+                    else
+                    {
+                        return Some(Err(Error::Other(format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})",cid,message.sequence(),s.sequence()))))
+                    }
+                    
+                }
+                if s.sequence() < message.sequence() {
+                    return Some(Ok(None));
                 }
 
-                Ok(None)
+                None
             })
+            .next()
             .unwrap_or_else(|| Ok(None))
     }
 
@@ -421,26 +396,21 @@ where
         let mut back_search_wait = self.back_search_wait.clone().ok_or_else(|| {
             Error::Other("State manager not subscribed to back search wait".to_string())
         })?;
-        let message = chain::get_chain_message(self.get_block_store_ref(), cid).map_err(|_| {
-            Error::Other("(get sectors) failed to load miner actor state".to_string())
+        let message = chain::get_chain_message(self.get_block_store_ref(), cid).map_err(|err| {
+            Error::Other(format!("failed to load message {:}",err))
         })?;
 
         let subscribers: Vec<ChainMessage> = subscribers.collect().await;
-        if subscribers.is_empty() {
-            return Err(Error::Other(
-                "SubHeadChanges first entry should have been one item".to_string(),
-            ));
-        }
-
         let first_subscriber = subscribers.iter().nth(0).ok_or_else(|| {
-            Error::Other("(get sectors) failed to load miner actor state".to_string())
+            Error::Other("SubHeadChanges first entry should have been one item".to_string())
         })?;
 
+     
         let tipset = match first_subscriber {
             ChainMessage::HcCurrent(tipset) => tipset,
             _ => {
                 return Err(Error::Other(
-                    "(get sectors) failed to load miner actor state".to_string(),
+                    format!("expected current head on SHC stream (got {:?})", first_subscriber)
                 ))
             }
         };
@@ -486,13 +456,13 @@ where
                         {
                             let ts = candidate_tipset.ok_or_else(|| {
                                 Error::Other(
-                                    "(get sectors) failed to load miner actor state".to_string(),
+                                    "Candidate Tipset not".to_string(),
                                 )
                             })?;
 
                             let rs = candidate_receipt.ok_or_else(|| {
                                 Error::Other(
-                                    "(get sectors) failed to load miner actor state".to_string(),
+                                    "Candidate Receipt not set".to_string(),
                                 )
                             })?;
 
@@ -521,13 +491,13 @@ where
                         if height_of_head > back_tipset.epoch() + confidence {
                             let ts = candidate_tipset.ok_or_else(|| {
                                 Error::Other(
-                                    "(get sectors) failed to load miner actor state".to_string(),
+                                    "Candidate Tipset not".to_string(),
                                 )
                             })?;
 
                             let rs = candidate_receipt.ok_or_else(|| {
                                 Error::Other(
-                                    "(get sectors) failed to load miner actor state".to_string(),
+                                    "Candidate Receipt not set".to_string(),
                                 )
                             })?;
 

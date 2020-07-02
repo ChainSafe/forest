@@ -36,7 +36,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub enum ChainMessage {
     HcCurrent(Arc<Tipset>),
     HcApply(Arc<Tipset>),
@@ -438,23 +438,14 @@ pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<Box<dyn Message>, Err
 where
     DB: BlockStore,
 {
-    fn get_msg<T, DB>(db: &DB, key: &Cid) -> Result<T, Error>
-    where
-        T: DeserializeOwned,
-        DB: BlockStore,
-    {
-        let value = db.read(key.key())?;
-        let bytes = value.ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
-
-        // Decode bytes into type T
-        let t = from_slice(&bytes)?;
-        Ok(t)
-    };
-
-    if let Ok(s) = get_msg::<UnsignedMessage, DB>(db, key) {
+    let value = db.read(key.key())?;
+    let bytes = value.ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
+    let unsigned_message: Result<UnsignedMessage, _> = from_slice(&bytes);
+    if let Ok(s) = unsigned_message {
         Ok(Box::new(s))
     } else {
-        Ok(Box::new(get_msg::<SignedMessage, DB>(db, key)?))
+        let signed_message: SignedMessage = from_slice(&bytes)?;
+        Ok(Box::new(signed_message))
     }
 }
 
