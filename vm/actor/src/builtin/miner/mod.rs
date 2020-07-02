@@ -1488,8 +1488,6 @@ where
             if !new_sectors.is_empty() {
                 let randomness_epoch =
                     std::cmp::min(deadline.period_end(), rt.curr_epoch() - ELECTION_LOOKBACK);
-                let _assignment_seed =
-                    rt.get_randomness(WindowPoStDeadlineAssignment, randomness_epoch, &[])?;
 
                 assign_new_sectors(
                     &mut deadlines,
