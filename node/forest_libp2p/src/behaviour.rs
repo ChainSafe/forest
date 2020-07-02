@@ -110,6 +110,7 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
             }
             BitswapEvent::ReceivedCancel(_peer_id, _cid) => {
                 // TODO: Determine how to handle cancel
+                trace!("BitswapEvent::ReceivedCancel, unimplemented");
             }
         }
     }
@@ -216,6 +217,8 @@ impl ForestBehaviour {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
 
+        let mut bitswap = Bitswap::new();
+
         // Kademlia config
         let store = MemoryStore::new(local_peer_id.to_owned());
         let mut kad_config = KademliaConfig::default();
@@ -227,6 +230,7 @@ impl ForestBehaviour {
             if let Some(Protocol::P2p(mh)) = addr.pop() {
                 let peer_id = PeerId::from_multihash(mh).unwrap();
                 kademlia.add_address(&peer_id, addr);
+                bitswap.connect(peer_id);
             } else {
                 warn!("Could not add addr {} to Kademlia DHT", multiaddr)
             }
@@ -246,7 +250,7 @@ impl ForestBehaviour {
                 local_key.public(),
             ),
             kademlia,
-            bitswap: Bitswap::new(),
+            bitswap,
             rpc: RPC::default(),
             events: vec![],
             peers: Default::default(),

@@ -10,7 +10,7 @@ use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::rpc::{RPCResponse, RequestId};
 use forest_libp2p::NetworkEvent;
 use futures::channel::oneshot::Sender as OneShotSender;
-use log::trace;
+use log::{debug, trace};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -46,8 +46,17 @@ impl NetworkHandler {
                     // Handle specifically RPC responses and send to that channel
                     Some(NetworkEvent::RPCResponse { req_id, response }) => {
                         // look up the request_table for the id and send through channel
-                        let tx = request_table.lock().await.remove(&req_id).unwrap();
-                        tx.send(response).unwrap();
+                        let tx = request_table.lock().await.remove(&req_id);
+                        if tx.is_none() {
+                            debug!("RPCResponse receive failed: channel not found");
+                            continue;
+                        }
+                        let tx = tx.unwrap();
+
+                        match tx.send(response) {
+                            Err(e) => debug!("RPCResponse receive failed: {:?}", e),
+                            Ok(_) => {}
+                        };
                     }
                     // Pass any non RPC responses through event channel
                     Some(event) => {
