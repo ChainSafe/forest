@@ -3,7 +3,7 @@
 
 use super::Message;
 use address::Address;
-use cid::{Cid, Error};
+use cid::Cid;
 use derive_builder::Builder;
 use encoding::Cbor;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};

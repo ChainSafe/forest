@@ -7,6 +7,7 @@ use actor::{
     power::Claim,
 };
 use address::Address;
+use async_std::sync::Arc;
 use async_std::task;
 use bitfield::BitField;
 use blocks::{Tipset, TipsetKeys};
@@ -15,19 +16,17 @@ use chain::ChainStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::SectorNumber;
-use message::{MessageReceipt,UnsignedMessage};
+use message::{MessageReceipt, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 use state_manager::{call, call::InvocResult, StateManager};
 use state_tree::StateTree;
 use std::error::Error;
-use async_std::sync::Arc;
 
 type BoxError = Box<dyn Error + 'static>;
-pub struct MessageLookup
-{
-    pub receipt : MessageReceipt,
-    pub tipset : Arc<Tipset>
+pub struct MessageLookup {
+    pub receipt: MessageReceipt,
+    pub tipset: Arc<Tipset>,
 }
 pub fn get_network_name<DB>(state_manager: &StateManager<DB>) -> Result<String, BoxError>
 where
@@ -267,7 +266,7 @@ where
     DB: BlockStore,
 {
     let block_store = state_manager.get_block_store_ref();
-    let tipset = if let None = maybe_tipset {
+    let tipset = if maybe_tipset.is_none() {
         chain::get_heaviest_tipset(block_store)?
     } else {
         maybe_tipset
@@ -344,7 +343,6 @@ where
         .map_err(|e| e.into())
 }
 
-
 pub fn state_get_receipt<DB>(
     state_manager: &StateManager<DB>,
     msg: &Cid,
@@ -355,19 +353,19 @@ where
 {
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
     state_manager
-        .get_receipt(&tipset,msg)
+        .get_receipt(&tipset, msg)
         .map_err(|e| e.into())
 }
 
-pub fn state_wait_msg<DB>(state_manager: &StateManager<DB>,cid:&Cid,confidence : u64)->Result<MessageLookup, BoxError>
+pub fn state_wait_msg<DB>(
+    state_manager: &StateManager<DB>,
+    cid: &Cid,
+    confidence: u64,
+) -> Result<MessageLookup, BoxError>
 where
-    DB: BlockStore
+    DB: BlockStore,
 {
-    let maybe_tuple = task::block_on(state_manager.wait_for_message(cid,confidence))?;
-    let (tipset,receipt) = maybe_tuple.ok_or_else(||"wait for msg returned empty tuple")?;
-    Ok(MessageLookup
-    {
-        receipt,
-        tipset : tipset
-    })
+    let maybe_tuple = task::block_on(state_manager.wait_for_message(cid, confidence))?;
+    let (tipset, receipt) = maybe_tuple.ok_or_else(|| "wait for msg returned empty tuple")?;
+    Ok(MessageLookup { receipt, tipset })
 }

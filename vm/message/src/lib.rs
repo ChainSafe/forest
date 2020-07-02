@@ -13,7 +13,7 @@ pub use signed_message::SignedMessage;
 pub use unsigned_message::UnsignedMessage;
 
 use address::Address;
-use cid::{Cid, Error};
+use cid::Cid;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 pub trait Message {

@@ -1,21 +1,18 @@
 use crate::errors::*;
 use crate::StateManager;
-use actor::miner;
-use address::{Address, Protocol};
+
 use async_log::span;
-use bitfield::BitField;
+
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::{RegisteredSealProof, SectorInfo, SectorSize};
-use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
+
 use forest_blocks::Tipset;
-use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
+use interpreter::{ApplyRet, ChainRand, DefaultSyscalls, VM};
 use log::trace;
 use log::warn;
 use message::{Message, MessageReceipt, UnsignedMessage};
-use vm::ActorError;
 
 pub struct InvocResult<Msg>
 where
@@ -40,7 +37,7 @@ where
 {
     span!("state_call_raw", {
         let block_store = state_manager.get_block_store_ref();
-        let mut buf_store = BufferedBlockStore::new(block_store);
+        let buf_store = BufferedBlockStore::new(block_store);
         let mut vm = VM::new(
             bstate,
             &buf_store,
@@ -53,7 +50,7 @@ where
             msg.set_gas_limit(10000000000)
         }
 
-        let actor = state_manager.get_actor(msg.from(), bstate)?;
+        let _actor = state_manager.get_actor(msg.from(), bstate)?;
         let apply_ret = vm.apply_implicit_message(msg);
         trace!("gas limit {:}", msg.gas_limit());
         trace!("gas price {:?}", msg.gas_price());
@@ -83,8 +80,7 @@ where
     } else {
         let ts = chain::get_heaviest_tipset(state_manager.get_block_store_ref())
             .map_err(|_| Error::Other("Could not get heaviest tipset".to_string()))?;
-        let t_set = ts.ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?;
-        t_set
+        ts.ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?
     };
     let state = ts.parent_state();
     let chain_rand = ChainRand::new(ts.key().to_owned());
@@ -101,11 +97,11 @@ where
 {
     let mut outm: Option<UnsignedMessage> = None;
     let mut outr: Option<ApplyRet> = None;
-    let error_message_halt = "halt".to_string();
+    let _error_message_halt = "halt".to_string();
     let call_back = |cid: Cid, unsigned: UnsignedMessage, apply_ret: ApplyRet| {
         if cid == mcid.clone() {
-            outm = Some(unsigned.clone());
-            outr = Some(apply_ret.clone());
+            outm = Some(unsigned);
+            outr = Some(apply_ret);
             return Err("halt".to_string());
         }
 

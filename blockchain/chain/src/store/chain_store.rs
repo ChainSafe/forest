@@ -36,7 +36,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum ChainMessage {
     HcCurrent(Arc<Tipset>),
     HcApply(Arc<Tipset>),
@@ -460,58 +460,44 @@ where
     //message to get all messages for block_header into a single iterator
     type BoxMessage = Box<dyn Message>;
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<BoxMessage>, Error> {
-        let (mut unsigned, mut signed) = block_messages(db, b)?;
-        let unsigned_box = unsigned.iter().map(|s| {
-            let box_msg: Box<dyn Message> = Box::new(s.clone());
+        let (unsigned, signed) = block_messages(db, b)?;
+        let unsigned_box = unsigned.into_iter().map(|s| {
+            let box_msg: Box<dyn Message> = Box::new(s);
             box_msg
         });
-        let signed_box = signed.iter().map(|s| {
-            let box_msg: Box<dyn Message> = Box::new(s.clone());
+        let signed_box = signed.into_iter().map(|s| {
+            let box_msg: Box<dyn Message> = Box::new(s);
             box_msg
         });
-        let message_iter = unsigned_box
-            .chain(signed_box)
-            .map(|address| {
-                let from_address = address.from();
-                if let Some(s) = applied.get(&from_address) {
-                    let actor_state = state
-                        .get_actor(from_address)?
-                        .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
-                    applied.insert(from_address.clone(), actor_state.sequence);
-                    balances.insert(*from_address, actor_state.balance);
-                }
-                let apply = applied.get(from_address).cloned();
-                let balance_val = balances.get(from_address).cloned();
-                Ok((address, apply, balance_val))
-            })
-            .filter(
-                |b: &Result<(BoxMessage, Option<u64>, Option<BigUint>), Error>| {
-                    if let Ok((b_ref, apply, _)) = b {
-                        apply.map(|s| s != b_ref.sequence()).unwrap_or_default()
-                    } else {
-                        true
-                    }
-                },
-            )
-            .filter(|b| {
-                if let Ok((b_ref, _, balance)) = b {
-                    balance
-                        .as_ref()
-                        .map(|s| s < &b_ref.required_funds())
-                        .unwrap_or_default()
-                } else {
-                    true
-                }
-            })
-            .map(|b| {
-                let (b_ref, apply, balance) = b?;
-                balance.map(|b_funds| b_funds - b_ref.required_funds());
 
-                Ok(b_ref)
-            })
-            .collect::<Result<Vec<BoxMessage>, Error>>()?;
+        let mut messages = Vec::new();
+        for message in unsigned_box.chain(signed_box) {
+            let from_address = message.from();
+            if let Some(_s) = applied.get(&from_address) {
+                let actor_state = state
+                    .get_actor(from_address)?
+                    .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
+                applied.insert(*from_address, actor_state.sequence);
+                balances.insert(*from_address, actor_state.balance);
+            }
+            let apply = applied.get(from_address);
+            if apply.map(|s| s != &message.sequence()).unwrap_or_default() {
+                continue;
+            }
+            let balance = balances.get(from_address).cloned();
+            if balance
+                .clone()
+                .map(|s| s < message.required_funds())
+                .unwrap_or_default()
+            {
+                continue;
+            }
+            balance.map(|s| balances.insert(*message.from(), s - message.required_funds()));
 
-        Ok(message_iter)
+            messages.push(message)
+        }
+
+        Ok(messages)
     };
 
     ts.blocks().iter().fold(Ok(Vec::new()), |vec, b| {

@@ -6,7 +6,7 @@ mod errors;
 pub mod utils;
 pub use self::errors::*;
 use actor::{
-    init, market, market::MarketBalance, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
+    init, market::MarketBalance, miner, power, ActorState, INIT_ACTOR_ADDR,
     STORAGE_POWER_ACTOR_ADDR,
 };
 use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
@@ -19,14 +19,14 @@ use cid::Cid;
 use encoding::de::DeserializeOwned;
 use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
-use futures::stream;
+
 use futures::*;
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::trace;
 use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigUint;
-use num_traits::Zero;
+
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -153,7 +153,7 @@ where
         &self,
         ts: &FullTipset,
         rand: &ChainRand,
-        mut call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
@@ -209,10 +209,7 @@ where
 
             let block_headers = tipset.blocks();
             // generic constants are not implemented yet this is a lowcost method for now
-            let cid_pair = self.compute_tipset_state(
-                &block_headers,
-                Some(|Cid, UnsignedMessage, ApplyRet| Ok(())),
-            )?;
+            let cid_pair = self.compute_tipset_state(&block_headers, Some(|_, _, _| Ok(())))?;
             self.cache
                 .write()
                 .await
@@ -224,7 +221,7 @@ where
     pub fn compute_tipset_state<'a>(
         &'a self,
         blocks_headers: &[BlockHeader],
-        mut call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
             let check_for_duplicates = |s: &BlockHeader| {
@@ -278,8 +275,11 @@ where
         state_tree.lookup_id(addr).map_err(Error::State)
     }
 
-    
-    pub fn market_balance(&self, _addr: &Address, _tipset: &Tipset) -> Result<MarketBalance, Error> {
+    pub fn market_balance(
+        &self,
+        _addr: &Address,
+        _tipset: &Tipset,
+    ) -> Result<MarketBalance, Error> {
         //will merge rupan's implementation
         unimplemented!("market balance fn not implemented in current build")
     }
@@ -287,7 +287,7 @@ where
     fn search_back_for_message(
         &self,
         tipset: &Tipset,
-        message: &Message,
+        message: &dyn Message,
     ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
         let current = tipset.to_owned();
 
@@ -317,18 +317,21 @@ where
         self.search_back_for_message(&tipset, message)
     }
 
-    pub fn get_receipt(&self,tipset : &Tipset,msg:&Cid) -> Result<MessageReceipt, Error>
-    {
-        let m = chain::get_chain_message(self.get_block_store_ref(),msg).map_err(|e|Error::Other(e.to_string()))?;
-        let message_receipt = self.tipset_executed_message(tipset,msg,&*m)?;
+    pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
+        let m = chain::get_chain_message(self.get_block_store_ref(), msg)
+            .map_err(|e| Error::Other(e.to_string()))?;
+        let message_receipt = self.tipset_executed_message(tipset, msg, &*m)?;
 
-        if let Some(receipt) = message_receipt
-        {
-            return Ok(receipt)
+        if let Some(receipt) = message_receipt {
+            return Ok(receipt);
         }
 
-        let maybe_tuple = self.search_back_for_message(tipset,&*m)?;
-        let message_receipt = maybe_tuple.ok_or_else(||Error::Other("Could not get receipt from search back message".to_string()))?.1;
+        let maybe_tuple = self.search_back_for_message(tipset, &*m)?;
+        let message_receipt = maybe_tuple
+            .ok_or_else(|| {
+                Error::Other("Could not get receipt from search back message".to_string())
+            })?
+            .1;
         Ok(message_receipt)
     }
 
@@ -336,22 +339,21 @@ where
         &self,
         tipset: &Tipset,
         cid: &Cid,
-        message: &Message,
+        message: &dyn Message,
     ) -> Result<Option<MessageReceipt>, Error> {
         if tipset.epoch() == 0 {
             return Ok(None);
         }
-
         let tipset = chain::tipset_from_keys(self.get_block_store_ref(), tipset.parents())
             .map_err(|err| Error::Other(err.to_string()))?;
         let messages = chain::message_for_tipset(self.get_block_store_ref(), &tipset)
             .map_err(|err| Error::Other(err.to_string()))?;
         messages
             .iter()
-            .zip(0..messages.len())
+            .enumerate()
             .rev()
-            .filter(|(s, index)| s.from() == message.from())
-            .filter_map(|(s, index)| {
+            .filter(|(_, s)| s.from() == message.from())
+            .filter_map(|(index,s)| {
                 if s.sequence() == message.sequence() {
                     if s.to_cid().map(|s| &s == cid).unwrap_or_default() {
                         return Some(
@@ -369,10 +371,9 @@ where
                     {
                         return Some(Err(Error::Other(format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: {:} n{:})",cid,message.sequence(),m_cid,s.sequence()))))
                     }
-                    else
-                    {
-                        return Some(Err(Error::Other(format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})",cid,message.sequence(),s.sequence()))))
-                    }
+                   
+                   return Some(Err(Error::Other(format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})",cid,message.sequence(),s.sequence()))))
+                    
                     
                 }
                 if s.sequence() < message.sequence() {
@@ -390,28 +391,27 @@ where
         cid: &Cid,
         confidence: u64,
     ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Error> {
-        let mut subscribers = self.subscriber.clone().ok_or_else(|| {
+        let subscribers = self.subscriber.clone().ok_or_else(|| {
             Error::Other("State Manager not subscribed to tipset head changes".to_string())
         })?;
         let mut back_search_wait = self.back_search_wait.clone().ok_or_else(|| {
             Error::Other("State manager not subscribed to back search wait".to_string())
         })?;
-        let message = chain::get_chain_message(self.get_block_store_ref(), cid).map_err(|err| {
-            Error::Other(format!("failed to load message {:}",err))
-        })?;
+        let message = chain::get_chain_message(self.get_block_store_ref(), cid)
+            .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
         let subscribers: Vec<ChainMessage> = subscribers.collect().await;
-        let first_subscriber = subscribers.iter().nth(0).ok_or_else(|| {
+        let first_subscriber = subscribers.get(0).ok_or_else(|| {
             Error::Other("SubHeadChanges first entry should have been one item".to_string())
         })?;
 
-     
         let tipset = match first_subscriber {
             ChainMessage::HcCurrent(tipset) => tipset,
             _ => {
-                return Err(Error::Other(
-                    format!("expected current head on SHC stream (got {:?})", first_subscriber)
-                ))
+                return Err(Error::Other(format!(
+                    "expected current head on SHC stream (got {:?})",
+                    first_subscriber
+                )))
             }
         };
         let maybe_message_reciept = self.tipset_executed_message(&tipset, cid, &*message)?;
@@ -421,7 +421,7 @@ where
             }
         }
 
-        let (back_tipset, back_receipt) = self
+        let (back_tipset, _back_receipt) = self
             .search_back_for_message(&tipset, &*message)?
             .ok_or_else(|| {
                 Error::Other("State manager not subscribed to back search wait".to_string())
@@ -429,7 +429,7 @@ where
 
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
         let mut candidate_receipt: Option<MessageReceipt> = None;
-        let mut height_of_head = tipset.epoch();
+        let height_of_head = tipset.epoch();
         let mut reverts: HashMap<TipsetKeys, bool> = HashMap::new();
         loop {
             while let Some(subscriber) = self
@@ -442,8 +442,8 @@ where
                 .await
             {
                 match subscriber {
-                    ChainMessage::HcRevert(tipset) => {
-                        if let Some(_) = candidate_tipset {
+                    ChainMessage::HcRevert(_tipset) => {
+                        if candidate_tipset.is_some() {
                             candidate_tipset = None;
                             candidate_receipt = None;
                         }
@@ -454,16 +454,11 @@ where
                             .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
                             .unwrap_or_default()
                         {
-                            let ts = candidate_tipset.ok_or_else(|| {
-                                Error::Other(
-                                    "Candidate Tipset not".to_string(),
-                                )
-                            })?;
+                            let ts = candidate_tipset
+                                .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
 
                             let rs = candidate_receipt.ok_or_else(|| {
-                                Error::Other(
-                                    "Candidate Receipt not set".to_string(),
-                                )
+                                Error::Other("Candidate Receipt not set".to_string())
                             })?;
 
                             return Ok(Some((ts, rs)));
@@ -475,7 +470,7 @@ where
                             self.tipset_executed_message(&tipset, cid, &*message)?;
                         if let Some(receipt) = maybe_receipt {
                             if confidence == 0 {
-                                return Ok(Some((tipset.clone(), receipt)));
+                                return Ok(Some((tipset, receipt)));
                             }
                             candidate_tipset = Some(tipset);
                             candidate_receipt = Some(receipt)
@@ -487,22 +482,16 @@ where
 
             match back_search_wait.next().await {
                 Some(_) => {
-                    if !reverts.get(back_tipset.key()).unwrap_or(&false) {
-                        if height_of_head > back_tipset.epoch() + confidence {
-                            let ts = candidate_tipset.ok_or_else(|| {
-                                Error::Other(
-                                    "Candidate Tipset not".to_string(),
-                                )
-                            })?;
+                    if !reverts.get(back_tipset.key()).unwrap_or(&false)
+                        && height_of_head > back_tipset.epoch() + confidence
+                    {
+                        let ts = candidate_tipset
+                            .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
 
-                            let rs = candidate_receipt.ok_or_else(|| {
-                                Error::Other(
-                                    "Candidate Receipt not set".to_string(),
-                                )
-                            })?;
+                        let rs = candidate_receipt
+                            .ok_or_else(|| Error::Other("Candidate Receipt not set".to_string()))?;
 
-                            return Ok(Some((ts, rs)));
-                        }
+                        return Ok(Some((ts, rs)));
                     }
                 }
                 _ => continue,

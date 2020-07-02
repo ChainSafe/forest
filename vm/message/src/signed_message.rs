@@ -3,7 +3,7 @@
 
 use super::{Message, UnsignedMessage};
 use address::Address;
-use cid::{Cid, Error};
+use cid::Cid;
 use crypto::{Error as CryptoError, Signature, Signer};
 use encoding::tuple::*;
 use encoding::Cbor;

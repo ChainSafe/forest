@@ -12,15 +12,12 @@ use actor::{
 use address::{Address, Protocol};
 use bitfield::BitField;
 use blockstore::BlockStore;
-use chain;
 use cid::Cid;
 use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize};
 use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
 use forest_blocks::Tipset;
 use ipld_amt::Amt;
 use ipld_hamt::Hamt;
-use message::{Message, MessageReceipt};
-use serde::de::DeserializeOwned;
 use std::convert::TryInto;
 
 pub fn get_sectors_for_winning_post<DB>(
@@ -121,7 +118,7 @@ pub fn get_miner_sector_set<DB>(
     state_manager: &StateManager<DB>,
     tipset: &Tipset,
     address: &Address,
-    mut filter: &mut Option<&mut BitField>,
+    filter: &mut Option<&mut BitField>,
     filter_out: bool,
 ) -> Result<Vec<ChainSectorInfo>, Error>
 where
@@ -147,7 +144,7 @@ fn load_sectors_from_set<DB>(
     block_store: &DB,
     ssc: &Cid,
     filter: &mut Option<&mut BitField>,
-    filter_out: bool,
+    _filter_out: bool,
 ) -> Result<Vec<ChainSectorInfo>, Error>
 where
     DB: BlockStore,
@@ -162,13 +159,13 @@ where
             }
         }
         sset.push(ChainSectorInfo {
-            info: sector_chain.info.clone(),
-            id: i.clone(),
+            info: sector_chain.info.to_owned(),
+            id: i,
         });
         Ok(())
     };
     amt.for_each(for_each)
-        .map_err(|err| Error::Other(format!("Error Processing ForEach {:}", err.to_string())))?;
+        .map_err(|err| Error::Other(format!("Error Processing ForEach {:}", err)))?;
 
     Ok(sset)
 }
@@ -330,7 +327,7 @@ where
         miners.push(address);
         Ok(())
     })
-    .map_err(|err| Error::Other(err.to_string()))?;
+    .map_err(Error::Other)?;
     Ok(miners)
 }
 
