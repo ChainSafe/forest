@@ -239,12 +239,12 @@ pub fn assign_new_sectors(
     // A miner onboarding a monumental 1EiB of 32GiB sectors uniformly throughout a year will fill 40 partitions
     // per proving period (40^2=1600). With 64GiB sectors, half that (20^2=400).
     // TODO: randomize assignment among equally-full deadlines https://github.com/filecoin-project/specs-actors/issues/432
-    
+
     let mut dl_idxs = [0usize; WPOST_PERIOD_DEADLINES];
     for (i, v) in (0..).zip(dl_idxs.iter_mut()) {
         *v = i;
     }
-    
+
     let sort_deadlines = |deadl: &[usize; WPOST_PERIOD_DEADLINES],
                           dl_idxs: &mut [usize; WPOST_PERIOD_DEADLINES]| {
         dl_idxs.sort_by_cached_key(|&i| (deadl[i], i));
@@ -252,7 +252,7 @@ pub fn assign_new_sectors(
     sort_deadlines(&deadline_partitions_counts, &mut dl_idxs);
     while next_new_sector < new_sectors.len() {
         // Assign a full partition to the least-full deadline.
-        let target_deadline = dl_idxs[0];        
+        let target_deadline = dl_idxs[0];
         assign_to_deadline(
             partition_size as usize,
             target_deadline,

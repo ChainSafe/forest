@@ -870,7 +870,7 @@ impl Deadlines {
             .get_mut(deadline)
             .ok_or(format!("unable to find deadline: {}", deadline))?;
         *sec |= &ns;
-        
+
         Ok(())
     }
     /// Removes sector numbers from all deadlines.

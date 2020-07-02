@@ -35,8 +35,7 @@ use byteorder::{BigEndian, ByteOrder};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
-    InteractiveSealChallengeSeed, SealRandomness, WindowPoStDeadlineAssignment,
-    WindowedPoStChallengeSeed,
+    InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,
 };
 use encoding::Cbor;
 use fil_types::{
@@ -1486,9 +1485,7 @@ where
                 .collect();
 
             if !new_sectors.is_empty() {
-                let randomness_epoch =
-                    std::cmp::min(deadline.period_end(), rt.curr_epoch() - ELECTION_LOOKBACK);
-
+                // TODO spec indicates passing in `seed` param, however its currently not being used hence its absence here
                 assign_new_sectors(
                     &mut deadlines,
                     st.info.window_post_partition_sectors as usize,
