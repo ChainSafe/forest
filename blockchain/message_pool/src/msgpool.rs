@@ -479,6 +479,7 @@ where
     }
 }
 
+/// Remove a message from pending given the from address and sequence
 pub async fn remove(
     from: &Address,
     pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
