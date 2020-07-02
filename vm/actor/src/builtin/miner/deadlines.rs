@@ -93,10 +93,11 @@ pub fn compute_proving_period_deadline(
         // Proving period has completely elapsed.
         return DeadlineInfo::new(period_start, WPOST_PERIOD_DEADLINES, current_epoch);
     }
-    let mut deadline_idx = period_progress / WPOST_CHALLENGE_WINDOW;
-    if period_progress < 0 {
-        deadline_idx = 0;
-    }
+    let deadline_idx = if period_progress < 0 {
+        0
+    } else {
+        period_progress / WPOST_CHALLENGE_WINDOW
+    };
     DeadlineInfo::new(period_start, deadline_idx as usize, current_epoch)
 }
 /// Computes the first partition index and number of sectors for a deadline.
