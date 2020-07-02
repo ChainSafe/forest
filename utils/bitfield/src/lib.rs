@@ -134,7 +134,7 @@ impl BitField {
     /// Returns an iterator over the indices of the bit field's set bits if the number
     /// of set bits in the bit field does not exceed `max`. Returns an error otherwise.
     pub fn bounded_iter(&self, max: usize) -> Result<impl Iterator<Item = usize> + '_> {
-        if max >= self.len() {
+        if self.len() <= max {
             Ok(self.iter())
         } else {
             Err("Bits set exceeds max in retrieval")

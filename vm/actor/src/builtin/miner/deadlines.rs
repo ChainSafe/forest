@@ -206,6 +206,7 @@ pub fn assign_new_sectors(
         let count_to_add = std::cmp::min(count, new_sectors.len() - *next_new_sector);
         let limit = *next_new_sector + count_to_add;
         let sectors_to_add = &new_sectors[*next_new_sector..limit];
+        //println!("deadlines:::: {}", deadline);
         deadlines.add_to_deadline(deadline, sectors_to_add)?;
         *next_new_sector += count_to_add;
         Ok(())
@@ -248,21 +249,16 @@ pub fn assign_new_sectors(
     // and is unclear what functionality is intended.
     let sort_deadlines = |deadl: &[usize; WPOST_PERIOD_DEADLINES],
                           dl_idxs: &mut [usize; WPOST_PERIOD_DEADLINES]| {
-        let cloned_idxs = *dl_idxs;
-        dl_idxs.sort_by(|i, j| {
-            let (idx_i, idx_j) = (cloned_idxs[*i], cloned_idxs[*j]);
-            let (count_i, count_j) = (deadl[idx_i], deadl[idx_j]);
-            if count_i == count_j {
-                idx_i.cmp(&idx_j)
-            } else {
-                count_i.cmp(&count_j)
-            }
-        })
+        dl_idxs.sort_by_cached_key(|&i| (deadl[i], i));
     };
     sort_deadlines(&deadline_partitions_counts, &mut dl_idxs);
     while next_new_sector < new_sectors.len() {
+        // for el in dl_idxs.iter() {
+        //     println!("el::::: {:?}", el);
+        // }
         // Assign a full partition to the least-full deadline.
         let target_deadline = dl_idxs[0];
+        //println!("target-deadline:: {}", target_deadline);
         assign_to_deadline(
             partition_size as usize,
             target_deadline,

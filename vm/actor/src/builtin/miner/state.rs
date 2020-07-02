@@ -865,12 +865,15 @@ impl Deadlines {
         new_sectors: &[usize],
     ) -> Result<(), String> {
         let ns: BitField = new_sectors.iter().copied().collect();
+
+        //println!("sector before merge:::: {:?}", ns.iter().collect::<Vec<usize>>());
+        //println!("due before merge:::: {:?}", self.due.get(deadline).unwrap().iter().collect::<Vec<usize>>());
         let sec = self
             .due
             .get_mut(deadline)
             .ok_or(format!("unable to find deadline: {}", deadline))?;
         *sec |= &ns;
-        println!("sector:::: {:?}", sec.iter().collect::<Vec<usize>>());
+        //println!("sector after merge:::: {:?}", sec.iter().collect::<Vec<usize>>());
         Ok(())
     }
     /// Removes sector numbers from all deadlines.

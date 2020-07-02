@@ -47,7 +47,7 @@ impl State {
             locked_table: empty_map,
             next_id: 0,
             deal_ops_by_epoch: empty_mset,
-            last_cron: ChainEpoch::default(),
+            last_cron: EPOCH_UNDEFINED,
         }
     }
 

@@ -384,8 +384,7 @@ fn full_plus_partial_test() {
     let mut dls = Deadlines::new();
     dls.due[10] = bf_seq(5555, PART_SIZE + 1);
 
-    let mut partitions =
-        compute_partitions_sector(&mut dls, PART_SIZE as u64, 10, &[0]).unwrap();
+    let mut partitions = compute_partitions_sector(&mut dls, PART_SIZE as u64, 10, &[0]).unwrap();
     assert_eq!(1, partitions.clone().len());
     assert_bf_equal(bf_seq(5555, PART_SIZE), partitions.get(0).unwrap().clone());
 
@@ -478,48 +477,51 @@ const NEW_SECTOR_PART_SIZE: usize = 4;
 
 #[test]
 fn assign_new_sectors_test() {
-    // let mut deadlines = assign_sectors_setup(Deadlines::new(), &seq(0,0));
-    // DeadlineBuilder::new(&[]).verify(&deadlines);
+    let mut deadlines = assign_sectors_setup(Deadlines::new(), &seq(0, 0));
+    DeadlineBuilder::new(&[]).verify(&deadlines);
 
-    // deadlines = assign_sectors_setup(Deadlines::new(), &seq(0, 1));
-    // DeadlineBuilder::new(&[0, 1]).verify(&deadlines);
+    deadlines = assign_sectors_setup(Deadlines::new(), &seq(0, 1));
+    DeadlineBuilder::new(&[0, 1]).verify(&deadlines);
 
-    let deadlines = assign_sectors_setup(Deadlines::new(), &seq(0,15));
+    deadlines = assign_sectors_setup(Deadlines::new(), &seq(0, 15));
     DeadlineBuilder::new(&[0, 4, 4, 4, 3]).verify(&deadlines);
 
-    // let deadlines = assign_sectors_setup(Deadlines::new(), &seq(0, (WPOST_PERIOD_DEADLINES - 1) * NEW_SECTOR_PART_SIZE + 1), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[]).add_to_all_from(1, NEW_SECTOR_PART_SIZE).add_to(1, 1).verify(&deadlines);
+    deadlines = assign_sectors_setup(
+        Deadlines::new(),
+        &seq(0, (WPOST_PERIOD_DEADLINES - 1) * NEW_SECTOR_PART_SIZE + 1),
+    );
+    DeadlineBuilder::new(&[])
+        .add_to_all_from(1, NEW_SECTOR_PART_SIZE)
+        .add_to(1, 1)
+        .verify(&deadlines);
 }
 
 #[test]
 fn incremental_assignment_test() {
     // Add one sector at a time.
-    // let mut deadlines = DeadlineBuilder::new(&[0, 1]).deadlines;
-    // deadlines = assign_sectors_setup(deadlines.clone(), &seq(1, 1), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[0, 2]).verify(&deadlines);
-    // deadlines = assign_sectors_setup(deadlines.clone(), &seq(2, 1), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[0, 3]).verify(&deadlines);
-    // deadlines = assign_sectors_setup(deadlines.clone(), &seq(3, 1), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[0, 4]).verify(&deadlines);
-    // deadlines = assign_sectors_setup(deadlines.clone(), &seq(4, 1), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[0, 4, 1]).verify(&deadlines);
+    let mut deadlines = DeadlineBuilder::new(&[0, 1]).deadlines;
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(1, 1));
+    DeadlineBuilder::new(&[0, 2]).verify(&deadlines);
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(2, 1));
+    DeadlineBuilder::new(&[0, 3]).verify(&deadlines);
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(3, 1));
+    DeadlineBuilder::new(&[0, 4]).verify(&deadlines);
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(4, 1));
+    DeadlineBuilder::new(&[0, 4, 1]).verify(&deadlines);
 
     // Add one partition at a time.
-    // deadlines = Deadlines::new();
-    // deadlines = assign_sectors_setup(deadlines.clone(), &seq(0, 4), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[0, 4]).verify(&deadlines);
-    // deadlines = assign_sectors_setup(deadlines.clone(), &seq(4, 4), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[0, 4, 4]).verify(&deadlines);
-    // deadlines = assign_sectors_setup(deadlines.clone(), &seq(2 * 4, 4), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[0, 4, 4, 4]).verify(&deadlines);
-    // deadlines = assign_sectors_setup(deadlines.clone(), &seq(3 * 4, 4), NEW_SECTOR_PART_SIZE);
-    // DeadlineBuilder::new(&[0, 4, 4, 4, 4]).verify(&deadlines);
+    deadlines = Deadlines::new();
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(0, 4));
+    DeadlineBuilder::new(&[0, 4]).verify(&deadlines);
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(4, 4));
+    DeadlineBuilder::new(&[0, 4, 4]).verify(&deadlines);
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(2 * 4, 4));
+    DeadlineBuilder::new(&[0, 4, 4, 4]).verify(&deadlines);
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(3 * 4, 4));
+    DeadlineBuilder::new(&[0, 4, 4, 4, 4]).verify(&deadlines);
     // Add lots
-    let mut deadlines = Deadlines::new();
-    deadlines = assign_sectors_setup(
-        deadlines.clone(),
-        &seq(0, 2 * NEW_SECTOR_PART_SIZE + 1),
-    );
+    deadlines = Deadlines::new();
+    deadlines = assign_sectors_setup(deadlines.clone(), &seq(0, 2 * NEW_SECTOR_PART_SIZE + 1));
     DeadlineBuilder::new(&[
         0,
         NEW_SECTOR_PART_SIZE as u64,
@@ -527,36 +529,48 @@ fn incremental_assignment_test() {
         1,
     ])
     .verify(&deadlines);
-    // deadlines = assign_sectors_setup(
-    //     deadlines.clone(),
-    //     &seq(2 * NEW_SECTOR_PART_SIZE + 1, NEW_SECTOR_PART_SIZE),
-    //     NEW_SECTOR_PART_SIZE,
-    // );
-    // DeadlineBuilder::new(&[
-    //     0,
-    //     NEW_SECTOR_PART_SIZE as u64,
-    //     NEW_SECTOR_PART_SIZE as u64,
-    //     NEW_SECTOR_PART_SIZE as u64,
-    //     1,
-    // ])
-    // .verify(&deadlines);
+    deadlines = assign_sectors_setup(
+        deadlines.clone(),
+        &seq(2 * NEW_SECTOR_PART_SIZE + 1, NEW_SECTOR_PART_SIZE),
+    );
+    DeadlineBuilder::new(&[
+        0,
+        NEW_SECTOR_PART_SIZE as u64,
+        NEW_SECTOR_PART_SIZE as u64,
+        NEW_SECTOR_PART_SIZE as u64,
+        1,
+    ])
+    .verify(&deadlines);
 }
 
 #[test]
 fn fill_partial_partitions_first_test() {
-    let mut b = DeadlineBuilder::new(&[0,4,3,1]);
+    let mut b = DeadlineBuilder::new(&[0, 4, 3, 1]);
     let mut deadlines = assign_sectors_setup(b.deadlines, &seq(b.next_sector_idx, 4));
-    DeadlineBuilder::new(&[0,4,3,1]).add_to(2, 1).add_to(3,3).verify(&deadlines);
+    DeadlineBuilder::new(&[0, 4, 3, 1])
+        .add_to(2, 1)
+        .add_to(3, 3)
+        .verify(&deadlines);
 
-    b = DeadlineBuilder::new(&[0,9,8,7,4,1]);
+    b = DeadlineBuilder::new(&[0, 9, 8, 7, 4, 1]);
     deadlines = assign_sectors_setup(b.deadlines, &seq(b.next_sector_idx, 7));
-    DeadlineBuilder::new(&[0,9,8,7,4,1]).add_to(1, 3).add_to(3,1).add_to(5,3).verify(&deadlines);
+    DeadlineBuilder::new(&[0, 9, 8, 7, 4, 1])
+        .add_to(1, 3)
+        .add_to(3, 1)
+        .add_to(5, 3)
+        .verify(&deadlines);
 
     // fill less full deadlines first
-    let b = DeadlineBuilder::new(&[0,12,4,4,8]).add_to_all_from(5, 100);
+    let b = DeadlineBuilder::new(&[0, 12, 4, 4, 8]).add_to_all_from(5, 100);
     deadlines = assign_sectors_setup(b.deadlines, &seq(b.next_sector_idx, 20));
-    DeadlineBuilder::new(&[0,12,4,4,8]).add_to_all_from(5, 100).add_to(2,4).add_to(3,4).add_to(2, 4).add_to(3, 4).add_to(4, 4).verify(&deadlines);
-
+    DeadlineBuilder::new(&[0, 12, 4, 4, 8])
+        .add_to_all_from(5, 100)
+        .add_to(2, 4)
+        .add_to(3, 4)
+        .add_to(2, 4)
+        .add_to(3, 4)
+        .add_to(4, 4)
+        .verify(&deadlines);
 }
 
 fn assign_sectors_setup(mut deadlines: Deadlines, sectors: &[usize]) -> Deadlines {
@@ -565,18 +579,25 @@ fn assign_sectors_setup(mut deadlines: Deadlines, sectors: &[usize]) -> Deadline
 }
 
 fn assert_bf_equal(expected: BitField, actual: BitField) {
-    let ex: Vec<_> = expected.bounded_iter(1 << 20).unwrap().collect();
-    let ac: Vec<_> = actual.bounded_iter(1 << 20).unwrap().collect();
+    assert!(expected
+        .bounded_iter(1 << 20)
+        .unwrap()
+        .eq(actual.bounded_iter(1 << 20).unwrap()));
+    // let ex: Vec<_> = expected.bounded_iter(1 << 20).unwrap().collect();
+    // let ac: Vec<_> = actual.bounded_iter(1 << 20).unwrap().collect();
 
-    assert_eq!(ex, ac);
+    // assert_eq!(ex, ac);
 }
 
 fn assert_deadlines_equal(expected: &Deadlines, actual: &Deadlines) {
     for (i, v) in expected.due.iter().enumerate() {
-        //assert!(v.bounded_iter(1 << 20).unwrap().eq(actual.due[i].bounded_iter(1 << 20).unwrap()));
-        let ex: Vec<_> = v.bounded_iter(1 << 20).unwrap().collect();
-        let ac: Vec<_> = actual.due[i].bounded_iter(1 << 20).unwrap().collect();
-        assert_eq!(ex, ac);
+        assert!(v
+            .bounded_iter(1 << 20)
+            .unwrap()
+            .eq(actual.due[i].bounded_iter(1 << 20).unwrap()));
+        // let ex: Vec<_> = v.bounded_iter(1 << 20).unwrap().collect();
+        // let ac: Vec<_> = actual.due[i].bounded_iter(1 << 20).unwrap().collect();
+        // assert_eq!(ex, ac);
     }
 }
 
@@ -640,6 +661,7 @@ impl DeadlineBuilder {
             self.add_to(i, count);
             i += 1;
         }
+        println!("END OF ALL");
         self
     }
 
