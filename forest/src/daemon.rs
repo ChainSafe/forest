@@ -15,7 +15,7 @@ use std::sync::Arc;
 use utils::write_to_file;
 
 /// Starts daemon process
-pub(super) fn start(config: Config) {
+pub(super) async fn start(config: Config) {
     info!("Starting Forest daemon");
     let net_keypair = get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair"))
         .unwrap_or_else(|| {
@@ -80,12 +80,12 @@ pub(super) fn start(config: Config) {
     });
 
     // Block until ctrl-c is hit
-    block_until_sigint();
+    block_until_sigint().await;
 
-    // Drop threads
-    drop(rpc_thread);
-    drop(p2p_thread);
-    drop(sync_thread);
+    // Cancel all async services
+    rpc_thread.cancel().await;
+    p2p_thread.cancel().await;
+    sync_thread.cancel().await;
 
     info!("Forest finish shutdown");
 }
