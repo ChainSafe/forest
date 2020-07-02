@@ -2585,6 +2585,7 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "futures_codec",
+ "ipld_blockstore",
  "libp2p",
  "log",
  "multihash 0.10.1",
@@ -5581,26 +5582,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "state_api"
+version = "0.1.0"
+dependencies = [
+ "actor",
+ "async-std",
+ "bitfield",
+ "chain",
+ "clock",
+ "fil_types",
+ "forest_address",
+ "forest_blocks",
+ "forest_cid",
+ "forest_message",
+ "interpreter",
+ "ipld_blockstore",
+ "num-bigint 0.2.6",
+ "num-traits 0.2.12",
+ "state_manager",
+ "state_tree",
+]
+
+[[package]]
 name = "state_manager"
 version = "0.1.0"
 dependencies = [
  "actor",
  "async-log",
  "async-std",
+ "bitfield",
  "chain",
  "clock",
  "db",
  "fil_types",
  "filecoin-proofs-api",
+ "flo_stream",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
  "forest_cid",
  "forest_encoding",
+ "forest_message",
+ "forest_vm",
+ "futures 0.3.5",
  "interpreter",
  "ipld_amt",
  "ipld_blockstore",
+ "ipld_hamt",
  "log",
+ "num-traits 0.2.12",
+ "serde",
  "state_tree",
  "thiserror",
 ]
