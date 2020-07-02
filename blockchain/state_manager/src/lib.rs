@@ -6,8 +6,8 @@ mod errors;
 pub mod utils;
 pub use self::errors::*;
 use actor::{
-    init, market::MarketBalance, miner, power, ActorState, INIT_ACTOR_ADDR,
-    STORAGE_POWER_ACTOR_ADDR,
+    init, market, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
+    STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
 };
 use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
 use async_log::span;
@@ -34,6 +34,13 @@ use std::sync::Arc;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
+
+#[allow(dead_code)]
+#[derive(Default)]
+pub struct MarketBalance {
+    escrow: BigUint,
+    locked: BigUint,
+}
 
 pub struct StateManager<DB> {
     bs: Arc<DB>,
@@ -275,15 +282,6 @@ where
         state_tree.lookup_id(addr).map_err(Error::State)
     }
 
-    pub fn market_balance(
-        &self,
-        _addr: &Address,
-        _tipset: &Tipset,
-    ) -> Result<MarketBalance, Error> {
-        //will merge rupan's implementation
-        unimplemented!("market balance fn not implemented in current build")
-    }
-
     fn search_back_for_message(
         &self,
         tipset: &Tipset,
@@ -515,5 +513,32 @@ where
                 "Address must be BLS address to load bls public key".to_owned(),
             )),
         }
+    }
+
+    pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+        let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())?;
+        state_tree.lookup_id(addr).map_err(Error::State)
+    }
+
+    pub fn market_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
+        let market_state: market::State =
+            self.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
+
+        let new_addr = self.lookup_id(addr, ts)?;
+
+        let out = MarketBalance {
+            escrow: {
+                let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
+                    .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
+                et.get(&new_addr).unwrap_or_default()
+            },
+            locked: {
+                let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
+                    .map_err(|_x| Error::State("Failed to build Locked Table".to_string()))?;
+                lt.get(&new_addr).unwrap_or_default()
+            },
+        };
+
+        Ok(out)
     }
 }

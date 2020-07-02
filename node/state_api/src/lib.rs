@@ -1,5 +1,4 @@
 use actor::{
-    market::MarketBalance,
     miner::{
         compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault,
         MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
@@ -19,7 +18,7 @@ use fil_types::SectorNumber;
 use message::{MessageReceipt, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
-use state_manager::{call, call::InvocResult, StateManager};
+use state_manager::{call, call::InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
 use std::error::Error;
 
@@ -330,7 +329,7 @@ where
 }
 
 pub fn state_market_balance<DB>(
-    state_manager: &StateManager<DB>,
+    state_manager: &mut StateManager<DB>,
     address: &Address,
     key: &TipsetKeys,
 ) -> Result<MarketBalance, BoxError>

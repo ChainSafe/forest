@@ -103,14 +103,10 @@ pub fn get_proving_set_raw<DB>(
 where
     DB: BlockStore,
 {
-    let mut not_proving = actor_state
-        .faults
-        .clone()
-        .merge(&actor_state.recoveries)
-        .map_err(|_| Error::Other("Could not merge bitfield".to_string()))?;
+    let not_proving = &actor_state.faults | &actor_state.recoveries;
 
     actor_state
-        .load_sector_infos(&*state_manager.get_block_store(), &mut not_proving)
+        .load_sector_infos(&*state_manager.get_block_store(), &not_proving)
         .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
 }
 
@@ -152,9 +148,12 @@ where
     let amt = Amt::load(ssc, block_store).map_err(|err| Error::Other(err.to_string()))?;
 
     let mut sset: Vec<ChainSectorInfo> = Vec::new();
-    let for_each = |i, sector_chain: &miner::SectorOnChainInfo| -> Result<(), String> {
+    let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| -> Result<(), String> {
         if let Some(ref mut s) = filter {
-            if s.get(i)? {
+            let i = i
+                .try_into()
+                .map_err(|_| "Could not convert from index to usize")?;
+            if s.get(i) {
                 return Ok(());
             }
         }

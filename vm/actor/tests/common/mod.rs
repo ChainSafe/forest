@@ -127,6 +127,12 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     }
 
     #[allow(dead_code)]
+    pub fn expect_validate_caller_type(&self, types: &[Cid]) {
+        assert!(types.len() > 0, "addrs must be non-empty");
+        *self.expect_validate_caller_type.borrow_mut() = Some(types.to_vec());
+    }
+
+    #[allow(dead_code)]
     pub fn expect_validate_caller_any(&self) {
         self.expect_validate_caller_any.set(true);
     }
@@ -257,6 +263,16 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             .unwrap();
         self.caller_type = code_id.clone();
         self.actor_code_cids.insert(address, code_id);
+    }
+
+    #[allow(dead_code)]
+    pub fn set_value(&mut self, value: TokenAmount) {
+        self.message = UnsignedMessage::builder()
+            .to(self.message.to().clone())
+            .from(self.message.from().clone())
+            .value(value)
+            .build()
+            .unwrap();
     }
 }
 
