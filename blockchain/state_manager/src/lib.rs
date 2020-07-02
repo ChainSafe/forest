@@ -367,12 +367,11 @@ where
                     }
                     if let Ok(m_cid) = s.to_cid()
                     {
-                        return Some(Err(Error::Other(format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: {:} n{:})",cid,message.sequence(),m_cid,s.sequence()))))
+                        let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: {:} n{:})",cid,message.sequence(),m_cid,s.sequence());
+                        return Some(Err(Error::Other(error_msg)))
                     }
-                   
-                   return Some(Err(Error::Other(format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})",cid,message.sequence(),s.sequence()))))
-                    
-                    
+                    let error_msg =format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})",cid,message.sequence(),s.sequence());
+                    return Some(Err(Error::Other(error_msg)))
                 }
                 if s.sequence() < message.sequence() {
                     return Some(Ok(None));
