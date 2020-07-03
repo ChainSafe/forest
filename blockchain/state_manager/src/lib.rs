@@ -259,6 +259,7 @@ where
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
         Ok(actor.balance)
+    }
 
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
         let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())?;
