@@ -8,7 +8,7 @@ mod types;
 
 pub use self::deal::*;
 use self::policy::*;
-pub use self::state::{State, EPOCH_UNDEFINED};
+pub use self::state::State;
 pub use self::types::*;
 use crate::{
     make_map, request_miner_control_addrs,
@@ -18,7 +18,7 @@ use crate::{
 };
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
+use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::to_vec;
 use fil_types::PieceInfo;
 use ipld_amt::Amt;
@@ -499,7 +499,6 @@ impl Actor {
             let mut lt = BalanceTable::from_root(rt.store(), &st.locked_table)
                 .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-            // TODO Adjust when Epoch becomes i32
             let mut i = st.last_cron + 1;
             while i <= rt.curr_epoch() {
                 dbe.for_each(i, |id| {

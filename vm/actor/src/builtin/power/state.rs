@@ -235,13 +235,16 @@ mod test {
         let e1: ChainEpoch = 101;
         let e2: ChainEpoch = 102;
         let e3: ChainEpoch = 103;
+        let e4: ChainEpoch = -1;
 
         let b1: BytesKey = [0xca, 0x1].to_vec().into();
         let b2: BytesKey = [0xcc, 0x1].to_vec().into();
         let b3: BytesKey = [0xce, 0x1].to_vec().into();
+        let b4: BytesKey = [0x1].to_vec().into();
 
         assert_eq!(b1, epoch_key(e1));
         assert_eq!(b2, epoch_key(e2));
         assert_eq!(b3, epoch_key(e3));
+        assert_eq!(b4, epoch_key(e4));
     }
 }

@@ -438,7 +438,6 @@ impl State {
         F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
     {
         let sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
-        // TODO AMT and Node for_each should be i64
         sector_arr.for_each(|i, v| f(i as i64, v))
     }
     pub fn clear_fault_epochs<BS: BlockStore>(
@@ -665,7 +664,6 @@ impl State {
         let mut to_del: Vec<u64> = Vec::new();
 
         let mut set: Vec<(u64, BigUintDe)> = Vec::new();
-        // TODO should AMT closure be i64?
         vesting_funds.for_each(|k, v| {
             if amount_unlocked > target {
                 if k >= current_epoch as u64 {
@@ -713,7 +711,6 @@ impl State {
         let mut to_del: Vec<u64> = Vec::new();
 
         vesting_funds.for_each(|k, v| {
-            // TODO should AMT fn closure be i64
             if k < current_epoch as u64 {
                 let BigUintDe(locked_entry) = v;
                 amount_unlocked += locked_entry;

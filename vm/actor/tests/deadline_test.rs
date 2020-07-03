@@ -146,60 +146,60 @@ fn offset_non_zero_test() {
     let offset = WPOST_CHALLENGE_WINDOW * 2 + 2;
     let initial_pp_start = offset - WPOST_PROVING_PERIOD;
     let val = (offset / WPOST_CHALLENGE_WINDOW) as usize;
-    let first_di_index = WPOST_PERIOD_DEADLINES - val - 1;
-    let first_di_open = initial_pp_start + WPOST_CHALLENGE_WINDOW * first_di_index as i64;
+    let first_dl_index = WPOST_PERIOD_DEADLINES - val - 1;
+    let first_dl_open = initial_pp_start + WPOST_CHALLENGE_WINDOW * first_dl_index as i64;
 
     assert!(offset < WPOST_PROVING_PERIOD);
     assert!(initial_pp_start < 0);
-    assert!(first_di_open < 0);
+    assert!(first_dl_open < 0);
 
     // Incomplete initial proving period.
     // At epoch zero, the initial deadlines in the period have already passed and we're part way through
     // another one.
-    let di = assert_deadline_info(0, initial_pp_start, first_di_index, first_di_open);
-    assert_eq!(first_di_open - WPOST_CHALLENGE_LOOKBACK, di.challenge);
-    assert_eq!(first_di_open - FAULT_DECLARATION_CUTOFF, di.fault_cutoff);
+    let di = assert_deadline_info(0, initial_pp_start, first_dl_index, first_dl_open);
+    assert_eq!(first_dl_open - WPOST_CHALLENGE_LOOKBACK, di.challenge);
+    assert_eq!(first_dl_open - FAULT_DECLARATION_CUTOFF, di.fault_cutoff);
     assert!(di.is_open());
     assert!(di.fault_cutoff_passed());
 
     // Epoch 1
-    assert_deadline_info(1, initial_pp_start, first_di_index, first_di_open);
+    assert_deadline_info(1, initial_pp_start, first_dl_index, first_dl_open);
 
     // epoch 2 rolled over to third last challenge window
     assert_deadline_info(
         2,
         initial_pp_start,
-        first_di_index + 1,
-        first_di_open + WPOST_CHALLENGE_WINDOW,
+        first_dl_index + 1,
+        first_dl_open + WPOST_CHALLENGE_WINDOW,
     );
     assert_deadline_info(
         3,
         initial_pp_start,
-        first_di_index + 1,
-        first_di_open + WPOST_CHALLENGE_WINDOW,
+        first_dl_index + 1,
+        first_dl_open + WPOST_CHALLENGE_WINDOW,
     );
 
     // last epoch of second last window
     assert_deadline_info(
         2 + WPOST_CHALLENGE_WINDOW - 1,
         initial_pp_start,
-        first_di_index + 1,
-        first_di_open + WPOST_CHALLENGE_WINDOW,
+        first_dl_index + 1,
+        first_dl_open + WPOST_CHALLENGE_WINDOW,
     );
     // first epoch of last challenge window
     assert_deadline_info(
         2 + WPOST_CHALLENGE_WINDOW,
         initial_pp_start,
-        first_di_index + 2,
-        first_di_open + WPOST_CHALLENGE_WINDOW * 2,
+        first_dl_index + 2,
+        first_dl_open + WPOST_CHALLENGE_WINDOW * 2,
     );
     // last epoch of last challenge window
-    assert_eq!(WPOST_PERIOD_DEADLINES - 1, first_di_index + 2);
+    assert_eq!(WPOST_PERIOD_DEADLINES - 1, first_dl_index + 2);
     assert_deadline_info(
         2 + 2 * WPOST_CHALLENGE_WINDOW - 1,
         initial_pp_start,
-        first_di_index + 2,
-        first_di_open + WPOST_CHALLENGE_WINDOW * 2,
+        first_dl_index + 2,
+        first_dl_open + WPOST_CHALLENGE_WINDOW * 2,
     );
 
     // first epoch of next proving period
@@ -363,9 +363,9 @@ fn single_sector_partition_test() {
     let mut dls = Deadlines::new();
     dls.due[1] = bf_seq(0, 1);
     let partitions = compute_partitions_sector(&mut dls, PART_SIZE as u64, 1, &[0]).unwrap();
-    assert_eq!(1, partitions.clone().len());
+    assert_eq!(1, partitions.len());
 
-    assert_bf_equal(bf_seq(0, 1), partitions.get(0).unwrap().clone());
+    assert_bf_equal(&bf_seq(0, 1), partitions.get(0).unwrap());
 }
 
 #[test]
@@ -374,9 +374,9 @@ fn full_partition_test() {
     dls.due[10] = bf_seq(1234, PART_SIZE);
 
     let partitions = compute_partitions_sector(&mut dls, PART_SIZE as u64, 10, &[0]).unwrap();
-    assert_eq!(1, partitions.clone().len());
+    assert_eq!(1, partitions.len());
 
-    assert_bf_equal(bf_seq(1234, PART_SIZE), partitions.get(0).unwrap().clone());
+    assert_bf_equal(&bf_seq(1234, PART_SIZE), partitions.get(0).unwrap());
 }
 
 #[test]
@@ -385,23 +385,17 @@ fn full_plus_partial_test() {
     dls.due[10] = bf_seq(5555, PART_SIZE + 1);
 
     let mut partitions = compute_partitions_sector(&mut dls, PART_SIZE as u64, 10, &[0]).unwrap();
-    assert_eq!(1, partitions.clone().len());
-    assert_bf_equal(bf_seq(5555, PART_SIZE), partitions.get(0).unwrap().clone());
+    assert_eq!(1, partitions.len());
+    assert_bf_equal(&bf_seq(5555, PART_SIZE), partitions.get(0).unwrap());
 
     partitions = compute_partitions_sector(&mut dls, PART_SIZE as u64, 10, &[1]).unwrap();
-    assert_eq!(1, partitions.clone().len());
-    assert_bf_equal(
-        bf_seq(5555 + PART_SIZE, 1),
-        partitions.get(0).unwrap().clone(),
-    );
+    assert_eq!(1, partitions.len());
+    assert_bf_equal(&bf_seq(5555 + PART_SIZE, 1), partitions.get(0).unwrap());
 
     partitions = compute_partitions_sector(&mut dls, PART_SIZE as u64, 10, &[0, 1]).unwrap();
-    assert_eq!(2, partitions.clone().len());
-    assert_bf_equal(bf_seq(5555, PART_SIZE), partitions.get(0).unwrap().clone());
-    assert_bf_equal(
-        bf_seq(5555 + PART_SIZE, 1),
-        partitions.get(1).unwrap().clone(),
-    );
+    assert_eq!(2, partitions.len());
+    assert_bf_equal(&bf_seq(5555, PART_SIZE), partitions.get(0).unwrap());
+    assert_bf_equal(&bf_seq(5555 + PART_SIZE, 1), partitions.get(1).unwrap());
 }
 
 #[test]
@@ -411,18 +405,18 @@ fn multiple_partition_test() {
 
     let partitions =
         compute_partitions_sector(&mut dls, PART_SIZE as u64, 1, &[0, 1, 2, 3]).unwrap();
-    assert_eq!(4, partitions.clone().len());
+    assert_eq!(4, partitions.len());
 
-    assert_bf_equal(bf_seq(0, PART_SIZE), partitions.get(0).unwrap().clone());
+    assert_bf_equal(&bf_seq(0, PART_SIZE), partitions.get(0).unwrap());
     assert_bf_equal(
-        bf_seq(1 * PART_SIZE, PART_SIZE),
-        partitions.get(1).unwrap().clone(),
+        &bf_seq(1 * PART_SIZE, PART_SIZE),
+        partitions.get(1).unwrap(),
     );
     assert_bf_equal(
-        bf_seq(2 * PART_SIZE, PART_SIZE),
-        partitions.get(2).unwrap().clone(),
+        &bf_seq(2 * PART_SIZE, PART_SIZE),
+        partitions.get(2).unwrap(),
     );
-    assert_bf_equal(bf_seq(3 * PART_SIZE, 1), partitions.get(3).unwrap().clone());
+    assert_bf_equal(&bf_seq(3 * PART_SIZE, 1), partitions.get(3).unwrap());
 }
 
 #[test]
@@ -434,24 +428,21 @@ fn numbered_partitions_test() {
 
     let mut partitions =
         compute_partitions_sector(&mut dls, PART_SIZE as u64, 1, &[0, 1, 2, 3]).unwrap();
-    assert_eq!(4, partitions.clone().len());
+    assert_eq!(4, partitions.len());
 
     partitions = compute_partitions_sector(&mut dls, PART_SIZE as u64, 3, &[4]).unwrap();
-    assert_eq!(1, partitions.clone().len());
-    assert_bf_equal(
-        bf_seq(3 * PART_SIZE + 1, 1),
-        partitions.get(0).unwrap().clone(),
-    );
+    assert_eq!(1, partitions.len());
+    assert_bf_equal(&bf_seq(3 * PART_SIZE + 1, 1), partitions.get(0).unwrap());
 
     partitions = compute_partitions_sector(&mut dls, PART_SIZE as u64, 5, &[5, 6]).unwrap();
-    assert_eq!(2, partitions.clone().len());
+    assert_eq!(2, partitions.len());
     assert_bf_equal(
-        bf_seq(3 * PART_SIZE + 2, PART_SIZE),
-        partitions.get(0).unwrap().clone(),
+        &bf_seq(3 * PART_SIZE + 2, PART_SIZE),
+        partitions.get(0).unwrap(),
     );
     assert_bf_equal(
-        bf_seq(3 * PART_SIZE + 2 + PART_SIZE, PART_SIZE),
-        partitions.get(1).unwrap().clone(),
+        &bf_seq(3 * PART_SIZE + 2 + PART_SIZE, PART_SIZE),
+        partitions.get(1).unwrap(),
     );
 }
 
@@ -500,28 +491,27 @@ fn assign_new_sectors_test() {
 fn incremental_assignment_test() {
     // Add one sector at a time.
     let mut deadlines = DeadlineBuilder::new(&[0, 1]).deadlines;
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(1, 1));
+    deadlines = assign_sectors_setup(deadlines, &seq(1, 1));
     DeadlineBuilder::new(&[0, 2]).verify(&deadlines);
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(2, 1));
+    deadlines = assign_sectors_setup(deadlines, &seq(2, 1));
     DeadlineBuilder::new(&[0, 3]).verify(&deadlines);
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(3, 1));
+    deadlines = assign_sectors_setup(deadlines, &seq(3, 1));
     DeadlineBuilder::new(&[0, 4]).verify(&deadlines);
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(4, 1));
+    deadlines = assign_sectors_setup(deadlines, &seq(4, 1));
     DeadlineBuilder::new(&[0, 4, 1]).verify(&deadlines);
-
     // Add one partition at a time.
     deadlines = Deadlines::new();
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(0, 4));
+    deadlines = assign_sectors_setup(deadlines, &seq(0, 4));
     DeadlineBuilder::new(&[0, 4]).verify(&deadlines);
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(4, 4));
+    deadlines = assign_sectors_setup(deadlines, &seq(4, 4));
     DeadlineBuilder::new(&[0, 4, 4]).verify(&deadlines);
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(2 * 4, 4));
+    deadlines = assign_sectors_setup(deadlines, &seq(2 * 4, 4));
     DeadlineBuilder::new(&[0, 4, 4, 4]).verify(&deadlines);
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(3 * 4, 4));
+    deadlines = assign_sectors_setup(deadlines, &seq(3 * 4, 4));
     DeadlineBuilder::new(&[0, 4, 4, 4, 4]).verify(&deadlines);
     // Add lots
     deadlines = Deadlines::new();
-    deadlines = assign_sectors_setup(deadlines.clone(), &seq(0, 2 * NEW_SECTOR_PART_SIZE + 1));
+    deadlines = assign_sectors_setup(deadlines, &seq(0, 2 * NEW_SECTOR_PART_SIZE + 1));
     DeadlineBuilder::new(&[
         0,
         NEW_SECTOR_PART_SIZE as u64,
@@ -578,15 +568,11 @@ fn assign_sectors_setup(mut deadlines: Deadlines, sectors: &[usize]) -> Deadline
     return deadlines;
 }
 
-fn assert_bf_equal(expected: BitField, actual: BitField) {
+fn assert_bf_equal(expected: &BitField, actual: &BitField) {
     assert!(expected
         .bounded_iter(1 << 20)
         .unwrap()
         .eq(actual.bounded_iter(1 << 20).unwrap()));
-    // let ex: Vec<_> = expected.bounded_iter(1 << 20).unwrap().collect();
-    // let ac: Vec<_> = actual.bounded_iter(1 << 20).unwrap().collect();
-
-    // assert_eq!(ex, ac);
 }
 
 fn assert_deadlines_equal(expected: &Deadlines, actual: &Deadlines) {
@@ -595,9 +581,6 @@ fn assert_deadlines_equal(expected: &Deadlines, actual: &Deadlines) {
             .bounded_iter(1 << 20)
             .unwrap()
             .eq(actual.due[i].bounded_iter(1 << 20).unwrap()));
-        // let ex: Vec<_> = v.bounded_iter(1 << 20).unwrap().collect();
-        // let ac: Vec<_> = actual.due[i].bounded_iter(1 << 20).unwrap().collect();
-        // assert_eq!(ex, ac);
     }
 }
 
@@ -661,7 +644,6 @@ impl DeadlineBuilder {
             self.add_to(i, count);
             i += 1;
         }
-        println!("END OF ALL");
         self
     }
 

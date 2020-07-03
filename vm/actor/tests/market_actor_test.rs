@@ -4,13 +4,14 @@
 mod common;
 
 use actor::{
-    market::{Method, State, WithdrawBalanceParams, EPOCH_UNDEFINED},
+    market::{Method, State, WithdrawBalanceParams},
     miner::{GetControlAddressesReturn, Method as MinerMethod},
     Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE, INIT_ACTOR_CODE_ID,
     MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR,
     SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
+use clock::EPOCH_UNDEFINED;
 use common::*;
 use db::MemoryDB;
 use ipld_amt::Amt;

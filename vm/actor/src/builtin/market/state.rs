@@ -7,15 +7,13 @@ use super::{
 use crate::{BalanceTable, DealID};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
+use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::tuple::*;
 use encoding::Cbor;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;
 use vm::{ActorError, ExitCode, TokenAmount};
-
-pub const EPOCH_UNDEFINED: ChainEpoch = -1;
 
 /// Market actor state
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
