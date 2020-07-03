@@ -8,7 +8,7 @@ use num_bigint::BigUint;
 
 /// Hello message https://filecoin-project.github.io/specs/#hello-spec
 #[derive(Clone, Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
-pub struct HelloMessage {
+pub struct HelloRequest {
     pub heaviest_tip_set: Vec<Cid>,
     pub heaviest_tipset_height: ChainEpoch,
     #[serde(with = "num_bigint::biguint_ser")]
@@ -33,12 +33,12 @@ mod tests {
 
     #[test]
     fn hello_default_ser() {
-        let orig_msg = HelloMessage {
+        let orig_msg = HelloRequest {
             genesis_hash: Cid::new_from_cbor(&[], Identity),
             ..Default::default()
         };
         let bz = to_vec(&orig_msg).unwrap();
-        let msg: HelloMessage = from_slice(&bz).unwrap();
+        let msg: HelloRequest = from_slice(&bz).unwrap();
         assert_eq!(msg, orig_msg);
     }
 }

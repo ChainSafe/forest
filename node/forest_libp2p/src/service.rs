@@ -1,14 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::blocksync::BlockSyncResponse;
-use super::hello::HelloMessage;
-use super::rpc::{RPCEvent, RPCRequest, RPCResponse};
+use super::blocksync::{BlockSyncRequest, BlockSyncResponse};
+use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
+use crate::hello::{HelloRequest, HelloResponse};
 use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
+use libp2p::request_response::{RequestId, ResponseChannel};
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -25,24 +26,28 @@ use utils::read_file_to_vec;
 const PUBSUB_TOPICS: [&str; 2] = ["/fil/blocks", "/fil/msgs"];
 
 /// Events emitted by this Service
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
         source: PeerId,
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
-    RPCRequest {
-        req_id: usize,
-        request: RPCRequest,
+    HelloRequest {
+        request: HelloRequest,
+        channel: ResponseChannel<HelloResponse>,
     },
-    RPCResponse {
-        req_id: usize,
-        response: RPCResponse,
+    HelloResponse {
+        request_id: RequestId,
+        response: HelloResponse,
     },
-    Hello {
-        source: PeerId,
-        message: HelloMessage,
+    BlockSyncRequest {
+        request: BlockSyncRequest,
+        channel: ResponseChannel<BlockSyncResponse>,
+    },
+    BlockSyncResponse {
+        request_id: RequestId,
+        response: BlockSyncResponse,
     },
     PeerDialed {
         peer_id: PeerId,
@@ -52,8 +57,15 @@ pub enum NetworkEvent {
 /// Events into this Service
 #[derive(Clone, Debug)]
 pub enum NetworkMessage {
-    PubsubMessage { topic: Topic, message: Vec<u8> },
-    RPC { peer_id: PeerId, event: RPCEvent },
+    PubsubMessage {
+        topic: Topic,
+        message: Vec<u8>,
+    },
+    RPC {
+        peer_id: PeerId,
+        request: RPCRequest,
+        id: RequestId,
+    },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService {
@@ -131,43 +143,48 @@ impl Libp2pService {
                                 message
                             }).await;
                         }
-                        ForestBehaviourEvent::RPC(peer_id, event) => {
-                            debug!("RPC event {:?}", event);
-                            match event {
-                                RPCEvent::Response(req_id, res) => {
-                                    self.network_sender_out.send(NetworkEvent::RPCResponse {
-                                        req_id,
-                                        response: res,
-                                    }).await;
-                                }
-                                RPCEvent::Request(req_id, RPCRequest::BlockSync(r)) => {
-                                    // TODO implement handling incoming blocksync requests
-                                    swarm_stream.get_mut().send_rpc(peer_id, RPCEvent::Response(1, RPCResponse::BlockSync(BlockSyncResponse {
-                                        chain: vec![],
-                                        status: 203,
-                                        message: "handling requests not implemented".to_owned(),
-                                    })));
-                                }
-                                RPCEvent::Request(req_id, RPCRequest::Hello(message)) => {
-                                    self.network_sender_out.send(NetworkEvent::Hello{
-                                        message, source: peer_id}).await;
-                                }
-                                RPCEvent::Error(req_id, err) => info!("Error with request {}: {:?}", req_id, err),
-                            }
+                        ForestBehaviourEvent::HelloRequest { request, channel, .. } => {
+                            debug!("Received hello request: {:?}", request);
+                            self.network_sender_out.send(NetworkEvent::HelloRequest {
+                                request,
+                                channel,
+                            }).await;
+                        }
+                        ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
+                            debug!("Received hello response (id: {:?}): {:?}", request_id, response);
+                            self.network_sender_out.send(NetworkEvent::HelloResponse {
+                                request_id,
+                                response,
+                            }).await;
+                        }
+                        ForestBehaviourEvent::BlockSyncRequest { channel, .. } => {
+                            // TODO implement blocksync provider
+                            let _ = channel.send(BlockSyncResponse {
+                                chain: vec![],
+                                status: 203,
+                                message: "handling requests not implemented".to_owned(),
+                            });
+                        }
+                        ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
+                            debug!("Received blocksync response (id: {:?}): {:?}", request_id, response);
+                            self.network_sender_out.send(NetworkEvent::BlockSyncResponse {
+                                request_id,
+                                response,
+                            }).await;
                         }
                     }
-                    None => {break;}
+                    None => { break; }
                 },
                 rpc_message = network_stream.next() => match rpc_message {
                     Some(message) =>  match message {
-                        NetworkMessage::PubsubMessage{topic, message} => {
+                        NetworkMessage::PubsubMessage { topic, message } => {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
-                        NetworkMessage::RPC{peer_id, event} => {
-                            swarm_stream.get_mut().send_rpc(peer_id, event);
+                        NetworkMessage::RPC { peer_id, request, id } => {
+                            swarm_stream.get_mut().send_rpc_request(&peer_id, request, id);
                         }
                     }
-                    None => {break;}
+                    None => { break; }
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     info!("Peers connected: {}", swarm_stream.get_ref().peers().len());
