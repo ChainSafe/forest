@@ -24,7 +24,7 @@ use encoding::{Cbor, Error as EncodingError};
 use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::{
-    hello::HelloMessage, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
+    hello::HelloRequest, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
 use futures::{
     executor::block_on,
@@ -150,21 +150,22 @@ where
 
         while let Some(event) = self.network.receiver.next().await {
             match event {
-                NetworkEvent::Hello { source, message } => {
+                NetworkEvent::HelloRequest { request, channel } => {
+                    let source = channel.peer.clone();
                     info!(
                         "Message inbound, heaviest tipset cid: {:?}",
-                        message.heaviest_tip_set
+                        request.heaviest_tip_set
                     );
                     match self
                         .fetch_tipset(
                             source.clone(),
-                            &TipsetKeys::new(message.heaviest_tip_set.clone()),
+                            &TipsetKeys::new(request.heaviest_tip_set.clone()),
                         )
                         .await
                     {
                         Ok(fts) => {
-                            if self.inform_new_head(source.clone(), &fts).await.is_err() {
-                                warn!("Failed to sync with provided tipset",);
+                            if let Err(e) = self.inform_new_head(source.clone(), &fts).await {
+                                warn!("Failed to sync with provided tipset: {}", e);
                             };
                         }
                         Err(e) => {
@@ -177,7 +178,7 @@ where
                     self.network
                         .hello_request(
                             peer_id,
-                            HelloMessage {
+                            HelloRequest {
                                 heaviest_tip_set: heaviest.cids().to_vec(),
                                 heaviest_tipset_height: heaviest.epoch(),
                                 heaviest_tipset_weight: heaviest.weight().clone(),
@@ -1023,7 +1024,7 @@ mod tests {
     use beacon::MockBeacon;
     use blocks::BlockHeader;
     use db::MemoryDB;
-    use forest_libp2p::NetworkEvent;
+    use forest_libp2p::{rpc::RequestId, NetworkEvent};
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
@@ -1059,9 +1060,9 @@ mod tests {
 
         task::block_on(async {
             event_sender
-                .send(NetworkEvent::RPCResponse {
+                .send(NetworkEvent::BlockSyncResponse {
                     // TODO update this, only matching first index of requestId
-                    req_id: 1,
+                    request_id: RequestId(1),
                     response: rpc_response,
                 })
                 .await;
