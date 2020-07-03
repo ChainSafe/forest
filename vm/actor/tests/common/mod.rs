@@ -145,7 +145,6 @@ where
 
     #[allow(dead_code)]
     pub fn expect_verify_signature(&self, exp: ExpectedVerifySig) {
-        //assert!(addr.len() > 0, "addrs must be non-empty");
         *self.expect_verify_sig.borrow_mut() = Some(exp);
     }
 
