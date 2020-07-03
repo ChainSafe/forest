@@ -7,7 +7,8 @@ use async_std::task;
 use beacon::MockBeacon;
 use blocks::BlockHeader;
 use db::MemoryDB;
-use forest_libp2p::hello::HelloMessage;
+use forest_libp2p::{hello::HelloRequest, rpc::ResponseChannel};
+use futures::channel::oneshot;
 use libp2p::core::PeerId;
 use std::time::Duration;
 
@@ -48,12 +49,16 @@ fn peer_manager_update() {
 
     let source = PeerId::random();
     let source_clone = source.clone();
+    let (sender, _) = oneshot::channel();
 
     task::block_on(async {
         event_sender
-            .send(NetworkEvent::Hello {
-                message: HelloMessage::default(),
-                source,
+            .send(NetworkEvent::HelloRequest {
+                request: HelloRequest::default(),
+                channel: ResponseChannel {
+                    peer: source,
+                    sender,
+                },
             })
             .await;
 
