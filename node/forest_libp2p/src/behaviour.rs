@@ -1,8 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::rpc::{RPCEvent, RPCMessage, RPC};
+use crate::blocksync::{
+    BlockSyncCodec, BlockSyncProtocolName, BlockSyncRequest, BlockSyncResponse,
+};
 use crate::config::Libp2pConfig;
+use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
+use crate::rpc::RPCRequest;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -14,6 +18,10 @@ use libp2p::multiaddr::Protocol;
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
+};
+use libp2p::request_response::{
+    ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
+    ResponseChannel,
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
@@ -29,7 +37,8 @@ pub struct ForestBehaviour {
     mdns: Mdns,
     ping: Ping,
     identify: Identify,
-    rpc: RPC,
+    hello: RequestResponse<HelloCodec>,
+    blocksync: RequestResponse<BlockSyncCodec>,
     kademlia: Kademlia<MemoryStore>,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
@@ -46,7 +55,26 @@ pub enum ForestBehaviourEvent {
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
-    RPC(PeerId, RPCEvent),
+    HelloRequest {
+        peer: PeerId,
+        request: HelloRequest,
+        channel: ResponseChannel<HelloResponse>,
+    },
+    HelloResponse {
+        peer: PeerId,
+        request_id: RequestId,
+        response: HelloResponse,
+    },
+    BlockSyncRequest {
+        peer: PeerId,
+        request: BlockSyncRequest,
+        channel: ResponseChannel<BlockSyncResponse>,
+    },
+    BlockSyncResponse {
+        peer: PeerId,
+        request_id: RequestId,
+        response: BlockSyncResponse,
+    },
 }
 
 impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
@@ -72,8 +100,8 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
 impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
-            KademliaEvent::Discovered { peer_id, .. } => {
-                self.add_peer(peer_id);
+            KademliaEvent::RoutingUpdated { peer, .. } => {
+                self.add_peer(peer);
             }
             event => {
                 trace!("kad: {:?}", event);
@@ -137,31 +165,77 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ForestBehaviour {
         }
     }
 }
-impl NetworkBehaviourEventProcess<RPCMessage> for ForestBehaviour {
-    fn inject_event(&mut self, event: RPCMessage) {
+
+impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloResponse>>
+    for ForestBehaviour
+{
+    fn inject_event(&mut self, event: RequestResponseEvent<HelloRequest, HelloResponse>) {
         match event {
-            RPCMessage::PeerDialed(peer_id) => {
-                self.events.push(ForestBehaviourEvent::PeerDialed(peer_id));
-            }
-            RPCMessage::PeerDisconnected(peer_id) => {
-                self.events
-                    .push(ForestBehaviourEvent::PeerDisconnected(peer_id));
-            }
-            RPCMessage::RPC(peer_id, rpc_event) => match rpc_event {
-                RPCEvent::Request(req_id, request) => {
-                    self.events.push(ForestBehaviourEvent::RPC(
-                        peer_id,
-                        RPCEvent::Request(req_id, request),
-                    ));
+            RequestResponseEvent::Message { peer, message } => match message {
+                RequestResponseMessage::Request { request, channel } => {
+                    self.events.push(ForestBehaviourEvent::HelloRequest {
+                        peer,
+                        request,
+                        channel,
+                    })
                 }
-                RPCEvent::Response(req_id, response) => {
-                    self.events.push(ForestBehaviourEvent::RPC(
-                        peer_id,
-                        RPCEvent::Response(req_id, response),
-                    ));
-                }
-                RPCEvent::Error(req_id, err) => warn!("RPC Error {:?}, {:?}", err, req_id),
+                RequestResponseMessage::Response {
+                    request_id,
+                    response,
+                } => self.events.push(ForestBehaviourEvent::HelloResponse {
+                    peer,
+                    request_id,
+                    response,
+                }),
             },
+            RequestResponseEvent::OutboundFailure {
+                peer,
+                request_id,
+                error,
+            } => warn!(
+                "Hello outbound failure (peer: {:?}) (id: {:?}): {:?}",
+                peer, request_id, error
+            ),
+            RequestResponseEvent::InboundFailure { peer, error } => {
+                warn!("Hello inbound error (peer: {:?}): {:?}", peer, error)
+            }
+        }
+    }
+}
+
+impl NetworkBehaviourEventProcess<RequestResponseEvent<BlockSyncRequest, BlockSyncResponse>>
+    for ForestBehaviour
+{
+    fn inject_event(&mut self, event: RequestResponseEvent<BlockSyncRequest, BlockSyncResponse>) {
+        match event {
+            RequestResponseEvent::Message { peer, message } => match message {
+                RequestResponseMessage::Request { request, channel } => {
+                    self.events.push(ForestBehaviourEvent::BlockSyncRequest {
+                        peer,
+                        request,
+                        channel,
+                    })
+                }
+                RequestResponseMessage::Response {
+                    request_id,
+                    response,
+                } => self.events.push(ForestBehaviourEvent::BlockSyncResponse {
+                    peer,
+                    request_id,
+                    response,
+                }),
+            },
+            RequestResponseEvent::OutboundFailure {
+                peer,
+                request_id,
+                error,
+            } => warn!(
+                "BlockSync outbound error (peer: {:?}) (id: {:?}): {:?}",
+                peer, request_id, error
+            ),
+            RequestResponseEvent::InboundFailure { peer, error } => {
+                warn!("BlockSync onbound error (peer: {:?}): {:?}", peer, error)
+            }
         }
     }
 }
@@ -202,6 +276,9 @@ impl ForestBehaviour {
             warn!("Kademlia bootstrap failed: {}", e);
         }
 
+        let hp = std::iter::once((HelloProtocolName, ProtocolSupport::Full));
+        let bp = std::iter::once((BlockSyncProtocolName, ProtocolSupport::Full));
+
         ForestBehaviour {
             gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
             mdns: Mdns::new().expect("Could not start mDNS"),
@@ -213,7 +290,8 @@ impl ForestBehaviour {
                 local_key.public(),
             ),
             kademlia,
-            rpc: RPC::default(),
+            hello: RequestResponse::new(HelloCodec, hp, Default::default()),
+            blocksync: RequestResponse::new(BlockSyncCodec, bp, Default::default()),
             events: vec![],
             peers: Default::default(),
         }
@@ -235,8 +313,13 @@ impl ForestBehaviour {
     }
 
     /// Send an RPC request or response to some peer.
-    pub fn send_rpc(&mut self, peer_id: PeerId, req: RPCEvent) {
-        self.rpc.send_rpc(peer_id, req);
+    pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest, id: RequestId) {
+        match req {
+            RPCRequest::Hello(request) => self.hello.send_request_with_id(peer_id, request, id),
+            RPCRequest::BlockSync(request) => {
+                self.blocksync.send_request_with_id(peer_id, request, id)
+            }
+        }
     }
 
     /// Adds peer to the peer set.
