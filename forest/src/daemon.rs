@@ -9,7 +9,7 @@ use chain_sync::ChainSyncer;
 use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
-use log::{info, trace};
+use log::{debug, info, trace};
 use rpc::start_rpc;
 use std::sync::Arc;
 use utils::write_to_file;
@@ -35,7 +35,7 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize database
-    let mut db = RocksDb::new(config.data_dir + "/db");
+    let mut db = RocksDb::new(config.data_dir.clone() + "/db");
     db.open().unwrap();
     let db = Arc::new(db);
     let mut chain_store = ChainStore::new(Arc::clone(&db));
@@ -76,26 +76,15 @@ pub(super) async fn start(config: Config) {
 
     let db_rpc = Arc::clone(&db);
 
-    // Use the provided RPC port and listener or use the default one
-    let rpc_port = config
-        .rpc_port
-        .unwrap_or_else(|| "/api".to_string())
-        .to_owned();
-    let rpc_listen = config
-        .rpc_listen
-        .unwrap_or_else(|| "127.0.0.1:8080".to_string())
-        .to_owned();
-
     let rpc_thread = if config.enable_rpc {
-        task::spawn(async {
-            info!("RPC enabled");
-            info!("Using {} as RPC port", rpc_port);
-            info!("Using {} as RPC listen", rpc_listen);
-            start_rpc(db_rpc, rpc_port, rpc_listen).await;
+        let rpc_listen = "127.0.0.1:".to_string() + &config.rpc_port;
+        task::spawn(async move {
+            info!("JSON RPC Endpoint at {}", &rpc_listen);
+            start_rpc(db_rpc, &rpc_listen).await;
         })
     } else {
         task::spawn(async {
-            info!("RPC disabled");
+            debug!("RPC disabled");
         })
     };
 

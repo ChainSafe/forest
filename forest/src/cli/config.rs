@@ -13,8 +13,7 @@ pub struct Config {
     pub genesis_file: Option<String>,
     pub drand_dist_public: DistPublic,
     pub enable_rpc: bool,
-    pub rpc_port: Option<String>,
-    pub rpc_listen: Option<String>,
+    pub rpc_port: String,
 }
 
 impl Default for Config {
@@ -28,8 +27,7 @@ impl Default for Config {
                 hex::decode("94eebfd53f4ba6a3b8304236400a12e73885e5a781509a5c8d41d2e8b476923d8ea6052649b3c17282f596217f96c5de").unwrap(),
                 hex::decode("8dc4231e42b4edf39e86ef1579401692480647918275da767d3e558c520d6375ad953530610fd27daf110187877a65d0").unwrap(),]},
             enable_rpc : true,
-            rpc_port: Some("/api".to_string()),
-            rpc_listen: Some("127.0.0.1:8080".to_string())
+            rpc_port: "1234".to_string()
         }
     }
 }

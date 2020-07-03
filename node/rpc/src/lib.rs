@@ -19,11 +19,7 @@ async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
     Ok(Response::new(StatusCode::Ok).body_json(&res)?)
 }
 
-pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(
-    store: Arc<DB>,
-    rpc_port: String,
-    rpc_listen: String,
-) {
+pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(store: Arc<DB>, rpc_endpoint: &str) {
     let rpc = Server::new()
         .with_data(Data::new(State { store }))
         .with_method(
@@ -57,6 +53,6 @@ pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(
         .with_method("Filecoin.ChainHead", chain_api::chain_head::<DB>)
         .finish_unwrapped();
     let mut app = tide::Server::with_state(rpc);
-    app.at(&rpc_port).post(handle_json_rpc);
-    app.listen(&rpc_listen).await.unwrap();
+    app.at("/api").post(handle_json_rpc);
+    app.listen(rpc_endpoint).await.unwrap();
 }
