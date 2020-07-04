@@ -3227,6 +3227,7 @@ dependencies = [
 name = "key_management"
 version = "0.1.0"
 dependencies = [
+ "base64 0.12.3",
  "bls-signatures",
  "forest_address",
  "forest_crypto",

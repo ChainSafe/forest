@@ -6,130 +6,82 @@ use crate::State;
 use address::Address;
 use blockstore::BlockStore;
 use chain::get_heaviest_tipset;
-use crypto::{Signature, SignatureType};
+use crypto::{signature::json::SignatureJson, SignatureType};
 use encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use message::{SignedMessage, UnsignedMessage};
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
-use num_bigint::BigUint;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use message::{
+    signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
+    SignedMessage,
+};
 use state_tree::StateTree;
 use std::convert::TryFrom;
-use wallet::{Key, KeyInfo, KeyStore};
+use std::str::FromStr;
+use wallet::{json::KeyInfoJson, Key, KeyStore};
 
-pub struct Balance {
-    pub balance: BigUint,
-}
-
-impl Serialize for Balance {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (BigUintSer(&self.balance)).serialize(s)
-    }
-}
-
-impl<'de> Deserialize<'de> for Balance {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let BigUintDe(balance) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { balance })
-    }
-}
-
-/// Generate a new Address that is stored in the wallet
-pub(crate) async fn wallet_new<
+/// Return the balance from StateManager for a given Address
+pub(crate) async fn wallet_balance<DB, KS>(
+    data: Data<State<DB, KS>>,
+    Params(params): Params<(String,)>,
+) -> Result<String, JsonRpcError>
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(SignatureType,)>,
-) -> Result<Address, JsonRpcError> {
-    let (sig_type,) = params;
-    let mut keystore = data.keystore.write().await;
-    let key = wallet::generate_key(sig_type)?;
-
-    let addr = format!("wallet-{}", key.address.to_string());
-    keystore.put(addr, key.key_info.clone())?;
-    let value = keystore.get(&"default".to_string());
-    if value.is_err() {
-        keystore.put("default".to_string(), key.key_info)?
-    }
-
-    Ok(key.address)
-}
-
-/// Return the balance from state manager for a given address
-pub(crate) async fn wallet_get_balance<
-    DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(Address,)>,
-) -> Result<Balance, JsonRpcError> {
-    let (addr,) = params;
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (addr_str,) = params;
+    let address = Address::from_str(&addr_str)?;
 
     let heaviest_ts = get_heaviest_tipset(data.store.as_ref())?.unwrap();
     let cid = heaviest_ts.parent_state();
 
     let state = StateTree::new_from_root(data.store.as_ref(), cid)?;
-    let actor = state.get_actor(&addr)?.unwrap();
+    let actor = state.get_actor(&address)?.unwrap();
     let actor_balance = actor.balance;
-    let balance = Balance {
-        balance: actor_balance,
-    };
-    Ok(balance)
+    Ok(actor_balance.to_string())
 }
 
-pub(crate) async fn wallet_get_default<
+/// Get the default Address for the Wallet
+pub(crate) async fn wallet_default_address<DB, KS>(
+    data: Data<State<DB, KS>>,
+) -> Result<String, JsonRpcError>
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-) -> Result<Address, JsonRpcError> {
+    KS: KeyStore + Send + Sync + 'static,
+{
     let keystore = data.keystore.read().await;
 
     let addr = wallet::get_default(&*keystore)?;
-    Ok(addr)
+    Ok(addr.to_string())
 }
 
-pub(crate) async fn wallet_list_addrs<
+/// Export KeyInfo from the Wallet given its address
+pub(crate) async fn wallet_export<DB, KS>(
+    data: Data<State<DB, KS>>,
+    Params(params): Params<(String,)>,
+) -> Result<KeyInfoJson, JsonRpcError>
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-) -> Result<Vec<Address>, JsonRpcError> {
-    let keystore = data.keystore.read().await;
-    let addr_vec = wallet::list_addrs(&*keystore)?;
-    Ok(addr_vec)
-}
-
-pub(crate) async fn wallet_export<
-    DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(Address,)>,
-) -> Result<KeyInfo, JsonRpcError> {
-    let (addr,) = params;
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (addr_str,) = params;
+    let addr = Address::from_str(&addr_str)?;
 
     let keystore = data.keystore.read().await;
 
     let key_info = wallet::export_key_info(&addr, &*keystore)?;
-    Ok(key_info)
+    Ok(KeyInfoJson(key_info))
 }
 
-pub(crate) async fn wallet_has_key<
+/// Return whether or not a Key is in the Wallet
+pub(crate) async fn wallet_has<DB, KS>(
+    data: Data<State<DB, KS>>,
+    Params(params): Params<(String,)>,
+) -> Result<bool, JsonRpcError>
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(Address,)>,
-) -> Result<bool, JsonRpcError> {
-    let (addr,) = params;
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (addr_str,) = params;
+    let addr = Address::from_str(&addr_str)?;
 
     let keystore = data.keystore.read().await;
 
@@ -137,14 +89,16 @@ pub(crate) async fn wallet_has_key<
     Ok(key)
 }
 
-pub(crate) async fn wallet_import<
+/// Import Keyinfo to the Wallet, return the Address that corresponds to it
+pub(crate) async fn wallet_import<DB, KS>(
+    data: Data<State<DB, KS>>,
+    Params(params): Params<(KeyInfoJson,)>,
+) -> Result<String, JsonRpcError>
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(KeyInfo,)>,
-) -> Result<Address, JsonRpcError> {
-    let (key_info,) = params;
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (KeyInfoJson(key_info),) = params;
 
     let key = Key::try_from(key_info)?;
 
@@ -154,17 +108,82 @@ pub(crate) async fn wallet_import<
 
     keystore.put(addr, key.key_info)?;
 
-    Ok(key.address)
+    Ok(key.address.to_string())
 }
 
-pub(crate) async fn wallet_sign<
+/// List all Addresses in the Wallet
+pub(crate) async fn wallet_list<DB, KS>(
+    data: Data<State<DB, KS>>,
+) -> Result<Vec<String>, JsonRpcError>
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(Address, Vec<u8>)>,
-) -> Result<Signature, JsonRpcError> {
-    let (address, msg) = params;
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let keystore = data.keystore.read().await;
+    let addr_vec = wallet::list_addrs(&*keystore)?;
+    let ret = addr_vec.into_iter().map(|a| a.to_string()).collect();
+    Ok(ret)
+}
+
+/// Generate a new Address that is stored in the Wallet
+pub(crate) async fn wallet_new<DB, KS>(
+    data: Data<State<DB, KS>>,
+    Params(params): Params<(i8,)>,
+) -> Result<String, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (sig_type,) = params;
+    let mut keystore = data.keystore.write().await;
+    let key = match sig_type {
+        1 => wallet::generate_key(SignatureType::Secp256k1)?,
+        2 => wallet::generate_key(SignatureType::BLS)?,
+        _ => return Err("Specify valid Signature type".to_owned().into()),
+    };
+
+    let addr = format!("wallet-{}", key.address.to_string());
+    keystore.put(addr, key.key_info.clone())?;
+    let value = keystore.get(&"default".to_string());
+    if value.is_err() {
+        keystore.put("default".to_string(), key.key_info)?
+    }
+
+    Ok(key.address.to_string())
+}
+
+/// Set the default Address for the Wallet
+pub(crate) async fn wallet_set_default<DB, KS>(
+    data: Data<State<DB, KS>>,
+    Params(params): Params<(String,)>,
+) -> Result<(), JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (address,) = params;
+    let mut keystore = data.keystore.write().await;
+
+    let addr_string = format!("wallet-{}", address);
+    let key_info = keystore.get(&addr_string)?;
+    keystore.remove("default".to_string()); // This line should unregister current default key then continue
+    keystore.put("default".to_string(), key_info)?;
+    Ok(())
+}
+
+/// Sign a vector of bytes
+pub(crate) async fn wallet_sign<DB, KS>(
+    data: Data<State<DB, KS>>,
+    Params(params): Params<(String, String)>,
+) -> Result<SignatureJson, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (addr_str, msg_string) = params;
+
+    let address = Address::from_str(&addr_str)?;
+    let msg = Vec::from(msg_string);
 
     let keystore = data.keystore.write().await;
 
@@ -176,17 +195,20 @@ pub(crate) async fn wallet_sign<
         msg.as_slice(),
     )?;
 
-    Ok(sig)
+    Ok(SignatureJson(sig))
 }
 
-pub(crate) async fn wallet_sign_message<
+/// Sign an UnsignedMessage, return SignedMessage
+pub(crate) async fn wallet_sign_message<DB, KS>(
+    data: Data<State<DB, KS>>,
+    Params(params): Params<(String, UnsignedMessageJson)>,
+) -> Result<SignedMessageJson, JsonRpcError>
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(Address, UnsignedMessage)>,
-) -> Result<SignedMessage, JsonRpcError> {
-    let (address, msg) = params;
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (addr_str, UnsignedMessageJson(msg)) = params;
+    let address = Address::from_str(&addr_str)?;
     let msg_cid = msg.cid()?;
 
     let keystore = data.keystore.write().await;
@@ -201,52 +223,22 @@ pub(crate) async fn wallet_sign_message<
 
     let smsg = SignedMessage::new_from_fields(msg, sig);
 
-    Ok(smsg)
+    Ok(SignedMessageJson(smsg))
 }
 
-pub(crate) async fn wallet_verify<
+/// Verify a Signature, true if verified, false otherwise
+pub(crate) async fn wallet_verify<DB, KS>(
+    _data: Data<State<DB, KS>>,
+    Params(params): Params<(String, String, SignatureJson)>,
+) -> Result<bool, JsonRpcError>
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    _data: Data<State<DB, T>>,
-    Params(params): Params<(Address, Vec<u8>, Signature)>,
-) -> Result<bool, JsonRpcError> {
-    let (address, msg, sig) = params;
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let (addr_str, msg_str, SignatureJson(sig)) = params;
+    let address = Address::from_str(&addr_str)?;
+    let msg = Vec::from(msg_str);
 
     let ret = sig.verify(&msg, &address).is_ok();
     Ok(ret)
-}
-
-pub(crate) async fn wallet_set_default<
-    DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(Address,)>,
-) -> Result<(), JsonRpcError> {
-    let (address,) = params;
-    let mut keystore = data.keystore.write().await;
-
-    let addr_string = format!("wallet-{}", address.to_string());
-    let key_info = keystore.get(&addr_string)?;
-    keystore.remove("default".to_string()); // This line should unregister current default key then continue
-    keystore.put("default".to_string(), key_info)?;
-    Ok(())
-}
-
-pub(crate) async fn wallet_delete<
-    DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    data: Data<State<DB, T>>,
-    Params(params): Params<(Address,)>,
-) -> Result<(), JsonRpcError> {
-    let (address,) = params;
-    let mut keystore = data.keystore.write().await;
-
-    let addr_string = format!("wallet-{}", address.to_string());
-
-    keystore.remove(addr_string);
-
-    Ok(())
 }

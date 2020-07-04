@@ -4,8 +4,6 @@
 mod chain_api;
 mod wallet_api;
 
-pub use wallet_api::*;
-
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
@@ -14,9 +12,13 @@ use tide::{Request, Response, StatusCode};
 use wallet::KeyStore;
 
 /// This is where you store persistant data, or at least access to stateful data.
-pub struct State<DB: BlockStore + Send + Sync + 'static, T: KeyStore + Send + Sync + 'static> {
+pub struct State<DB, KS>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
     pub store: Arc<DB>,
-    pub keystore: Arc<RwLock<T>>,
+    pub keystore: Arc<RwLock<KS>>,
 }
 
 async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
@@ -25,77 +27,71 @@ async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
     Ok(Response::new(StatusCode::Ok).body_json(&res)?)
 }
 
-pub async fn start_rpc<
+pub async fn start_rpc<DB, KS>(store: Arc<DB>, keystore: Arc<RwLock<KS>>)
+where
     DB: BlockStore + Send + Sync + 'static,
-    T: KeyStore + Send + Sync + 'static,
->(
-    store: Arc<DB>,
-    keystore: Arc<RwLock<T>>,
-) {
+    KS: KeyStore + Send + Sync + 'static,
+{
     let rpc = Server::new()
         .with_data(Data::new(State { store, keystore }))
         .with_method(
             "Filecoin.ChainGetMessage",
-            chain_api::chain_get_message::<DB, T>,
+            chain_api::chain_get_message::<DB, KS>,
         )
-        .with_method("Filecoin.ChainGetObj", chain_api::chain_read_obj::<DB, T>)
-        .with_method("Filecoin.ChainHasObj", chain_api::chain_has_obj::<DB, T>)
+        .with_method("Filecoin.ChainGetObj", chain_api::chain_read_obj::<DB, KS>)
+        .with_method("Filecoin.ChainHasObj", chain_api::chain_has_obj::<DB, KS>)
         .with_method(
             "Filecoin.ChainGetBlockMessages",
-            chain_api::chain_block_messages::<DB, T>,
+            chain_api::chain_block_messages::<DB, KS>,
         )
         .with_method(
             "Filecoin.ChainGetTipsetByHeight",
-            chain_api::chain_get_tipset_by_height::<DB, T>,
+            chain_api::chain_get_tipset_by_height::<DB, KS>,
         )
         .with_method(
             "Filecoin.ChainGetGenesis",
-            chain_api::chain_get_genesis::<DB, T>,
+            chain_api::chain_get_genesis::<DB, KS>,
         )
         .with_method(
             "Filecoin.ChainTipsetWeight",
-            chain_api::chain_tipset_weight::<DB, T>,
+            chain_api::chain_tipset_weight::<DB, KS>,
         )
         .with_method(
             "Filecoin.ChainGetTipset",
-            chain_api::chain_get_tipset::<DB, T>,
+            chain_api::chain_get_tipset::<DB, KS>,
         )
         .with_method(
             "Filecoin.GetRandomness",
-            chain_api::chain_get_randomness::<DB, T>,
+            chain_api::chain_get_randomness::<DB, KS>,
         )
         .with_method(
             "Filecoin.ChainGetBlock",
-            chain_api::chain_get_block::<DB, T>,
+            chain_api::chain_get_block::<DB, KS>,
         )
-        .with_method("Filecoin.ChainHead", chain_api::chain_head::<DB, T>)
+        .with_method("Filecoin.ChainHead", chain_api::chain_head::<DB, KS>)
         .with_method(
-            "Filecoin.WalletDefault",
-            wallet_api::wallet_get_default::<DB, T>,
+            "Filecoin.WalletBalance",
+            wallet_api::wallet_balance::<DB, KS>,
         )
         .with_method(
-            "Filecoin.WalletListAddresses",
-            wallet_api::wallet_list_addrs::<DB, T>,
+            "Filecoin.WalletDefaultAddress",
+            wallet_api::wallet_default_address::<DB, KS>,
         )
-        .with_method("Filecoin.WalletHasKey", wallet_api::wallet_has_key::<DB, T>)
-        .with_method("Filecoin.WalletNew", wallet_api::wallet_new::<DB, T>)
-        .with_method(
-            "Filecoin.WalletGetBalance",
-            wallet_api::wallet_get_balance::<DB, T>,
-        )
-        .with_method("Filecoin.WalletExport", wallet_api::wallet_export::<DB, T>)
-        .with_method("Filecoin.WalletImport", wallet_api::wallet_import::<DB, T>)
-        .with_method("Filecoin.WalletSign", wallet_api::wallet_sign::<DB, T>)
-        .with_method(
-            "Filecoin.WalletSignMessage",
-            wallet_api::wallet_sign_message::<DB, T>,
-        )
-        .with_method("Filecoin.WalletVerify", wallet_api::wallet_verify::<DB, T>)
+        .with_method("Filecoin.WalletExport", wallet_api::wallet_export::<DB, KS>)
+        .with_method("Filecoin.WalletHas", wallet_api::wallet_has::<DB, KS>)
+        .with_method("Filecoin.WalletImport", wallet_api::wallet_import::<DB, KS>)
+        .with_method("Filecoin.WalletList", wallet_api::wallet_list::<DB, KS>)
+        .with_method("Filecoin.WalletNew", wallet_api::wallet_new::<DB, KS>)
         .with_method(
             "Filecoin.WalletSetDefault",
-            wallet_api::wallet_set_default::<DB, T>,
+            wallet_api::wallet_set_default::<DB, KS>,
         )
-        .with_method("Filecoin.WalletDelete", wallet_api::wallet_delete::<DB, T>)
+        .with_method("Filecoin.WalletSign", wallet_api::wallet_sign::<DB, KS>)
+        .with_method(
+            "Filecoin.WalletSignMessage",
+            wallet_api::wallet_sign_message::<DB, KS>,
+        )
+        .with_method("Filecoin.WalletVerify", wallet_api::wallet_verify::<DB, KS>)
         .finish_unwrapped();
     let mut app = tide::Server::with_state(rpc);
     app.at("/api").post(handle_json_rpc);

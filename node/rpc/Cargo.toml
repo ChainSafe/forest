@@ -16,10 +16,10 @@ blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features
 clock = { path = "../clock" }
 message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
 jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
-crypto = { package = "forest_crypto", path = "../../crypto" }
+crypto = { package = "forest_crypto", path = "../../crypto", features = ["json"] }
 num-traits = "0.2.11"
-wallet = {package = "key_management", path = "../../key_management"}
-state_manager = {package = "state_manager", path = "../../blockchain/state_manager"}
+wallet = {package = "key_management", path = "../../key_management", features = ["json"] }
+state_manager = {package = "state_manager", path = "../../blockchain/state_manager" }
 address = { package = "forest_address", path = "../../vm/address" }
 encoding = { package = "forest_encoding",  path = "../../encoding/"}
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

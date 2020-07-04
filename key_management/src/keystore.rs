@@ -35,6 +35,55 @@ impl KeyInfo {
     }
 }
 
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
+
+    /// Wrapper for serializing a SignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct KeyInfoJsonRef<'a>(#[serde(with = "self")] pub &'a KeyInfo);
+
+    #[derive(Serialize, Deserialize)]
+    struct JsonHelper {
+        #[serde(rename = "Type")]
+        sig_type: SignatureType,
+        #[serde(rename = "PrivateKey")]
+        private_key: String,
+    }
+
+    pub fn serialize<S>(k: &KeyInfo, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            sig_type: k.key_type,
+            private_key: base64::encode(&k.private_key),
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<KeyInfo, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let JsonHelper {
+            sig_type,
+            private_key,
+        } = Deserialize::deserialize(deserializer)?;
+        Ok(KeyInfo {
+            key_type: sig_type,
+            private_key: base64::decode(private_key).map_err(de::Error::custom)?,
+        })
+    }
+}
+
 /// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
 pub trait KeyStore {
     /// Return all of the keys that are stored in the KeyStore
