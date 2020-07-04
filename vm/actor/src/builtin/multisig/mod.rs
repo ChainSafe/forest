@@ -172,9 +172,8 @@ impl Actor {
                     ExitCode::ErrIllegalState,
                     "Failed to compute proposal hash".to_string(),
                 )
-            }
-            )?;            
-             
+            })?;
+
             if params.proposal_hash != result_hash {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
