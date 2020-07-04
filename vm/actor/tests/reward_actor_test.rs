@@ -12,7 +12,6 @@ use common::*;
 use db::MemoryDB;
 use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
-
 use std::panic;
 use vm::{Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 

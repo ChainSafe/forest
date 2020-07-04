@@ -167,18 +167,18 @@ impl Actor {
                 ));
             }
 
-            let result_hash = Self::compute_proposal_hash(rt, tx);
-            if result_hash.is_err() {
-                return Err(ActorError::new(
+            let result_hash = Self::compute_proposal_hash(rt, tx).map_err(|_| {
+                ActorError::new(
                     ExitCode::ErrIllegalState,
                     "Failed to compute proposal hash".to_string(),
-                ));
+                )
             }
-
-            if !params.proposal_hash.eq(&result_hash.unwrap()) {
+            )?;            
+             
+            if params.proposal_hash != result_hash {
                 return Err(ActorError::new(
                     ExitCode::ErrIllegalState,
-                    "Hash does  not match proposal params".to_string(),
+                    "Hash does not match proposal params".to_string(),
                 ));
             }
 
@@ -404,10 +404,10 @@ impl Actor {
                     format!("Insufficient funds unlocked: {}", e),
                 ));
             }
-            let _ret = rt.send(&tx.to, tx.method, &tx.params, &tx.value);
+            rt.send(&tx.to, tx.method, &tx.params, &tx.value)?;
 
             // Delete pending transaction
-            let _v = rt.transaction::<State, _, _>(|st, rt| {
+            rt.transaction::<State, _, _>(|st, rt| {
                 if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
                     return Err(ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -447,7 +447,7 @@ impl Actor {
             method: txn.method,
             params: txn.params.to_vec(),
         };
-        let serial_data = Serialized::serialize(hash_data).unwrap();
+        let serial_data = Serialized::serialize(hash_data)?;
         rt.syscalls().hash_blake2b(serial_data.bytes())
     }
 }
