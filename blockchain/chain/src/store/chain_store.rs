@@ -208,16 +208,10 @@ where
     DB: BlockStore,
 {
     let mut umsg: Vec<UnsignedMessage> = Vec::new();
-    let mut msgs: Vec<SignedMessage> = Vec::new();
     for bh in h.blocks().iter() {
-        let (mut bh_umsg_tmp, mut bh_msg_tmp) = block_messages(db, bh)?;
-        let bh_umsg = &mut bh_umsg_tmp;
-        let bh_msg = &mut bh_msg_tmp;
-        umsg.append(bh_umsg);
-        msgs.append(bh_msg);
-    }
-    for msg in msgs {
-        umsg.push(msg.into_message());
+        let (mut bh_umsg, bh_msg) = block_messages(db, bh)?;
+        umsg.append(&mut bh_umsg);
+        umsg.append(&mut bh_msg.into_iter().map(|msg| msg.into_message()).collect());
     }
     Ok(umsg)
 }
