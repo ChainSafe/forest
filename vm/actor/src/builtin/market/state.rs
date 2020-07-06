@@ -4,10 +4,10 @@
 use super::{
     collateral_penalty_for_deal_activation_missed, DealProposal, DealState, DEAL_UPDATED_INTERVAL,
 };
-use crate::{BalanceTable, DealID, OptionalEpoch};
+use crate::{BalanceTable, DealID};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
+use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::tuple::*;
 use encoding::Cbor;
 use ipld_amt::Amt;
@@ -33,7 +33,7 @@ pub struct State {
     /// Metadata cached for efficient iteration over deals.
     /// SetMultimap<Address>
     pub deal_ops_by_epoch: Cid,
-    pub last_cron: OptionalEpoch,
+    pub last_cron: ChainEpoch,
 }
 
 impl State {
@@ -45,7 +45,7 @@ impl State {
             locked_table: empty_map,
             next_id: 0,
             deal_ops_by_epoch: empty_mset,
-            last_cron: OptionalEpoch::default(),
+            last_cron: EPOCH_UNDEFINED,
         }
     }
 
@@ -62,35 +62,34 @@ impl State {
         et: &mut BalanceTable<BS>,
         lt: &mut BalanceTable<BS>,
         epoch: ChainEpoch,
-    ) -> Result<(TokenAmount, OptionalEpoch), ActorError>
+    ) -> Result<(TokenAmount, ChainEpoch), ActorError>
     where
         BS: BlockStore,
     {
-        let ever_updated = state.last_updated_epoch.is_some();
-        let ever_slashed = state.slash_epoch.is_some();
+        let ever_updated = state.last_updated_epoch != EPOCH_UNDEFINED;
+        let ever_slashed = state.slash_epoch != EPOCH_UNDEFINED;
 
         // if the deal was ever updated, make sure it didn't happen in the future
-        assert!(!ever_updated || state.last_updated_epoch.unwrap() <= epoch);
+        assert!(!ever_updated || state.last_updated_epoch <= epoch);
 
         // This would be the case that the first callback somehow triggers before it is scheduled to
         // This is expected not to be able to happen
         if deal.start_epoch > epoch {
-            return Ok((TokenAmount::zero(), OptionalEpoch(None)));
+            return Ok((TokenAmount::zero(), EPOCH_UNDEFINED));
         }
 
         let deal_end = if ever_slashed {
             assert!(
-                state.slash_epoch.unwrap() <= deal.end_epoch,
+                state.slash_epoch <= deal.end_epoch,
                 "Epoch slashed must be less or equal to the end epoch"
             );
-            state.slash_epoch.unwrap()
+            state.slash_epoch
         } else {
             deal.end_epoch
         };
 
-        let elapsed_start = if ever_updated && state.last_updated_epoch.unwrap() > deal.start_epoch
-        {
-            state.last_updated_epoch.unwrap()
+        let elapsed_start = if ever_updated && state.last_updated_epoch > deal.start_epoch {
+            state.last_updated_epoch
         } else {
             deal.start_epoch
         };
@@ -103,12 +102,12 @@ impl State {
             store,
             &deal.client,
             &deal.provider,
-            &(deal.storage_price_per_epoch.clone() * num_epochs_elapsed),
+            &(deal.storage_price_per_epoch.clone() * num_epochs_elapsed as u64),
         )?;
 
         if ever_slashed {
             // unlock client collateral and locked storage fee
-            let payment_remaining = deal_get_payment_remaining(&deal, state.slash_epoch.unwrap());
+            let payment_remaining = deal_get_payment_remaining(&deal, state.slash_epoch);
             // specs actors are not handling this err
             self.unlock_balance(
                 lt,
@@ -128,17 +127,17 @@ impl State {
                 })?;
 
             self.delete_deal(store, deal_id)?;
-            return Ok((slashed, OptionalEpoch(None)));
+            return Ok((slashed, EPOCH_UNDEFINED));
         }
 
         if epoch >= deal.end_epoch {
             self.process_deal_expired(store, deal_id, &deal, state, lt)?;
-            return Ok((TokenAmount::zero(), OptionalEpoch(None)));
+            return Ok((TokenAmount::zero(), EPOCH_UNDEFINED));
         }
 
         let next: ChainEpoch = std::cmp::min(epoch + DEAL_UPDATED_INTERVAL, deal.end_epoch);
 
-        Ok((TokenAmount::zero(), OptionalEpoch(Some(next))))
+        Ok((TokenAmount::zero(), next))
     }
     fn mutate_deal_proposals<BS, F>(&mut self, store: &BS, f: F) -> Result<(), ActorError>
     where
@@ -193,8 +192,8 @@ impl State {
     where
         BS: BlockStore,
     {
-        assert!(
-            state.sector_start_epoch.is_none(),
+        assert_eq!(
+            state.sector_start_epoch, EPOCH_UNDEFINED,
             "Sector start epoch must be undefined"
         );
 
@@ -233,8 +232,8 @@ impl State {
     where
         BS: BlockStore,
     {
-        assert!(
-            state.sector_start_epoch.is_some(),
+        assert_eq!(
+            state.sector_start_epoch, EPOCH_UNDEFINED,
             "Sector start epoch must be initialized at this point"
         );
 
@@ -489,7 +488,7 @@ fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAm
 
     let duration_remaining = deal.end_epoch - (epoch - 1);
 
-    deal.storage_price_per_epoch.clone() * duration_remaining
+    deal.storage_price_per_epoch.clone() * duration_remaining as u64
 }
 
 impl Cbor for State {}

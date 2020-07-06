@@ -278,6 +278,7 @@ dependencies = [
  "forest_message",
  "forest_vm",
  "hex",
+ "integer-encoding",
  "ipld_amt",
  "ipld_blockstore",
  "ipld_hamt",
@@ -1025,9 +1026,9 @@ checksum = "24508e28c677875c380c20f4d28124fab6f8ed4ef929a1397d7b1a31e92f1005"
 
 [[package]]
 name = "cc"
-version = "1.0.56"
+version = "1.0.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c1f1d60091c1b73e2b1f4560ab419204b178e625fa945ded7b660becd2bd46"
+checksum = "0fde55d2a2bfaa4c9668bbc63f531fbdeee3ffe188f4662511ce2c22b3eedebe"
 dependencies = [
  "jobserver",
 ]
@@ -1134,9 +1135,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.11"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80094f509cf8b5ae86a4966a39b3ff66cd7e2a3e594accec3743ff3fabeab5b2"
+checksum = "f0fee792e164f78f5fe0c296cc2eb3688a2ca2b70cdff33040922d298203f0c4"
 dependencies = [
  "num-integer",
  "num-traits 0.2.12",
@@ -1981,9 +1982,9 @@ dependencies = [
 
 [[package]]
 name = "filecoin-proofs"
-version = "4.0.2"
+version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d06a1a7a99edec5a55ce9172cd7790c1bc53ed6e467fa1d78600bf1015ec53f"
+checksum = "e13a50f1d610713acd97330b19b8dc332a8c460c572f714fb2652846313ea9c1"
 dependencies = [
  "anyhow",
  "bellperson",
@@ -2036,9 +2037,9 @@ dependencies = [
 
 [[package]]
 name = "filecoin-proofs-api"
-version = "4.0.1"
+version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50d4fdc32af03c54b2606bdfbd0ba1dbcdc5b071f00adc48bdf1733026f443e5"
+checksum = "33fbcb437b5be6cf33b3f6fbc94ddf28d40a63f2b73a7006f9ced8cada61a646"
 dependencies = [
  "anyhow",
  "filecoin-proofs",
@@ -3864,9 +3865,9 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.5.4"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4fc2c02a7e374099d4ee95a193111f72d2110197fe200272371758f6c3643d8"
+checksum = "c198b026e1bbf08a937e94c6c60f9ec4a2267f5b0d2eec9c1b21b061ce2be55f"
 dependencies = [
  "autocfg 1.0.0",
 ]
@@ -4510,9 +4511,9 @@ dependencies = [
 
 [[package]]
 name = "phase21"
-version = "0.6.3"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5188911b8d5498a54e388eb3ac1150656c79def229e3b99b7b30ae6728ac4d21"
+checksum = "0ee67989a99ba3c652ac7c680a7de68c25fc9303fe5fb9d65d73a3c4e2516236"
 dependencies = [
  "bellperson",
  "blake2b_simd",
@@ -5812,9 +5813,9 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 
 [[package]]
 name = "storage-proofs"
-version = "4.0.2"
+version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae7c2c18acb0b337067032ebdca579fb17d9e147fa4a2b7935ad959a41910178"
+checksum = "3cd8a43d73744a7f17eae30708ab4da04843e79964dc9ca4671d22bf00a7590e"
 dependencies = [
  "storage-proofs-core",
  "storage-proofs-porep",
@@ -5823,9 +5824,9 @@ dependencies = [
 
 [[package]]
 name = "storage-proofs-core"
-version = "4.0.2"
+version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1eb5504e445f17a81063da85615f70903897ebca990158ba3f7eca864ff70c00"
+checksum = "ed4d2d5c8a1a0766f9274ada3e585e8746bce8a08102ce6771ab2159081e5a53"
 dependencies = [
  "aes",
  "anyhow",
@@ -5861,9 +5862,9 @@ dependencies = [
 
 [[package]]
 name = "storage-proofs-porep"
-version = "4.0.2"
+version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bfc988686742ffa756361615e31d2afe7d7ccb10317905a8c088da2eb78977d"
+checksum = "7d935bdf3bc617ce799a6c104a16ff4d85a097a5081332c1b7ba596641c443e4"
 dependencies = [
  "anyhow",
  "bellperson",
@@ -5892,9 +5893,9 @@ dependencies = [
 
 [[package]]
 name = "storage-proofs-post"
-version = "4.0.2"
+version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a184e79588cac26236f071e697e4ecbe93a0e32c675aeb4e1e06c325daf4ef91"
+checksum = "d52febf7743a46df331ddebcfbaa04c4ca2236ee87797a54509d330a195e01f9"
 dependencies = [
  "anyhow",
  "bellperson",
