@@ -100,7 +100,6 @@ where
 {
     let mut outm: Option<UnsignedMessage> = None;
     let mut outr: Option<ApplyRet> = None;
-    let _error_message_halt = "halt".to_string();
     let call_back = |cid: Cid, unsigned: UnsignedMessage, apply_ret: ApplyRet| {
         if cid == mcid.clone() {
             outm = Some(unsigned);
