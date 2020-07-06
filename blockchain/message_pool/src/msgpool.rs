@@ -157,17 +157,18 @@ where
 }
 
 /// This is the main MessagePool struct
+#[allow(clippy::box_vec)]
 pub struct MessagePool<T: 'static> {
     local_addrs: Vec<Address>,
-    pending: Arc<RwLock<HashMap<Address, MsgSet>>>, // mutex this
+    pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
     pub cur_tipset: Arc<RwLock<Tipset>>,
     api: Arc<RwLock<T>>,
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
     pub network_name: String,
-    bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>, // mutex this
+    bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     sig_val_cache: LruCache<Cid, ()>,
-    local_msgs: Vec<SignedMessage>,
+    local_msgs: Box<Vec<SignedMessage>>,
 }
 
 impl<T> MessagePool<T>
@@ -198,7 +199,7 @@ where
             network_name,
             bls_sig_cache,
             sig_val_cache,
-            local_msgs: Vec::new(),
+            local_msgs: Box::new(Vec::new()),
         };
 
         mp.load_local().await?;
@@ -441,15 +442,19 @@ where
     /// Load local messages into pending. As of  right now messages are not deleted from self's
     /// local_message field, possibly implement this in the future?
     pub async fn load_local(&mut self) -> Result<(), Error> {
-        let msg_vec = self.local_msgs.clone();
-        for msg in msg_vec {
+        let mut msg_vec = Vec::new();
+        while let Some(msg) = self.local_msgs.pop() {
             self.add(&msg).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
-                    self.local_msgs.retain(|smsg| *smsg != msg);
+                } else {
+                    msg_vec.push(msg);
                 }
             })
         }
+
+        *self.local_msgs = msg_vec;
+
         Ok(())
     }
 }
