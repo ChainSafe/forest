@@ -9,7 +9,7 @@ use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
-use libp2p::request_response::{RequestId, ResponseChannel};
+use libp2p_request_response::{RequestId, ResponseChannel};
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
