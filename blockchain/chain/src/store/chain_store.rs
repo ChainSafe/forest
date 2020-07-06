@@ -211,7 +211,7 @@ where
     for bh in h.blocks().iter() {
         let (mut bh_umsg, bh_msg) = block_messages(db, bh)?;
         umsg.append(&mut bh_umsg);
-        umsg.append(&mut bh_msg.into_iter().map(|msg| msg.into_message()).collect());
+        umsg.extend(bh_msg.into_iter().map(|msg| msg.into_message()));
     }
     Ok(umsg)
 }

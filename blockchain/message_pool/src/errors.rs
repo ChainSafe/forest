@@ -11,6 +11,8 @@ pub enum Error {
     /// Error indicating message that's too large
     #[error("Message is too big")]
     MessageTooBig,
+    #[error("gas price is lower than min gas price")]
+    GasPriceTooLow,
     #[error("Cannot send more Filecoin than will ever exist")]
     MessageValueTooHigh,
     #[error("Message sequence too low")]
@@ -23,12 +25,6 @@ pub enum Error {
     InvalidFromAddr,
     #[error("Message with sequence already in mempool")]
     DuplicateSequence,
-    #[error("Signature validation failed")]
-    SigVerification,
-    #[error("Unknown signature type")]
-    UnknownSigType,
-    #[error("BLS signature too short")]
-    BLSSigTooShort,
     #[error("{0}")]
     Other(String),
 }
