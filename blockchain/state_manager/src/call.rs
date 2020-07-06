@@ -3,14 +3,11 @@
 
 use crate::errors::*;
 use crate::StateManager;
-
 use async_log::span;
-
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use cid::Cid;
 use clock::ChainEpoch;
-
 use forest_blocks::Tipset;
 use interpreter::{ApplyRet, ChainRand, DefaultSyscalls, VM};
 use log::trace;
