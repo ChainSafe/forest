@@ -60,7 +60,7 @@ fn pre_open_deadlines_test() {
 #[test]
 fn offset_zero_test() {
     let first_period_start: ChainEpoch = 0;
-
+    // First proving period.
     let mut di = assert_deadline_info(0, first_period_start, 0, 0);
     assert_eq!(-WPOST_CHALLENGE_LOOKBACK, di.challenge);
     assert_eq!(-FAULT_DECLARATION_CUTOFF, di.fault_cutoff);
@@ -68,7 +68,9 @@ fn offset_zero_test() {
     assert!(di.fault_cutoff_passed());
 
     assert_deadline_info(1, first_period_start, 0, 0);
+    // Final epoch of deadline 0.
     assert_deadline_info(WPOST_CHALLENGE_WINDOW - 1, first_period_start, 0, 0);
+    // First epoch of deadline 1
     assert_deadline_info(
         WPOST_CHALLENGE_WINDOW,
         first_period_start,
@@ -76,23 +78,26 @@ fn offset_zero_test() {
         WPOST_CHALLENGE_WINDOW,
     );
     assert_deadline_info(
-        WPOST_CHALLENGE_WINDOW,
+        WPOST_CHALLENGE_WINDOW + 1,
         first_period_start,
         1,
         WPOST_CHALLENGE_WINDOW,
     );
+    // Final epoch of deadline 1
     assert_deadline_info(
         WPOST_CHALLENGE_WINDOW * 2 - 1,
         first_period_start,
         1,
         WPOST_CHALLENGE_WINDOW,
     );
+    // First epoch of deadline 2
     assert_deadline_info(
         WPOST_CHALLENGE_WINDOW * 2,
         first_period_start,
         2,
         WPOST_CHALLENGE_WINDOW * 2,
     );
+    // Last epoch of last deadline
     assert_deadline_info(
         WPOST_PROVING_PERIOD - 1,
         first_period_start,
@@ -235,7 +240,7 @@ const PART_SIZE: usize = 1000;
 
 #[test]
 fn empty_deadlines_test() {
-    let empty: &[u64] = &[];
+    let empty: &[usize] = &[];
     let mut dl = build_deadlines(empty);
     let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
     assert_eq!(0, first_idx);
@@ -249,7 +254,7 @@ fn empty_deadlines_test() {
 
 #[test]
 fn single_sector_test() {
-    let single: &[u64] = &[1];
+    let single: &[usize] = &[1];
     let mut dl = build_deadlines(single);
     let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
     assert_eq!(0, first_idx);
@@ -267,7 +272,7 @@ fn single_sector_test() {
 
 #[test]
 fn single_sector_not_zero_deadline() {
-    let sector: &[u64] = &[0, 1];
+    let sector: &[usize] = &[0, 1];
     let mut dl = build_deadlines(sector);
 
     let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
@@ -306,14 +311,41 @@ fn deadlines_full_partition_test() {
 }
 
 #[test]
+fn partial_partitions_test() {
+    let mut dl = build_deadlines(&[
+        PART_SIZE - 1,
+        PART_SIZE,
+        PART_SIZE - 2,
+        PART_SIZE,
+        PART_SIZE - 3,
+        PART_SIZE,
+    ]);
+    let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
+    assert_eq!(0, first_idx);
+    assert_eq!(PART_SIZE - 1, sector_count as usize);
+
+    let (second_idx, second_count) = partitions_for_deadline(&mut dl, PART_SIZE, 1).unwrap();
+    assert_eq!(1, second_idx);
+    assert_eq!(PART_SIZE, second_count as usize);
+
+    let (third_idx, third_count) = partitions_for_deadline(&mut dl, PART_SIZE, 2).unwrap();
+    assert_eq!(2, third_idx as usize);
+    assert_eq!(PART_SIZE - 2, third_count as usize);
+
+    let (fourth_idx, fourth_count) = partitions_for_deadline(&mut dl, PART_SIZE, 5).unwrap();
+    assert_eq!(5, fourth_idx as usize);
+    assert_eq!(PART_SIZE, fourth_count as usize);
+}
+
+#[test]
 fn multiple_partitions_test() {
     let mut dl = build_deadlines(&[
-        PART_SIZE as u64,
-        (PART_SIZE * 2) as u64,
-        (PART_SIZE * 4 - 1) as u64,
-        (PART_SIZE * 6) as u64,
-        (PART_SIZE * 8 - 1) as u64,
-        (PART_SIZE * 9) as u64,
+        PART_SIZE,
+        (PART_SIZE * 2),
+        (PART_SIZE * 4 - 1),
+        (PART_SIZE * 6),
+        (PART_SIZE * 8 - 1),
+        (PART_SIZE * 9),
     ]);
 
     let (first_idx, sector_count) = partitions_for_deadline(&mut dl, PART_SIZE, 0).unwrap();
@@ -447,21 +479,44 @@ fn numbered_partitions_test() {
 }
 
 #[test]
-#[should_panic]
 fn numbered_partitions_should_err_test() {
     let mut dls = Deadlines::new();
     dls.due[1] = bf_seq(0, 3 * PART_SIZE + 1);
     dls.due[3] = bf_seq(3 * PART_SIZE + 1, 1);
     dls.due[5] = bf_seq(3 * PART_SIZE + 2, 2 * PART_SIZE);
 
-    compute_partitions_sector(&mut dls, PART_SIZE as u64, 1, &[4]).unwrap();
-    compute_partitions_sector(&mut dls, PART_SIZE as u64, 2, &[4]).unwrap();
-    compute_partitions_sector(&mut dls, PART_SIZE as u64, 3, &[0]).unwrap();
-    compute_partitions_sector(&mut dls, PART_SIZE as u64, 3, &[3]).unwrap();
-    compute_partitions_sector(&mut dls, PART_SIZE as u64, 3, &[5]).unwrap();
-    compute_partitions_sector(&mut dls, PART_SIZE as u64, 4, &[5]).unwrap();
-    compute_partitions_sector(&mut dls, PART_SIZE as u64, 5, &[0]).unwrap();
-    compute_partitions_sector(&mut dls, PART_SIZE as u64, 5, &[7]).unwrap();
+    assert_eq!(
+        compute_partitions_sector(&mut dls, PART_SIZE as u64, 1, &[4]).unwrap_err(),
+        format!("invalid partition 4 at deadline 1 with first 0, count 4")
+    );
+    assert_eq!(
+        compute_partitions_sector(&mut dls, PART_SIZE as u64, 2, &[4]).unwrap_err(),
+        format!("invalid partition 4 at deadline 2 with first 4, count 0")
+    );
+    assert_eq!(
+        compute_partitions_sector(&mut dls, PART_SIZE as u64, 3, &[0]).unwrap_err(),
+        format!("invalid partition 0 at deadline 3 with first 4, count 1")
+    );
+    assert_eq!(
+        compute_partitions_sector(&mut dls, PART_SIZE as u64, 3, &[3]).unwrap_err(),
+        format!("invalid partition 3 at deadline 3 with first 4, count 1")
+    );
+    assert_eq!(
+        compute_partitions_sector(&mut dls, PART_SIZE as u64, 3, &[5]).unwrap_err(),
+        format!("invalid partition 5 at deadline 3 with first 4, count 1")
+    );
+    assert_eq!(
+        compute_partitions_sector(&mut dls, PART_SIZE as u64, 4, &[5]).unwrap_err(),
+        format!("invalid partition 5 at deadline 4 with first 5, count 0")
+    );
+    assert_eq!(
+        compute_partitions_sector(&mut dls, PART_SIZE as u64, 5, &[0]).unwrap_err(),
+        format!("invalid partition 0 at deadline 5 with first 5, count 2")
+    );
+    assert_eq!(
+        compute_partitions_sector(&mut dls, PART_SIZE as u64, 5, &[7]).unwrap_err(),
+        format!("invalid partition 7 at deadline 5 with first 5, count 2")
+    );
 }
 
 const NEW_SECTOR_PART_SIZE: usize = 4;
@@ -512,22 +567,16 @@ fn incremental_assignment_test() {
     // Add lots
     deadlines = Deadlines::new();
     deadlines = assign_sectors_setup(deadlines, &seq(0, 2 * NEW_SECTOR_PART_SIZE + 1));
-    DeadlineBuilder::new(&[
-        0,
-        NEW_SECTOR_PART_SIZE as u64,
-        NEW_SECTOR_PART_SIZE as u64,
-        1,
-    ])
-    .verify(&deadlines);
+    DeadlineBuilder::new(&[0, NEW_SECTOR_PART_SIZE, NEW_SECTOR_PART_SIZE, 1]).verify(&deadlines);
     deadlines = assign_sectors_setup(
         deadlines.clone(),
         &seq(2 * NEW_SECTOR_PART_SIZE + 1, NEW_SECTOR_PART_SIZE),
     );
     DeadlineBuilder::new(&[
         0,
-        NEW_SECTOR_PART_SIZE as u64,
-        NEW_SECTOR_PART_SIZE as u64,
-        NEW_SECTOR_PART_SIZE as u64,
+        NEW_SECTOR_PART_SIZE,
+        NEW_SECTOR_PART_SIZE,
+        NEW_SECTOR_PART_SIZE,
         1,
     ])
     .verify(&deadlines);
@@ -584,7 +633,8 @@ fn assert_deadlines_equal(expected: &Deadlines, actual: &Deadlines) {
     }
 }
 
-fn build_deadlines(gen: &[u64]) -> Deadlines {
+fn build_deadlines(gen: &[usize]) -> Deadlines {
+    // TODO switch deadline builder accordingly
     DeadlineBuilder::new(gen).deadlines
 }
 
@@ -609,7 +659,7 @@ struct DeadlineBuilder {
 }
 
 impl DeadlineBuilder {
-    fn new(counts: &[u64]) -> Self {
+    fn new(counts: &[usize]) -> Self {
         DeadlineBuilder {
             deadlines: Deadlines::new(),
             next_sector_idx: 0,
@@ -623,9 +673,9 @@ impl DeadlineBuilder {
         self
     }
 
-    fn add_to_from(mut self, first: usize, counts: &[u64]) -> Self {
+    fn add_to_from(mut self, first: usize, counts: &[usize]) -> Self {
         for (i, c) in counts.into_iter().enumerate() {
-            self.add_to(first + i, *c as usize);
+            self.add_to(first + i, *c);
         }
         self
     }
