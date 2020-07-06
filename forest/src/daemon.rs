@@ -35,7 +35,7 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize database
-    let mut db = RocksDb::new(config.data_dir.clone() + "/db");
+    let mut db = RocksDb::new(config.data_dir + "/db");
     db.open().unwrap();
     let db = Arc::new(db);
     let mut chain_store = ChainStore::new(Arc::clone(&db));
@@ -74,10 +74,9 @@ pub(super) async fn start(config: Config) {
         chain_syncer.start().await.unwrap();
     });
 
-    let db_rpc = Arc::clone(&db);
-
     let rpc_thread = if config.enable_rpc {
-        let rpc_listen = "127.0.0.1:".to_string() + &config.rpc_port;
+        let db_rpc = Arc::clone(&db);
+        let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(db_rpc, &rpc_listen).await;
