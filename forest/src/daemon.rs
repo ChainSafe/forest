@@ -77,8 +77,8 @@ pub(super) async fn start(config: Config) {
     });
 
     let db_rpc = Arc::clone(&db);
+    let keystore = Arc::new(RwLock::new(MemKeyStore::new()));
     let rpc_thread = task::spawn(async {
-        let keystore = Arc::new(RwLock::new(MemKeyStore::new()));
         start_rpc(db_rpc, keystore).await;
     });
 

@@ -143,14 +143,14 @@ where
     }
 }
 
-// pub fn generate_addr()
-
+/// Return the default Address for KeyStore
 pub fn get_default<T: KeyStore>(keystore: &T) -> Result<Address, Error> {
     let key_info = keystore.get(&"default".to_string())?;
     let k = Key::try_from(key_info)?;
     Ok(k.address)
 }
 
+/// Return Sorted Vec of Addresses in KeyStore
 pub fn list_addrs<T: KeyStore>(keystore: &T) -> Result<Vec<Address>, Error> {
     let mut all = keystore.list();
     all.sort();
@@ -166,6 +166,7 @@ pub fn list_addrs<T: KeyStore>(keystore: &T) -> Result<Vec<Address>, Error> {
     Ok(out)
 }
 
+/// Return Key corresponding to given Address in KeyStore
 pub fn find_key<T: KeyStore>(addr: &Address, keystore: &T) -> Result<Key, Error> {
     let key_string = format!("wallet-{}", addr.to_string());
     let key_info = keystore.get(&key_string)?;
@@ -173,17 +174,20 @@ pub fn find_key<T: KeyStore>(addr: &Address, keystore: &T) -> Result<Key, Error>
     Ok(new_key)
 }
 
+/// Return keyInfo for given Address in KeyStore
 pub fn export_key_info<T: KeyStore>(addr: &Address, keystore: &T) -> Result<KeyInfo, Error> {
     let key = find_key(addr, keystore)?;
     Ok(key.key_info)
 }
 
+/// Generate new Key of given SignatureType
 pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
     let private_key = wallet_helpers::generate(typ)?;
     let key_info = KeyInfo::new(typ, private_key);
     Key::try_from(key_info)
 }
 
+/// Import KeyInfo into KeyStore
 pub fn import<T: KeyStore + Sync + Send>(
     key_info: KeyInfo,
     keystore: &mut T,
