@@ -11,6 +11,7 @@ use actor::{
     SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
+use clock::EPOCH_UNDEFINED;
 use common::*;
 use db::MemoryDB;
 use ipld_amt::Amt;
@@ -89,7 +90,7 @@ fn simple_construction() {
     assert_eq!(empty_map, state_data.escrow_table);
     assert_eq!(empty_map, state_data.locked_table);
     assert_eq!(empty_set, state_data.deal_ops_by_epoch);
-    assert_eq!(state_data.last_cron.is_none(), true);
+    assert_eq!(state_data.last_cron, EPOCH_UNDEFINED);
 }
 
 #[test]
