@@ -14,7 +14,7 @@ pub const METHOD_SEND: MethodNum = 0;
 pub const METHOD_CONSTRUCTOR: MethodNum = 1;
 
 /// Serialized bytes to be used as parameters into actor methods
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
 #[serde(transparent)]
 pub struct Serialized {
     #[serde(with = "serde_bytes")]

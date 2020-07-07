@@ -4042,7 +4042,7 @@ dependencies = [
  "key_management",
  "libsecp256k1",
  "log",
- "lru 0.5.2",
+ "lru 0.5.3",
  "serde",
  "state_tree",
  "thiserror",

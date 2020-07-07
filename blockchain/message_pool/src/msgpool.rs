@@ -20,7 +20,7 @@ use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, BigUint};
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use vm::ActorState;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
@@ -167,7 +167,8 @@ pub struct MessagePool<T: 'static> {
     pub network_name: String,
     bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     sig_val_cache: LruCache<Cid, ()>,
-    local_msgs: Vec<SignedMessage>,
+    // TODO look into adding a cap to local_msgs
+    local_msgs: HashSet<SignedMessage>,
 }
 
 impl<T> MessagePool<T>
@@ -198,7 +199,7 @@ where
             network_name,
             bls_sig_cache,
             sig_val_cache,
-            local_msgs: Vec::new(),
+            local_msgs: HashSet::new(),
         };
 
         mp.load_local().await?;
@@ -214,10 +215,10 @@ where
             loop {
                 if let Some(ts) = subscriber.next().await {
                     head_change(
-                        api.clone(),
-                        bls_sig_cache.clone(),
-                        pending.clone(),
-                        cur_tipset.clone(),
+                        api.as_ref(),
+                        bls_sig_cache.as_ref(),
+                        pending.as_ref(),
+                        cur_tipset.as_ref(),
                         Vec::new(),
                         vec![ts.as_ref().clone()],
                     )
@@ -232,7 +233,7 @@ where
     /// Add a signed message to local_addrs and local_msgs
     fn add_local(&mut self, m: SignedMessage) -> Result<(), Error> {
         self.local_addrs.push(*m.from());
-        self.local_msgs.push(m);
+        self.local_msgs.insert(m);
         Ok(())
     }
 
@@ -369,7 +370,7 @@ where
 
     /// Remove a message given a sequence and address from the messagepool
     pub async fn remove(&mut self, from: &Address, sequence: u64) -> Result<(), Error> {
-        remove(from, self.pending.clone(), sequence).await
+        remove(from, self.pending.as_ref(), sequence).await
     }
 
     /// Return a tuple that contains a vector of all signed messages and the current tipset for
@@ -444,20 +445,21 @@ where
     /// Load local messages into pending. As of  right now messages are not deleted from self's
     /// local_message field, possibly implement this in the future?
     pub async fn load_local(&mut self) -> Result<(), Error> {
-        let mut msg_vec = Vec::new();
-        while let Some(msg) = self.local_msgs.pop() {
-            if let Err(err) = self.add(&msg).await {
+        let mut rm_vec = Vec::new();
+        let thing: Vec<SignedMessage> = self.local_msgs.iter().cloned().collect();
+
+        for k in thing {
+            self.add(&k).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
-                } else {
-                    msg_vec.push(msg);
+                    rm_vec.push(k);
                 }
-            } else {
-                msg_vec.push(msg);
-            }
+            })
         }
 
-        self.local_msgs = msg_vec;
+        for item in rm_vec {
+            self.local_msgs.remove(&item);
+        }
 
         Ok(())
     }
@@ -466,7 +468,7 @@ where
 /// Remove a message from pending given the from address and sequence
 pub async fn remove(
     from: &Address,
-    pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
 ) -> Result<(), Error> {
     let mut pending = pending.write().await;
@@ -549,10 +551,10 @@ where
 /// This function will revert and/or apply tipsets to the message pool. This function should be
 /// called every time that there is a head change in the message pool
 pub async fn head_change<T>(
-    api: Arc<RwLock<T>>,
-    bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
-    pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
-    cur_tipset: Arc<RwLock<Tipset>>,
+    api: &RwLock<T>,
+    bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
+    cur_tipset: &RwLock<Tipset>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -585,31 +587,17 @@ where
             let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
 
             for msg in smsgs {
-                rm(
-                    msg.from(),
-                    pending.clone(),
-                    msg.sequence(),
-                    rmsgs.borrow_mut(),
-                )
-                .await?;
+                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
             }
             for msg in msgs {
-                rm(
-                    msg.from(),
-                    pending.clone(),
-                    msg.sequence(),
-                    rmsgs.borrow_mut(),
-                )
-                .await?;
+                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
             }
         }
         *cur_tipset.write().await = ts;
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            if let Err(e) =
-                add_helper(api.as_ref(), bls_sig_cache.as_ref(), pending.as_ref(), msg).await
-            {
+            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg).await {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
         }
@@ -621,7 +609,7 @@ where
 /// from the rmsgs hashmap. Also remove the from address and sequence from the mmessagepool.
 async fn rm(
     from: &Address,
-    pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) -> Result<(), Error> {
@@ -631,7 +619,7 @@ async fn rm(
         }
         remove(from, pending, sequence).await?;
     } else {
-        remove(from, pending.clone(), sequence).await?;
+        remove(from, pending, sequence).await?;
     }
     Ok(())
 }
@@ -688,7 +676,7 @@ mod tests {
         }
 
         pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
-            self.bmsgs.insert(h.cid().clone(), msgs.clone());
+            self.bmsgs.insert(h.cid().clone(), msgs);
             self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
         }
 
@@ -881,10 +869,10 @@ mod tests {
             let cur_tipset = mpool.cur_tipset.clone();
 
             head_change(
-                api,
-                bls_sig_cache,
-                pending,
-                cur_tipset,
+                api.as_ref(),
+                bls_sig_cache.as_ref(),
+                pending.as_ref(),
+                cur_tipset.as_ref(),
                 Vec::new(),
                 vec![Tipset::new(vec![a]).unwrap()],
             )
@@ -938,10 +926,10 @@ mod tests {
             let cur_tipset = mpool.cur_tipset.clone();
 
             head_change(
-                api.clone(),
-                bls_sig_cache.clone(),
-                pending.clone(),
-                cur_tipset.clone(),
+                api.as_ref(),
+                bls_sig_cache.as_ref(),
+                pending.as_ref(),
+                cur_tipset.as_ref(),
                 Vec::new(),
                 vec![Tipset::new(vec![a]).unwrap()],
             )
@@ -958,10 +946,10 @@ mod tests {
             let cur_tipset = mpool.cur_tipset.clone();
 
             head_change(
-                api.clone(),
-                bls_sig_cache.clone(),
-                pending.clone(),
-                cur_tipset.clone(),
+                api.as_ref(),
+                bls_sig_cache.as_ref(),
+                pending.as_ref(),
+                cur_tipset.as_ref(),
                 Vec::new(),
                 vec![Tipset::new(vec![b.clone()]).unwrap()],
             )
@@ -973,10 +961,10 @@ mod tests {
             mpool.api.write().await.set_state_sequence(&sender, 0);
 
             head_change(
-                api,
-                bls_sig_cache,
-                pending,
-                cur_tipset,
+                api.as_ref(),
+                bls_sig_cache.as_ref(),
+                pending.as_ref(),
+                cur_tipset.as_ref(),
                 vec![Tipset::new(vec![b]).unwrap()],
                 Vec::new(),
             )

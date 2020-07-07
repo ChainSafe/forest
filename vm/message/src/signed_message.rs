@@ -9,7 +9,7 @@ use encoding::Cbor;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes
-#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
 pub struct SignedMessage {
     message: UnsignedMessage,
     signature: Signature,

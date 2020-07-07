@@ -39,7 +39,7 @@ use vm::{MethodNum, Serialized, TokenAmount};
 /// let msg = message_builder.build().unwrap();
 /// assert_eq!(msg.sequence(), 1);
 /// ```
-#[derive(PartialEq, Clone, Debug, Builder)]
+#[derive(PartialEq, Clone, Debug, Builder, Hash, Eq)]
 #[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
     #[builder(default)]
