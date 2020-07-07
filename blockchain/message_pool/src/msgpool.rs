@@ -157,7 +157,6 @@ where
 }
 
 /// This is the main MessagePool struct
-#[allow(clippy::box_vec)]
 pub struct MessagePool<T: 'static> {
     local_addrs: Vec<Address>,
     pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
@@ -168,7 +167,7 @@ pub struct MessagePool<T: 'static> {
     pub network_name: String,
     bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     sig_val_cache: LruCache<Cid, ()>,
-    local_msgs: Box<Vec<SignedMessage>>,
+    local_msgs: Vec<SignedMessage>,
 }
 
 impl<T> MessagePool<T>
@@ -199,7 +198,7 @@ where
             network_name,
             bls_sig_cache,
             sig_val_cache,
-            local_msgs: Box::new(Vec::new()),
+            local_msgs: Vec::new(),
         };
 
         mp.load_local().await?;
@@ -453,7 +452,7 @@ where
             })
         }
 
-        *self.local_msgs = msg_vec;
+        self.local_msgs = msg_vec;
 
         Ok(())
     }
