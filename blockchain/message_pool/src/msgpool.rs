@@ -444,13 +444,15 @@ where
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut msg_vec = Vec::new();
         while let Some(msg) = self.local_msgs.pop() {
-            self.add(&msg).await.unwrap_or_else(|err| {
+            if let Err(err) = self.add(&msg).await {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
                 } else {
                     msg_vec.push(msg);
                 }
-            })
+            } else {
+                msg_vec.push(msg);
+            }
         }
 
         *self.local_msgs = msg_vec;
