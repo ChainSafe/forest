@@ -9,7 +9,6 @@ use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
 use futures::select;
 use futures_util::stream::StreamExt;
-use libp2p::request_response::{RequestId, ResponseChannel};
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -18,6 +17,7 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
+use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, info, trace, warn};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;

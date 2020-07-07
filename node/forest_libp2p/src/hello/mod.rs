@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use forest_encoding::{from_slice, to_vec};
 use futures::prelude::*;
 use libp2p::core::ProtocolName;
-use libp2p::request_response::RequestResponseCodec;
+use libp2p_request_response::RequestResponseCodec;
 use std::io;
 
 pub const HELLO_PROTOCOL_ID: &[u8] = b"/fil/hello/1.0.0";

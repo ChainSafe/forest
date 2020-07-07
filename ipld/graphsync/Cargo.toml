@@ -10,7 +10,7 @@ cid = { package = "forest_cid", path = "../cid", version = "0.1" }
 forest_ipld = { path = "../" }
 fnv = "1.0.6"
 forest_encoding = { path = "../../encoding", version = "0.1" }
-libp2p = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "3661071120d3c07eb9e56932204efcd12cdffc49" }
+libp2p = "0.21.1"
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures_codec = "0.4.0"

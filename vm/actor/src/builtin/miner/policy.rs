@@ -10,7 +10,7 @@ use num_traits::{Pow, Zero};
 use vm::TokenAmount;
 
 /// The period over which all a miner's active sectors will be challenged.
-pub const WPOST_PROVING_PERIOD: ChainEpoch = SECONDS_IN_DAY / EPOCH_DURATION_SECONDS;
+pub const WPOST_PROVING_PERIOD: ChainEpoch = EPOCHS_IN_DAY;
 /// The duration of a deadline's challenge window, the period before a deadline when the challenge is available.
 pub const WPOST_CHALLENGE_WINDOW: ChainEpoch = 40 * 60 / EPOCH_DURATION_SECONDS; // Half an hour (=48 per day)
 /// The number of non-overlapping PoSt deadlines in each proving period.
@@ -145,7 +145,7 @@ pub fn reward_for_consensus_slash_report(
     };
     let max_reporter_share_num = BigUint::from(1 as u64);
     let max_reporter_share_den = BigUint::from(2 as u64);
-    let elapsed = BigUint::from(elapsed_epoch);
+    let elapsed = BigUint::from(elapsed_epoch as u64);
     let slasher_share_numerator = consensus_fault_reporter_share_growth_rate
         .numerator
         .pow(&elapsed);
