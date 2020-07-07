@@ -11,7 +11,8 @@ use forest_cid::{multihash::Blake2b256, Cid};
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-use libp2p::request_response::{RequestId, ResponseChannel};
+use libp2p_request_response::{RequestId, ResponseChannel};
+
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -29,7 +30,7 @@ use utils::read_file_to_vec;
 const PUBSUB_TOPICS: [&str; 2] = ["/fil/blocks", "/fil/msgs"];
 
 /// Events emitted by this Service
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NetworkEvent {
     PubsubMessage {
         source: PeerId,

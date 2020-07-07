@@ -8,6 +8,7 @@ use async_std::sync::Receiver;
 use async_std::task;
 use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::rpc::{RPCResponse, RequestId};
+use forest_libp2p::blocksync::{BlockSyncResponse};
 use forest_libp2p::NetworkEvent;
 use futures::channel::oneshot::Sender as OneShotSender;
 use log::{debug, trace};
@@ -48,23 +49,17 @@ impl NetworkHandler {
                         request_id,
                         response,
                     }) => {
-<<<<<<< HEAD
-                        let tx = request_table.lock().await.remove(&req_id);
+                        let tx = request_table.lock().await.remove(&request_id);
                         if tx.is_none() {
                             debug!("RPCResponse receive failed: channel not found");
                             continue;
                         }
                         let tx = tx.unwrap();
 
-                        match tx.send(response) {
+                        match tx.send(RPCResponse::BlockSync(response)) {
                             Err(e) => debug!("RPCResponse receive failed: {:?}", e),
                             Ok(_) => {}
                         };
-=======
-                        rpc_send
-                            .send((request_id, RPCResponse::BlockSync(response)))
-                            .await
->>>>>>> main
                     }
                     // Pass any non RPC responses through event channel
                     Some(event) => {

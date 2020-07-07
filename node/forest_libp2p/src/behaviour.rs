@@ -21,7 +21,7 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
-use libp2p::request_response::{
+use libp2p_request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
     ResponseChannel,
 };
@@ -110,8 +110,8 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
             KademliaEvent::RoutingUpdated { peer, .. } => {
+                self.connect(peer.clone());
                 self.add_peer(peer);
-                self.connect(peer_id.clone());
             }
             event => {
                 trace!("kad: {:?}", event);

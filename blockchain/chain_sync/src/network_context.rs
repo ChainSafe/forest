@@ -11,6 +11,7 @@ use forest_libp2p::{
     rpc::{RPCRequest, RPCResponse, RequestId},
     NetworkEvent, NetworkMessage,
 };
+
 use futures::channel::oneshot::{
     channel as oneshot_channel, Receiver as OneShotReceiver, Sender as OneShotSender,
 };
@@ -103,9 +104,10 @@ impl SyncNetworkContext {
         trace!("Sending BlockSync Request {:?}", request);
         let rpc_res = self
             .send_rpc_request(peer_id, RPCRequest::BlockSync(request))
-            .await?;
+            .await;
 
-        if let RPCResponse::BlockSync(bs_res) = rpc_res {
+        // TODO: Handle Error
+        if let RPCResponse::BlockSync(bs_res) = rpc_res.await.unwrap() {
             Ok(bs_res)
         } else {
             Err("Invalid response type".to_owned())
