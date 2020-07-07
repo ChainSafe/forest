@@ -697,9 +697,9 @@ mod update_channel_state_settling {
         assert_eq!(exp_settling_at, state.settling_at);
         assert_eq!(state.min_settle_height, 0);
         struct TestCase {
-            min_settle: u64,
-            exp_min_settle_height: u64,
-            exp_settling_at: u64,
+            min_settle: i64,
+            exp_min_settle_height: i64,
+            exp_settling_at: i64,
         }
         let test_cases = vec![
             TestCase {
@@ -803,7 +803,7 @@ mod secret_preimage {
 
 mod actor_settle {
     use super::*;
-    const EP: u64 = 10;
+    const EP: i64 = 10;
     #[test]
     fn adjust_settling_at() {
         let bs = MemoryDB::default();
@@ -1039,7 +1039,7 @@ fn require_add_new_lane<BS: BlockStore>(
     let sig = Signature::new_bls(vec![0, 1, 2, 3, 4, 5, 6, 7]);
     let sv = SignedVoucher {
         time_lock_min: param.epoch_num,
-        time_lock_max: u64::MAX,
+        time_lock_max: i64::MAX,
         lane: param.lane,
         nonce: param.nonce,
         amount: BigInt::from(param.amt),
@@ -1062,7 +1062,7 @@ fn require_add_new_lane<BS: BlockStore>(
     rt.verify();
     SignedVoucher {
         time_lock_min: param.epoch_num,
-        time_lock_max: u64::MAX,
+        time_lock_max: i64::MAX,
         lane: param.lane,
         nonce: param.nonce,
         amount: BigInt::from(param.amt),
