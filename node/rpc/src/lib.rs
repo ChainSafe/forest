@@ -27,7 +27,7 @@ async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
     Ok(Response::new(StatusCode::Ok).body_json(&res)?)
 }
 
-pub async fn start_rpc<DB, KS>(store: Arc<DB>, keystore: Arc<RwLock<KS>>)
+pub async fn start_rpc<DB, KS>(store: Arc<DB>, keystore: Arc<RwLock<KS>>, rpc_endpoint: &str)
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
@@ -95,5 +95,5 @@ where
         .finish_unwrapped();
     let mut app = tide::Server::with_state(rpc);
     app.at("/api").post(handle_json_rpc);
-    app.listen("127.0.0.1:8080").await.unwrap();
+    app.listen(rpc_endpoint).await.unwrap();
 }

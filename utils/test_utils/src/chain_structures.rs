@@ -26,7 +26,7 @@ fn template_header(
     ticket_p: Vec<u8>,
     cid: Cid,
     timestamp: u64,
-    epoch: u64,
+    epoch: i64,
     msg_root: Cid,
     weight: u64,
 ) -> BlockHeader {
@@ -60,7 +60,7 @@ pub fn construct_keys() -> Vec<Cid> {
 }
 
 /// Returns a vec of block headers to be used for testing purposes
-pub fn construct_header(epoch: u64, weight: u64) -> Vec<BlockHeader> {
+pub fn construct_header(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
     let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
     let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
@@ -109,7 +109,7 @@ pub fn construct_epost_proof() -> EPostProof {
 
 /// Returns a full block used for testing
 pub fn construct_block() -> Block {
-    const EPOCH: u64 = 1;
+    const EPOCH: i64 = 1;
     const WEIGHT: u64 = 10;
     let headers = construct_header(EPOCH, WEIGHT);
     let (bls_messages, secp_messages) = construct_messages();
@@ -122,13 +122,13 @@ pub fn construct_block() -> Block {
 }
 
 /// Returns a tipset used for testing
-pub fn construct_tipset(epoch: u64, weight: u64) -> Tipset {
+pub fn construct_tipset(epoch: i64, weight: u64) -> Tipset {
     Tipset::new(construct_header(epoch, weight)).unwrap()
 }
 
 /// Returns a full tipset used for testing
 pub fn construct_full_tipset() -> FullTipset {
-    const EPOCH: u64 = 1;
+    const EPOCH: i64 = 1;
     const WEIGHT: u64 = 10;
     let headers = construct_header(EPOCH, WEIGHT);
     let mut blocks: Vec<Block> = Vec::with_capacity(headers.len());
@@ -145,7 +145,7 @@ pub fn construct_full_tipset() -> FullTipset {
 
 /// Returns TipsetMetadata used for testing
 pub fn construct_tipset_metadata() -> TipsetMetadata {
-    const EPOCH: u64 = 1;
+    const EPOCH: i64 = 1;
     const WEIGHT: u64 = 10;
     let tip_set = construct_tipset(EPOCH, WEIGHT);
     TipsetMetadata {
@@ -177,7 +177,7 @@ pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
 }
 
 /// Returns a TipsetBundle used for testing
-pub fn construct_tipset_bundle(epoch: u64, weight: u64) -> TipsetBundle {
+pub fn construct_tipset_bundle(epoch: i64, weight: u64) -> TipsetBundle {
     let headers = construct_header(epoch, weight);
     let (bls, secp) = construct_messages();
     let includes: Vec<Vec<u64>> = (0..headers.len()).map(|_| vec![]).collect();

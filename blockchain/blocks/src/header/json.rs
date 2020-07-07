@@ -44,7 +44,7 @@ where
         parents: &'a TipsetKeys,
         #[serde(rename = "ParentWeight")]
         weight: String,
-        height: &'a u64,
+        height: &'a i64,
         #[serde(rename = "ParentStateRoot", with = "cid::json")]
         state_root: &'a Cid,
         #[serde(rename = "ParentMessageReceipts", with = "cid::json")]
@@ -100,7 +100,7 @@ where
         parents: TipsetKeys,
         #[serde(rename = "ParentWeight")]
         weight: String,
-        height: u64,
+        height: i64,
         #[serde(rename = "ParentStateRoot", with = "cid::json")]
         state_root: Cid,
         #[serde(rename = "ParentMessageReceipts", with = "cid::json")]

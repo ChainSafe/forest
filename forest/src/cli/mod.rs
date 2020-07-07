@@ -56,6 +56,10 @@ pub struct DaemonOpts {
     pub config: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
     pub genesis: Option<String>,
+    #[structopt(short, long, help = "Allow rpc to be active or not")]
+    pub rpc: Option<bool>,
+    #[structopt(short, long, help = "The port used for communication")]
+    pub port: Option<String>,
 }
 
 impl DaemonOpts {
@@ -71,6 +75,12 @@ impl DaemonOpts {
         };
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
+        }
+        if self.rpc.unwrap_or(cfg.enable_rpc) {
+            cfg.enable_rpc = true;
+            cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
+        } else {
+            cfg.enable_rpc = false;
         }
         // (where to find these flags, should be easy to do with structops)
 
