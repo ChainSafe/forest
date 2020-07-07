@@ -105,12 +105,13 @@ impl SyncNetworkContext {
         let rpc_res = self
             .send_rpc_request(peer_id, RPCRequest::BlockSync(request))
             .await;
-
-        // TODO: Handle Error
-        if let RPCResponse::BlockSync(bs_res) = rpc_res.await.unwrap() {
-            Ok(bs_res)
-        } else {
-            Err("Invalid response type".to_owned())
+        match future::timeout(Duration::from_secs(RPC_TIMEOUT), rpc_res).await {
+            Ok(Ok(RPCResponse::BlockSync(bs_res))) => Ok(bs_res),
+            Ok(Ok(RPCResponse::Hello(_))) => {
+                unreachable!();
+            }
+            Ok(Err(e)) => Err(format!("RPC error: {}", e.to_string())),
+            Err(_) => Err("Connection Timedout".to_string()),
         }
     }
 

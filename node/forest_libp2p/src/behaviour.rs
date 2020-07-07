@@ -5,10 +5,10 @@ use crate::blocksync::{
     BlockSyncCodec, BlockSyncProtocolName, BlockSyncRequest, BlockSyncResponse,
 };
 use crate::config::Libp2pConfig;
-use forest_cid::Cid;
-use libipld_core::cid::Cid as Cid2;
 use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
 use crate::rpc::RPCRequest;
+use forest_cid::Cid;
+use libipld_core::cid::Cid as Cid2;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -21,13 +21,13 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
+use libp2p::NetworkBehaviour;
+use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use libp2p_request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
     ResponseChannel,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
-use libp2p::NetworkBehaviour;
-use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
 use std::collections::HashSet;
 use std::error::Error;

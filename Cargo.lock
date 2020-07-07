@@ -3472,6 +3472,7 @@ dependencies = [
 [[package]]
 name = "libp2p-bitswap"
 version = "0.4.1"
+source = "git+https://github.com/ChainSafe/libp2p-bitswap?rev=c31e0ae31fa7d0b848bf4fb711106e59aac0fa5e#c31e0ae31fa7d0b848bf4fb711106e59aac0fa5e"
 dependencies = [
  "async-std",
  "fnv",
