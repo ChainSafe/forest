@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use address::Address;
-use async_std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use async_std::sync::{Arc, RwLock};
 use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
@@ -309,10 +309,13 @@ where
     /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
     /// and push it to the pending phashmap
     async fn add_helper(&mut self, msg: SignedMessage) -> Result<(), Error> {
-        let api = self.api.read().await;
-        let sig_cache = self.bls_sig_cache.write().await;
-        let pending = self.pending.write().await;
-        add_helper(api, sig_cache, pending, msg).await
+        add_helper(
+            self.api.as_ref(),
+            self.bls_sig_cache.as_ref(),
+            self.pending.as_ref(),
+            msg,
+        )
+        .await
     }
 
     /// Get the sequence for a given address, return Error if there is a failure to retrieve sequence
@@ -505,16 +508,19 @@ async fn recover_sig(
 /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
 /// and push it to the pending hashmap
 async fn add_helper<T>(
-    api: RwLockReadGuard<'_, T>,
-    mut bls_sig_cache: RwLockWriteGuard<'_, LruCache<Cid, Signature>>,
-    mut pending: RwLockWriteGuard<'_, HashMap<Address, MsgSet>>,
+    api: &RwLock<T>,
+    bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
 ) -> Result<(), Error>
 where
     T: Provider,
 {
     if msg.signature().signature_type() == SignatureType::BLS {
-        bls_sig_cache.put(msg.cid()?, msg.signature().clone());
+        bls_sig_cache
+            .write()
+            .await
+            .put(msg.cid()?, msg.signature().clone());
     }
 
     if msg.message().gas_limit() > 100_000_000 {
@@ -523,9 +529,9 @@ where
         ));
     }
 
-    api.put_message(&msg)?;
+    api.read().await.put_message(&msg)?;
 
-    // let mut pending = pending.write().await;
+    let mut pending = pending.write().await;
     let msett = pending.get_mut(msg.message().from());
     match msett {
         Some(mset) => mset.add(msg)?,
@@ -601,10 +607,9 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let api_lock = api.read().await;
-            let sig_cache_lock = bls_sig_cache.write().await;
-            let pending_lock = pending.write().await;
-            if let Err(e) = add_helper(api_lock, sig_cache_lock, pending_lock, msg).await {
+            if let Err(e) =
+                add_helper(api.as_ref(), bls_sig_cache.as_ref(), pending.as_ref(), msg).await
+            {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
         }
