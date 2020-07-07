@@ -11,8 +11,6 @@ use forest_cid::{multihash::Blake2b256, Cid};
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-use libp2p_request_response::{RequestId, ResponseChannel};
-
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -21,6 +19,7 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
+use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, info, trace, warn};
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
