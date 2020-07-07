@@ -131,35 +131,19 @@ impl SyncNetworkContext {
         &mut self,
         peer_id: PeerId,
         request: RPCRequest,
-    ) -> Result<RPCResponse, String> {
+    ) -> OneShotReceiver<RPCResponse> {
         let request_id = self.request_id;
         self.request_id.0 += 1;
-        let rx = self
-            .send_rpc_event(
-                request_id,
-                peer_id,
-                RPCEvent::Request(request_id, rpc_request),
-            );
-        match future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await {
-            Ok(Ok(resp)) => Ok(resp),
-            Ok(Err(e)) => Err(e.to_string()),
-            Err(_) => Err("Request timed out".to_owned()),
-        }
-    }
 
-    /// Handles sending the base event to the network service
-    async fn send_rpc_event(
-        &self,
-        req_id: RequestId,
-        peer_id: PeerId,
-        event: RPCEvent,
-    ) -> OneShotReceiver<RPCResponse> {
         let (tx, rx) = oneshot_channel();
-        self.request_table.lock().await.insert(req_id, tx);
+        self.request_table.lock().await.insert(request_id, tx);
         self.network_send
-            .send(NetworkMessage::RPC { peer_id, request:  event, id: req_id })
+            .send(NetworkMessage::RPC {
+                peer_id,
+                request,
+                id: request_id,
+            })
             .await;
         rx
     }
-
 }

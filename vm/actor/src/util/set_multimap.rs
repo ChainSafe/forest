@@ -44,13 +44,13 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(u64_key(key), &new_root)?)
+        Ok(self.0.set(u64_key(key as u64), &new_root)?)
     }
 
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
     pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, String> {
-        match self.0.get(&u64_key(key))? {
+        match self.0.get(&u64_key(key as u64))? {
             Some(cid) => Ok(Some(Set::from_root(self.0.store(), &cid)?)),
             None => Ok(None),
         }
@@ -70,14 +70,14 @@ where
         // Save and calculate new root
         let new_root = set.root()?;
 
-        Ok(self.0.set(u64_key(key), &new_root)?)
+        Ok(self.0.set(u64_key(key as u64), &new_root)?)
     }
 
     /// Removes set at index.
     #[inline]
     pub fn remove_all(&mut self, key: ChainEpoch) -> Result<(), String> {
         // Remove entry from table
-        self.0.delete(&u64_key(key))?;
+        self.0.delete(&u64_key(key as u64))?;
 
         Ok(())
     }

@@ -44,11 +44,11 @@ impl NetworkHandler {
             loop {
                 match receiver.next().await {
                     // Handle specifically RPC responses and send to that channel
-
                     Some(NetworkEvent::BlockSyncResponse {
                         request_id,
                         response,
                     }) => {
+<<<<<<< HEAD
                         let tx = request_table.lock().await.remove(&req_id);
                         if tx.is_none() {
                             debug!("RPCResponse receive failed: channel not found");
@@ -60,6 +60,11 @@ impl NetworkHandler {
                             Err(e) => debug!("RPCResponse receive failed: {:?}", e),
                             Ok(_) => {}
                         };
+=======
+                        rpc_send
+                            .send((request_id, RPCResponse::BlockSync(response)))
+                            .await
+>>>>>>> main
                     }
                     // Pass any non RPC responses through event channel
                     Some(event) => {
