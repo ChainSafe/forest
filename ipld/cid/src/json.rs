@@ -47,6 +47,16 @@ pub mod vec {
     use forest_json_utils::GoVecVisitor;
     use serde::ser::SerializeSeq;
 
+    /// Wrapper for serializing and deserializing a Cid vector from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct CidJsonVec(#[serde(with = "self")] pub Vec<Cid>);
+
+    /// Wrapper for serializing a cid slice to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct CidJsonSlice<'a>(#[serde(with = "self")] pub &'a [Cid]);
+
     pub fn serialize<S>(m: &[Cid], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
