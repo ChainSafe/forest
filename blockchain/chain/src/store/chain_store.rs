@@ -180,6 +180,7 @@ where
         // the given tipset has already been verified, so this cannot fail
         Ok(FullTipset::new(blocks).unwrap())
     }
+
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     async fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
         match &self.heaviest {
@@ -199,6 +200,20 @@ where
         }
         Ok(())
     }
+}
+
+/// Returns messages for a given tipset from db
+pub fn messages_for_tipset<DB>(db: &DB, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>
+where
+    DB: BlockStore,
+{
+    let mut umsg: Vec<UnsignedMessage> = Vec::new();
+    for bh in h.blocks().iter() {
+        let (mut bh_umsg, bh_msg) = block_messages(db, bh)?;
+        umsg.append(&mut bh_umsg);
+        umsg.extend(bh_msg.into_iter().map(|msg| msg.into_message()));
+    }
+    Ok(umsg)
 }
 
 /// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
