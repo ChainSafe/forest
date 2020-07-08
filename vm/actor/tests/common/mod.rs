@@ -20,9 +20,6 @@ use std::collections::{HashMap, VecDeque};
 use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
-use runtime::ConsensusFault;
-use std::error::Error as StdError;
-
 pub struct MockRuntime<'a, BS: BlockStore> {
     pub epoch: ChainEpoch,
     pub caller_type: Cid,
@@ -75,10 +72,10 @@ pub struct ExpectedMessage {
 
 #[derive(Clone, Debug)]
 pub struct ExpectedVerifySig {
-    sig: Signature,
-    signer: Address,
-    plaintext: Vec<u8>,
-    result: ExitCode,
+    pub sig: Signature,
+    pub signer: Address,
+    pub plaintext: Vec<u8>,
+    pub result: ExitCode,
 }
 
 #[derive(Clone, Debug)]
@@ -170,17 +167,9 @@ where
     #[allow(dead_code)]
     pub fn expect_verify_signature(
         &mut self,
-        sig: Signature,
-        signer: Address,
-        plaintext: Vec<u8>,
-        result: ExitCode,
+        exp : ExpectedVerifySig
     ) {
-        self.expect_verify_sig = RefCell::new(Some(ExpectedVerifySig {
-            sig: sig,
-            signer: signer,
-            plaintext: plaintext,
-            result: result,
-        }));
+        self.expect_verify_sig = RefCell::new(Some(exp));
     }
 
     #[allow(dead_code)]

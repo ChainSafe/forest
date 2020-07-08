@@ -310,7 +310,7 @@ mod construction_tests {
 
 mod test_vesting {
     use super::*;
-    const UNLOCK_DURATION: u64 = 10;
+    const UNLOCK_DURATION: i64 = 10;
     const INITIAL_BALANCE: u64 = 100;
     const DARLENE: u64 = 103;
 
@@ -482,7 +482,7 @@ mod test_vesting {
 mod test_propose {
     use super::*;
     const SEND_VALUE: u64 = 10;
-    const NO_LOCK_DUR: u64 = 0;
+    const NO_LOCK_DUR: i64 = 0;
     const CHUCK: u64 = 103;
     fn construct_runtime<'a, BS: BlockStore>(
         bs: &'a BS,
@@ -590,7 +590,7 @@ mod test_propose {
 mod test_approve {
     use super::*;
     const CHUCK: u64 = 103;
-    const NO_UNLOCK_DURATION: u64 = 10;
+    const NO_UNLOCK_DURATION: i64 = 10;
     const NUM_APPROVALS: i64 = 2;
     const TXN_ID: i64 = 0;
     const FAKE_METHOD: u64 = 42;
@@ -759,7 +759,7 @@ mod test_cancel {
     use super::*;
     const CHUCK: u64 = 103;
     const RICHARD: u64 = 104;
-    const NO_UNLOCK_DURATION: u64 = 0;
+    const NO_UNLOCK_DURATION: i64 = 0;
     const NUM_APPROVALS: i64 = 2;
     const TXN_ID: i64 = 0;
     const FAKE_METHOD: u64 = 42;
@@ -925,7 +925,7 @@ mod test_add_signer {
     }
     const CHUCK: u64 = 103;
     const MULTISIG_WALLET_ADD: u64 = 100;
-    const NO_LOCK_DURATION: u64 = 0;
+    const NO_LOCK_DURATION: i64 = 0;
 
     #[test]
     fn test() {
@@ -1031,7 +1031,7 @@ mod test_remove_signer {
     const CHUCK: u64 = 103;
     const RICHARD: u64 = 104;
     const MULTISIG_WALLET_ADD: u64 = 100;
-    const NO_LOCK_DURATION: u64 = 0;
+    const NO_LOCK_DURATION: i64 = 0;
 
     #[test]
     fn test() {
@@ -1159,7 +1159,7 @@ mod test_swap_signers {
     const CHUCK: u64 = 103;
     const DARLENE: u64 = 104;
     const MULTISIG_WALLET_ADD: u64 = 100;
-    const NO_LOCK_DURATION: u64 = 0;
+    const NO_LOCK_DURATION: i64 = 0;
     const NUM_APPROVALS: i64 = 1;
 
     #[test]
@@ -1230,7 +1230,7 @@ mod test_change_treshold {
     use super::*;
     const CHUCK: u64 = 103;
     const MULTISIG_WALLET_ADD: u64 = 100;
-    const NO_LOCK_DURATION: u64 = 0;
+    const NO_LOCK_DURATION: i64 = 0;
     struct Threshold {
         desc: String,
         initial_threshold: i64,
