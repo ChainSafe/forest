@@ -24,7 +24,6 @@ use message::UnsignedMessage;
 use num_bigint::{BigInt, Sign};
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
-
 const R_PAYEE_ADDR: u64 = 103;
 const R_PAYER_ADDR: u64 = 102;
 

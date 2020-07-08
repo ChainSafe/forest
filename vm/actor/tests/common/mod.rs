@@ -165,10 +165,7 @@ where
     }
 
     #[allow(dead_code)]
-    pub fn expect_verify_signature(
-        &mut self,
-        exp : ExpectedVerifySig
-    ) {
+    pub fn expect_verify_signature(&mut self, exp: ExpectedVerifySig) {
         self.expect_verify_sig = RefCell::new(Some(exp));
     }
 
