@@ -5,6 +5,7 @@ mod chain_api;
 mod sync_api;
 
 use blockstore::BlockStore;
+use chain_sync::BadBlockCache;
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
@@ -12,6 +13,7 @@ use tide::{Request, Response, StatusCode};
 /// This is where you store persistant data, or at least access to stateful data.
 pub struct RpcState<DB: BlockStore + Send + Sync + 'static> {
     pub store: Arc<DB>,
+    pub bad_blocks: Arc<BadBlockCache>,
 }
 
 async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
@@ -52,6 +54,6 @@ pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(
         .finish_unwrapped();
 
     let mut app = tide::Server::with_state(rpc);
-    app.at("/api").post(handle_json_rpc);
+    app.at("/rpc/v0").post(handle_json_rpc);
     app.listen(rpc_endpoint).await.unwrap();
 }

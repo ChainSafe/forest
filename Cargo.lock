@@ -5276,6 +5276,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "chain",
+ "chain_sync",
  "clock",
  "forest_blocks",
  "forest_cid",
