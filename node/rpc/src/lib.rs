@@ -24,40 +24,30 @@ pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(
     state: RpcState<DB>,
     rpc_endpoint: &str,
 ) {
+    use chain_api::*;
+    use sync_api::*;
     let rpc = Server::new()
         .with_data(Data::new(state))
         // Chain API
-        .with_method(
-            "Filecoin.ChainGetMessage",
-            chain_api::chain_get_message::<DB>,
-        )
-        .with_method("Filecoin.ChainGetObj", chain_api::chain_read_obj::<DB>)
-        .with_method("Filecoin.ChainHasObj", chain_api::chain_has_obj::<DB>)
-        .with_method(
-            "Filecoin.ChainGetBlockMessages",
-            chain_api::chain_block_messages::<DB>,
-        )
+        .with_method("Filecoin.ChainGetMessage", chain_get_message::<DB>)
+        .with_method("Filecoin.ChainGetObj", chain_read_obj::<DB>)
+        .with_method("Filecoin.ChainHasObj", chain_has_obj::<DB>)
+        .with_method("Filecoin.ChainGetBlockMessages", chain_block_messages::<DB>)
         .with_method(
             "Filecoin.ChainGetTipsetByHeight",
-            chain_api::chain_get_tipset_by_height::<DB>,
+            chain_get_tipset_by_height::<DB>,
         )
-        .with_method(
-            "Filecoin.ChainGetGenesis",
-            chain_api::chain_get_genesis::<DB>,
-        )
-        .with_method(
-            "Filecoin.ChainTipsetWeight",
-            chain_api::chain_tipset_weight::<DB>,
-        )
-        .with_method("Filecoin.ChainGetTipset", chain_api::chain_get_tipset::<DB>)
-        .with_method(
-            "Filecoin.GetRandomness",
-            chain_api::chain_get_randomness::<DB>,
-        )
-        .with_method("Filecoin.ChainGetBlock", chain_api::chain_get_block::<DB>)
-        .with_method("Filecoin.ChainHead", chain_api::chain_head::<DB>)
+        .with_method("Filecoin.ChainGetGenesis", chain_get_genesis::<DB>)
+        .with_method("Filecoin.ChainTipsetWeight", chain_tipset_weight::<DB>)
+        .with_method("Filecoin.ChainGetTipset", chain_get_tipset::<DB>)
+        .with_method("Filecoin.GetRandomness", chain_get_randomness::<DB>)
+        .with_method("Filecoin.ChainGetBlock", chain_get_block::<DB>)
+        .with_method("Filecoin.ChainHead", chain_head::<DB>)
         // Sync API
-        .with_method("Filecoin.SyncCheckBad", sync_api::check_bad::<DB>)
+        .with_method("Filecoin.SyncCheckBad", sync_check_bad::<DB>)
+        .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB>)
+        .with_method("Filecoin.SyncState", sync_state::<DB>)
+        .with_method("Filecoin.SyncSubmitBlock", sync_submit_block::<DB>)
         // TODO add other sync methods
         .finish_unwrapped();
 
