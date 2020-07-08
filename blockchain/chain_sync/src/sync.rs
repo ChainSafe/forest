@@ -4,6 +4,7 @@
 #[cfg(test)]
 mod peer_test;
 
+use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
@@ -34,7 +35,6 @@ use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::error;
 use log::{debug, info, warn};
-use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_traits::Zero;
 use state_manager::{utils, StateManager};
@@ -65,6 +65,9 @@ pub enum SyncState {
     Follow,
 }
 
+/// Struct that handles the ChainSync logic. This handles incoming network events such as
+/// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
+/// messages to be able to do the initial sync.
 pub struct ChainSyncer<DB, TBeacon> {
     /// Syncing state of chain sync
     state: SyncState,
@@ -77,6 +80,7 @@ pub struct ChainSyncer<DB, TBeacon> {
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
+
     /// Represents next tipset to be synced
     next_sync_target: SyncBucket,
 
@@ -91,7 +95,7 @@ pub struct ChainSyncer<DB, TBeacon> {
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
-    bad_blocks: LruCache<Cid, String>,
+    bad_blocks: Arc<BadBlockCache>,
 
     ///  incoming network events to be handled by syncer
     net_handler: NetworkHandler,
@@ -137,7 +141,7 @@ where
             chain_store,
             network,
             genesis,
-            bad_blocks: LruCache::new(1 << 15),
+            bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler,
             peer_manager,
             sync_queue: SyncBucketSet::default(),
@@ -145,6 +149,12 @@ where
         })
     }
 
+    /// Returns a clone of the bad blocks cache to be used outside of chain sync.
+    pub fn bad_blocks_cloned(&self) -> Arc<BadBlockCache> {
+        self.bad_blocks.clone()
+    }
+
+    /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self) -> Result<(), Error> {
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
@@ -353,7 +363,7 @@ where
         }
 
         for block in fts.blocks() {
-            if let Some(bad) = self.bad_blocks.peek(block.cid()) {
+            if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
                 warn!("Bad block detected, cid: {:?}", bad);
                 return Err(Error::Other("Block marked as bad".to_string()));
             }
@@ -727,7 +737,7 @@ where
 
         for b in fts.blocks() {
             if let Err(e) = self.validate(&b).await {
-                self.bad_blocks.put(b.cid().clone(), e.to_string());
+                self.bad_blocks.put(b.cid().clone(), e.to_string()).await;
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
             self.chain_store.set_tipset_tracker(b.header())?;
@@ -828,7 +838,8 @@ where
         // Loop until most recent tipset height is less than to tipset height
         'sync: while let Some(cur_ts) = return_set.last() {
             // Check if parent cids exist in bad block caches
-            self.validate_tipset_against_cache(cur_ts.parents(), &accepted_blocks)?;
+            self.validate_tipset_against_cache(cur_ts.parents(), &accepted_blocks)
+                .await?;
 
             if cur_ts.epoch() <= to_epoch {
                 // Current tipset is less than epoch of tipset syncing toward
@@ -877,7 +888,8 @@ where
                     break 'sync;
                 }
                 // Check Cids of blocks against bad block cache
-                self.validate_tipset_against_cache(&ts.key(), &accepted_blocks)?;
+                self.validate_tipset_against_cache(&ts.key(), &accepted_blocks)
+                    .await?;
 
                 accepted_blocks.extend_from_slice(ts.cids());
                 // Add tipset to vector of tipsets to return
@@ -904,16 +916,17 @@ where
         Ok(return_set)
     }
     /// checks to see if tipset is included in bad clocks cache
-    fn validate_tipset_against_cache(
+    async fn validate_tipset_against_cache(
         &mut self,
         ts: &TipsetKeys,
         accepted_blocks: &[Cid],
     ) -> Result<(), Error> {
         for cid in ts.cids() {
-            if let Some(reason) = self.bad_blocks.get(cid).cloned() {
+            if let Some(reason) = self.bad_blocks.get(cid).await {
                 for bh in accepted_blocks {
                     self.bad_blocks
-                        .put(bh.clone(), format!("chain contained {}", cid));
+                        .put(bh.clone(), format!("chain contained {}", cid))
+                        .await;
                 }
 
                 return Err(Error::Other(format!(
