@@ -268,6 +268,7 @@ dependencies = [
  "byteorder 1.3.4",
  "clock",
  "db",
+ "derive_builder",
  "fil_types",
  "forest_address",
  "forest_bigint",
