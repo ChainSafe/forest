@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-dirs = "2.0.2"
+dirs = "3.0"
 toml = "0.5.5"
 serde = "1.0"
 

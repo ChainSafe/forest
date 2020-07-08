@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::OptionalEpoch;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -50,7 +49,7 @@ impl DealProposal {
         self.end_epoch - self.start_epoch
     }
     pub fn total_storage_fee(&self) -> TokenAmount {
-        self.storage_price_per_epoch.clone() * self.duration()
+        self.storage_price_per_epoch.clone() * self.duration() as u64
     }
     pub fn client_balance_requirement(&self) -> TokenAmount {
         self.client_collateral.clone() + self.total_storage_fee()
@@ -69,7 +68,7 @@ pub struct ClientDealProposal {
 
 #[derive(Clone, Debug, PartialEq, Copy, Serialize_tuple, Deserialize_tuple)]
 pub struct DealState {
-    pub sector_start_epoch: OptionalEpoch,
-    pub last_updated_epoch: OptionalEpoch,
-    pub slash_epoch: OptionalEpoch,
+    pub sector_start_epoch: ChainEpoch, // -1 if not yet included in proven sector
+    pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated
+    pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
 }

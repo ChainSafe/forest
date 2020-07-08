@@ -97,7 +97,7 @@ impl Actor {
         // Pull signature from signed voucher
         let sig = sv
             .signature
-            .clone()
+            .as_ref()
             .ok_or_else(|| rt.abort(ExitCode::ErrIllegalArgument, "voucher has no signature"))?;
 
         // Generate unsigned bytes
@@ -349,7 +349,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::UpdateChannelState) => {
-                Self::update_channel_state(rt, params.deserialize().unwrap())?;
+                Self::update_channel_state(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),

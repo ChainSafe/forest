@@ -9,7 +9,7 @@ use chain_sync::ChainSyncer;
 use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
-use log::{info, trace};
+use log::{debug, info, trace};
 use rpc::start_rpc;
 use std::sync::Arc;
 use utils::write_to_file;
@@ -74,10 +74,18 @@ pub(super) async fn start(config: Config) {
         chain_syncer.start().await.unwrap();
     });
 
-    let db_rpc = Arc::clone(&db);
-    let rpc_thread = task::spawn(async {
-        start_rpc(db_rpc).await;
-    });
+    let rpc_thread = if config.enable_rpc {
+        let db_rpc = Arc::clone(&db);
+        let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
+        task::spawn(async move {
+            info!("JSON RPC Endpoint at {}", &rpc_listen);
+            start_rpc(db_rpc, &rpc_listen).await;
+        })
+    } else {
+        task::spawn(async {
+            debug!("RPC disabled");
+        })
+    };
 
     // Block until ctrl-c is hit
     block_until_sigint().await;

@@ -25,7 +25,7 @@ lazy_static! {
 /// SectorQuality of a sector is a weighted average of multipliers based on their propotions.
 fn sector_quality_from_weight(weight: &SectorStorageWeightDesc) -> SectorQuality {
     let sector_size = BigUint::from(weight.sector_size as u64);
-    let sector_space_time = sector_size * weight.duration;
+    let sector_space_time = sector_size * weight.duration as u64;
     let total_deal_space_time = &weight.deal_weight + &weight.verified_deal_weight;
     assert!(sector_space_time < total_deal_space_time);
 

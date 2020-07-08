@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
-use std::convert::TryInto;
 use std::num::TryFromIntError;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 const EPOCH_DURATION: i32 = 15;
 
-pub type ChainEpoch = u64;
+pub type ChainEpoch = i64;
+pub const EPOCH_UNDEFINED: ChainEpoch = -1;
 
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
 /// systems.
@@ -45,6 +45,6 @@ impl ChainEpochClock {
         let epochs = (difference / EPOCH_DURATION)
             .num_nanoseconds()
             .expect("Epoch_at_time failed");
-        Ok(epochs.try_into()?)
+        Ok(epochs)
     }
 }

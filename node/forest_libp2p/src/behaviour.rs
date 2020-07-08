@@ -19,12 +19,12 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
-use libp2p::request_response::{
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
+use libp2p::NetworkBehaviour;
+use libp2p_request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
     ResponseChannel,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
-use libp2p::NetworkBehaviour;
 use log::{debug, trace, warn};
 use std::collections::HashSet;
 use std::{task::Context, task::Poll};

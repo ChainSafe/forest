@@ -843,7 +843,7 @@ where
                 continue;
             }
 
-            const REQUEST_WINDOW: u64 = 100;
+            const REQUEST_WINDOW: i64 = 100;
             let epoch_diff = cur_ts.epoch() - to_epoch;
             let window = min(epoch_diff, REQUEST_WINDOW);
 
@@ -858,7 +858,7 @@ where
             // Load blocks from network using blocksync
             let tipsets: Vec<Tipset> = match self
                 .network
-                .blocksync_headers(peer_id.clone(), cur_ts.parents(), window)
+                .blocksync_headers(peer_id.clone(), cur_ts.parents(), window as u64)
                 .await
             {
                 Ok(ts) => ts,

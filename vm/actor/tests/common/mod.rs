@@ -10,14 +10,14 @@ use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
-use encoding::blake2b_256;
-use encoding::{de::DeserializeOwned, Cbor};
+use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
 use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, ConsensusFault, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
+use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 use runtime::ConsensusFault;
@@ -437,19 +437,25 @@ where
         if address.protocol() == address::Protocol::ID {
             return Ok(address.clone());
         }
-        let resolved = self.id_addresses.get(&address).unwrap();
-        return Ok(resolved.clone());
+
+        self.id_addresses
+            .get(&address)
+            .cloned()
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Address not found".to_string(),
+            ))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
         self.require_in_call();
-        if let Some(ret) = self.actor_code_cids.get(&addr) {
-            return Ok(ret.clone());
-        }
-        Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Actor address is not found".to_string(),
-        ))
+        self.actor_code_cids
+            .get(&addr)
+            .cloned()
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Actor address is not found".to_string(),
+            ))
     }
 
     fn get_randomness(

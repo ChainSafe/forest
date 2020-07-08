@@ -35,8 +35,7 @@ use byteorder::{BigEndian, ByteOrder};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
-    InteractiveSealChallengeSeed, SealRandomness, WindowPoStDeadlineAssignment,
-    WindowedPoStChallengeSeed,
+    InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,
 };
 use encoding::Cbor;
 use fil_types::{
@@ -320,7 +319,7 @@ impl Actor {
 
                 // Work out which sectors are due in the declared partitions at this deadline.
                 let partitions_sectors = compute_partitions_sector(
-                    deadlines,
+                    &mut deadlines,
                     partition_size,
                     deadline.index,
                     &params.partitions,
@@ -833,15 +832,14 @@ impl Actor {
 
         let old_expiration = sector.info.expiration;
         let storage_weight_desc_prev = to_storage_weight_desc(st.info.sector_size, &sector);
-        let extension_len = params
-            .new_expiration
-            .checked_sub(old_expiration)
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    "cannot reduce sector expiration".to_owned(),
-                )
-            })?;
+        let extension_len = params.new_expiration - old_expiration;
+
+        if extension_len < 0 {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!("cannot reduce sector expiration {}", extension_len),
+            ));
+        }
 
         let mut storage_weight_desc_new = storage_weight_desc_prev.clone();
         storage_weight_desc_new.duration = storage_weight_desc_prev.duration + extension_len;
@@ -1232,16 +1230,17 @@ impl Actor {
             })?;
 
         // Elapsed since the fault (i.e. since the higher of the two blocks)
-        let fault_age = rt.curr_epoch().checked_sub(fault.epoch).ok_or_else(|| {
-            ActorError::new(
+        let fault_age = rt.curr_epoch() - fault.epoch;
+        if fault_age <= 0 {
+            return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 format!(
                     "invalid fault epoch {} ahead of current {}",
                     fault.epoch,
                     rt.curr_epoch()
                 ),
-            )
-        })?;
+            ));
+        }
 
         let st: State = rt.state()?;
 
@@ -1486,19 +1485,11 @@ where
                 .collect();
 
             if !new_sectors.is_empty() {
-                let randomness_epoch = std::cmp::min(
-                    deadline.period_end(),
-                    rt.curr_epoch()
-                        .checked_sub(ELECTION_LOOKBACK)
-                        .unwrap_or_default(),
-                );
-                let assignment_seed =
-                    rt.get_randomness(WindowPoStDeadlineAssignment, randomness_epoch, &[])?;
+                // TODO spec indicates passing in `seed` param, however its currently not being used hence its absence here
                 assign_new_sectors(
                     &mut deadlines,
                     st.info.window_post_partition_sectors as usize,
                     &new_sectors,
-                    assignment_seed,
                 )
                 .map_err(|e| {
                     ActorError::new(
@@ -2408,11 +2399,11 @@ fn assign_proving_period_offset(
     blake2b: impl FnOnce(&[u8]) -> Result<[u8; 32], Box<dyn StdError>>,
 ) -> Result<ChainEpoch, Box<dyn StdError>> {
     let mut my_addr = addr.marshal_cbor()?;
-    BigEndian::write_u64(&mut my_addr, current_epoch);
+    BigEndian::write_i64(&mut my_addr, current_epoch);
 
     let digest = blake2b(&my_addr)?;
 
-    let mut offset: ChainEpoch = BigEndian::read_u64(&digest);
+    let mut offset: ChainEpoch = BigEndian::read_i64(&digest);
     offset %= WPOST_PROVING_PERIOD;
 
     Ok(offset)

@@ -34,8 +34,8 @@ impl State {
         if elapsed_epoch >= self.unlock_duration {
             return TokenAmount::from(0u8);
         }
-        let unit_locked = self.initial_balance.clone() / self.unlock_duration;
-        unit_locked * (self.unlock_duration - elapsed_epoch)
+        let unit_locked = self.initial_balance.clone() / self.unlock_duration as u64;
+        unit_locked * (self.unlock_duration - elapsed_epoch) as u64
     }
 
     pub(crate) fn is_signer(&self, addr: &Address) -> bool {

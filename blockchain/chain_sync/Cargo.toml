@@ -12,7 +12,7 @@ blocks = { package = "forest_blocks", path = "../blocks" }
 beacon = { path = "../beacon" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-libp2p = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "3661071120d3c07eb9e56932204efcd12cdffc49" }
+libp2p = "0.21.1"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 chain = { path = "../chain" }
@@ -31,8 +31,6 @@ num-traits = "0.2"
 filecoin-proofs-api = "4.0.1"
 fil_types = { path = "../../types" }
 commcid = { path = "../../utils/commcid" }
-
-
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }

@@ -138,7 +138,7 @@ impl Actor {
         // TODO update when finished in specs
         let new_simple_supply = minting_function(
             &SIMPLE_TOTAL,
-            &(BigUint::from(st.reward_epochs_paid) << MINTING_INPUT_FIXED_POINT),
+            &(BigUint::from(st.reward_epochs_paid as u64) << MINTING_INPUT_FIXED_POINT),
         );
         let new_baseline_supply = minting_function(&*BASELINE_TOTAL, &st.effective_network_time);
 

@@ -280,7 +280,7 @@ impl State {
         expiry: ChainEpoch,
     ) -> Result<BitField, String> {
         let sectors = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        Ok(sectors.get(expiry)?.ok_or("unable to find sector")?)
+        Ok(sectors.get(expiry as u64)?.ok_or("unable to find sector")?)
     }
     /// Iterates sector expiration groups in order.
     /// Note that the sectors bitfield provided to the callback is not safe to store.
@@ -293,7 +293,7 @@ impl State {
         F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
     {
         let sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        sector_arr.for_each(|i, v| f(i, v))
+        sector_arr.for_each(|i, v| f(i as i64, v))
     }
     /// Adds some sector numbers to the set expiring at an epoch.
     /// The sector numbers are given as uint64s to avoid pointless conversions.
@@ -304,7 +304,9 @@ impl State {
         sectors: &[u64],
     ) -> Result<(), String> {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        let mut bf: BitField = sector_arr.get(expiry)?.ok_or("unable to find sector")?;
+        let mut bf: BitField = sector_arr
+            .get(expiry as u64)?
+            .ok_or("unable to find sector")?;
         for &sector in sectors {
             bf.set(sector as usize);
         }
@@ -316,7 +318,7 @@ impl State {
             ));
         }
 
-        sector_arr.set(expiry, bf)?;
+        sector_arr.set(expiry as u64, bf)?;
 
         self.sector_expirations = sector_arr.flush()?;
         Ok(())
@@ -330,12 +332,14 @@ impl State {
     ) -> Result<(), String> {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
 
-        let mut bf = sector_arr.get(expiry)?.ok_or("unable to find sector")?;
+        let mut bf = sector_arr
+            .get(expiry as u64)?
+            .ok_or("unable to find sector")?;
         for &sector in sectors {
             bf.unset(sector as usize);
         }
 
-        sector_arr.set(expiry, bf)?;
+        sector_arr.set(expiry as u64, bf)?;
 
         self.sector_expirations = sector_arr.flush()?;
 
@@ -350,7 +354,7 @@ impl State {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
 
         for &exp in expirations {
-            sector_arr.delete(exp)?;
+            sector_arr.delete(exp as u64)?;
         }
 
         self.sector_expirations = sector_arr.flush()?;
@@ -377,12 +381,12 @@ impl State {
 
         let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
         let mut bf: BitField = epoch_fault_arr
-            .get(fault_epoch)?
+            .get(fault_epoch as u64)?
             .ok_or("unable to find sector")?;
 
         bf |= sector_nos;
 
-        epoch_fault_arr.set(fault_epoch, bf)?;
+        epoch_fault_arr.set(fault_epoch as u64, bf)?;
 
         self.fault_epochs = epoch_fault_arr.flush()?;
 
@@ -434,8 +438,7 @@ impl State {
         F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
     {
         let sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
-
-        sector_arr.for_each(|i, v| f(i, v))
+        sector_arr.for_each(|i, v| f(i as i64, v))
     }
     pub fn clear_fault_epochs<BS: BlockStore>(
         &mut self,
@@ -445,7 +448,7 @@ impl State {
         let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
 
         for &exp in epochs {
-            epoch_fault_arr.delete(exp)?;
+            epoch_fault_arr.delete(exp as u64)?;
         }
 
         self.fault_epochs = epoch_fault_arr.flush()?;
@@ -610,7 +613,7 @@ impl State {
 
         // Nothing unlocks here, this is just the start of the clock
         let vest_begin = current_epoch + spec.initial_delay;
-        let vest_period = BigUint::from(spec.vest_period);
+        let vest_period = BigUint::from(spec.vest_period as u64);
         let mut e = vest_begin + spec.step_duration;
         let mut vested_so_far = BigUint::zero();
 
@@ -620,7 +623,7 @@ impl State {
 
             let target_vest = if elapsed < spec.vest_period {
                 // Linear vesting, PARAM_FINISH
-                (vesting_sum * elapsed) / &vest_period
+                (vesting_sum * elapsed as u64) / &vest_period
             } else {
                 vesting_sum.clone()
             };
@@ -629,14 +632,14 @@ impl State {
             vested_so_far = target_vest;
 
             // Load existing entry, else set a new one
-            if let Some(locked_fund_entry) = vesting_funds.get(vest_epoch)? {
+            if let Some(locked_fund_entry) = vesting_funds.get(vest_epoch as u64)? {
                 let mut locked_funds = BigUint::from(locked_fund_entry);
                 locked_funds += vest_this_time;
 
                 let num = ToPrimitive::to_u64(&locked_funds)
                     .ok_or("unable to convert to u64")
                     .unwrap();
-                vesting_funds.set(vest_epoch, num)?;
+                vesting_funds.set(vest_epoch as u64, num)?;
             }
             e += spec.step_duration;
         }
@@ -663,7 +666,7 @@ impl State {
         let mut set: Vec<(u64, BigUintDe)> = Vec::new();
         vesting_funds.for_each(|k, v| {
             if amount_unlocked > target {
-                if k >= current_epoch {
+                if k >= current_epoch as u64 {
                     let BigUintDe(mut locked_entry) = v.clone();
                     let unlock_amount =
                         std::cmp::min(target.clone() - &amount_unlocked, locked_entry.clone());
@@ -708,7 +711,7 @@ impl State {
         let mut to_del: Vec<u64> = Vec::new();
 
         vesting_funds.for_each(|k, v| {
-            if k < current_epoch {
+            if k < current_epoch as u64 {
                 let BigUintDe(locked_entry) = v;
                 amount_unlocked += locked_entry;
                 to_del.push(k);
@@ -737,7 +740,7 @@ impl State {
 
         let mut amount_unlocked = TokenAmount::default();
         vesting_funds.for_each(|k, v| {
-            if k < current_epoch {
+            if k < current_epoch as u64 {
                 let BigUintDe(locked_entry) = v.clone();
                 amount_unlocked += locked_entry;
             } else {
@@ -864,6 +867,7 @@ impl Deadlines {
             .get_mut(deadline)
             .ok_or(format!("unable to find deadline: {}", deadline))?;
         *sec |= &ns;
+
         Ok(())
     }
     /// Removes sector numbers from all deadlines.
