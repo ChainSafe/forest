@@ -34,7 +34,7 @@ where
     let cid = heaviest_ts.parent_state();
 
     let state = StateTree::new_from_root(data.store.as_ref(), cid)?;
-    let actor = state.get_actor(&address)?.unwrap();
+    let actor = state.get_actor(&address)?.ok_or("Could not find actor")?;
     let actor_balance = actor.balance;
     Ok(actor_balance.to_string())
 }
@@ -221,7 +221,7 @@ where
         msg_cid.to_bytes().as_slice(),
     )?;
 
-    let smsg = SignedMessage::new_from_fields(msg, sig);
+    let smsg = SignedMessage::new_from_fields(msg, sig)?;
 
     Ok(SignedMessageJson(smsg))
 }

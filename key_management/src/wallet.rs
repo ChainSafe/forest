@@ -150,7 +150,7 @@ pub fn get_default<T: KeyStore>(keystore: &T) -> Result<Address, Error> {
     Ok(k.address)
 }
 
-/// Return Sorted Vec of Addresses in KeyStore
+/// Return Vec of Addresses sorted by their string representation in KeyStore
 pub fn list_addrs<T: KeyStore>(keystore: &T) -> Result<Vec<Address>, Error> {
     let mut all = keystore.list();
     all.sort();
