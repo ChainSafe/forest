@@ -204,6 +204,7 @@ where
                         let new_blk: BlockHeader = BlockHeader::unmarshal_cbor(&message).unwrap();
                         let new_blk = Tipset::new(vec![new_blk]).unwrap();
                         let chain_syncer = chain_syncer.clone();
+                        // TODO: This is wrong, need to call bitswap to grab the messages from this blockheader to form a full block and call inform_new_head
                         task::spawn(async move {
                             chain_syncer.sync(&new_blk).await.unwrap();
                         });
