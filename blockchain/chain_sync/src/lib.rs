@@ -8,6 +8,7 @@ mod network_context;
 mod network_handler;
 mod peer_manager;
 mod sync;
+mod sync_state;
 
 pub use self::bad_block_cache::BadBlockCache;
 pub use self::errors::Error;

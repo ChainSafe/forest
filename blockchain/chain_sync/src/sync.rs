@@ -8,6 +8,7 @@ use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
+use super::sync_state::SyncState;
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
@@ -44,26 +45,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
-
-#[derive(PartialEq, Debug, Clone)]
-/// Current state of the ChainSyncer
-pub enum SyncState {
-    /// Initial state, validating data structures and local chain
-    Init,
-
-    /// Bootstrap to the network, and acquire a secure enough set of peers
-    Bootstrap,
-
-    /// Syncing to checkpoint (using BlockSync for now)
-    Checkpoint,
-
-    /// Receive new blocks from the network and sync toward heaviest tipset
-    Catchup,
-
-    /// Once all blocks are validated to the heaviest chain, follow network
-    /// by receiving blocks over the network and validating them
-    Follow,
-}
 
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
 /// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
@@ -135,7 +116,7 @@ where
         let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
-            state: SyncState::Init,
+            state: SyncState::Headers,
             beacon,
             state_manager,
             chain_store,
@@ -225,13 +206,15 @@ where
 
         // Sync headers from network from head to heaviest from storage
         let tipsets = self.sync_headers_reverse(head.clone(), &heaviest).await?;
-        self.set_state(SyncState::Catchup);
+
         // Persist header chain pulled from network
+        self.set_state(SyncState::PersistHeaders);
         self.persist_headers(&tipsets).await?;
 
         // Sync and validate messages from fetched tipsets
+        self.set_state(SyncState::Messages);
         self.sync_messages_check_state(&tipsets).await?;
-        self.set_state(SyncState::Follow);
+        self.set_state(SyncState::Complete);
 
         Ok(())
     }
@@ -391,7 +374,7 @@ where
             .await;
 
         // Only update target on initial sync
-        if self.get_state() == &SyncState::Init {
+        if self.get_state() == &SyncState::Headers {
             if let Some(best_target) = self.select_sync_target().await {
                 // TODO revisit this if using for full node, shouldn't start syncing on first update
                 self.sync(&best_target).await?;
@@ -426,7 +409,7 @@ where
         info!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
         // check sync status if indicates tipsets are ready to be synced
-        if self.get_state() == &SyncState::Catchup {
+        if self.get_state() == &SyncState::Complete {
             // send tipsets to be synced
             self.sync(&tipset).await?;
             return Ok(());
@@ -858,13 +841,7 @@ where
             let epoch_diff = cur_ts.epoch() - to_epoch;
             let window = min(epoch_diff, REQUEST_WINDOW);
 
-            // update sync state to Bootstrap indicating we are acquiring a 'secure enough' set of peers
-            self.set_state(SyncState::Bootstrap);
-
             let peer_id = self.get_peer().await;
-
-            // checkpoint established
-            self.set_state(SyncState::Checkpoint);
 
             // Load blocks from network using blocksync
             let tipsets: Vec<Tipset> = match self
@@ -978,12 +955,15 @@ where
         }
         Ok(())
     }
+
     /// Returns the managed sync status
     pub fn get_state(&self) -> &SyncState {
         &self.state
     }
+
     /// Sets the managed sync status
     pub fn set_state(&mut self, new_state: SyncState) {
+        debug!("Sync stage set to: {}", new_state);
         self.state = new_state
     }
 
