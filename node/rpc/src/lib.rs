@@ -4,8 +4,9 @@
 mod chain_api;
 mod sync_api;
 
+use async_std::sync::RwLock;
 use blockstore::BlockStore;
-use chain_sync::BadBlockCache;
+use chain_sync::{BadBlockCache, SyncState};
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
@@ -14,6 +15,7 @@ use tide::{Request, Response, StatusCode};
 pub struct RpcState<DB: BlockStore + Send + Sync + 'static> {
     pub store: Arc<DB>,
     pub bad_blocks: Arc<BadBlockCache>,
+    pub sync_state: Arc<RwLock<SyncState>>,
 }
 
 async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {

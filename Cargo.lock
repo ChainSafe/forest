@@ -1201,6 +1201,7 @@ dependencies = [
  "log",
  "lru 0.5.3",
  "num-traits 0.2.12",
+ "serde",
  "state_manager",
  "state_tree",
  "test_utils",

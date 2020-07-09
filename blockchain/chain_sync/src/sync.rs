@@ -12,7 +12,7 @@ use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
-use async_std::sync::{channel, Receiver, Sender};
+use async_std::sync::{channel, Receiver, RwLock, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -51,7 +51,8 @@ use vm::TokenAmount;
 /// messages to be able to do the initial sync.
 pub struct ChainSyncer<DB, TBeacon> {
     /// Syncing state of chain sync
-    state: SyncState,
+    // TODO should be a vector once syncing done async and ideally not wrap each state in mutex.
+    state: Arc<RwLock<SyncState>>,
 
     /// Drand randomness beacon
     beacon: Arc<TBeacon>,
@@ -116,7 +117,7 @@ where
         let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
-            state: SyncState::default(),
+            state: Arc::new(RwLock::new(SyncState::default())),
             beacon,
             state_manager,
             chain_store,
@@ -133,6 +134,11 @@ where
     /// Returns a clone of the bad blocks cache to be used outside of chain sync.
     pub fn bad_blocks_cloned(&self) -> Arc<BadBlockCache> {
         self.bad_blocks.clone()
+    }
+
+    /// Returns the atomic reference to the syncing state.
+    pub fn sync_state_cloned(&self) -> Arc<RwLock<SyncState>> {
+        self.state.clone()
     }
 
     /// Spawns a network handler and begins the syncing process.
@@ -205,31 +211,35 @@ where
         info!("Starting block sync...");
 
         // Sync headers from network from head to heaviest from storage
-        self.state.init(heaviest.clone(), head.clone());
-        let tipsets = self
+        self.state
+            .write()
+            .await
+            .init(heaviest.clone(), head.clone());
+        let tipsets = match self
             .sync_headers_reverse(head.as_ref().clone(), &heaviest)
             .await
-            .map_err(|e| {
-                self.state.error(e.to_string());
-                e
-            })?;
+        {
+            Ok(ts) => ts,
+            Err(e) => {
+                self.state.write().await.error(e.to_string());
+                return Err(e);
+            }
+        };
 
         // Persist header chain pulled from network
-        self.state.set_stage(SyncStage::PersistHeaders);
-        self.persist_headers(&tipsets).await.map_err(|e| {
-            self.state.error(e.to_string());
-            e
-        })?;
+        self.set_stage(SyncStage::PersistHeaders).await;
+        if let Err(e) = self.persist_headers(&tipsets).await {
+            self.state.write().await.error(e.to_string());
+            return Err(e);
+        }
 
         // Sync and validate messages from fetched tipsets
-        self.state.set_stage(SyncStage::Messages);
-        self.sync_messages_check_state(&tipsets)
-            .await
-            .map_err(|e| {
-                self.state.error(e.to_string());
-                e
-            })?;
-        self.state.set_stage(SyncStage::Complete);
+        self.set_stage(SyncStage::Messages).await;
+        if let Err(e) = self.sync_messages_check_state(&tipsets).await {
+            self.state.write().await.error(e.to_string());
+            return Err(e);
+        }
+        self.set_stage(SyncStage::Complete).await;
 
         Ok(())
     }
@@ -281,7 +291,7 @@ where
                             // validate tipset and messages
                             let curr_epoch = fts.epoch();
                             self.validate_tipset(fts).await?;
-                            self.state.set_epoch(curr_epoch);
+                            self.state.write().await.set_epoch(curr_epoch);
 
                             // store messages
                             self.chain_store.put_messages(&b.bls_msgs)?;
@@ -295,7 +305,7 @@ where
             // full tipset found in storage; validate and continue
             let curr_epoch = fts.epoch();
             self.validate_tipset(fts).await?;
-            self.state.set_epoch(curr_epoch);
+            self.state.write().await.set_epoch(curr_epoch);
             i -= 1;
             continue;
         }
@@ -341,7 +351,7 @@ where
             .await;
 
         // Only update target on initial sync
-        if self.state.stage() == SyncStage::Headers {
+        if self.state.read().await.stage() == SyncStage::Headers {
             if let Some(best_target) = self.select_sync_target().await {
                 // TODO revisit this if using for full node, shouldn't start syncing on first update
                 self.sync(best_target).await?;
@@ -377,7 +387,7 @@ where
 
         // check sync status if indicates tipsets are ready to be synced
         // TODO revisit this, seems wrong
-        if self.state.stage() == SyncStage::Complete {
+        if self.state.read().await.stage() == SyncStage::Complete {
             // send tipsets to be synced
             self.sync(tipset).await?;
             return Ok(());
@@ -779,7 +789,7 @@ where
         to: &Tipset,
     ) -> Result<Vec<Tipset>, Error> {
         info!("Syncing headers from: {:?}", head.key());
-        self.state.set_epoch(to.epoch());
+        self.state.write().await.set_epoch(to.epoch());
 
         let mut accepted_blocks: Vec<Cid> = Vec::new();
 
@@ -845,7 +855,7 @@ where
                     .await?;
 
                 accepted_blocks.extend_from_slice(ts.cids());
-                self.state.set_epoch(ts.epoch());
+                self.state.write().await.set_epoch(ts.epoch());
                 // Add tipset to vector of tipsets to return
                 return_set.push(ts);
             }
@@ -933,15 +943,10 @@ where
         Ok(())
     }
 
-    // /// Returns the managed sync status
-    // pub fn get_state(&self) -> &SyncStage {
-    //     &self.state
-    // }
-
     /// Sets the managed sync status
-    pub fn set_stage(&mut self, new_stage: SyncStage) {
+    pub async fn set_stage(&mut self, new_stage: SyncStage) {
         debug!("Sync stage set to: {}", new_stage);
-        self.state.set_stage(new_stage);
+        self.state.write().await.set_stage(new_stage);
     }
 
     async fn get_peer(&self) -> PeerId {

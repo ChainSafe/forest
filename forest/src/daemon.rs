@@ -67,6 +67,7 @@ pub(super) async fn start(config: Config) {
     )
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
+    let sync_state = chain_syncer.sync_state_cloned();
     let sync_task = task::spawn(async {
         chain_syncer.start().await.unwrap();
     });
@@ -85,6 +86,7 @@ pub(super) async fn start(config: Config) {
                 RpcState {
                     store: db_rpc,
                     bad_blocks,
+                    sync_state,
                 },
                 &rpc_listen,
             )

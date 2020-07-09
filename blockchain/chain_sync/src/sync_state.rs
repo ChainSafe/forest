@@ -1,8 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::Tipset;
+use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
 use clock::ChainEpoch;
+use serde::{Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -40,16 +41,27 @@ impl fmt::Display for SyncStage {
     }
 }
 
+impl Serialize for SyncStage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
 /// State of a given sync.
 #[derive(Clone, Debug, Default)]
 pub struct SyncState {
-    target: Option<Arc<Tipset>>,
     base: Option<Arc<Tipset>>,
+    target: Option<Arc<Tipset>>,
+
     stage: SyncStage,
     epoch: ChainEpoch,
-    message: String,
+
     start: Option<SystemTime>,
     end: Option<SystemTime>,
+    message: String,
 }
 
 impl SyncState {
@@ -85,5 +97,37 @@ impl SyncState {
         self.message = err;
         self.stage = SyncStage::Errored;
         self.end = Some(SystemTime::now());
+    }
+}
+
+impl Serialize for SyncState {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct SyncStateJson<'a> {
+            base: Option<TipsetJsonRef<'a>>,
+            target: Option<TipsetJsonRef<'a>>,
+
+            stage: SyncStage,
+            epoch: ChainEpoch,
+
+            start: &'a Option<SystemTime>,
+            end: &'a Option<SystemTime>,
+            message: &'a str,
+        }
+
+        SyncStateJson {
+            base: self.base.as_ref().map(|ts| TipsetJsonRef(ts.as_ref())),
+            target: self.target.as_ref().map(|ts| TipsetJsonRef(ts.as_ref())),
+            stage: self.stage,
+            epoch: self.epoch,
+            start: &self.start,
+            end: &self.end,
+            message: &self.message,
+        }
+        .serialize(serializer)
     }
 }

@@ -4,8 +4,16 @@
 use crate::RpcState;
 use blocks::header::json::BlockHeaderJson;
 use blockstore::BlockStore;
+use chain_sync::SyncState;
 use cid::json::CidJson;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use serde::Serialize;
+
+#[derive(Serialize)]
+pub struct RPCSyncState {
+    #[serde(rename = "ActiveSyncs")]
+    active_syncs: Vec<SyncState>,
+}
 
 /// Checks if a given block is marked as bad.
 pub(crate) async fn sync_check_bad<DB: BlockStore + Send + Sync + 'static>(
@@ -32,9 +40,12 @@ pub(crate) async fn sync_mark_bad<DB: BlockStore + Send + Sync + 'static>(
 
 /// Returns the current status of the ChainSync process.
 pub(crate) async fn sync_state<DB: BlockStore + Send + Sync + 'static>(
-    _data: Data<RpcState<DB>>,
-) -> Result<(), JsonRpcError> {
-    todo!()
+    data: Data<RpcState<DB>>,
+) -> Result<RPCSyncState, JsonRpcError> {
+    let state = data.sync_state.read().await.clone();
+    Ok(RPCSyncState {
+        active_syncs: vec![state],
+    })
 }
 
 /// Submits block to be sent through gossipsub.
