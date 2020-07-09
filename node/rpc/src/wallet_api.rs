@@ -137,8 +137,8 @@ where
     let (sig_type,) = params;
     let mut keystore = data.keystore.write().await;
     let key = match sig_type {
-        1 => wallet::generate_key(SignatureType::Secp256k1)?,
-        2 => wallet::generate_key(SignatureType::BLS)?,
+        0 => wallet::generate_key(SignatureType::Secp256k1)?,
+        1 => wallet::generate_key(SignatureType::BLS)?,
         _ => return Err("Specify valid Signature type".to_owned().into()),
     };
 
