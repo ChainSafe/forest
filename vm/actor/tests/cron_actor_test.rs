@@ -13,7 +13,7 @@ use ipld_blockstore::BlockStore;
 use message::UnsignedMessage;
 use vm::{ExitCode, Serialized};
 
-fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
+fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
     let receiver = Address::new_id(100);
 
     let message = UnsignedMessage::builder()
@@ -28,6 +28,7 @@ fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
 #[test]
 fn construct_with_empty_entries() {
     let bs = MemoryDB::default();
+
     let mut rt = construct_runtime(&bs);
 
     construct_and_verify(&mut rt, &ConstructorParams { entries: vec![] });
@@ -39,6 +40,7 @@ fn construct_with_empty_entries() {
 #[test]
 fn construct_with_entries() {
     let bs = MemoryDB::default();
+
     let mut rt = construct_runtime(&bs);
 
     let entry1 = Entry {

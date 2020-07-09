@@ -9,7 +9,7 @@ use encoding::Cbor;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes
-#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
 pub struct SignedMessage {
     message: UnsignedMessage,
     signature: Signature,
@@ -25,6 +25,10 @@ impl SignedMessage {
         Ok(SignedMessage { message, signature })
     }
 
+    /// Construct a new SignedMessage given an UnsignedMessage and Signature
+    pub fn new_from_parts(message: UnsignedMessage, signature: Signature) -> Self {
+        SignedMessage { message, signature }
+    }
     /// Returns reference to the unsigned message.
     pub fn message(&self) -> &UnsignedMessage {
         &self.message
@@ -33,6 +37,11 @@ impl SignedMessage {
     /// Returns signature of the signed message.
     pub fn signature(&self) -> &Signature {
         &self.signature
+    }
+
+    /// Consumes self and returns it's unsigned message
+    pub fn into_message(self) -> UnsignedMessage {
+        self.message
     }
 }
 
