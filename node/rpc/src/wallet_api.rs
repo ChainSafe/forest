@@ -221,7 +221,7 @@ where
         msg_cid.to_bytes().as_slice(),
     )?;
 
-    let smsg = SignedMessage::new_from_fields(msg, sig)?;
+    let smsg = SignedMessage::new_from_parts(msg, sig)?;
 
     Ok(SignedMessageJson(smsg))
 }

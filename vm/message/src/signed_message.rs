@@ -26,7 +26,7 @@ impl SignedMessage {
     }
 
     /// Generate a new signed message from fields
-    pub fn new_from_fields(
+    pub fn new_from_parts(
         message: UnsignedMessage,
         signature: Signature,
     ) -> Result<SignedMessage, String> {
