@@ -8,7 +8,7 @@ use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
-use super::sync_state::SyncState;
+use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
@@ -51,7 +51,7 @@ use vm::TokenAmount;
 /// messages to be able to do the initial sync.
 pub struct ChainSyncer<DB, TBeacon> {
     /// Syncing state of chain sync
-    state: SyncState,
+    state: SyncStage,
 
     /// Drand randomness beacon
     beacon: Arc<TBeacon>,
@@ -116,7 +116,7 @@ where
         let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
-            state: SyncState::Headers,
+            state: SyncStage::Headers,
             beacon,
             state_manager,
             chain_store,
@@ -208,13 +208,13 @@ where
         let tipsets = self.sync_headers_reverse(head.clone(), &heaviest).await?;
 
         // Persist header chain pulled from network
-        self.set_state(SyncState::PersistHeaders);
+        self.set_state(SyncStage::PersistHeaders);
         self.persist_headers(&tipsets).await?;
 
         // Sync and validate messages from fetched tipsets
-        self.set_state(SyncState::Messages);
+        self.set_state(SyncStage::Messages);
         self.sync_messages_check_state(&tipsets).await?;
-        self.set_state(SyncState::Complete);
+        self.set_state(SyncStage::Complete);
 
         Ok(())
     }
@@ -374,7 +374,7 @@ where
             .await;
 
         // Only update target on initial sync
-        if self.get_state() == &SyncState::Headers {
+        if self.get_state() == &SyncStage::Headers {
             if let Some(best_target) = self.select_sync_target().await {
                 // TODO revisit this if using for full node, shouldn't start syncing on first update
                 self.sync(&best_target).await?;
@@ -409,7 +409,7 @@ where
         info!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
         // check sync status if indicates tipsets are ready to be synced
-        if self.get_state() == &SyncState::Complete {
+        if self.get_state() == &SyncStage::Complete {
             // send tipsets to be synced
             self.sync(&tipset).await?;
             return Ok(());
@@ -957,12 +957,12 @@ where
     }
 
     /// Returns the managed sync status
-    pub fn get_state(&self) -> &SyncState {
+    pub fn get_state(&self) -> &SyncStage {
         &self.state
     }
 
     /// Sets the managed sync status
-    pub fn set_state(&mut self, new_state: SyncState) {
+    pub fn set_state(&mut self, new_state: SyncStage) {
         debug!("Sync stage set to: {}", new_state);
         self.state = new_state
     }

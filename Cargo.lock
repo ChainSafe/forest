@@ -1180,6 +1180,7 @@ dependencies = [
  "async-std",
  "beacon",
  "chain",
+ "clock",
  "commcid",
  "db",
  "fil_types",
