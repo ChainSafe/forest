@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_blocks::{Block, BlockHeader, FullTipset};
+use forest_blocks::{Block, BlockHeader, FullTipset, Tipset};
 use forest_cid::Cid;
 use forest_encoding::tuple::*;
 use forest_message::{SignedMessage, UnsignedMessage};
@@ -35,7 +35,10 @@ pub struct BlockSyncResponse {
 }
 
 impl BlockSyncResponse {
-    pub fn into_result(self) -> Result<Vec<FullTipset>, String> {
+    pub fn into_result<T>(self) -> Result<Vec<T>, String>
+    where
+        T: TryFrom<TipsetBundle, Error = String>,
+    {
         if self.status != 0 {
             // TODO implement a better error type than string if needed to be handled differently
             return Err(format!("Status {}: {}", self.status, self.message));
@@ -43,7 +46,7 @@ impl BlockSyncResponse {
 
         self.chain
             .into_iter()
-            .map(FullTipset::try_from)
+            .map(T::try_from)
             .collect::<Result<_, _>>()
     }
 }
@@ -63,6 +66,14 @@ pub struct TipsetBundle {
     pub secp_msgs: Vec<SignedMessage>,
     /// Describes which block each message belongs to
     pub secp_msg_includes: Vec<Vec<u64>>,
+}
+
+impl TryFrom<TipsetBundle> for Tipset {
+    type Error = String;
+
+    fn try_from(tsb: TipsetBundle) -> Result<Tipset, Self::Error> {
+        Tipset::new(tsb.blocks).map_err(|e| e.to_string())
+    }
 }
 
 impl TryFrom<TipsetBundle> for FullTipset {

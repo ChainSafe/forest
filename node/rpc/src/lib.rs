@@ -52,7 +52,6 @@ pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(
         .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB>)
         .with_method("Filecoin.SyncState", sync_state::<DB>)
         .with_method("Filecoin.SyncSubmitBlock", sync_submit_block::<DB>)
-        // TODO add other sync methods
         .finish_unwrapped();
 
     let mut app = tide::Server::with_state(rpc);

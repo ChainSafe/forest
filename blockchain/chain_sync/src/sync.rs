@@ -149,15 +149,12 @@ where
             match event {
                 NetworkEvent::HelloRequest { request, channel } => {
                     let source = channel.peer.clone();
-                    info!(
+                    debug!(
                         "Message inbound, heaviest tipset cid: {:?}",
                         request.heaviest_tip_set
                     );
                     match self
-                        .fetch_tipset(
-                            source.clone(),
-                            &TipsetKeys::new(request.heaviest_tip_set.clone()),
-                        )
+                        .fetch_tipset(source.clone(), &TipsetKeys::new(request.heaviest_tip_set))
                         .await
                     {
                         Ok(fts) => {
@@ -328,7 +325,7 @@ where
                 return Err(Error::Other("Block marked as bad".to_string()));
             }
             // validate message data
-            self.validate_msg_data(block)?;
+            self.validate_msg_meta(block)?;
         }
 
         // compare target_weight to heaviest weight stored; ignore otherwise
@@ -417,8 +414,8 @@ where
     }
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
-    fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
-        let sm_root = compute_msg_data(
+    fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
+        let sm_root = compute_msg_meta(
             self.chain_store.blockstore(),
             block.bls_msgs(),
             block.secp_msgs(),
@@ -581,7 +578,7 @@ where
                 .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root
-        let sm_root = compute_msg_data(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = compute_msg_meta(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -823,7 +820,8 @@ where
                 continue;
             }
 
-            const REQUEST_WINDOW: i64 = 100;
+            // TODO tweak request window when socket frame is tested
+            const REQUEST_WINDOW: i64 = 5;
             let epoch_diff = cur_ts.epoch() - to_epoch;
             let window = min(epoch_diff, REQUEST_WINDOW);
 
@@ -963,7 +961,7 @@ where
 }
 
 /// Returns message root CID from bls and secp message contained in the param Block
-fn compute_msg_data<DB: BlockStore>(
+fn compute_msg_meta<DB: BlockStore>(
     blockstore: &DB,
     bls_msgs: &[UnsignedMessage],
     secp_msgs: &[SignedMessage],
@@ -971,6 +969,7 @@ fn compute_msg_data<DB: BlockStore>(
     // collect bls and secp cids
     let bls_cids = cids_from_messages(bls_msgs)?;
     let secp_cids = cids_from_messages(secp_msgs)?;
+
     // generate Amt and batch set message values
     let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
     let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
@@ -979,8 +978,8 @@ fn compute_msg_data<DB: BlockStore>(
         bls_message_root: bls_root,
         secp_message_root: secp_root,
     };
-    // TODO this should be memoryDB for temp storage
-    // store message roots and receive meta_root
+
+    // store message roots and receive meta_root cid
     let meta_root = blockstore
         .put(&meta, Blake2b256)
         .map_err(|e| Error::Other(e.to_string()))?;
@@ -1086,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_msg_data_given_msgs_test() {
+    fn compute_msg_meta_given_msgs_test() {
         let db = Arc::new(MemoryDB::default());
         let (cs, _) = chain_syncer_setup(db);
 
@@ -1096,7 +1095,23 @@ mod tests {
             Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
-        let root = compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
+        let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
+    }
+
+    #[test]
+    fn empty_msg_meta_vector() {
+        let blockstore = MemoryDB::default();
+        let usm: Vec<UnsignedMessage> =
+            encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+        let sm: Vec<SignedMessage> =
+            encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+
+        assert_eq!(
+            compute_msg_meta(&blockstore, &usm, &sm)
+                .unwrap()
+                .to_string(),
+            "bafy2bzacebalwfdq3fk3c4mztozq7mpx7rjsgvnc6z43udi3qeainl7kj5m6u"
+        );
     }
 }
