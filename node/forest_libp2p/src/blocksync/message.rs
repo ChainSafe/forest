@@ -69,42 +69,69 @@ impl TryFrom<TipsetBundle> for FullTipset {
     type Error = String;
 
     fn try_from(tsb: TipsetBundle) -> Result<FullTipset, Self::Error> {
-        // TODO: we may already want to check this on construction of the bundle
-        if tsb.blocks.len() != tsb.bls_msg_includes.len()
-            || tsb.blocks.len() != tsb.secp_msg_includes.len()
-        {
-            return Err(
-                "Invalid formed Tipset bundle, lengths of includes does not match blocks"
-                    .to_string(),
+        fts_from_bundle_parts(
+            tsb.blocks,
+            &tsb.bls_msgs,
+            &tsb.secp_msgs,
+            &tsb.bls_msg_includes,
+            &tsb.secp_msg_includes,
+        )
+    }
+}
+
+impl TryFrom<&TipsetBundle> for FullTipset {
+    type Error = String;
+
+    fn try_from(tsb: &TipsetBundle) -> Result<FullTipset, Self::Error> {
+        fts_from_bundle_parts(
+            tsb.blocks.clone(),
+            &tsb.bls_msgs,
+            &tsb.secp_msgs,
+            &tsb.bls_msg_includes,
+            &tsb.secp_msg_includes,
+        )
+    }
+}
+
+fn fts_from_bundle_parts(
+    headers: Vec<BlockHeader>,
+    bls_msgs: &[UnsignedMessage],
+    secp_msgs: &[SignedMessage],
+    bls_msg_includes: &[Vec<u64>],
+    secp_msg_includes: &[Vec<u64>],
+) -> Result<FullTipset, String> {
+    // TODO: we may already want to check this on construction of the bundle
+    if headers.len() != bls_msg_includes.len() || headers.len() != secp_msg_includes.len() {
+        return Err(
+            "Invalid formed Tipset bundle, lengths of includes does not match blocks".to_string(),
+        );
+    }
+
+    fn values_from_indexes<T: Clone>(indexes: &[u64], values: &[T]) -> Result<Vec<T>, String> {
+        let mut msgs = Vec::with_capacity(indexes.len());
+        for idx in indexes.iter() {
+            msgs.push(
+                values
+                    .get(*idx as usize)
+                    .cloned()
+                    .ok_or_else(|| "Invalid message index".to_string())?,
             );
         }
-
-        fn values_from_indexes<T: Clone>(indexes: &[u64], values: &[T]) -> Result<Vec<T>, String> {
-            let mut msgs = Vec::with_capacity(indexes.len());
-            for idx in indexes.iter() {
-                msgs.push(
-                    values
-                        .get(*idx as usize)
-                        .cloned()
-                        .ok_or_else(|| "Invalid message index".to_string())?,
-                );
-            }
-            Ok(msgs)
-        }
-
-        let mut blocks: Vec<Block> = Vec::with_capacity(tsb.blocks.len());
-
-        for (i, header) in tsb.blocks.into_iter().enumerate() {
-            let bls_messages = values_from_indexes(&tsb.bls_msg_includes[i], &tsb.bls_msgs)?;
-            let secp_messages = values_from_indexes(&tsb.secp_msg_includes[i], &tsb.secp_msgs)?;
-
-            blocks.push(Block {
-                header,
-                secp_messages,
-                bls_messages,
-            });
-        }
-
-        Ok(FullTipset::new(blocks).map_err(|e| e.to_string())?)
+        Ok(msgs)
     }
+
+    let mut blocks: Vec<Block> = Vec::with_capacity(headers.len());
+
+    for (i, header) in headers.into_iter().enumerate() {
+        let bls_messages = values_from_indexes(&bls_msg_includes[i], &bls_msgs)?;
+        let secp_messages = values_from_indexes(&secp_msg_includes[i], &secp_msgs)?;
+
+        blocks.push(Block {
+            header,
+            secp_messages,
+            bls_messages,
+        });
+    }
+
+    Ok(FullTipset::new(blocks).map_err(|e| e.to_string())?)
 }

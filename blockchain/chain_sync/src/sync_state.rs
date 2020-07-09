@@ -22,6 +22,12 @@ pub enum SyncStage {
     Errored,
 }
 
+impl Default for SyncStage {
+    fn default() -> Self {
+        Self::Headers
+    }
+}
+
 impl fmt::Display for SyncStage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -34,14 +40,50 @@ impl fmt::Display for SyncStage {
     }
 }
 
-/// State of a given sync
-#[derive(Clone, Debug)]
+/// State of a given sync.
+#[derive(Clone, Debug, Default)]
 pub struct SyncState {
-    target: Arc<Tipset>,
-    base: Arc<Tipset>,
+    target: Option<Arc<Tipset>>,
+    base: Option<Arc<Tipset>>,
     stage: SyncStage,
-    height: ChainEpoch,
+    epoch: ChainEpoch,
     message: String,
-    start: SystemTime,
-    end: SystemTime,
+    start: Option<SystemTime>,
+    end: Option<SystemTime>,
+}
+
+impl SyncState {
+    /// Initializes the syncing state with base and target tipsets and sets start time.
+    pub fn init(&mut self, base: Arc<Tipset>, target: Arc<Tipset>) {
+        *self = Self {
+            target: Some(target),
+            base: Some(base),
+            start: Some(SystemTime::now()),
+            ..Default::default()
+        }
+    }
+
+    pub fn stage(&self) -> SyncStage {
+        self.stage
+    }
+
+    /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
+    pub fn set_stage(&mut self, stage: SyncStage) {
+        if let SyncStage::Complete = stage {
+            self.end = Some(SystemTime::now());
+        }
+        self.stage = stage;
+    }
+
+    /// Sets epoch of the sync.
+    pub fn set_epoch(&mut self, epoch: ChainEpoch) {
+        self.epoch = epoch;
+    }
+
+    /// Sets error for the sync.
+    pub fn error(&mut self, err: String) {
+        self.message = err;
+        self.stage = SyncStage::Errored;
+        self.end = Some(SystemTime::now());
+    }
 }

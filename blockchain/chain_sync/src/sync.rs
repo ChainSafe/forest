@@ -51,7 +51,7 @@ use vm::TokenAmount;
 /// messages to be able to do the initial sync.
 pub struct ChainSyncer<DB, TBeacon> {
     /// Syncing state of chain sync
-    state: SyncStage,
+    state: SyncState,
 
     /// Drand randomness beacon
     beacon: Arc<TBeacon>,
@@ -116,7 +116,7 @@ where
         let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
-            state: SyncStage::Headers,
+            state: SyncState::default(),
             beacon,
             state_manager,
             chain_store,
@@ -185,7 +185,7 @@ where
     }
 
     /// Performs syncing process
-    async fn sync(&mut self, head: &Tipset) -> Result<(), Error> {
+    async fn sync(&mut self, head: Arc<Tipset>) -> Result<(), Error> {
         // Bootstrap peers before syncing
         // TODO increase bootstrap peer count before syncing
         const MIN_PEERS: usize = 1;
@@ -205,16 +205,31 @@ where
         info!("Starting block sync...");
 
         // Sync headers from network from head to heaviest from storage
-        let tipsets = self.sync_headers_reverse(head.clone(), &heaviest).await?;
+        self.state.init(heaviest.clone(), head.clone());
+        let tipsets = self
+            .sync_headers_reverse(head.as_ref().clone(), &heaviest)
+            .await
+            .map_err(|e| {
+                self.state.error(e.to_string());
+                e
+            })?;
 
         // Persist header chain pulled from network
-        self.set_state(SyncStage::PersistHeaders);
-        self.persist_headers(&tipsets).await?;
+        self.state.set_stage(SyncStage::PersistHeaders);
+        self.persist_headers(&tipsets).await.map_err(|e| {
+            self.state.error(e.to_string());
+            e
+        })?;
 
         // Sync and validate messages from fetched tipsets
-        self.set_state(SyncStage::Messages);
-        self.sync_messages_check_state(&tipsets).await?;
-        self.set_state(SyncStage::Complete);
+        self.state.set_stage(SyncStage::Messages);
+        self.sync_messages_check_state(&tipsets)
+            .await
+            .map_err(|e| {
+                self.state.error(e.to_string());
+                e
+            })?;
+        self.state.set_stage(SyncStage::Complete);
 
         Ok(())
     }
@@ -260,17 +275,14 @@ where
                             .await?;
 
                         for b in ts_bundle.chain {
-                            let ts = ts[i as usize].clone();
                             // construct full tipsets from fetched messages
-                            let fts = self.tipset_msgs(
-                                ts,
-                                &b.bls_msgs,
-                                &b.secp_msgs,
-                                b.bls_msg_includes,
-                                b.secp_msg_includes,
-                            )?;
+                            let fts: FullTipset = (&b).try_into().map_err(Error::Other)?;
+
                             // validate tipset and messages
-                            self.validate_tipsets(fts).await?;
+                            let curr_epoch = fts.epoch();
+                            self.validate_tipset(fts).await?;
+                            self.state.set_epoch(curr_epoch);
+
                             // store messages
                             self.chain_store.put_messages(&b.bls_msgs)?;
                             self.chain_store.put_messages(&b.secp_msgs)?;
@@ -281,59 +293,14 @@ where
                 }
             };
             // full tipset found in storage; validate and continue
-            self.validate_tipsets(fts).await?;
+            let curr_epoch = fts.epoch();
+            self.validate_tipset(fts).await?;
+            self.state.set_epoch(curr_epoch);
             i -= 1;
             continue;
         }
 
         Ok(())
-    }
-
-    /// Returns FullTipset with unchecked messages
-    fn tipset_msgs(
-        &self,
-        ts: Tipset,
-        bls_msgs: &[UnsignedMessage],
-        secp_msgs: &[SignedMessage],
-        bmi: Vec<Vec<u64>>,
-        smi: Vec<Vec<u64>>,
-    ) -> Result<FullTipset, Error> {
-        // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for block message limit
-        const BLOCK_MESSAGE_LIMIT: usize = 512;
-        let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
-
-        for (i, header) in ts.blocks().iter().enumerate() {
-            let mut smgs = Vec::new();
-            for (x, _) in smi[i].iter().enumerate() {
-                smgs.push(secp_msgs[x].clone());
-            }
-
-            let mut bmgs = Vec::new();
-            for (y, _) in bmi[i].iter().enumerate() {
-                bmgs.push(bls_msgs[y].clone());
-            }
-
-            // ensure message count is below the limit
-            let msg_count = bls_msgs.len() + secp_msgs.len();
-            if msg_count > BLOCK_MESSAGE_LIMIT {
-                return Err(Error::Other("Block has too many messages".to_string()));
-            }
-
-            // validate message root from header matches message root
-            let sm_root = compute_msg_data(self.chain_store.blockstore(), &bls_msgs, &secp_msgs)?;
-            if header.messages() != &sm_root {
-                return Err(Error::InvalidRoots);
-            }
-            let bls_messages = bmgs.to_vec();
-            let secp_messages = smgs.to_vec();
-
-            blocks.push(Block {
-                header: header.clone(),
-                bls_messages,
-                secp_messages,
-            });
-        }
-        Ok(FullTipset::new(blocks)?)
     }
 
     /// informs the syncer about a new potential tipset
@@ -374,10 +341,10 @@ where
             .await;
 
         // Only update target on initial sync
-        if self.get_state() == &SyncStage::Headers {
+        if self.state.stage() == SyncStage::Headers {
             if let Some(best_target) = self.select_sync_target().await {
                 // TODO revisit this if using for full node, shouldn't start syncing on first update
-                self.sync(&best_target).await?;
+                self.sync(best_target).await?;
                 return Ok(());
             }
         }
@@ -409,9 +376,10 @@ where
         info!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
         // check sync status if indicates tipsets are ready to be synced
-        if self.get_state() == &SyncStage::Complete {
+        // TODO revisit this, seems wrong
+        if self.state.stage() == SyncStage::Complete {
             // send tipsets to be synced
-            self.sync(&tipset).await?;
+            self.sync(tipset).await?;
             return Ok(());
         }
 
@@ -429,7 +397,7 @@ where
                     self.next_sync_target = target_bucket;
                     if let Some(best_target) = self.next_sync_target.heaviest_tipset() {
                         // send heaviest tipset from sync target to be synced
-                        self.sync(&best_target).await?;
+                        self.sync(best_target).await?;
                         return Ok(());
                     }
                 }
@@ -713,7 +681,7 @@ where
         Ok(())
     }
     /// validates tipsets and adds header data to tipset tracker
-    async fn validate_tipsets(&mut self, fts: FullTipset) -> Result<(), Error> {
+    async fn validate_tipset(&mut self, fts: FullTipset) -> Result<(), Error> {
         if fts.to_tipset() == self.genesis {
             return Ok(());
         }
@@ -811,10 +779,18 @@ where
         to: &Tipset,
     ) -> Result<Vec<Tipset>, Error> {
         info!("Syncing headers from: {:?}", head.key());
+        self.state.set_epoch(to.epoch());
 
         let mut accepted_blocks: Vec<Cid> = Vec::new();
 
-        let mut return_set = vec![head];
+        let sync_len = head.epoch() - to.epoch();
+        if !sync_len.is_positive() {
+            return Err(Error::Other(
+                "Target tipset must be after heaviest".to_string(),
+            ));
+        }
+        let mut return_set = Vec::with_capacity(sync_len as usize);
+        return_set.push(head);
 
         let to_epoch = to.blocks().get(0).expect("Tipset cannot be empty").epoch();
 
@@ -869,6 +845,7 @@ where
                     .await?;
 
                 accepted_blocks.extend_from_slice(ts.cids());
+                self.state.set_epoch(ts.epoch());
                 // Add tipset to vector of tipsets to return
                 return_set.push(ts);
             }
@@ -956,15 +933,15 @@ where
         Ok(())
     }
 
-    /// Returns the managed sync status
-    pub fn get_state(&self) -> &SyncStage {
-        &self.state
-    }
+    // /// Returns the managed sync status
+    // pub fn get_state(&self) -> &SyncStage {
+    //     &self.state
+    // }
 
     /// Sets the managed sync status
-    pub fn set_state(&mut self, new_state: SyncStage) {
-        debug!("Sync stage set to: {}", new_state);
-        self.state = new_state
+    pub fn set_stage(&mut self, new_stage: SyncStage) {
+        debug!("Sync stage set to: {}", new_stage);
+        self.state.set_stage(new_stage);
     }
 
     async fn get_peer(&self) -> PeerId {
