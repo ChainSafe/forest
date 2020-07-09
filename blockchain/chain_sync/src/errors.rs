@@ -71,6 +71,12 @@ impl From<&str> for Error {
     }
 }
 
+impl From<String> for Error {
+    fn from(e: String) -> Error {
+        Error::Other(e)
+    }
+}
+
 impl From<std::num::TryFromIntError> for Error {
     fn from(e: std::num::TryFromIntError) -> Error {
         Error::Other(e.to_string())

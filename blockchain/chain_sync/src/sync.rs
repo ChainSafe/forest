@@ -10,7 +10,7 @@ use super::peer_manager::PeerManager;
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
-use async_std::sync::{Mutex, RwLock, channel, Receiver, Sender};
+use async_std::sync::{channel, Mutex, Receiver, RwLock, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -23,6 +23,7 @@ use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
+use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{
     hello::HelloRequest, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
@@ -121,14 +122,14 @@ where
         let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
         // Split incoming channel to handle blocksync requests
-        let (rpc_send, rpc_rx) = channel(20);
-        let (event_send, event_rx) = channel(30);
-
-        let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx);
+        let mut event_send = Publisher::new(30);
+        let req_table = Arc::new(Mutex::new(HashMap::new()));
+        let network =
+            SyncNetworkContext::new(network_send, event_send.subscribe(), req_table.clone());
 
         let peer_manager = Arc::new(PeerManager::default());
 
-        let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
+        let net_handler = NetworkHandler::new(network_rx, event_send, req_table);
 
         Ok(Self {
             state: RwLock::new(SyncState::Init),
@@ -166,9 +167,12 @@ where
                         .await
                     {
                         Ok(fts) => {
-                            if chain_syncer.inform_new_head(source.clone(), &fts).await.is_err() {
+                            if chain_syncer
+                                .inform_new_head(source.clone(), &fts)
+                                .await
+                                .is_err()
+                            {
                                 warn!("Failed to sync with provided tipset",);
-
                             };
                         }
                         Err(e) => {
@@ -178,7 +182,8 @@ where
                 }
                 NetworkEvent::PeerDialed { peer_id } => {
                     let heaviest = chain_syncer.chain_store.heaviest_tipset().await.unwrap();
-                    chain_syncer.network
+                    chain_syncer
+                        .network
                         .hello_request(
                             peer_id,
                             HelloRequest {
@@ -190,19 +195,21 @@ where
                         )
                         .await
                 }
-                NetworkEvent::PubsubMessage { source, topics, message } => {
-                    match topics[0].as_str() {
-                       "/fil/blocks/interop"  => {
-                           let new_blk: BlockHeader = BlockHeader::unmarshal_cbor(&message).unwrap();
-                           let new_blk = Tipset::new(vec![new_blk]).unwrap();
-                           let chain_syncer = chain_syncer.clone();
-                           task::spawn(async move {
-                               chain_syncer.sync(&new_blk).await.unwrap();
-                           });
-                       }
-                        _ => (),
+                NetworkEvent::PubsubMessage {
+                    source,
+                    topics,
+                    message,
+                } => match topics[0].as_str() {
+                    "/fil/blocks/interop" => {
+                        let new_blk: BlockHeader = BlockHeader::unmarshal_cbor(&message).unwrap();
+                        let new_blk = Tipset::new(vec![new_blk]).unwrap();
+                        let chain_syncer = chain_syncer.clone();
+                        task::spawn(async move {
+                            chain_syncer.sync(&new_blk).await.unwrap();
+                        });
                     }
-                }
+                    _ => (),
+                },
                 _ => (),
             }
         }
@@ -484,11 +491,7 @@ where
 
     /// Returns FullTipset from store if TipsetKeys exist in key-value store otherwise requests FullTipset
     /// from block sync
-    async fn fetch_tipset(
-        &self,
-        peer_id: PeerId,
-        tsk: &TipsetKeys,
-    ) -> Result<FullTipset, String> {
+    async fn fetch_tipset(&self, peer_id: PeerId, tsk: &TipsetKeys) -> Result<FullTipset, String> {
         let fts = match self.load_fts(tsk) {
             Ok(fts) => fts,
             _ => return self.network.blocksync_fts(peer_id, tsk).await,
@@ -833,11 +836,7 @@ where
     }
 
     /// Syncs chain data and persists it to blockstore
-    async fn sync_headers_reverse(
-        &self,
-        head: Tipset,
-        to: &Tipset,
-    ) -> Result<Vec<Tipset>, Error> {
+    async fn sync_headers_reverse(&self, head: Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
         info!("Syncing headers from: {:?}", head.key());
 
         let mut accepted_blocks: Vec<Cid> = Vec::new();
@@ -849,7 +848,8 @@ where
         // Loop until most recent tipset height is less than to tipset height
         'sync: while let Some(cur_ts) = return_set.last() {
             // Check if parent cids exist in bad block caches
-            self.validate_tipset_against_cache(cur_ts.parents(), &accepted_blocks).await?;
+            self.validate_tipset_against_cache(cur_ts.parents(), &accepted_blocks)
+                .await?;
 
             if cur_ts.epoch() <= to_epoch {
                 // Current tipset is less than epoch of tipset syncing toward
@@ -898,7 +898,8 @@ where
                     break 'sync;
                 }
                 // Check Cids of blocks against bad block cache
-                self.validate_tipset_against_cache(&ts.key(), &accepted_blocks).await?;
+                self.validate_tipset_against_cache(&ts.key(), &accepted_blocks)
+                    .await?;
 
                 accepted_blocks.extend_from_slice(ts.cids());
                 // Add tipset to vector of tipsets to return
@@ -1042,6 +1043,7 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std::sync::channel;
     use async_std::sync::Sender;
     use beacon::MockBeacon;
     use blocks::BlockHeader;
@@ -1115,8 +1117,6 @@ mod tests {
         let (mut cs, event_sender) = chain_syncer_setup(db);
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
-        // send blocksync response to channel
-        send_blocksync_response(event_sender);
 
         // params for sync_headers_reverse
         let source = PeerId::random();
@@ -1126,9 +1126,12 @@ mod tests {
         task::block_on(async move {
             cs.peer_manager.add_peer(source.clone(), None).await;
             assert_eq!(cs.peer_manager.len().await, 1);
-
-            let return_set = cs.sync_headers_reverse(head, &to).await;
-            assert_eq!(return_set.unwrap().len(), 4);
+            // make blocksync request
+            let return_set = task::spawn(async move { cs.sync_headers_reverse(head, &to).await });
+            task::sleep(Duration::from_secs(2)).await;
+            // send blocksync response to channel
+            send_blocksync_response(event_sender);
+            assert_eq!(return_set.await.unwrap().len(), 4);
         });
     }
 

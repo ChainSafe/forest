@@ -3,6 +3,7 @@
 
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
+use async_std::sync::RwLock;
 use beacon::BeaconEntry;
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -22,7 +23,6 @@ use num_traits::Zero;
 use state_tree::StateTree;
 use std::io::Write;
 use std::sync::Arc;
-use async_std::sync::RwLock;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -89,7 +89,7 @@ where
             tipset_receipts_root: header.message_receipts().clone(),
             tipset: ts,
         };
-    (*self.tip_index.write().await).put(&meta);
+        (*self.tip_index.write().await).put(&meta);
         Ok(())
     }
 

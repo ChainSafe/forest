@@ -7,6 +7,8 @@ use crate::blocksync::{
 use crate::config::Libp2pConfig;
 use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
 use crate::rpc::RPCRequest;
+use forest_cid::Cid;
+use libipld_core::cid::Cid as Cid2;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -21,12 +23,15 @@ use libp2p::ping::{
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
+use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use libp2p_request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
     ResponseChannel,
 };
 use log::{debug, trace, warn};
 use std::collections::HashSet;
+use std::error::Error;
+use std::str::FromStr;
 use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
@@ -40,6 +45,7 @@ pub struct ForestBehaviour {
     hello: RequestResponse<HelloCodec>,
     blocksync: RequestResponse<BlockSyncCodec>,
     kademlia: Kademlia<MemoryStore>,
+    bitswap: Bitswap,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
     #[behaviour(ignore)]
@@ -55,6 +61,8 @@ pub enum ForestBehaviourEvent {
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
+    BitswapReceivedBlock(PeerId, Cid, Box<[u8]>),
+    BitswapReceivedWant(PeerId, Cid),
     HelloRequest {
         peer: PeerId,
         request: HelloRequest,
@@ -83,6 +91,7 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
             MdnsEvent::Discovered(list) => {
                 for (peer, _) in list {
                     trace!("mdns: Discovered peer {}", peer.to_base58());
+                    self.connect(peer.clone());
                     self.add_peer(peer);
                 }
             }
@@ -101,10 +110,35 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
             KademliaEvent::RoutingUpdated { peer, .. } => {
+                self.connect(peer.clone());
                 self.add_peer(peer);
             }
             event => {
                 trace!("kad: {:?}", event);
+            }
+        }
+    }
+}
+
+impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
+    fn inject_event(&mut self, event: BitswapEvent) {
+        match event {
+            BitswapEvent::ReceivedBlock(peer_id, cid, data) => {
+                let cid = cid.to_string();
+                let cid: Cid = Cid::from_str(&cid).unwrap();
+                self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
+                    peer_id, cid, data,
+                ));
+            }
+            BitswapEvent::ReceivedWant(peer_id, cid, _priority) => {
+                let cid = cid.to_string();
+                let cid: Cid = Cid::from_str(&cid).unwrap();
+                self.events
+                    .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid));
+            }
+            BitswapEvent::ReceivedCancel(_peer_id, _cid) => {
+                // TODO: Determine how to handle cancel
+                trace!("BitswapEvent::ReceivedCancel, unimplemented");
             }
         }
     }
@@ -257,6 +291,8 @@ impl ForestBehaviour {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
 
+        let mut bitswap = Bitswap::new();
+
         // Kademlia config
         let store = MemoryStore::new(local_peer_id.to_owned());
         let mut kad_config = KademliaConfig::default();
@@ -268,6 +304,7 @@ impl ForestBehaviour {
             if let Some(Protocol::P2p(mh)) = addr.pop() {
                 let peer_id = PeerId::from_multihash(mh).unwrap();
                 kademlia.add_address(&peer_id, addr);
+                bitswap.connect(peer_id);
             } else {
                 warn!("Could not add addr {} to Kademlia DHT", multiaddr)
             }
@@ -290,6 +327,7 @@ impl ForestBehaviour {
                 local_key.public(),
             ),
             kademlia,
+            bitswap,
             hello: RequestResponse::new(HelloCodec, hp, Default::default()),
             blocksync: RequestResponse::new(BlockSyncCodec, bp, Default::default()),
             events: vec![],
@@ -335,5 +373,42 @@ impl ForestBehaviour {
     /// Adds peer to the peer set.
     pub fn peers(&self) -> &HashSet<PeerId> {
         &self.peers
+    }
+
+    /// Adds peer to bitswap peer set
+    pub fn connect(&mut self, peer_id: PeerId) {
+        self.bitswap.connect(peer_id);
+    }
+
+    /// Send a block to a peer over bitswap
+    pub fn send_block(
+        &mut self,
+        peer_id: &PeerId,
+        cid: Cid,
+        data: Box<[u8]>,
+    ) -> Result<(), Box<dyn Error>> {
+        let cid = cid.to_string();
+        log::debug!("send {}", cid);
+        let cid = Cid2::from_str(&cid)?;
+        self.bitswap.send_block(peer_id, cid, data);
+        Ok(())
+    }
+
+    /// Send a request for data over bitswap
+    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
+        let cid = cid.to_string();
+        log::debug!("want {}", cid);
+        let cid = Cid2::from_str(&cid)?;
+        self.bitswap.want_block(cid, priority);
+        Ok(())
+    }
+
+    /// Cancel a bitswap request
+    pub fn cancel_block(&mut self, cid: &Cid) -> Result<(), Box<dyn Error>> {
+        let cid = cid.to_string();
+        log::debug!("cancel {}", cid);
+        let cid = Cid2::from_str(&cid)?;
+        self.bitswap.cancel_block(&cid);
+        Ok(())
     }
 }

@@ -3,40 +3,42 @@
 
 use super::peer_manager::PeerManager;
 use async_std::prelude::*;
-use async_std::sync::{Receiver, Sender};
+use async_std::sync::Mutex;
+use async_std::sync::Receiver;
 use async_std::task;
+use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::rpc::{RPCResponse, RequestId};
 use forest_libp2p::NetworkEvent;
-use log::trace;
+use futures::channel::oneshot::Sender as OneShotSender;
+use log::{debug, trace};
+use std::collections::HashMap;
 use std::sync::Arc;
-
-pub(crate) type RPCReceiver = Receiver<(RequestId, RPCResponse)>;
-pub(crate) type RPCSender = Sender<(RequestId, RPCResponse)>;
 
 /// Handles network events from channel and splits based on request
 pub(crate) struct NetworkHandler {
-    rpc_send: RPCSender,
-    event_send: Sender<NetworkEvent>,
+    event_send: Publisher<NetworkEvent>,
     receiver: Receiver<NetworkEvent>,
+    /// keeps track of a mapping from rpc request id to oneshot senders
+    request_table: Arc<Mutex<HashMap<RequestId, OneShotSender<RPCResponse>>>>,
 }
 
 impl NetworkHandler {
     pub(crate) fn new(
         receiver: Receiver<NetworkEvent>,
-        rpc_send: RPCSender,
-        event_send: Sender<NetworkEvent>,
+        event_send: Publisher<NetworkEvent>,
+        request_table: Arc<Mutex<HashMap<RequestId, OneShotSender<RPCResponse>>>>,
     ) -> Self {
         Self {
             receiver,
-            rpc_send,
             event_send,
+            request_table,
         }
     }
 
     pub(crate) fn spawn(&self, peer_manager: Arc<PeerManager>) {
         let mut receiver = self.receiver.clone();
-        let rpc_send = self.rpc_send.clone();
-        let event_send = self.event_send.clone();
+        let mut event_send = self.event_send.republish();
+        let request_table = self.request_table.clone();
 
         task::spawn(async move {
             loop {
@@ -46,9 +48,16 @@ impl NetworkHandler {
                         request_id,
                         response,
                     }) => {
-                        rpc_send
-                            .send((request_id, RPCResponse::BlockSync(response)))
-                            .await
+                        let tx = request_table.lock().await.remove(&request_id);
+                        if tx.is_none() {
+                            debug!("RPCResponse receive failed: channel not found");
+                            continue;
+                        }
+                        let tx = tx.unwrap();
+
+                        if let Err(e) = tx.send(RPCResponse::BlockSync(response)) {
+                            debug!("RPCResponse receive failed: {:?}", e)
+                        }
                     }
                     // Pass any non RPC responses through event channel
                     Some(event) => {
@@ -57,10 +66,8 @@ impl NetworkHandler {
                             // TODO should probably add peer with their tipset/ not handled seperately
                             peer_manager.add_peer(channel.peer.clone(), None).await;
                         }
-
-                        // TODO revisit, doing this to avoid blocking this thread but can handle better
-                        if !event_send.is_full() {
-                            event_send.send(event).await
+                        if let NetworkEvent::BitswapBlock { .. } = &event {
+                            event_send.publish(event).await
                         }
                     }
                     None => break,

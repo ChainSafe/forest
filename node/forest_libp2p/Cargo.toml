@@ -23,6 +23,9 @@ fnv = "1.0.6"
 smallvec = "1.1.0"
 clock = { path = "../clock" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "c31e0ae31fa7d0b848bf4fb711106e59aac0fa5e" }
+libipld-core = "0.3.0"
+ipld_blockstore = { path = "../../ipld/blockstore" }
 async-trait = "0.1"
 
 [dev-dependencies]
