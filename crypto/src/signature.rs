@@ -18,7 +18,9 @@ pub const BLS_SIG_LEN: usize = 96;
 pub const BLS_PUB_LEN: usize = 48;
 
 /// Signature variants for Forest signatures
-#[derive(Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr)]
+#[derive(
+    Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr, Hash,
+)]
 #[repr(u8)]
 pub enum SignatureType {
     Secp256k1 = 1,
@@ -40,7 +42,7 @@ impl SignatureType {
 }
 
 /// A cryptographic signature, represented in bytes, of any key protocol
-#[derive(Clone, Debug, PartialEq, Default, Eq)]
+#[derive(Clone, Debug, PartialEq, Default, Eq, Hash)]
 pub struct Signature {
     sig_type: SignatureType,
     bytes: Vec<u8>,
@@ -200,8 +202,8 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; 65]) -> Result<Address, Error
 mod tests {
     use super::*;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
-    use rand::rngs::mock::StepRng;
-    use rand::Rng;
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
 
     #[test]
     fn bls_agg_verify() {
@@ -209,7 +211,7 @@ mod tests {
         let num_sigs = 10;
         let message_length = num_sigs * 64;
 
-        let rng = &mut StepRng::new(8, 3);
+        let rng = &mut ChaCha8Rng::seed_from_u64(11);
 
         let msg = (0..message_length).map(|_| rng.gen()).collect::<Vec<u8>>();
         let data: Vec<&[u8]> = (0..num_sigs).map(|x| &msg[x * 64..(x + 1) * 64]).collect();
@@ -231,7 +233,7 @@ mod tests {
         }
 
         let calculated_bls_agg =
-            Signature::new_bls(bls_signatures::aggregate(&signatures).as_bytes());
+            Signature::new_bls(bls_signatures::aggregate(&signatures).unwrap().as_bytes());
         assert_eq!(
             verify_bls_aggregate(&data, &public_keys_slice, &calculated_bls_agg),
             true

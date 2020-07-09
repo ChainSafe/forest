@@ -6,6 +6,7 @@ use super::policy::*;
 use super::types::*;
 use crate::{power, u64_key, BytesKey, HAMT_BIT_WIDTH};
 use address::Address;
+use ahash::AHashSet;
 use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
@@ -230,16 +231,15 @@ impl State {
     pub fn delete_sector<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sector_nos: &mut BitField,
+        sector_nos: &BitField,
     ) -> Result<(), AmtError> {
         let mut sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
 
-        sector_nos
-            .for_each(|sector_num| {
-                sectors.delete(sector_num)?;
-                Ok(())
-            })
-            .map_err(|e| AmtError::Other(format!("could not delete sector number: {}", e)))?;
+        for sector_num in sector_nos.iter() {
+            sectors
+                .delete(sector_num as u64)
+                .map_err(|e| AmtError::Other(format!("could not delete sector number: {}", e)))?;
+        }
 
         self.sectors = sectors.flush()?;
         Ok(())
@@ -255,24 +255,23 @@ impl State {
     pub fn add_new_sectors(&mut self, sector_nos: &[SectorNumber]) -> Result<(), String> {
         let mut ns = BitField::new();
         for &sector in sector_nos {
-            ns.set(sector)
+            ns.set(sector as usize)
         }
-        self.new_sectors.merge_assign(&ns)?;
+        self.new_sectors |= &ns;
 
-        let count = self.new_sectors.count()?;
-        if count > NEW_SECTORS_PER_PERIOD_MAX {
+        let len = self.new_sectors.len();
+        if len > NEW_SECTORS_PER_PERIOD_MAX {
             return Err(format!(
                 "too many new sectors {}, max {}",
-                count, NEW_SECTORS_PER_PERIOD_MAX
+                len, NEW_SECTORS_PER_PERIOD_MAX
             ));
         }
 
         Ok(())
     }
     /// Removes some sector numbers from the new sectors bitfield, if present.
-    pub fn remove_new_sectors(&mut self, sector_nos: &BitField) -> Result<(), String> {
-        self.new_sectors.subtract_assign(&sector_nos)?;
-        Ok(())
+    pub fn remove_new_sectors(&mut self, sector_nos: &BitField) {
+        self.new_sectors -= &sector_nos;
     }
     /// Gets the sector numbers expiring at some epoch.
     pub fn get_sector_expirations<BS: BlockStore>(
@@ -281,7 +280,7 @@ impl State {
         expiry: ChainEpoch,
     ) -> Result<BitField, String> {
         let sectors = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        Ok(sectors.get(expiry)?.ok_or("unable to find sector")?)
+        Ok(sectors.get(expiry as u64)?.ok_or("unable to find sector")?)
     }
     /// Iterates sector expiration groups in order.
     /// Note that the sectors bitfield provided to the callback is not safe to store.
@@ -294,7 +293,7 @@ impl State {
         F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
     {
         let sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        sector_arr.for_each(|i, v| f(i, v))
+        sector_arr.for_each(|i, v| f(i as i64, v))
     }
     /// Adds some sector numbers to the set expiring at an epoch.
     /// The sector numbers are given as uint64s to avoid pointless conversions.
@@ -305,17 +304,21 @@ impl State {
         sectors: &[u64],
     ) -> Result<(), String> {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        let mut bf: BitField = sector_arr.get(expiry)?.ok_or("unable to find sector")?;
-        bf.merge_assign(&BitField::new_from_set(sectors))?;
-        let count = bf.count()?;
-        if count > SECTORS_MAX {
+        let mut bf: BitField = sector_arr
+            .get(expiry as u64)?
+            .ok_or("unable to find sector")?;
+        for &sector in sectors {
+            bf.set(sector as usize);
+        }
+        let len = bf.len();
+        if len > SECTORS_MAX {
             return Err(format!(
                 "too many sectors at expiration {}, {}, max {}",
-                expiry, count, SECTORS_MAX
+                expiry, len, SECTORS_MAX
             ));
         }
 
-        sector_arr.set(expiry, bf)?;
+        sector_arr.set(expiry as u64, bf)?;
 
         self.sector_expirations = sector_arr.flush()?;
         Ok(())
@@ -329,11 +332,14 @@ impl State {
     ) -> Result<(), String> {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
 
-        let bf: BitField = sector_arr.get(expiry)?.ok_or("unable to find sector")?;
-        bf.clone()
-            .subtract_assign(&BitField::new_from_set(sectors))?;
+        let mut bf = sector_arr
+            .get(expiry as u64)?
+            .ok_or("unable to find sector")?;
+        for &sector in sectors {
+            bf.unset(sector as usize);
+        }
 
-        sector_arr.set(expiry, bf)?;
+        sector_arr.set(expiry as u64, bf)?;
 
         self.sector_expirations = sector_arr.flush()?;
 
@@ -348,7 +354,7 @@ impl State {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
 
         for &exp in expirations {
-            sector_arr.delete(exp)?;
+            sector_arr.delete(exp as u64)?;
         }
 
         self.sector_expirations = sector_arr.flush()?;
@@ -359,28 +365,28 @@ impl State {
     pub fn add_faults<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sector_nos: &mut BitField,
+        sector_nos: &BitField,
         fault_epoch: ChainEpoch,
     ) -> Result<(), String> {
-        if sector_nos.is_empty()? {
+        if sector_nos.is_empty() {
             return Err(format!("sectors are empty: {:?}", sector_nos));
         }
 
-        self.faults.merge_assign(sector_nos)?;
+        self.faults |= sector_nos;
 
-        let count = self.faults.count()?;
-        if count > SECTORS_MAX {
-            return Err(format!("too many faults {}, max {}", count, SECTORS_MAX));
+        let len = self.faults.len();
+        if len > SECTORS_MAX {
+            return Err(format!("too many faults {}, max {}", len, SECTORS_MAX));
         }
 
         let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
         let mut bf: BitField = epoch_fault_arr
-            .get(fault_epoch)?
+            .get(fault_epoch as u64)?
             .ok_or("unable to find sector")?;
 
-        bf.merge_assign(sector_nos)?;
+        bf |= sector_nos;
 
-        epoch_fault_arr.set(fault_epoch, bf)?;
+        epoch_fault_arr.set(fault_epoch as u64, bf)?;
 
         self.fault_epochs = epoch_fault_arr.flush()?;
 
@@ -390,24 +396,22 @@ impl State {
     pub fn remove_faults<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sector_nos: &mut BitField,
+        sector_nos: &BitField,
     ) -> Result<(), String> {
-        if sector_nos.is_empty()? {
+        if sector_nos.is_empty() {
             return Err(format!("sectors are empty: {:?}", sector_nos));
         }
 
-        self.faults.subtract_assign(sector_nos)?;
+        self.faults -= sector_nos;
 
         let mut sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
 
         let mut changed: Vec<(u64, BitField)> = Vec::new();
 
         sector_arr.for_each(|i, bf1: &BitField| {
-            let c1 = bf1.clone().count()?;
-
-            let mut bf2 = bf1.clone().subtract(sector_nos)?;
-
-            let c2 = bf2.count()?;
+            let c1 = bf1.clone().len();
+            let bf2 = bf1 - sector_nos;
+            let c2 = bf2.len();
 
             if c1 != c2 {
                 changed.push((i, bf2));
@@ -434,8 +438,7 @@ impl State {
         F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
     {
         let sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
-
-        sector_arr.for_each(|i, v| f(i, v))
+        sector_arr.for_each(|i, v| f(i as i64, v))
     }
     pub fn clear_fault_epochs<BS: BlockStore>(
         &mut self,
@@ -445,7 +448,7 @@ impl State {
         let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
 
         for &exp in epochs {
-            epoch_fault_arr.delete(exp)?;
+            epoch_fault_arr.delete(exp as u64)?;
         }
 
         self.fault_epochs = epoch_fault_arr.flush()?;
@@ -453,29 +456,26 @@ impl State {
         Ok(())
     }
     /// Adds sectors to recoveries.
-    pub fn add_recoveries(&mut self, sector_nos: &mut BitField) -> Result<(), String> {
-        if sector_nos.is_empty()? {
+    pub fn add_recoveries(&mut self, sector_nos: &BitField) -> Result<(), String> {
+        if sector_nos.is_empty() {
             return Err(format!("sectors are empty: {:?}", sector_nos));
         }
 
-        self.recoveries.clone().merge_assign(sector_nos)?;
+        self.recoveries |= sector_nos;
 
-        let count = self.recoveries.count()?;
-        if count > SECTORS_MAX {
-            return Err(format!(
-                "too many recoveries {}, max {}",
-                count, SECTORS_MAX
-            ));
+        let len = self.recoveries.len();
+        if len > SECTORS_MAX {
+            return Err(format!("too many recoveries {}, max {}", len, SECTORS_MAX));
         }
 
         Ok(())
     }
     /// Removes sectors from recoveries, if present.
-    pub fn remove_recoveries(&mut self, sector_nos: &mut BitField) -> Result<(), String> {
-        if sector_nos.is_empty()? {
+    pub fn remove_recoveries(&mut self, sector_nos: &BitField) -> Result<(), String> {
+        if sector_nos.is_empty() {
             return Err(format!("sectors are empty: {:?}", sector_nos));
         }
-        self.recoveries.subtract_assign(sector_nos)?;
+        self.recoveries -= sector_nos;
 
         Ok(())
     }
@@ -483,18 +483,16 @@ impl State {
     pub fn load_sector_infos<BS: BlockStore>(
         &self,
         store: &BS,
-        sectors: &mut BitField,
+        sectors: &BitField,
     ) -> Result<Vec<SectorOnChainInfo>, String> {
         let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
-        sectors.for_each(|i| {
-            let key: SectorNumber = i;
+        for i in sectors.iter() {
+            let key = i as u64;
             let sector_on_chain = self
                 .get_sector(store, key)?
                 .ok_or(format!("sector not found: {}", i))?;
             sector_infos.push(sector_on_chain);
-            Ok(())
-        })?;
-
+        }
         Ok(sector_infos)
     }
 
@@ -504,33 +502,25 @@ impl State {
     pub fn load_sector_infos_for_proof<BS: BlockStore>(
         &mut self,
         store: &BS,
-        mut proven_sectors: BitField,
+        proven_sectors: BitField,
     ) -> Result<(Vec<SectorOnChainInfo>, BitField), String> {
         // Extract a fault set relevant to the sectors being submitted, for expansion into a map.
-        let declared_faults = self.faults.clone().intersect(&proven_sectors)?;
-
-        let recoveries = self.recoveries.clone().intersect(&declared_faults)?;
-
-        let mut expected_faults = declared_faults.subtract(&recoveries)?;
-
-        let mut non_faults = expected_faults.clone().subtract(&proven_sectors)?;
-
-        if non_faults.is_empty()? {
-            return Err(format!(
-                "failed to check if bitfield was empty: {:?}",
-                non_faults
-            ));
-        }
+        let declared_faults = &self.faults & &proven_sectors;
+        let recoveries = &self.recoveries & &declared_faults;
+        let expected_faults = &declared_faults - &recoveries;
+        let non_faults = &expected_faults - &proven_sectors;
 
         // Select a non-faulty sector as a substitute for faulty ones.
-        let good_sector_no = non_faults.first()?;
+        let good_sector_no = non_faults
+            .first()
+            .ok_or("no non-faulty sectors in partitions")?;
 
         // load sector infos
         let sector_infos = self.load_sector_infos_with_fault_mask(
             store,
-            &mut proven_sectors,
-            &mut expected_faults,
-            good_sector_no,
+            &proven_sectors,
+            &expected_faults,
+            good_sector_no as u64,
         )?;
 
         Ok((sector_infos, recoveries))
@@ -539,8 +529,8 @@ impl State {
     fn load_sector_infos_with_fault_mask<BS: BlockStore>(
         &self,
         store: &BS,
-        sectors: &mut BitField,
-        faults: &mut BitField,
+        sectors: &BitField,
+        faults: &BitField,
         fault_stand_in: SectorNumber,
     ) -> Result<Vec<SectorOnChainInfo>, String> {
         let sector_on_chain = self
@@ -549,30 +539,28 @@ impl State {
 
         // Expand faults into a map for quick lookups.
         // The faults bitfield should already be a subset of the sectors bitfield.
-        let fault_max = sectors.count()?;
-        let fault_set = faults.all_set(fault_max)?;
+        let fault_max = sectors.len();
+        let fault_set: AHashSet<_> = faults.bounded_iter(fault_max)?.collect();
 
         // Load the sector infos, masking out fault sectors with a good one.
         let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
-        sectors.for_each(|i| {
-            let mut sector = sector_on_chain.clone();
-            let _faulty = fault_set.get(&i).ok_or_else(|| {
-                let new_sector_on_chain = self
-                    .get_sector(store, fault_stand_in)
+        for i in sectors.iter() {
+            let sector = if fault_set.contains(&i) {
+                sector_on_chain.clone()
+            } else {
+                self.get_sector(store, fault_stand_in)
                     .unwrap()
                     .ok_or(format!("unable to find sector: {}", i))
-                    .unwrap();
-                sector = new_sector_on_chain;
-            });
+                    .unwrap()
+            };
 
             sector_infos.push(sector);
-            Ok(())
-        })?;
+        }
         Ok(sector_infos)
     }
     /// Adds partition numbers to the set of PoSt submissions
     pub fn add_post_submissions(&mut self, partition_nos: BitField) -> Result<(), String> {
-        self.post_submissions.merge_assign(&partition_nos)?;
+        self.post_submissions |= &partition_nos;
         Ok(())
     }
     /// Removes all PoSt submissions
@@ -625,7 +613,7 @@ impl State {
 
         // Nothing unlocks here, this is just the start of the clock
         let vest_begin = current_epoch + spec.initial_delay;
-        let vest_period = BigUint::from(spec.vest_period);
+        let vest_period = BigUint::from(spec.vest_period as u64);
         let mut e = vest_begin + spec.step_duration;
         let mut vested_so_far = BigUint::zero();
 
@@ -635,7 +623,7 @@ impl State {
 
             let target_vest = if elapsed < spec.vest_period {
                 // Linear vesting, PARAM_FINISH
-                (vesting_sum * elapsed) / &vest_period
+                (vesting_sum * elapsed as u64) / &vest_period
             } else {
                 vesting_sum.clone()
             };
@@ -644,14 +632,14 @@ impl State {
             vested_so_far = target_vest;
 
             // Load existing entry, else set a new one
-            if let Some(locked_fund_entry) = vesting_funds.get(vest_epoch)? {
+            if let Some(locked_fund_entry) = vesting_funds.get(vest_epoch as u64)? {
                 let mut locked_funds = BigUint::from(locked_fund_entry);
                 locked_funds += vest_this_time;
 
                 let num = ToPrimitive::to_u64(&locked_funds)
                     .ok_or("unable to convert to u64")
                     .unwrap();
-                vesting_funds.set(vest_epoch, num)?;
+                vesting_funds.set(vest_epoch as u64, num)?;
             }
             e += spec.step_duration;
         }
@@ -678,7 +666,7 @@ impl State {
         let mut set: Vec<(u64, BigUintDe)> = Vec::new();
         vesting_funds.for_each(|k, v| {
             if amount_unlocked > target {
-                if k >= current_epoch {
+                if k >= current_epoch as u64 {
                     let BigUintDe(mut locked_entry) = v.clone();
                     let unlock_amount =
                         std::cmp::min(target.clone() - &amount_unlocked, locked_entry.clone());
@@ -723,7 +711,7 @@ impl State {
         let mut to_del: Vec<u64> = Vec::new();
 
         vesting_funds.for_each(|k, v| {
-            if k < current_epoch {
+            if k < current_epoch as u64 {
                 let BigUintDe(locked_entry) = v;
                 amount_unlocked += locked_entry;
                 to_del.push(k);
@@ -752,7 +740,7 @@ impl State {
 
         let mut amount_unlocked = TokenAmount::default();
         vesting_funds.for_each(|k, v| {
-            if k < current_epoch {
+            if k < current_epoch as u64 {
                 let BigUintDe(locked_entry) = v.clone();
                 amount_unlocked += locked_entry;
             } else {
@@ -868,22 +856,25 @@ impl Deadlines {
     }
 
     /// Adds sector numbers to a deadline.
-    /// The sector numbers are given as uint64 to avoid pointless conversions for bitfield use.
-    pub fn add_to_deadline(&mut self, deadline: usize, new_sectors: &[u64]) -> Result<(), String> {
-        let ns = BitField::new_from_set(new_sectors);
+    pub fn add_to_deadline(
+        &mut self,
+        deadline: usize,
+        new_sectors: &[usize],
+    ) -> Result<(), String> {
+        let ns: BitField = new_sectors.iter().copied().collect();
         let sec = self
             .due
             .get_mut(deadline)
             .ok_or(format!("unable to find deadline: {}", deadline))?;
-        sec.merge_assign(&ns)?;
+        *sec |= &ns;
+
         Ok(())
     }
     /// Removes sector numbers from all deadlines.
-    pub fn remove_from_all_deadlines(&mut self, sector_nos: &mut BitField) -> Result<(), String> {
+    pub fn remove_from_all_deadlines(&mut self, sector_nos: &BitField) -> Result<(), String> {
         for d in self.due.iter_mut() {
-            d.subtract_assign(&sector_nos)?;
+            *d -= sector_nos;
         }
-
         Ok(())
     }
 }
