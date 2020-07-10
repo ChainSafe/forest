@@ -36,6 +36,7 @@ clean:
 	@cargo clean -p key_management
 	@cargo clean -p forest_json_utils
 	@cargo clean -p test_utils
+	@cargo clean -p message_pool
 	@echo "Done cleaning."
 
 lint: license clean

@@ -9,13 +9,15 @@ use actor::{
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::DomainSeparationTag;
-use encoding::{de::DeserializeOwned, Cbor};
+use crypto::{DomainSeparationTag, Signature};
+use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
+use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, ConsensusFault, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
+use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 pub struct MockRuntime<'a, BS: BlockStore> {
@@ -33,6 +35,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     // Actor State
     pub state: Option<Cid>,
     pub balance: TokenAmount,
+    pub received: TokenAmount,
 
     // VM Impl
     pub in_call: bool,
@@ -45,6 +48,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
+    pub expect_verify_sig: RefCell<Option<ExpectedVerifySig>>,
 }
 
 #[derive(Clone, Debug)]
@@ -64,9 +68,20 @@ pub struct ExpectedMessage {
     pub exit_code: ExitCode,
 }
 
-impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
+#[derive(Clone, Debug)]
+pub struct ExpectedVerifySig {
+    pub sig: Signature,
+    pub signer: Address,
+    pub plaintext: Vec<u8>,
+    pub result: ExitCode,
+}
+
+impl<'a, BS> MockRuntime<'a, BS>
+where
+    BS: BlockStore,
+{
     pub fn new(bs: &'a BS, message: UnsignedMessage) -> Self {
-        Self {
+        MockRuntime {
             epoch: 0,
             caller_type: Cid::default(),
 
@@ -79,6 +94,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             message: message,
             state: None,
             balance: 0u8.into(),
+            received: 0u8.into(),
 
             // VM Impl
             in_call: false,
@@ -91,6 +107,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             expect_validate_caller_type: RefCell::new(None),
             expect_sends: VecDeque::new(),
             expect_create_actor: None,
+            expect_verify_sig: RefCell::new(None),
         }
     }
     fn require_in_call(&self) {
@@ -124,6 +141,11 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn expect_validate_caller_addr(&self, addr: &[Address]) {
         assert!(addr.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_verify_signature(&self, exp: ExpectedVerifySig) {
+        *self.expect_verify_sig.borrow_mut() = Some(exp);
     }
 
     #[allow(dead_code)]
@@ -225,6 +247,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         *self.expect_validate_caller_addr.borrow_mut() = None;
         *self.expect_validate_caller_type.borrow_mut() = None;
         self.expect_create_actor = None;
+        *self.expect_verify_sig.borrow_mut() = None;
     }
 
     #[allow(dead_code)]
@@ -276,7 +299,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     }
 }
 
-impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
+impl<BS> Runtime<BS> for MockRuntime<'_, BS>
+where
+    BS: BlockStore,
+{
     fn message(&self) -> &UnsignedMessage {
         self.require_in_call();
         &self.message
@@ -381,14 +407,26 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         if address.protocol() == address::Protocol::ID {
             return Ok(address.clone());
         }
-        let resolved = self.id_addresses.get(&address).unwrap();
-        return Ok(resolved.clone());
+
+        self.id_addresses
+            .get(&address)
+            .cloned()
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Address not found".to_string(),
+            ))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
         self.require_in_call();
-        let ret = self.actor_code_cids.get(&addr).unwrap();
-        Ok(ret.clone())
+
+        self.actor_code_cids
+            .get(&addr)
+            .cloned()
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Actor address is not found".to_string(),
+            ))
     }
 
     fn get_randomness(
@@ -528,11 +566,73 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         todo!("implement me???")
     }
 
-    fn syscalls(&self) -> &dyn Syscalls {
-        unimplemented!()
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
+        unimplemented!();
     }
 
-    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
-        unimplemented!()
+    fn syscalls(&self) -> &dyn Syscalls {
+        self
+    }
+}
+
+impl<BS> Syscalls for MockRuntime<'_, BS>
+where
+    BS: BlockStore,
+{
+    fn verify_signature(
+        &self,
+        signature: &Signature,
+        signer: &Address,
+        plaintext: &[u8],
+    ) -> Result<(), Box<dyn StdError>> {
+        let op_exp = self.expect_verify_sig.replace(Option::None);
+
+        if let Some(exp) = op_exp {
+            if exp.sig == *signature && exp.signer == *signer && &exp.plaintext[..] == plaintext {
+                if exp.result == ExitCode::Ok {
+                    return Ok(());
+                } else {
+                    return Err(Box::new(ActorError::new(
+                        exp.result,
+                        "Expected failure".to_string(),
+                    )));
+                }
+            } else {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Signatures did not match".to_string(),
+                )));
+            }
+        } else {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrPlaceholder,
+                "Expected verify sig not there ".to_string(),
+            )));
+        }
+    }
+
+    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
+        Ok(blake2b_256(&data))
+    }
+    fn compute_unsealed_sector_cid(
+        &self,
+        _reg: RegisteredSealProof,
+        _pieces: &[PieceInfo],
+    ) -> Result<Cid, Box<dyn StdError>> {
+        unimplemented!();
+    }
+    fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        unimplemented!();
+    }
+    fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        unimplemented!();
+    }
+    fn verify_consensus_fault(
+        &self,
+        _h1: &[u8],
+        _h2: &[u8],
+        _extra: &[u8],
+    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
+        unimplemented!();
     }
 }
