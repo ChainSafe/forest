@@ -19,3 +19,5 @@ message = { package = "forest_message", path = "../../vm/message", features = ["
 jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 num-traits = "0.2.11"
+forest_libp2p = { path = "../forest_libp2p" }
+encoding = { package = "forest_encoding", path = "../../encoding" }

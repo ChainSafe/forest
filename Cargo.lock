@@ -5284,6 +5284,8 @@ dependencies = [
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
+ "forest_encoding",
+ "forest_libp2p",
  "forest_message",
  "ipld_blockstore",
  "jsonrpc-v2",

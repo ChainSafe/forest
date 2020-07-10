@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::RpcState;
-use blocks::header::json::BlockHeaderJson;
+use blocks::gossip_block::json::GossipBlockJson;
 use blockstore::BlockStore;
 use chain_sync::SyncState;
 use cid::json::CidJson;
+use encoding::Cbor;
+use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use serde::Serialize;
 
@@ -50,8 +52,16 @@ pub(crate) async fn sync_state<DB: BlockStore + Send + Sync + 'static>(
 
 /// Submits block to be sent through gossipsub.
 pub(crate) async fn sync_submit_block<DB: BlockStore + Send + Sync + 'static>(
-    _data: Data<RpcState<DB>>,
-    Params(_params): Params<(BlockHeaderJson,)>,
+    data: Data<RpcState<DB>>,
+    Params((GossipBlockJson(blk),)): Params<(GossipBlockJson,)>,
 ) -> Result<(), JsonRpcError> {
-    todo!()
+    // TODO validate by constructing full block and validate (cids of messages could be invalid)
+    // Also, we may want to indicate to chain sync process specifically about this block
+    data.network_send
+        .send(NetworkMessage::PubsubMessage {
+            topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, data.network_name)),
+            message: blk.marshal_cbor().map_err(|e| e.to_string())?,
+        })
+        .await;
+    Ok(())
 }

@@ -61,7 +61,7 @@ pub(super) async fn start(config: Config) {
     let chain_syncer = ChainSyncer::new(
         chain_store,
         Arc::new(beacon),
-        network_send,
+        network_send.clone(),
         network_rx,
         genesis,
     )
@@ -87,6 +87,8 @@ pub(super) async fn start(config: Config) {
                     store: db_rpc,
                     bad_blocks,
                     sync_state,
+                    network_send,
+                    network_name,
                 },
                 &rpc_listen,
             )
