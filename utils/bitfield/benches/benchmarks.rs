@@ -1,4 +1,4 @@
-use bitfield::{rleplus::RlePlus, BitField};
+use bitfield::BitField;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 // 1362 runs:
@@ -272,13 +272,11 @@ const EXAMPLE2: &[u8] = &[
 ];
 
 fn example1() -> BitField {
-    let rleplus = RlePlus::new(black_box(EXAMPLE1).to_vec()).unwrap();
-    BitField::from(rleplus)
+    BitField::from_bytes(black_box(EXAMPLE1)).unwrap()
 }
 
 fn example2() -> BitField {
-    let rleplus = RlePlus::new(black_box(EXAMPLE2).to_vec()).unwrap();
-    BitField::from(rleplus)
+    BitField::from_bytes(black_box(EXAMPLE2)).unwrap()
 }
 
 fn len(c: &mut Criterion) {
@@ -300,14 +298,16 @@ fn new(c: &mut Criterion) {
 fn decode_encode(c: &mut Criterion) {
     let bf = example1();
     c.bench_function("decode_encode", |b| {
-        b.iter(|| RlePlus::from_ranges(bf.ranges()))
+        b.iter(|| BitField::from_ranges(bf.ranges()))
     });
 }
 
 fn from_ranges(c: &mut Criterion) {
     let vec: Vec<_> = example1().ranges().collect();
     let ranges = || bitfield::iter::Ranges::new(vec.iter().cloned());
-    c.bench_function("from_ranges", |b| b.iter(|| RlePlus::from_ranges(ranges())));
+    c.bench_function("from_ranges", |b| {
+        b.iter(|| BitField::from_ranges(ranges()))
+    });
 }
 
 fn is_empty(c: &mut Criterion) {

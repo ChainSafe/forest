@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::AHashSet;
-use bitfield::*;
+use bitfield::{iter::ranges_from_bits, *};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use std::iter::FromIterator;
@@ -217,4 +217,75 @@ fn padding() {
     let cbor = encoding::to_vec(&bf).unwrap();
     let deserialized: BitField = encoding::from_slice(&cbor).unwrap();
     assert_eq!(deserialized, bf);
+}
+
+#[test]
+fn encoding() {
+    for (bits, expected) in vec![
+        (vec![], bitfield![]),
+        (
+            vec![
+                0, 0, // version
+                1, // starts with 1
+                0, 1, // fits into 4 bits
+                0, 0, 0, 1, // 8 - 1
+            ],
+            bitfield![1, 1, 1, 1, 1, 1, 1, 1],
+        ),
+        (
+            vec![
+                0, 0, // version
+                1, // starts with 1
+                0, 1, // fits into 4 bits
+                0, 0, 1, 0, // 4 - 1
+                1, // 1 - 0
+                0, 1, // fits into 4 bits
+                1, 1, 0, 0, // 3 - 1
+            ],
+            bitfield![1, 1, 1, 1, 0, 1, 1, 1],
+        ),
+        (
+            vec![
+                0, 0, // version
+                1, // starts with 1
+                0, 0, // does not fit into 4 bits
+                1, 0, 0, 1, 1, 0, 0, 0, // 25 - 1
+            ],
+            bitfield![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        ),
+        // when a length of 0 is encountered, the rest of the encoded bits should be ignored
+        (
+            vec![
+                0, 0, // version
+                1, // starts with 1
+                1, // 1 - 1
+                0, 1, // fits into 4 bits
+                0, 0, 0, 0, // 0 - 0
+                1, // 1 - 1
+            ],
+            bitfield![1],
+        ),
+    ] {
+        let mut writer = BitWriter::new();
+        for bit in bits {
+            writer.write(bit, 1);
+        }
+        let bf = BitField::from_bytes(&writer.finish()).unwrap();
+        assert_eq!(bf, expected);
+    }
+}
+
+#[test]
+fn encoding_roundtrip() {
+    let mut rng = XorShiftRng::seed_from_u64(1);
+
+    for _i in 0..1000 {
+        let len: usize = rng.gen_range(0, 1000);
+        let bits: Vec<_> = (0..len).filter(|_| rng.gen::<bool>()).collect();
+
+        let ranges: Vec<_> = ranges_from_bits(bits.clone()).collect();
+        let bit_field = BitField::from_ranges(ranges_from_bits(bits));
+
+        assert_eq!(bit_field.ranges().collect::<Vec<_>>(), ranges);
+    }
 }
