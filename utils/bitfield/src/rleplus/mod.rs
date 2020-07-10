@@ -146,9 +146,18 @@ impl RlePlus {
 
     /// Returns `true` if the RLE+ encoded data contains the bit at a given index.
     pub fn get(&self, index: usize) -> bool {
-        self.ranges()
-            .take_while(|range| range.start <= index)
-            .any(|range| range.contains(&index))
+        use std::cmp::Ordering;
+        self.0
+            .binary_search_by(|range| {
+                if index < range.start {
+                    Ordering::Greater
+                } else if index >= range.end {
+                    Ordering::Less
+                } else {
+                    Ordering::Equal
+                }
+            })
+            .is_ok()
     }
 
     /// RLE+ encodes the ranges of 1s from a given `RangeIterator`.
