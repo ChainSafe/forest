@@ -15,12 +15,13 @@ use message::UnsignedMessage;
 use std::panic;
 use vm::{Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
-fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
+fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
     let message = UnsignedMessage::builder()
         .to(*REWARD_ACTOR_ADDR)
         .from(*SYSTEM_ACTOR_ADDR)
         .build()
         .unwrap();
+
     let mut rt = MockRuntime::new(bs, message);
     rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
     return rt;
@@ -55,7 +56,7 @@ fn balance_less_than_reward() {
     rt.verify()
 }
 
-fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
+fn construct_and_verify<'a, BS: BlockStore>(rt: &mut MockRuntime<'a, BS>) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
     let ret = rt
         .call(
