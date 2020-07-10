@@ -31,7 +31,7 @@ impl<'de> de::Deserialize<'de> for BitMap {
     {
         let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
 
-        if bz.len() == 0 {
+        if bz.is_empty() {
             return Ok(BitMap::default());
         }
 
