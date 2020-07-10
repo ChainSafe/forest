@@ -30,6 +30,7 @@ use libp2p_request_response::{
 };
 use log::{debug, trace, warn};
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::error::Error;
 use std::str::FromStr;
 use std::{task::Context, task::Poll};
@@ -387,27 +388,27 @@ impl ForestBehaviour {
         cid: Cid,
         data: Box<[u8]>,
     ) -> Result<(), Box<dyn Error>> {
-        let cid = cid.to_string();
-        log::debug!("send {}", cid);
-        let cid = Cid2::from_str(&cid)?;
+        debug!("send {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
         self.bitswap.send_block(peer_id, cid, data);
         Ok(())
     }
 
     /// Send a request for data over bitswap
     pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
-        let cid = cid.to_string();
-        log::debug!("want {}", cid);
-        let cid = Cid2::from_str(&cid)?;
+        debug!("want {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
         self.bitswap.want_block(cid, priority);
         Ok(())
     }
 
     /// Cancel a bitswap request
     pub fn cancel_block(&mut self, cid: &Cid) -> Result<(), Box<dyn Error>> {
-        let cid = cid.to_string();
-        log::debug!("cancel {}", cid);
-        let cid = Cid2::from_str(&cid)?;
+        debug!("cancel {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
         self.bitswap.cancel_block(&cid);
         Ok(())
     }
