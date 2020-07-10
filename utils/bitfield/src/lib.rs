@@ -105,7 +105,24 @@ impl BitField {
 
     /// Returns the index of the lowest bit present in the bit field.
     pub fn first(&self) -> Option<usize> {
-        self.iter().next()
+        // similar to `self.iter.next()`, but optimized using the fact that only the
+        // lowest bit in `self.set` is a candidate, and therefore there's no need to
+        // sort all bits in `self.set`
+
+        let min_set_bit = self.set.iter().min();
+
+        // turns the `Option<&usize>` minimum set bit into an `Option<Range<usize>>`
+        let min_range = min_set_bit.map(|&bit| bit..bit + 1);
+
+        // turns this `Option<Range<usize>>` into a `RangeIterator`, relying on the
+        // fact that `Option<T>` is an `IntoIterator` over `T` with 0 or 1 items
+        let ranges = iter::Ranges::new(min_range);
+
+        self.bitvec
+            .ranges()
+            .merge(ranges)
+            .flatten()
+            .find(|i| !self.unset.contains(i))
     }
 
     /// Returns an iterator over the indices of the bit field's set bits.
