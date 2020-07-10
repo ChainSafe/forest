@@ -20,7 +20,7 @@ pub enum SyncStage {
     /// ChainSync completed and is following chain.
     Complete,
     /// Error has occured while syncing.
-    Errored,
+    Error,
 }
 
 impl Default for SyncStage {
@@ -36,7 +36,7 @@ impl fmt::Display for SyncStage {
             SyncStage::PersistHeaders => write!(f, "persisting headers"),
             SyncStage::Messages => write!(f, "message sync"),
             SyncStage::Complete => write!(f, "complete"),
-            SyncStage::Errored => write!(f, "error"),
+            SyncStage::Error => write!(f, "error"),
         }
     }
 }
@@ -95,7 +95,7 @@ impl SyncState {
     /// Sets error for the sync.
     pub fn error(&mut self, err: String) {
         self.message = err;
-        self.stage = SyncStage::Errored;
+        self.stage = SyncStage::Error;
         self.end = Some(SystemTime::now());
     }
 }
