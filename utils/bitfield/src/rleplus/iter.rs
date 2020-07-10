@@ -1,8 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{BitReader, RangeIterator, Result, RlePlus};
-use std::{iter::FusedIterator, ops::Range};
+use super::{BitReader, Result};
 
 /// An iterator over the runs of 1s and 0s of RLE+ encoded data.
 pub struct Runs<'a> {
@@ -43,44 +42,3 @@ impl Iterator for Runs<'_> {
         Some(Ok(run))
     }
 }
-
-/// An iterator over the ranges of 1s of RLE+ encoded data that has already been verified.
-pub struct Ranges<'a> {
-    /// The underlying runs of 1s and 0s.
-    runs: Runs<'a>,
-    /// The current position, i.e. the end of the last range that was read,
-    /// or 0 if no ranges have been read yet.
-    offset: usize,
-}
-
-impl<'a> Ranges<'a> {
-    pub(super) fn new(encoded: &'a RlePlus) -> Self {
-        Self {
-            // the data has already been verified, so this cannot fail
-            runs: Runs::new(encoded.as_bytes()).unwrap(),
-            offset: 0,
-        }
-    }
-}
-
-impl Iterator for Ranges<'_> {
-    type Item = Range<usize>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // this loop will run either 1 or 2 times because runs alternate
-        loop {
-            // the data has already been verified, so this cannot fail
-            let (value, len) = self.runs.next()?.unwrap();
-
-            let start = self.offset;
-            self.offset += len;
-
-            if value {
-                return Some(start..self.offset);
-            }
-        }
-    }
-}
-
-impl FusedIterator for Ranges<'_> {}
-impl RangeIterator for Ranges<'_> {}

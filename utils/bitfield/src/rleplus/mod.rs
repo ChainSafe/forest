@@ -65,25 +65,28 @@ mod iter;
 mod reader;
 mod writer;
 
-pub use iter::{Ranges, Runs};
+pub use iter::Runs;
 use reader::BitReader;
 use writer::BitWriter;
 
 use super::{ranges_from_bits, RangeIterator, Result};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::{fmt, iter::FromIterator};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::{iter::FromIterator, ops::Range};
 
 // https://github.com/multiformats/unsigned-varint#practical-maximum-of-9-bytes-for-security
 const VARINT_MAX_BYTES: usize = 9;
 
 /// An RLE+ encoded bit field.
-#[derive(Default, Clone, Serialize)]
-#[serde(transparent)]
-pub struct RlePlus(#[serde(with = "serde_bytes")] Vec<u8>);
+#[derive(Default, Clone, PartialEq, Debug)]
+pub struct RlePlus(Vec<Range<usize>>);
 
-impl PartialEq for RlePlus {
-    fn eq(&self, other: &Self) -> bool {
-        Iterator::eq(self.ranges(), other.ranges())
+impl Serialize for RlePlus {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let bytes = self.to_bytes();
+        serde_bytes::serialize(&bytes, serializer)
     }
 }
 
@@ -116,12 +119,6 @@ impl FromIterator<bool> for RlePlus {
     }
 }
 
-impl fmt::Debug for RlePlus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.ranges()).finish()
-    }
-}
-
 impl RlePlus {
     /// Creates a new `RlePlus` instance with an already encoded bitvec. Returns an
     /// error if the given bitvec is not RLE+ encoded correctly.
@@ -129,16 +126,22 @@ impl RlePlus {
         // iterating the runs of the encoded bitvec ensures that it's encoded correctly,
         // and adding the lengths of the runs together ensures that the total length of
         // 1s and 0s fits in a `usize`
-        Runs::new(&encoded)?.try_fold(0_usize, |total_len, run| {
-            let (_value, len) = run?;
-            total_len.checked_add(len).ok_or("RLE+ overflow")
+
+        let mut ranges = Vec::new();
+        Runs::new(&encoded)?.try_fold(0_usize, |start, run| {
+            let (value, len) = run?;
+            let end = start.checked_add(len).ok_or("RLE+ overflow")?;
+            if value {
+                ranges.push(start..end);
+            }
+            Ok(end)
         })?;
-        Ok(Self(encoded))
+        Ok(Self(ranges))
     }
 
     /// Returns an iterator over the ranges of 1s of the RLE+ encoded data.
-    pub fn ranges(&self) -> Ranges<'_> {
-        Ranges::new(self)
+    pub fn ranges(&self) -> impl RangeIterator + '_ {
+        super::iter::Ranges::new(self.0.iter().cloned())
     }
 
     /// Returns `true` if the RLE+ encoded data contains the bit at a given index.
@@ -149,7 +152,14 @@ impl RlePlus {
     }
 
     /// RLE+ encodes the ranges of 1s from a given `RangeIterator`.
-    pub fn from_ranges(mut iter: impl RangeIterator) -> Self {
+    pub fn from_ranges(iter: impl RangeIterator) -> Self {
+        Self(iter.into_iter().collect())
+    }
+
+    /// Turns a bit field into its RLE+ encoded form.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut iter = self.0.iter().cloned();
+
         let first_range = match iter.next() {
             Some(range) => range,
             None => return Default::default(),
@@ -176,18 +186,7 @@ impl RlePlus {
             index = range.end;
         }
 
-        // no need to verify, this is valid RLE+ by construction
-        Self(writer.finish())
-    }
-
-    /// Returns a byte slice of the bit field's contents.
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-
-    /// Converts a bit field into a byte vector.
-    pub fn into_bytes(self) -> Vec<u8> {
-        self.0
+        writer.finish()
     }
 }
 
