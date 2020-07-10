@@ -1111,7 +1111,7 @@ mod tests {
             compute_msg_meta(&blockstore, &usm, &sm)
                 .unwrap()
                 .to_string(),
-            "bafy2bzacebalwfdq3fk3c4mztozq7mpx7rjsgvnc6z43udi3qeainl7kj5m6u"
+            "bafy2bzacecgw6dqj4bctnbnyqfujltkwu7xc7ttaaato4i5miroxr4bayhfea"
         );
     }
 }
