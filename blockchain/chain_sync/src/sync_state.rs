@@ -51,7 +51,7 @@ impl Serialize for SyncStage {
 }
 
 /// State of a given sync.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct SyncState {
     base: Option<Arc<Tipset>>,
     target: Option<Arc<Tipset>>,
