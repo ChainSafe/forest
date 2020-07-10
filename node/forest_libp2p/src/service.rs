@@ -76,9 +76,7 @@ pub enum NetworkMessage {
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService<DB: BlockStore> {
     pub swarm: Swarm<ForestBehaviour>,
-
     db: Arc<DB>,
-
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: Receiver<NetworkEvent>,
