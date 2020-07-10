@@ -12,6 +12,7 @@ use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 use num_traits::CheckedSub;
 use vm::{Serialized, TokenAmount};
 
@@ -22,7 +23,7 @@ pub struct State {
     pub total_raw_byte_power: StoragePower,
     #[serde(with = "biguint_ser")]
     pub total_quality_adj_power: StoragePower,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub total_pledge_collateral: TokenAmount,
     pub miner_count: i64,
 

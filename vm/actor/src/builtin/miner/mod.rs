@@ -46,7 +46,7 @@ use fil_types::{
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::bigint_ser::BigIntSer;
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
@@ -646,7 +646,7 @@ impl Actor {
             &*STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::SubmitPoRepForBulkVerify as u64,
             &Serialized::serialize(&svi)?,
-            &BigUint::zero(),
+            &BigInt::zero(),
         )?;
 
         Ok(())
@@ -712,7 +712,7 @@ impl Actor {
                 &param,
                 &TokenAmount::zero(),
             )?;
-            let BigUintDe(initial_pledge) = ret.deserialize()?;
+            let BigIntDe(initial_pledge) = ret.deserialize()?;
 
             // Add sector and pledge lock-up to miner state
             let current_epoch = rt.curr_epoch();
@@ -853,7 +853,7 @@ impl Actor {
             &*STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::OnSectorModifyWeightDesc as u64,
             &ser_params,
-            &BigUint::zero(),
+            &BigInt::zero(),
         )?;
 
         // store new sector expiry
@@ -1247,8 +1247,8 @@ impl Actor {
         rt.send(
             &*STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::OnConsensusFault as u64,
-            &Serialized::serialize(BigUintSer(&st.locked_funds))?,
-            &BigUint::zero(),
+            &Serialized::serialize(BigIntSer(&st.locked_funds))?,
+            &BigInt::zero(),
         )?;
 
         // TODO: terminate deals with market actor, https://github.com/filecoin-project/specs-actors/issues/279
@@ -2366,7 +2366,7 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if amount > &BigUint::zero() {
+    if amount > &BigInt::zero() {
         rt.send(
             &*BURNT_FUNDS_ACTOR_ADDR,
             METHOD_SEND,
@@ -2486,7 +2486,7 @@ fn unlock_penalty<BS>(
 where
     BS: BlockStore,
 {
-    let mut fee = BigUint::zero();
+    let mut fee = BigInt::zero();
     for s in sectors {
         fee += f(s)
     }
@@ -2566,7 +2566,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::AddLockedFund) => {
-                let BigUintDe(param) = params.deserialize()?;
+                let BigIntDe(param) = params.deserialize()?;
                 Self::add_locked_fund(rt, param)?;
                 Ok(Serialized::default())
             }

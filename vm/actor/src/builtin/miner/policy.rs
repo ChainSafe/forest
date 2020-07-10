@@ -6,6 +6,8 @@ use crate::network::*;
 use clock::ChainEpoch;
 use fil_types::{RegisteredSealProof, SectorSize};
 use num_bigint::BigUint;
+use num_bigint::BigInt;
+use num_bigint::Sign;
 use num_traits::{Pow, Zero};
 use vm::TokenAmount;
 
@@ -86,8 +88,8 @@ pub const WORKER_KEY_CHANGE_DELAY: ChainEpoch = 2 * ELECTION_LOOKBACK; // PARAM_
 
 /// Deposit per sector required at pre-commitment, refunded after the commitment is proven (else burned).
 pub fn precommit_deposit(sector_size: SectorSize, _duration: ChainEpoch) -> TokenAmount {
-    let deposit_per_byte = BigUint::zero(); // PARAM_FINISH
-    deposit_per_byte * BigUint::from(sector_size as u64)
+    let deposit_per_byte = BigInt::zero(); // PARAM_FINISH
+    deposit_per_byte * BigInt::from(sector_size as u64)
 }
 
 struct BigFrac {
@@ -96,15 +98,15 @@ struct BigFrac {
 }
 
 pub fn pledge_penalty_for_sector_termination(_sector: &SectorOnChainInfo) -> TokenAmount {
-    BigUint::zero() // PARAM_FINISH
+    BigInt::zero() // PARAM_FINISH
 }
 /// Penalty to locked pledge collateral for a "skipped" sector or missing PoSt fault.
 pub fn pledge_penalty_for_sector_undeclared_fault(_sector: &SectorOnChainInfo) -> TokenAmount {
-    BigUint::zero() // PARAM_FINISH
+    BigInt::zero() // PARAM_FINISH
 }
 /// Penalty to locked pledge collateral for a declared or on-going sector fault.
 pub fn pledge_penalty_for_sector_declared_fault(_sector: &SectorOnChainInfo) -> TokenAmount {
-    BigUint::zero() // PARAM_FINISH
+    BigInt::zero() // PARAM_FINISH
 }
 /// Specification for a linear vesting schedule.
 pub struct VestSpec {
@@ -153,10 +155,10 @@ pub fn reward_for_consensus_slash_report(
         .denominator
         .pow(&elapsed);
     let num =
-        (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator) * &collateral;
+        (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator) * &collateral.to_biguint().unwrap();
     let denom = slasher_share_denominator * consensus_fault_reporter_initial_share.denominator;
     std::cmp::min(
-        num / denom,
-        (collateral * max_reporter_share_num) / max_reporter_share_den,
+        BigInt::from_biguint(Sign::Plus , num / denom),
+        (collateral * BigInt::from_biguint(Sign::Plus , max_reporter_share_num)) / BigInt::from_biguint(Sign::Plus ,  max_reporter_share_den)
     )
 }

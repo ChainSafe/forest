@@ -4,6 +4,7 @@
 use super::SectorStorageWeightDesc;
 use fil_types::{SectorQuality, StoragePower};
 use num_bigint::BigUint;
+use num_bigint::{BigInt, Sign};
 use num_traits::FromPrimitive;
 use vm::TokenAmount;
 
@@ -58,5 +59,5 @@ pub fn initial_pledge_for_weight(
     let _ = circ_supply; // TODO: ce use this
     let _ = total_pledge; // TODO: ce use this
 
-    (qa_power * per_epoch_reward) / tot_qa_power
+    (BigInt::from_biguint(Sign::Plus, qa_power.to_owned()) * per_epoch_reward) / BigInt::from_biguint(Sign::Plus, tot_qa_power.to_owned())
 }

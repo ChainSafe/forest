@@ -53,8 +53,8 @@ impl MsgSet {
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
                 let gas_price = exms.message().gas_price();
-                let rbf_num = BigUint::from(RBF_NUM);
-                let rbf_denom = BigUint::from(RBF_DENOM);
+                let rbf_num = BigInt::from(RBF_NUM);
+                let rbf_denom = BigInt::from(RBF_DENOM);
                 let min_price = gas_price.clone() + ((gas_price * &rbf_num) / rbf_denom) + 1u8;
                 if m.message().gas_price() <= &min_price {
                     warn!("mesage gas price is below min gas price");
@@ -252,7 +252,7 @@ where
         if size > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        if msg.value() > &BigUint::from(2_000_000_000u64) {
+        if msg.value() > &BigInt::from(2_000_000_000u64) {
             return Err(Error::MessageValueTooHigh);
         }
 
@@ -707,7 +707,7 @@ mod tests {
             let actor = ActorState::new(
                 Cid::default(),
                 Cid::default(),
-                BigUint::from(9_000_000 as u64),
+                BigInt::from(9_000_000 as u64),
                 sequence,
             );
             Ok(actor)

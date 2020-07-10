@@ -8,6 +8,7 @@ use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*};
 use fil_types::{PoStProof, RegisteredSealProof, SectorNumber};
 use num_bigint::{biguint_ser, BigUint};
+use num_bigint::{bigint_ser, BigInt};
 use vm::{DealID, TokenAmount};
 
 pub type CronEvent = i64;
@@ -118,7 +119,7 @@ pub struct ReportConsensusFaultParams {
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct WithdrawBalanceParams {
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub amount_requested: TokenAmount,
 }
 #[derive(Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
@@ -141,7 +142,7 @@ pub struct SectorPreCommitInfo {
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorPreCommitOnChainInfo {
     pub info: SectorPreCommitInfo,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub pre_commit_deposit: TokenAmount,
     pub pre_commit_epoch: ChainEpoch,
 }

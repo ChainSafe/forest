@@ -19,6 +19,7 @@ use fil_types::{SealVerifyInfo, StoragePower};
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
@@ -496,7 +497,7 @@ where
         &Serialized::default(),
         &TokenAmount::zero(),
     )?;
-    let BigUintDe(epoch_reward) = ret.deserialize()?;
+    let BigIntDe(epoch_reward) = ret.deserialize()?;
 
     let qa_power = qa_power_for_weight(&desc);
     Ok(initial_pledge_for_weight(
@@ -548,7 +549,7 @@ impl ActorCode for Actor {
             }
             Some(Method::OnSectorProveCommit) => {
                 let res = Self::on_sector_prove_commit(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(BigUintSer(&res))?)
+                Ok(Serialized::serialize(BigIntSer(&res))?)
             }
             Some(Method::OnSectorTerminate) => {
                 Self::on_sector_terminate(rt, params.deserialize()?)?;
@@ -564,7 +565,7 @@ impl ActorCode for Actor {
             }
             Some(Method::OnSectorModifyWeightDesc) => {
                 let res = Self::on_sector_modify_weight_desc(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(BigUintSer(&res))?)
+                Ok(Serialized::serialize(BigIntSer(&res))?)
             }
             Some(Method::EnrollCronEvent) => {
                 Self::enroll_cron_event(rt, params.deserialize()?)?;
@@ -576,12 +577,12 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::UpdatePledgeTotal) => {
-                let BigUintDe(param) = params.deserialize()?;
+                let BigIntDe(param) = params.deserialize()?;
                 Self::update_pledge_total(rt, param)?;
                 Ok(Serialized::default())
             }
             Some(Method::OnConsensusFault) => {
-                let BigUintDe(param) = params.deserialize()?;
+                let BigIntDe(param) = params.deserialize()?;
                 Self::on_consensus_fault(rt, param)?;
                 Ok(Serialized::default())
             }

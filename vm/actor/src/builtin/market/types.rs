@@ -8,12 +8,13 @@ use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::RegisteredSealProof;
 use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 use vm::{DealID, TokenAmount};
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct WithdrawBalanceParams {
     pub provider_or_client: Address,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub amount: TokenAmount,
 }
 

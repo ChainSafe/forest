@@ -18,7 +18,7 @@ pub struct State {
     /// Recipient of payouts from channel.
     pub to: Address,
     /// Amount successfully redeemed through the payment channel, paid out on `Collect`.
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub to_send: TokenAmount,
     /// Height at which the channel can be collected.
     pub settling_at: ChainEpoch,

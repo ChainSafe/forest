@@ -14,6 +14,7 @@ use clock::ChainEpoch;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::{CheckedSub, FromPrimitive};
@@ -108,7 +109,7 @@ impl Actor {
         rt.send(
             &miner_addr,
             miner::Method::AddLockedFund as u64,
-            &Serialized::serialize(&BigUintSer(&reward_payable)).unwrap(),
+            &Serialized::serialize(&BigIntSer(&reward_payable)).unwrap(),
             &reward_payable,
         )?;
 
@@ -218,7 +219,7 @@ impl ActorCode for Actor {
             }
             Some(Method::LastPerEpochReward) => {
                 let res = Self::last_per_epoch_reward(rt)?;
-                Ok(Serialized::serialize(BigUintSer(&res))?)
+                Ok(Serialized::serialize(BigIntSer(&res))?)
             }
             Some(Method::UpdateNetworkKPI) => {
                 let BigUintDe(param) = params.deserialize()?;

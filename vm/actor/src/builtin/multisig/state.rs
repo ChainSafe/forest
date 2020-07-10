@@ -10,6 +10,7 @@ use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
 /// Multisig actor state
@@ -20,7 +21,7 @@ pub struct State {
     pub next_tx_id: TxnID,
 
     // Linear unlock
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub initial_balance: TokenAmount,
     pub start_epoch: ChainEpoch,
     pub unlock_duration: ChainEpoch,
