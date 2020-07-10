@@ -49,15 +49,14 @@ impl NetworkHandler {
                         response,
                     }) => {
                         let tx = request_table.lock().await.remove(&request_id);
-                        if tx.is_none() {
-                            debug!("RPCResponse receive failed: channel not found");
-                            continue;
-                        }
-                        let tx = tx.unwrap();
 
-                        if let Err(e) = tx.send(RPCResponse::BlockSync(response)) {
-                            debug!("RPCResponse receive failed: {:?}", e)
-                        }
+                        if let Some(tx) = tx {
+                            if let Err(e) = tx.send(RPCResponse::BlockSync(response)) {
+                                debug!("RPCResponse receive failed: {:?}", e)
+                            }
+                        } else {
+                            debug!("RPCResponse receive failed: channel not found");
+                        };
                     }
                     // Pass any non RPC responses through event channel
                     Some(event) => {
