@@ -261,12 +261,18 @@ where
             escrow: {
                 let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
                     .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
-                et.get(&new_addr).unwrap_or_default().to_biguint().unwrap()
+                et.get(&new_addr)
+                    .unwrap_or_default()
+                    .to_biguint()
+                    .ok_or_else(|| Error::State("Failed to get non-negative value".to_string()))?
             },
             locked: {
                 let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
                     .map_err(|_x| Error::State("Failed to build Locked Table".to_string()))?;
-                lt.get(&new_addr).unwrap_or_default().to_biguint().unwrap()
+                lt.get(&new_addr)
+                    .unwrap_or_default()
+                    .to_biguint()
+                    .ok_or_else(|| Error::State("Failed to get non-negative value".to_string()))?
             },
         };
 

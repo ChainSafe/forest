@@ -131,8 +131,12 @@ fn taylor_series_expansion(lambda_num: &BigInt, lambda_den: &BigInt, t: BigInt) 
 ///   left-shifting the input by the MintingInputFixedPoint, because baseline
 ///   minting will actually supply a fractional input.
 pub(super) fn minting_function(factor: &BigInt, t: &BigUint) -> BigInt {
-    let value =
-        factor * taylor_series_expansion(&*LAMBDA_NUM, &*LAMBDA_DEN, t.to_bigint().unwrap());
+    let value = factor
+        * taylor_series_expansion(
+            &*LAMBDA_NUM,
+            &*LAMBDA_DEN,
+            t.to_bigint().unwrap_or_default(),
+        );
 
     // This conversion is safe because the minting function should always return a positive value
     value >> MINTING_OUTPUT_FIXED_POINT

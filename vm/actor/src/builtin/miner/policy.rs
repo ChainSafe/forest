@@ -154,11 +154,16 @@ pub fn reward_for_consensus_slash_report(
     let slasher_share_denominator = consensus_fault_reporter_share_growth_rate
         .denominator
         .pow(&elapsed);
-    let num = (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator)
-        * &collateral.to_biguint().unwrap();
-    let denom = slasher_share_denominator * consensus_fault_reporter_initial_share.denominator;
+    let num = BigInt::from_biguint(
+        Sign::Plus,
+        slasher_share_numerator * consensus_fault_reporter_initial_share.numerator,
+    ) * &collateral;
+    let denom = BigInt::from_biguint(
+        Sign::Plus,
+        slasher_share_denominator * consensus_fault_reporter_initial_share.denominator,
+    );
     std::cmp::min(
-        BigInt::from_biguint(Sign::Plus, num / denom),
+        num / denom,
         (collateral * BigInt::from_biguint(Sign::Plus, max_reporter_share_num))
             / BigInt::from_biguint(Sign::Plus, max_reporter_share_den),
     )

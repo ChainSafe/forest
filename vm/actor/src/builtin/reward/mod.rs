@@ -109,7 +109,7 @@ impl Actor {
         rt.send(
             &miner_addr,
             miner::Method::AddLockedFund as u64,
-            &Serialized::serialize(&BigIntSer(&reward_payable)).unwrap(),
+            &Serialized::serialize(&BigIntSer(&reward_payable))?,
             &reward_payable,
         )?;
 
