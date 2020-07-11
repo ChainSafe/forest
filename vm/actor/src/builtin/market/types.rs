@@ -7,8 +7,8 @@ use address::Address;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::RegisteredSealProof;
-use num_bigint::biguint_ser;
 use num_bigint::bigint_ser;
+use num_bigint::biguint_ser;
 use vm::{DealID, TokenAmount};
 
 #[derive(Serialize_tuple, Deserialize_tuple)]

@@ -5,8 +5,8 @@ use super::types::SectorOnChainInfo;
 use crate::network::*;
 use clock::ChainEpoch;
 use fil_types::{RegisteredSealProof, SectorSize};
-use num_bigint::BigUint;
 use num_bigint::BigInt;
+use num_bigint::BigUint;
 use num_bigint::Sign;
 use num_traits::{Pow, Zero};
 use vm::TokenAmount;
@@ -154,11 +154,12 @@ pub fn reward_for_consensus_slash_report(
     let slasher_share_denominator = consensus_fault_reporter_share_growth_rate
         .denominator
         .pow(&elapsed);
-    let num =
-        (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator) * &collateral.to_biguint().unwrap();
+    let num = (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator)
+        * &collateral.to_biguint().unwrap();
     let denom = slasher_share_denominator * consensus_fault_reporter_initial_share.denominator;
     std::cmp::min(
-        BigInt::from_biguint(Sign::Plus , num / denom),
-        (collateral * BigInt::from_biguint(Sign::Plus , max_reporter_share_num)) / BigInt::from_biguint(Sign::Plus ,  max_reporter_share_den)
+        BigInt::from_biguint(Sign::Plus, num / denom),
+        (collateral * BigInt::from_biguint(Sign::Plus, max_reporter_share_num))
+            / BigInt::from_biguint(Sign::Plus, max_reporter_share_den),
     )
 }

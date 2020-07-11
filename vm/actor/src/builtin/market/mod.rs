@@ -24,7 +24,7 @@ use fil_types::PieceInfo;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::{BigUint, BigInt};
+use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};

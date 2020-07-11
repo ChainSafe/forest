@@ -14,10 +14,10 @@ use clock::ChainEpoch;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use num_bigint::BigUint;
 use num_bigint::BigInt;
+use num_bigint::BigUint;
 use num_derive::FromPrimitive;
-use num_traits::{FromPrimitive};
+use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{
     ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
@@ -177,17 +177,27 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
 
-        rt.transaction::<State, Result<(), ActorError>, _> (|st: &mut State, _| {
+        rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, _| {
             // By the time this is called, the rewards for this epoch have been paid to miners.
             st.reward_epochs_paid += 1;
             st.realized_power = curr_realized_power;
 
             st.baseline_power = Self::new_baseline_power(st, st.reward_epochs_paid);
-            st.cumsum_baseline += &st.baseline_power.to_biguint().ok_or(ActorError::new(ExitCode::ErrIllegalState, "Negative Baseline Power".to_string()))?;
+            st.cumsum_baseline += &st.baseline_power.to_biguint().ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Negative Baseline Power".to_string(),
+                )
+            })?;
 
             // Cap realized power in computing CumsumRealized so that progress is only relative to the current epoch.
             let capped_realized_power = std::cmp::min(&st.baseline_power, &st.realized_power);
-            st.cumsum_realized += capped_realized_power.to_biguint().ok_or( ActorError::new(ExitCode::ErrIllegalState, "Negative Realized Power".to_string()))?;
+            st.cumsum_realized += capped_realized_power.to_biguint().ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Negative Realized Power".to_string(),
+                )
+            })?;
             st.effective_network_time =
                 st.get_effective_network_time(&st.cumsum_baseline, &st.cumsum_realized);
             Self::compute_per_epoch_reward(st, 1);

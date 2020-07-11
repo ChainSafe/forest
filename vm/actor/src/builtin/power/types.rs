@@ -6,8 +6,8 @@ use address::Address;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, Cbor};
 use fil_types::{RegisteredSealProof, SectorSize};
-use num_bigint::biguint_ser;
 use num_bigint::bigint_ser;
+use num_bigint::biguint_ser;
 use vm::{Serialized, TokenAmount};
 
 pub type SectorTermination = i64;

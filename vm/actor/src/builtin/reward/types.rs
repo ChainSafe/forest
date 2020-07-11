@@ -4,7 +4,7 @@
 use crate::network::*;
 use address::Address;
 use encoding::tuple::*;
-use num_bigint::{BigInt, BigUint, ToBigInt, bigint_ser};
+use num_bigint::{bigint_ser, BigInt, BigUint, ToBigInt};
 use num_traits::{Pow, Zero};
 use std::ops::Neg;
 use vm::TokenAmount;
@@ -131,12 +131,11 @@ fn taylor_series_expansion(lambda_num: &BigInt, lambda_den: &BigInt, t: BigInt) 
 ///   left-shifting the input by the MintingInputFixedPoint, because baseline
 ///   minting will actually supply a fractional input.
 pub(super) fn minting_function(factor: &BigInt, t: &BigUint) -> BigInt {
-    let value = (factor
-        * taylor_series_expansion(&*LAMBDA_NUM, &*LAMBDA_DEN, t.to_bigint().unwrap()))
-        >> MINTING_OUTPUT_FIXED_POINT;
+    let value =
+        factor * taylor_series_expansion(&*LAMBDA_NUM, &*LAMBDA_DEN, t.to_bigint().unwrap());
 
     // This conversion is safe because the minting function should always return a positive value
-    value
+    value >> MINTING_OUTPUT_FIXED_POINT
 }
 
 #[cfg(test)]

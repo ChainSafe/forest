@@ -17,7 +17,7 @@ use futures::StreamExt;
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt};
+use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
@@ -299,7 +299,7 @@ where
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
-        let msg_balance = BigInt::from(msg.message().required_funds());
+        let msg_balance = msg.message().required_funds();
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
@@ -365,7 +365,7 @@ where
     /// if this actor does not exist, return an error
     async fn get_state_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
         let actor = self.api.read().await.state_get_actor(&addr, &ts)?;
-        Ok(BigInt::from(actor.balance))
+        Ok(actor.balance)
     }
 
     /// Remove a message given a sequence and address from the messagepool

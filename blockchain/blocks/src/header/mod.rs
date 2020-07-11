@@ -12,8 +12,7 @@ use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
-    BigUint,
-    BigInt
+    BigInt, BigUint,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;

@@ -5,8 +5,8 @@ use super::types::*;
 use clock::ChainEpoch;
 use encoding::{repr::*, tuple::*, Cbor};
 use fil_types::{Spacetime, StoragePower};
-use num_bigint::biguint_ser;
 use num_bigint::bigint_ser;
+use num_bigint::biguint_ser;
 use num_derive::FromPrimitive;
 use vm::TokenAmount;
 
