@@ -9,7 +9,6 @@ use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use num_bigint::biguint_ser;
 use num_bigint::bigint_ser;
 use vm::TokenAmount;
 

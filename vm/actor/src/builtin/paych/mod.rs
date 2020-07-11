@@ -13,7 +13,7 @@ use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
-use num_traits::{CheckedSub, FromPrimitive, Zero};
+use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use vm::{
     ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
@@ -216,7 +216,7 @@ impl Actor {
             st.lane_states[idx].redeemed = sv.amount;
 
             // 4. check operation validity
-            let new_send_balance = (BigInt::from(st.to_send.clone()) + balance_delta);
+            let new_send_balance = BigInt::from(st.to_send.clone()) + balance_delta;
 
             if new_send_balance < TokenAmount::from(0u8){
                 return

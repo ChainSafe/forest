@@ -6,9 +6,7 @@ use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
-use num_bigint::biguint_ser::BigUintDe;
 use num_bigint::bigint_ser::BigIntDe;
-use num_traits::CheckedSub;
 use vm::TokenAmount;
 
 /// Balance table which handles getting and updating token balances specifically

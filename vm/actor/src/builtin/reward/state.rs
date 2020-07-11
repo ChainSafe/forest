@@ -13,9 +13,9 @@ use vm::TokenAmount;
 /// Reward actor state
 #[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct State {
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub baseline_power: StoragePower,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub realized_power: StoragePower,
     #[serde(with = "biguint_ser")]
     pub cumsum_baseline: Spacetime,

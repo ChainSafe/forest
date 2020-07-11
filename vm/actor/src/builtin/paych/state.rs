@@ -5,7 +5,7 @@ use address::Address;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use encoding::Cbor;
-use num_bigint::{bigint_ser, biguint_ser, BigInt};
+use num_bigint::{bigint_ser, BigInt};
 use vm::TokenAmount;
 
 /// A given payment channel actor is established by `from`

@@ -19,7 +19,6 @@ use forest_encoding::to_vec;
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use num_bigint::BigUint;
 use num_bigint::BigInt;
 use runtime::{ActorCode, Runtime, Syscalls};
 use state_tree::StateTree;

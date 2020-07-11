@@ -8,7 +8,7 @@ use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*};
 use fil_types::{PoStProof, RegisteredSealProof, SectorNumber};
 use num_bigint::{biguint_ser, BigUint};
-use num_bigint::{bigint_ser, BigInt};
+use num_bigint::{bigint_ser};
 use vm::{DealID, TokenAmount};
 
 pub type CronEvent = i64;

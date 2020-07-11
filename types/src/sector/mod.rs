@@ -11,6 +11,7 @@ pub use self::seal::*;
 
 use encoding::{repr::*, tuple::*};
 use num_bigint::BigUint;
+use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use std::fmt;
 use vm::ActorID;
@@ -18,7 +19,7 @@ use vm::ActorID;
 pub type SectorNumber = u64;
 
 /// Unit of storage power (measured in bytes)
-pub type StoragePower = BigUint;
+pub type StoragePower = BigInt;
 
 /// The unit of spacetime committed to the network
 pub type Spacetime = BigUint;

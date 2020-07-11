@@ -44,7 +44,7 @@ fn sector_quality_from_weight(weight: &SectorStorageWeightDesc) -> SectorQuality
 pub fn qa_power_for_weight(weight: &SectorStorageWeightDesc) -> StoragePower {
     let qual = sector_quality_from_weight(weight);
     let sector_quality = BigUint::from(weight.sector_size as u64) * qual;
-    sector_quality >> SECTOR_QUALITY_PRECISION
+    BigInt::from_biguint(Sign::Plus, sector_quality >> SECTOR_QUALITY_PRECISION)
 }
 
 pub fn initial_pledge_for_weight(
@@ -59,5 +59,5 @@ pub fn initial_pledge_for_weight(
     let _ = circ_supply; // TODO: ce use this
     let _ = total_pledge; // TODO: ce use this
 
-    (BigInt::from_biguint(Sign::Plus, qa_power.to_owned()) * per_epoch_reward) / BigInt::from_biguint(Sign::Plus, tot_qa_power.to_owned())
+    (qa_power * per_epoch_reward) / tot_qa_power
 }

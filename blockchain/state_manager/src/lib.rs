@@ -21,6 +21,7 @@ use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::trace;
 use num_bigint::BigUint;
+use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -103,7 +104,7 @@ where
         Ok(addr)
     }
     /// Returns specified actor's claimed power and total network power as a tuple
-    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigUint, BigUint), Error> {
+    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigInt, BigInt), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
         if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {

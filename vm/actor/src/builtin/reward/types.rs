@@ -4,7 +4,7 @@
 use crate::network::*;
 use address::Address;
 use encoding::tuple::*;
-use num_bigint::{biguint_ser, BigInt, BigUint, ToBigInt, bigint_ser};
+use num_bigint::{BigInt, BigUint, ToBigInt, bigint_ser};
 use num_traits::{Pow, Zero};
 use std::ops::Neg;
 use vm::TokenAmount;

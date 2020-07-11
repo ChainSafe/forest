@@ -13,11 +13,11 @@ use crate::{
 use clock::ChainEpoch;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::BigUint;
+use num_bigint::BigInt;
 use num_derive::FromPrimitive;
-use num_traits::{CheckedSub, FromPrimitive};
+use num_traits::{FromPrimitive};
 use runtime::{ActorCode, Runtime};
 use vm::{
     ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
@@ -160,7 +160,7 @@ impl Actor {
 
     fn new_baseline_power(_st: &State, _reward_epochs_paid: ChainEpoch) -> StoragePower {
         // TODO: this is not the final baseline function or value, PARAM_FINISH
-        BigUint::from(BASELINE_POWER)
+        BigInt::from(BASELINE_POWER)
     }
 
     // Called at the end of each epoch by the power actor (in turn by its cron hook).
@@ -177,21 +177,22 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
 
-        rt.transaction(|st: &mut State, _| {
+        rt.transaction::<State, Result<(), ActorError>, _> (|st: &mut State, _| {
             // By the time this is called, the rewards for this epoch have been paid to miners.
             st.reward_epochs_paid += 1;
             st.realized_power = curr_realized_power;
 
             st.baseline_power = Self::new_baseline_power(st, st.reward_epochs_paid);
-            st.cumsum_baseline += &st.baseline_power;
+            st.cumsum_baseline += &st.baseline_power.to_biguint().ok_or(ActorError::new(ExitCode::ErrIllegalState, "Negative Baseline Power".to_string()))?;
 
             // Cap realized power in computing CumsumRealized so that progress is only relative to the current epoch.
             let capped_realized_power = std::cmp::min(&st.baseline_power, &st.realized_power);
-            st.cumsum_realized += capped_realized_power;
+            st.cumsum_realized += capped_realized_power.to_biguint().ok_or( ActorError::new(ExitCode::ErrIllegalState, "Negative Realized Power".to_string()))?;
             st.effective_network_time =
                 st.get_effective_network_time(&st.cumsum_baseline, &st.cumsum_realized);
             Self::compute_per_epoch_reward(st, 1);
-        })?;
+            Ok(())
+        })??;
         Ok(())
     }
 }
@@ -222,7 +223,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::serialize(BigIntSer(&res))?)
             }
             Some(Method::UpdateNetworkKPI) => {
-                let BigUintDe(param) = params.deserialize()?;
+                let BigIntDe(param) = params.deserialize()?;
                 Self::update_network_kpi(rt, param)?;
                 Ok(Serialized::default())
             }

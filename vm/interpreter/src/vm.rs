@@ -12,7 +12,6 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, MessageReceipt, UnsignedMessage};
-use num_bigint::BigUint;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use runtime::Syscalls;

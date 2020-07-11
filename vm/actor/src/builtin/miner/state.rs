@@ -15,7 +15,6 @@ use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize};
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
-use num_bigint::biguint_ser::{self, BigUintDe};
 use num_bigint::BigUint;
 use num_bigint::bigint_ser::{self, BigIntDe};
 use num_bigint::BigInt;
