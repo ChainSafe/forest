@@ -94,8 +94,8 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
                 } else if a.end < b.end {
                     // a.start <= b.start <= a.end < b.end
                     //
-                    // a: -?xxx---
-                    // b: --xxxxx-
+                    // a: -xx--- or -xxxx--- or -xxx----
+                    // b: -xxxx-    ---xxxx-    ----xxx-
 
                     // we resize `b` to be the union of `a` and `b`, but don't
                     // return it yet because it might overlap with another range
@@ -108,8 +108,8 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
                 } else {
                     // a.start <= b.start < b.end <= a.end
                     //
-                    // a: -?xxx?-
-                    // b: --xxx--
+                    // a: -xxx- or -xxxx- or -xxxx- or -xxxxxx-
+                    // b: -xxx-    ---xx-    -xx---    ---xx---
 
                     match self.b_iter.next() {
                         Some(range) => b = range,
@@ -117,19 +117,36 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
                     }
                 }
             } else {
-                // the union operator is symmetric, so this is exactly
+                // b.start < a.start
+                //
+                // the union operator is symmetric, so this does exactly
                 // the same as above but with `a` and `b` swapped
 
                 if b.end < a.start {
+                    // b.start < b.end < a.start < a.end
+                    //
+                    // a: -----xxx-
+                    // b: -xxx-----
+
                     self.a_range = Some(a);
                     return Some(b);
                 } else if b.end < a.end {
+                    // b.start < a.start <= b.end < a.end
+                    //
+                    // a: ----xxx- or ---xxxx-
+                    // b: -xxx----    -xxxx---
+
                     a.start = b.start;
                     match self.b_iter.next() {
                         Some(range) => b = range,
                         None => return Some(a),
                     }
                 } else {
+                    // b.start < a.start < a.end <= b.end
+                    //
+                    // a: ---xx- or ---xx---
+                    // b: -xxxx-    -xxxxxx-
+
                     match self.a_iter.next() {
                         Some(range) => a = range,
                         None => return Some(b),
@@ -168,15 +185,15 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
                 if a.end <= b.start {
                     // a.start < a.end <= b.start < b.end
                     //
-                    // a: -xxx-----
-                    // b: -----xxx-
+                    // a: -xxx---- or -xxx-----
+                    // b: ----xxx-    -----xxx-
 
                     a = self.a_iter.next()?;
                 } else if a.end < b.end {
                     // a.start <= b.start < a.end < b.end
                     //
-                    // a: -?xxx---
-                    // b: --xxxxx-
+                    // a: -xx--- or -xxxx---
+                    // b: -xxxx-    ---xxxx-
 
                     let intersection = b.start..a.end;
                     self.b_range = Some(b);
@@ -184,23 +201,40 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
                 } else {
                     // a.start <= b.start < b.end <= a.end
                     //
-                    // a: -?xxx?-
-                    // b: --xxx--
+                    // a: -xxx- or -xxxx- or -xxxx- or -xxxxxx-
+                    // b: -xxx-    ---xx-    -xx---    ---xx---
 
                     self.a_range = Some(a);
                     return Some(b);
                 }
             } else {
-                // the intersection operator is symmetric, so this is exactly
+                // b.start < a.start
+                //
+                // the intersection operator is symmetric, so this does exactly
                 // the same as above but with `a` and `b` swapped
 
                 if b.end <= a.start {
+                    // b.start < b.end <= a.start < a.end
+                    //
+                    // a: ----xxx- or -----xxx-
+                    // b: -xxx----    -xxx-----
+
                     b = self.b_iter.next()?;
                 } else if b.end < a.end {
+                    // b.start < a.start < b.end < a.end
+                    //
+                    // a: ---xxxx-
+                    // b: -xxxx---
+
                     let intersection = a.start..b.end;
                     self.a_range = Some(a);
                     return Some(intersection);
                 } else {
+                    // b.start < a.start < a.end <= b.end
+                    //
+                    // a: ---xx- or ---xx---
+                    // b: -xxxx-    -xxxxxx-
+
                     self.b_range = Some(b);
                     return Some(a);
                 }
@@ -237,24 +271,24 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
                 if a.end <= b.start {
                     // a.start < a.end <= b.start < b.end
                     //
-                    // a: -xxx----
-                    // b: ----xxx-
+                    // a: -xxx---- or -xxx-----
+                    // b: ----xxx-    -----xxx-
 
                     self.b_range = Some(b);
                     return Some(a);
                 } else if b.end < a.end {
                     // a.start < b.start < b.end < a.end
                     //
-                    // a: -xxxxxxx-
-                    // b: ---xxx---
+                    // a: -xxxxxx-
+                    // b: ---xx---
 
                     self.a_range = Some(b.end..a.end);
                     return Some(a.start..b.start);
                 } else {
                     // a.start < b.start < a.end <= b.end
                     //
-                    // a: -xxxx---
-                    // b: ---xx?--
+                    // a: -xxxx- or -xxxx---
+                    // b: ---xx-    ---xxxx-
 
                     let difference = a.start..b.start;
                     self.b_range = Some(b);
@@ -266,8 +300,8 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
                 if b.end <= a.start {
                     // b.start < b.end <= a.start < a.end
                     //
-                    // a: ----xxx-
-                    // b: -xxx----
+                    // a: ----xxx- or -----xxx-
+                    // b: -xxx----    -xxx-----
 
                     match self.b_iter.next() {
                         Some(range) => b = range,
@@ -276,15 +310,15 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
                 } else if a.end <= b.end {
                     // b.start <= a.start < a.end <= b.end
                     //
-                    // a: --xxx--
-                    // b: -?xxx?-
+                    // a: -xxx- or ---xx- or -xx--- or ---xx---
+                    // b: -xxx-    -xxxx-    -xxxx-    -xxxxxx-
 
                     a = self.a_iter.next()?;
                 } else {
                     // b.start <= a.start < b.end < a.end
                     //
-                    // a: --xxxxx-
-                    // b: -?xxx---
+                    // a: -xxxx- or ---xxxx-
+                    // b: -xx---    -xxxx---
 
                     a.start = b.end;
                     match self.b_iter.next() {
