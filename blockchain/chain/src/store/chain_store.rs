@@ -527,6 +527,7 @@ where
         .collect()
 }
 
+/// returns message receipt given block_header
 pub fn get_parent_reciept<DB>(
     db: &DB,
     block_header: &BlockHeader,
