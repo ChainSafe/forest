@@ -489,15 +489,14 @@ where
             } else {
                 continue;
             }
-            let balance = balances.get(from_address).cloned();
-            if balance
-                .clone()
-                .map(|s| s < message.required_funds())
-                .unwrap_or_default()
-            {
+            if let Some(bal) = balances.get_mut(from_address) {
+                if *bal < message.required_funds() {
+                    continue;
+                }
+                *bal -= message.required_funds();
+            } else {
                 continue;
             }
-            balance.map(|s| balances.insert(*message.from(), s - message.required_funds()));
 
             messages.push(message)
         }
