@@ -6,8 +6,9 @@ use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
 use async_std::stream;
-use async_std::sync::{channel, Receiver, Sender};
+use async_std::sync::{channel, Mutex, Receiver, Sender};
 use forest_cid::{multihash::Blake2b256, Cid};
+use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
@@ -21,6 +22,7 @@ use libp2p::{
 };
 use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, info, trace, warn};
+use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
@@ -61,15 +63,21 @@ pub enum NetworkEvent {
 }
 
 /// Events into this Service
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum NetworkMessage {
     PubsubMessage {
         topic: Topic,
         message: Vec<u8>,
     },
-    RPC {
+    BlockSyncRequest {
         peer_id: PeerId,
-        request: RPCRequest,
+        request: BlockSyncRequest,
+        id: RequestId,
+        response_channel: OneShotSender<BlockSyncResponse>,
+    },
+    HelloRequest {
+        peer_id: PeerId,
+        request: HelloRequest,
         id: RequestId,
     },
 }
@@ -77,6 +85,8 @@ pub enum NetworkMessage {
 pub struct Libp2pService<DB: BlockStore> {
     pub swarm: Swarm<ForestBehaviour>,
     db: Arc<DB>,
+    /// Keeps track of Blocksync requests to responses
+    bs_request_table: Mutex<HashMap<RequestId, OneShotSender<BlockSyncResponse>>>,
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: Receiver<NetworkEvent>,
@@ -117,9 +127,12 @@ where
 
         let (network_sender_in, network_receiver_in) = channel(20);
         let (network_sender_out, network_receiver_out) = channel(20);
+
+        let bs_request_table = Mutex::new(HashMap::new());
         Libp2pService {
             swarm,
             db,
+            bs_request_table,
             network_receiver_in,
             network_sender_in,
             network_receiver_out,
@@ -182,10 +195,16 @@ where
                         }
                         ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
                             debug!("Received blocksync response (id: {:?}): {:?}", request_id, response);
-                            self.network_sender_out.send(NetworkEvent::BlockSyncResponse {
-                                request_id,
-                                response,
-                            }).await;
+                            let tx = self.bs_request_table.lock().await.remove(&request_id);
+
+                            if let Some(tx) = tx {
+                              if let Err(e) = tx.send(response) {
+                                debug!("RPCResponse receive failed: {:?}", e)
+                              }
+                            }
+                            else {
+                                debug!("RPCResponse receive failed: channel not found");
+                            };
                         }
                         ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {
                             match self.db.put(&block, Blake2b256) {
@@ -217,8 +236,12 @@ where
                         NetworkMessage::PubsubMessage { topic, message } => {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
-                        NetworkMessage::RPC { peer_id, request, id } => {
-                            swarm_stream.get_mut().send_rpc_request(&peer_id, request, id);
+                        NetworkMessage::HelloRequest { peer_id, request, id } => {
+                            swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::Hello(request), id);
+                        }
+                        NetworkMessage::BlockSyncRequest { peer_id, request, id, response_channel } => {
+                            self.bs_request_table.lock().await.insert(id, response_channel);
+                            swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request), id);
                         }
                     }
                     None => { break; }

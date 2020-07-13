@@ -2,23 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::future;
-use async_std::sync::{Mutex, Sender};
+use async_std::sync::Sender;
 use blocks::{FullTipset, Tipset, TipsetKeys};
 use flo_stream::Subscriber;
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
     hello::HelloRequest,
-    rpc::{RPCRequest, RPCResponse, RequestId},
+    rpc::RequestId,
     NetworkEvent, NetworkMessage,
 };
 
-use futures::channel::oneshot::{
-    channel as oneshot_channel, Receiver as OneShotReceiver, Sender as OneShotSender,
-};
+use futures::channel::oneshot::channel as oneshot_channel;
 use libp2p::core::PeerId;
 use log::trace;
-use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 
 /// Timeout for response from an RPC request
@@ -34,19 +30,13 @@ pub struct SyncNetworkContext {
 
     /// Receiver channel for network events
     pub receiver: Subscriber<NetworkEvent>,
-    request_table: Arc<Mutex<HashMap<RequestId, OneShotSender<RPCResponse>>>>,
 }
 
 impl SyncNetworkContext {
-    pub fn new(
-        network_send: Sender<NetworkMessage>,
-        receiver: Subscriber<NetworkEvent>,
-        request_table: Arc<Mutex<HashMap<RequestId, OneShotSender<RPCResponse>>>>,
-    ) -> Self {
+    pub fn new(network_send: Sender<NetworkMessage>, receiver: Subscriber<NetworkEvent>) -> Self {
         Self {
             network_send,
             receiver,
-            request_table,
             request_id: RequestId(1),
         }
     }
@@ -102,14 +92,22 @@ impl SyncNetworkContext {
         request: BlockSyncRequest,
     ) -> Result<BlockSyncResponse, String> {
         trace!("Sending BlockSync Request {:?}", request);
-        let rpc_res = self
-            .send_rpc_request(peer_id, RPCRequest::BlockSync(request))
+        let request_id = self.request_id;
+        self.request_id.0 += 1;
+
+        let (tx, rx) = oneshot_channel();
+
+        self.network_send
+            .send(NetworkMessage::BlockSyncRequest {
+                peer_id,
+                request,
+                id: request_id,
+                response_channel: tx,
+            })
             .await;
-        match future::timeout(Duration::from_secs(RPC_TIMEOUT), rpc_res).await {
-            Ok(Ok(RPCResponse::BlockSync(bs_res))) => Ok(bs_res),
-            Ok(Ok(RPCResponse::Hello(_))) => {
-                unreachable!();
-            }
+
+        match future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await {
+            Ok(Ok(bs_res)) => Ok(bs_res),
             Ok(Err(e)) => Err(format!("RPC error: {}", e.to_string())),
             Err(_) => Err("Connection Timedout".to_string()),
         }
@@ -120,33 +118,12 @@ impl SyncNetworkContext {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
         self.network_send
-            .send(NetworkMessage::RPC {
+            .send(NetworkMessage::HelloRequest {
                 peer_id,
-                request: RPCRequest::Hello(request),
+                request,
                 id: self.request_id,
             })
             .await;
         self.request_id.0 += 1;
-    }
-
-    /// Send any RPC request to the network and await the response
-    pub async fn send_rpc_request(
-        &mut self,
-        peer_id: PeerId,
-        request: RPCRequest,
-    ) -> OneShotReceiver<RPCResponse> {
-        let request_id = self.request_id;
-        self.request_id.0 += 1;
-
-        let (tx, rx) = oneshot_channel();
-        self.request_table.lock().await.insert(request_id, tx);
-        self.network_send
-            .send(NetworkMessage::RPC {
-                peer_id,
-                request,
-                id: request_id,
-            })
-            .await;
-        rx
     }
 }
