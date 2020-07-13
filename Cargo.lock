@@ -5288,6 +5288,7 @@ dependencies = [
  "forest_crypto",
  "forest_encoding",
  "forest_message",
+ "forest_vm",
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",

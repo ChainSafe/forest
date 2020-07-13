@@ -17,6 +17,8 @@ use state_tree::StateTree;
 use std::convert::TryFrom;
 use std::str::FromStr;
 use wallet::{json::KeyInfoJson, Key, KeyStore};
+use vm::ActorState;
+use cid::{multihash::Identity, Cid};
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, KS>(
@@ -33,7 +35,7 @@ where
     let heaviest_ts = get_heaviest_tipset(data.store.as_ref())?.unwrap();
     let cid = heaviest_ts.parent_state();
 
-    let state = StateTree::new_from_root(data.store.as_ref(), cid)?;
+    let state = StateTree::new_from_root(data.store.as_ref(), &cid)?;
     let actor = state.get_actor(&address)?.ok_or("Could not find actor")?;
     let actor_balance = actor.balance;
     Ok(actor_balance.to_string())
@@ -148,6 +150,15 @@ where
     if value.is_err() {
         keystore.put("default".to_string(), key.key_info)?
     }
+
+    let heaviest_ts = get_heaviest_tipset(data.store.as_ref())?.unwrap();
+    let cid = heaviest_ts.parent_state();
+
+    let mut state = StateTree::new_from_root(data.store.as_ref(), &cid)?;
+
+    let def_cid = Cid::new_from_cbor(&[], Identity);
+    let actor = ActorState::new(def_cid.clone(), def_cid, Default::default(), 1);
+    state.register_new_address(&key.address, actor)?;
 
     Ok(key.address.to_string())
 }
