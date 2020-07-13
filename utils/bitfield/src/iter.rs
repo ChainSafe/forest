@@ -1,10 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    iter::{self, FusedIterator},
-    ops::Range,
-};
+use std::{iter, ops::Range};
 
 struct RangePeekable<I> {
     iter: I,
@@ -34,8 +31,7 @@ impl<I: RangeIterator> RangePeekable<I> {
 /// - all ranges are non-empty
 /// - the ranges are in ascending order
 /// - no two ranges overlap or touch
-/// - the iterator must be fused, i.e. once it has returned `None`, it must keep returning `None`
-pub trait RangeIterator: FusedIterator<Item = Range<usize>> + Sized {
+pub trait RangeIterator: Iterator<Item = Range<usize>> + Sized {
     /// Returns a new `RangeIterator` over the bits that are in `self`, in `other`, or in both.
     fn merge<R: RangeIterator>(self, other: R) -> Union<Self, R> {
         Union {
@@ -154,7 +150,6 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
     }
 }
 
-impl<A: RangeIterator, B: RangeIterator> FusedIterator for Union<A, B> {}
 impl<A: RangeIterator, B: RangeIterator> RangeIterator for Union<A, B> {}
 
 /// A `RangeIterator` over the bits that represent the intersection of two other `RangeIterator`s.
@@ -233,7 +228,6 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
     }
 }
 
-impl<A: RangeIterator, B: RangeIterator> FusedIterator for Intersection<A, B> {}
 impl<A: RangeIterator, B: RangeIterator> RangeIterator for Intersection<A, B> {}
 
 /// A `RangeIterator` over the bits that represent the difference between two other `RangeIterator`s.
@@ -311,7 +305,6 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
     }
 }
 
-impl<A: RangeIterator, B: RangeIterator> FusedIterator for Difference<A, B> {}
 impl<A: RangeIterator, B: RangeIterator> RangeIterator for Difference<A, B> {}
 
 /// A `RangeIterator` that skips over `n` bits of antoher `RangeIterator`.
@@ -338,7 +331,6 @@ impl<I: RangeIterator> Iterator for Skip<I> {
     }
 }
 
-impl<I: RangeIterator> FusedIterator for Skip<I> {}
 impl<I: RangeIterator> RangeIterator for Skip<I> {}
 
 /// A `RangeIterator` that iterates over the first `n` bits of antoher `RangeIterator`.
@@ -366,7 +358,6 @@ impl<I: RangeIterator> Iterator for Take<I> {
     }
 }
 
-impl<I: RangeIterator> FusedIterator for Take<I> {}
 impl<I: RangeIterator> RangeIterator for Take<I> {}
 
 /// A `RangeIterator` that wraps a regular iterator over `Range<usize>` as a way to explicitly
@@ -397,7 +388,6 @@ where
     }
 }
 
-impl<I> FusedIterator for Ranges<I> where I: Iterator<Item = Range<usize>> {}
 impl<I> RangeIterator for Ranges<I> where I: Iterator<Item = Range<usize>> {}
 
 /// Returns a `RangeIterator` which ranges contain the values from the provided iterator.
