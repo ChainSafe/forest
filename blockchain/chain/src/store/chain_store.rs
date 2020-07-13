@@ -439,13 +439,13 @@ pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<Box<dyn Message>, Err
 where
     DB: BlockStore,
 {
-    let value = db.read(key.key())?;
-    let bytes = value.ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
-    let unsigned_message: Result<UnsignedMessage, _> = from_slice(&bytes);
-    if let Ok(s) = unsigned_message {
-        Ok(Box::new(s))
+    let value = db
+        .read(key.key())?
+        .ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
+    if let Ok(message) = from_slice::<UnsignedMessage>(&value) {
+        Ok(Box::new(message))
     } else {
-        let signed_message: SignedMessage = from_slice(&bytes)?;
+        let signed_message: SignedMessage = from_slice(&value)?;
         Ok(Box::new(signed_message))
     }
 }
