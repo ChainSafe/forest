@@ -11,7 +11,6 @@ use forest_libp2p::{
     rpc::RequestId,
     NetworkEvent, NetworkMessage,
 };
-
 use futures::channel::oneshot::channel as oneshot_channel;
 use libp2p::core::PeerId;
 use log::trace;
@@ -109,7 +108,7 @@ impl SyncNetworkContext {
         match future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await {
             Ok(Ok(bs_res)) => Ok(bs_res),
             Ok(Err(e)) => Err(format!("RPC error: {}", e.to_string())),
-            Err(_) => Err("Connection Timedout".to_string()),
+            Err(_) => Err("Connection timed out".to_string()),
         }
     }
 
