@@ -1116,7 +1116,6 @@ mod tests {
             task::sleep(Duration::from_secs(1)).await;
             // send blocksync response to channel
             send_blocksync_response(network_receiver);
-            println!("ASDF");
             assert_eq!(return_set.await.unwrap().len(), 4);
         });
     }
