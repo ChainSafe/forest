@@ -462,14 +462,10 @@ where
     type BoxMessage = Box<dyn Message>;
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<BoxMessage>, Error> {
         let (unsigned, signed) = block_messages(db, b)?;
-        let unsigned_box = unsigned.into_iter().map(|s| {
-            let box_msg: Box<dyn Message> = Box::new(s);
-            box_msg
-        });
-        let signed_box = signed.into_iter().map(|s| {
-            let box_msg: Box<dyn Message> = Box::new(s);
-            box_msg
-        });
+        let unsigned_box = unsigned
+            .into_iter()
+            .map(|s| Box::new(s) as Box<dyn Message>);
+        let signed_box = signed.into_iter().map(|s| Box::new(s) as Box<dyn Message>);
 
         let mut messages = Vec::new();
         for message in unsigned_box.chain(signed_box) {
