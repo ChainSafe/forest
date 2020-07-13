@@ -450,7 +450,7 @@ where
     }
 }
 
-pub fn message_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<Box<dyn Message>>, Error>
+pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<Box<dyn Message>>, Error>
 where
     DB: BlockStore,
 {
