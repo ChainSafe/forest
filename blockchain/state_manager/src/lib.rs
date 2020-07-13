@@ -44,7 +44,7 @@ pub struct StateManager<DB> {
     bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
     subscriber: Option<Subscriber<HeadChange>>,
-    
+
     ///send a message to the channel to initiate a back_search while waiting for a message
     back_search_wait: Option<Subscriber<()>>,
 }
