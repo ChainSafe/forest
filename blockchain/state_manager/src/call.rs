@@ -50,7 +50,10 @@ where
             msg.set_gas_limit(10000000000)
         }
 
-        let _actor = state_manager.get_actor(msg.from(), bstate)?;
+        let actor = state_manager
+            .get_actor(msg.from(), bstate)?
+            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
+        msg.set_sequence(actor.sequence);
         let apply_ret = vm.apply_implicit_message(msg);
         trace!("gas limit {:}", msg.gas_limit());
         trace!("gas price {:?}", msg.gas_price());
@@ -67,6 +70,7 @@ where
     })
 }
 
+/// runs the given message and returns its result without any persisted changes.
 pub fn state_call<DB>(
     state_manager: &StateManager<DB>,
     message: &mut UnsignedMessage,
@@ -87,6 +91,7 @@ where
     state_call_raw::<DB>(state_manager, message, state, &chain_rand, &ts.epoch())
 }
 
+/// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
 pub fn state_replay<'a, DB>(
     state_manager: &'a StateManager<DB>,
     ts: &'a Tipset,
@@ -97,7 +102,7 @@ where
 {
     let mut outm: Option<UnsignedMessage> = None;
     let mut outr: Option<ApplyRet> = None;
-    let call_back = |cid: Cid, unsigned: UnsignedMessage, apply_ret: ApplyRet| {
+    let callback = |cid: Cid, unsigned: UnsignedMessage, apply_ret: ApplyRet| {
         if cid == mcid.clone() {
             outm = Some(unsigned);
             outr = Some(apply_ret);
@@ -106,7 +111,7 @@ where
 
         Ok(())
     };
-    let result = state_manager.compute_tipset_state(ts.blocks(), Some(call_back));
+    let result = state_manager.compute_tipset_state(ts.blocks(), Some(callback));
 
     if let Err(error_message) = result {
         if error_message.to_string() == "halt" {

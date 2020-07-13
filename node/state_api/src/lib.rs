@@ -42,7 +42,10 @@ where
         .map_err(|e| e.into())
 }
 
-pub fn state_miner_sector<DB>(
+/// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
+/// If the filterOut boolean is set to true, any sectors in the filter are excluded.
+/// If false, only those sectors in the filter are included.
+pub fn state_miner_sectors<DB>(
     state_manager: &StateManager<DB>,
     address: &Address,
     filter: &mut BitField,
@@ -64,6 +67,7 @@ where
     .map_err(|e| e.into())
 }
 
+/// returns info about those sectors that a given miner is actively proving.
 pub fn state_miner_proving_set<DB>(
     state_manager: &StateManager<DB>,
     address: &Address,
@@ -79,6 +83,7 @@ where
         .map_err(|e| e.into())
 }
 
+/// StateMinerInfo returns info about the indicated miner
 pub fn state_miner_info<DB>(
     state_manager: &StateManager<DB>,
     actor: &Address,
@@ -91,6 +96,7 @@ where
     state_manager::utils::get_miner_info(state_manager, &tipset, actor).map_err(|e| e.into())
 }
 
+/// returns the on-chain info for the specified miner's sector
 pub fn state_sector_info<DB>(
     state_manager: &StateManager<DB>,
     address: &Address,
@@ -105,6 +111,7 @@ where
         .map_err(|e| e.into())
 }
 
+/// returns the PreCommit info for the specified miner's sector
 pub fn state_sector_precommit_info<DB>(
     state_manager: &StateManager<DB>,
     address: &Address,
@@ -119,6 +126,7 @@ where
         .map_err(|e| e.into())
 }
 
+/// returns all the proving deadlines for the given miner
 pub fn state_miner_deadlines<DB>(
     state_manager: &StateManager<DB>,
     actor: &Address,
@@ -131,6 +139,8 @@ where
     state_manager::utils::get_miner_deadlines(&state_manager, &tipset, actor).map_err(|e| e.into())
 }
 
+/// calculates the deadline at some epoch for a proving period
+/// and returns the deadline-related calculations.
 pub fn state_miner_proving_deadline<DB>(
     state_manager: &StateManager<DB>,
     actor: &Address,
@@ -148,6 +158,7 @@ where
     ))
 }
 
+/// returns a single non-expired Faults that occur within lookback epochs of the given tipset
 pub fn state_miner_faults<DB>(
     state_manager: &StateManager<DB>,
     actor: &Address,
@@ -160,6 +171,7 @@ where
     state_manager::utils::get_miner_faults(&state_manager, &tipset, actor).map_err(|e| e.into())
 }
 
+/// returns all non-expired Faults that occur within lookback epochs of the given tipset
 pub fn state_all_miner_faults<DB>(
     state_manager: &StateManager<DB>,
     look_back: ChainEpoch,
@@ -195,7 +207,7 @@ where
         .collect::<Result<Vec<_>, String>>()?;
     Ok(all_faults)
 }
-
+/// returns a bitfield indicating the recovering sectors of the given miner
 pub fn state_miner_recoveries<DB>(
     state_manager: &StateManager<DB>,
     actor: &Address,
@@ -208,6 +220,7 @@ where
     state_manager::utils::get_miner_recoveries(&state_manager, &tipset, actor).map_err(|e| e.into())
 }
 
+/// returns the power of the indicated miner
 pub fn state_miner_power<DB>(
     state_manager: &StateManager<DB>,
     actor: &Address,
@@ -230,6 +243,7 @@ where
     Ok(BigUint::zero())
 }
 
+/// runs the given message and returns its result without any persisted changes.
 pub fn state_call<DB>(
     state_manager: &StateManager<DB>,
     message: &mut UnsignedMessage,
@@ -242,6 +256,7 @@ where
     call::state_call(&state_manager, message, Some(tipset)).map_err(|e| e.into())
 }
 
+/// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
 pub fn state_reply<DB>(
     state_manager: &StateManager<DB>,
     key: &TipsetKeys,
@@ -260,6 +275,7 @@ where
     })
 }
 
+/// returns a state tree given a tipset
 pub fn state_for_ts<DB>(
     state_manager: &StateManager<DB>,
     maybe_tipset: Option<Tipset>,
@@ -279,6 +295,7 @@ where
     Ok(state_tree)
 }
 
+/// returns the indicated actor's nonce and balance.
 pub fn state_get_actor<DB>(
     state_manager: &StateManager<DB>,
     actor: &Address,
@@ -292,6 +309,7 @@ where
     state.get_actor(actor).map_err(|e| e.into())
 }
 
+/// returns the public key address of the given ID address
 pub fn state_account_key<DB>(
     state_manager: &StateManager<DB>,
     actor: &Address,
@@ -307,6 +325,7 @@ where
     Ok(address)
 }
 
+/// retrieves the ID address of the given address
 pub fn state_lookup_id<DB>(
     state_manager: &StateManager<DB>,
     address: &Address,
@@ -320,6 +339,7 @@ where
     state.lookup_id(address).map_err(|e| e.into())
 }
 
+/// returns the addresses of every actor in the state
 pub fn state_list_actors<DB>(
     state_manager: &StateManager<DB>,
     key: &TipsetKeys,
@@ -331,6 +351,7 @@ where
     state_manager::utils::list_miner_actors(&state_manager, &tipset).map_err(|e| e.into())
 }
 
+/// looks up the Escrow and Locked balances of the given address in the Storage Market
 pub fn state_market_balance<DB>(
     state_manager: &mut StateManager<DB>,
     address: &Address,
@@ -345,6 +366,7 @@ where
         .map_err(|e| e.into())
 }
 
+/// returns the message receipt for the given message
 pub fn state_get_receipt<DB>(
     state_manager: &StateManager<DB>,
     msg: &Cid,
@@ -359,6 +381,8 @@ where
         .map_err(|e| e.into())
 }
 
+/// looks back in the chain for a message. If not found, it blocks until the
+/// message arrives on chain, and gets to the indicated confidence depth.
 pub fn state_wait_msg<DB>(
     state_manager: &StateManager<DB>,
     cid: &Cid,

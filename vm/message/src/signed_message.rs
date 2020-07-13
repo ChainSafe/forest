@@ -68,6 +68,9 @@ impl Message for SignedMessage {
     fn set_gas_limit(&mut self, token_amount: u64) {
         self.message.set_gas_limit(token_amount)
     }
+    fn set_sequence(&mut self, new_sequence: u64) {
+        self.message.set_sequence(new_sequence)
+    }
     fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()
     }

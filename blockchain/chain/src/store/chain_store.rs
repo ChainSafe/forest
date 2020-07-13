@@ -35,19 +35,22 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
+
+type BoxMessage = Box<dyn Message>;
+
 //Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
-pub enum ChainMessage {
-    HcCurrent(Arc<Tipset>),
-    HcApply(Arc<Tipset>),
-    HcStore,
-    HcRevert(Arc<Tipset>),
+pub enum HeadChange {
+    Current(Arc<Tipset>),
+    Apply(Arc<Tipset>),
+    Store,
+    Revert(Arc<Tipset>),
 }
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
     // TODO add IPLD Store
-    publisher: Publisher<ChainMessage>,
+    publisher: Publisher<HeadChange>,
 
     // key-value datastore
     pub db: Arc<DB>,
@@ -80,12 +83,12 @@ where
     pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         self.heaviest = Some(ts.clone());
-        self.publisher.publish(ChainMessage::HcCurrent(ts)).await;
+        self.publisher.publish(HeadChange::Current(ts)).await;
         Ok(())
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub fn subscribe(&mut self) -> Subscriber<ChainMessage> {
+    pub fn subscribe(&mut self) -> Subscriber<HeadChange> {
         self.publisher.subscribe()
     }
 
@@ -130,7 +133,7 @@ where
         let heaviest_ts = Arc::new(heaviest_ts);
         self.heaviest = Some(heaviest_ts.clone());
         self.publisher
-            .publish(ChainMessage::HcCurrent(heaviest_ts))
+            .publish(HeadChange::Current(heaviest_ts))
             .await;
         Ok(())
     }
@@ -434,7 +437,8 @@ where
     })
 }
 
-pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<Box<dyn Message>, Error>
+//this attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
+pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<BoxMessage, Error>
 where
     DB: BlockStore,
 {
@@ -449,7 +453,8 @@ where
     }
 }
 
-pub fn message_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<Box<dyn Message>>, Error>
+//given a tipset this functtion will return all messages as a trait object
+pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<BoxMessage>, Error>
 where
     DB: BlockStore,
 {
@@ -458,17 +463,10 @@ where
     let state = StateTree::new_from_root(db, ts.parent_state())?;
 
     //message to get all messages for block_header into a single iterator
-    type BoxMessage = Box<dyn Message>;
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<BoxMessage>, Error> {
         let (unsigned, signed) = block_messages(db, b)?;
-        let unsigned_box = unsigned.into_iter().map(|s| {
-            let box_msg: Box<dyn Message> = Box::new(s);
-            box_msg
-        });
-        let signed_box = signed.into_iter().map(|s| {
-            let box_msg: Box<dyn Message> = Box::new(s);
-            box_msg
-        });
+        let unsigned_box = unsigned.into_iter().map(|s| Box::new(s) as BoxMessage);
+        let signed_box = signed.into_iter().map(|s| Box::new(s) as BoxMessage);
 
         let mut messages = Vec::new();
         for message in unsigned_box.chain(signed_box) {
