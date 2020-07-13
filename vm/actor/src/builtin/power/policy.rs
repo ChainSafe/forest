@@ -42,9 +42,9 @@ fn sector_quality_from_weight(weight: &SectorStorageWeightDesc) -> SectorQuality
 }
 
 pub fn qa_power_for_weight(weight: &SectorStorageWeightDesc) -> StoragePower {
-    let qual = sector_quality_from_weight(weight);
-    let sector_quality = BigUint::from(weight.sector_size as u64) * qual;
-    BigInt::from_biguint(Sign::Plus, sector_quality >> SECTOR_QUALITY_PRECISION)
+    let qual = BigInt::from_biguint(Sign::Plus, sector_quality_from_weight(weight));
+    let sector_quality = weight.sector_size as u64 * qual;
+    sector_quality >> SECTOR_QUALITY_PRECISION
 }
 
 pub fn initial_pledge_for_weight(

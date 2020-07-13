@@ -21,7 +21,6 @@ use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::trace;
 use num_bigint::BigInt;
-use num_bigint::BigUint;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -33,8 +32,8 @@ pub type CidPair = (Cid, Cid);
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct MarketBalance {
-    escrow: BigUint,
-    locked: BigUint,
+    escrow: BigInt,
+    locked: BigInt,
 }
 
 pub struct StateManager<DB> {
@@ -261,18 +260,12 @@ where
             escrow: {
                 let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
                     .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
-                et.get(&new_addr)
-                    .unwrap_or_default()
-                    .to_biguint()
-                    .ok_or_else(|| Error::State("Failed to get non-negative value".to_string()))?
+                et.get(&new_addr).unwrap_or_default()
             },
             locked: {
                 let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
                     .map_err(|_x| Error::State("Failed to build Locked Table".to_string()))?;
-                lt.get(&new_addr)
-                    .unwrap_or_default()
-                    .to_biguint()
-                    .ok_or_else(|| Error::State("Failed to get non-negative value".to_string()))?
+                lt.get(&new_addr).unwrap_or_default()
             },
         };
 

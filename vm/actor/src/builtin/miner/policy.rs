@@ -7,7 +7,6 @@ use clock::ChainEpoch;
 use fil_types::{RegisteredSealProof, SectorSize};
 use num_bigint::BigInt;
 use num_bigint::BigUint;
-use num_bigint::Sign;
 use num_traits::{Pow, Zero};
 use vm::TokenAmount;
 
@@ -93,8 +92,8 @@ pub fn precommit_deposit(sector_size: SectorSize, _duration: ChainEpoch) -> Toke
 }
 
 struct BigFrac {
-    numerator: BigUint,
-    denominator: BigUint,
+    numerator: BigInt,
+    denominator: BigInt,
 }
 
 pub fn pledge_penalty_for_sector_termination(_sector: &SectorOnChainInfo) -> TokenAmount {
@@ -137,16 +136,16 @@ pub fn reward_for_consensus_slash_report(
     // slasher_amount = min(NUM/DENOM, collateral)
     let consensus_fault_reporter_share_growth_rate = BigFrac {
         // PARAM_FINISH
-        numerator: BigUint::from(101_251 as u64),
-        denominator: BigUint::from(100_000 as u64),
+        numerator: BigInt::from(101_251 as u64),
+        denominator: BigInt::from(100_000 as u64),
     };
     let consensus_fault_reporter_initial_share = BigFrac {
         // PARAM_FINISH
-        numerator: BigUint::from(1 as u64),
-        denominator: BigUint::from(1000 as u64),
+        numerator: BigInt::from(1 as u64),
+        denominator: BigInt::from(1000 as u64),
     };
-    let max_reporter_share_num = BigUint::from(1 as u64);
-    let max_reporter_share_den = BigUint::from(2 as u64);
+    let max_reporter_share_num = BigInt::from(1 as u64);
+    let max_reporter_share_den = BigInt::from(2 as u64);
     let elapsed = BigUint::from(elapsed_epoch as u64);
     let slasher_share_numerator = consensus_fault_reporter_share_growth_rate
         .numerator
@@ -154,17 +153,12 @@ pub fn reward_for_consensus_slash_report(
     let slasher_share_denominator = consensus_fault_reporter_share_growth_rate
         .denominator
         .pow(&elapsed);
-    let num = BigInt::from_biguint(
-        Sign::Plus,
-        slasher_share_numerator * consensus_fault_reporter_initial_share.numerator,
-    ) * &collateral;
-    let denom = BigInt::from_biguint(
-        Sign::Plus,
-        slasher_share_denominator * consensus_fault_reporter_initial_share.denominator,
-    );
+    let num =
+        (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator) * &collateral;
+    let denom = slasher_share_denominator * consensus_fault_reporter_initial_share.denominator;
+
     std::cmp::min(
         num / denom,
-        (collateral * BigInt::from_biguint(Sign::Plus, max_reporter_share_num))
-            / BigInt::from_biguint(Sign::Plus, max_reporter_share_den),
+        (collateral * max_reporter_share_num) / max_reporter_share_den,
     )
 }
