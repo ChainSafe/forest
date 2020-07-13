@@ -32,7 +32,6 @@ use log::{debug, trace, warn};
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error;
-use std::str::FromStr;
 use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
@@ -125,15 +124,15 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: BitswapEvent) {
         match event {
             BitswapEvent::ReceivedBlock(peer_id, cid, data) => {
-                let cid = cid.to_string();
-                let cid: Cid = Cid::from_str(&cid).unwrap();
+                let cid = cid.to_bytes();
+                let cid: Cid = Cid::from_raw_cid(cid.as_slice()).unwrap();
                 self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
                     peer_id, cid, data,
                 ));
             }
             BitswapEvent::ReceivedWant(peer_id, cid, _priority) => {
-                let cid = cid.to_string();
-                let cid: Cid = Cid::from_str(&cid).unwrap();
+                let cid = cid.to_bytes();
+                let cid: Cid = Cid::from_raw_cid(cid.as_slice()).unwrap();
                 self.events
                     .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid));
             }
