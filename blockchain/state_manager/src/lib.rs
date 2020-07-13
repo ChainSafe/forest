@@ -14,7 +14,7 @@ use async_log::span;
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, ChainMessage, ChainStore};
+use chain::{block_messages, ChainStore, HeadChange};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
 use flo_stream::Subscriber;
@@ -43,7 +43,9 @@ pub struct MarketBalance {
 pub struct StateManager<DB> {
     bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
-    subscriber: Option<Subscriber<ChainMessage>>,
+    subscriber: Option<Subscriber<HeadChange>>,
+    
+    ///send a message to the channel to initiate a back_search while waiting for a message
     back_search_wait: Option<Subscriber<()>>,
 }
 
@@ -61,9 +63,10 @@ where
         }
     }
 
-    pub fn new_with_chain_meessage_subscriber(
+    //Creates a constructor that passes in a HeadChange subscriber
+    pub fn new_with_chain_message_subscriber(
         bs: Arc<DB>,
-        chain_sub: Subscriber<ChainMessage>,
+        chain_sub: Subscriber<HeadChange>,
     ) -> Self {
         Self {
             bs,
@@ -73,9 +76,10 @@ where
         }
     }
 
+    //Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
     pub fn new_with_subscribers(
         bs: Arc<DB>,
-        chain_subs: Subscriber<ChainMessage>,
+        chain_subs: Subscriber<HeadChange>,
         back_search_sub: Subscriber<()>,
     ) -> Self {
         Self {
@@ -158,7 +162,7 @@ where
         &self,
         ts: &FullTipset,
         rand: &ChainRand,
-        call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
@@ -171,7 +175,7 @@ where
         )?;
 
         // Apply tipset messages
-        let receipts = vm.apply_tip_set_messages(ts, call_back)?;
+        let receipts = vm.apply_tip_set_messages(ts, callback)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
@@ -214,7 +218,8 @@ where
 
             let block_headers = tipset.blocks();
             // generic constants are not implemented yet this is a lowcost method for now
-            let cid_pair = self.compute_tipset_state(&block_headers, Some(|_, _, _| Ok(())))?;
+            let no_func = None::<fn(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>;
+            let cid_pair = self.compute_tipset_state(&block_headers, no_func)?;
             self.cache
                 .write()
                 .await
@@ -226,7 +231,7 @@ where
     pub fn compute_tipset_state<'a>(
         &'a self,
         blocks_headers: &[BlockHeader],
-        call_back: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
             let check_for_duplicates = |s: &BlockHeader| {
@@ -262,22 +267,8 @@ where
                 .collect::<Result<Vec<Block>, _>>()?;
             // convert tipset to fulltipset
             let full_tipset = FullTipset::new(blocks)?;
-            self.apply_blocks(&full_tipset, &chain_rand, call_back)
+            self.apply_blocks(&full_tipset, &chain_rand, callback)
         })
-    }
-
-    pub fn look_up_id(&self, addr: &Address, tipset: &Tipset) -> Result<Address, Error> {
-        let tipset = ChainStore::new(self.get_block_store())
-            .tipset_from_keys(tipset.key())
-            .map_err(|e| {
-                Error::Other(format!(
-                    "Could not get chain store from root {:}",
-                    e.to_string()
-                ))
-            })?;
-        let state_tree =
-            StateTree::new_from_root(self.get_block_store_ref(), tipset.parent_state())?;
-        state_tree.lookup_id(addr).map_err(Error::State)
     }
 
     fn search_back_for_message(
@@ -312,7 +303,7 @@ where
         }
         self.search_back_for_message(&tipset, message)
     }
-
+    /// returns a message receipt from a given tipset and message cid
     pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
         let m = chain::get_chain_message(self.get_block_store_ref(), msg)
             .map_err(|e| Error::Other(e.to_string()))?;
@@ -342,7 +333,7 @@ where
         }
         let tipset = chain::tipset_from_keys(self.get_block_store_ref(), tipset.parents())
             .map_err(|err| Error::Other(err.to_string()))?;
-        let messages = chain::message_for_tipset(self.get_block_store_ref(), &tipset)
+        let messages = chain::messages_for_tipset(self.get_block_store_ref(), &tipset)
             .map_err(|err| Error::Other(err.to_string()))?;
         messages
             .iter()
@@ -381,12 +372,15 @@ where
             .unwrap_or_else(|| Ok(None))
     }
 
+    /// WaitForMessage blocks until a message appears on chain. It looks backwards in the chain to see if this has already
+    /// happened. It guarantees that the message has been on chain for at least confidence epochs without being reverted
+    /// before returning.
     pub async fn wait_for_message(
         &self,
         cid: &Cid,
         confidence: u64,
     ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Error> {
-        let subscribers = self.subscriber.clone().ok_or_else(|| {
+        let mut subscribers = self.subscriber.clone().ok_or_else(|| {
             Error::Other("State Manager not subscribed to tipset head changes".to_string())
         })?;
         let mut back_search_wait = self.back_search_wait.clone().ok_or_else(|| {
@@ -395,13 +389,13 @@ where
         let message = chain::get_chain_message(self.get_block_store_ref(), cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
-        let subscribers: Vec<ChainMessage> = subscribers.collect().await;
-        let first_subscriber = subscribers.get(0).ok_or_else(|| {
+        let maybe_subscriber: Option<HeadChange> = subscribers.next().await;
+        let first_subscriber = maybe_subscriber.ok_or_else(|| {
             Error::Other("SubHeadChanges first entry should have been one item".to_string())
         })?;
 
         let tipset = match first_subscriber {
-            ChainMessage::HcCurrent(tipset) => tipset,
+            HeadChange::Current(tipset) => tipset,
             _ => {
                 return Err(Error::Other(format!(
                     "expected current head on SHC stream (got {:?})",
@@ -411,9 +405,7 @@ where
         };
         let maybe_message_reciept = self.tipset_executed_message(&tipset, cid, &*message)?;
         if let Some(r) = maybe_message_reciept {
-            if let ChainMessage::HcCurrent(current) = first_subscriber {
-                return Ok(Some((current.clone(), r)));
-            }
+            return Ok(Some((tipset.clone(), r)));
         }
 
         let (back_tipset, _back_receipt) = self
@@ -437,13 +429,13 @@ where
                 .await
             {
                 match subscriber {
-                    ChainMessage::HcRevert(_tipset) => {
+                    HeadChange::Revert(_tipset) => {
                         if candidate_tipset.is_some() {
                             candidate_tipset = None;
                             candidate_receipt = None;
                         }
                     }
-                    ChainMessage::HcApply(tipset) => {
+                    HeadChange::Apply(tipset) => {
                         if candidate_tipset
                             .as_ref()
                             .map(|s| s.epoch() >= s.epoch() + tipset.epoch())

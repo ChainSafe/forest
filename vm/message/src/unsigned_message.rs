@@ -141,6 +141,9 @@ impl Message for UnsignedMessage {
     fn set_gas_price(&mut self, token_amount: TokenAmount) {
         self.gas_price = token_amount
     }
+    fn set_sequence(&mut self, new_sequence: u64) {
+        self.sequence = new_sequence
+    }
     fn gas_limit(&self) -> u64 {
         self.gas_limit
     }

@@ -35,6 +35,8 @@ pub trait Message {
     fn set_gas_price(&mut self, _: TokenAmount);
     //sets the gas limit
     fn set_gas_limit(&mut self, _: u64);
+    /// sets a new sequence to the message
+    fn set_sequence(&mut self, _: u64);
     /// Returns the gas limit for the message
     fn gas_limit(&self) -> u64;
     /// Returns the required funds for the message
