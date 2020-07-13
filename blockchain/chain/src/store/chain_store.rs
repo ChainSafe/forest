@@ -35,7 +35,8 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
-//Enum for pubsub channel that defines message type variant and data contained in message type.
+
+/// Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
 pub enum ChainMessage {
     HcCurrent(Arc<Tipset>),
