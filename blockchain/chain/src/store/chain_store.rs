@@ -481,8 +481,12 @@ where
                 applied.insert(*from_address, actor_state.sequence);
                 balances.insert(*from_address, actor_state.balance);
             }
-            let apply = applied.get(from_address);
-            if apply.map(|s| s != &message.sequence()).unwrap_or_default() {
+            if let Some(seq) = applied.get_mut(from_address) {
+                if *seq != message.sequence() {
+                    continue;
+                }
+                *seq += 1;
+            } else {
                 continue;
             }
             let balance = balances.get(from_address).cloned();
