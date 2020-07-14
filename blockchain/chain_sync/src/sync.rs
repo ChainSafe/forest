@@ -1024,7 +1024,7 @@ mod tests {
     use beacon::MockBeacon;
     use blocks::BlockHeader;
     use db::MemoryDB;
-    use forest_libp2p::{rpc::RequestId, NetworkEvent};
+    use forest_libp2p::{NetworkEvent};
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
@@ -1066,10 +1066,9 @@ mod tests {
         task::block_on(async {
             match blocksync_message.recv().await.unwrap() {
                 NetworkMessage::BlockSyncRequest {
-                    peer_id,
-                    request,
-                    id,
-                    mut response_channel,
+                    peer_id: _,
+                    request: _,
+                    response_channel,
                 } => {
                     response_channel.send(rpc_response).unwrap();
                 }
@@ -1099,7 +1098,7 @@ mod tests {
     #[test]
     fn sync_headers_reverse_given_tipsets_test() {
         let db = Arc::new(MemoryDB::default());
-        let (mut cs, event_sender, network_receiver) = chain_syncer_setup(db);
+        let (mut cs, _event_sender, network_receiver) = chain_syncer_setup(db);
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
 
