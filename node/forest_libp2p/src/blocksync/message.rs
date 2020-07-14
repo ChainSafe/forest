@@ -119,7 +119,7 @@ fn fts_from_bundle_parts(
     }
 
     fn values_from_indexes<T: Clone>(indexes: &[u64], values: &[T]) -> Result<Vec<T>, String> {
-        let msgs = indexes
+        indexes
             .iter()
             .map(|idx| {
                 values
@@ -127,8 +127,7 @@ fn fts_from_bundle_parts(
                     .cloned()
                     .ok_or_else(|| "Invalid message index".to_string())
             })
-            .collect::<Result<_, _>>()?;
-        Ok(msgs)
+            .collect()
     }
 
     let blocks = headers
