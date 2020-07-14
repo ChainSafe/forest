@@ -51,7 +51,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_verify_sigs: RefCell<Vec<ExpectedVerifySig>>,
     pub expect_verify_seal: RefCell<Option<ExpectVerifySeal>>,
     pub expect_verify_post: RefCell<Option<ExpectVerifyPoSt>>,
-    pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid<'a>>>,
+    pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid>>,
     pub expect_verify_consensus_fault: RefCell<Option<ExpectVerifyConsensusFault>>,
 }
 
@@ -103,9 +103,9 @@ pub struct ExpectVerifyConsensusFault {
 }
 
 #[derive(Clone)]
-pub struct ExpectComputeUnsealedSectorCid<'a> {
+pub struct ExpectComputeUnsealedSectorCid {
     reg: RegisteredSealProof,
-    pieces: &'a Vec<PieceInfo>,
+    pieces: Vec<PieceInfo>,
     cid: Cid,
     exit_code: ExitCode,
 }
@@ -206,7 +206,7 @@ where
     }
 
     #[allow(dead_code)]
-    pub fn expect_compute_unsealed_sector_cid(&self, exp: ExpectComputeUnsealedSectorCid<'a>) {
+    pub fn expect_compute_unsealed_sector_cid(&self, exp: ExpectComputeUnsealedSectorCid) {
         *self.expect_compute_unsealed_sector_cid.borrow_mut() = Some(exp);
     }
 
