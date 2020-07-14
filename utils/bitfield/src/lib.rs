@@ -60,7 +60,7 @@ impl BitField {
     /// Creates a new bit field from a `RangeIterator`.
     pub fn from_ranges(iter: impl RangeIterator) -> Self {
         Self {
-            ranges: iter.into_iter().collect(),
+            ranges: iter.collect(),
             ..Default::default()
         }
     }

@@ -104,12 +104,7 @@ impl BitField {
         let mut ranges = Vec::new();
         let mut index = 0;
 
-        loop {
-            let len = match reader.read_len()? {
-                Some(len) => len,
-                None => break,
-            };
-
+        while let Some(len) = reader.read_len()? {
             let start = index;
             index += len;
             let end = index;

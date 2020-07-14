@@ -98,7 +98,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
         loop {
             let (a, b) = match (self.a.peek(), self.b.peek()) {
                 (Some(a), Some(b)) => (a, b),
-                _ => return self.a.next().or(self.b.next()),
+                _ => return self.a.next().or_else(|| self.b.next()),
             };
 
             if a.start <= b.start {
