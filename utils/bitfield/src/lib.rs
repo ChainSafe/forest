@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod iter;
+mod iter;
 
-mod encoding;
+mod rleplus;
 
 use ahash::AHashSet;
 use iter::{ranges_from_bits, RangeIterator};
