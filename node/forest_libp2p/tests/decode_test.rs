@@ -43,7 +43,7 @@ fn convert_single_tipset_bundle() {
         status: 0,
         message: "".into(),
     }
-    .into_result()
+    .into_result::<FullTipset>()
     .unwrap();
 
     assert_eq!(res, [FullTipset::new(vec![block]).unwrap()]);

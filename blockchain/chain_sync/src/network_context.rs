@@ -17,7 +17,7 @@ use log::trace;
 use std::time::Duration;
 
 /// Timeout for response from an RPC request
-const RPC_TIMEOUT: u64 = 5;
+const RPC_TIMEOUT: u64 = 10;
 
 /// Context used in chain sync to handle network requests
 pub struct SyncNetworkContext {
@@ -66,8 +66,8 @@ impl SyncNetworkContext {
             )
             .await?;
 
-        let ts = bs_res.into_result()?;
-        Ok(ts.iter().map(|fts| fts.to_tipset()).collect())
+        let ts: Vec<Tipset> = bs_res.into_result()?;
+        Ok(ts)
     }
     /// Send a blocksync request for full tipsets (includes messages)
     pub async fn blocksync_fts(
