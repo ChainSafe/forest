@@ -732,14 +732,14 @@ where
         if exp.reg != reg {
             return Err(Box::new(ActorError::new(
                 ExitCode::ErrIllegalState,
-                "Unexpected PoSt verification : reg mismatch".to_string(),
+                "Unexpected compute_unsealed_sector_cid : reg mismatch".to_string(),
             )));
         }
 
         if exp.pieces[..].eq(pieces) {
             return Err(Box::new(ActorError::new(
                 ExitCode::ErrIllegalState,
-                "Unexpected PoSt verification : pieces mismatch".to_string(),
+                "Unexpected compute_unsealed_sector_cid : pieces mismatch".to_string(),
             )));
         }
 
