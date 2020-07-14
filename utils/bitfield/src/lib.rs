@@ -117,10 +117,10 @@ impl BitField {
 
         // turns this `Option<Range<usize>>` into a `RangeIterator`, relying on the
         // fact that `Option<T>` is an `IntoIterator` over `T` with 0 or 1 items
-        let ranges = iter::Ranges::new(min_range);
+        let min_range_iterator = iter::Ranges::new(min_range);
 
         self.inner_ranges()
-            .merge(ranges)
+            .merge(min_range_iterator)
             .flatten()
             .find(|i| !self.unset.contains(i))
     }
