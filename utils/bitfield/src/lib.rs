@@ -159,6 +159,11 @@ impl BitField {
         }
     }
 
+    /// Returns an iterator over the ranges without applying the set/unset bits.
+    fn inner_ranges(&self) -> impl RangeIterator + '_ {
+        iter::Ranges::new(self.ranges.iter().cloned())
+    }
+
     /// Returns an iterator over the ranges of set bits that make up the bit field. The
     /// ranges are in ascending order, are non-empty, and don't overlap.
     pub fn ranges(&self) -> impl RangeIterator + '_ {
@@ -171,10 +176,6 @@ impl BitField {
         self.inner_ranges()
             .merge(ranges(&self.set))
             .difference(ranges(&self.unset))
-    }
-
-    fn inner_ranges(&self) -> impl RangeIterator + '_ {
-        iter::Ranges::new(self.ranges.iter().cloned())
     }
 
     /// Returns `true` if the bit field is empty.
