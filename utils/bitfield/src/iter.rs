@@ -3,28 +3,6 @@
 
 use std::{iter, ops::Range};
 
-struct RangePeekable<I> {
-    iter: I,
-    range: Option<Option<Range<usize>>>,
-}
-
-impl<I: RangeIterator> RangePeekable<I> {
-    fn new(iter: I) -> Self {
-        Self { iter, range: None }
-    }
-
-    fn range(&mut self) -> Option<&mut Range<usize>> {
-        let iter = &mut self.iter;
-        self.range.get_or_insert_with(|| iter.next()).as_mut()
-    }
-
-    fn advance(&mut self) -> Option<Range<usize>> {
-        // we only ever call this after calling `range()` first, and this assertion slightly improves performance
-        assert!(self.range.is_some());
-        self.range.take().flatten()
-    }
-}
-
 /// A trait for iterators over `Range<usize>`.
 ///
 /// Requirements:
@@ -73,6 +51,40 @@ pub trait RangeIterator: Iterator<Item = Range<usize>> + Sized {
     }
 }
 
+/// A wrapper over a `RangeIterator` that lets you "peek" at the next range.
+///
+/// Like `std::iter::Peekable`, but only for `RangeIterator`s, and with
+/// the ability to get a mutable reference to the peeked range. Used
+/// by the `Union`/`Intersection`/`Difference` range iterators.
+struct RangePeekable<I> {
+    iter: I,
+    /// Stores the peeked range. `None` means that no range was peeked, and
+    /// `Some(None)` means that `peek` was called but the iterator was empty.
+    peeked: Option<Option<Range<usize>>>,
+}
+
+impl<I: RangeIterator> RangePeekable<I> {
+    fn new(iter: I) -> Self {
+        Self { iter, peeked: None }
+    }
+
+    fn peek(&mut self) -> Option<&mut Range<usize>> {
+        // the borrow checker needs this to be stored in a separate variable
+        let iter = &mut self.iter;
+        self.peeked.get_or_insert_with(|| iter.next()).as_mut()
+    }
+}
+
+impl<I: RangeIterator> Iterator for RangePeekable<I> {
+    type Item = Range<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.peeked.take().unwrap_or_else(|| self.iter.next())
+    }
+}
+
+impl<I: RangeIterator> RangeIterator for RangePeekable<I> {}
+
 /// A `RangeIterator` over the bits that represent the union of two other `RangeIterator`s.
 pub struct Union<A, B> {
     a: RangePeekable<A>,
@@ -84,9 +96,9 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let (a, b) = match (self.a.range(), self.b.range()) {
+            let (a, b) = match (self.a.peek(), self.b.peek()) {
                 (Some(a), Some(b)) => (a, b),
-                _ => return self.a.advance().or(self.b.advance()),
+                _ => return self.a.next().or(self.b.next()),
             };
 
             if a.start <= b.start {
@@ -96,7 +108,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
                     // a: -xxx-----
                     // b: -----xxx-
 
-                    return self.a.advance();
+                    return self.a.next();
                 } else if a.end < b.end {
                     // a.start <= b.start <= a.end < b.end
                     //
@@ -107,14 +119,14 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
                     // return it yet because it might overlap with another range
                     // in `a_iter`
                     b.start = a.start;
-                    self.a.advance();
+                    self.a.next();
                 } else {
                     // a.start <= b.start < b.end <= a.end
                     //
                     // a: -xxx- or -xxxx- or -xxxx- or -xxxxxx-
                     // b: -xxx-    ---xx-    -xx---    ---xx---
 
-                    self.b.advance();
+                    self.b.next();
                 }
             } else {
                 // b.start < a.start
@@ -128,7 +140,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
                     // a: -----xxx-
                     // b: -xxx-----
 
-                    return self.b.advance();
+                    return self.b.next();
                 } else if b.end < a.end {
                     // b.start < a.start <= b.end < a.end
                     //
@@ -136,14 +148,14 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
                     // b: -xxx----    -xxxx---
 
                     a.start = b.start;
-                    self.b.advance();
+                    self.b.next();
                 } else {
                     // b.start < a.start < a.end <= b.end
                     //
                     // a: ---xx- or ---xx---
                     // b: -xxxx-    -xxxxxx-
 
-                    self.a.advance();
+                    self.a.next();
                 }
             }
         }
@@ -163,7 +175,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let (a, b) = match (self.a.range(), self.b.range()) {
+            let (a, b) = match (self.a.peek(), self.b.peek()) {
                 (Some(a), Some(b)) => (a, b),
                 _ => return None,
             };
@@ -175,7 +187,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
                     // a: -xxx---- or -xxx-----
                     // b: ----xxx-    -----xxx-
 
-                    self.a.advance();
+                    self.a.next();
                 } else if a.end < b.end {
                     // a.start <= b.start < a.end < b.end
                     //
@@ -183,7 +195,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
                     // b: -xxxx-    ---xxxx-
 
                     let intersection = b.start..a.end;
-                    self.a.advance();
+                    self.a.next();
                     return Some(intersection);
                 } else {
                     // a.start <= b.start < b.end <= a.end
@@ -191,7 +203,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
                     // a: -xxx- or -xxxx- or -xxxx- or -xxxxxx-
                     // b: -xxx-    ---xx-    -xx---    ---xx---
 
-                    return self.b.advance();
+                    return self.b.next();
                 }
             } else {
                 // b.start < a.start
@@ -205,7 +217,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
                     // a: ----xxx- or -----xxx-
                     // b: -xxx----    -xxx-----
 
-                    self.b.advance();
+                    self.b.next();
                 } else if b.end < a.end {
                     // b.start < a.start < b.end < a.end
                     //
@@ -213,7 +225,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
                     // b: -xxxx---
 
                     let intersection = a.start..b.end;
-                    self.b.advance();
+                    self.b.next();
                     return Some(intersection);
                 } else {
                     // b.start < a.start < a.end <= b.end
@@ -221,7 +233,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
                     // a: ---xx- or ---xx---
                     // b: -xxxx-    -xxxxxx-
 
-                    return self.a.advance();
+                    return self.a.next();
                 }
             }
         }
@@ -241,9 +253,9 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let (a, b) = match (self.a.range(), self.b.range()) {
+            let (a, b) = match (self.a.peek(), self.b.peek()) {
                 (Some(a), Some(b)) => (a, b),
-                _ => return self.a.advance(),
+                _ => return self.a.next(),
             };
 
             if a.start < b.start {
@@ -253,7 +265,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
                     // a: -xxx---- or -xxx-----
                     // b: ----xxx-    -----xxx-
 
-                    return self.a.advance();
+                    return self.a.next();
                 } else if b.end < a.end {
                     // a.start < b.start < b.end < a.end
                     //
@@ -262,7 +274,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
 
                     let difference = a.start..b.start;
                     a.start = b.end;
-                    self.b.advance();
+                    self.b.next();
                     return Some(difference);
                 } else {
                     // a.start < b.start < a.end <= b.end
@@ -271,7 +283,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
                     // b: ---xx-    ---xxxx-
 
                     let difference = a.start..b.start;
-                    self.a.advance();
+                    self.a.next();
                     return Some(difference);
                 }
             } else {
@@ -283,14 +295,14 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
                     // a: ----xxx- or -----xxx-
                     // b: -xxx----    -xxx-----
 
-                    self.b.advance();
+                    self.b.next();
                 } else if a.end <= b.end {
                     // b.start <= a.start < a.end <= b.end
                     //
                     // a: -xxx- or ---xx- or -xx--- or ---xx---
                     // b: -xxx-    -xxxx-    -xxxx-    -xxxxxx-
 
-                    self.a.advance();
+                    self.a.next();
                 } else {
                     // b.start <= a.start < b.end < a.end
                     //
@@ -298,7 +310,7 @@ impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
                     // b: -xx---    -xxxx---
 
                     a.start = b.end;
-                    self.b.advance();
+                    self.b.next();
                 }
             }
         }

@@ -22,15 +22,11 @@ const VARINT_MAX_BYTES: usize = 9;
 
 type Result<T> = std::result::Result<T, &'static str>;
 
-/// An RLE+ encoded bit field with buffered insertion/removal. Similar to `HashSet<usize>`,
-/// but more memory-efficient when long runs of 1s and 0s are present.
-///
-/// When deserializing a bit field, in order to distinguish between an invalid RLE+ encoding
-/// and any other deserialization errors, deserialize into an `UnverifiedBitField` and
-/// call `verify` on it.
+/// An bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
+/// `HashSet<usize>`, but more memory-efficient when long runs of 1s and 0s are present.
 #[derive(Debug, Default, Clone)]
 pub struct BitField {
-    /// The underlying RLE+ encoded bitvec.
+    /// The underlying ranges of 1s.
     ranges: Vec<Range<usize>>,
     /// Bits set to 1. Never overlaps with `unset`.
     set: AHashSet<usize>,
@@ -272,6 +268,7 @@ impl BitField {
         other.difference(self).next().is_none()
     }
 
+    /// Decodes RLE+ encoded bytes into a bit field.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut reader = BitReader::new(bytes);
 

@@ -3,20 +3,23 @@
 
 use bitfield::BitField;
 
+/// An example bit field.
 pub fn example1() -> BitField {
     BitField::from_bytes(EXAMPLE1).unwrap()
 }
 
+/// Another example bit field.
 pub fn example2() -> BitField {
     BitField::from_bytes(EXAMPLE2).unwrap()
 }
 
-// taken from go-bitfield, properties:
+// taken from go-bitfield
+// properties:
 // - 1362 runs
-//   - 54 single
-//   - 399 small
-//   - 909 large
-// - 955 set bits between 0 and ~1M
+//   - 54 single bit
+//   - 399 small block
+//   - 909 large block
+// - 9955 set bits between 0 and ~1M
 // - 681 ranges
 const EXAMPLE1: &[u8] = &[
     0x20, 0xfc, 0x40, 0xc2, 0xcc, 0xe5, 0xd8, 0xc1, 0xe1, 0x1e, 0x23, 0xd3, 0x02, 0x2e, 0xcd, 0x03,
@@ -150,7 +153,8 @@ const EXAMPLE1: &[u8] = &[
     0xf0, 0x40, 0xf6, 0x60, 0x05, 0xca, 0x07, 0x1b, 0xcf, 0x02, 0x0b, 0x61, 0x12, 0x15,
 ];
 
-// the same runs as the first one but shuffled, so it has the exact same properties
+// the same runs as the first one but shuffled (the runs of 1s are still runs of 1s, just in a
+// different location), so it has the exact same properties
 const EXAMPLE2: &[u8] = &[
     0xa0, 0xb8, 0x81, 0x0e, 0x4a, 0x21, 0x5c, 0xaa, 0x05, 0x14, 0x60, 0x0f, 0x82, 0x1c, 0xa1, 0xc0,
     0x3c, 0x02, 0x06, 0xe9, 0x02, 0xdc, 0x90, 0x2f, 0xe0, 0x01, 0x21, 0x31, 0x3d, 0xe1, 0x60, 0x1c,
