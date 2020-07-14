@@ -351,12 +351,10 @@ impl ForestBehaviour {
     }
 
     /// Send an RPC request or response to some peer.
-    pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest, id: RequestId) {
+    pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest) -> RequestId {
         match req {
-            RPCRequest::Hello(request) => self.hello.send_request_with_id(peer_id, request, id),
-            RPCRequest::BlockSync(request) => {
-                self.blocksync.send_request_with_id(peer_id, request, id)
-            }
+            RPCRequest::Hello(request) => self.hello.send_request(peer_id, request),
+            RPCRequest::BlockSync(request) => self.blocksync.send_request(peer_id, request),
         }
     }
 

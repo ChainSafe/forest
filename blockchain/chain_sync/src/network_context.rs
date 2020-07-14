@@ -8,7 +8,6 @@ use flo_stream::Subscriber;
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
     hello::HelloRequest,
-    rpc::RequestId,
     NetworkEvent, NetworkMessage,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
@@ -24,9 +23,6 @@ pub struct SyncNetworkContext {
     /// Channel to send network messages through p2p service
     network_send: Sender<NetworkMessage>,
 
-    /// Handles sequential request ID enumeration for requests
-    request_id: RequestId,
-
     /// Receiver channel for network events
     pub receiver: Subscriber<NetworkEvent>,
 }
@@ -36,7 +32,6 @@ impl SyncNetworkContext {
         Self {
             network_send,
             receiver,
-            request_id: RequestId(1),
         }
     }
 
@@ -91,16 +86,12 @@ impl SyncNetworkContext {
         request: BlockSyncRequest,
     ) -> Result<BlockSyncResponse, String> {
         trace!("Sending BlockSync Request {:?}", request);
-        let request_id = self.request_id;
-        self.request_id.0 += 1;
 
         let (tx, rx) = oneshot_channel();
-
         self.network_send
             .send(NetworkMessage::BlockSyncRequest {
                 peer_id,
                 request,
-                id: request_id,
                 response_channel: tx,
             })
             .await;
@@ -117,12 +108,7 @@ impl SyncNetworkContext {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
         self.network_send
-            .send(NetworkMessage::HelloRequest {
-                peer_id,
-                request,
-                id: self.request_id,
-            })
+            .send(NetworkMessage::HelloRequest { peer_id, request })
             .await;
-        self.request_id.0 += 1;
     }
 }

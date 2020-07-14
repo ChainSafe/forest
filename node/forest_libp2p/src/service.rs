@@ -72,13 +72,11 @@ pub enum NetworkMessage {
     BlockSyncRequest {
         peer_id: PeerId,
         request: BlockSyncRequest,
-        id: RequestId,
         response_channel: OneShotSender<BlockSyncResponse>,
     },
     HelloRequest {
         peer_id: PeerId,
         request: HelloRequest,
-        id: RequestId,
     },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
@@ -236,12 +234,12 @@ where
                         NetworkMessage::PubsubMessage { topic, message } => {
                             swarm_stream.get_mut().publish(&topic, message);
                         }
-                        NetworkMessage::HelloRequest { peer_id, request, id } => {
-                            swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::Hello(request), id);
+                        NetworkMessage::HelloRequest { peer_id, request } => {
+                            let _ = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::Hello(request));
                         }
-                        NetworkMessage::BlockSyncRequest { peer_id, request, id, response_channel } => {
+                        NetworkMessage::BlockSyncRequest { peer_id, request, response_channel } => {
+                            let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request));
                             self.bs_request_table.lock().await.insert(id, response_channel);
-                            swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request), id);
                         }
                     }
                     None => { break; }
