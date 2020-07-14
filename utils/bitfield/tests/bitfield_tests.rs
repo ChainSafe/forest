@@ -266,11 +266,13 @@ fn encoding() {
             bitfield![1],
         ),
     ] {
-        let mut writer = BitWriter::new();
-        for bit in bits {
-            writer.write(bit, 1);
-        }
-        let bf = BitField::from_bytes(&writer.finish()).unwrap();
+        // this turns the bit vector into a byte vector by taking chunks of 8 bits at a time
+        // and turning each chunk into a byte
+        let bytes: Vec<u8> = bits
+            .chunks(8)
+            .map(|chunk| chunk.iter().rev().fold(0, |byte, bit| (byte << 1) | bit))
+            .collect();
+        let bf = BitField::from_bytes(&bytes).unwrap();
         assert_eq!(bf, expected);
     }
 }

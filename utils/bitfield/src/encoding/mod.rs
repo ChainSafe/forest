@@ -1,0 +1,162 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+//! # RLE+ Bitset Encoding
+//!
+//! (from https://github.com/filecoin-project/specs/blob/master/src/listings/data_structures.md)
+//!
+//! RLE+ is a lossless compression format based on [RLE](https://en.wikipedia.org/wiki/Run-length_encoding).
+//! Its primary goal is to reduce the size in the case of many individual bits, where RLE breaks down quickly,
+//! while keeping the same level of compression for large sets of contiguous bits.
+//!
+//! In tests it has shown to be more compact than RLE iteself, as well as [Concise](https://arxiv.org/pdf/1004.0403.pdf) and [Roaring](https://roaringbitmap.org/).
+//!
+//! ## Format
+//!
+//! The format consists of a header, followed by a series of blocks, of which there are three different types.
+//!
+//! The format can be expressed as the following [BNF](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form) grammar.
+//!
+//! ```text
+//!     <encoding>  ::= <header> <blocks>
+//!       <header>  ::= <version> <bit>
+//!      <version>  ::= "00"
+//!       <blocks>  ::= <block> <blocks> | ""
+//!        <block>  ::= <block_single> | <block_short> | <block_long>
+//! <block_single>  ::= "1"
+//!  <block_short>  ::= "01" <bit> <bit> <bit> <bit>
+//!   <block_long>  ::= "00" <unsigned_varint>
+//!          <bit>  ::= "0" | "1"
+//! ```
+//!
+//! An `<unsigned_varint>` is defined as specified [here](https://github.com/multiformats/unsigned-varint).
+//!
+//! ### Header
+//!
+//! The header indiciates the very first bit of the bit vector to encode. This means the first bit is always
+//! the same for the encoded and non encoded form.
+//!
+//! ### Blocks
+//!
+//! The blocks represent how many bits, of the current bit type there are. As `0` and `1` alternate in a bit vector
+//! the inital bit, which is stored in the header, is enough to determine if a length is currently referencing
+//! a set of `0`s, or `1`s.
+//!
+//! #### Block Single
+//!
+//! If the running length of the current bit is only `1`, it is encoded as a single set bit.
+//!
+//! #### Block Short
+//!
+//! If the running length is less than `16`, it can be encoded into up to four bits, which a short block
+//! represents. The length is encoded into a 4 bits, and prefixed with `01`, to indicate a short block.
+//!
+//! #### Block Long
+//!
+//! If the running length is `16` or larger, it is encoded into a varint, and then prefixed with `00` to indicate
+//! a long block.
+//!
+//!
+//! > **Note:** The encoding is unique, so no matter which algorithm for encoding is used, it should produce
+//! > the same encoding, given the same input.
+//!
+
+mod reader;
+mod writer;
+
+pub use reader::BitReader;
+pub use writer::BitWriter;
+
+use super::{BitField, Result};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+impl Serialize for BitField {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let bytes = self.to_bytes();
+        serde_bytes::serialize(&bytes, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for BitField {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
+        Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
+    }
+}
+
+impl BitField {
+    /// Decodes RLE+ encoded bytes into a bit field.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut reader = BitReader::new(bytes);
+
+        let version = reader.read(2);
+        if version != 0 {
+            return Err("incorrect version");
+        }
+
+        let mut next_value = reader.read(1) == 1;
+        let mut ranges = Vec::new();
+        let mut index = 0;
+
+        loop {
+            let len = match reader.read_len()? {
+                Some(len) => len,
+                None => break,
+            };
+
+            let start = index;
+            index += len;
+            let end = index;
+
+            if next_value {
+                ranges.push(start..end);
+            }
+
+            next_value = !next_value;
+        }
+
+        Ok(Self {
+            ranges,
+            ..Default::default()
+        })
+    }
+
+    /// Turns a bit field into its RLE+ encoded form.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut iter = self.ranges();
+
+        let first_range = match iter.next() {
+            Some(range) => range,
+            None => return Default::default(),
+        };
+
+        let mut writer = BitWriter::new();
+        writer.write(0, 2); // version 00
+
+        if first_range.start == 0 {
+            writer.write(1, 1); // the first bit is a 1
+        } else {
+            writer.write(0, 1); // the first bit is a 0
+            writer.write_len(first_range.start); // the number of leading 0s
+        }
+
+        writer.write_len(first_range.len());
+        let mut index = first_range.end;
+
+        // for each range of 1s we first encode the number of 0s that came prior
+        // before encoding the number of 1s
+        for range in iter {
+            writer.write_len(range.start - index); // zeros
+            writer.write_len(range.len()); // ones
+            index = range.end;
+        }
+
+        writer.finish()
+    }
+}

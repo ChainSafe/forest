@@ -3,22 +3,14 @@
 
 pub mod iter;
 
-mod reader;
-mod writer;
-
-pub use reader::BitReader;
-pub use writer::BitWriter;
+mod encoding;
 
 use ahash::AHashSet;
 use iter::{ranges_from_bits, RangeIterator};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     iter::FromIterator,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Range, Sub, SubAssign},
 };
-
-// https://github.com/multiformats/unsigned-varint#practical-maximum-of-9-bytes-for-security
-const VARINT_MAX_BYTES: usize = 9;
 
 type Result<T> = std::result::Result<T, &'static str>;
 
@@ -56,26 +48,6 @@ impl FromIterator<bool> for BitField {
             .filter(|&(_, b)| b)
             .map(|(i, _)| i);
         Self::from_ranges(ranges_from_bits(bits))
-    }
-}
-
-impl Serialize for BitField {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let bytes = self.to_bytes();
-        serde_bytes::serialize(&bytes, serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for BitField {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
-        Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }
 
@@ -266,75 +238,6 @@ impl BitField {
     /// Returns true if the `self` is a superset of `other`.
     pub fn contains_all(&self, other: &BitField) -> bool {
         other.difference(self).next().is_none()
-    }
-
-    /// Decodes RLE+ encoded bytes into a bit field.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let mut reader = BitReader::new(bytes);
-
-        let version = reader.read(2);
-        if version != 0 {
-            return Err("incorrect version");
-        }
-
-        let mut next_value = reader.read(1) == 1;
-        let mut ranges = Vec::new();
-        let mut index = 0;
-
-        loop {
-            let len = match reader.read_len()? {
-                Some(len) => len,
-                None => break,
-            };
-
-            let start = index;
-            index += len;
-            let end = index;
-
-            if next_value {
-                ranges.push(start..end);
-            }
-
-            next_value = !next_value;
-        }
-
-        Ok(Self {
-            ranges,
-            ..Default::default()
-        })
-    }
-
-    /// Turns a bit field into its RLE+ encoded form.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut iter = self.ranges();
-
-        let first_range = match iter.next() {
-            Some(range) => range,
-            None => return Default::default(),
-        };
-
-        let mut writer = BitWriter::new();
-        writer.write(0, 2); // version 00
-
-        if first_range.start == 0 {
-            writer.write(1, 1); // the first bit is a 1
-        } else {
-            writer.write(0, 1); // the first bit is a 0
-            writer.write_len(first_range.start); // the number of leading 0s
-        }
-
-        writer.write_len(first_range.len());
-        let mut index = first_range.end;
-
-        // for each range of 1s we first encode the number of 0s that came prior
-        // before encoding the number of 1s
-        for range in iter {
-            writer.write_len(range.start - index); // zeros
-            writer.write_len(range.len()); // ones
-            index = range.end;
-        }
-
-        writer.finish()
     }
 }
 
