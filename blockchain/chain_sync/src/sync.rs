@@ -1024,7 +1024,7 @@ mod tests {
     use beacon::MockBeacon;
     use blocks::BlockHeader;
     use db::MemoryDB;
-    use forest_libp2p::{NetworkEvent};
+    use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
