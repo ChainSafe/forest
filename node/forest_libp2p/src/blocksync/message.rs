@@ -131,25 +131,27 @@ fn fts_from_bundle_parts(
         Ok(msgs)
     }
 
-    let mut blocks: Vec<Block> = Vec::with_capacity(headers.len());
+    let blocks = headers
+        .into_iter()
+        .enumerate()
+        .map(|(i, header)| {
+            let message_count = bls_msg_includes[i].len() + secp_msg_includes[i].len();
+            if message_count > BLOCK_MESSAGE_LIMIT {
+                return Err(format!(
+                    "Block {} in bundle has too many messages ({} > {})",
+                    i, message_count, BLOCK_MESSAGE_LIMIT
+                ));
+            }
+            let bls_messages = values_from_indexes(&bls_msg_includes[i], &bls_msgs)?;
+            let secp_messages = values_from_indexes(&secp_msg_includes[i], &secp_msgs)?;
 
-    for (i, header) in headers.into_iter().enumerate() {
-        let message_count = bls_msg_includes[i].len() + secp_msg_includes[i].len();
-        if message_count > BLOCK_MESSAGE_LIMIT {
-            return Err(format!(
-                "Block {} in bundle has too many messages ({} > {})",
-                i, message_count, BLOCK_MESSAGE_LIMIT
-            ));
-        }
-        let bls_messages = values_from_indexes(&bls_msg_includes[i], &bls_msgs)?;
-        let secp_messages = values_from_indexes(&secp_msg_includes[i], &secp_msgs)?;
-
-        blocks.push(Block {
-            header,
-            secp_messages,
-            bls_messages,
-        });
-    }
+            Ok(Block {
+                header,
+                secp_messages,
+                bls_messages,
+            })
+        })
+        .collect::<Result<_, _>>()?;
 
     Ok(FullTipset::new(blocks).map_err(|e| e.to_string())?)
 }
