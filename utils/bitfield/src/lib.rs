@@ -1,8 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod iter;
-
+pub mod iter;
 mod rleplus;
 
 use ahash::AHashSet;
