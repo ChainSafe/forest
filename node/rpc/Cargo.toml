@@ -10,6 +10,7 @@ tide = "0.9.0"
 serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 serde_json = "1.0.48"
 chain = { path = "../../blockchain/chain" }
+chain_sync = { path = "../../blockchain/chain_sync" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore" }
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
@@ -18,3 +19,9 @@ message = { package = "forest_message", path = "../../vm/message", features = ["
 jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 num-traits = "0.2.11"
+forest_libp2p = { path = "../forest_libp2p" }
+encoding = { package = "forest_encoding", path = "../../encoding" }
+
+[dev-dependencies]
+db = { path = "../db" }
+futures = "0.3.5"
