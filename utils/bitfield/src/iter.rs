@@ -13,24 +13,24 @@ pub trait RangeIterator: Iterator<Item = Range<usize>> + Sized {
     /// Returns a new `RangeIterator` over the bits that are in `self`, in `other`, or in both.
     fn merge<R: RangeIterator>(self, other: R) -> Union<Self, R> {
         Union {
-            a: RangePeekable::new(self),
-            b: RangePeekable::new(other),
+            a: Peekable::new(self),
+            b: Peekable::new(other),
         }
     }
 
     /// Returns a new `RangeIterator` over the bits that are in both `self` and `other`.
     fn intersection<R: RangeIterator>(self, other: R) -> Intersection<Self, R> {
         Intersection {
-            a: RangePeekable::new(self),
-            b: RangePeekable::new(other),
+            a: Peekable::new(self),
+            b: Peekable::new(other),
         }
     }
 
     /// Returns a new `RangeIterator` over the bits that are in `self` but not in `other`.
     fn difference<R: RangeIterator>(self, other: R) -> Difference<Self, R> {
         Difference {
-            a: RangePeekable::new(self),
-            b: RangePeekable::new(other),
+            a: Peekable::new(self),
+            b: Peekable::new(other),
         }
     }
 
@@ -56,14 +56,14 @@ pub trait RangeIterator: Iterator<Item = Range<usize>> + Sized {
 /// Like `std::iter::Peekable`, but only for `RangeIterator`s, and with
 /// the ability to get a mutable reference to the peeked range. Used
 /// by the `Union`/`Intersection`/`Difference` range iterators.
-struct RangePeekable<I> {
+struct Peekable<I> {
     iter: I,
     /// Stores the peeked range. `None` means that no range was peeked, and
     /// `Some(None)` means that `peek` was called but the iterator was empty.
     peeked: Option<Option<Range<usize>>>,
 }
 
-impl<I: RangeIterator> RangePeekable<I> {
+impl<I: RangeIterator> Peekable<I> {
     fn new(iter: I) -> Self {
         Self { iter, peeked: None }
     }
@@ -75,7 +75,7 @@ impl<I: RangeIterator> RangePeekable<I> {
     }
 }
 
-impl<I: RangeIterator> Iterator for RangePeekable<I> {
+impl<I: RangeIterator> Iterator for Peekable<I> {
     type Item = Range<usize>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -83,12 +83,12 @@ impl<I: RangeIterator> Iterator for RangePeekable<I> {
     }
 }
 
-impl<I: RangeIterator> RangeIterator for RangePeekable<I> {}
+impl<I: RangeIterator> RangeIterator for Peekable<I> {}
 
 /// A `RangeIterator` over the bits that represent the union of two other `RangeIterator`s.
 pub struct Union<A, B> {
-    a: RangePeekable<A>,
-    b: RangePeekable<B>,
+    a: Peekable<A>,
+    b: Peekable<B>,
 }
 
 impl<A: RangeIterator, B: RangeIterator> Iterator for Union<A, B> {
@@ -166,8 +166,8 @@ impl<A: RangeIterator, B: RangeIterator> RangeIterator for Union<A, B> {}
 
 /// A `RangeIterator` over the bits that represent the intersection of two other `RangeIterator`s.
 pub struct Intersection<A, B> {
-    a: RangePeekable<A>,
-    b: RangePeekable<B>,
+    a: Peekable<A>,
+    b: Peekable<B>,
 }
 
 impl<A: RangeIterator, B: RangeIterator> Iterator for Intersection<A, B> {
@@ -244,8 +244,8 @@ impl<A: RangeIterator, B: RangeIterator> RangeIterator for Intersection<A, B> {}
 
 /// A `RangeIterator` over the bits that represent the difference between two other `RangeIterator`s.
 pub struct Difference<A, B> {
-    a: RangePeekable<A>,
-    b: RangePeekable<B>,
+    a: Peekable<A>,
+    b: Peekable<B>,
 }
 
 impl<A: RangeIterator, B: RangeIterator> Iterator for Difference<A, B> {
