@@ -119,15 +119,15 @@ fn fts_from_bundle_parts(
     }
 
     fn values_from_indexes<T: Clone>(indexes: &[u64], values: &[T]) -> Result<Vec<T>, String> {
-        let mut msgs = Vec::with_capacity(indexes.len());
-        for idx in indexes.iter() {
-            msgs.push(
+        let msgs = indexes
+            .iter()
+            .map(|idx| {
                 values
                     .get(*idx as usize)
                     .cloned()
-                    .ok_or_else(|| "Invalid message index".to_string())?,
-            );
-        }
+                    .ok_or_else(|| "Invalid message index".to_string())
+            })
+            .collect::<Result<_, _>>()?;
         Ok(msgs)
     }
 
