@@ -44,10 +44,7 @@ impl BlockSyncResponse {
             return Err(format!("Status {}: {}", self.status, self.message));
         }
 
-        self.chain
-            .into_iter()
-            .map(T::try_from)
-            .collect::<Result<_, _>>()
+        self.chain.into_iter().map(T::try_from).collect()
     }
 }
 
