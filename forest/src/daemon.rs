@@ -10,7 +10,7 @@ use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
-use rpc::start_rpc;
+use rpc::{start_rpc, RpcState};
 use std::sync::Arc;
 use utils::write_to_file;
 
@@ -52,48 +52,62 @@ pub(super) async fn start(config: Config) {
     // Get Drand Coefficients
     let coeff = config.drand_dist_public;
 
-    // Start services
-    let p2p_thread = task::spawn(async {
-        p2p_service.run().await;
-    });
-    let sync_thread = task::spawn(async {
-        // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
-        let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
-            .await
-            .unwrap();
-
-        // Initialize ChainSyncer
-        let chain_syncer = ChainSyncer::new(
-            chain_store,
-            Arc::new(beacon),
-            network_send,
-            network_rx,
-            genesis,
-        )
+    // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
+    let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
+        .await
         .unwrap();
+
+    // Initialize ChainSyncer
+    let chain_syncer = ChainSyncer::new(
+        chain_store,
+        Arc::new(beacon),
+        network_send.clone(),
+        network_rx,
+        genesis,
+    )
+    .unwrap();
+    let bad_blocks = chain_syncer.bad_blocks_cloned();
+    let sync_state = chain_syncer.sync_state_cloned();
+    let sync_task = task::spawn(async {
         chain_syncer.start().await.unwrap();
     });
 
-    let rpc_thread = if config.enable_rpc {
+    // Start services
+    let p2p_task = task::spawn(async {
+        p2p_service.run().await;
+    });
+
+    let rpc_task = if config.enable_rpc {
         let db_rpc = Arc::clone(&db);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
-        task::spawn(async move {
+        Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
-            start_rpc(db_rpc, &rpc_listen).await;
-        })
+            start_rpc(
+                RpcState {
+                    store: db_rpc,
+                    bad_blocks,
+                    sync_state,
+                    network_send,
+                    network_name,
+                },
+                &rpc_listen,
+            )
+            .await;
+        }))
     } else {
-        task::spawn(async {
-            debug!("RPC disabled");
-        })
+        debug!("RPC disabled");
+        None
     };
 
     // Block until ctrl-c is hit
     block_until_sigint().await;
 
     // Cancel all async services
-    rpc_thread.cancel().await;
-    p2p_thread.cancel().await;
-    sync_thread.cancel().await;
+    p2p_task.cancel().await;
+    sync_task.cancel().await;
+    if let Some(task) = rpc_task {
+        task.cancel().await;
+    }
 
     info!("Forest finish shutdown");
 }

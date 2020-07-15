@@ -23,3 +23,6 @@ pub trait Cbor: Serialize + DeserializeOwned {
         Ok(Cid::new_from_cbor(&self.marshal_cbor()?, Blake2b256))
     }
 }
+
+impl<T> Cbor for Vec<T> where T: Cbor {}
+impl<T> Cbor for Option<T> where T: Cbor {}

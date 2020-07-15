@@ -13,7 +13,7 @@ use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
     core::transport::boxed::Boxed,
-    gossipsub::{Topic, TopicHash},
+    gossipsub::TopicHash,
     identity::{ed25519, Keypair},
     mplex, secio, yamux, PeerId, Swarm, Transport,
 };
@@ -23,7 +23,11 @@ use std::io::{Error, ErrorKind};
 use std::time::Duration;
 use utils::read_file_to_vec;
 
-const PUBSUB_TOPICS: [&str; 2] = ["/fil/blocks", "/fil/msgs"];
+pub use libp2p::gossipsub::Topic;
+pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
+pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
+
+const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
 /// Events emitted by this Service
 #[derive(Debug)]
