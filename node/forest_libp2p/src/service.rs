@@ -28,7 +28,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
 pub use libp2p::gossipsub::Topic;
-use std::cell::RefCell;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
@@ -89,7 +88,7 @@ pub struct Libp2pService<DB: BlockStore> {
     pub swarm: Swarm<ForestBehaviour>,
     db: Arc<DB>,
     /// Keeps track of Blocksync requests to responses
-    bs_request_table: RefCell<HashMap<RequestId, OneShotSender<BlockSyncResponse>>>,
+    bs_request_table: HashMap<RequestId, OneShotSender<BlockSyncResponse>>,
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: Receiver<NetworkEvent>,
@@ -131,11 +130,10 @@ where
         let (network_sender_in, network_receiver_in) = channel(20);
         let (network_sender_out, network_receiver_out) = channel(20);
 
-        let bs_request_table = RefCell::new(HashMap::new());
         Libp2pService {
             swarm,
             db,
-            bs_request_table,
+            bs_request_table: HashMap::new(),
             network_receiver_in,
             network_sender_in,
             network_receiver_out,
@@ -144,7 +142,7 @@ where
     }
 
     /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
-    pub async fn run(self) {
+    pub async fn run(mut self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
         let mut interval = stream::interval(Duration::from_secs(10)).fuse();
@@ -198,7 +196,7 @@ where
                         }
                         ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
                             debug!("Received blocksync response (id: {:?}): {:?}", request_id, response);
-                            let tx = self.bs_request_table.borrow_mut().remove(&request_id);
+                            let tx = self.bs_request_table.remove(&request_id);
 
                             if let Some(tx) = tx {
                               if let Err(e) = tx.send(response) {
@@ -244,7 +242,7 @@ where
                         }
                         NetworkMessage::BlockSyncRequest { peer_id, request, response_channel } => {
                             let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request));
-                            self.bs_request_table.borrow_mut().insert(id, response_channel);
+                            self.bs_request_table.insert(id, response_channel);
                         }
                     }
                     None => { break; }
