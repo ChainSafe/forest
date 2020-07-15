@@ -123,16 +123,21 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
         match event {
             BitswapEvent::ReceivedBlock(peer_id, cid, data) => {
                 let cid = cid.to_bytes();
-                let cid: Cid = Cid::from_raw_cid(cid.as_slice()).unwrap();
-                self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
-                    peer_id, cid, data,
-                ));
+                match Cid::from_raw_cid(cid.as_slice()) {
+                    Ok(cid) => self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
+                        peer_id, cid, data,
+                    )),
+                    Err(e) => warn!("Fail to convert Cid: {}", e.to_string()),
+                }
             }
             BitswapEvent::ReceivedWant(peer_id, cid, _priority) => {
                 let cid = cid.to_bytes();
-                let cid: Cid = Cid::from_raw_cid(cid.as_slice()).unwrap();
-                self.events
-                    .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid));
+                match Cid::from_raw_cid(cid.as_slice()) {
+                    Ok(cid) => self
+                        .events
+                        .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid)),
+                    Err(e) => warn!("Fail to convert Cid: {}", e.to_string()),
+                }
             }
             BitswapEvent::ReceivedCancel(_peer_id, _cid) => {
                 // TODO: Determine how to handle cancel
