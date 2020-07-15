@@ -1086,7 +1086,6 @@ mod tests {
             assert_eq!(cs.peer_manager.len().await, 1);
             // make blocksync request
             let return_set = task::spawn(async move { cs.sync_headers_reverse(head, &to).await });
-            task::sleep(Duration::from_secs(1)).await;
             // send blocksync response to channel
             send_blocksync_response(network_receiver);
             assert_eq!(return_set.await.unwrap().len(), 4);

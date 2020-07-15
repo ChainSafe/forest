@@ -220,7 +220,10 @@ where
                         },
                         ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) =>  match self.db.get(&cid) {
                             Ok(Some(data)) => {
-                                swarm_stream.get_mut().send_block(&peer_id, cid, data).unwrap();
+                                match swarm_stream.get_mut().send_block(&peer_id, cid, data) {
+                                    Ok(_) => trace!("Sent bitswap message successfully"),
+                                    Err(e) => warn!("Failed to send Bitswap reply: {}", e.to_string()),
+                                }
                             }
                             Ok(None) => {
                                 trace!("Don't have data for: {}", cid);
