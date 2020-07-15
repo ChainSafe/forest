@@ -202,7 +202,7 @@ where
                             if let Some(tx) = tx {
                                 if let Err(e) = tx.send(response) {
                                     debug!("RPCResponse receive failed: {:?}", e)
-                              }
+                                }
                             }
                             else {
                                 debug!("RPCResponse receive failed: channel not found");
