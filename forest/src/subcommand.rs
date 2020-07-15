@@ -48,7 +48,12 @@ pub(super) async fn process(command: Subcommand) {
             };
 
             get_params_default(sizes, verbose).await.unwrap();
+        },
+        Subcommand::StateCommand{..} =>{
+            println!("\n Got the other command fam");
         }
+
+
     }
 }
 

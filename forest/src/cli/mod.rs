@@ -3,9 +3,11 @@
 
 mod config;
 mod genesis;
+mod state_command;
 
 pub use self::config::Config;
 pub(super) use self::genesis::initialize_genesis;
+pub use state_command::*;
 
 use std::cell::RefCell;
 use std::io;
@@ -47,6 +49,9 @@ pub enum Subcommand {
         #[structopt(short, long, help = "Show verbose logging")]
         verbose: bool,
     },
+
+    StateCommand(StateCommand),
+
 }
 
 /// Daemon process command line options.
