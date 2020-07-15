@@ -4,13 +4,15 @@
 #[cfg(test)]
 mod peer_test;
 
+use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
 use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
+use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
-use async_std::sync::{channel, Receiver, Sender};
+use async_std::sync::{channel, Receiver, RwLock, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -34,7 +36,6 @@ use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::error;
 use log::{debug, info, warn};
-use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_traits::Zero;
 use state_manager::{utils, StateManager};
@@ -45,29 +46,13 @@ use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
 
-#[derive(PartialEq, Debug, Clone)]
-/// Current state of the ChainSyncer
-pub enum SyncState {
-    /// Initial state, validating data structures and local chain
-    Init,
-
-    /// Bootstrap to the network, and acquire a secure enough set of peers
-    Bootstrap,
-
-    /// Syncing to checkpoint (using BlockSync for now)
-    Checkpoint,
-
-    /// Receive new blocks from the network and sync toward heaviest tipset
-    Catchup,
-
-    /// Once all blocks are validated to the heaviest chain, follow network
-    /// by receiving blocks over the network and validating them
-    Follow,
-}
-
+/// Struct that handles the ChainSync logic. This handles incoming network events such as
+/// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
+/// messages to be able to do the initial sync.
 pub struct ChainSyncer<DB, TBeacon> {
     /// Syncing state of chain sync
-    state: SyncState,
+    // TODO should be a vector once syncing done async and ideally not wrap each state in mutex.
+    state: Arc<RwLock<SyncState>>,
 
     /// Drand randomness beacon
     beacon: Arc<TBeacon>,
@@ -77,6 +62,7 @@ pub struct ChainSyncer<DB, TBeacon> {
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
+
     /// Represents next tipset to be synced
     next_sync_target: SyncBucket,
 
@@ -91,7 +77,7 @@ pub struct ChainSyncer<DB, TBeacon> {
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
-    bad_blocks: LruCache<Cid, String>,
+    bad_blocks: Arc<BadBlockCache>,
 
     ///  incoming network events to be handled by syncer
     net_handler: NetworkHandler,
@@ -131,13 +117,13 @@ where
         let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
 
         Ok(Self {
-            state: SyncState::Init,
+            state: Arc::new(RwLock::new(SyncState::default())),
             beacon,
             state_manager,
             chain_store,
             network,
             genesis,
-            bad_blocks: LruCache::new(1 << 15),
+            bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler,
             peer_manager,
             sync_queue: SyncBucketSet::default(),
@@ -145,6 +131,17 @@ where
         })
     }
 
+    /// Returns a clone of the bad blocks cache to be used outside of chain sync.
+    pub fn bad_blocks_cloned(&self) -> Arc<BadBlockCache> {
+        self.bad_blocks.clone()
+    }
+
+    /// Returns the atomic reference to the syncing state.
+    pub fn sync_state_cloned(&self) -> Arc<RwLock<SyncState>> {
+        self.state.clone()
+    }
+
+    /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self) -> Result<(), Error> {
         self.net_handler.spawn(Arc::clone(&self.peer_manager));
 
@@ -152,15 +149,12 @@ where
             match event {
                 NetworkEvent::HelloRequest { request, channel } => {
                     let source = channel.peer.clone();
-                    info!(
+                    debug!(
                         "Message inbound, heaviest tipset cid: {:?}",
                         request.heaviest_tip_set
                     );
                     match self
-                        .fetch_tipset(
-                            source.clone(),
-                            &TipsetKeys::new(request.heaviest_tip_set.clone()),
-                        )
+                        .fetch_tipset(source.clone(), &TipsetKeys::new(request.heaviest_tip_set))
                         .await
                     {
                         Ok(fts) => {
@@ -194,7 +188,7 @@ where
     }
 
     /// Performs syncing process
-    async fn sync(&mut self, head: &Tipset) -> Result<(), Error> {
+    async fn sync(&mut self, head: Arc<Tipset>) -> Result<(), Error> {
         // Bootstrap peers before syncing
         // TODO increase bootstrap peer count before syncing
         const MIN_PEERS: usize = 1;
@@ -214,14 +208,35 @@ where
         info!("Starting block sync...");
 
         // Sync headers from network from head to heaviest from storage
-        let tipsets = self.sync_headers_reverse(head.clone(), &heaviest).await?;
-        self.set_state(SyncState::Catchup);
+        self.state
+            .write()
+            .await
+            .init(heaviest.clone(), head.clone());
+        let tipsets = match self
+            .sync_headers_reverse(head.as_ref().clone(), &heaviest)
+            .await
+        {
+            Ok(ts) => ts,
+            Err(e) => {
+                self.state.write().await.error(e.to_string());
+                return Err(e);
+            }
+        };
+
         // Persist header chain pulled from network
-        self.persist_headers(&tipsets).await?;
+        self.set_stage(SyncStage::PersistHeaders).await;
+        if let Err(e) = self.persist_headers(&tipsets).await {
+            self.state.write().await.error(e.to_string());
+            return Err(e);
+        }
 
         // Sync and validate messages from fetched tipsets
-        self.sync_messages_check_state(&tipsets).await?;
-        self.set_state(SyncState::Follow);
+        self.set_stage(SyncStage::Messages).await;
+        if let Err(e) = self.sync_messages_check_state(&tipsets).await {
+            self.state.write().await.error(e.to_string());
+            return Err(e);
+        }
+        self.set_stage(SyncStage::Complete).await;
 
         Ok(())
     }
@@ -267,17 +282,14 @@ where
                             .await?;
 
                         for b in ts_bundle.chain {
-                            let ts = ts[i as usize].clone();
                             // construct full tipsets from fetched messages
-                            let fts = self.tipset_msgs(
-                                ts,
-                                &b.bls_msgs,
-                                &b.secp_msgs,
-                                b.bls_msg_includes,
-                                b.secp_msg_includes,
-                            )?;
+                            let fts: FullTipset = (&b).try_into().map_err(Error::Other)?;
+
                             // validate tipset and messages
-                            self.validate_tipsets(fts).await?;
+                            let curr_epoch = fts.epoch();
+                            self.validate_tipset(fts).await?;
+                            self.state.write().await.set_epoch(curr_epoch);
+
                             // store messages
                             self.chain_store.put_messages(&b.bls_msgs)?;
                             self.chain_store.put_messages(&b.secp_msgs)?;
@@ -288,59 +300,14 @@ where
                 }
             };
             // full tipset found in storage; validate and continue
-            self.validate_tipsets(fts).await?;
+            let curr_epoch = fts.epoch();
+            self.validate_tipset(fts).await?;
+            self.state.write().await.set_epoch(curr_epoch);
             i -= 1;
             continue;
         }
 
         Ok(())
-    }
-
-    /// Returns FullTipset with unchecked messages
-    fn tipset_msgs(
-        &self,
-        ts: Tipset,
-        bls_msgs: &[UnsignedMessage],
-        secp_msgs: &[SignedMessage],
-        bmi: Vec<Vec<u64>>,
-        smi: Vec<Vec<u64>>,
-    ) -> Result<FullTipset, Error> {
-        // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for block message limit
-        const BLOCK_MESSAGE_LIMIT: usize = 512;
-        let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
-
-        for (i, header) in ts.blocks().iter().enumerate() {
-            let mut smgs = Vec::new();
-            for (x, _) in smi[i].iter().enumerate() {
-                smgs.push(secp_msgs[x].clone());
-            }
-
-            let mut bmgs = Vec::new();
-            for (y, _) in bmi[i].iter().enumerate() {
-                bmgs.push(bls_msgs[y].clone());
-            }
-
-            // ensure message count is below the limit
-            let msg_count = bls_msgs.len() + secp_msgs.len();
-            if msg_count > BLOCK_MESSAGE_LIMIT {
-                return Err(Error::Other("Block has too many messages".to_string()));
-            }
-
-            // validate message root from header matches message root
-            let sm_root = compute_msg_data(self.chain_store.blockstore(), &bls_msgs, &secp_msgs)?;
-            if header.messages() != &sm_root {
-                return Err(Error::InvalidRoots);
-            }
-            let bls_messages = bmgs.to_vec();
-            let secp_messages = smgs.to_vec();
-
-            blocks.push(Block {
-                header: header.clone(),
-                bls_messages,
-                secp_messages,
-            });
-        }
-        Ok(FullTipset::new(blocks)?)
     }
 
     /// informs the syncer about a new potential tipset
@@ -353,12 +320,12 @@ where
         }
 
         for block in fts.blocks() {
-            if let Some(bad) = self.bad_blocks.peek(block.cid()) {
+            if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
                 warn!("Bad block detected, cid: {:?}", bad);
                 return Err(Error::Other("Block marked as bad".to_string()));
             }
             // validate message data
-            self.validate_msg_data(block)?;
+            self.validate_msg_meta(block)?;
         }
 
         // compare target_weight to heaviest weight stored; ignore otherwise
@@ -381,10 +348,10 @@ where
             .await;
 
         // Only update target on initial sync
-        if self.get_state() == &SyncState::Init {
+        if self.state.read().await.stage() == SyncStage::Headers {
             if let Some(best_target) = self.select_sync_target().await {
                 // TODO revisit this if using for full node, shouldn't start syncing on first update
-                self.sync(&best_target).await?;
+                self.sync(best_target).await?;
                 return Ok(());
             }
         }
@@ -416,9 +383,10 @@ where
         info!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
         // check sync status if indicates tipsets are ready to be synced
-        if self.get_state() == &SyncState::Catchup {
+        // TODO revisit this, seems wrong
+        if self.state.read().await.stage() == SyncStage::Complete {
             // send tipsets to be synced
-            self.sync(&tipset).await?;
+            self.sync(tipset).await?;
             return Ok(());
         }
 
@@ -436,7 +404,7 @@ where
                     self.next_sync_target = target_bucket;
                     if let Some(best_target) = self.next_sync_target.heaviest_tipset() {
                         // send heaviest tipset from sync target to be synced
-                        self.sync(&best_target).await?;
+                        self.sync(best_target).await?;
                         return Ok(());
                     }
                 }
@@ -446,8 +414,8 @@ where
     }
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
-    fn validate_msg_data(&self, block: &Block) -> Result<(), Error> {
-        let sm_root = compute_msg_data(
+    fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
+        let sm_root = compute_msg_meta(
             self.chain_store.blockstore(),
             block.bls_msgs(),
             block.secp_msgs(),
@@ -610,7 +578,7 @@ where
                 .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root
-        let sm_root = compute_msg_data(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = compute_msg_meta(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
             return Err(Error::InvalidRoots);
         }
@@ -720,14 +688,14 @@ where
         Ok(())
     }
     /// validates tipsets and adds header data to tipset tracker
-    async fn validate_tipsets(&mut self, fts: FullTipset) -> Result<(), Error> {
+    async fn validate_tipset(&mut self, fts: FullTipset) -> Result<(), Error> {
         if fts.to_tipset() == self.genesis {
             return Ok(());
         }
 
         for b in fts.blocks() {
             if let Err(e) = self.validate(&b).await {
-                self.bad_blocks.put(b.cid().clone(), e.to_string());
+                self.bad_blocks.put(b.cid().clone(), e.to_string()).await;
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
             self.chain_store.set_tipset_tracker(b.header())?;
@@ -818,17 +786,26 @@ where
         to: &Tipset,
     ) -> Result<Vec<Tipset>, Error> {
         info!("Syncing headers from: {:?}", head.key());
+        self.state.write().await.set_epoch(to.epoch());
 
         let mut accepted_blocks: Vec<Cid> = Vec::new();
 
-        let mut return_set = vec![head];
+        let sync_len = head.epoch() - to.epoch();
+        if !sync_len.is_positive() {
+            return Err(Error::Other(
+                "Target tipset must be after heaviest".to_string(),
+            ));
+        }
+        let mut return_set = Vec::with_capacity(sync_len as usize);
+        return_set.push(head);
 
         let to_epoch = to.blocks().get(0).expect("Tipset cannot be empty").epoch();
 
         // Loop until most recent tipset height is less than to tipset height
         'sync: while let Some(cur_ts) = return_set.last() {
             // Check if parent cids exist in bad block caches
-            self.validate_tipset_against_cache(cur_ts.parents(), &accepted_blocks)?;
+            self.validate_tipset_against_cache(cur_ts.parents(), &accepted_blocks)
+                .await?;
 
             if cur_ts.epoch() <= to_epoch {
                 // Current tipset is less than epoch of tipset syncing toward
@@ -843,17 +820,12 @@ where
                 continue;
             }
 
-            const REQUEST_WINDOW: i64 = 100;
+            // TODO tweak request window when socket frame is tested
+            const REQUEST_WINDOW: i64 = 5;
             let epoch_diff = cur_ts.epoch() - to_epoch;
             let window = min(epoch_diff, REQUEST_WINDOW);
 
-            // update sync state to Bootstrap indicating we are acquiring a 'secure enough' set of peers
-            self.set_state(SyncState::Bootstrap);
-
             let peer_id = self.get_peer().await;
-
-            // checkpoint established
-            self.set_state(SyncState::Checkpoint);
 
             // Load blocks from network using blocksync
             let tipsets: Vec<Tipset> = match self
@@ -877,9 +849,11 @@ where
                     break 'sync;
                 }
                 // Check Cids of blocks against bad block cache
-                self.validate_tipset_against_cache(&ts.key(), &accepted_blocks)?;
+                self.validate_tipset_against_cache(&ts.key(), &accepted_blocks)
+                    .await?;
 
                 accepted_blocks.extend_from_slice(ts.cids());
+                self.state.write().await.set_epoch(ts.epoch());
                 // Add tipset to vector of tipsets to return
                 return_set.push(ts);
             }
@@ -904,16 +878,17 @@ where
         Ok(return_set)
     }
     /// checks to see if tipset is included in bad clocks cache
-    fn validate_tipset_against_cache(
+    async fn validate_tipset_against_cache(
         &mut self,
         ts: &TipsetKeys,
         accepted_blocks: &[Cid],
     ) -> Result<(), Error> {
         for cid in ts.cids() {
-            if let Some(reason) = self.bad_blocks.get(cid).cloned() {
+            if let Some(reason) = self.bad_blocks.get(cid).await {
                 for bh in accepted_blocks {
                     self.bad_blocks
-                        .put(bh.clone(), format!("chain contained {}", cid));
+                        .put(bh.clone(), format!("chain contained {}", cid))
+                        .await;
                 }
 
                 return Err(Error::Other(format!(
@@ -965,13 +940,11 @@ where
         }
         Ok(())
     }
-    /// Returns the managed sync status
-    pub fn get_state(&self) -> &SyncState {
-        &self.state
-    }
+
     /// Sets the managed sync status
-    pub fn set_state(&mut self, new_state: SyncState) {
-        self.state = new_state
+    pub async fn set_stage(&mut self, new_stage: SyncStage) {
+        debug!("Sync stage set to: {}", new_stage);
+        self.state.write().await.set_stage(new_stage);
     }
 
     async fn get_peer(&self) -> PeerId {
@@ -988,7 +961,7 @@ where
 }
 
 /// Returns message root CID from bls and secp message contained in the param Block
-fn compute_msg_data<DB: BlockStore>(
+fn compute_msg_meta<DB: BlockStore>(
     blockstore: &DB,
     bls_msgs: &[UnsignedMessage],
     secp_msgs: &[SignedMessage],
@@ -996,6 +969,7 @@ fn compute_msg_data<DB: BlockStore>(
     // collect bls and secp cids
     let bls_cids = cids_from_messages(bls_msgs)?;
     let secp_cids = cids_from_messages(secp_msgs)?;
+
     // generate Amt and batch set message values
     let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
     let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
@@ -1004,8 +978,8 @@ fn compute_msg_data<DB: BlockStore>(
         bls_message_root: bls_root,
         secp_message_root: secp_root,
     };
-    // TODO this should be memoryDB for temp storage
-    // store message roots and receive meta_root
+
+    // store message roots and receive meta_root cid
     let meta_root = blockstore
         .put(&meta, Blake2b256)
         .map_err(|e| Error::Other(e.to_string()))?;
@@ -1111,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_msg_data_given_msgs_test() {
+    fn compute_msg_meta_given_msgs_test() {
         let db = Arc::new(MemoryDB::default());
         let (cs, _) = chain_syncer_setup(db);
 
@@ -1121,7 +1095,23 @@ mod tests {
             Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
                 .unwrap();
 
-        let root = compute_msg_data(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
+        let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
+    }
+
+    #[test]
+    fn empty_msg_meta_vector() {
+        let blockstore = MemoryDB::default();
+        let usm: Vec<UnsignedMessage> =
+            encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+        let sm: Vec<SignedMessage> =
+            encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+
+        assert_eq!(
+            compute_msg_meta(&blockstore, &usm, &sm)
+                .unwrap()
+                .to_string(),
+            "bafy2bzacecgw6dqj4bctnbnyqfujltkwu7xc7ttaaato4i5miroxr4bayhfea"
+        );
     }
 }

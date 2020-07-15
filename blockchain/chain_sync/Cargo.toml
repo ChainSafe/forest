@@ -8,7 +8,7 @@ edition = "2018"
 address = { package = "forest_address", path = "../../vm/address" }
 vm = { package = "forest_vm", path = "../../vm" }
 amt = { package = "ipld_amt", path = "../../ipld/amt" }
-blocks = { package = "forest_blocks", path = "../blocks" }
+blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 beacon = { path = "../beacon" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
@@ -31,6 +31,9 @@ num-traits = "0.2"
 filecoin-proofs-api = "4.0.1"
 fil_types = { path = "../../types" }
 commcid = { path = "../../utils/commcid" }
+clock = { path = "../../node/clock" }
+serde = { version = "1.0", features = ["derive", "rc"] }
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+base64 = "0.12.1"
