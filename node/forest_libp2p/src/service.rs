@@ -27,6 +27,7 @@ use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
+
 pub use libp2p::gossipsub::Topic;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
@@ -199,8 +200,8 @@ where
                             let tx = self.bs_request_table.remove(&request_id);
 
                             if let Some(tx) = tx {
-                              if let Err(e) = tx.send(response) {
-                                debug!("RPCResponse receive failed: {:?}", e)
+                                if let Err(e) = tx.send(response) {
+                                    debug!("RPCResponse receive failed: {:?}", e)
                               }
                             }
                             else {
@@ -208,15 +209,20 @@ where
                             };
                         }
                         ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {
-                            match self.db.put(&block, Blake2b256) {
+                            let res: Result<_, String> = self.db.put(&block, Blake2b256).map_err(|e| e.to_string());
+                            match res {
                                 Ok(actual_cid) => {
-                                    trace!("saved bitswap block with returned cid {:?}, expected cid: {:?}", actual_cid, cid);
+                                    if actual_cid != cid {
+                                        warn!("Bitswap cid mismatch: cid {:?}, expected cid: {:?}", actual_cid, cid);
+                                    } else {
+                                        trace!("saved bitswap block with cid {:?}", cid);
+                                    }
+                                    self.network_sender_out.send(NetworkEvent::BitswapBlock{cid}).await;
                                 }
                                 Err(e) => {
                                     warn!("failed to save bitswap block: {:?}", e.to_string());
                                 }
                             }
-                            self.network_sender_out.send(NetworkEvent::BitswapBlock{cid}).await;
                         },
                         ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) =>  match self.db.get(&cid) {
                             Ok(Some(data)) => {
