@@ -12,7 +12,6 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-pub use libp2p::gossipsub::Topic;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -28,6 +27,7 @@ use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
+pub use libp2p::gossipsub::Topic;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
