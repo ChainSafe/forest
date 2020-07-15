@@ -91,7 +91,6 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
             MdnsEvent::Discovered(list) => {
                 for (peer, _) in list {
                     trace!("mdns: Discovered peer {}", peer.to_base58());
-                    self.connect(peer.clone());
                     self.add_peer(peer);
                 }
             }
@@ -110,7 +109,6 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
             KademliaEvent::RoutingUpdated { peer, .. } => {
-                self.connect(peer.clone());
                 self.add_peer(peer);
             }
             event => {
@@ -360,7 +358,8 @@ impl ForestBehaviour {
 
     /// Adds peer to the peer set.
     pub fn add_peer(&mut self, peer_id: PeerId) {
-        self.peers.insert(peer_id);
+        self.peers.insert(peer_id.clone());
+        self.bitswap.connect(peer_id);
     }
 
     /// Adds peer to the peer set.
@@ -371,11 +370,6 @@ impl ForestBehaviour {
     /// Adds peer to the peer set.
     pub fn peers(&self) -> &HashSet<PeerId> {
         &self.peers
-    }
-
-    /// Adds peer to bitswap peer set
-    pub fn connect(&mut self, peer_id: PeerId) {
-        self.bitswap.connect(peer_id);
     }
 
     /// Send a block to a peer over bitswap

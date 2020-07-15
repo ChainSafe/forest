@@ -6,6 +6,9 @@ use cid::Cid;
 use encoding::tuple::*;
 use message::{SignedMessage, UnsignedMessage};
 
+/// Limit of bls and secp messages combined in a block.
+pub const BLOCK_MESSAGE_LIMIT: usize = 512;
+
 /// A complete block
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {

@@ -37,7 +37,6 @@ const SINK_CAP: usize = 1000;
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
-    // TODO add IPLD Store
     publisher: Publisher<Arc<Tipset>>,
 
     // key-value datastore
