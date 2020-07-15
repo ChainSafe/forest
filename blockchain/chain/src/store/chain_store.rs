@@ -437,7 +437,7 @@ where
     })
 }
 
-//this attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
+/// Attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
 pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<BoxMessage, Error>
 where
     DB: BlockStore,
