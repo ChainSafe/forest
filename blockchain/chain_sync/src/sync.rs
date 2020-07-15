@@ -12,7 +12,7 @@ use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
 use amt::Amt;
-use async_std::sync::{channel, Receiver, RwLock, Sender};
+use async_std::sync::{Receiver, RwLock, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -25,6 +25,7 @@ use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
+use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{
     hello::HelloRequest, BlockSyncRequest, NetworkEvent, NetworkMessage, MESSAGES,
 };
@@ -107,14 +108,12 @@ where
         let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
         // Split incoming channel to handle blocksync requests
-        let (rpc_send, rpc_rx) = channel(20);
-        let (event_send, event_rx) = channel(30);
-
-        let network = SyncNetworkContext::new(network_send, rpc_rx, event_rx);
+        let mut event_send = Publisher::new(30);
+        let network = SyncNetworkContext::new(network_send, event_send.subscribe());
 
         let peer_manager = Arc::new(PeerManager::default());
 
-        let net_handler = NetworkHandler::new(network_rx, rpc_send, event_send);
+        let net_handler = NetworkHandler::new(network_rx, event_send);
 
         Ok(Self {
             state: Arc::new(RwLock::new(SyncState::default())),
@@ -994,20 +993,25 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std::sync::channel;
     use async_std::sync::Sender;
     use beacon::MockBeacon;
     use blocks::BlockHeader;
     use db::MemoryDB;
-    use forest_libp2p::{rpc::RequestId, NetworkEvent};
+    use forest_libp2p::NetworkEvent;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
     fn chain_syncer_setup(
         db: Arc<MemoryDB>,
-    ) -> (ChainSyncer<MemoryDB, MockBeacon>, Sender<NetworkEvent>) {
+    ) -> (
+        ChainSyncer<MemoryDB, MockBeacon>,
+        Sender<NetworkEvent>,
+        Receiver<NetworkMessage>,
+    ) {
         let chain_store = ChainStore::new(db);
 
-        let (local_sender, _test_receiver) = channel(20);
+        let (local_sender, test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
 
         let gen = dummy_header();
@@ -1026,20 +1030,24 @@ mod tests {
             )
             .unwrap(),
             event_sender,
+            test_receiver,
         )
     }
 
-    fn send_blocksync_response(event_sender: Sender<NetworkEvent>) {
+    fn send_blocksync_response(blocksync_message: Receiver<NetworkMessage>) {
         let rpc_response = construct_blocksync_response();
 
         task::block_on(async {
-            event_sender
-                .send(NetworkEvent::BlockSyncResponse {
-                    // TODO update this, only matching first index of requestId
-                    request_id: RequestId(1),
-                    response: rpc_response,
-                })
-                .await;
+            match blocksync_message.recv().await.unwrap() {
+                NetworkMessage::BlockSyncRequest {
+                    peer_id: _,
+                    request: _,
+                    response_channel,
+                } => {
+                    response_channel.send(rpc_response).unwrap();
+                }
+                _ => unreachable!(),
+            }
         });
     }
 
@@ -1064,11 +1072,9 @@ mod tests {
     #[test]
     fn sync_headers_reverse_given_tipsets_test() {
         let db = Arc::new(MemoryDB::default());
-        let (mut cs, event_sender) = chain_syncer_setup(db);
+        let (mut cs, _event_sender, network_receiver) = chain_syncer_setup(db);
 
         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
-        // send blocksync response to channel
-        send_blocksync_response(event_sender);
 
         // params for sync_headers_reverse
         let source = PeerId::random();
@@ -1078,16 +1084,18 @@ mod tests {
         task::block_on(async move {
             cs.peer_manager.add_peer(source.clone(), None).await;
             assert_eq!(cs.peer_manager.len().await, 1);
-
-            let return_set = cs.sync_headers_reverse(head, &to).await;
-            assert_eq!(return_set.unwrap().len(), 4);
+            // make blocksync request
+            let return_set = task::spawn(async move { cs.sync_headers_reverse(head, &to).await });
+            // send blocksync response to channel
+            send_blocksync_response(network_receiver);
+            assert_eq!(return_set.await.unwrap().len(), 4);
         });
     }
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {
         let db = Arc::new(MemoryDB::default());
-        let (cs, _) = chain_syncer_setup(db);
+        let (cs, _, _) = chain_syncer_setup(db);
 
         let (bls, secp) = construct_messages();
 

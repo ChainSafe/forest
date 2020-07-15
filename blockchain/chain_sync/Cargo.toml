@@ -33,6 +33,7 @@ fil_types = { path = "../../types" }
 commcid = { path = "../../utils/commcid" }
 clock = { path = "../../node/clock" }
 serde = { version = "1.0", features = ["derive", "rc"] }
+flo_stream = "0.4.0"
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
