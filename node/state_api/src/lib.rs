@@ -233,7 +233,7 @@ where
     state_manager::utils::get_power(&state_manager, &tipset, Some(actor)).map_err(|e| e.into())
 }
 
-pub fn state_page_collateral<DB>(
+pub fn state_pledge_collateral<DB>(
     _state_manager: &StateManager<DB>,
     _: &TipsetKeys,
 ) -> Result<BigUint, BoxError>
