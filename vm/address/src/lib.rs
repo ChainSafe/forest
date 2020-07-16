@@ -50,6 +50,21 @@ pub struct Address {
     payload: Payload,
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct AddressJson(#[serde(with = "self")] pub Address);
+
+/// Wrapper for serializing a cid reference to JSON.
+#[derive(Serialize)]
+#[serde(transparent)]
+pub struct AddressJsonRef<'a>(#[serde(with = "self")] pub &'a Address);
+
+impl From<AddressJson> for Address {
+    fn from(wrapper: AddressJson) -> Self {
+        wrapper.0
+    }
+}
+
 impl Address {
     /// Address constructor
     fn new(network: Network, protocol: Protocol, bz: &[u8]) -> Result<Self, Error> {

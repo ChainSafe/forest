@@ -17,6 +17,21 @@ pub struct TipsetKeys {
     pub cids: Vec<Cid>,
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct TipsetKeysJson(#[serde(with = "self")] pub TipsetKeys);
+
+/// Wrapper for serializing a cid reference to JSON.
+#[derive(Serialize)]
+#[serde(transparent)]
+pub struct TipsetKeysJsonRef<'a>(#[serde(with = "self")] pub &'a TipsetKeys);
+
+impl From<TipsetKeysJson> for TipsetKeys {
+    fn from(wrapper: TipsetKeys) -> Self {
+        wrapper.0
+    }
+}
+
 impl TipsetKeys {
     pub fn new(cids: Vec<Cid>) -> Self {
         Self { cids }

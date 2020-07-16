@@ -3,6 +3,7 @@
 
 mod piece;
 pub mod sector;
+pub mod json_type;
 
 pub use self::piece::*;
 pub use self::sector::*;
