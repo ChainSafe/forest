@@ -5,13 +5,12 @@ use super::policy::*;
 use super::state::Deadlines;
 use bitfield::BitField;
 use clock::ChainEpoch;
-use vm::Randomness;
 
 /// Deadline calculations with respect to a current epoch.
 /// "Deadline" refers to the window during which proofs may be submitted.
 /// Windows are non-overlapping ranges [Open, Close), but the challenge epoch for a window occurs before
 /// the window opens.
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq)]
 pub struct DeadlineInfo {
     /// Epoch at which this info was calculated.
     pub current_epoch: ChainEpoch,
@@ -20,9 +19,9 @@ pub struct DeadlineInfo {
     /// Current deadline index, in [0..WPoStProvingPeriodDeadlines).
     pub index: usize,
     /// First epoch from which a proof may be submitted, inclusive (>= CurrentEpoch).
-    open: ChainEpoch,
+    pub open: ChainEpoch,
     /// First epoch from which a proof may no longer be submitted, exclusive (>= Open).
-    close: ChainEpoch,
+    pub close: ChainEpoch,
     /// Epoch at which to sample the chain for challenge (< Open).
     pub challenge: ChainEpoch,
     /// First epoch at which a fault declaration is rejected (< Open).
@@ -32,7 +31,7 @@ pub struct DeadlineInfo {
 impl DeadlineInfo {
     pub fn new(period_start: ChainEpoch, deadline_idx: usize, current_epoch: ChainEpoch) -> Self {
         if deadline_idx < WPOST_PERIOD_DEADLINES {
-            let deadline_open = period_start + (deadline_idx as u64 * WPOST_CHALLENGE_WINDOW);
+            let deadline_open = period_start + (deadline_idx as i64 * WPOST_CHALLENGE_WINDOW);
             Self {
                 current_epoch,
                 period_start,
@@ -94,14 +93,18 @@ pub fn compute_proving_period_deadline(
         // Proving period has completely elapsed.
         return DeadlineInfo::new(period_start, WPOST_PERIOD_DEADLINES, current_epoch);
     }
-    let deadline_idx = period_progress / WPOST_CHALLENGE_WINDOW;
+    let deadline_idx = if period_progress < 0 {
+        0
+    } else {
+        period_progress / WPOST_CHALLENGE_WINDOW
+    };
     DeadlineInfo::new(period_start, deadline_idx as usize, current_epoch)
 }
 /// Computes the first partition index and number of sectors for a deadline.
 /// Partitions are numbered globally for the miner, not per-deadline.
 /// If the deadline has no sectors, the first partition index is the index that a partition at that deadline would
 /// have, if non-empty (and sectorCount is zero).
-fn parititions_for_deadline(
+pub fn partitions_for_deadline(
     d: &mut Deadlines,
     partition_size: usize,
     deadline_idx: usize,
@@ -142,13 +145,13 @@ pub fn deadline_count(
 /// Computes a bitfield of the sector numbers included in a sequence of partitions due at some deadline.
 /// Fails if any partition is not due at the provided deadline.
 pub fn compute_partitions_sector(
-    mut d: Deadlines,
+    d: &mut Deadlines,
     partition_size: u64,
     deadline_idx: usize,
     partitions: &[u64],
 ) -> Result<Vec<BitField>, String> {
     let (deadline_first_partition, deadline_sector_count) =
-        parititions_for_deadline(&mut d, partition_size as usize, deadline_idx)?;
+        partitions_for_deadline(d, partition_size as usize, deadline_idx)?;
     let deadline_partition_count = (deadline_sector_count + partition_size - 1) / partition_size;
     // Work out which sector numbers the partitions correspond to.
     let deadline_sectors = d
@@ -184,7 +187,6 @@ pub fn assign_new_sectors(
     deadlines: &mut Deadlines,
     partition_size: usize,
     new_sectors: &[usize],
-    _seed: Randomness,
 ) -> Result<(), String> {
     let mut next_new_sector: usize = 0;
     // The first deadline is left empty since it's more difficult for a miner to orchestrate proofs.
@@ -218,6 +220,7 @@ pub fn assign_new_sectors(
         if i < first_assignable_deadline {
             // Mark unassignable deadlines as "full" so nothing more will be assigned.
             deadline_partitions_counts[i] = u64::max_value() as usize;
+            i += 1;
             continue;
         }
         let (partition_count, sector_count) = deadline_count(deadlines, partition_size, i)?;
@@ -243,22 +246,10 @@ pub fn assign_new_sectors(
         *v = i;
     }
 
-    // TODO revisit this, go function is sorting while also indexing the slice being sorted
-    // and is unclear what functionality is intended.
     let sort_deadlines = |deadl: &[usize; WPOST_PERIOD_DEADLINES],
                           dl_idxs: &mut [usize; WPOST_PERIOD_DEADLINES]| {
-        let cloned_idxs = *dl_idxs;
-        dl_idxs.sort_by(|i, j| {
-            let (idx_i, idx_j) = (cloned_idxs[*i], cloned_idxs[*j]);
-            let (count_i, count_j) = (deadl[idx_i], deadl[idx_j]);
-            if count_i == count_j {
-                idx_i.cmp(&idx_j)
-            } else {
-                count_i.cmp(&count_j)
-            }
-        })
+        dl_idxs.sort_by_cached_key(|&i| (deadl[i], i));
     };
-
     sort_deadlines(&deadline_partitions_counts, &mut dl_idxs);
     while next_new_sector < new_sectors.len() {
         // Assign a full partition to the least-full deadline.

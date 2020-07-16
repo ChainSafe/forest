@@ -4,7 +4,7 @@
 use crate::network::*;
 use address::Address;
 use encoding::tuple::*;
-use num_bigint::{biguint_ser, BigInt, BigUint, ToBigInt};
+use num_bigint::{bigint_ser, BigInt, BigUint, ToBigInt};
 use num_traits::{Pow, Zero};
 use std::ops::Neg;
 use vm::TokenAmount;
@@ -47,9 +47,9 @@ lazy_static! {
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct AwardBlockRewardParams {
     pub miner: Address,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub penalty: TokenAmount,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub gas_reward: TokenAmount,
     pub ticket_count: u64,
 }
@@ -130,13 +130,16 @@ fn taylor_series_expansion(lambda_num: &BigInt, lambda_den: &BigInt, t: BigInt) 
 ///   wrapper implements those conventions. However, it does NOT implement
 ///   left-shifting the input by the MintingInputFixedPoint, because baseline
 ///   minting will actually supply a fractional input.
-pub(super) fn minting_function(factor: &BigInt, t: &BigUint) -> BigUint {
-    let value = (factor
-        * taylor_series_expansion(&*LAMBDA_NUM, &*LAMBDA_DEN, t.to_bigint().unwrap()))
-        >> MINTING_OUTPUT_FIXED_POINT;
+pub(super) fn minting_function(factor: &BigInt, t: &BigUint) -> BigInt {
+    let value = factor
+        * taylor_series_expansion(
+            &*LAMBDA_NUM,
+            &*LAMBDA_DEN,
+            t.to_bigint().unwrap_or_default(),
+        );
 
     // This conversion is safe because the minting function should always return a positive value
-    value.to_biguint().unwrap_or_default()
+    value >> MINTING_OUTPUT_FIXED_POINT
 }
 
 #[cfg(test)]

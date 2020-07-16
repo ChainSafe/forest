@@ -4,7 +4,7 @@
 use address::Address;
 use encoding::tuple::*;
 use fil_types::StoragePower;
-use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 use num_traits::FromPrimitive;
 
 lazy_static! {
@@ -13,7 +13,7 @@ lazy_static! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct VerifierParams {
     pub address: Address,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub allowance: Datacap,
 }
 
@@ -25,7 +25,7 @@ pub type Datacap = StoragePower;
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct BytesParams {
     pub address: Address,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub deal_size: Datacap,
 }
 

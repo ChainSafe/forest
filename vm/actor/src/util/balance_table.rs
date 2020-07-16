@@ -6,8 +6,7 @@ use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
-use num_bigint::biguint_ser::BigUintDe;
-use num_traits::CheckedSub;
+use num_bigint::bigint_ser::BigIntDe;
 use vm::TokenAmount;
 
 /// Balance table which handles getting and updating token balances specifically
@@ -37,7 +36,7 @@ where
     pub fn get(&self, key: &Address) -> Result<TokenAmount, String> {
         Ok(self
             .0
-            .get::<_, BigUintDe>(&key.to_bytes())?
+            .get::<_, BigIntDe>(&key.to_bytes())?
             // TODO investigate whether it's worth it to cache root to give better error details
             .ok_or("no key {} in map root")?
             .0)
@@ -46,7 +45,7 @@ where
     /// Checks if a balance for an address exists
     #[inline]
     pub fn has(&self, key: &Address) -> Result<bool, Error> {
-        match self.0.get::<_, BigUintDe>(&key.to_bytes())? {
+        match self.0.get::<_, BigIntDe>(&key.to_bytes())? {
             Some(_) => Ok(true),
             None => Ok(false),
         }
@@ -55,22 +54,22 @@ where
     /// Sets the balance for the address, overwriting previous value
     #[inline]
     pub fn set(&mut self, key: &Address, value: TokenAmount) -> Result<(), Error> {
-        self.0.set(key.to_bytes().into(), BigUintDe(value))
+        self.0.set(key.to_bytes().into(), BigIntDe(value))
     }
 
     /// Adds token amount to previously initialized account.
     pub fn add(&mut self, key: &Address, value: &TokenAmount) -> Result<(), String> {
         let prev = self.get(key)?;
-        Ok(self.0.set(key.to_bytes().into(), BigUintDe(prev + value))?)
+        Ok(self.0.set(key.to_bytes().into(), BigIntDe(prev + value))?)
     }
 
     /// Adds an amount to a balance. Creates entry if not exists
     pub fn add_create(&mut self, key: &Address, value: TokenAmount) -> Result<(), String> {
-        let new_val = match self.0.get::<_, BigUintDe>(&key.to_bytes())? {
+        let new_val = match self.0.get::<_, BigIntDe>(&key.to_bytes())? {
             Some(v) => v.0 + value,
             None => value,
         };
-        Ok(self.0.set(key.to_bytes().into(), BigUintDe(new_val))?)
+        Ok(self.0.set(key.to_bytes().into(), BigIntDe(new_val))?)
     }
 
     /// Subtracts up to the specified amount from a balance, without reducing the balance
@@ -91,7 +90,7 @@ where
         if &prev > new_val {
             // Subtraction needed, set new value and return change
             self.0
-                .set(key.to_bytes().into(), BigUintDe(new_val.clone()))?;
+                .set(key.to_bytes().into(), BigIntDe(new_val.clone()))?;
             Ok(prev - new_val)
         } else {
             // New value is same as previous, no change needed
@@ -127,7 +126,7 @@ where
     pub fn total(&self) -> Result<TokenAmount, String> {
         let mut total = TokenAmount::default();
 
-        self.0.for_each(|_, v: BigUintDe| {
+        self.0.for_each(|_, v: BigIntDe| {
             total += v.0;
             Ok(())
         })?;

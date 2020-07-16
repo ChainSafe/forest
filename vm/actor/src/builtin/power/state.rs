@@ -8,20 +8,20 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
 use fil_types::StoragePower;
+use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use num_bigint::biguint_ser;
-use num_traits::CheckedSub;
+use num_bigint::bigint_ser;
 use vm::{Serialized, TokenAmount};
 
 /// Storage power actor state
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub total_raw_byte_power: StoragePower,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub total_quality_adj_power: StoragePower,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub total_pledge_collateral: TokenAmount,
     pub miner_count: i64,
 
@@ -200,12 +200,8 @@ impl State {
 }
 
 fn epoch_key(e: ChainEpoch) -> BytesKey {
-    // TODO switch logic to flip bits on negative value before encoding if ChainEpoch changed to i64
-    // and add tests for edge cases once decided
-    let ux = e << 1;
-    let mut bz = unsigned_varint::encode::u64_buffer();
-    unsigned_varint::encode::u64(ux, &mut bz);
-    bz.to_vec().into()
+    let bz = e.encode_var_vec();
+    bz.into()
 }
 
 impl Cbor for State {}
@@ -213,10 +209,10 @@ impl Cbor for State {}
 #[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Claim {
     // Sum of raw byte power for a miner's sectors.
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub raw_byte_power: StoragePower,
     // Sum of quality adjusted power for a miner's sectors.
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub quality_adj_power: StoragePower,
 }
 
@@ -227,3 +223,27 @@ pub struct CronEvent {
 }
 
 impl Cbor for CronEvent {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use clock::ChainEpoch;
+
+    #[test]
+    fn epoch_key_test() {
+        let e1: ChainEpoch = 101;
+        let e2: ChainEpoch = 102;
+        let e3: ChainEpoch = 103;
+        let e4: ChainEpoch = -1;
+
+        let b1: BytesKey = [0xca, 0x1].to_vec().into();
+        let b2: BytesKey = [0xcc, 0x1].to_vec().into();
+        let b3: BytesKey = [0xce, 0x1].to_vec().into();
+        let b4: BytesKey = [0x1].to_vec().into();
+
+        assert_eq!(b1, epoch_key(e1));
+        assert_eq!(b2, epoch_key(e2));
+        assert_eq!(b3, epoch_key(e3));
+        assert_eq!(b4, epoch_key(e4));
+    }
+}

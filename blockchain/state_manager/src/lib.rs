@@ -23,8 +23,8 @@ use futures::*;
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::trace;
+use num_bigint::BigInt;
 use message::{Message, MessageReceipt, UnsignedMessage};
-use num_bigint::BigUint;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -36,8 +36,8 @@ pub type CidPair = (Cid, Cid);
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct MarketBalance {
-    escrow: BigUint,
-    locked: BigUint,
+    escrow: BigInt,
+    locked: BigInt,
 }
 
 pub struct StateManager<DB> {
@@ -144,7 +144,7 @@ where
         Ok(addr)
     }
     /// Returns specified actor's claimed power and total network power as a tuple
-    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigUint, BigUint), Error> {
+    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigInt, BigInt), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
         if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {
@@ -378,7 +378,7 @@ where
     pub async fn wait_for_message(
         &self,
         cid: &Cid,
-        confidence: u64,
+        confidence: i64,
     ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Error> {
         let mut subscribers = self.subscriber.clone().ok_or_else(|| {
             Error::Other("State Manager not subscribed to tipset head changes".to_string())
