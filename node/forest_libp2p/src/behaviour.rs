@@ -30,8 +30,8 @@ use libp2p_request_response::{
 };
 use log::{debug, trace, warn};
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::error::Error;
-use std::str::FromStr;
 use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
@@ -91,7 +91,6 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
             MdnsEvent::Discovered(list) => {
                 for (peer, _) in list {
                     trace!("mdns: Discovered peer {}", peer.to_base58());
-                    self.connect(peer.clone());
                     self.add_peer(peer);
                 }
             }
@@ -110,7 +109,6 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: KademliaEvent) {
         match event {
             KademliaEvent::RoutingUpdated { peer, .. } => {
-                self.connect(peer.clone());
                 self.add_peer(peer);
             }
             event => {
@@ -124,17 +122,22 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: BitswapEvent) {
         match event {
             BitswapEvent::ReceivedBlock(peer_id, cid, data) => {
-                let cid = cid.to_string();
-                let cid: Cid = Cid::from_str(&cid).unwrap();
-                self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
-                    peer_id, cid, data,
-                ));
+                let cid = cid.to_bytes();
+                match Cid::from_raw_cid(cid.as_slice()) {
+                    Ok(cid) => self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
+                        peer_id, cid, data,
+                    )),
+                    Err(e) => warn!("Fail to convert Cid: {}", e.to_string()),
+                }
             }
             BitswapEvent::ReceivedWant(peer_id, cid, _priority) => {
-                let cid = cid.to_string();
-                let cid: Cid = Cid::from_str(&cid).unwrap();
-                self.events
-                    .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid));
+                let cid = cid.to_bytes();
+                match Cid::from_raw_cid(cid.as_slice()) {
+                    Ok(cid) => self
+                        .events
+                        .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid)),
+                    Err(e) => warn!("Fail to convert Cid: {}", e.to_string()),
+                }
             }
             BitswapEvent::ReceivedCancel(_peer_id, _cid) => {
                 // TODO: Determine how to handle cancel
@@ -351,18 +354,17 @@ impl ForestBehaviour {
     }
 
     /// Send an RPC request or response to some peer.
-    pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest, id: RequestId) {
+    pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest) -> RequestId {
         match req {
-            RPCRequest::Hello(request) => self.hello.send_request_with_id(peer_id, request, id),
-            RPCRequest::BlockSync(request) => {
-                self.blocksync.send_request_with_id(peer_id, request, id)
-            }
+            RPCRequest::Hello(request) => self.hello.send_request(peer_id, request),
+            RPCRequest::BlockSync(request) => self.blocksync.send_request(peer_id, request),
         }
     }
 
     /// Adds peer to the peer set.
     pub fn add_peer(&mut self, peer_id: PeerId) {
-        self.peers.insert(peer_id);
+        self.peers.insert(peer_id.clone());
+        self.bitswap.connect(peer_id);
     }
 
     /// Adds peer to the peer set.
@@ -375,11 +377,6 @@ impl ForestBehaviour {
         &self.peers
     }
 
-    /// Adds peer to bitswap peer set
-    pub fn connect(&mut self, peer_id: PeerId) {
-        self.bitswap.connect(peer_id);
-    }
-
     /// Send a block to a peer over bitswap
     pub fn send_block(
         &mut self,
@@ -387,27 +384,27 @@ impl ForestBehaviour {
         cid: Cid,
         data: Box<[u8]>,
     ) -> Result<(), Box<dyn Error>> {
-        let cid = cid.to_string();
-        log::debug!("send {}", cid);
-        let cid = Cid2::from_str(&cid)?;
+        debug!("send {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
         self.bitswap.send_block(peer_id, cid, data);
         Ok(())
     }
 
     /// Send a request for data over bitswap
     pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
-        let cid = cid.to_string();
-        log::debug!("want {}", cid);
-        let cid = Cid2::from_str(&cid)?;
+        debug!("want {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
         self.bitswap.want_block(cid, priority);
         Ok(())
     }
 
     /// Cancel a bitswap request
     pub fn cancel_block(&mut self, cid: &Cid) -> Result<(), Box<dyn Error>> {
-        let cid = cid.to_string();
-        log::debug!("cancel {}", cid);
-        let cid = Cid2::from_str(&cid)?;
+        debug!("cancel {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
         self.bitswap.cancel_block(&cid);
         Ok(())
     }

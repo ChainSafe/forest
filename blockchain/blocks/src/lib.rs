@@ -6,12 +6,14 @@ extern crate serde;
 
 mod block;
 mod errors;
+pub mod gossip_block;
 pub mod header;
 mod ticket;
 pub mod tipset;
 
 pub use block::*;
 pub use errors::*;
+pub use gossip_block::*;
 pub use header::*;
 pub use ticket::*;
 pub use tipset::*;

@@ -9,7 +9,6 @@ mod subcommand;
 
 use cli::CLI;
 use structopt::StructOpt;
-use utils::write_to_file;
 
 #[async_std::main]
 async fn main() {
