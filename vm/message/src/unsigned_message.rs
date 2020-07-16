@@ -149,6 +149,31 @@ impl Message for UnsignedMessage {
 
 impl Cbor for UnsignedMessage {}
 
+mod params_serde {
+    use super::*;
+    use serde::Serializer;
+
+    pub fn serialize<S>(param: &str, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        s.serialize_str(param)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        let s: Option<String> = Option::deserialize(deserializer)?;
+        if let Some(s) = s {
+            return Ok(
+                s
+            );
+        }
+        Ok("".to_string())
+    }
+}
+
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
@@ -183,6 +208,7 @@ pub mod json {
         gas_limit: u64,
         #[serde(rename = "Method")]
         method_num: u64,
+        #[serde(with = "params_serde")]
         params: String,
     }
 
