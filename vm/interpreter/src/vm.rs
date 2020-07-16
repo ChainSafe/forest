@@ -142,7 +142,6 @@ where
                 .into());
             }
 
-            // Add callback here for reward message if needed
             if let Some(callback) = &mut callback {
                 callback(rew_msg.cid()?, rew_msg, ret)?;
             }
@@ -170,7 +169,6 @@ where
             return Err(format!("failed to apply block cron message: {}", err).into());
         }
 
-        // Add callback here for cron message if needed
         if let Some(mut callback) = callback {
             callback(cron_msg.cid()?, cron_msg, ret)?;
         }

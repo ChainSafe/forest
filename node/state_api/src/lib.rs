@@ -92,7 +92,7 @@ pub fn state_miner_info<DB>(
 where
     DB: BlockStore,
 {
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let tipset = chain::tipset_from_keys(state_manager.get_block_store_ref(), key)?;
     state_manager::utils::get_miner_info(state_manager, &tipset, actor).map_err(|e| e.into())
 }
 
@@ -284,13 +284,18 @@ where
     DB: BlockStore,
 {
     let block_store = state_manager.get_block_store_ref();
-    let tipset = if maybe_tipset.is_none() {
+    let maybe_tipset = if maybe_tipset.is_none() {
         chain::get_heaviest_tipset(block_store)?
     } else {
         maybe_tipset
     };
 
-    let (st, _) = task::block_on(state_manager.tipset_state(&tipset.unwrap()))?;
+    let tipset = maybe_tipset.ok_or_else(|| {
+        Box::new(chain::Error::Other(
+            "Could not get heaviest tipset".to_string(),
+        ))
+    })?;
+    let (st, _) = task::block_on(state_manager.tipset_state(&tipset))?;
     let state_tree = StateTree::new_from_root(block_store, &st)?;
     Ok(state_tree)
 }
@@ -337,18 +342,6 @@ where
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
     let state = state_for_ts(state_manager, Some(tipset))?;
     state.lookup_id(address).map_err(|e| e.into())
-}
-
-/// returns the addresses of every actor in the state
-pub fn state_list_actors<DB>(
-    state_manager: &StateManager<DB>,
-    key: &TipsetKeys,
-) -> Result<Vec<Address>, BoxError>
-where
-    DB: BlockStore,
-{
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::list_miner_actors(&state_manager, &tipset).map_err(|e| e.into())
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage Market

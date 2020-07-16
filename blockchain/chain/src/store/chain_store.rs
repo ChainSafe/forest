@@ -43,7 +43,6 @@ type BoxMessage = Box<dyn Message>;
 pub enum HeadChange {
     Current(Arc<Tipset>),
     Apply(Arc<Tipset>),
-    Store,
     Revert(Arc<Tipset>),
 }
 
@@ -453,7 +452,7 @@ where
     }
 }
 
-//given a tipset this functtion will return all messages as a trait object
+// given a tipset this function will return all messages as a trait object
 pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<BoxMessage>, Error>
 where
     DB: BlockStore,
@@ -462,7 +461,7 @@ where
     let mut balances: HashMap<Address, BigUint> = HashMap::new();
     let state = StateTree::new_from_root(db, ts.parent_state())?;
 
-    //message to get all messages for block_header into a single iterator
+    // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<BoxMessage>, Error> {
         let (unsigned, signed) = block_messages(db, b)?;
         let unsigned_box = unsigned.into_iter().map(|s| Box::new(s) as BoxMessage);
