@@ -5,6 +5,7 @@ use super::types::*;
 use clock::ChainEpoch;
 use encoding::{repr::*, tuple::*, Cbor};
 use fil_types::{Spacetime, StoragePower};
+use num_bigint::bigint_ser;
 use num_bigint::biguint_ser;
 use num_derive::FromPrimitive;
 use vm::TokenAmount;
@@ -12,9 +13,9 @@ use vm::TokenAmount;
 /// Reward actor state
 #[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct State {
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub baseline_power: StoragePower,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub realized_power: StoragePower,
     #[serde(with = "biguint_ser")]
     pub cumsum_baseline: Spacetime,
@@ -23,15 +24,15 @@ pub struct State {
     #[serde(with = "biguint_ser")]
     pub effective_network_time: NetworkTime,
 
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub simple_supply: TokenAmount,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub baseline_supply: TokenAmount,
 
     /// The reward to be paid in total to block producers, if exactly the expected number of them produce a block.
     /// The actual reward total paid out depends on the number of winners in any round.
     /// This is computed at the end of the previous epoch, and should really be called ThisEpochReward.
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub last_per_epoch_reward: TokenAmount,
 
     /// The count of epochs for which a reward has been paid.
@@ -72,9 +73,9 @@ pub struct Reward {
     pub vesting_function: VestingFunction,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub value: TokenAmount,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub amount_withdrawn: TokenAmount,
 }
 

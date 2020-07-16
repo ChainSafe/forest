@@ -19,7 +19,7 @@ use forest_encoding::to_vec;
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use runtime::{ActorCode, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
@@ -128,7 +128,7 @@ where
     }
 
     /// Get the balance of a particular Actor from their Address
-    fn get_balance(&self, addr: &Address) -> Result<BigUint, ActorError> {
+    fn get_balance(&self, addr: &Address) -> Result<BigInt, ActorError> {
         // TODO fix this, not found should return 0 not error, on error should turn error into fatal
         self.get_actor(&addr).map(|act| act.balance)
     }

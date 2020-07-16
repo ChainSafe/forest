@@ -17,7 +17,7 @@ use futures::StreamExt;
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
@@ -53,8 +53,8 @@ impl MsgSet {
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
                 let gas_price = exms.message().gas_price();
-                let rbf_num = BigUint::from(RBF_NUM);
-                let rbf_denom = BigUint::from(RBF_DENOM);
+                let rbf_num = BigInt::from(RBF_NUM);
+                let rbf_denom = BigInt::from(RBF_DENOM);
                 let min_price = gas_price.clone() + ((gas_price * &rbf_num) / rbf_denom) + 1u8;
                 if m.message().gas_price() <= &min_price {
                     warn!("mesage gas price is below min gas price");
@@ -252,7 +252,7 @@ where
         if size > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        if msg.value() > &BigUint::from(2_000_000_000u64) {
+        if msg.value() > &BigInt::from(2_000_000_000u64) {
             return Err(Error::MessageValueTooHigh);
         }
 
@@ -299,7 +299,7 @@ where
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
-        let msg_balance = BigInt::from(msg.message().required_funds());
+        let msg_balance = msg.message().required_funds();
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
@@ -365,7 +365,7 @@ where
     /// if this actor does not exist, return an error
     async fn get_state_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
         let actor = self.api.read().await.state_get_actor(&addr, &ts)?;
-        Ok(BigInt::from(actor.balance))
+        Ok(actor.balance)
     }
 
     /// Remove a message given a sequence and address from the messagepool
@@ -707,7 +707,7 @@ mod tests {
             let actor = ActorState::new(
                 Cid::default(),
                 Cid::default(),
-                BigUint::from(9_000_000 as u64),
+                BigInt::from(9_000_000 as u64),
                 sequence,
             );
             Ok(actor)

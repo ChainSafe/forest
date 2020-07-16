@@ -8,7 +8,7 @@ use crypto::Signature;
 use encoding::tuple::*;
 use encoding::Cbor;
 use fil_types::PaddedPieceSize;
-use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
 /// Note: Deal Collateral is only released and returned to clients and miners
@@ -33,12 +33,12 @@ pub struct DealProposal {
     // otherwise it is invalid.
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub storage_price_per_epoch: TokenAmount,
 
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub provider_collateral: TokenAmount,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub client_collateral: TokenAmount,
 }
 
