@@ -34,6 +34,7 @@ fn signing_test() {
         serde_json::from_str(&string).expect("Test vector deserialization failed");
     for test_vec in vectors {
         let test = base64::decode(test_vec.PrivateKey).unwrap();
+        // TODO set up a private key based on sig type
         let priv_key = PrivateKey::from_bytes(&test).unwrap();
         let cid = test_vec.Unsigned.cid().unwrap();
         let sig = priv_key.sign(cid.to_bytes().as_slice());

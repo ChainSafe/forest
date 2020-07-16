@@ -149,29 +149,6 @@ impl Message for UnsignedMessage {
 
 impl Cbor for UnsignedMessage {}
 
-mod params_serde {
-    use super::*;
-    use serde::Serializer;
-
-    pub fn serialize<S>(param: &str, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        s.serialize_str(param)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Option<String> = Option::deserialize(deserializer)?;
-        if let Some(s) = s {
-            return Ok(s);
-        }
-        Ok("".to_string())
-    }
-}
-
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
@@ -206,8 +183,7 @@ pub mod json {
         gas_limit: u64,
         #[serde(rename = "Method")]
         method_num: u64,
-        #[serde(with = "params_serde")]
-        params: String,
+        params: Option<String>,
     }
 
     pub fn serialize<S>(m: &UnsignedMessage, serializer: S) -> Result<S::Ok, S::Error>
@@ -223,7 +199,7 @@ pub mod json {
             gas_price: m.gas_price.to_string(),
             gas_limit: m.gas_limit,
             method_num: m.method_num,
-            params: base64::encode(m.params.bytes()),
+            params: Some(base64::encode(m.params.bytes())),
         }
         .serialize(serializer)
     }
@@ -242,7 +218,10 @@ pub mod json {
             gas_price: m.gas_price.parse().map_err(de::Error::custom)?,
             gas_limit: m.gas_limit,
             method_num: m.method_num,
-            params: Serialized::new(base64::decode(&m.params).map_err(de::Error::custom)?),
+            params: Serialized::new(
+                base64::decode(&m.params.unwrap_or_else(|| "".to_string()))
+                    .map_err(de::Error::custom)?,
+            ),
         })
     }
 
