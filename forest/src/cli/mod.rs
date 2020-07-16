@@ -3,11 +3,12 @@
 
 mod config;
 mod genesis;
-mod state_command;
+pub mod commands;
+
 
 pub use self::config::Config;
 pub(super) use self::genesis::initialize_genesis;
-pub use state_command::*;
+pub use commands::*;
 
 use std::cell::RefCell;
 use std::io;
@@ -16,6 +17,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
 use utils::{read_file_to_string, read_toml};
+use async_trait::async_trait;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -50,7 +52,7 @@ pub enum Subcommand {
         verbose: bool,
     },
 
-    StateCommand(StateCommand),
+    SyncCommand(SyncCommand),
 
 }
 
