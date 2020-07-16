@@ -37,9 +37,7 @@ impl NetworkHandler {
                     // TODO should probably add peer with their tipset/ not handled seperately
                     peer_manager.add_peer(channel.peer.clone(), None).await;
                 }
-                if let NetworkEvent::BitswapBlock { .. } = &event {
-                    event_send.publish(event).await
-                }
+                event_send.publish(event).await
             }
         });
         trace!("Spawned network handler");
