@@ -5,10 +5,6 @@ use cid::*;
 use super::{CLICommand};
 
 #[derive(StructOpt)]
-#[structopt(
-    name = "sync",
-    about = "Inspect or interact with the chain syncer"
-)]
 pub struct SyncCommand{
     #[structopt(subcommand)]
     sub_cmd : SyncSubCmd

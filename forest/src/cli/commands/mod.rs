@@ -1,8 +1,6 @@
 use structopt::StructOpt;
 use async_trait::async_trait;
 
-pub mod state;
-pub use state::*;
 pub mod sync;
 pub use sync::*;
 

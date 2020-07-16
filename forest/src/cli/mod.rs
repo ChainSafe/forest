@@ -52,6 +52,10 @@ pub enum Subcommand {
         verbose: bool,
     },
 
+    #[structopt(
+        name = "sync",
+        about = "Inspect or interact with the chain syncer"
+    )]
     SyncCommand(SyncCommand),
 
 }

@@ -2226,6 +2226,7 @@ version = "0.1.0"
 dependencies = [
  "async-log",
  "async-std",
+ "async-trait",
  "beacon",
  "blake2b_simd",
  "chain",
