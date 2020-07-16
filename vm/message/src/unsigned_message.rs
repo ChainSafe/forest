@@ -155,20 +155,18 @@ mod params_serde {
 
     pub fn serialize<S>(param: &str, s: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer
+        S: Serializer,
     {
         s.serialize_str(param)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let s: Option<String> = Option::deserialize(deserializer)?;
         if let Some(s) = s {
-            return Ok(
-                s
-            );
+            return Ok(s);
         }
         Ok("".to_string())
     }
