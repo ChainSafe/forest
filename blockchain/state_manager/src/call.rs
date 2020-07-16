@@ -82,9 +82,9 @@ where
     let ts = if let Some(t_set) = tipset {
         t_set
     } else {
-        let ts = chain::get_heaviest_tipset(state_manager.get_block_store_ref())
-            .map_err(|_| Error::Other("Could not get heaviest tipset".to_string()))?;
-        ts.ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?
+        chain::get_heaviest_tipset(state_manager.get_block_store_ref())
+            .map_err(|_| Error::Other("Could not get heaviest tipset".to_string()))?
+            .ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?
     };
     let state = ts.parent_state();
     let chain_rand = ChainRand::new(ts.key().to_owned());
