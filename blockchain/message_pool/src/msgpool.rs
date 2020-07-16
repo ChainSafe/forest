@@ -663,7 +663,7 @@ mod tests {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
         state_sequence: HashMap<Address, u64>,
         tipsets: Vec<Tipset>,
-        publisher: Publisher<Arc<Tipset>>,
+        publisher: Publisher<HeadChange>,
     }
 
     impl TestApi {
@@ -686,7 +686,7 @@ mod tests {
         }
 
         pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> () {
-            self.publisher.publish(ts).await
+            self.publisher.publish(HeadChange::Current(ts)).await
         }
     }
 
