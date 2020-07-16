@@ -4,7 +4,7 @@
 use crate::TokenAmount;
 use cid::Cid;
 use encoding::tuple::*;
-use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 
 /// Identifier for Actors, includes builtin and initialized actors
 pub type ActorID = u64;
@@ -15,7 +15,7 @@ pub struct ActorState {
     pub code: Cid,
     pub state: Cid,
     pub sequence: u64,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub balance: TokenAmount,
 }
 
