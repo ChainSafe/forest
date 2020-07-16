@@ -31,7 +31,7 @@ where
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
 
-    let heaviest_ts = get_heaviest_tipset(data.store.as_ref())?.unwrap();
+    let heaviest_ts = get_heaviest_tipset(data.store.as_ref())?.ok_or("No heaviest tipset")?;
     let cid = heaviest_ts.parent_state();
 
     let state = StateTree::new_from_root(data.store.as_ref(), &cid)?;
@@ -139,19 +139,16 @@ where
 /// Generate a new Address that is stored in the Wallet
 pub(crate) async fn wallet_new<DB, KS>(
     data: Data<State<DB, KS>>,
-    Params(params): Params<(i8,)>,
+    Params(params): Params<(u8,)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let (sig_type,) = params;
+    let (sig_raw,) = params;
+    let sig_type: SignatureType = serde_json::from_str(&sig_raw.to_string())?;
     let mut keystore = data.keystore.write().await;
-    let key = match sig_type {
-        0 => wallet::generate_key(SignatureType::Secp256k1)?,
-        1 => wallet::generate_key(SignatureType::BLS)?,
-        _ => return Err("Specify valid Signature type".to_owned().into()),
-    };
+    let key = wallet::generate_key(sig_type)?;
 
     let addr = format!("wallet-{}", key.address.to_string());
     keystore.put(addr, key.key_info.clone())?;
