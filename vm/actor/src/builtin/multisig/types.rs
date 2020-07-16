@@ -5,7 +5,7 @@ use crate::BytesKey;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::tuple::*;
-use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -26,7 +26,7 @@ impl TxnID {
 #[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Transaction {
     pub to: Address,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub value: TokenAmount,
     pub method: MethodNum,
     pub params: Serialized,
@@ -46,7 +46,7 @@ pub struct ConstructorParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ProposeParams {
     pub to: Address,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub value: TokenAmount,
     pub method: MethodNum,
     pub params: Serialized,
