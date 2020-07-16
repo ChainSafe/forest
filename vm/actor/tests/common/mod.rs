@@ -48,7 +48,11 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
-    pub expect_verify_sig: RefCell<Option<ExpectedVerifySig>>,
+    pub expect_verify_sigs: RefCell<Vec<ExpectedVerifySig>>,
+    pub expect_verify_seal: RefCell<Option<ExpectVerifySeal>>,
+    pub expect_verify_post: RefCell<Option<ExpectVerifyPoSt>>,
+    pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid>>,
+    pub expect_verify_consensus_fault: RefCell<Option<ExpectVerifyConsensusFault>>,
 }
 
 #[derive(Clone, Debug)]
@@ -74,6 +78,36 @@ pub struct ExpectedVerifySig {
     pub signer: Address,
     pub plaintext: Vec<u8>,
     pub result: ExitCode,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExpectVerifySeal {
+    seal: SealVerifyInfo,
+    exit_code: ExitCode,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExpectVerifyPoSt {
+    post: WindowPoStVerifyInfo,
+    exit_code: ExitCode,
+}
+
+#[derive(Clone)]
+pub struct ExpectVerifyConsensusFault {
+    require_correct_input: bool,
+    block_header_1: Vec<u8>,
+    block_header_2: Vec<u8>,
+    block_header_extra: Vec<u8>,
+    fault: Option<ConsensusFault>,
+    exit_code: ExitCode,
+}
+
+#[derive(Clone)]
+pub struct ExpectComputeUnsealedSectorCid {
+    reg: RegisteredSealProof,
+    pieces: Vec<PieceInfo>,
+    cid: Cid,
+    exit_code: ExitCode,
 }
 
 impl<'a, BS> MockRuntime<'a, BS>
@@ -107,7 +141,11 @@ where
             expect_validate_caller_type: RefCell::new(None),
             expect_sends: VecDeque::new(),
             expect_create_actor: None,
-            expect_verify_sig: RefCell::new(None),
+            expect_verify_sigs: RefCell::new(vec![]),
+            expect_verify_seal: RefCell::new(None),
+            expect_verify_post: RefCell::new(None),
+            expect_compute_unsealed_sector_cid: RefCell::new(None),
+            expect_verify_consensus_fault: RefCell::new(None),
         }
     }
     fn require_in_call(&self) {
@@ -145,7 +183,31 @@ where
 
     #[allow(dead_code)]
     pub fn expect_verify_signature(&self, exp: ExpectedVerifySig) {
-        *self.expect_verify_sig.borrow_mut() = Some(exp);
+        self.expect_verify_sigs.borrow_mut().push(exp);
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_verify_consensus_fault(
+        &self,
+        h1: Vec<u8>,
+        h2: Vec<u8>,
+        extra: Vec<u8>,
+        fault: Option<ConsensusFault>,
+        exit_code: ExitCode,
+    ) {
+        *self.expect_verify_consensus_fault.borrow_mut() = Some(ExpectVerifyConsensusFault {
+            require_correct_input: true,
+            block_header_1: h1,
+            block_header_2: h2,
+            block_header_extra: extra,
+            fault: fault,
+            exit_code: exit_code,
+        });
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_compute_unsealed_sector_cid(&self, exp: ExpectComputeUnsealedSectorCid) {
+        *self.expect_compute_unsealed_sector_cid.borrow_mut() = Some(exp);
     }
 
     #[allow(dead_code)]
@@ -239,6 +301,25 @@ where
             "expected actor to be created, uncreated actor: {:?}",
             self.expect_create_actor
         );
+        assert!(
+            self.expect_verify_seal.borrow().as_ref().is_none(),
+            "expect_verify_seal {:?}, not received",
+            self.expect_verify_seal.borrow().as_ref().unwrap()
+        );
+        assert!(
+            self.expect_compute_unsealed_sector_cid
+                .borrow()
+                .as_ref()
+                .is_none(),
+            "expect_compute_unsealed_sector_cid not received",
+        );
+        assert!(
+            self.expect_verify_consensus_fault
+                .borrow()
+                .as_ref()
+                .is_none(),
+            "expect_compute_unsealed_sector_cid not received",
+        );
 
         self.reset();
     }
@@ -247,7 +328,11 @@ where
         *self.expect_validate_caller_addr.borrow_mut() = None;
         *self.expect_validate_caller_type.borrow_mut() = None;
         self.expect_create_actor = None;
-        *self.expect_verify_sig.borrow_mut() = None;
+        self.expect_verify_sigs.borrow_mut().clear();
+        *self.expect_verify_seal.borrow_mut() = None;
+        *self.expect_verify_post.borrow_mut() = None;
+        *self.expect_compute_unsealed_sector_cid.borrow_mut() = None;
+        *self.expect_verify_consensus_fault.borrow_mut() = None;
     }
 
     #[allow(dead_code)]
@@ -274,6 +359,18 @@ where
     pub fn expect_create_actor(&mut self, code_id: Cid, address: Address) {
         let a = ExpectCreateActor { code_id, address };
         self.expect_create_actor = Some(a);
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_verify_seal(&mut self, seal: SealVerifyInfo, exit_code: ExitCode) {
+        let a = ExpectVerifySeal { seal, exit_code };
+        *self.expect_verify_seal.borrow_mut() = Some(a);
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_verify_post(&mut self, post: WindowPoStVerifyInfo, exit_code: ExitCode) {
+        let a = ExpectVerifyPoSt { post, exit_code };
+        *self.expect_verify_post.borrow_mut() = Some(a);
     }
 
     #[allow(dead_code)]
@@ -585,28 +682,33 @@ where
         signer: &Address,
         plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
-        let op_exp = self.expect_verify_sig.replace(Option::None);
-
-        if let Some(exp) = op_exp {
-            if exp.sig == *signature && exp.signer == *signer && &exp.plaintext[..] == plaintext {
-                if exp.result == ExitCode::Ok {
-                    return Ok(());
-                } else {
-                    return Err(Box::new(ActorError::new(
-                        exp.result,
-                        "Expected failure".to_string(),
-                    )));
-                }
+        if self.expect_verify_sigs.borrow().len() == 0 {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected signature verification".to_string(),
+            )));
+        }
+        let exp = self
+            .expect_verify_sigs
+            .borrow_mut()
+            .pop()
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected signature verification".to_string(),
+            ))?;
+        if exp.sig == *signature && exp.signer == *signer && &exp.plaintext[..] == plaintext {
+            if exp.result == ExitCode::Ok {
+                return Ok(());
             } else {
                 return Err(Box::new(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "Signatures did not match".to_string(),
+                    exp.result,
+                    "Expected failure".to_string(),
                 )));
             }
         } else {
             return Err(Box::new(ActorError::new(
-                ExitCode::ErrPlaceholder,
-                "Expected verify sig not there ".to_string(),
+                ExitCode::ErrIllegalState,
+                "Signatures did not match".to_string(),
             )));
         }
     }
@@ -616,23 +718,124 @@ where
     }
     fn compute_unsealed_sector_cid(
         &self,
-        _reg: RegisteredSealProof,
-        _pieces: &[PieceInfo],
+        reg: RegisteredSealProof,
+        pieces: &[PieceInfo],
     ) -> Result<Cid, Box<dyn StdError>> {
-        unimplemented!();
+        let exp = self
+            .expect_compute_unsealed_sector_cid
+            .replace(None)
+            .ok_or(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected syscall to ComputeUnsealedSectorCID".to_string(),
+            )))?;
+
+        if exp.reg != reg {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected compute_unsealed_sector_cid : reg mismatch".to_string(),
+            )));
+        }
+
+        if exp.pieces[..].eq(pieces) {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected compute_unsealed_sector_cid : pieces mismatch".to_string(),
+            )));
+        }
+
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "Expected Failure".to_string(),
+            )));
+        }
+        Ok(exp.cid)
     }
-    fn verify_seal(&self, _vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        unimplemented!();
+    fn verify_seal(&self, seal: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        let exp = self
+            .expect_verify_seal
+            .replace(None)
+            .ok_or(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected syscall to verify seal".to_string(),
+            )))?;
+
+        if exp.seal != *seal {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected seal verification".to_string(),
+            )));
+        }
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "Expected Failure".to_string(),
+            )));
+        }
+        Ok(())
     }
-    fn verify_post(&self, _vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        unimplemented!();
+    fn verify_post(&self, post: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        let exp = self
+            .expect_verify_post
+            .replace(None)
+            .ok_or(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected syscall to verify PoSt ".to_string(),
+            )))?;
+
+        if exp.post != *post {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected PoSt verification".to_string(),
+            )));
+        }
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "Expected Failure".to_string(),
+            )));
+        }
+        Ok(())
     }
     fn verify_consensus_fault(
         &self,
-        _h1: &[u8],
-        _h2: &[u8],
-        _extra: &[u8],
+        h1: &[u8],
+        h2: &[u8],
+        extra: &[u8],
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
-        unimplemented!();
+        let exp = self
+            .expect_verify_consensus_fault
+            .replace(None)
+            .ok_or(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected syscall to verify_consensus_fault".to_string(),
+            )))?;
+        if exp.require_correct_input {
+            if exp.block_header_1 != h1 {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Header 1 mismatch".to_string(),
+                )));
+            }
+            if exp.block_header_2 != h2 {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Header 2 mismatch".to_string(),
+                )));
+            }
+            if exp.block_header_extra != extra {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Header extra mismatch".to_string(),
+                )));
+            }
+        }
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "Expected Failure".to_string(),
+            )));
+        }
+        Ok(exp.fault)
     }
 }

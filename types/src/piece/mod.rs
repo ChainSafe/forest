@@ -61,7 +61,7 @@ impl PaddedPieceSize {
 }
 
 // Piece information for part or a whole file
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Serialize_tuple, Deserialize_tuple, PartialEq, Clone)]
 pub struct PieceInfo {
     /// Size in nodes. For BLS12-381 (capacity 254 bits), must be >= 16. (16 * 8 = 128)
     pub size: PaddedPieceSize,

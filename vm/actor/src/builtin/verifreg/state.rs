@@ -8,7 +8,7 @@ use cid::Cid;
 use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Hamt};
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 
 use crate::builtin::verifreg::types::Datacap;
 
@@ -94,7 +94,7 @@ impl State {
     ) -> StateResult<Cid> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
-        map.set(verified_addr.to_bytes().into(), BigUintSer(&verifier_cap))?;
+        map.set(verified_addr.to_bytes().into(), BigIntSer(&verifier_cap))?;
         let root = map.flush()?;
         Ok(root)
     }
@@ -106,7 +106,7 @@ impl State {
     ) -> StateResult<Option<Datacap>> {
         let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
         Ok(map
-            .get::<_, BigUintDe>(&verified_addr.to_bytes())?
+            .get::<_, BigIntDe>(&verified_addr.to_bytes())?
             .map(|s| s.0))
     }
 
