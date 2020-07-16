@@ -426,7 +426,7 @@ mod update_channel_state_redeem {
         let ls_updated: &LaneState = &state.lane_states[1];
         let big_delta = &sv.amount - &ls_to_update.redeemed;
 
-        let exp_send = big_delta.to_biguint().unwrap() + &initial_amount;
+        let exp_send = big_delta + &initial_amount;
         assert_eq!(exp_send, state.to_send);
         assert_eq!(sv.amount, ls_updated.redeemed);
         assert_eq!(sv.nonce, ls_updated.nonce);
@@ -509,7 +509,7 @@ mod merge_tests {
         };
         let redeemed = &merge_from.redeemed + &merge_to.redeemed;
         let exp_delta = &sv.amount - &redeemed;
-        state.to_send = exp_delta.to_biguint().unwrap() + &state.to_send;
+        state.to_send = exp_delta + &state.to_send;
 
         state.lane_states = vec![
             exp_merge_to,

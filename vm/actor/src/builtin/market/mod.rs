@@ -24,7 +24,7 @@ use fil_types::PieceInfo;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -153,7 +153,7 @@ impl Actor {
             })??;
 
         // TODO this will never be hit
-        if amount_slashed_total > BigUint::zero() {
+        if amount_slashed_total > BigInt::zero() {
             rt.send(
                 &*BURNT_FUNDS_ACTOR_ADDR,
                 METHOD_SEND,
@@ -208,7 +208,7 @@ impl Actor {
             if deal.proposal.verified_deal {
                 let ser_params = Serialized::serialize(&BytesParams {
                     address: deal.proposal.client,
-                    deal_size: BigUint::from(deal.proposal.piece_size.0),
+                    deal_size: BigInt::from(deal.proposal.piece_size.0),
                 })?;
                 rt.send(
                     &*VERIFIED_REGISTRY_ACTOR_ADDR,
@@ -476,7 +476,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR))?;
 
-        let mut amount_slashed = BigUint::zero();
+        let mut amount_slashed = BigInt::zero();
         let mut timed_out_verified_deals: Vec<DealProposal> = Vec::new();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
@@ -613,7 +613,7 @@ impl Actor {
         for d in timed_out_verified_deals {
             let ser_params = Serialized::serialize(BytesParams {
                 address: d.client,
-                deal_size: BigUint::from(d.piece_size.0),
+                deal_size: BigInt::from(d.piece_size.0),
             })?;
             rt.send(
                 &*VERIFIED_REGISTRY_ACTOR_ADDR,

@@ -12,7 +12,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, MessageReceipt, UnsignedMessage};
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use num_traits::Zero;
 use runtime::Syscalls;
 use state_tree::StateTree;
@@ -74,8 +74,8 @@ where
         let mut processed = HashSet::<Cid>::default();
 
         for block in tipset.blocks() {
-            let mut penalty = BigUint::zero();
-            let mut gas_reward = BigUint::zero();
+            let mut penalty = BigInt::zero();
+            let mut gas_reward = BigInt::zero();
 
             let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
                 let cid = msg.cid()?;
@@ -123,8 +123,8 @@ where
                 .from(*SYSTEM_ACTOR_ADDR)
                 .to(*REWARD_ACTOR_ADDR)
                 .sequence(sys_act.sequence)
-                .value(BigUint::zero())
-                .gas_price(BigUint::zero())
+                .value(BigInt::zero())
+                .gas_price(BigInt::zero())
                 .gas_limit(1 << 30)
                 .method_num(reward::Method::AwardBlockReward as u64)
                 .params(params)
@@ -154,8 +154,8 @@ where
             .from(*SYSTEM_ACTOR_ADDR)
             .to(*CRON_ACTOR_ADDR)
             .sequence(sys_act.sequence)
-            .value(BigUint::zero())
-            .gas_price(BigUint::zero())
+            .value(BigInt::zero())
+            .gas_price(BigInt::zero())
             .gas_limit(1 << 30)
             .method_num(cron::Method::EpochTick as u64)
             .params(Serialized::default())
@@ -180,7 +180,7 @@ where
                     exit_code: err.exit_code(),
                     gas_used: 0,
                 },
-                BigUint::zero(),
+                BigInt::zero(),
                 Some(err),
             );
         };
@@ -191,7 +191,7 @@ where
                 exit_code: ExitCode::Ok,
                 gas_used: 0,
             },
-            BigUint::zero(),
+            BigInt::zero(),
             None,
         )
     }
@@ -323,7 +323,7 @@ where
             Ok(())
         })?;
 
-        let gas_reward = msg.gas_price() * BigUint::from(gas_used);
+        let gas_reward = msg.gas_price() * BigInt::from(gas_used);
         self.state.mutate_actor(&*REWARD_ACTOR_ADDR, |act| {
             act.deposit_funds(&gas_reward);
             Ok(())
@@ -339,7 +339,7 @@ where
                 exit_code: ExitCode::Ok,
                 gas_used,
             },
-            BigUint::zero(),
+            BigInt::zero(),
             None,
         ))
     }
@@ -379,12 +379,12 @@ where
 /// Apply message return data
 pub struct ApplyRet {
     msg_receipt: MessageReceipt,
-    penalty: BigUint,
+    penalty: BigInt,
     act_error: Option<ActorError>,
 }
 
 impl ApplyRet {
-    fn new(msg_receipt: MessageReceipt, penalty: BigUint, act_error: Option<ActorError>) -> Self {
+    fn new(msg_receipt: MessageReceipt, penalty: BigInt, act_error: Option<ActorError>) -> Self {
         Self {
             msg_receipt,
             penalty,
@@ -398,10 +398,10 @@ fn check_message(msg: &UnsignedMessage) -> Result<(), String> {
     if msg.gas_limit() == 0 {
         return Err("Message has no gas limit set".to_owned());
     }
-    if msg.value() == &BigUint::zero() {
+    if msg.value() == &BigInt::zero() {
         return Err("Message has no value set".to_owned());
     }
-    if msg.gas_price() == &BigUint::zero() {
+    if msg.gas_price() == &BigInt::zero() {
         return Err("Message has no gas price set".to_owned());
     }
 

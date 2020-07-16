@@ -11,18 +11,17 @@ use fil_types::StoragePower;
 use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use num_bigint::biguint_ser;
-use num_traits::CheckedSub;
+use num_bigint::bigint_ser;
 use vm::{Serialized, TokenAmount};
 
 /// Storage power actor state
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub total_raw_byte_power: StoragePower,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub total_quality_adj_power: StoragePower,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub total_pledge_collateral: TokenAmount,
     pub miner_count: i64,
 
@@ -210,10 +209,10 @@ impl Cbor for State {}
 #[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Claim {
     // Sum of raw byte power for a miner's sectors.
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub raw_byte_power: StoragePower,
     // Sum of quality adjusted power for a miner's sectors.
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub quality_adj_power: StoragePower,
 }
 

@@ -15,7 +15,8 @@ use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize};
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
-use num_bigint::biguint_ser::{self, BigUintDe};
+use num_bigint::bigint_ser::{self, BigIntDe};
+use num_bigint::BigInt;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use num_traits::Zero;
@@ -32,10 +33,10 @@ pub struct State {
     pub info: MinerInfo,
 
     /// Total funds locked as pre_commit_deposit
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub pre_commit_deposit: TokenAmount,
     /// Total unvested funds locked as pledge collateral
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub locked_funds: TokenAmount,
     /// Array, AMT[ChainEpoch]TokenAmount
     vesting_funds: Cid,
@@ -613,9 +614,9 @@ impl State {
 
         // Nothing unlocks here, this is just the start of the clock
         let vest_begin = current_epoch + spec.initial_delay;
-        let vest_period = BigUint::from(spec.vest_period as u64);
+        let vest_period = BigInt::from(spec.vest_period as u64);
         let mut e = vest_begin + spec.step_duration;
-        let mut vested_so_far = BigUint::zero();
+        let mut vested_so_far = BigInt::zero();
 
         while &vested_so_far < vesting_sum {
             let vest_epoch = quantize_up(e, spec.quantization);
@@ -633,7 +634,7 @@ impl State {
 
             // Load existing entry, else set a new one
             if let Some(locked_fund_entry) = vesting_funds.get(vest_epoch as u64)? {
-                let mut locked_funds = BigUint::from(locked_fund_entry);
+                let mut locked_funds = BigInt::from(locked_fund_entry);
                 locked_funds += vest_this_time;
 
                 let num = ToPrimitive::to_u64(&locked_funds)
@@ -658,16 +659,16 @@ impl State {
         current_epoch: ChainEpoch,
         target: TokenAmount,
     ) -> Result<TokenAmount, String> {
-        let mut vesting_funds: Amt<BigUintDe, _> = Amt::load(&self.vesting_funds, store)?;
+        let mut vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
 
         let mut amount_unlocked = TokenAmount::default();
         let mut to_del: Vec<u64> = Vec::new();
 
-        let mut set: Vec<(u64, BigUintDe)> = Vec::new();
+        let mut set: Vec<(u64, BigIntDe)> = Vec::new();
         vesting_funds.for_each(|k, v| {
             if amount_unlocked > target {
                 if k >= current_epoch as u64 {
-                    let BigUintDe(mut locked_entry) = v.clone();
+                    let BigIntDe(mut locked_entry) = v.clone();
                     let unlock_amount =
                         std::cmp::min(target.clone() - &amount_unlocked, locked_entry.clone());
                     amount_unlocked += &unlock_amount;
@@ -676,7 +677,7 @@ impl State {
                     if locked_entry.is_zero() {
                         to_del.push(k);
                     } else {
-                        set.push((k, BigUintDe(locked_entry)));
+                        set.push((k, BigIntDe(locked_entry)));
                     }
                 }
             } else {
@@ -705,14 +706,14 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, String> {
-        let mut vesting_funds: Amt<BigUintDe, _> = Amt::load(&self.vesting_funds, store)?;
+        let mut vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
 
         let mut amount_unlocked = TokenAmount::default();
         let mut to_del: Vec<u64> = Vec::new();
 
         vesting_funds.for_each(|k, v| {
             if k < current_epoch as u64 {
-                let BigUintDe(locked_entry) = v;
+                let BigIntDe(locked_entry) = v;
                 amount_unlocked += locked_entry;
                 to_del.push(k);
             } else {
@@ -736,12 +737,12 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, String> {
-        let vesting_funds: Amt<BigUintDe, _> = Amt::load(&self.vesting_funds, store)?;
+        let vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
 
         let mut amount_unlocked = TokenAmount::default();
         vesting_funds.for_each(|k, v| {
             if k < current_epoch as u64 {
-                let BigUintDe(locked_entry) = v.clone();
+                let BigIntDe(locked_entry) = v.clone();
                 amount_unlocked += locked_entry;
             } else {
                 // stop iterating
@@ -883,7 +884,7 @@ impl Deadlines {
 // Misc helpers
 //
 
-fn delete_many<BS: BlockStore>(amt: &mut Amt<BigUintDe, BS>, keys: &[u64]) -> Result<(), AmtError> {
+fn delete_many<BS: BlockStore>(amt: &mut Amt<BigIntDe, BS>, keys: &[u64]) -> Result<(), AmtError> {
     for &i in keys {
         amt.delete(i)?;
     }
