@@ -18,7 +18,7 @@ use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt,Sign};
+use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
 use std::collections::HashMap;

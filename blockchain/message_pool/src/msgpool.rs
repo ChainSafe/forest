@@ -7,7 +7,7 @@ use async_std::sync::{Arc, RwLock};
 use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
-use chain::{ChainStore,HeadChange};
+use chain::{ChainStore, HeadChange};
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
@@ -214,9 +214,10 @@ where
         task::spawn(async move {
             loop {
                 if let Some(ts) = subscriber.next().await {
-                    let ts = match ts
-                    {
-                        HeadChange::Current(tipset)|HeadChange::Revert(tipset)|HeadChange::Apply(tipset) =>tipset
+                    let ts = match ts {
+                        HeadChange::Current(tipset)
+                        | HeadChange::Revert(tipset)
+                        | HeadChange::Apply(tipset) => tipset,
                     };
                     head_change(
                         api.as_ref(),

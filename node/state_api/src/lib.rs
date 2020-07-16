@@ -23,8 +23,8 @@ use num_bigint::BigUint;
 use num_traits::identities::Zero;
 use state_manager::{call, call::InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
-use std::error::Error;
 use std::convert::TryInto;
+use std::error::Error;
 
 type BoxError = Box<dyn Error + 'static>;
 pub struct MessageLookup {
@@ -195,7 +195,11 @@ where
             miner_actor_state.for_each_fault_epoch(
                 block_store,
                 |fault_start: i64, _| -> Result<(), String> {
-                    if fault_start >= cut_off.try_into().map_err(|_|"Could not convert cut_off from i64 to u64")? {
+                    if fault_start
+                        >= cut_off
+                            .try_into()
+                            .map_err(|_| "Could not convert cut_off from i64 to u64")?
+                    {
                         all_faults.push(Fault {
                             miner: *m,
                             fault: fault_start,

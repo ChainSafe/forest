@@ -3,8 +3,8 @@
 
 use super::{Message, UnsignedMessage};
 use address::Address;
-use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use cid::Cid;
+use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
 use vm::{MethodNum, Serialized, TokenAmount};
