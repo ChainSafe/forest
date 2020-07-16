@@ -1,17 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::network_handler::RPCReceiver;
 use async_std::future;
-use async_std::prelude::*;
-use async_std::sync::{Receiver, Sender};
+use async_std::sync::Sender;
 use blocks::{FullTipset, Tipset, TipsetKeys};
+use flo_stream::Subscriber;
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
     hello::HelloRequest,
-    rpc::{RPCRequest, RPCResponse, RequestId},
     NetworkEvent, NetworkMessage,
 };
+use futures::channel::oneshot::channel as oneshot_channel;
 use libp2p::core::PeerId;
 use log::trace;
 use std::time::Duration;
@@ -24,27 +23,15 @@ pub struct SyncNetworkContext {
     /// Channel to send network messages through p2p service
     network_send: Sender<NetworkMessage>,
 
-    /// Handles sequential request ID enumeration for requests
-    request_id: RequestId,
-
-    /// Receiver channel for BlockSync responses
-    rpc_receiver: RPCReceiver,
-
     /// Receiver channel for network events
-    pub receiver: Receiver<NetworkEvent>,
+    pub receiver: Subscriber<NetworkEvent>,
 }
 
 impl SyncNetworkContext {
-    pub fn new(
-        network_send: Sender<NetworkMessage>,
-        rpc_receiver: RPCReceiver,
-        receiver: Receiver<NetworkEvent>,
-    ) -> Self {
+    pub fn new(network_send: Sender<NetworkMessage>, receiver: Subscriber<NetworkEvent>) -> Self {
         Self {
             network_send,
-            rpc_receiver,
             receiver,
-            request_id: RequestId(1),
         }
     }
 
@@ -97,16 +84,22 @@ impl SyncNetworkContext {
         &mut self,
         peer_id: PeerId,
         request: BlockSyncRequest,
-    ) -> Result<BlockSyncResponse, &'static str> {
+    ) -> Result<BlockSyncResponse, String> {
         trace!("Sending BlockSync Request {:?}", request);
-        let rpc_res = self
-            .send_rpc_request(peer_id, RPCRequest::BlockSync(request))
-            .await?;
 
-        if let RPCResponse::BlockSync(bs_res) = rpc_res {
-            Ok(bs_res)
-        } else {
-            Err("Invalid response type")
+        let (tx, rx) = oneshot_channel();
+        self.network_send
+            .send(NetworkMessage::BlockSyncRequest {
+                peer_id,
+                request,
+                response_channel: tx,
+            })
+            .await;
+
+        match future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await {
+            Ok(Ok(bs_res)) => Ok(bs_res),
+            Ok(Err(e)) => Err(format!("RPC error: {}", e.to_string())),
+            Err(_) => Err("Connection timed out".to_string()),
         }
     }
 
@@ -115,42 +108,7 @@ impl SyncNetworkContext {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
         self.network_send
-            .send(NetworkMessage::RPC {
-                peer_id,
-                request: RPCRequest::Hello(request),
-                id: self.request_id,
-            })
+            .send(NetworkMessage::HelloRequest { peer_id, request })
             .await;
-        self.request_id.0 += 1;
-    }
-
-    /// Send any RPC request to the network and await the response
-    pub async fn send_rpc_request(
-        &mut self,
-        peer_id: PeerId,
-        request: RPCRequest,
-    ) -> Result<RPCResponse, &'static str> {
-        let request_id = self.request_id;
-        self.request_id.0 += 1;
-        self.network_send
-            .send(NetworkMessage::RPC {
-                peer_id,
-                request,
-                id: request_id,
-            })
-            .await;
-        loop {
-            match future::timeout(Duration::from_secs(RPC_TIMEOUT), self.rpc_receiver.next()).await
-            {
-                Ok(Some((id, response))) => {
-                    if id == request_id {
-                        return Ok(response);
-                    }
-                    // Ignore any other RPC responses for now
-                }
-                Ok(None) => return Err("RPC Stream closed"),
-                Err(_) => return Err("Connection timeout"),
-            }
-        }
     }
 }
