@@ -55,9 +55,7 @@ where
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.set_sequence(actor.sequence);
         let apply_ret = vm.apply_implicit_message(msg);
-        trace!("gas limit {:}", msg.gas_limit());
-        trace!("gas price {:?}", msg.gas_price());
-        trace!("value {:?}", msg.value());
+        trace!("gas limit {:},gas price {:?},value {:?}",msg.gas_limit(),msg.gas_price(),msg.value())
         if let Some(err) = apply_ret.act_error() {
             warn!("chain call failed: {:?}", err);
         }
@@ -96,7 +94,7 @@ pub fn state_replay<'a, DB>(
     state_manager: &'a StateManager<DB>,
     ts: &'a Tipset,
     mcid: &'a Cid,
-) -> Result<(UnsignedMessage, ApplyRet), Error>
+) -> Result<(UnsignedMessage, Option<ApplyRet>), Error>
 where
     DB: BlockStore,
 {
@@ -121,9 +119,7 @@ where
             )));
         }
     }
-
-    let out_ret =
-        outr.ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
+    
     let out_mes =
         outm.ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
     Ok((out_mes, out_ret))
