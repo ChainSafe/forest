@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod call;
 mod errors;
 pub mod utils;
 pub use self::errors::*;
@@ -16,13 +15,14 @@ use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use chain::{block_messages, ChainStore, HeadChange};
 use cid::Cid;
+use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use futures::*;
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
-use log::trace;
+use log::{trace, warn};
 use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigInt;
 use state_tree::StateTree;
@@ -39,13 +39,12 @@ where
     Msg: Message,
 {
     pub msg: Msg,
-    pub msg_rct: MessageReceipt,
+    pub msg_rct: Option<MessageReceipt>,
     pub actor_error: Option<String>,
 }
 
 // An alias Result that represents an InvocResult and an Error
 pub type StateCallResult<T> = Result<InvocResult<T>, Error>;
-
 
 #[allow(dead_code)]
 #[derive(Default)]
@@ -242,8 +241,8 @@ where
         })
     }
 
-    fn state_call_raw(
-        state_manager: &self,
+    fn call_raw(
+        &self,
         msg: &mut UnsignedMessage,
         bstate: &Cid,
         rand: &ChainRand,
@@ -262,32 +261,37 @@ where
                 DefaultSyscalls::new(&buf_store),
                 rand,
             )?;
-    
+
             if msg.gas_limit() == 0 {
                 msg.set_gas_limit(10000000000)
             }
-    
+
             let actor = self
                 .get_actor(msg.from(), bstate)?
                 .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
             msg.set_sequence(actor.sequence);
             let apply_ret = vm.apply_implicit_message(msg);
-            trace!("gas limit {:},gas price {:?},value {:?}",msg.gas_limit(),msg.gas_price(),msg.value())
+            trace!(
+                "gas limit {:},gas price {:?},value {:?}",
+                msg.gas_limit(),
+                msg.gas_price(),
+                msg.value()
+            );
             if let Some(err) = apply_ret.act_error() {
                 warn!("chain call failed: {:?}", err);
             }
-    
+
             Ok(InvocResult {
                 msg: msg.clone(),
-                msg_rct: apply_ret.msg_receipt().clone(),
+                msg_rct: Some(apply_ret.msg_receipt().clone()),
                 actor_error: apply_ret.act_error().map(|e| e.to_string()),
             })
         })
     }
-    
+
     /// runs the given message and returns its result without any persisted changes.
-    pub fn state_call(
-        state_manager: &self,
+    pub fn call(
+        &self,
         message: &mut UnsignedMessage,
         tipset: Option<Tipset>,
     ) -> StateCallResult<UnsignedMessage>
@@ -305,9 +309,9 @@ where
         let chain_rand = ChainRand::new(ts.key().to_owned());
         self.call_raw(message, state, &chain_rand, &ts.epoch())
     }
-    
+
     /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
-    pub fn state_replay(
+    pub fn replay(
         &self,
         ts: &Tipset,
         mcid: &Cid,
@@ -323,11 +327,11 @@ where
                 outr = Some(apply_ret);
                 return Err("halt".to_string());
             }
-    
+
             Ok(())
         };
         let result = self.compute_tipset_state(ts.blocks(), Some(callback));
-    
+
         if let Err(error_message) = result {
             if error_message.to_string() == "halt" {
                 return Err(Error::Other(format!(
@@ -336,12 +340,11 @@ where
                 )));
             }
         }
-        
+
         let out_mes =
             outm.ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
-        Ok((out_mes, out_ret))
+        Ok((out_mes, outr))
     }
-    
 
     pub fn compute_tipset_state<'a>(
         &'a self,
