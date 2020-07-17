@@ -3,7 +3,6 @@
 
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
-#![allow(dead_code)]
 
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
