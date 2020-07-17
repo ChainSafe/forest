@@ -7,6 +7,8 @@ use crate::blocksync::{
 use crate::config::Libp2pConfig;
 use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
 use crate::rpc::RPCRequest;
+use forest_cid::Cid;
+use libipld_core::cid::Cid as Cid2;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
@@ -21,12 +23,15 @@ use libp2p::ping::{
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
+use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use libp2p_request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
     ResponseChannel,
 };
 use log::{debug, trace, warn};
 use std::collections::HashSet;
+use std::convert::TryFrom;
+use std::error::Error;
 use std::{task::Context, task::Poll};
 
 #[derive(NetworkBehaviour)]
@@ -40,6 +45,7 @@ pub struct ForestBehaviour {
     hello: RequestResponse<HelloCodec>,
     blocksync: RequestResponse<BlockSyncCodec>,
     kademlia: Kademlia<MemoryStore>,
+    bitswap: Bitswap,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
     #[behaviour(ignore)]
@@ -55,6 +61,8 @@ pub enum ForestBehaviourEvent {
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
+    BitswapReceivedBlock(PeerId, Cid, Box<[u8]>),
+    BitswapReceivedWant(PeerId, Cid),
     HelloRequest {
         peer: PeerId,
         request: HelloRequest,
@@ -105,6 +113,35 @@ impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
             }
             event => {
                 trace!("kad: {:?}", event);
+            }
+        }
+    }
+}
+
+impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
+    fn inject_event(&mut self, event: BitswapEvent) {
+        match event {
+            BitswapEvent::ReceivedBlock(peer_id, cid, data) => {
+                let cid = cid.to_bytes();
+                match Cid::from_raw_cid(cid.as_slice()) {
+                    Ok(cid) => self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
+                        peer_id, cid, data,
+                    )),
+                    Err(e) => warn!("Fail to convert Cid: {}", e.to_string()),
+                }
+            }
+            BitswapEvent::ReceivedWant(peer_id, cid, _priority) => {
+                let cid = cid.to_bytes();
+                match Cid::from_raw_cid(cid.as_slice()) {
+                    Ok(cid) => self
+                        .events
+                        .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid)),
+                    Err(e) => warn!("Fail to convert Cid: {}", e.to_string()),
+                }
+            }
+            BitswapEvent::ReceivedCancel(_peer_id, _cid) => {
+                // TODO: Determine how to handle cancel
+                trace!("BitswapEvent::ReceivedCancel, unimplemented");
             }
         }
     }
@@ -257,6 +294,8 @@ impl ForestBehaviour {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig::default();
 
+        let mut bitswap = Bitswap::new();
+
         // Kademlia config
         let store = MemoryStore::new(local_peer_id.to_owned());
         let mut kad_config = KademliaConfig::default();
@@ -268,6 +307,7 @@ impl ForestBehaviour {
             if let Some(Protocol::P2p(mh)) = addr.pop() {
                 let peer_id = PeerId::from_multihash(mh).unwrap();
                 kademlia.add_address(&peer_id, addr);
+                bitswap.connect(peer_id);
             } else {
                 warn!("Could not add addr {} to Kademlia DHT", multiaddr)
             }
@@ -290,6 +330,7 @@ impl ForestBehaviour {
                 local_key.public(),
             ),
             kademlia,
+            bitswap,
             hello: RequestResponse::new(HelloCodec, hp, Default::default()),
             blocksync: RequestResponse::new(BlockSyncCodec, bp, Default::default()),
             events: vec![],
@@ -313,18 +354,17 @@ impl ForestBehaviour {
     }
 
     /// Send an RPC request or response to some peer.
-    pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest, id: RequestId) {
+    pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest) -> RequestId {
         match req {
-            RPCRequest::Hello(request) => self.hello.send_request_with_id(peer_id, request, id),
-            RPCRequest::BlockSync(request) => {
-                self.blocksync.send_request_with_id(peer_id, request, id)
-            }
+            RPCRequest::Hello(request) => self.hello.send_request(peer_id, request),
+            RPCRequest::BlockSync(request) => self.blocksync.send_request(peer_id, request),
         }
     }
 
     /// Adds peer to the peer set.
     pub fn add_peer(&mut self, peer_id: PeerId) {
-        self.peers.insert(peer_id);
+        self.peers.insert(peer_id.clone());
+        self.bitswap.connect(peer_id);
     }
 
     /// Adds peer to the peer set.
@@ -335,5 +375,37 @@ impl ForestBehaviour {
     /// Adds peer to the peer set.
     pub fn peers(&self) -> &HashSet<PeerId> {
         &self.peers
+    }
+
+    /// Send a block to a peer over bitswap
+    pub fn send_block(
+        &mut self,
+        peer_id: &PeerId,
+        cid: Cid,
+        data: Box<[u8]>,
+    ) -> Result<(), Box<dyn Error>> {
+        debug!("send {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
+        self.bitswap.send_block(peer_id, cid, data);
+        Ok(())
+    }
+
+    /// Send a request for data over bitswap
+    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
+        debug!("want {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
+        self.bitswap.want_block(cid, priority);
+        Ok(())
+    }
+
+    /// Cancel a bitswap request
+    pub fn cancel_block(&mut self, cid: &Cid) -> Result<(), Box<dyn Error>> {
+        debug!("cancel {}", cid.to_string());
+        let cid = cid.to_bytes();
+        let cid = Cid2::try_from(cid)?;
+        self.bitswap.cancel_block(&cid);
+        Ok(())
     }
 }

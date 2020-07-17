@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct BigIntSer<'a>(#[serde(with = "self")] pub &'a BigInt);
 
 /// Wrapper for deserializing as BigInt from bytes.
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(transparent)]
 pub struct BigIntDe(#[serde(with = "self")] pub BigInt);
 

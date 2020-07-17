@@ -17,7 +17,7 @@ use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
 use message::{SignedMessage, UnsignedMessage};
-use num_bigint::BigUint;
+use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
 use std::io::Write;
@@ -456,11 +456,11 @@ where
 }
 
 /// Returns the weight of provided tipset
-fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigUint, String>
+fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: BlockStore,
 {
-    let mut tpow = BigUint::zero();
+    let mut tpow = BigInt::zero();
     let state = StateTree::new_from_root(db, ts.parent_state())?;
     if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
         if let Some(state) = db
@@ -470,8 +470,8 @@ where
             tpow = state.total_quality_adj_power;
         }
     }
-    let log2_p = if tpow > BigUint::zero() {
-        BigUint::from(tpow.bits() - 1)
+    let log2_p = if tpow > BigInt::zero() {
+        BigInt::from(tpow.bits() - 1)
     } else {
         return Err(
             "All power in the net is gone. You network might be disconnected, or the net is dead!"
@@ -479,9 +479,10 @@ where
         );
     };
 
-    let mut out = ts.weight() + (&log2_p << 8);
-    let e_weight = ((log2_p * BigUint::from(ts.blocks().len())) * BigUint::from(W_RATIO_NUM)) << 8;
-    let value = e_weight / (BigUint::from(BLOCKS_PER_EPOCH) * BigUint::from(W_RATIO_DEN));
+    let out_add: BigInt = &log2_p << 8;
+    let mut out = BigInt::from_biguint(Sign::Plus, ts.weight().to_owned()) + out_add;
+    let e_weight = ((log2_p * BigInt::from(ts.blocks().len())) * BigInt::from(W_RATIO_NUM)) << 8;
+    let value: BigInt = e_weight / (BigInt::from(BLOCKS_PER_EPOCH) * BigInt::from(W_RATIO_DEN));
     out += &value;
     Ok(out)
 }
