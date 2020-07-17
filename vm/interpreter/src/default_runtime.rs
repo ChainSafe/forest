@@ -481,7 +481,7 @@ where
                     actor::verifreg::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 _ => Err(
-                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", msg.to())
+                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", msg.to()),
                 ),
             }
         };
