@@ -534,59 +534,28 @@ where
         let mut candidate_receipt: Option<MessageReceipt> = None;
         let height_of_head = tipset.epoch();
         let mut reverts: HashMap<TipsetKeys, bool> = HashMap::new();
-        loop {
-            while let Some(subscriber) = self
-                .subscriber
-                .clone()
-                .ok_or_else(|| {
-                    Error::Other("State Manager not subscribed to tipset head changes".to_string())
-                })?
-                .next()
-                .await
-            {
-                match subscriber {
-                    HeadChange::Revert(_tipset) => {
-                        if candidate_tipset.is_some() {
-                            candidate_tipset = None;
-                            candidate_receipt = None;
-                        }
+
+        while let Some(subscriber) = self
+            .subscriber
+            .clone()
+            .ok_or_else(|| {
+                Error::Other("State Manager not subscribed to tipset head changes".to_string())
+            })?
+            .next()
+            .await
+        {
+            match subscriber {
+                HeadChange::Revert(_tipset) => {
+                    if candidate_tipset.is_some() {
+                        candidate_tipset = None;
+                        candidate_receipt = None;
                     }
-                    HeadChange::Apply(tipset) => {
-                        if candidate_tipset
-                            .as_ref()
-                            .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
-                            .unwrap_or_default()
-                        {
-                            let ts = candidate_tipset
-                                .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
-
-                            let rs = candidate_receipt.ok_or_else(|| {
-                                Error::Other("Candidate Receipt not set".to_string())
-                            })?;
-
-                            return Ok(Some((ts, rs)));
-                        }
-
-                        reverts.insert(tipset.key().to_owned(), true);
-
-                        let maybe_receipt =
-                            self.tipset_executed_message(&tipset, cid, &*message)?;
-                        if let Some(receipt) = maybe_receipt {
-                            if confidence == 0 {
-                                return Ok(Some((tipset, receipt)));
-                            }
-                            candidate_tipset = Some(tipset);
-                            candidate_receipt = Some(receipt)
-                        }
-                    }
-                    _ => continue,
                 }
-            }
-
-            match back_search_wait.next().await {
-                Some(_) => {
-                    if !reverts.get(back_tipset.key()).unwrap_or(&false)
-                        && height_of_head >= back_tipset.epoch() + confidence
+                HeadChange::Apply(tipset) => {
+                    if candidate_tipset
+                        .as_ref()
+                        .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
+                        .unwrap_or_default()
                     {
                         let ts = candidate_tipset
                             .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
@@ -596,10 +565,37 @@ where
 
                         return Ok(Some((ts, rs)));
                     }
+
+                    reverts.insert(tipset.key().to_owned(), true);
+
+                    let maybe_receipt = self.tipset_executed_message(&tipset, cid, &*message)?;
+                    if let Some(receipt) = maybe_receipt {
+                        if confidence == 0 {
+                            return Ok(Some((tipset, receipt)));
+                        }
+                        candidate_tipset = Some(tipset);
+                        candidate_receipt = Some(receipt)
+                    }
                 }
-                _ => continue,
+                _ => (),
             }
         }
+
+        while back_search_wait.next().await.is_some() {
+            if !reverts.get(back_tipset.key()).unwrap_or(&false)
+                && height_of_head >= back_tipset.epoch() + confidence
+            {
+                let ts = candidate_tipset
+                    .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
+
+                let rs = candidate_receipt
+                    .ok_or_else(|| Error::Other("Candidate Receipt not set".to_string()))?;
+
+                return Ok(Some((ts, rs)));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Returns a bls public key from provided address
