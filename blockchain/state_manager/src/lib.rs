@@ -16,6 +16,7 @@ use blockstore::BufferedBlockStore;
 use chain::{block_messages, ChainStore};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
+use fil_types::DevnetParams;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
@@ -124,7 +125,8 @@ where
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
-        let mut vm = VM::new(
+        // TODO change from statically using devnet params when needed
+        let mut vm = VM::<_, _, DevnetParams>::new(
             ts.parent_state(),
             &buf_store,
             ts.epoch(),

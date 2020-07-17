@@ -8,6 +8,7 @@ use actor::{
 use blocks::FullTipset;
 use cid::Cid;
 use clock::ChainEpoch;
+use fil_types::NetworkParams;
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
@@ -18,24 +19,26 @@ use runtime::Syscalls;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::error::Error as StdError;
+use std::marker::PhantomData;
 use vm::{ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, SYS> {
+pub struct VM<'db, 'r, DB, SYS, P> {
     state: StateTree<'db, DB>,
     // TODO revisit handling buffered store specifically in VM
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
     rand: &'r ChainRand,
-    // TODO: missing fields
+    params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, SYS> VM<'db, 'r, DB, SYS>
+impl<'db, 'r, DB, SYS, P> VM<'db, 'r, DB, SYS, P>
 where
     DB: BlockStore,
     SYS: Syscalls,
+    P: NetworkParams,
 {
     pub fn new(
         root: &Cid,
@@ -51,6 +54,7 @@ where
             epoch,
             syscalls,
             rand,
+            params: PhantomData,
         })
     }
 
@@ -126,8 +130,8 @@ where
                 .value(BigInt::zero())
                 .gas_price(BigInt::zero())
                 .gas_limit(1 << 30)
-                .method_num(reward::Method::AwardBlockReward as u64)
                 .params(params)
+                .method_num(reward::Method::AwardBlockReward as u64)
                 .build()?;
 
             // TODO revisit this ApplyRet structure, doesn't match go logic 1:1 and can be cleaner
@@ -350,7 +354,7 @@ where
         gas_cost: i64,
     ) -> (
         Serialized,
-        DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS>,
+        DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, P>,
         Option<ActorError>,
     ) {
         let mut rt = DefaultRuntime::new(

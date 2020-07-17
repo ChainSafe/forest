@@ -15,6 +15,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
+use fil_types::NetworkParams;
 use forest_encoding::to_vec;
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
@@ -23,13 +24,14 @@ use num_bigint::BigInt;
 use runtime::{ActorCode, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::Rc;
 use vm::{
     ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount, METHOD_SEND,
 };
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS> {
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
@@ -41,12 +43,14 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS> {
     num_actors_created: u64,
     price_list: PriceList,
     rand: &'r ChainRand,
+    params: PhantomData<P>,
 }
 
-impl<'db, 'msg, 'st, 'sys, 'r, BS, SYS> DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS>
+impl<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
+    P: NetworkParams,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
@@ -89,6 +93,7 @@ where
             num_actors_created,
             price_list,
             rand,
+            params: PhantomData,
         }
     }
 
@@ -156,10 +161,11 @@ where
     }
 }
 
-impl<BS, SYS> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS>
+impl<BS, SYS, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
+    P: NetworkParams,
 {
     fn message(&self) -> &UnsignedMessage {
         &self.message
@@ -337,7 +343,7 @@ where
                 self.num_actors_created,
                 self.rand,
             );
-            internal_send::<BS, SYS>(&mut parent, &msg, 0)
+            internal_send::<BS, SYS, P>(&mut parent, &msg, 0)
         };
         if send_res.is_err() {
             self.state
@@ -417,14 +423,15 @@ where
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn internal_send<BS, SYS>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS>,
+pub fn internal_send<BS, SYS, P>(
+    runtime: &mut DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, P>,
     msg: &UnsignedMessage,
     _gas_cost: i64,
 ) -> Result<Serialized, ActorError>
 where
     BS: BlockStore,
     SYS: Syscalls,
+    P: NetworkParams,
 {
     runtime.charge_gas(
         runtime
