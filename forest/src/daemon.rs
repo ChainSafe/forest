@@ -90,7 +90,7 @@ pub(super) async fn start(config: Config) {
             start_rpc(
                 RpcState {
                     store: db_rpc,
-                    keystore: keystore_rpc
+                    keystore: keystore_rpc,
                     bad_blocks,
                     sync_state,
                     network_send,

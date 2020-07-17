@@ -84,7 +84,7 @@ where
 }
 
 pub(crate) async fn chain_block_messages<DB, KS>(
-    data: Data<RpcState<DB, KS>>
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<BlockMessages, JsonRpcError>
 where

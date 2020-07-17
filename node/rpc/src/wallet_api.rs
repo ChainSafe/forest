@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::State;
+use crate::RpcState;
 
 use address::Address;
 use blockstore::BlockStore;
@@ -21,7 +21,7 @@ use wallet::{json::KeyInfoJson, Key, KeyStore};
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(String,)>,
 ) -> Result<String, JsonRpcError>
 where
@@ -52,7 +52,7 @@ where
 
 /// Get the default Address for the Wallet
 pub(crate) async fn wallet_default_address<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -66,7 +66,7 @@ where
 
 /// Export KeyInfo from the Wallet given its address
 pub(crate) async fn wallet_export<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(String,)>,
 ) -> Result<KeyInfoJson, JsonRpcError>
 where
@@ -84,7 +84,7 @@ where
 
 /// Return whether or not a Key is in the Wallet
 pub(crate) async fn wallet_has<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(String,)>,
 ) -> Result<bool, JsonRpcError>
 where
@@ -102,7 +102,7 @@ where
 
 /// Import Keyinfo to the Wallet, return the Address that corresponds to it
 pub(crate) async fn wallet_import<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(KeyInfoJson,)>,
 ) -> Result<String, JsonRpcError>
 where
@@ -124,7 +124,7 @@ where
 
 /// List all Addresses in the Wallet
 pub(crate) async fn wallet_list<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
 ) -> Result<Vec<String>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -138,7 +138,7 @@ where
 
 /// Generate a new Address that is stored in the Wallet
 pub(crate) async fn wallet_new<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(u8,)>,
 ) -> Result<String, JsonRpcError>
 where
@@ -162,7 +162,7 @@ where
 
 /// Set the default Address for the Wallet
 pub(crate) async fn wallet_set_default<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(String,)>,
 ) -> Result<(), JsonRpcError>
 where
@@ -181,7 +181,7 @@ where
 
 /// Sign a vector of bytes
 pub(crate) async fn wallet_sign<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(String, String)>,
 ) -> Result<SignatureJson, JsonRpcError>
 where
@@ -208,7 +208,7 @@ where
 
 /// Sign an UnsignedMessage, return SignedMessage
 pub(crate) async fn wallet_sign_message<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(String, UnsignedMessageJson)>,
 ) -> Result<SignedMessageJson, JsonRpcError>
 where
@@ -236,7 +236,7 @@ where
 
 /// Verify a Signature, true if verified, false otherwise
 pub(crate) async fn wallet_verify<DB, KS>(
-    _data: Data<State<DB, KS>>,
+    _data: Data<RpcState<DB, KS>>,
     Params(params): Params<(String, String, SignatureJson)>,
 ) -> Result<bool, JsonRpcError>
 where

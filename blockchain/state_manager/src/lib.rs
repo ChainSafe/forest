@@ -246,7 +246,7 @@ where
     }
 
     /// Return the heaviest tipset's balance from self.db for a given address
-    pub fn get_heaviest_balance(&self, addr: &Address) -> Result<BigUint, Error> {
+    pub fn get_heaviest_balance(&self, addr: &Address) -> Result<BigInt, Error> {
         let ts = get_heaviest_tipset(self.bs.as_ref())
             .map_err(|err| Error::Other(err.to_string()))?
             .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
@@ -255,7 +255,7 @@ where
     }
 
     /// Return the balance of a given address and state_cid
-    pub fn get_balance(&self, addr: &Address, cid: &Cid) -> Result<BigUint, Error> {
+    pub fn get_balance(&self, addr: &Address, cid: &Cid) -> Result<BigInt, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
         Ok(actor.balance)
