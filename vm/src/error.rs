@@ -81,7 +81,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serialize_symmetric() {
+    fn error_macro_generation() {
         assert_eq!(
             actor_error!(SysErrSenderInvalid; "test"),
             ActorError::new(ExitCode::SysErrSenderInvalid, "test".to_owned())
