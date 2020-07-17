@@ -23,7 +23,8 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use vm::{
-    ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount, METHOD_SEND,
+    actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
+    METHOD_SEND,
 };
 
 /// Implementation of the Runtime trait.
@@ -418,20 +419,12 @@ where
             self.state
                 .get_actor(&addr)
                 .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!(
-                            "failed to get reward actor for cumputing total supply: {}",
-                            e
-                        ),
-                    )
+                    actor_error!(ErrIllegalState;
+                        "failed to get reward actor for cumputing total supply: {}", e)
                 })?
-                .ok_or_else(|| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("Actor address ({}) does not exist", addr),
-                    )
-                })
+                .ok_or_else(
+                    || actor_error!(ErrIllegalState; "Actor address ({}) does not exist", addr),
+                )
         };
 
         let rew = get_actor_state(&REWARD_ACTOR_ADDR)?;
@@ -443,17 +436,10 @@ where
             .store
             .get(&power.state)
             .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to get storage power state: {}", e.to_string()),
-                )
+                actor_error!(ErrIllegalState; 
+                    "failed to get storage power state: {}", e.to_string())
             })?
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "Failed to retrieve power state".to_owned(),
-                )
-            })?;
+            .ok_or_else(|| actor_error!(ErrIllegalState; "Failed to retrieve power state"))?;
 
         let total = P::from_fil(P::TOTAL_FILECOIN)
             - rew.balance
@@ -486,7 +472,7 @@ where
 
     if msg.value() != &0u8.into() {
         transfer(runtime.state, &msg.from(), &msg.to(), &msg.value())
-            .map_err(|e| ActorError::new(ExitCode::SysErrSenderInvalid, e))?;
+            .map_err(|e| actor_error!(SysErrSenderInvalid; e))?;
     }
 
     let method_num = msg.method_num();
@@ -528,10 +514,9 @@ where
                 x if x == *VERIFIED_ACTOR_CODE_ID => {
                     actor::verifreg::Actor.invoke_method(runtime, method_num, msg.params())
                 }
-                _ => Err(ActorError::new(
-                    ExitCode::SysErrorIllegalActor,
-                    format!("no code for actor at address {}", msg.to()),
-                )),
+                _ => Err(
+                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", msg.to())
+                ),
             }
         };
         return ret;
@@ -585,13 +570,8 @@ where
 
     let act = st
         .get_actor(&addr)
-        .map_err(|e| ActorError::new(ExitCode::SysErrInternal, e))?
-        .ok_or_else(|| {
-            ActorError::new(
-                ExitCode::SysErrInternal,
-                format!("Failed to retrieve actor: {}", addr),
-            )
-        })?;
+        .map_err(|e| actor_error!(SysErrInternal; e))?
+        .ok_or_else(|| actor_error!(SysErrInternal; "Failed to retrieve actor: {}", addr))?;
 
     if act.code != *ACCOUNT_ACTOR_CODE_ID {
         return Err(ActorError::new_fatal(format!(
