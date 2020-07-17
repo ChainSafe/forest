@@ -62,7 +62,7 @@ impl From<EncodingError> for ActorError {
 #[macro_export]
 macro_rules! actor_error {
     // Fatal Errors
-    ( fatal($msg:expr) ) => { ActorError::new_fatal(ExitCode::$code, $msg.to_string()) };
+    ( fatal($msg:expr) ) => { ActorError::new_fatal($msg.to_string()) };
     ( fatal($msg:literal $(, $ex:expr)+) ) => {
         ActorError::new_fatal(format!($msg, $($ex,)*))
     };
