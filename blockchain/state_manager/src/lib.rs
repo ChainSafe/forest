@@ -273,16 +273,14 @@ where
 
     fn search_back_for_message(
         &self,
-        tipset: &Tipset,
+        current: &Tipset,
         message: &dyn Message,
     ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
-        let current = tipset.to_owned();
-
         if current.epoch() == 0 {
             return Ok(None);
         }
 
-        if let Some(actor_state) = self.get_actor(message.from(), tipset.parent_state())? {
+        if let Some(actor_state) = self.get_actor(message.from(), current.parent_state())? {
             if actor_state.sequence == 0 || actor_state.sequence < message.sequence() {
                 return Ok(None);
             }
