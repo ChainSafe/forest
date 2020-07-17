@@ -21,7 +21,7 @@ use fil_types::SectorNumber;
 use message::{MessageReceipt, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
-use state_manager::{call, call::InvocResult, MarketBalance, StateManager};
+use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
 use std::error::Error;
 
@@ -253,7 +253,9 @@ where
     DB: BlockStore,
 {
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    call::state_call(&state_manager, message, Some(tipset)).map_err(|e| e.into())
+    state_manager
+        .call(message, Some(tipset))
+        .map_err(|e| e.into())
 }
 
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
@@ -266,12 +268,14 @@ where
     DB: BlockStore,
 {
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    let (msg, ret) = call::state_replay(&state_manager, &tipset, cid)?;
+    let (msg, ret) = state_manager.replay(&tipset, cid)?;
 
     Ok(InvocResult {
         msg,
-        msg_rct: ret.msg_receipt().clone(),
-        actor_error: ret.act_error().map(|e| e.to_string()),
+        msg_rct: ret.clone().map(|s| s.msg_receipt().clone()),
+        actor_error: ret
+            .map(|act| act.act_error().map(|e| e.to_string()))
+            .unwrap_or_default(),
     })
 }
 
