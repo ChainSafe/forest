@@ -514,16 +514,10 @@ where
             ))
     }
 
-    fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
+    fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {
         self.require_in_call();
 
-        self.actor_code_cids
-            .get(&addr)
-            .cloned()
-            .ok_or(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                "Actor address is not found".to_string(),
-            ))
+        Ok(self.actor_code_cids.get(&addr).cloned())
     }
 
     fn get_randomness(

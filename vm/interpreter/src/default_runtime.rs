@@ -115,44 +115,34 @@ where
         self.price_list
     }
 
-    /// Gets the specified Actor from the state tree
-    fn get_actor(&self, addr: &Address) -> Result<ActorState, ActorError> {
-        // TODO handle exit codes specifically, this leads to a broken implementation
-        self.state
-            .get_actor(&addr)
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    format!("failed to load actor: {}", e),
-                )
-            })?
-            .ok_or_else(|| self.abort(ExitCode::SysErrInternal, "actor not found"))
-    }
-
     /// Get the balance of a particular Actor from their Address
     fn get_balance(&self, addr: &Address) -> Result<BigInt, ActorError> {
-        // TODO fix this, not found should return 0 not error, on error should turn error into fatal
-        self.get_actor(&addr).map(|act| act.balance)
+        Ok(self
+            .state
+            .get_actor(&addr)
+            .map_err(ActorError::new_fatal)?
+            .map(|act| act.balance)
+            .unwrap_or_default())
     }
 
     /// Update the state Cid of the Message receiver
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
         let to_addr = *self.message().to();
-        let mut actor = self.get_actor(&to_addr)?;
+        let mut actor = self
+            .state
+            .get_actor(&to_addr)
+            .map_err(ActorError::new_fatal)?
+            .ok_or_else(|| actor_error!(fatal("failed to get actor to commit state")))?;
 
         if &actor.state != old_h {
-            return Err(self.abort(
-                ExitCode::ErrIllegalState,
-                "failed to update, inconsistent base reference".to_owned(),
-            ));
+            return Err(actor_error!(fatal(
+                "failed to update, inconsistent base reference"
+            )));
         }
         actor.state = new_h;
-        self.state.set_actor(&to_addr, actor).map_err(|e| {
-            self.abort(
-                ExitCode::SysErrInternal,
-                format!("failed to set actor in state_commit: {}", e),
-            )
-        })?;
+        self.state
+            .set_actor(&to_addr, actor)
+            .map_err(|e| actor_error!(fatal("failed to set actor in state_commit: {}", e)))?;
 
         Ok(())
     }
@@ -191,7 +181,9 @@ where
     where
         I: IntoIterator<Item = &'db Cid>,
     {
-        let caller_cid = self.get_actor_code_cid(self.message().to())?;
+        let caller_cid = self
+            .get_actor_code_cid(self.message().to())?
+            .ok_or_else(|| actor_error!(fatal("failed to lookup code cid for caller")))?;
         if types.into_iter().any(|c| *c == caller_cid) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
@@ -204,17 +196,25 @@ where
         }
         Ok(())
     }
+
     fn current_balance(&self) -> Result<TokenAmount, ActorError> {
         self.get_balance(self.message.to())
     }
+
     fn resolve_address(&self, address: &Address) -> Result<Address, ActorError> {
         self.state
             .lookup_id(&address)
-            .map_err(|e| self.abort(ExitCode::ErrPlaceholder, e))
+            .map_err(ActorError::new_fatal)
     }
-    fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
-        self.get_actor(&addr).map(|act| act.code)
+
+    fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {
+        Ok(self
+            .state
+            .get_actor(&addr)
+            .map_err(ActorError::new_fatal)?
+            .map(|act| act.code))
     }
+
     fn get_randomness(
         &self,
         personalization: DomainSeparationTag,
@@ -241,8 +241,9 @@ where
         // TODO: This is almost certainly wrong. Need to CBOR an empty slice and calculate Cid
         self.state_commit(&Cid::default(), c)
     }
+
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        let actor = self.get_actor(self.message().to())?;
+        let actor = self.state.get_actor(self.message().to()).map_err(|e| actor_error!(SysErrorIllegalArgument; "failed to get actor for Readonly state: {}", e))?.ok_or_else(|| actor_error!(SysErrorIllegalArgument; "Actor readonly state does not exist"))?;
         self.store
             .get(&actor.state)
             .map_err(|e| {
@@ -265,7 +266,7 @@ where
         F: FnOnce(&mut C, &mut Self) -> R,
     {
         // get actor
-        let act = self.get_actor(self.message().to())?;
+        let act = self.state.get_actor(self.message().to()).map_err(|e| actor_error!(SysErrorIllegalActor; "failed to get actor for transaction: {}", e))?.ok_or_else(|| actor_error!(SysErrorIllegalActor; "actor state for transaction doesn't exist"))?;
 
         // get state for actor based on generic C
         let mut state: C = self
@@ -397,7 +398,14 @@ where
     }
     fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
         self.charge_gas(self.price_list.on_delete_actor())?;
-        let balance = self.get_actor(self.message.to()).map(|act| act.balance)?;
+        let balance = self
+            .state
+            .get_actor(self.message.to())
+            .map_err(|e| actor_error!(fatal("failed to get actor {}, {}", self.message.to(), e)))?
+            .ok_or_else(
+                || actor_error!(SysErrorIllegalActor; "failed to load actor in delete actor"),
+            )
+            .map(|act| act.balance)?;
         if !balance.eq(&0u64.into()) {
             return Err(self.abort(
                 ExitCode::SysErrInternal,
@@ -436,7 +444,7 @@ where
             .store
             .get(&power.state)
             .map_err(|e| {
-                actor_error!(ErrIllegalState; 
+                actor_error!(ErrIllegalState;
                     "failed to get storage power state: {}", e.to_string())
             })?
             .ok_or_else(|| actor_error!(ErrIllegalState; "Failed to retrieve power state"))?;
@@ -468,7 +476,12 @@ where
     )?;
 
     // TODO: we need to try to recover here and try to create account actor
-    let to_actor = runtime.get_actor(msg.to())?;
+    // TODO: actually fix this and don't leave as unwrap for PR
+    let to_actor = runtime
+        .state
+        .get_actor(msg.to())
+        .map_err(ActorError::new_fatal)?
+        .unwrap();
 
     if msg.value() != &0u8.into() {
         transfer(runtime.state, &msg.from(), &msg.to(), &msg.value())
@@ -515,7 +528,7 @@ where
                     actor::verifreg::Actor.invoke_method(runtime, method_num, msg.params())
                 }
                 _ => Err(
-                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", msg.to())
+                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", msg.to()),
                 ),
             }
         };

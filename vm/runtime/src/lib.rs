@@ -59,7 +59,7 @@ pub trait Runtime<BS: BlockStore> {
     fn resolve_address(&self, address: &Address) -> Result<Address, ActorError>;
 
     /// Look up the code ID at an actor address.
-    fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError>;
+    fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError>;
 
     /// Randomness returns a (pseudo)random byte array drawing from a
     /// random beacon at a given epoch and incorporating reequisite entropy

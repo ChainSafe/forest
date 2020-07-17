@@ -29,7 +29,8 @@ use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use vm::{
-    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
 
 /// Market actor methods available
@@ -769,19 +770,13 @@ where
     RT: Runtime<BS>,
 {
     // Resolve the provided address to the canonical form against which the balance is held.
-    let nominal = rt.resolve_address(addr).map_err(|e| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("Failed to resolve address provided: {}", e),
-        )
-    })?;
+    let nominal = rt.resolve_address(addr).map_err(
+        |e| actor_error!(ErrIllegalArgument; "Failed to resolve address provided: {}", e),
+    )?;
 
-    let code_id = rt.get_actor_code_cid(&nominal).map_err(|e| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("Failed to retrieve actor code cid: {}", e),
-        )
-    })?;
+    let code_id = rt
+        .get_actor_code_cid(&nominal)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "no code for address {}", nominal))?;
 
     if code_id != *MINER_ACTOR_CODE_ID {
         // Ordinary account-style actor entry; funds recipient is just the entry address itself.

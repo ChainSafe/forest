@@ -55,8 +55,8 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::ops::Neg;
 use vm::{
-    ActorError, DealID, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
-    METHOD_SEND,
+    actor_error, ActorError, DealID, ExitCode, MethodNum, Serialized, TokenAmount,
+    METHOD_CONSTRUCTOR, METHOD_SEND,
 };
 
 // * Updated to specs-actors commit: 9e8c0d1c40d8b41de5dc727b6791c89e14fea4a8
@@ -2266,24 +2266,17 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let resolved = rt.resolve_address(&raw).map_err(|_| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("unable to resolve address {}", raw),
-        )
-    })?;
+    let resolved = rt
+        .resolve_address(&raw)
+        .map_err(|_| actor_error!(ErrIllegalArgument; "unable to resolve address {}", raw))?;
     assert!(resolved.protocol() == Protocol::ID);
 
-    let owner_code = rt.get_actor_code_cid(&resolved).map_err(|_| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("no code for address: {}", resolved),
-        )
-    })?;
+    let owner_code = rt
+        .get_actor_code_cid(&resolved)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "no code for address: {}", resolved))?;
     if !is_principal(&owner_code) {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("owner actor type must be a principal, was {}", owner_code),
+        return Err(actor_error!(ErrIllegalArgument;
+            "owner actor type must be a principal, was {}", owner_code
         ));
     }
 
@@ -2297,25 +2290,17 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let resolved = rt.resolve_address(&raw).map_err(|e| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("unable to resolve address: {},{}", raw, e),
-        )
-    })?;
+    let resolved = rt.resolve_address(&raw).map_err(
+        |e| actor_error!(ErrIllegalArgument; "unable to resolve address: {},{}", raw, e),
+    )?;
     assert!(resolved.protocol() == Protocol::ID);
 
-    let owner_code = rt.get_actor_code_cid(&resolved).map_err(|e| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("no code for address: {}, {}", resolved, e),
-        )
-    })?;
+    let owner_code = rt
+        .get_actor_code_cid(&resolved)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "no code for address: {}", resolved))?;
     if owner_code != *ACCOUNT_ACTOR_CODE_ID {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("worker actor type must be an account, was {}", owner_code),
-        ));
+        return Err(actor_error!(ErrIllegalArgument;
+                "worker actor type must be an account, was {}", owner_code));
     }
 
     if raw.protocol() != Protocol::BLS {
@@ -2326,19 +2311,13 @@ where
             &TokenAmount::zero(),
         )?;
         let pub_key: Address = ret.deserialize().map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrSerialization,
-                format!("failed to deserialize address result: {:?}, {}", ret, e),
-            )
+            actor_error!(ErrSerialization; "failed to deserialize address result: {:?}, {}", ret, e)
         })?;
         if pub_key.protocol() != Protocol::BLS {
-            return Err(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                format!(
+            return Err(actor_error!(ErrIllegalArgument;
                     "worker account {} must have BLS pubkey, was {}",
                     resolved,
                     pub_key.protocol()
-                ),
             ));
         }
     }

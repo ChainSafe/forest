@@ -17,7 +17,7 @@ use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Init actor methods available
 #[derive(FromPrimitive)]
@@ -59,15 +59,12 @@ impl Actor {
     {
         rt.validate_immediate_caller_accept_any();
         let caller_code = rt
-            .get_actor_code_cid(rt.message().from())
-            .expect("no code for actor");
+            .get_actor_code_cid(rt.message().from())?
+            .ok_or_else(|| actor_error!(ErrForbidden; "No code for actor"))?;
         if !can_exec(&caller_code, &params.code_cid) {
-            return Err(rt.abort(
-                ExitCode::ErrForbidden,
-                format!(
+            return Err(actor_error!(ErrForbidden;
                     "called type {} cannot exec actor type {}",
                     &caller_code, &params.code_cid
-                ),
             ));
         }
 
