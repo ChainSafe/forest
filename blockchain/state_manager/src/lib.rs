@@ -468,7 +468,7 @@ where
             match back_search_wait.next().await {
                 Some(_) => {
                     if !reverts.get(back_tipset.key()).unwrap_or(&false)
-                        && height_of_head > back_tipset.epoch() + confidence
+                        && height_of_head >= back_tipset.epoch() + confidence
                     {
                         let ts = candidate_tipset
                             .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
