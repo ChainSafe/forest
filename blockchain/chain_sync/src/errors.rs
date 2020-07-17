@@ -25,7 +25,7 @@ pub enum Error {
     #[error(transparent)]
     InvalidCid(#[from] CidErr),
     /// Error indicating an invalid root
-    #[error("Invalid root detected")]
+    #[error("Invalid message root detected")]
     InvalidRoots,
     /// Error indicating a chain store error
     #[error(transparent)]
@@ -68,6 +68,12 @@ impl From<AmtErr> for Error {
 impl From<&str> for Error {
     fn from(e: &str) -> Error {
         Error::Other(e.to_string())
+    }
+}
+
+impl From<String> for Error {
+    fn from(e: String) -> Error {
+        Error::Other(e)
     }
 }
 

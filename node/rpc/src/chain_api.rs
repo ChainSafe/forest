@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::State;
+use crate::RpcState;
 use blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, BlockHeader, Tipset, TipsetKeys,
 };
@@ -40,7 +40,7 @@ pub(crate) struct Message {
 }
 
 pub(crate) async fn chain_get_message<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<UnsignedMessageJson, JsonRpcError>
 where
@@ -56,7 +56,7 @@ where
 }
 
 pub(crate) async fn chain_read_obj<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<Vec<u8>, JsonRpcError>
 where
@@ -72,7 +72,7 @@ where
 }
 
 pub(crate) async fn chain_has_obj<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<bool, JsonRpcError>
 where
@@ -84,7 +84,7 @@ where
 }
 
 pub(crate) async fn chain_block_messages<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>
     Params(params): Params<(CidJson,)>,
 ) -> Result<BlockMessages, JsonRpcError>
 where
@@ -114,7 +114,7 @@ where
 }
 
 pub(crate) async fn chain_get_tipset_by_height<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(ChainEpoch, TipsetKeys)>,
 ) -> Result<TipsetJson, JsonRpcError>
 where
@@ -128,7 +128,7 @@ where
 }
 
 pub(crate) async fn chain_get_genesis<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
 ) -> Result<Option<TipsetJson>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -140,7 +140,7 @@ where
 }
 
 pub(crate) async fn chain_head<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
 ) -> Result<TipsetJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -152,7 +152,7 @@ where
 }
 
 pub(crate) async fn chain_tipset_weight<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(TipsetKeys,)>,
 ) -> Result<String, JsonRpcError>
 where
@@ -165,7 +165,7 @@ where
 }
 
 pub(crate) async fn chain_get_block<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<BlockHeaderJson, JsonRpcError>
 where
@@ -182,7 +182,7 @@ where
 }
 
 pub(crate) async fn chain_get_tipset<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(TipsetKeys,)>,
 ) -> Result<TipsetJson, JsonRpcError>
 where
@@ -195,7 +195,7 @@ where
 }
 
 pub(crate) async fn chain_get_randomness<DB, KS>(
-    data: Data<State<DB, KS>>,
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(TipsetKeys, i64, ChainEpoch, Vec<u8>)>,
 ) -> Result<[u8; 32], JsonRpcError>
 where

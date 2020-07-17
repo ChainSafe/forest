@@ -18,8 +18,8 @@ use address::Address;
 use fil_types::{SealVerifyInfo, StoragePower};
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
-use num_bigint::BigUint;
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -174,7 +174,7 @@ impl Actor {
         let initial_pledge = compute_initial_pledge(rt, &params.weight)?;
 
         rt.transaction(|st: &mut State, rt| {
-            let rb_power = BigUint::from(params.weight.sector_size as u64);
+            let rb_power = BigInt::from(params.weight.sector_size as u64);
             let qa_power = qa_power_for_weight(&params.weight);
             st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
                 .map_err(|e| {
@@ -270,7 +270,7 @@ impl Actor {
             st.add_to_claim(
                 rt.store(),
                 rt.message().from(),
-                &BigUint::from(prev_weight.sector_size as u64),
+                &BigInt::from(prev_weight.sector_size as u64),
                 &prev_power,
             )
             .map_err(|e| {
@@ -284,7 +284,7 @@ impl Actor {
             st.add_to_claim(
                 rt.store(),
                 rt.message().from(),
-                &BigUint::from(new_weight.sector_size as u64),
+                &BigInt::from(new_weight.sector_size as u64),
                 &new_power,
             )
             .map_err(|e| {
@@ -496,7 +496,7 @@ where
         &Serialized::default(),
         &TokenAmount::zero(),
     )?;
-    let BigUintDe(epoch_reward) = ret.deserialize()?;
+    let BigIntDe(epoch_reward) = ret.deserialize()?;
 
     let qa_power = qa_power_for_weight(&desc);
     Ok(initial_pledge_for_weight(
@@ -510,11 +510,11 @@ where
 
 fn powers_for_weights(weights: Vec<SectorStorageWeightDesc>) -> (StoragePower, StoragePower) {
     // returns (rbpower, qapower)
-    let mut rb_power = BigUint::zero();
-    let mut qa_power = BigUint::zero();
+    let mut rb_power = BigInt::zero();
+    let mut qa_power = BigInt::zero();
 
     for w in &weights {
-        rb_power += BigUint::from(w.sector_size as u64);
+        rb_power += BigInt::from(w.sector_size as u64);
         qa_power += qa_power_for_weight(&w);
     }
 
@@ -548,7 +548,7 @@ impl ActorCode for Actor {
             }
             Some(Method::OnSectorProveCommit) => {
                 let res = Self::on_sector_prove_commit(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(BigUintSer(&res))?)
+                Ok(Serialized::serialize(BigIntSer(&res))?)
             }
             Some(Method::OnSectorTerminate) => {
                 Self::on_sector_terminate(rt, params.deserialize()?)?;
@@ -564,7 +564,7 @@ impl ActorCode for Actor {
             }
             Some(Method::OnSectorModifyWeightDesc) => {
                 let res = Self::on_sector_modify_weight_desc(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(BigUintSer(&res))?)
+                Ok(Serialized::serialize(BigIntSer(&res))?)
             }
             Some(Method::EnrollCronEvent) => {
                 Self::enroll_cron_event(rt, params.deserialize()?)?;
@@ -576,12 +576,12 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::UpdatePledgeTotal) => {
-                let BigUintDe(param) = params.deserialize()?;
+                let BigIntDe(param) = params.deserialize()?;
                 Self::update_pledge_total(rt, param)?;
                 Ok(Serialized::default())
             }
             Some(Method::OnConsensusFault) => {
-                let BigUintDe(param) = params.deserialize()?;
+                let BigIntDe(param) = params.deserialize()?;
                 Self::on_consensus_fault(rt, param)?;
                 Ok(Serialized::default())
             }

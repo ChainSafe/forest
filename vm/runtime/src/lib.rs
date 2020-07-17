@@ -317,6 +317,7 @@ fn verify_seal(vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
 }
 
 /// Result of checking two headers for a consensus fault.
+#[derive(Clone)]
 pub struct ConsensusFault {
     /// Address of the miner at fault (always an ID address).
     pub target: Address,

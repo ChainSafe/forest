@@ -12,7 +12,7 @@ use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
 use num_bigint::{
     biguint_ser::{BigUintDe, BigUintSer},
-    BigUint,
+    BigInt, BigUint,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
@@ -340,7 +340,7 @@ impl BlockHeader {
         Ok(())
     }
     /// Returns true if (h(vrfout) * totalPower) < (e * sectorSize * 2^256)
-    pub fn is_ticket_winner(&self, mpow: BigUint, net_pow: BigUint) -> bool {
+    pub fn is_ticket_winner(&self, mpow: BigInt, net_pow: BigInt) -> bool {
         /*
         Need to check that
         (h(vrfout) + 1) / (max(h) + 1) <= e * myPower / totalPower
@@ -353,13 +353,13 @@ impl BlockHeader {
 
         // TODO switch ticket for election_proof
         let h = sha2::Sha256::digest(self.ticket.vrfproof.as_bytes());
-        let mut lhs = BigUint::from_bytes_le(&h);
+        let mut lhs = BigInt::from_signed_bytes_le(&h);
         lhs *= net_pow;
 
         // rhs = sectorSize * 2^256
         // rhs = sectorSize << 256
         let mut rhs = mpow << SHA_256_BITS;
-        rhs *= BigUint::from(BLOCKS_PER_EPOCH);
+        rhs *= BigInt::from(BLOCKS_PER_EPOCH);
 
         // h(vrfout) * totalPower < e * sectorSize * 2^256
         lhs < rhs
