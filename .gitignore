@@ -7,3 +7,5 @@ config*.toml
 /test_dir*
 /devnet.car
 *.orig
+criterion
+

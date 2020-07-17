@@ -1,32 +1,24 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod iter;
-
-pub mod rleplus;
+pub mod iter;
+mod rleplus;
 
 use ahash::AHashSet;
 use iter::{ranges_from_bits, RangeIterator};
-use rleplus::RlePlus;
-use serde::{Deserialize, Serialize};
 use std::{
     iter::FromIterator,
-    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Sub, SubAssign},
+    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Range, Sub, SubAssign},
 };
 
 type Result<T> = std::result::Result<T, &'static str>;
 
-/// An RLE+ encoded bit field with buffered insertion/removal. Similar to `HashSet<usize>`,
-/// but more memory-efficient when long runs of 1s and 0s are present.
-///
-/// When deserializing a bit field, in order to distinguish between an invalid RLE+ encoding
-/// and any other deserialization errors, deserialize into an `UnverifiedBitField` and
-/// call `verify` on it.
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-#[serde(from = "RlePlus", into = "RlePlus")]
+/// An bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
+/// `HashSet<usize>`, but more memory-efficient when long runs of 1s and 0s are present.
+#[derive(Debug, Default, Clone)]
 pub struct BitField {
-    /// The underlying RLE+ encoded bitvec.
-    bitvec: RlePlus,
+    /// The underlying ranges of 1s.
+    ranges: Vec<Range<usize>>,
     /// Bits set to 1. Never overlaps with `unset`.
     set: AHashSet<usize>,
     /// Bits set to 0. Never overlaps with `set`.
@@ -41,32 +33,20 @@ impl PartialEq for BitField {
 
 impl FromIterator<usize> for BitField {
     fn from_iter<I: IntoIterator<Item = usize>>(iter: I) -> Self {
-        RlePlus::from_iter(iter).into()
+        let mut vec: Vec<_> = iter.into_iter().collect();
+        vec.sort_unstable();
+        Self::from_ranges(ranges_from_bits(vec))
     }
 }
 
 impl FromIterator<bool> for BitField {
     fn from_iter<I: IntoIterator<Item = bool>>(iter: I) -> Self {
-        RlePlus::from_iter(iter).into()
-    }
-}
-
-impl From<RlePlus> for BitField {
-    fn from(bitvec: RlePlus) -> Self {
-        Self {
-            bitvec,
-            ..Default::default()
-        }
-    }
-}
-
-impl From<BitField> for RlePlus {
-    fn from(bitfield: BitField) -> Self {
-        if bitfield.set.is_empty() && bitfield.unset.is_empty() {
-            bitfield.bitvec
-        } else {
-            Self::from_ranges(bitfield.ranges())
-        }
+        let bits = iter
+            .into_iter()
+            .enumerate()
+            .filter(|&(_, b)| b)
+            .map(|(i, _)| i);
+        Self::from_ranges(ranges_from_bits(bits))
     }
 }
 
@@ -78,7 +58,10 @@ impl BitField {
 
     /// Creates a new bit field from a `RangeIterator`.
     pub fn from_ranges(iter: impl RangeIterator) -> Self {
-        RlePlus::from_ranges(iter).into()
+        Self {
+            ranges: iter.collect(),
+            ..Default::default()
+        }
     }
 
     /// Adds the bit at a given index to the bit field.
@@ -100,13 +83,45 @@ impl BitField {
         } else if self.unset.contains(&index) {
             false
         } else {
-            self.bitvec.get(index)
+            // since `self.ranges` is ordered, we can use a binary search to find out if
+            // any range in `self.ranges` contains `index`
+            use std::cmp::Ordering;
+            self.ranges
+                .binary_search_by(|range| {
+                    if index < range.start {
+                        Ordering::Greater
+                    } else if index >= range.end {
+                        Ordering::Less
+                    } else {
+                        // `index` is contained by this range
+                        Ordering::Equal
+                    }
+                })
+                // Ok(range) is returned if the closure returns `Equal` for a certain range,
+                // meaning a range in `self.ranges` contains the given index
+                .is_ok()
         }
     }
 
     /// Returns the index of the lowest bit present in the bit field.
     pub fn first(&self) -> Option<usize> {
-        self.iter().next()
+        // similar to `self.iter.next()`, but optimized using the fact that only the
+        // lowest bit in `self.set` is a candidate, and therefore there's no need to
+        // sort all bits in `self.set`
+
+        let min_set_bit = self.set.iter().min();
+
+        // turns the `Option<&usize>` minimum set bit into an `Option<Range<usize>>`
+        let min_range = min_set_bit.map(|&bit| bit..bit + 1);
+
+        // turns this `Option<Range<usize>>` into a `RangeIterator`, relying on the
+        // fact that `Option<T>` is an `IntoIterator` over `T` with 0 or 1 items
+        let min_range_iterator = iter::Ranges::new(min_range);
+
+        self.inner_ranges()
+            .merge(min_range_iterator)
+            .flatten()
+            .find(|i| !self.unset.contains(i))
     }
 
     /// Returns an iterator over the indices of the bit field's set bits.
@@ -127,8 +142,7 @@ impl BitField {
         let mut set_bits: Vec<_> = self.set.iter().copied().collect();
         set_bits.sort_unstable();
 
-        self.bitvec
-            .ranges()
+        self.inner_ranges()
             .merge(ranges_from_bits(set_bits))
             .flatten()
             .filter(move |i| !self.unset.contains(i))
@@ -144,6 +158,11 @@ impl BitField {
         }
     }
 
+    /// Returns an iterator over the ranges without applying the set/unset bits.
+    fn inner_ranges(&self) -> impl RangeIterator + '_ {
+        iter::Ranges::new(self.ranges.iter().cloned())
+    }
+
     /// Returns an iterator over the ranges of set bits that make up the bit field. The
     /// ranges are in ascending order, are non-empty, and don't overlap.
     pub fn ranges(&self) -> impl RangeIterator + '_ {
@@ -153,8 +172,7 @@ impl BitField {
             ranges_from_bits(vec)
         };
 
-        self.bitvec
-            .ranges()
+        self.inner_ranges()
             .merge(ranges(&self.set))
             .difference(ranges(&self.unset))
     }
@@ -163,8 +181,7 @@ impl BitField {
     pub fn is_empty(&self) -> bool {
         self.set.is_empty()
             && self
-                .bitvec
-                .ranges()
+                .inner_ranges()
                 .flatten()
                 .all(|bit| self.unset.contains(&bit))
     }
@@ -277,7 +294,7 @@ impl SubAssign<&BitField> for BitField {
 /// # Examples
 ///
 /// ```
-/// use bitfield::{bitfield, rleplus};
+/// use bitfield::bitfield;
 ///
 /// let mut bf = bitfield![0, 1, 1, 0, 1, 0, 0, 0, 1, 1];
 /// assert!(bf.get(1));
@@ -288,7 +305,13 @@ impl SubAssign<&BitField> for BitField {
 /// ```
 #[macro_export]
 macro_rules! bitfield {
-    ($($val:literal),*) => {
-        $crate::BitField::from($crate::rleplus!($($val),*))
+    (@iter) => {
+        std::iter::empty::<bool>()
+    };
+    (@iter $head:literal $(, $tail:literal)*) => {
+        std::iter::once($head != 0_u32).chain(bitfield!(@iter $($tail),*))
+    };
+    ($($val:literal),* $(,)?) => {
+        bitfield!(@iter $($val),*).collect::<$crate::BitField>()
     };
 }

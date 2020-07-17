@@ -17,3 +17,8 @@ ahash = "0.4"
 rand_xorshift = "0.2.0"
 rand = "0.7.3"
 encoding = { package = "forest_encoding", path = "../../encoding/" }
+criterion = "0.3"
+
+[[bench]]
+name = "benchmarks"
+harness = false
