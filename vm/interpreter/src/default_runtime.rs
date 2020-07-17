@@ -5,11 +5,7 @@ use super::gas_block_store::GasBlockStore;
 use super::gas_syscalls::GasSyscalls;
 use super::gas_tracker::{price_list_by_epoch, GasTracker, PriceList};
 use super::ChainRand;
-use actor::{
-    self, account, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID,
-    MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
-    POWER_ACTOR_CODE_ID, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFIED_ACTOR_CODE_ID,
-};
+use actor::*;
 use address::{Address, Protocol};
 use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
@@ -418,7 +414,53 @@ where
         &self.syscalls
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
-        todo!()
+        let get_actor_state = |addr: &Address| -> Result<ActorState, ActorError> {
+            self.state
+                .get_actor(&addr)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!(
+                            "failed to get reward actor for cumputing total supply: {}",
+                            e
+                        ),
+                    )
+                })?
+                .ok_or_else(|| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("Actor address ({}) does not exist", addr),
+                    )
+                })
+        };
+
+        let rew = get_actor_state(&REWARD_ACTOR_ADDR)?;
+        let burnt = get_actor_state(&BURNT_FUNDS_ACTOR_ADDR)?;
+        let market = get_actor_state(&STORAGE_MARKET_ACTOR_ADDR)?;
+        let power = get_actor_state(&STORAGE_POWER_ACTOR_ADDR)?;
+
+        let st: power::State = self
+            .store
+            .get(&power.state)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to get storage power state: {}", e.to_string()),
+                )
+            })?
+            .ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Failed to retrieve power state".to_owned(),
+                )
+            })?;
+
+        let total = P::from_fil(P::TOTAL_FILECOIN)
+            - rew.balance
+            - market.balance
+            - burnt.balance
+            - st.total_pledge_collateral;
+        Ok(total)
     }
 }
 /// Shared logic between the DefaultRuntime and the Interpreter.
