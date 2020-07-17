@@ -61,6 +61,12 @@ impl From<EncodingError> for ActorError {
 /// Convenience macro for generating Actor Errors
 #[macro_export]
 macro_rules! actor_error {
+    // Fatal Errors
+    ( fatal($msg:expr) ) => { ActorError::new_fatal(ExitCode::$code, $msg.to_string()) };
+    ( fatal($msg:literal $(, $ex:expr)+) ) => {
+        ActorError::new_fatal(format!($msg, $($ex,)*))
+    };
+
     // Error with only one stringable expression
     ( $code:ident; $msg:expr ) => { ActorError::new(ExitCode::$code, $msg.to_string()) };
 
@@ -83,6 +89,10 @@ mod tests {
         assert_eq!(
             actor_error!(SysErrSenderInvalid; "test {}, {}", 8, 10),
             ActorError::new(ExitCode::SysErrSenderInvalid, format!("test {}, {}", 8, 10))
+        );
+        assert_eq!(
+            actor_error!(fatal("test {}, {}", 8, 10)),
+            ActorError::new_fatal(format!("test {}, {}", 8, 10))
         );
     }
 }
