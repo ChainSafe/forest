@@ -40,7 +40,7 @@ fn signing_test() {
         let cid = test_vec.unsigned.cid().unwrap();
         let sig = priv_key.sign(cid.to_bytes().as_slice());
         let msg_sig = Signature::new_bls(sig.as_bytes());
-        let signed_message = SignedMessage::new_from_parts(test_vec.unsigned, msg_sig);
+        let signed_message = SignedMessage::new_from_parts(test_vec.unsigned, msg_sig).unwrap();
         let cid = signed_message.cid().unwrap();
         let cid_test = Cid::from_str(&test_vec.cid).unwrap();
 
