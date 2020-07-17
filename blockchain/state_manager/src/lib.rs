@@ -388,16 +388,14 @@ where
 
     fn search_back_for_message(
         &self,
-        tipset: &Tipset,
+        current: &Tipset,
         message: &dyn Message,
     ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
-        let current = tipset.to_owned();
-
         if current.epoch() == 0 {
             return Ok(None);
         }
 
-        if let Some(actor_state) = self.get_actor(message.from(), tipset.parent_state())? {
+        if let Some(actor_state) = self.get_actor(message.from(), current.parent_state())? {
             if actor_state.sequence == 0 || actor_state.sequence < message.sequence() {
                 return Ok(None);
             }
@@ -474,7 +472,7 @@ where
                         let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: {:} n{:})",cid,message.sequence(),m_cid,s.sequence());
                         return Some(Err(Error::Other(error_msg)))
                     }
-                    let error_msg =format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})",cid,message.sequence(),s.sequence());
+                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message.sequence(), s.sequence());
                     return Some(Err(Error::Other(error_msg)))
                 }
                 if s.sequence() < message.sequence() {
@@ -585,7 +583,7 @@ where
             match back_search_wait.next().await {
                 Some(_) => {
                     if !reverts.get(back_tipset.key()).unwrap_or(&false)
-                        && height_of_head > back_tipset.epoch() + confidence
+                        && height_of_head >= back_tipset.epoch() + confidence
                     {
                         let ts = candidate_tipset
                             .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;

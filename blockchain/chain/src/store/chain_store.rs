@@ -481,7 +481,7 @@ where
         let unsigned_box = unsigned.into_iter().map(|s| Box::new(s) as BoxMessage);
         let signed_box = signed.into_iter().map(|s| Box::new(s) as BoxMessage);
 
-        let mut messages = Vec::new();
+        let mut messages = Vec::with_capacity(unsigned_box.len() + signed_box.len());
         for message in unsigned_box.chain(signed_box) {
             let from_address = message.from();
             if applied.contains_key(&from_address) {
