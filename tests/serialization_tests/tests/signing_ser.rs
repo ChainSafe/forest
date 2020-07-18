@@ -37,14 +37,19 @@ fn signing_test() {
         let test = base64::decode(test_vec.private_key).unwrap();
         // TODO set up a private key based on sig type
         let priv_key = PrivateKey::from_bytes(&test).unwrap();
-        let cid = test_vec.unsigned.cid().unwrap();
-        let sig = priv_key.sign(cid.to_bytes().as_slice());
-        let msg_sig = Signature::new_bls(sig.as_bytes());
-        let signed_message = SignedMessage::new_from_parts(test_vec.unsigned, msg_sig).unwrap();
-        let cid = signed_message.cid().unwrap();
+        let msg_cid = test_vec.unsigned.cid().unwrap();
+        let cid_sig = priv_key.sign(msg_cid.to_bytes().as_slice());
+
+        let msg_cbor = Cbor::marshal_cbor(&test_vec.unsigned).unwrap();
+        let priv_key = PrivateKey::from_bytes(&test).unwrap();
+        let sig = priv_key.sign(msg_cbor);
+        let crypto_sig = Signature::new_bls(sig.as_bytes());
+        let smsg = SignedMessage::new_from_parts(test_vec.unsigned, crypto_sig).unwrap();
+        let cid = smsg.cid().unwrap();
+
         let cid_test = Cid::from_str(&test_vec.cid).unwrap();
 
-        assert_eq!(sig.as_bytes().as_slice(), test_vec.signature.bytes());
+        assert_eq!(cid_sig.as_bytes().as_slice(), test_vec.signature.bytes());
         assert_eq!(cid, cid_test);
     }
 }
