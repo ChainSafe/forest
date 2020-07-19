@@ -727,7 +727,7 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
-    struct TestApi {
+    pub struct TestApi {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
         state_sequence: HashMap<Address, u64>,
         tipsets: Vec<Tipset>,
@@ -915,7 +915,7 @@ mod tests {
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let mut mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
 
             let mut smsg_vec = Vec::new();
             for i in 0..4 {
@@ -978,7 +978,7 @@ mod tests {
         }
 
         task::block_on(async move {
-            let mut mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
 
             let mut api_temp = mpool.api.write().await;
             api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
@@ -1062,7 +1062,7 @@ mod tests {
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let mut mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
 
             let mut smsg_vec = Vec::new();
             for i in 0..3 {

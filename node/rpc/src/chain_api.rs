@@ -40,7 +40,7 @@ pub(crate) struct Message {
     message: UnsignedMessage,
 }
 
-pub(crate) async fn chain_get_message<DB, KS>(
+pub(crate) async fn chain_get_message<DB, KS, MP>(
     data: Data<RpcState<DB, KS, MP>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<UnsignedMessageJson, JsonRpcError>
@@ -119,7 +119,7 @@ where
 }
 
 pub(crate) async fn chain_get_tipset_by_height<DB, KS, MP>(
-    data: Data<RpcState<DB, KS>>,
+    data: Data<RpcState<DB, KS, MP>>,
     Params(params): Params<(ChainEpoch, TipsetKeys)>,
 ) -> Result<TipsetJson, JsonRpcError>
 where
@@ -146,7 +146,6 @@ where
     Ok(Some(TipsetJson(gen_ts)))
 }
 
-
 pub(crate) async fn chain_head<DB, KS, MP>(
     data: Data<RpcState<DB, KS, MP>>,
 ) -> Result<TipsetJson, JsonRpcError>
@@ -159,7 +158,6 @@ where
         chain::get_heaviest_tipset(data.store.as_ref())?.ok_or("can't find heaviest tipset")?;
     Ok(TipsetJson(heaviest))
 }
-
 
 pub(crate) async fn chain_tipset_weight<DB, KS, MP>(
     data: Data<RpcState<DB, KS, MP>>,
@@ -174,7 +172,6 @@ where
     let ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
     Ok(ts.weight().to_str_radix(10))
 }
-
 
 pub(crate) async fn chain_get_block<DB, KS, MP>(
     data: Data<RpcState<DB, KS, MP>>,

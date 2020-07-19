@@ -9,6 +9,7 @@ use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use message_pool::Provider;
 use serde::Serialize;
 use wallet::KeyStore;
 
@@ -19,26 +20,28 @@ pub struct RPCSyncState {
 }
 
 /// Checks if a given block is marked as bad.
-pub(crate) async fn sync_check_bad<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn sync_check_bad<DB, KS, MP>(
+    data: Data<RpcState<DB, KS, MP>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    MP: Provider + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
     Ok(data.bad_blocks.peek(&cid).await.unwrap_or_default())
 }
 
 /// Marks a block as bad, meaning it will never be synced.
-pub(crate) async fn sync_mark_bad<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn sync_mark_bad<DB, KS, MP>(
+    data: Data<RpcState<DB, KS, MP>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    MP: Provider + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
     data.bad_blocks
@@ -50,12 +53,13 @@ where
 // TODO SyncIncomingBlocks (requires websockets)
 
 /// Returns the current status of the ChainSync process.
-pub(crate) async fn sync_state<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn sync_state<DB, KS, MP>(
+    data: Data<RpcState<DB, KS, MP>>,
 ) -> Result<RPCSyncState, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    MP: Provider + Send + Sync + 'static,
 {
     let state = data.sync_state.read().await.clone();
     Ok(RPCSyncState {
@@ -64,13 +68,14 @@ where
 }
 
 /// Submits block to be sent through gossipsub.
-pub(crate) async fn sync_submit_block<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn sync_submit_block<DB, KS, MP>(
+    data: Data<RpcState<DB, KS, MP>>,
     Params((GossipBlockJson(blk),)): Params<(GossipBlockJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    MP: Provider + Send + Sync + 'static,
 {
     // TODO validate by constructing full block and validate (cids of messages could be invalid)
     // Also, we may want to indicate to chain sync process specifically about this block
@@ -87,10 +92,13 @@ where
 mod tests {
     use super::*;
     use async_std::sync::{channel, Receiver, RwLock};
+    use async_std::task;
+    use chain::ChainStore;
     use chain_sync::SyncStage;
     use db::MemoryDB;
     use forest_libp2p::NetworkMessage;
     use futures::StreamExt;
+    use message_pool::{MessagePool, MpoolProvider};
     use serde_json::from_str;
     use std::sync::Arc;
     use wallet::MemKeyStore;
@@ -98,13 +106,19 @@ mod tests {
     const TEST_NET_NAME: &str = "test";
 
     fn state_setup() -> (
-        Arc<RpcState<MemoryDB, MemKeyStore>>,
+        Arc<RpcState<MemoryDB, MemKeyStore, TestApi>>,
         Receiver<NetworkMessage>,
     ) {
         let (network_send, network_rx) = channel(5);
+        let pool = task::block_on(async {
+            MessagePool::new(TestApi::new(), "test".to_string())
+                .await
+                .unwrap()
+        });
         let state = Arc::new(RpcState {
             store: Arc::new(MemoryDB::default()),
             keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
+            mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             sync_state: Default::default(),
             network_send,
