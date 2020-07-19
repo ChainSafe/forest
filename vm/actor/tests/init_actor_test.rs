@@ -18,7 +18,7 @@ use message::{Message, UnsignedMessage};
 use serde::Serialize;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
-fn construct_runtime<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
+fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
     let receiver = Address::new_id(1000);
     let message = UnsignedMessage::builder()
         .to(receiver.clone())
@@ -48,7 +48,7 @@ fn abort_cant_call_exec() {
 #[test]
 fn create_2_payment_channels() {
     let bs = MemoryDB::default();
-    let mut rt: MockRuntime<MemoryDB> = construct_runtime(&bs);
+    let mut rt = construct_runtime(&bs);
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001);
 
@@ -112,7 +112,7 @@ fn create_2_payment_channels() {
 #[test]
 fn create_storage_miner() {
     let bs = MemoryDB::default();
-    let mut rt: MockRuntime<MemoryDB> = construct_runtime(&bs);
+    let mut rt = construct_runtime(&bs);
     construct_and_verify(&mut rt);
 
     // only the storage power actor can create a miner
@@ -259,7 +259,7 @@ fn sending_constructor_failure() {
     );
 }
 
-fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
+fn construct_and_verify<'a, BS: BlockStore>(rt: &mut MockRuntime<'a, BS>) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
     let params = ConstructorParams {
         network_name: "mock".to_string(),
@@ -287,8 +287,8 @@ fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
     assert_eq!("mock".to_string(), state_data.network_name);
 }
 
-fn exec_and_verify<BS: BlockStore, S: Serialize>(
-    rt: &mut MockRuntime<'_, BS>,
+fn exec_and_verify<'a, BS: BlockStore, S: Serialize>(
+    rt: &mut MockRuntime<'a, BS>,
     code_id: Cid,
     params: &S,
 ) -> Result<Serialized, ActorError>

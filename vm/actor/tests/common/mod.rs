@@ -9,13 +9,15 @@ use actor::{
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::DomainSeparationTag;
-use encoding::{de::DeserializeOwned, Cbor};
+use crypto::{DomainSeparationTag, Signature};
+use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
+use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, ConsensusFault, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
+use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 pub struct MockRuntime<'a, BS: BlockStore> {
@@ -33,6 +35,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     // Actor State
     pub state: Option<Cid>,
     pub balance: TokenAmount,
+    pub received: TokenAmount,
 
     // VM Impl
     pub in_call: bool,
@@ -45,6 +48,11 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
+    pub expect_verify_sigs: RefCell<Vec<ExpectedVerifySig>>,
+    pub expect_verify_seal: RefCell<Option<ExpectVerifySeal>>,
+    pub expect_verify_post: RefCell<Option<ExpectVerifyPoSt>>,
+    pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid>>,
+    pub expect_verify_consensus_fault: RefCell<Option<ExpectVerifyConsensusFault>>,
 }
 
 #[derive(Clone, Debug)]
@@ -64,9 +72,50 @@ pub struct ExpectedMessage {
     pub exit_code: ExitCode,
 }
 
-impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
+#[derive(Clone, Debug)]
+pub struct ExpectedVerifySig {
+    pub sig: Signature,
+    pub signer: Address,
+    pub plaintext: Vec<u8>,
+    pub result: ExitCode,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExpectVerifySeal {
+    seal: SealVerifyInfo,
+    exit_code: ExitCode,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExpectVerifyPoSt {
+    post: WindowPoStVerifyInfo,
+    exit_code: ExitCode,
+}
+
+#[derive(Clone)]
+pub struct ExpectVerifyConsensusFault {
+    require_correct_input: bool,
+    block_header_1: Vec<u8>,
+    block_header_2: Vec<u8>,
+    block_header_extra: Vec<u8>,
+    fault: Option<ConsensusFault>,
+    exit_code: ExitCode,
+}
+
+#[derive(Clone)]
+pub struct ExpectComputeUnsealedSectorCid {
+    reg: RegisteredSealProof,
+    pieces: Vec<PieceInfo>,
+    cid: Cid,
+    exit_code: ExitCode,
+}
+
+impl<'a, BS> MockRuntime<'a, BS>
+where
+    BS: BlockStore,
+{
     pub fn new(bs: &'a BS, message: UnsignedMessage) -> Self {
-        Self {
+        MockRuntime {
             epoch: 0,
             caller_type: Cid::default(),
 
@@ -79,6 +128,7 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             message: message,
             state: None,
             balance: 0u8.into(),
+            received: 0u8.into(),
 
             // VM Impl
             in_call: false,
@@ -91,6 +141,11 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             expect_validate_caller_type: RefCell::new(None),
             expect_sends: VecDeque::new(),
             expect_create_actor: None,
+            expect_verify_sigs: RefCell::new(vec![]),
+            expect_verify_seal: RefCell::new(None),
+            expect_verify_post: RefCell::new(None),
+            expect_compute_unsealed_sector_cid: RefCell::new(None),
+            expect_verify_consensus_fault: RefCell::new(None),
         }
     }
     fn require_in_call(&self) {
@@ -124,6 +179,35 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     pub fn expect_validate_caller_addr(&self, addr: &[Address]) {
         assert!(addr.len() > 0, "addrs must be non-empty");
         *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_verify_signature(&self, exp: ExpectedVerifySig) {
+        self.expect_verify_sigs.borrow_mut().push(exp);
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_verify_consensus_fault(
+        &self,
+        h1: Vec<u8>,
+        h2: Vec<u8>,
+        extra: Vec<u8>,
+        fault: Option<ConsensusFault>,
+        exit_code: ExitCode,
+    ) {
+        *self.expect_verify_consensus_fault.borrow_mut() = Some(ExpectVerifyConsensusFault {
+            require_correct_input: true,
+            block_header_1: h1,
+            block_header_2: h2,
+            block_header_extra: extra,
+            fault: fault,
+            exit_code: exit_code,
+        });
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_compute_unsealed_sector_cid(&self, exp: ExpectComputeUnsealedSectorCid) {
+        *self.expect_compute_unsealed_sector_cid.borrow_mut() = Some(exp);
     }
 
     #[allow(dead_code)]
@@ -217,6 +301,25 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
             "expected actor to be created, uncreated actor: {:?}",
             self.expect_create_actor
         );
+        assert!(
+            self.expect_verify_seal.borrow().as_ref().is_none(),
+            "expect_verify_seal {:?}, not received",
+            self.expect_verify_seal.borrow().as_ref().unwrap()
+        );
+        assert!(
+            self.expect_compute_unsealed_sector_cid
+                .borrow()
+                .as_ref()
+                .is_none(),
+            "expect_compute_unsealed_sector_cid not received",
+        );
+        assert!(
+            self.expect_verify_consensus_fault
+                .borrow()
+                .as_ref()
+                .is_none(),
+            "expect_compute_unsealed_sector_cid not received",
+        );
 
         self.reset();
     }
@@ -225,6 +328,11 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
         *self.expect_validate_caller_addr.borrow_mut() = None;
         *self.expect_validate_caller_type.borrow_mut() = None;
         self.expect_create_actor = None;
+        self.expect_verify_sigs.borrow_mut().clear();
+        *self.expect_verify_seal.borrow_mut() = None;
+        *self.expect_verify_post.borrow_mut() = None;
+        *self.expect_compute_unsealed_sector_cid.borrow_mut() = None;
+        *self.expect_verify_consensus_fault.borrow_mut() = None;
     }
 
     #[allow(dead_code)]
@@ -254,6 +362,18 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     }
 
     #[allow(dead_code)]
+    pub fn expect_verify_seal(&mut self, seal: SealVerifyInfo, exit_code: ExitCode) {
+        let a = ExpectVerifySeal { seal, exit_code };
+        *self.expect_verify_seal.borrow_mut() = Some(a);
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_verify_post(&mut self, post: WindowPoStVerifyInfo, exit_code: ExitCode) {
+        let a = ExpectVerifyPoSt { post, exit_code };
+        *self.expect_verify_post.borrow_mut() = Some(a);
+    }
+
+    #[allow(dead_code)]
     pub fn set_caller(&mut self, code_id: Cid, address: Address) {
         self.message = UnsignedMessage::builder()
             .to(self.message.to().clone())
@@ -276,7 +396,10 @@ impl<'a, BS: BlockStore> MockRuntime<'a, BS> {
     }
 }
 
-impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
+impl<BS> Runtime<BS> for MockRuntime<'_, BS>
+where
+    BS: BlockStore,
+{
     fn message(&self) -> &UnsignedMessage {
         self.require_in_call();
         &self.message
@@ -381,14 +504,26 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         if address.protocol() == address::Protocol::ID {
             return Ok(address.clone());
         }
-        let resolved = self.id_addresses.get(&address).unwrap();
-        return Ok(resolved.clone());
+
+        self.id_addresses
+            .get(&address)
+            .cloned()
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Address not found".to_string(),
+            ))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Cid, ActorError> {
         self.require_in_call();
-        let ret = self.actor_code_cids.get(&addr).unwrap();
-        Ok(ret.clone())
+
+        self.actor_code_cids
+            .get(&addr)
+            .cloned()
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "Actor address is not found".to_string(),
+            ))
     }
 
     fn get_randomness(
@@ -528,11 +663,179 @@ impl<BS: BlockStore> Runtime<BS> for MockRuntime<'_, BS> {
         todo!("implement me???")
     }
 
-    fn syscalls(&self) -> &dyn Syscalls {
-        unimplemented!()
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
+        unimplemented!();
     }
 
-    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
-        unimplemented!()
+    fn syscalls(&self) -> &dyn Syscalls {
+        self
+    }
+}
+
+impl<BS> Syscalls for MockRuntime<'_, BS>
+where
+    BS: BlockStore,
+{
+    fn verify_signature(
+        &self,
+        signature: &Signature,
+        signer: &Address,
+        plaintext: &[u8],
+    ) -> Result<(), Box<dyn StdError>> {
+        if self.expect_verify_sigs.borrow().len() == 0 {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected signature verification".to_string(),
+            )));
+        }
+        let exp = self
+            .expect_verify_sigs
+            .borrow_mut()
+            .pop()
+            .ok_or(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected signature verification".to_string(),
+            ))?;
+        if exp.sig == *signature && exp.signer == *signer && &exp.plaintext[..] == plaintext {
+            if exp.result == ExitCode::Ok {
+                return Ok(());
+            } else {
+                return Err(Box::new(ActorError::new(
+                    exp.result,
+                    "Expected failure".to_string(),
+                )));
+            }
+        } else {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Signatures did not match".to_string(),
+            )));
+        }
+    }
+
+    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
+        Ok(blake2b_256(&data))
+    }
+    fn compute_unsealed_sector_cid(
+        &self,
+        reg: RegisteredSealProof,
+        pieces: &[PieceInfo],
+    ) -> Result<Cid, Box<dyn StdError>> {
+        let exp = self
+            .expect_compute_unsealed_sector_cid
+            .replace(None)
+            .ok_or(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected syscall to ComputeUnsealedSectorCID".to_string(),
+            )))?;
+
+        if exp.reg != reg {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected compute_unsealed_sector_cid : reg mismatch".to_string(),
+            )));
+        }
+
+        if exp.pieces[..].eq(pieces) {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected compute_unsealed_sector_cid : pieces mismatch".to_string(),
+            )));
+        }
+
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "Expected Failure".to_string(),
+            )));
+        }
+        Ok(exp.cid)
+    }
+    fn verify_seal(&self, seal: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        let exp = self
+            .expect_verify_seal
+            .replace(None)
+            .ok_or(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected syscall to verify seal".to_string(),
+            )))?;
+
+        if exp.seal != *seal {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected seal verification".to_string(),
+            )));
+        }
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "Expected Failure".to_string(),
+            )));
+        }
+        Ok(())
+    }
+    fn verify_post(&self, post: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        let exp = self
+            .expect_verify_post
+            .replace(None)
+            .ok_or(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected syscall to verify PoSt ".to_string(),
+            )))?;
+
+        if exp.post != *post {
+            return Err(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected PoSt verification".to_string(),
+            )));
+        }
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "Expected Failure".to_string(),
+            )));
+        }
+        Ok(())
+    }
+    fn verify_consensus_fault(
+        &self,
+        h1: &[u8],
+        h2: &[u8],
+        extra: &[u8],
+    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
+        let exp = self
+            .expect_verify_consensus_fault
+            .replace(None)
+            .ok_or(Box::new(ActorError::new(
+                ExitCode::ErrIllegalState,
+                "Unexpected syscall to verify_consensus_fault".to_string(),
+            )))?;
+        if exp.require_correct_input {
+            if exp.block_header_1 != h1 {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Header 1 mismatch".to_string(),
+                )));
+            }
+            if exp.block_header_2 != h2 {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Header 2 mismatch".to_string(),
+                )));
+            }
+            if exp.block_header_extra != extra {
+                return Err(Box::new(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "Header extra mismatch".to_string(),
+                )));
+            }
+        }
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "Expected Failure".to_string(),
+            )));
+        }
+        Ok(exp.fault)
     }
 }

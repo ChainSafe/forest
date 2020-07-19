@@ -1,7 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Result, VARINT_MAX_BYTES};
+use super::Result;
+
+// https://github.com/multiformats/unsigned-varint#practical-maximum-of-9-bytes-for-security
+const VARINT_MAX_BYTES: usize = 9;
 
 /// A `BitReader` allows for efficiently reading bits from a byte buffer, up to a byte at a time.
 ///

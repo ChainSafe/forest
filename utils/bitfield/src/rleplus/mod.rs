@@ -61,95 +61,71 @@
 //! > the same encoding, given the same input.
 //!
 
-mod iter;
 mod reader;
 mod writer;
 
-pub use iter::{Ranges, Runs};
-use reader::BitReader;
-use writer::BitWriter;
+pub use reader::BitReader;
+pub use writer::BitWriter;
 
-use super::{ranges_from_bits, RangeIterator, Result};
-use serde::{Deserialize, Deserializer, Serialize};
-use std::{fmt, iter::FromIterator};
+use super::{BitField, Result};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-// https://github.com/multiformats/unsigned-varint#practical-maximum-of-9-bytes-for-security
-const VARINT_MAX_BYTES: usize = 9;
-
-/// An RLE+ encoded bit field.
-#[derive(Default, Clone, Serialize)]
-#[serde(transparent)]
-pub struct RlePlus(#[serde(with = "serde_bytes")] Vec<u8>);
-
-impl PartialEq for RlePlus {
-    fn eq(&self, other: &Self) -> bool {
-        Iterator::eq(self.ranges(), other.ranges())
+impl Serialize for BitField {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let bytes = self.to_bytes();
+        serde_bytes::serialize(&bytes, serializer)
     }
 }
 
-impl<'de> Deserialize<'de> for RlePlus {
+impl<'de> Deserialize<'de> for BitField {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
-        Self::new(bytes).map_err(serde::de::Error::custom)
+        Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }
 
-impl FromIterator<usize> for RlePlus {
-    fn from_iter<I: IntoIterator<Item = usize>>(iter: I) -> Self {
-        let mut vec: Vec<_> = iter.into_iter().collect();
-        vec.sort_unstable();
-        Self::from_ranges(ranges_from_bits(vec))
-    }
-}
+impl BitField {
+    /// Decodes RLE+ encoded bytes into a bit field.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut reader = BitReader::new(bytes);
 
-impl FromIterator<bool> for RlePlus {
-    fn from_iter<I: IntoIterator<Item = bool>>(iter: I) -> Self {
-        let bits = iter
-            .into_iter()
-            .enumerate()
-            .filter(|&(_, b)| b)
-            .map(|(i, _)| i);
-        Self::from_ranges(ranges_from_bits(bits))
-    }
-}
+        let version = reader.read(2);
+        if version != 0 {
+            return Err("incorrect version");
+        }
 
-impl fmt::Debug for RlePlus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list().entries(self.ranges()).finish()
-    }
-}
+        let mut next_value = reader.read(1) == 1;
+        let mut ranges = Vec::new();
+        let mut index = 0;
 
-impl RlePlus {
-    /// Creates a new `RlePlus` instance with an already encoded bitvec. Returns an
-    /// error if the given bitvec is not RLE+ encoded correctly.
-    pub fn new(encoded: Vec<u8>) -> Result<Self> {
-        // iterating the runs of the encoded bitvec ensures that it's encoded correctly,
-        // and adding the lengths of the runs together ensures that the total length of
-        // 1s and 0s fits in a `usize`
-        Runs::new(&encoded)?.try_fold(0_usize, |total_len, run| {
-            let (_value, len) = run?;
-            total_len.checked_add(len).ok_or("RLE+ overflow")
-        })?;
-        Ok(Self(encoded))
+        while let Some(len) = reader.read_len()? {
+            let start = index;
+            index += len;
+            let end = index;
+
+            if next_value {
+                ranges.push(start..end);
+            }
+
+            next_value = !next_value;
+        }
+
+        Ok(Self {
+            ranges,
+            ..Default::default()
+        })
     }
 
-    /// Returns an iterator over the ranges of 1s of the RLE+ encoded data.
-    pub fn ranges(&self) -> Ranges<'_> {
-        Ranges::new(self)
-    }
+    /// Turns a bit field into its RLE+ encoded form.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut iter = self.ranges();
 
-    /// Returns `true` if the RLE+ encoded data contains the bit at a given index.
-    pub fn get(&self, index: usize) -> bool {
-        self.ranges()
-            .take_while(|range| range.start <= index)
-            .any(|range| range.contains(&index))
-    }
-
-    /// RLE+ encodes the ranges of 1s from a given `RangeIterator`.
-    pub fn from_ranges(mut iter: impl RangeIterator) -> Self {
         let first_range = match iter.next() {
             Some(range) => range,
             None => return Default::default(),
@@ -176,50 +152,16 @@ impl RlePlus {
             index = range.end;
         }
 
-        // no need to verify, this is valid RLE+ by construction
-        Self(writer.finish())
+        writer.finish()
     }
-
-    /// Returns a byte slice of the bit field's contents.
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-
-    /// Converts a bit field into a byte vector.
-    pub fn into_bytes(self) -> Vec<u8> {
-        self.0
-    }
-}
-
-/// Constructs an `RlePlus` from a given list of 1s and 0s.
-///
-/// # Examples
-///
-/// ```
-/// use bitfield::rleplus;
-///
-/// let rleplus = rleplus![0, 1, 1, 0, 1, 0, 0, 0, 1, 1];
-/// assert!(rleplus.get(1));
-/// assert!(!rleplus.get(3));
-/// assert_eq!(rleplus.ranges().next(), Some(1..3));
-/// ```
-#[macro_export]
-macro_rules! rleplus {
-    (@iter) => {
-        std::iter::empty::<bool>()
-    };
-    (@iter $head:literal $(, $tail:literal)*) => {
-        std::iter::once($head != 0_u32).chain(rleplus!(@iter $($tail),*))
-    };
-    ($($val:literal),* $(,)?) => {
-        rleplus!(@iter $($val),*).collect::<$crate::rleplus::RlePlus>()
-    };
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::{ranges_from_bits, rleplus};
-    use super::*;
+    use super::{
+        super::{bitfield, ranges_from_bits},
+        BitField, BitWriter,
+    };
 
     use rand::{Rng, SeedableRng};
     use rand_xorshift::XorShiftRng;
@@ -227,7 +169,7 @@ mod tests {
     #[test]
     fn test() {
         for (bits, expected) in vec![
-            (vec![], rleplus![]),
+            (vec![], bitfield![]),
             (
                 vec![
                     0, 0, // version
@@ -235,7 +177,7 @@ mod tests {
                     0, 1, // fits into 4 bits
                     0, 0, 0, 1, // 8 - 1
                 ],
-                rleplus![1, 1, 1, 1, 1, 1, 1, 1],
+                bitfield![1, 1, 1, 1, 1, 1, 1, 1],
             ),
             (
                 vec![
@@ -247,7 +189,7 @@ mod tests {
                     0, 1, // fits into 4 bits
                     1, 1, 0, 0, // 3 - 1
                 ],
-                rleplus![1, 1, 1, 1, 0, 1, 1, 1],
+                bitfield![1, 1, 1, 1, 0, 1, 1, 1],
             ),
             (
                 vec![
@@ -256,7 +198,9 @@ mod tests {
                     0, 0, // does not fit into 4 bits
                     1, 0, 0, 1, 1, 0, 0, 0, // 25 - 1
                 ],
-                rleplus![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                bitfield![
+                    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+                ],
             ),
             // when a length of 0 is encountered, the rest of the encoded bits should be ignored
             (
@@ -268,15 +212,15 @@ mod tests {
                     0, 0, 0, 0, // 0 - 0
                     1, // 1 - 1
                 ],
-                rleplus![1],
+                bitfield![1],
             ),
         ] {
             let mut writer = BitWriter::new();
             for bit in bits {
                 writer.write(bit, 1);
             }
-            let rleplus = RlePlus::new(writer.finish()).unwrap();
-            assert_eq!(rleplus, expected);
+            let bf = BitField::from_bytes(&writer.finish()).unwrap();
+            assert_eq!(bf, expected);
         }
     }
 
@@ -289,9 +233,9 @@ mod tests {
             let bits: Vec<_> = (0..len).filter(|_| rng.gen::<bool>()).collect();
 
             let ranges: Vec<_> = ranges_from_bits(bits.clone()).collect();
-            let rleplus = RlePlus::from_ranges(ranges_from_bits(bits));
+            let bf = BitField::from_ranges(ranges_from_bits(bits));
 
-            assert_eq!(rleplus.ranges().collect::<Vec<_>>(), ranges);
+            assert_eq!(bf.ranges().collect::<Vec<_>>(), ranges);
         }
     }
 }

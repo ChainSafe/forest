@@ -13,14 +13,14 @@ use async_log::span;
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, ChainStore};
+use chain::{block_messages, get_heaviest_tipset, ChainStore};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use interpreter::{resolve_to_key_addr, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::trace;
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -32,8 +32,8 @@ pub type CidPair = (Cid, Cid);
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct MarketBalance {
-    escrow: BigUint,
-    locked: BigUint,
+    escrow: BigInt,
+    locked: BigInt,
 }
 
 pub struct StateManager<DB> {
@@ -103,7 +103,7 @@ where
         Ok(addr)
     }
     /// Returns specified actor's claimed power and total network power as a tuple
-    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigUint, BigUint), Error> {
+    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigInt, BigInt), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
         if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {
@@ -243,6 +243,22 @@ where
                 "Address must be BLS address to load bls public key".to_owned(),
             )),
         }
+    }
+
+    /// Return the heaviest tipset's balance from self.db for a given address
+    pub fn get_heaviest_balance(&self, addr: &Address) -> Result<BigInt, Error> {
+        let ts = get_heaviest_tipset(self.bs.as_ref())
+            .map_err(|err| Error::Other(err.to_string()))?
+            .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
+        let cid = ts.parent_state();
+        self.get_balance(addr, cid)
+    }
+
+    /// Return the balance of a given address and state_cid
+    pub fn get_balance(&self, addr: &Address, cid: &Cid) -> Result<BigInt, Error> {
+        let act = self.get_actor(addr, cid)?;
+        let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
+        Ok(actor.balance)
     }
 
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {

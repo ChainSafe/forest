@@ -13,7 +13,7 @@ use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
-use num_traits::{CheckedSub, FromPrimitive, Zero};
+use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use vm::{
     ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
@@ -93,12 +93,11 @@ impl Actor {
             st.from
         };
 
-        let mut sv = params.sv;
-
+        let sv = params.sv;
         // Pull signature from signed voucher
         let sig = sv
             .signature
-            .take()
+            .as_ref()
             .ok_or_else(|| rt.abort(ExitCode::ErrIllegalArgument, "voucher has no signature"))?;
 
         // Generate unsigned bytes
@@ -211,20 +210,20 @@ impl Actor {
             // 2. To prevent double counting, remove already redeemed amounts (from
             // voucher or other lanes) from the voucher amount
             st.lane_states[idx].nonce = sv.nonce;
-            let balance_delta = &sv.amount - redeemed + &st.lane_states[idx].redeemed;
+            let balance_delta = &sv.amount - (redeemed + &st.lane_states[idx].redeemed);
 
             // 3. set new redeemed value for merged-into lane
             st.lane_states[idx].redeemed = sv.amount;
 
             // 4. check operation validity
-            let new_send_balance = (BigInt::from(st.to_send.clone()) + balance_delta)
-                .to_biguint()
-                .ok_or_else(|| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        "voucher would leave channel balance negative".to_owned(),
-                    )
-                })?;
+            let new_send_balance = st.to_send.clone() + balance_delta;
+
+            if new_send_balance < TokenAmount::from(0u8) {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    "voucher would leave channel balance negative".to_owned(),
+                ));
+            }
 
             if new_send_balance > curr_bal {
                 return Err(ActorError::new(
@@ -347,6 +346,10 @@ impl ActorCode for Actor {
             Some(Method::Collect) => {
                 check_empty_params(params)?;
                 Self::collect(rt)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::UpdateChannelState) => {
+                Self::update_channel_state(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
