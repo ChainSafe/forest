@@ -57,7 +57,7 @@ pub struct UnsignedMessage {
     #[builder(default)]
     gas_price: TokenAmount,
     #[builder(default)]
-    gas_limit: u64,
+    gas_limit: i64,
 }
 
 impl UnsignedMessage {
@@ -138,7 +138,7 @@ impl Message for UnsignedMessage {
     fn gas_price(&self) -> &TokenAmount {
         &self.gas_price
     }
-    fn gas_limit(&self) -> u64 {
+    fn gas_limit(&self) -> i64 {
         self.gas_limit
     }
     fn required_funds(&self) -> TokenAmount {
@@ -180,7 +180,7 @@ pub mod json {
         sequence: u64,
         value: String,
         gas_price: String,
-        gas_limit: u64,
+        gas_limit: i64,
         #[serde(rename = "Method")]
         method_num: u64,
         params: String,

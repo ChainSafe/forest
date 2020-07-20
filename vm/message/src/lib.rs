@@ -31,7 +31,7 @@ pub trait Message {
     /// gas_price returns gas price for the message
     fn gas_price(&self) -> &TokenAmount;
     /// Returns the gas limit for the message
-    fn gas_limit(&self) -> u64;
+    fn gas_limit(&self) -> i64;
     /// Returns the required funds for the message
     fn required_funds(&self) -> TokenAmount;
 }

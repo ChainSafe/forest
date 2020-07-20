@@ -207,7 +207,7 @@ where
 
         let pl = price_list_by_epoch(self.epoch());
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
-        let msg_gas_cost = pl.on_chain_message(ser_msg.len() as i64) as u64;
+        let msg_gas_cost = pl.on_chain_message(ser_msg.len() as i64);
 
         if msg_gas_cost > msg.gas_limit() {
             return Ok(ApplyRet::new(
@@ -319,7 +319,9 @@ where
             }
             warn!("Send actor error: from:{}, to:{}", msg.from(), msg.to());
         }
-        let gas_used = if gas_used < 0 { 0 } else { gas_used as u64 };
+        // TODO recheck this
+        let gas_used = if gas_used < 0 { 0 } else { gas_used };
+
         // refund unused gas
         let refund = (msg.gas_limit() - gas_used) * msg.gas_price();
         self.state.mutate_actor(msg.from(), |act| {

@@ -316,7 +316,7 @@ where
             .from(*self.message.from())
             .method_num(method)
             .value(value.clone())
-            .gas_limit(self.gas_available() as u64)
+            .gas_limit(self.gas_available())
             .params(params.clone())
             .build()
             .unwrap();
