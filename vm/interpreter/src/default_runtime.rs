@@ -20,7 +20,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -63,10 +63,7 @@ where
         rand: &'r ChainRand,
     ) -> Self {
         let price_list = price_list_by_epoch(epoch);
-        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
-            message.gas_limit() as i64,
-            gas_used,
-        )));
+        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
         let gas_block_store = GasBlockStore {
             price_list,
             gas: Rc::clone(&gas_tracker),
@@ -161,8 +158,8 @@ where
     BS: BlockStore,
     SYS: Syscalls,
 {
-    fn message(&self) -> &UnsignedMessage {
-        &self.message
+    fn message(&self) -> &dyn MessageInfo {
+        self.message
     }
     fn curr_epoch(&self) -> ChainEpoch {
         self.epoch
@@ -172,13 +169,13 @@ where
     where
         I: IntoIterator<Item = &'db Address>,
     {
-        let imm = self.resolve_address(self.message().from())?;
+        let imm = self.resolve_address(self.message().caller())?;
 
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| *a == imm) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
-                format!("caller is not one of {}", self.message().from()),
+                format!("caller is not one of {}", self.message().caller()),
             ));
         }
         Ok(())
@@ -195,7 +192,7 @@ where
                 format!(
                     "caller cid type {} one of {}",
                     caller_cid,
-                    self.message().from()
+                    self.message().caller()
                 ),
             ));
         }

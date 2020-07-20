@@ -13,7 +13,6 @@ use crate::{
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
-use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -94,7 +93,7 @@ impl Actor {
             &id_address,
             METHOD_CONSTRUCTOR,
             &params.constructor_params,
-            &rt.message().value().clone(),
+            &rt.message().value_received().clone(),
         )
         .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))?;
 
