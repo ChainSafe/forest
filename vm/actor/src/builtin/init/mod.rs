@@ -13,7 +13,6 @@ use crate::{
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
-use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -59,7 +58,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_accept_any();
         let caller_code = rt
-            .get_actor_code_cid(rt.message().from())?
+            .get_actor_code_cid(rt.message().caller())?
             .ok_or_else(|| actor_error!(ErrForbidden; "No code for actor"))?;
         if !can_exec(&caller_code, &params.code_cid) {
             return Err(actor_error!(ErrForbidden;
@@ -91,7 +90,7 @@ impl Actor {
             &id_address,
             METHOD_CONSTRUCTOR,
             &params.constructor_params,
-            &rt.message().value().clone(),
+            &rt.message().value_received().clone(),
         )
         .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))?;
 

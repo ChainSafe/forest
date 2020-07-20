@@ -45,7 +45,6 @@ use fil_types::{
 };
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use message::Message;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
@@ -130,7 +129,7 @@ impl Actor {
 
         let current_epoch = rt.curr_epoch();
         let blake2b = |b: &[u8]| rt.syscalls().hash_blake2b(b);
-        let offset = assign_proving_period_offset(*rt.message().to(), current_epoch, blake2b)
+        let offset = assign_proving_period_offset(*rt.message().receiver(), current_epoch, blake2b)
             .map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrSerialization,
@@ -1210,7 +1209,7 @@ impl Actor {
         // Note: only the first reporter of any fault is rewarded.
         // Subsequent invocations fail because the target miner has been removed.
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let reporter = *rt.message().from();
+        let reporter = *rt.message().caller();
 
         let fault = rt
             .syscalls()
@@ -2109,14 +2108,14 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().to().payload() {
+    let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
         *i
     } else {
         panic!("could not provide ID address");
     };
 
     // Regenerate challenge randomness, which must match that generated for the proof.
-    let entropy = rt.message().to().marshal_cbor().unwrap();
+    let entropy = rt.message().receiver().marshal_cbor().unwrap();
     let randomness: PoStRandomness =
         rt.get_randomness(WindowedPoStChallengeSeed, challenge_epoch, &entropy)?;
 
@@ -2168,12 +2167,12 @@ where
 
     let commd = request_unsealed_sector_cid(rt, params.registered_proof, params.deal_ids.clone())?;
 
-    let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().to().payload() {
+    let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
         *i
     } else {
         panic!("could not provide ID address");
     };
-    let entropy = rt.message().to().marshal_cbor().unwrap();
+    let entropy = rt.message().receiver().marshal_cbor().unwrap();
     let randomness: SealRandom =
         rt.get_randomness(SealRandomness, params.seal_rand_epoch, &entropy)?;
     let interactive_randomness: InteractiveSealRandomness = rt.get_randomness(

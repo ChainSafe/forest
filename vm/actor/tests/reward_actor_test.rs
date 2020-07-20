@@ -9,29 +9,21 @@ use actor::{
 };
 use address::Address;
 use common::*;
-use db::MemoryDB;
-use ipld_blockstore::BlockStore;
-use message::UnsignedMessage;
-use std::panic;
 use vm::{Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
-fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
-    let message = UnsignedMessage::builder()
-        .to(*REWARD_ACTOR_ADDR)
-        .from(*SYSTEM_ACTOR_ADDR)
-        .build()
-        .unwrap();
-
-    let mut rt = MockRuntime::new(bs, message);
-    rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
-    return rt;
+fn construct_runtime() -> MockRuntime {
+    MockRuntime {
+        receiver: *REWARD_ACTOR_ADDR,
+        caller: *SYSTEM_ACTOR_ADDR,
+        caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
+        ..Default::default()
+    }
 }
 
 #[test]
 #[should_panic(expected = "actor current balance 0 insufficient to pay gas reward 10")]
 fn balance_less_than_reward() {
-    let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
     construct_and_verify(&mut rt);
 
     let miner = Address::new_id(1000);
@@ -56,7 +48,7 @@ fn balance_less_than_reward() {
     rt.verify()
 }
 
-fn construct_and_verify<'a, BS: BlockStore>(rt: &mut MockRuntime<'a, BS>) {
+fn construct_and_verify(rt: &mut MockRuntime) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
     let ret = rt
         .call(

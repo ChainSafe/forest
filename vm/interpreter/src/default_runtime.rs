@@ -17,7 +17,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -64,10 +64,7 @@ where
         rand: &'r ChainRand,
     ) -> Self {
         let price_list = price_list_by_epoch(epoch);
-        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
-            message.gas_limit(),
-            gas_used,
-        )));
+        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
         let gas_block_store = GasBlockStore {
             price_list,
             gas: Rc::clone(&gas_tracker),
@@ -127,7 +124,7 @@ where
 
     /// Update the state Cid of the Message receiver
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
-        let to_addr = *self.message().to();
+        let to_addr = *self.message().receiver();
         let mut actor = self
             .state
             .get_actor(&to_addr)
@@ -154,8 +151,8 @@ where
     SYS: Syscalls,
     P: NetworkParams,
 {
-    fn message(&self) -> &UnsignedMessage {
-        &self.message
+    fn message(&self) -> &dyn MessageInfo {
+        self.message
     }
     fn curr_epoch(&self) -> ChainEpoch {
         self.epoch
@@ -165,13 +162,13 @@ where
     where
         I: IntoIterator<Item = &'db Address>,
     {
-        let imm = self.resolve_address(self.message().from())?;
+        let imm = self.resolve_address(self.message().caller())?;
 
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| *a == imm) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
-                format!("caller is not one of {}", self.message().from()),
+                format!("caller is not one of {}", self.message().caller()),
             ));
         }
         Ok(())
@@ -182,7 +179,7 @@ where
         I: IntoIterator<Item = &'db Cid>,
     {
         let caller_cid = self
-            .get_actor_code_cid(self.message().to())?
+            .get_actor_code_cid(self.message().receiver())?
             .ok_or_else(|| actor_error!(fatal("failed to lookup code cid for caller")))?;
         if types.into_iter().any(|c| *c == caller_cid) {
             return Err(self.abort(
@@ -190,7 +187,7 @@ where
                 format!(
                     "caller cid type {} one of {}",
                     caller_cid,
-                    self.message().from()
+                    self.message().caller()
                 ),
             ));
         }
@@ -243,7 +240,7 @@ where
     }
 
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        let actor = self.state.get_actor(self.message().to()).map_err(|e| actor_error!(SysErrorIllegalArgument; "failed to get actor for Readonly state: {}", e))?.ok_or_else(|| actor_error!(SysErrorIllegalArgument; "Actor readonly state does not exist"))?;
+        let actor = self.state.get_actor(self.message().receiver()).map_err(|e| actor_error!(SysErrorIllegalArgument; "failed to get actor for Readonly state: {}", e))?.ok_or_else(|| actor_error!(SysErrorIllegalArgument; "Actor readonly state does not exist"))?;
         self.store
             .get(&actor.state)
             .map_err(|e| {
@@ -266,7 +263,7 @@ where
         F: FnOnce(&mut C, &mut Self) -> R,
     {
         // get actor
-        let act = self.state.get_actor(self.message().to()).map_err(|e| actor_error!(SysErrorIllegalActor; "failed to get actor for transaction: {}", e))?.ok_or_else(|| actor_error!(SysErrorIllegalActor; "actor state for transaction doesn't exist"))?;
+        let act = self.state.get_actor(self.message().receiver()).map_err(|e| actor_error!(SysErrorIllegalActor; "failed to get actor for transaction: {}", e))?.ok_or_else(|| actor_error!(SysErrorIllegalActor; "actor state for transaction doesn't exist"))?;
 
         // get state for actor based on generic C
         let mut state: C = self
