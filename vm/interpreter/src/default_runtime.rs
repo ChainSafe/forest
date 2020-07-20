@@ -63,7 +63,10 @@ where
         rand: &'r ChainRand,
     ) -> Self {
         let price_list = price_list_by_epoch(epoch);
-        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
+        let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
+            message.gas_limit() as i64,
+            gas_used,
+        )));
         let gas_block_store = GasBlockStore {
             price_list,
             gas: Rc::clone(&gas_tracker),
@@ -132,7 +135,7 @@ where
 
     /// Update the state Cid of the Message receiver
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
-        let to_addr = *self.message().to();
+        let to_addr = *self.message().receiver();
         let mut actor = self.get_actor(&to_addr)?;
 
         if &actor.state != old_h {
@@ -185,7 +188,7 @@ where
     where
         I: IntoIterator<Item = &'db Cid>,
     {
-        let caller_cid = self.get_actor_code_cid(self.message().to())?;
+        let caller_cid = self.get_actor_code_cid(self.message().receiver())?;
         if types.into_iter().any(|c| *c == caller_cid) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
@@ -236,7 +239,7 @@ where
         self.state_commit(&Cid::default(), c)
     }
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        let actor = self.get_actor(self.message().to())?;
+        let actor = self.get_actor(self.message().receiver())?;
         self.store
             .get(&actor.state)
             .map_err(|e| {
@@ -259,7 +262,7 @@ where
         F: FnOnce(&mut C, &mut Self) -> R,
     {
         // get actor
-        let act = self.get_actor(self.message().to())?;
+        let act = self.get_actor(self.message().receiver())?;
 
         // get state for actor based on generic C
         let mut state: C = self
