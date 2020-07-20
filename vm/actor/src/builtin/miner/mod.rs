@@ -35,8 +35,7 @@ use byteorder::{BigEndian, ByteOrder};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
-    InteractiveSealChallengeSeed, SealRandomness, WindowPoStDeadlineAssignment,
-    WindowedPoStChallengeSeed,
+    InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,
 };
 use encoding::Cbor;
 use fil_types::{
@@ -47,9 +46,8 @@ use fil_types::{
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::bigint_ser::BigIntSer;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
-use num_bigint::{BigInt, BigUint};
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -320,7 +318,7 @@ impl Actor {
 
                 // Work out which sectors are due in the declared partitions at this deadline.
                 let partitions_sectors = compute_partitions_sector(
-                    deadlines,
+                    &mut deadlines,
                     partition_size,
                     deadline.index,
                     &params.partitions,
@@ -551,7 +549,7 @@ impl Actor {
             Ok(newly_vested_amount)
         })??;
 
-        notify_pledge_change(rt, &BigInt::from(newly_vested_amount).neg())?;
+        notify_pledge_change(rt, &newly_vested_amount.neg())?;
         let mut bf = BitField::new();
         bf.set(params.sector_number as usize);
 
@@ -647,7 +645,7 @@ impl Actor {
             &*STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::SubmitPoRepForBulkVerify as u64,
             &Serialized::serialize(&svi)?,
-            &BigUint::zero(),
+            &BigInt::zero(),
         )?;
 
         Ok(())
@@ -713,7 +711,7 @@ impl Actor {
                 &param,
                 &TokenAmount::zero(),
             )?;
-            let BigUintDe(initial_pledge) = ret.deserialize()?;
+            let BigIntDe(initial_pledge) = ret.deserialize()?;
 
             // Add sector and pledge lock-up to miner state
             let current_epoch = rt.curr_epoch();
@@ -772,10 +770,7 @@ impl Actor {
                 Ok(newly_vested_fund)
             })??;
 
-            notify_pledge_change(
-                rt,
-                &(BigInt::from(initial_pledge) - BigInt::from(vested_amount)),
-            )?;
+            notify_pledge_change(rt, &(initial_pledge - vested_amount))?;
         }
         Ok(())
     }
@@ -833,15 +828,14 @@ impl Actor {
 
         let old_expiration = sector.info.expiration;
         let storage_weight_desc_prev = to_storage_weight_desc(st.info.sector_size, &sector);
-        let extension_len = params
-            .new_expiration
-            .checked_sub(old_expiration)
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    "cannot reduce sector expiration".to_owned(),
-                )
-            })?;
+        let extension_len = params.new_expiration - old_expiration;
+
+        if extension_len < 0 {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!("cannot reduce sector expiration {}", extension_len),
+            ));
+        }
 
         let mut storage_weight_desc_new = storage_weight_desc_prev.clone();
         storage_weight_desc_new.duration = storage_weight_desc_prev.duration + extension_len;
@@ -855,7 +849,7 @@ impl Actor {
             &*STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::OnSectorModifyWeightDesc as u64,
             &ser_params,
-            &BigUint::zero(),
+            &BigInt::zero(),
         )?;
 
         // store new sector expiry
@@ -1200,7 +1194,7 @@ impl Actor {
                 })?;
             Ok(newly_vested_amount)
         })??;
-        let delta = BigInt::from(amount) - BigInt::from(vested_amount);
+        let delta = amount - vested_amount;
         notify_pledge_change(rt, &delta)?;
         Ok(())
     }
@@ -1232,24 +1226,25 @@ impl Actor {
             })?;
 
         // Elapsed since the fault (i.e. since the higher of the two blocks)
-        let fault_age = rt.curr_epoch().checked_sub(fault.epoch).ok_or_else(|| {
-            ActorError::new(
+        let fault_age = rt.curr_epoch() - fault.epoch;
+        if fault_age <= 0 {
+            return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 format!(
                     "invalid fault epoch {} ahead of current {}",
                     fault.epoch,
                     rt.curr_epoch()
                 ),
-            )
-        })?;
+            ));
+        }
 
         let st: State = rt.state()?;
 
         rt.send(
             &*STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::OnConsensusFault as u64,
-            &Serialized::serialize(BigUintSer(&st.locked_funds))?,
-            &BigUint::zero(),
+            &Serialized::serialize(BigIntSer(&st.locked_funds))?,
+            &BigInt::zero(),
         )?;
 
         // TODO: terminate deals with market actor, https://github.com/filecoin-project/specs-actors/issues/279
@@ -1309,7 +1304,7 @@ impl Actor {
             &amount_withdrawn,
         )?;
 
-        notify_pledge_change(rt, &BigInt::from(vested_amount).neg())?;
+        notify_pledge_change(rt, &vested_amount.neg())?;
 
         st.assert_balance_invariants(&rt.current_balance()?);
         Ok(())
@@ -1355,7 +1350,7 @@ where
             Ok(newly_vested_fund)
         })??;
 
-    notify_pledge_change(rt, &BigInt::from(vested_amount).neg())?;
+    notify_pledge_change(rt, &vested_amount.neg())?;
 
     // Note: because the cron actor is not invoked on epochs with empty tipsets, the current epoch is not necessarily
     // exactly the final epoch of the period; it may be slightly later (i.e. in the subsequent period).
@@ -1486,19 +1481,11 @@ where
                 .collect();
 
             if !new_sectors.is_empty() {
-                let randomness_epoch = std::cmp::min(
-                    deadline.period_end(),
-                    rt.curr_epoch()
-                        .checked_sub(ELECTION_LOOKBACK)
-                        .unwrap_or_default(),
-                );
-                let assignment_seed =
-                    rt.get_randomness(WindowPoStDeadlineAssignment, randomness_epoch, &[])?;
+                // TODO spec indicates passing in `seed` param, however its currently not being used hence its absence here
                 assign_new_sectors(
                     &mut deadlines,
                     st.info.window_post_partition_sectors as usize,
                     &new_sectors,
-                    assignment_seed,
                 )
                 .map_err(|e| {
                     ActorError::new(
@@ -2367,7 +2354,7 @@ where
     RT: Runtime<BS>,
 {
     burn_funds(rt, amount)?;
-    notify_pledge_change(rt, &BigInt::from(amount.clone()).neg())
+    notify_pledge_change(rt, &amount.clone().neg())
 }
 
 fn burn_funds<BS, RT>(rt: &mut RT, amount: &TokenAmount) -> Result<(), ActorError>
@@ -2375,7 +2362,7 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if amount > &BigUint::zero() {
+    if amount > &BigInt::zero() {
         rt.send(
             &*BURNT_FUNDS_ACTOR_ADDR,
             METHOD_SEND,
@@ -2408,11 +2395,11 @@ fn assign_proving_period_offset(
     blake2b: impl FnOnce(&[u8]) -> Result<[u8; 32], Box<dyn StdError>>,
 ) -> Result<ChainEpoch, Box<dyn StdError>> {
     let mut my_addr = addr.marshal_cbor()?;
-    BigEndian::write_u64(&mut my_addr, current_epoch);
+    BigEndian::write_i64(&mut my_addr, current_epoch);
 
     let digest = blake2b(&my_addr)?;
 
-    let mut offset: ChainEpoch = BigEndian::read_u64(&digest);
+    let mut offset: ChainEpoch = BigEndian::read_i64(&digest);
     offset %= WPOST_PROVING_PERIOD;
 
     Ok(offset)
@@ -2495,7 +2482,7 @@ fn unlock_penalty<BS>(
 where
     BS: BlockStore,
 {
-    let mut fee = BigUint::zero();
+    let mut fee = BigInt::zero();
     for s in sectors {
         fee += f(s)
     }
@@ -2575,7 +2562,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::AddLockedFund) => {
-                let BigUintDe(param) = params.deserialize()?;
+                let BigIntDe(param) = params.deserialize()?;
                 Self::add_locked_fund(rt, param)?;
                 Ok(Serialized::default())
             }

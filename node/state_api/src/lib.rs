@@ -21,7 +21,7 @@ use fil_types::SectorNumber;
 use message::{MessageReceipt, UnsignedMessage};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
-use state_manager::{call, call::InvocResult, MarketBalance, StateManager};
+use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
 use std::error::Error;
 
@@ -92,7 +92,7 @@ pub fn state_miner_info<DB>(
 where
     DB: BlockStore,
 {
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let tipset = chain::tipset_from_keys(state_manager.get_block_store_ref(), key)?;
     state_manager::utils::get_miner_info(state_manager, &tipset, actor).map_err(|e| e.into())
 }
 
@@ -193,7 +193,7 @@ where
             let block_store = state_manager.get_block_store_ref();
             miner_actor_state.for_each_fault_epoch(
                 block_store,
-                |fault_start: u64, _| -> Result<(), String> {
+                |fault_start: i64, _| -> Result<(), String> {
                     if fault_start >= cut_off {
                         all_faults.push(Fault {
                             miner: *m,
@@ -233,7 +233,7 @@ where
     state_manager::utils::get_power(&state_manager, &tipset, Some(actor)).map_err(|e| e.into())
 }
 
-pub fn state_page_collateral<DB>(
+pub fn state_pledge_collateral<DB>(
     _state_manager: &StateManager<DB>,
     _: &TipsetKeys,
 ) -> Result<BigUint, BoxError>
@@ -253,7 +253,9 @@ where
     DB: BlockStore,
 {
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    call::state_call(&state_manager, message, Some(tipset)).map_err(|e| e.into())
+    state_manager
+        .call(message, Some(tipset))
+        .map_err(|e| e.into())
 }
 
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
@@ -266,12 +268,14 @@ where
     DB: BlockStore,
 {
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    let (msg, ret) = call::state_replay(&state_manager, &tipset, cid)?;
+    let (msg, ret) = state_manager.replay(&tipset, cid)?;
 
     Ok(InvocResult {
         msg,
-        msg_rct: ret.msg_receipt().clone(),
-        actor_error: ret.act_error().map(|e| e.to_string()),
+        msg_rct: ret.clone().map(|s| s.msg_receipt().clone()),
+        actor_error: ret
+            .map(|act| act.act_error().map(|e| e.to_string()))
+            .unwrap_or_default(),
     })
 }
 
@@ -284,13 +288,18 @@ where
     DB: BlockStore,
 {
     let block_store = state_manager.get_block_store_ref();
-    let tipset = if maybe_tipset.is_none() {
+    let maybe_tipset = if maybe_tipset.is_none() {
         chain::get_heaviest_tipset(block_store)?
     } else {
         maybe_tipset
     };
 
-    let (st, _) = task::block_on(state_manager.tipset_state(&tipset.unwrap()))?;
+    let tipset = maybe_tipset.ok_or_else(|| {
+        Box::new(chain::Error::Other(
+            "Could not get heaviest tipset".to_string(),
+        ))
+    })?;
+    let (st, _) = task::block_on(state_manager.tipset_state(&tipset))?;
     let state_tree = StateTree::new_from_root(block_store, &st)?;
     Ok(state_tree)
 }
@@ -339,18 +348,6 @@ where
     state.lookup_id(address).map_err(|e| e.into())
 }
 
-/// returns the addresses of every actor in the state
-pub fn state_list_actors<DB>(
-    state_manager: &StateManager<DB>,
-    key: &TipsetKeys,
-) -> Result<Vec<Address>, BoxError>
-where
-    DB: BlockStore,
-{
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::list_miner_actors(&state_manager, &tipset).map_err(|e| e.into())
-}
-
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
 pub fn state_market_balance<DB>(
     state_manager: &mut StateManager<DB>,
@@ -386,7 +383,7 @@ where
 pub fn state_wait_msg<DB>(
     state_manager: &StateManager<DB>,
     cid: &Cid,
-    confidence: u64,
+    confidence: i64,
 ) -> Result<MessageLookup, BoxError>
 where
     DB: BlockStore,

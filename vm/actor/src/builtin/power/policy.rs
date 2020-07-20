@@ -4,6 +4,7 @@
 use super::SectorStorageWeightDesc;
 use fil_types::{SectorQuality, StoragePower};
 use num_bigint::BigUint;
+use num_bigint::{BigInt, Sign};
 use num_traits::FromPrimitive;
 use vm::TokenAmount;
 
@@ -25,7 +26,7 @@ lazy_static! {
 /// SectorQuality of a sector is a weighted average of multipliers based on their propotions.
 fn sector_quality_from_weight(weight: &SectorStorageWeightDesc) -> SectorQuality {
     let sector_size = BigUint::from(weight.sector_size as u64);
-    let sector_space_time = sector_size * weight.duration;
+    let sector_space_time = sector_size * weight.duration as u64;
     let total_deal_space_time = &weight.deal_weight + &weight.verified_deal_weight;
     assert!(sector_space_time < total_deal_space_time);
 
@@ -41,8 +42,8 @@ fn sector_quality_from_weight(weight: &SectorStorageWeightDesc) -> SectorQuality
 }
 
 pub fn qa_power_for_weight(weight: &SectorStorageWeightDesc) -> StoragePower {
-    let qual = sector_quality_from_weight(weight);
-    let sector_quality = BigUint::from(weight.sector_size as u64) * qual;
+    let qual = BigInt::from_biguint(Sign::Plus, sector_quality_from_weight(weight));
+    let sector_quality = weight.sector_size as u64 * qual;
     sector_quality >> SECTOR_QUALITY_PRECISION
 }
 

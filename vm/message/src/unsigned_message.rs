@@ -6,7 +6,7 @@ use address::Address;
 use cid::Cid;
 use derive_builder::Builder;
 use encoding::Cbor;
-use num_bigint::biguint_ser::{BigUintDe, BigUintSer};
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
 /// Default Unsigned VM message type which includes all data needed for a state transition
@@ -39,7 +39,7 @@ use vm::{MethodNum, Serialized, TokenAmount};
 /// let msg = message_builder.build().unwrap();
 /// assert_eq!(msg.sequence(), 1);
 /// ```
-#[derive(PartialEq, Clone, Debug, Builder)]
+#[derive(PartialEq, Clone, Debug, Builder, Hash, Eq)]
 #[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
     #[builder(default)]
@@ -76,8 +76,8 @@ impl Serialize for UnsignedMessage {
             &self.to,
             &self.from,
             &self.sequence,
-            BigUintSer(&self.value),
-            BigUintSer(&self.gas_price),
+            BigIntSer(&self.value),
+            BigIntSer(&self.gas_price),
             &self.gas_limit,
             &self.method_num,
             &self.params,
@@ -96,8 +96,8 @@ impl<'de> Deserialize<'de> for UnsignedMessage {
             to,
             from,
             sequence,
-            BigUintDe(value),
-            BigUintDe(gas_price),
+            BigIntDe(value),
+            BigIntDe(gas_price),
             gas_limit,
             method_num,
             params,

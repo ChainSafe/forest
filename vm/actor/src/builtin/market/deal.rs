@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::OptionalEpoch;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -9,7 +8,7 @@ use crypto::Signature;
 use encoding::tuple::*;
 use encoding::Cbor;
 use fil_types::PaddedPieceSize;
-use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
 /// Note: Deal Collateral is only released and returned to clients and miners
@@ -34,12 +33,12 @@ pub struct DealProposal {
     // otherwise it is invalid.
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub storage_price_per_epoch: TokenAmount,
 
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub provider_collateral: TokenAmount,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub client_collateral: TokenAmount,
 }
 
@@ -50,7 +49,7 @@ impl DealProposal {
         self.end_epoch - self.start_epoch
     }
     pub fn total_storage_fee(&self) -> TokenAmount {
-        self.storage_price_per_epoch.clone() * self.duration()
+        self.storage_price_per_epoch.clone() * self.duration() as u64
     }
     pub fn client_balance_requirement(&self) -> TokenAmount {
         self.client_collateral.clone() + self.total_storage_fee()
@@ -69,7 +68,7 @@ pub struct ClientDealProposal {
 
 #[derive(Clone, Debug, PartialEq, Copy, Serialize_tuple, Deserialize_tuple)]
 pub struct DealState {
-    pub sector_start_epoch: OptionalEpoch,
-    pub last_updated_epoch: OptionalEpoch,
-    pub slash_epoch: OptionalEpoch,
+    pub sector_start_epoch: ChainEpoch, // -1 if not yet included in proven sector
+    pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated
+    pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
 }

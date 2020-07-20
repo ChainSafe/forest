@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, initialize_genesis, Config};
+use async_std::sync::RwLock;
 use async_std::task;
 use beacon::DrandBeacon;
 use chain::ChainStore;
@@ -9,10 +10,11 @@ use chain_sync::ChainSyncer;
 use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
-use log::{info, trace};
-use rpc::start_rpc;
+use log::{debug, info, trace};
+use rpc::{start_rpc, RpcState};
 use std::sync::Arc;
 use utils::write_to_file;
+use wallet::MemKeyStore;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -38,6 +40,7 @@ pub(super) async fn start(config: Config) {
     let mut db = RocksDb::new(config.data_dir + "/db");
     db.open().unwrap();
     let db = Arc::new(db);
+    let keystore = Arc::new(RwLock::new(MemKeyStore::new()));
     let mut chain_store = ChainStore::new(Arc::clone(&db));
 
     // Read Genesis file
@@ -45,47 +48,72 @@ pub(super) async fn start(config: Config) {
         initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
 
     // Libp2p service setup
-    let p2p_service = Libp2pService::new(config.network, net_keypair, &network_name);
+    let p2p_service =
+        Libp2pService::new(config.network, Arc::clone(&db), net_keypair, &network_name);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
     // Get Drand Coefficients
     let coeff = config.drand_dist_public;
 
-    // Start services
-    let p2p_thread = task::spawn(async {
-        p2p_service.run().await;
-    });
-    let sync_thread = task::spawn(async {
-        // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
-        let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
-            .await
-            .unwrap();
-
-        // Initialize ChainSyncer
-        let chain_syncer = ChainSyncer::new(
-            chain_store,
-            Arc::new(beacon),
-            network_send,
-            network_rx,
-            genesis,
-        )
+    // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
+    let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
+        .await
         .unwrap();
+
+    // Initialize ChainSyncer
+    let chain_syncer = ChainSyncer::new(
+        chain_store,
+        Arc::new(beacon),
+        network_send.clone(),
+        network_rx,
+        genesis,
+    )
+    .unwrap();
+    let bad_blocks = chain_syncer.bad_blocks_cloned();
+    let sync_state = chain_syncer.sync_state_cloned();
+    let sync_task = task::spawn(async {
         chain_syncer.start().await.unwrap();
     });
 
-    let db_rpc = Arc::clone(&db);
-    let rpc_thread = task::spawn(async {
-        start_rpc(db_rpc).await;
+    // Start services
+    let p2p_task = task::spawn(async {
+        p2p_service.run().await;
     });
+
+    let rpc_task = if config.enable_rpc {
+        let db_rpc = Arc::clone(&db);
+        let keystore_rpc = Arc::clone(&keystore);
+        let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
+        Some(task::spawn(async move {
+            info!("JSON RPC Endpoint at {}", &rpc_listen);
+            start_rpc(
+                RpcState {
+                    store: db_rpc,
+                    keystore: keystore_rpc,
+                    bad_blocks,
+                    sync_state,
+                    network_send,
+                    network_name,
+                },
+                &rpc_listen,
+            )
+            .await;
+        }))
+    } else {
+        debug!("RPC disabled");
+        None
+    };
 
     // Block until ctrl-c is hit
     block_until_sigint().await;
 
     // Cancel all async services
-    rpc_thread.cancel().await;
-    p2p_thread.cancel().await;
-    sync_thread.cancel().await;
+    p2p_task.cancel().await;
+    sync_task.cancel().await;
+    if let Some(task) = rpc_task {
+        task.cancel().await;
+    }
 
     info!("Forest finish shutdown");
 }

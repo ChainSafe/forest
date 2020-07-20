@@ -4,13 +4,13 @@
 use super::{Message, UnsignedMessage};
 use address::Address;
 use cid::Cid;
-use crypto::{Error as CryptoError, Signature, Signer};
+use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
-use encoding::Cbor;
+use encoding::{to_vec, Cbor, Error};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes
-#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
 pub struct SignedMessage {
     message: UnsignedMessage,
     signature: Signature,
@@ -26,6 +26,18 @@ impl SignedMessage {
         Ok(SignedMessage { message, signature })
     }
 
+    /// Generate a new signed message from fields
+    pub fn new_from_parts(
+        message: UnsignedMessage,
+        signature: Signature,
+    ) -> Result<SignedMessage, String> {
+        signature.verify(
+            &message.marshal_cbor().map_err(|err| err.to_string())?,
+            message.from(),
+        )?;
+        Ok(SignedMessage { message, signature })
+    }
+
     /// Returns reference to the unsigned message.
     pub fn message(&self) -> &UnsignedMessage {
         &self.message
@@ -34,6 +46,21 @@ impl SignedMessage {
     /// Returns signature of the signed message.
     pub fn signature(&self) -> &Signature {
         &self.signature
+    }
+
+    /// Consumes self and returns it's unsigned message
+    pub fn into_message(self) -> UnsignedMessage {
+        self.message
+    }
+
+    /// Checks if the signed message is a BLS message.
+    pub fn is_bls(&self) -> bool {
+        self.signature.signature_type() == SignatureType::BLS
+    }
+
+    /// Checks if the signed message is a Secp256k1 message.
+    pub fn is_secp256k1(&self) -> bool {
+        self.signature.signature_type() == SignatureType::Secp256k1
     }
 }
 
@@ -80,7 +107,15 @@ impl Message for SignedMessage {
     }
 }
 
-impl Cbor for SignedMessage {}
+impl Cbor for SignedMessage {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, Error> {
+        if self.is_bls() {
+            self.message.marshal_cbor()
+        } else {
+            Ok(to_vec(&self)?)
+        }
+    }
+}
 
 #[cfg(feature = "json")]
 pub mod json {

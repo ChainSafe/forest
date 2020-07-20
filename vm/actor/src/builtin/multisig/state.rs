@@ -9,7 +9,7 @@ use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use num_bigint::biguint_ser;
+use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
 /// Multisig actor state
@@ -20,7 +20,7 @@ pub struct State {
     pub next_tx_id: TxnID,
 
     // Linear unlock
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub initial_balance: TokenAmount,
     pub start_epoch: ChainEpoch,
     pub unlock_duration: ChainEpoch,
@@ -34,8 +34,8 @@ impl State {
         if elapsed_epoch >= self.unlock_duration {
             return TokenAmount::from(0u8);
         }
-        let unit_locked = self.initial_balance.clone() / self.unlock_duration;
-        unit_locked * (self.unlock_duration - elapsed_epoch)
+        let unit_locked = self.initial_balance.clone() / self.unlock_duration as u64;
+        unit_locked * (self.unlock_duration - elapsed_epoch) as u64
     }
 
     pub(crate) fn is_signer(&self, addr: &Address) -> bool {

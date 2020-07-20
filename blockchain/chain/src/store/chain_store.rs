@@ -18,7 +18,7 @@ use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
 use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use num_bigint::BigUint;
+use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -38,18 +38,16 @@ const SINK_CAP: usize = 1000;
 
 type BoxMessage = Box<dyn Message>;
 
-//Enum for pubsub channel that defines message type variant and data contained in message type.
+/// Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
     Current(Arc<Tipset>),
     Apply(Arc<Tipset>),
-    Store,
     Revert(Arc<Tipset>),
 }
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
-    // TODO add IPLD Store
     publisher: Publisher<HeadChange>,
 
     // key-value datastore
@@ -194,6 +192,7 @@ where
         // the given tipset has already been verified, so this cannot fail
         Ok(FullTipset::new(blocks).unwrap())
     }
+
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     async fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
         match &self.heaviest {
@@ -213,6 +212,20 @@ where
         }
         Ok(())
     }
+}
+
+/// Returns messages for a given tipset from db
+pub fn unsigned_messages_for_tipset<DB>(db: &DB, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>
+where
+    DB: BlockStore,
+{
+    let mut umsg: Vec<UnsignedMessage> = Vec::new();
+    for bh in h.blocks().iter() {
+        let (mut bh_umsg, bh_msg) = block_messages(db, bh)?;
+        umsg.append(&mut bh_umsg);
+        umsg.extend(bh_msg.into_iter().map(|msg| msg.into_message()));
+    }
+    Ok(umsg)
 }
 
 /// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
@@ -437,60 +450,63 @@ where
     })
 }
 
-//this attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
+/// Attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
 pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<BoxMessage, Error>
 where
     DB: BlockStore,
 {
-    let value = db.read(key.key())?;
-    let bytes = value.ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
-    let unsigned_message: Result<UnsignedMessage, _> = from_slice(&bytes);
-    if let Ok(s) = unsigned_message {
-        Ok(Box::new(s))
+    let value = db
+        .read(key.key())?
+        .ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
+    if let Ok(message) = from_slice::<UnsignedMessage>(&value) {
+        Ok(Box::new(message))
     } else {
-        let signed_message: SignedMessage = from_slice(&bytes)?;
+        let signed_message: SignedMessage = from_slice(&value)?;
         Ok(Box::new(signed_message))
     }
 }
 
-//given a tipset this functtion will return all messages as a trait object
+// given a tipset this function will return all messages as a trait object
 pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<BoxMessage>, Error>
 where
     DB: BlockStore,
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
-    let mut balances: HashMap<Address, BigUint> = HashMap::new();
+    let mut balances: HashMap<Address, BigInt> = HashMap::new();
     let state = StateTree::new_from_root(db, ts.parent_state())?;
 
-    //message to get all messages for block_header into a single iterator
+    // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<BoxMessage>, Error> {
         let (unsigned, signed) = block_messages(db, b)?;
         let unsigned_box = unsigned.into_iter().map(|s| Box::new(s) as BoxMessage);
         let signed_box = signed.into_iter().map(|s| Box::new(s) as BoxMessage);
 
-        let mut messages = Vec::new();
+        let mut messages = Vec::with_capacity(unsigned_box.len() + signed_box.len());
         for message in unsigned_box.chain(signed_box) {
             let from_address = message.from();
-            if let Some(_s) = applied.get(&from_address) {
+            if applied.contains_key(&from_address) {
                 let actor_state = state
                     .get_actor(from_address)?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
                 balances.insert(*from_address, actor_state.balance);
             }
-            let apply = applied.get(from_address);
-            if apply.map(|s| s != &message.sequence()).unwrap_or_default() {
+            if let Some(seq) = applied.get_mut(from_address) {
+                if *seq != message.sequence() {
+                    continue;
+                }
+                *seq += 1;
+            } else {
                 continue;
             }
-            let balance = balances.get(from_address).cloned();
-            if balance
-                .clone()
-                .map(|s| s < message.required_funds())
-                .unwrap_or_default()
-            {
+            if let Some(bal) = balances.get_mut(from_address) {
+                if *bal < message.required_funds() {
+                    continue;
+                }
+                *bal -= message.required_funds();
+            } else {
                 continue;
             }
-            balance.map(|s| balances.insert(*message.from(), s - message.required_funds()));
 
             messages.push(message)
         }
@@ -524,6 +540,7 @@ where
         .collect()
 }
 
+/// returns message receipt given block_header
 pub fn get_parent_reciept<DB>(
     db: &DB,
     block_header: &BlockHeader,
@@ -538,11 +555,11 @@ where
 }
 
 /// Returns the weight of provided tipset
-fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigUint, String>
+fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: BlockStore,
 {
-    let mut tpow = BigUint::zero();
+    let mut tpow = BigInt::zero();
     let state = StateTree::new_from_root(db, ts.parent_state())?;
     if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
         if let Some(state) = db
@@ -552,8 +569,8 @@ where
             tpow = state.total_quality_adj_power;
         }
     }
-    let log2_p = if tpow > BigUint::zero() {
-        BigUint::from(tpow.bits() - 1)
+    let log2_p = if tpow > BigInt::zero() {
+        BigInt::from(tpow.bits() - 1)
     } else {
         return Err(
             "All power in the net is gone. You network might be disconnected, or the net is dead!"
@@ -561,9 +578,10 @@ where
         );
     };
 
-    let mut out = ts.weight() + (&log2_p << 8);
-    let e_weight = ((log2_p * BigUint::from(ts.blocks().len())) * BigUint::from(W_RATIO_NUM)) << 8;
-    let value = e_weight / (BigUint::from(BLOCKS_PER_EPOCH) * BigUint::from(W_RATIO_DEN));
+    let out_add: BigInt = &log2_p << 8;
+    let mut out = BigInt::from_biguint(Sign::Plus, ts.weight().to_owned()) + out_add;
+    let e_weight = ((log2_p * BigInt::from(ts.blocks().len())) * BigInt::from(W_RATIO_NUM)) << 8;
+    let value: BigInt = e_weight / (BigInt::from(BLOCKS_PER_EPOCH) * BigInt::from(W_RATIO_DEN));
     out += &value;
     Ok(out)
 }

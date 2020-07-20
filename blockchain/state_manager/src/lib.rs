@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod call;
 mod errors;
 pub mod utils;
 pub use self::errors::*;
@@ -14,17 +13,18 @@ use async_log::span;
 use async_std::sync::RwLock;
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, ChainStore, HeadChange};
+use chain::{block_messages, get_heaviest_tipset, ChainStore, HeadChange};
 use cid::Cid;
+use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use futures::*;
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
-use log::trace;
+use log::{trace, warn};
 use message::{Message, MessageReceipt, UnsignedMessage};
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -33,18 +33,31 @@ use std::sync::Arc;
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
+/// Type to represent invocation of state call results
+pub struct InvocResult<Msg>
+where
+    Msg: Message,
+{
+    pub msg: Msg,
+    pub msg_rct: Option<MessageReceipt>,
+    pub actor_error: Option<String>,
+}
+
+// An alias Result that represents an InvocResult and an Error
+pub type StateCallResult<T> = Result<InvocResult<T>, Error>;
+
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct MarketBalance {
-    escrow: BigUint,
-    locked: BigUint,
+    escrow: BigInt,
+    locked: BigInt,
 }
 
 pub struct StateManager<DB> {
     bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
     subscriber: Option<Subscriber<HeadChange>>,
-    
+
     ///send a message to the channel to initiate a back_search while waiting for a message
     back_search_wait: Option<Subscriber<()>>,
 }
@@ -144,7 +157,7 @@ where
         Ok(addr)
     }
     /// Returns specified actor's claimed power and total network power as a tuple
-    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigUint, BigUint), Error> {
+    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigInt, BigInt), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
         if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {
@@ -228,6 +241,111 @@ where
         })
     }
 
+    fn call_raw(
+        &self,
+        msg: &mut UnsignedMessage,
+        bstate: &Cid,
+        rand: &ChainRand,
+        bheight: &ChainEpoch,
+    ) -> StateCallResult<UnsignedMessage>
+    where
+        DB: BlockStore,
+    {
+        span!("state_call_raw", {
+            let block_store = self.get_block_store_ref();
+            let buf_store = BufferedBlockStore::new(block_store);
+            let mut vm = VM::new(
+                bstate,
+                &buf_store,
+                *bheight,
+                DefaultSyscalls::new(&buf_store),
+                rand,
+            )?;
+
+            if msg.gas_limit() == 0 {
+                msg.set_gas_limit(10000000000)
+            }
+
+            let actor = self
+                .get_actor(msg.from(), bstate)?
+                .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
+            msg.set_sequence(actor.sequence);
+            let apply_ret = vm.apply_implicit_message(msg);
+            trace!(
+                "gas limit {:},gas price {:?},value {:?}",
+                msg.gas_limit(),
+                msg.gas_price(),
+                msg.value()
+            );
+            if let Some(err) = apply_ret.act_error() {
+                warn!("chain call failed: {:?}", err);
+            }
+
+            Ok(InvocResult {
+                msg: msg.clone(),
+                msg_rct: Some(apply_ret.msg_receipt().clone()),
+                actor_error: apply_ret.act_error().map(|e| e.to_string()),
+            })
+        })
+    }
+
+    /// runs the given message and returns its result without any persisted changes.
+    pub fn call(
+        &self,
+        message: &mut UnsignedMessage,
+        tipset: Option<Tipset>,
+    ) -> StateCallResult<UnsignedMessage>
+    where
+        DB: BlockStore,
+    {
+        let ts = if let Some(t_set) = tipset {
+            t_set
+        } else {
+            chain::get_heaviest_tipset(self.get_block_store_ref())
+                .map_err(|_| Error::Other("Could not get heaviest tipset".to_string()))?
+                .ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?
+        };
+        let state = ts.parent_state();
+        let chain_rand = ChainRand::new(ts.key().to_owned());
+        self.call_raw(message, state, &chain_rand, &ts.epoch())
+    }
+
+    /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
+    pub fn replay(
+        &self,
+        ts: &Tipset,
+        mcid: &Cid,
+    ) -> Result<(UnsignedMessage, Option<ApplyRet>), Error>
+    where
+        DB: BlockStore,
+    {
+        let mut outm: Option<UnsignedMessage> = None;
+        let mut outr: Option<ApplyRet> = None;
+        let callback = |cid: Cid, unsigned: UnsignedMessage, apply_ret: ApplyRet| {
+            if cid == mcid.clone() {
+                outm = Some(unsigned);
+                outr = Some(apply_ret);
+                return Err("halt".to_string());
+            }
+
+            Ok(())
+        };
+        let result = self.compute_tipset_state(ts.blocks(), Some(callback));
+
+        if let Err(error_message) = result {
+            if error_message.to_string() == "halt" {
+                return Err(Error::Other(format!(
+                    "unexpected error during execution : {:}",
+                    error_message
+                )));
+            }
+        }
+
+        let out_mes =
+            outm.ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
+        Ok((out_mes, outr))
+    }
+
     pub fn compute_tipset_state<'a>(
         &'a self,
         blocks_headers: &[BlockHeader],
@@ -273,16 +391,14 @@ where
 
     fn search_back_for_message(
         &self,
-        tipset: &Tipset,
+        current: &Tipset,
         message: &dyn Message,
     ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
-        let current = tipset.to_owned();
-
         if current.epoch() == 0 {
             return Ok(None);
         }
 
-        if let Some(actor_state) = self.get_actor(message.from(), tipset.parent_state())? {
+        if let Some(actor_state) = self.get_actor(message.from(), current.parent_state())? {
             if actor_state.sequence == 0 || actor_state.sequence < message.sequence() {
                 return Ok(None);
             }
@@ -359,7 +475,7 @@ where
                         let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: {:} n{:})",cid,message.sequence(),m_cid,s.sequence());
                         return Some(Err(Error::Other(error_msg)))
                     }
-                    let error_msg =format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})",cid,message.sequence(),s.sequence());
+                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message.sequence(), s.sequence());
                     return Some(Err(Error::Other(error_msg)))
                 }
                 if s.sequence() < message.sequence() {
@@ -378,7 +494,7 @@ where
     pub async fn wait_for_message(
         &self,
         cid: &Cid,
-        confidence: u64,
+        confidence: i64,
     ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Error> {
         let mut subscribers = self.subscriber.clone().ok_or_else(|| {
             Error::Other("State Manager not subscribed to tipset head changes".to_string())
@@ -418,59 +534,28 @@ where
         let mut candidate_receipt: Option<MessageReceipt> = None;
         let height_of_head = tipset.epoch();
         let mut reverts: HashMap<TipsetKeys, bool> = HashMap::new();
-        loop {
-            while let Some(subscriber) = self
-                .subscriber
-                .clone()
-                .ok_or_else(|| {
-                    Error::Other("State Manager not subscribed to tipset head changes".to_string())
-                })?
-                .next()
-                .await
-            {
-                match subscriber {
-                    HeadChange::Revert(_tipset) => {
-                        if candidate_tipset.is_some() {
-                            candidate_tipset = None;
-                            candidate_receipt = None;
-                        }
+
+        while let Some(subscriber) = self
+            .subscriber
+            .clone()
+            .ok_or_else(|| {
+                Error::Other("State Manager not subscribed to tipset head changes".to_string())
+            })?
+            .next()
+            .await
+        {
+            match subscriber {
+                HeadChange::Revert(_tipset) => {
+                    if candidate_tipset.is_some() {
+                        candidate_tipset = None;
+                        candidate_receipt = None;
                     }
-                    HeadChange::Apply(tipset) => {
-                        if candidate_tipset
-                            .as_ref()
-                            .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
-                            .unwrap_or_default()
-                        {
-                            let ts = candidate_tipset
-                                .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
-
-                            let rs = candidate_receipt.ok_or_else(|| {
-                                Error::Other("Candidate Receipt not set".to_string())
-                            })?;
-
-                            return Ok(Some((ts, rs)));
-                        }
-
-                        reverts.insert(tipset.key().to_owned(), true);
-
-                        let maybe_receipt =
-                            self.tipset_executed_message(&tipset, cid, &*message)?;
-                        if let Some(receipt) = maybe_receipt {
-                            if confidence == 0 {
-                                return Ok(Some((tipset, receipt)));
-                            }
-                            candidate_tipset = Some(tipset);
-                            candidate_receipt = Some(receipt)
-                        }
-                    }
-                    _ => continue,
                 }
-            }
-
-            match back_search_wait.next().await {
-                Some(_) => {
-                    if !reverts.get(back_tipset.key()).unwrap_or(&false)
-                        && height_of_head > back_tipset.epoch() + confidence
+                HeadChange::Apply(tipset) => {
+                    if candidate_tipset
+                        .as_ref()
+                        .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
+                        .unwrap_or_default()
                     {
                         let ts = candidate_tipset
                             .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
@@ -480,10 +565,37 @@ where
 
                         return Ok(Some((ts, rs)));
                     }
+
+                    reverts.insert(tipset.key().to_owned(), true);
+
+                    let maybe_receipt = self.tipset_executed_message(&tipset, cid, &*message)?;
+                    if let Some(receipt) = maybe_receipt {
+                        if confidence == 0 {
+                            return Ok(Some((tipset, receipt)));
+                        }
+                        candidate_tipset = Some(tipset);
+                        candidate_receipt = Some(receipt)
+                    }
                 }
-                _ => continue,
+                _ => (),
             }
         }
+
+        while back_search_wait.next().await.is_some() {
+            if !reverts.get(back_tipset.key()).unwrap_or(&false)
+                && height_of_head >= back_tipset.epoch() + confidence
+            {
+                let ts = candidate_tipset
+                    .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
+
+                let rs = candidate_receipt
+                    .ok_or_else(|| Error::Other("Candidate Receipt not set".to_string()))?;
+
+                return Ok(Some((ts, rs)));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Returns a bls public key from provided address
@@ -502,6 +614,22 @@ where
                 "Address must be BLS address to load bls public key".to_owned(),
             )),
         }
+    }
+
+    /// Return the heaviest tipset's balance from self.db for a given address
+    pub fn get_heaviest_balance(&self, addr: &Address) -> Result<BigInt, Error> {
+        let ts = get_heaviest_tipset(self.bs.as_ref())
+            .map_err(|err| Error::Other(err.to_string()))?
+            .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
+        let cid = ts.parent_state();
+        self.get_balance(addr, cid)
+    }
+
+    /// Return the balance of a given address and state_cid
+    pub fn get_balance(&self, addr: &Address, cid: &Cid) -> Result<BigInt, Error> {
+        let act = self.get_actor(addr, cid)?;
+        let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
+        Ok(actor.balance)
     }
 
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
