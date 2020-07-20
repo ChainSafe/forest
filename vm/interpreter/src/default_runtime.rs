@@ -65,7 +65,7 @@ where
     ) -> Self {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(
-            message.gas_limit() as i64,
+            message.gas_limit(),
             gas_used,
         )));
         let gas_block_store = GasBlockStore {

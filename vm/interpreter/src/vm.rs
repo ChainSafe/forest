@@ -207,7 +207,7 @@ where
 
         let pl = price_list_by_epoch(self.epoch());
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
-        let msg_gas_cost = pl.on_chain_message(ser_msg.len() as i64);
+        let msg_gas_cost = pl.on_chain_message(ser_msg.len());
 
         if msg_gas_cost > msg.gas_limit() {
             return Ok(ApplyRet::new(
@@ -301,7 +301,7 @@ where
 
         // scoped to deal with mutable reference borrowing
         let (ret_data, gas_used, act_err) = {
-            let (ret_data, mut rt, act_err) = self.send(msg, msg_gas_cost as i64);
+            let (ret_data, mut rt, act_err) = self.send(msg, msg_gas_cost);
             rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
                 .map_err(|e| e.to_string())?;
             (ret_data, rt.gas_used(), act_err)
