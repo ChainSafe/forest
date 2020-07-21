@@ -6,6 +6,8 @@ use vm::{MethodNum, Serialized, TokenAmount};
 use crate::unsigned_message::UnsignedMessage;
 use crate::signed_message::SignedMessage;
 use serde::{Deserialize, Serialize};
+
+/// Enum to encpasulate signed and unsigned messages. Useful when working with both types
 #[derive(Clone, Debug, Hash,Serialize, Deserialize)]
 pub enum ChainMessage
 {
