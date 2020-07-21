@@ -6,8 +6,6 @@ mod common;
 use actor::{account::State, ACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID};
 use address::Address;
 use common::*;
-use db::MemoryDB;
-use message::UnsignedMessage;
 use vm::{ExitCode, Serialized};
 
 macro_rules! account_tests {
@@ -17,11 +15,12 @@ macro_rules! account_tests {
             fn $name() {
                 let (addr, exit_code) = $value;
 
-                let bs = MemoryDB::default();
-                let receiver = Address::new_id(100);
-                let message =  UnsignedMessage::builder().to(receiver.clone()).from(SYSTEM_ACTOR_ADDR.clone()).build().unwrap();
-                let mut rt = MockRuntime::new(&bs, message);
-                rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
+                let mut rt = MockRuntime {
+                    receiver: Address::new_id(100),
+                    caller: SYSTEM_ACTOR_ADDR.clone(),
+                    caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
+                    ..Default::default()
+                };
                 rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
 
                 if exit_code.is_success() {

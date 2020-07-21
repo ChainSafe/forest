@@ -8,28 +8,19 @@ use actor::{
 };
 use address::Address;
 use common::*;
-use db::MemoryDB;
-use ipld_blockstore::BlockStore;
-use message::UnsignedMessage;
 use vm::{ExitCode, Serialized};
 
-fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
-    let receiver = Address::new_id(100);
-
-    let message = UnsignedMessage::builder()
-        .from(SYSTEM_ACTOR_ADDR.clone())
-        .to(receiver.clone())
-        .build()
-        .unwrap();
-    let mut rt = MockRuntime::new(bs, message);
-    rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
-    return rt;
+fn construct_runtime() -> MockRuntime {
+    MockRuntime {
+        receiver: Address::new_id(100),
+        caller: SYSTEM_ACTOR_ADDR.clone(),
+        caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
+        ..Default::default()
+    }
 }
 #[test]
 fn construct_with_empty_entries() {
-    let bs = MemoryDB::default();
-
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
 
     construct_and_verify(&mut rt, &ConstructorParams { entries: vec![] });
     let state: State = rt.get_state().unwrap();
@@ -39,9 +30,7 @@ fn construct_with_empty_entries() {
 
 #[test]
 fn construct_with_entries() {
-    let bs = MemoryDB::default();
-
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
 
     let entry1 = Entry {
         receiver: Address::new_id(1001),
@@ -73,16 +62,14 @@ fn construct_with_entries() {
 
 #[test]
 fn epoch_tick_with_empty_entries() {
-    let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
 
     construct_and_verify(&mut rt, &ConstructorParams { entries: vec![] });
     epoch_tick_and_verify(&mut rt);
 }
 #[test]
 fn epoch_tick_with_entries() {
-    let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
 
     let entry1 = Entry {
         receiver: Address::new_id(1001),
@@ -149,7 +136,7 @@ fn epoch_tick_with_entries() {
     epoch_tick_and_verify(&mut rt);
 }
 
-fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>, params: &ConstructorParams) {
+fn construct_and_verify(rt: &mut MockRuntime, params: &ConstructorParams) {
     rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
     let ret = rt
         .call(
@@ -162,7 +149,7 @@ fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>, params: &C
     rt.verify();
 }
 
-fn epoch_tick_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
+fn epoch_tick_and_verify(rt: &mut MockRuntime) {
     rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
     let ret = rt
         .call(&*CRON_ACTOR_CODE_ID, 2, &Serialized::default())
