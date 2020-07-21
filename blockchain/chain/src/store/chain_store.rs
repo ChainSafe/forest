@@ -17,7 +17,7 @@ use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
-use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use message::{Message, MessageReceipt,ChainMessage, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -36,7 +36,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
 
-type BoxMessage = Box<dyn Message>;
+
 
 /// Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
@@ -45,6 +45,9 @@ pub enum HeadChange {
     Apply(Arc<Tipset>),
     Revert(Arc<Tipset>),
 }
+
+
+
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
@@ -451,7 +454,7 @@ where
 }
 
 /// Attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
-pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<BoxMessage, Error>
+pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: BlockStore,
 {
@@ -459,15 +462,15 @@ where
         .read(key.key())?
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
     if let Ok(message) = from_slice::<UnsignedMessage>(&value) {
-        Ok(Box::new(message))
+        Ok(ChainMessage::Unsigned(message))
     } else {
         let signed_message: SignedMessage = from_slice(&value)?;
-        Ok(Box::new(signed_message))
+        Ok(ChainMessage::Signed(signed_message))
     }
 }
 
 // given a tipset this function will return all messages as a trait object
-pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<BoxMessage>, Error>
+pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
     DB: BlockStore,
 {
@@ -476,12 +479,12 @@ where
     let state = StateTree::new_from_root(db, ts.parent_state())?;
 
     // message to get all messages for block_header into a single iterator
-    let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<BoxMessage>, Error> {
+    let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
         let (unsigned, signed) = block_messages(db, b)?;
-        let unsigned_box = unsigned.into_iter().map(|s| Box::new(s) as BoxMessage);
-        let signed_box = signed.into_iter().map(|s| Box::new(s) as BoxMessage);
+        let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
+        let signed_box = signed.into_iter().map(ChainMessage::Signed);
 
-        let mut messages = Vec::with_capacity(unsigned_box.len() + signed_box.len());
+        let mut messages = Vec::new();
         for message in unsigned_box.chain(signed_box) {
             let from_address = message.from();
             if applied.contains_key(&from_address) {

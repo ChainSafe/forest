@@ -3,7 +3,6 @@
 
 use super::Message;
 use address::Address;
-use cid::Cid;
 use derive_builder::Builder;
 use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
@@ -154,10 +153,6 @@ impl Message for UnsignedMessage {
     fn required_funds(&self) -> TokenAmount {
         let total: TokenAmount = self.gas_price() * self.gas_limit();
         total + self.value()
-    }
-
-    fn to_cid(&self) -> Result<Cid, String> {
-        self.cid().map_err(|e| e.to_string())
     }
 }
 

@@ -7,13 +7,14 @@ extern crate serde;
 mod message_receipt;
 pub mod signed_message;
 pub mod unsigned_message;
+pub mod chain_message;
 
 pub use message_receipt::*;
+pub use chain_message::ChainMessage;
 pub use signed_message::SignedMessage;
 pub use unsigned_message::UnsignedMessage;
 
 use address::Address;
-use cid::Cid;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 pub trait Message {
@@ -41,6 +42,5 @@ pub trait Message {
     fn gas_limit(&self) -> u64;
     /// Returns the required funds for the message
     fn required_funds(&self) -> TokenAmount;
-    //turns message into cid
-    fn to_cid(&self) -> Result<Cid, String>;
+ 
 }

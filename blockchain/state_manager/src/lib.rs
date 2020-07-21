@@ -23,12 +23,14 @@ use futures::*;
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
-use message::{Message, MessageReceipt, UnsignedMessage};
+use message::{Message, MessageReceipt, ChainMessage,UnsignedMessage};
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use encoding::Cbor;
+
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -392,7 +394,7 @@ where
     fn search_back_for_message(
         &self,
         current: &Tipset,
-        message: &dyn Message,
+        message: &ChainMessage,
     ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
         if current.epoch() == 0 {
             return Ok(None);
@@ -411,7 +413,7 @@ where
                     err
                 ))
             })?;
-        let cid = message.to_cid()?;
+        let cid = message.cid().map_err(|e|Error::Other(format!("Could not convert message to cid {:?}",e)))?;
         let r = self.tipset_executed_message(&tipset, &cid, message)?;
 
         if let Some(receipt) = r {
@@ -423,13 +425,13 @@ where
     pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
         let m = chain::get_chain_message(self.get_block_store_ref(), msg)
             .map_err(|e| Error::Other(e.to_string()))?;
-        let message_receipt = self.tipset_executed_message(tipset, msg, &*m)?;
+        let message_receipt = self.tipset_executed_message(tipset, msg, &m)?;
 
         if let Some(receipt) = message_receipt {
             return Ok(receipt);
         }
 
-        let maybe_tuple = self.search_back_for_message(tipset, &*m)?;
+        let maybe_tuple = self.search_back_for_message(tipset, &m)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -442,7 +444,7 @@ where
         &self,
         tipset: &Tipset,
         cid: &Cid,
-        message: &dyn Message,
+        message: &ChainMessage,
     ) -> Result<Option<MessageReceipt>, Error> {
         if tipset.epoch() == 0 {
             return Ok(None);
@@ -458,7 +460,7 @@ where
             .filter(|(_, s)| s.from() == message.from())
             .filter_map(|(index,s)| {
                 if s.sequence() == message.sequence() {
-                    if s.to_cid().map(|s| &s == cid).unwrap_or_default() {
+                    if s.cid().map(|s| &s == cid).unwrap_or_default() {
                         return Some(
                             chain::get_parent_reciept(
                                 self.get_block_store_ref(),
@@ -469,11 +471,6 @@ where
                                 Error::Other(err.to_string())
                             }),
                         );
-                    }
-                    if let Ok(m_cid) = s.to_cid()
-                    {
-                        let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: {:} n{:})",cid,message.sequence(),m_cid,s.sequence());
-                        return Some(Err(Error::Other(error_msg)))
                     }
                     let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message.sequence(), s.sequence());
                     return Some(Err(Error::Other(error_msg)))
@@ -519,13 +516,13 @@ where
                 )))
             }
         };
-        let maybe_message_reciept = self.tipset_executed_message(&tipset, cid, &*message)?;
+        let maybe_message_reciept = self.tipset_executed_message(&tipset, cid, &message)?;
         if let Some(r) = maybe_message_reciept {
             return Ok(Some((tipset.clone(), r)));
         }
 
         let (back_tipset, _back_receipt) = self
-            .search_back_for_message(&tipset, &*message)?
+            .search_back_for_message(&tipset, &message)?
             .ok_or_else(|| {
                 Error::Other("State manager not subscribed to back search wait".to_string())
             })?;
@@ -568,7 +565,7 @@ where
 
                     reverts.insert(tipset.key().to_owned(), true);
 
-                    let maybe_receipt = self.tipset_executed_message(&tipset, cid, &*message)?;
+                    let maybe_receipt = self.tipset_executed_message(&tipset, cid, &message)?;
                     if let Some(receipt) = maybe_receipt {
                         if confidence == 0 {
                             return Ok(Some((tipset, receipt)));
