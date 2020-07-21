@@ -31,8 +31,8 @@ pub trait Message {
     fn params(&self) -> &Serialized;
     /// gas_price returns gas price for the message
     fn gas_price(&self) -> &TokenAmount;
-    //sets the gas price
-    fn set_gas_price(&mut self, _: TokenAmount);
+    /// sets the gas price
+    fn set_gas_price(&mut self, amount: TokenAmount);
     //sets the gas limit
     fn set_gas_limit(&mut self, _: u64);
     /// sets a new sequence to the message
