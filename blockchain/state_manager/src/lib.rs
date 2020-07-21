@@ -333,7 +333,7 @@ where
         let result = self.compute_tipset_state(ts.blocks(), Some(callback));
 
         if let Err(error_message) = result {
-            if error_message.to_string() == "halt" {
+            if error_message.to_string() != "halt" {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {:}",
                     error_message
