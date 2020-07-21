@@ -464,7 +464,7 @@ where
     }
 }
 
-// given a tipset this function will return all messages as a trait object
+/// given a tipset this function will return all messages
 pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
     DB: BlockStore,

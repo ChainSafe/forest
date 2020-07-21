@@ -24,7 +24,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub epoch: ChainEpoch,
     pub caller_type: Cid,
     pub miner: Address,
-    //pub value_received: TokenAmount,
+    // pub value_received: TokenAmount,
     pub id_addresses: HashMap<Address, Address>,
     pub actor_code_cids: HashMap<Address, Cid>,
     pub new_actor_addr: Option<Address>,

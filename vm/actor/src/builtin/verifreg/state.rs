@@ -85,7 +85,7 @@ impl State {
         Ok(())
     }
 
-    //private helper functions
+    // private helper functions
     fn put<BS: BlockStore>(
         storage: &Cid,
         store: &BS,

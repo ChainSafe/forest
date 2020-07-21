@@ -30,7 +30,7 @@ pub struct MessageLookup {
     pub receipt: MessageReceipt,
     pub tipset: Arc<Tipset>,
 }
-pub fn get_network_name<DB>(state_manager: &StateManager<DB>) -> Result<String, BoxError>
+pub fn state_get_network_name<DB>(state_manager: &StateManager<DB>) -> Result<String, BoxError>
 where
     DB: BlockStore,
 {
