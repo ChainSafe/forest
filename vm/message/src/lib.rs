@@ -33,7 +33,7 @@ pub trait Message {
     fn gas_price(&self) -> &TokenAmount;
     /// sets the gas price
     fn set_gas_price(&mut self, amount: TokenAmount);
-    //sets the gas limit
+    /// sets the gas limit for the message
     fn set_gas_limit(&mut self, _: u64);
     /// sets a new sequence to the message
     fn set_sequence(&mut self, _: u64);
