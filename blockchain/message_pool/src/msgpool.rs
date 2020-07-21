@@ -708,25 +708,17 @@ fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage
     }
 }
 
-#[cfg(test)]
-mod tests {
+pub mod test_provider {
     use super::Error as Errors;
     use super::*;
-    use crate::MessagePool;
     use address::Address;
-    use async_std::task;
-    use blocks::{BlockHeader, Ticket, Tipset};
+    use blocks::{BlockHeader, Tipset};
     use cid::Cid;
-    use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
     use flo_stream::{MessagePublisher, Publisher, Subscriber};
-    use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigUint;
-    use std::borrow::BorrowMut;
-    use std::convert::TryFrom;
-    use std::thread::sleep;
-    use std::time::Duration;
 
+    /// Struct used for creating a provider when writing tests involving message pool
     pub struct TestApi {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
         state_sequence: HashMap<Address, u64>,
@@ -734,7 +726,14 @@ mod tests {
         publisher: Publisher<Arc<Tipset>>,
     }
 
+    impl Default for TestApi {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl TestApi {
+        /// Create a new TestApi
         pub fn new() -> Self {
             TestApi {
                 bmsgs: HashMap::new(),
@@ -744,16 +743,19 @@ mod tests {
             }
         }
 
+        /// Set the state sequence for an Address for TestApi
         pub fn set_state_sequence(&mut self, addr: &Address, sequence: u64) {
-            self.state_sequence.insert(addr.clone(), sequence);
+            self.state_sequence.insert(*addr, sequence);
         }
 
+        /// Set the block messages for TestApi
         pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
             self.bmsgs.insert(h.cid().clone(), msgs);
             self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
         }
 
-        pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> () {
+        /// Set the heaviest tipset for TestApi
+        pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
             self.publisher.publish(ts).await
         }
     }
@@ -774,8 +776,8 @@ mod tests {
         fn state_get_actor(&self, addr: &Address, _ts: &Tipset) -> Result<ActorState, Errors> {
             let s = self.state_sequence.get(addr);
             let mut sequence = 0;
-            if s.is_some() {
-                sequence = s.unwrap().clone();
+            if let Some(sq) = s {
+                sequence = *sq;
             }
             let actor = ActorState::new(
                 Cid::default(),
@@ -826,15 +828,33 @@ mod tests {
     }
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
-        let header = BlockHeader::builder()
+        BlockHeader::builder()
             .weight(BigUint::from(weight))
             .cached_bytes(cached_bytes.to_vec())
             .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
-            .unwrap();
-        header
+            .unwrap()
     }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::test_provider::*;
+    use super::*;
+    use crate::MessagePool;
+    use address::Address;
+    use async_std::task;
+    use blocks::{BlockHeader, Ticket, Tipset};
+    use cid::Cid;
+    use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
+    use key_management::{MemKeyStore, Wallet};
+    use message::{SignedMessage, UnsignedMessage};
+    use num_bigint::BigUint;
+    use std::borrow::BorrowMut;
+    use std::convert::TryFrom;
+    use std::thread::sleep;
+    use std::time::Duration;
 
     fn create_smsg(
         to: &Address,
@@ -911,7 +931,7 @@ mod tests {
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut tma = TestApi::new();
+        let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
@@ -960,7 +980,7 @@ mod tests {
 
     #[test]
     fn test_revert_messages() {
-        let tma = TestApi::new();
+        let tma = TestApi::default();
         let mut wallet = Wallet::new(MemKeyStore::new());
 
         let a = mock_block(1, 1);
@@ -1058,7 +1078,7 @@ mod tests {
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut tma = TestApi::new();
+        let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {

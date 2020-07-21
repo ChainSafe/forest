@@ -93,15 +93,15 @@ mod tests {
     use super::*;
     use async_std::sync::{channel, Receiver, RwLock};
     use async_std::task;
-    use chain::ChainStore;
     use chain_sync::SyncStage;
     use db::MemoryDB;
     use forest_libp2p::NetworkMessage;
     use futures::StreamExt;
-    use message_pool::{MessagePool, MpoolProvider};
+    use message_pool::MessagePool;
     use serde_json::from_str;
     use std::sync::Arc;
     use wallet::MemKeyStore;
+    use message_pool::test_provider::*;
 
     const TEST_NET_NAME: &str = "test";
 
@@ -111,7 +111,7 @@ mod tests {
     ) {
         let (network_send, network_rx) = channel(5);
         let pool = task::block_on(async {
-            MessagePool::new(TestApi::new(), "test".to_string())
+            MessagePool::new(TestApi::default(), "test".to_string())
                 .await
                 .unwrap()
         });

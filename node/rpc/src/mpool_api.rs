@@ -1,30 +1,28 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_api::chain_get_tipset;
 use crate::RpcState;
 
 use address::Address;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
-use cid::{json::CidJson, Cid};
-use crypto::Signature;
+use cid::json::CidJson;
 use encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{
     signed_message::{
         self,
-        json::{vec, SignedMessageJson},
+        json::SignedMessageJson
     },
-    unsigned_message::{self, json::UnsignedMessageJson},
-    SignedMessage, UnsignedMessage,
+    unsigned_message::json::UnsignedMessageJson,
+    SignedMessage
 };
 use message_pool::*;
-use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use wallet::KeyStore;
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Pending {
@@ -35,31 +33,33 @@ pub(crate) struct Pending {
 /// Estimate the gas price for an Address
 pub(crate) async fn estimate_gas_price<DB, KS, MP>(
     data: Data<RpcState<DB, KS, MP>>,
-    Params(params): Params<(u64, Address, u64, TipsetKeys)>,
-) -> Result<BigInt, JsonRpcError>
+    Params(params): Params<(u64, String, u64, TipsetKeys)>,
+) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     MP: Provider + Send + Sync + 'static,
 {
-    let (nblocks, sender, gas_limit, tsk) = params;
+    let (nblocks, sender_str, gas_limit, tsk) = params;
+    let sender = Address::from_str(&sender_str)?;
     let price = data
         .mpool
         .estimate_gas_price(nblocks, sender, gas_limit, tsk)?;
-    Ok(price)
+    Ok(price.to_string())
 }
 
 /// get the sequence of given address in mpool
 pub(crate) async fn get_sequence<DB, KS, MP>(
     data: Data<RpcState<DB, KS, MP>>,
-    Params(params): Params<(Address,)>,
+    Params(params): Params<(String,)>,
 ) -> Result<u64, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     MP: Provider + Send + Sync + 'static,
 {
-    let (address,) = params;
+    let (addr_str,) = params;
+    let address = Address::from_str(&addr_str)?;
     let sequence = data.mpool.get_sequence(&address).await?;
     Ok(sequence)
 }

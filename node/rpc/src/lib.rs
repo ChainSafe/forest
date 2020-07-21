@@ -77,6 +77,12 @@ where
             chain_api::chain_get_block::<DB, KS, MP>,
         )
         .with_method("Filecoin.ChainHead", chain_head::<DB, KS, MP>)
+        // Message Pool API
+        .with_method("Filecoin.MpoolEstimateGasPrice", estimate_gas_price::<DB, KS, MP>)
+        .with_method("Filecoin.MpoolGetNonce", get_sequence::<DB, KS, MP>)
+        .with_method("Filecoin.MpoolPending", pending::<DB, KS, MP>)
+        .with_method("Filecoin.MpoolPush", push::<DB, KS, MP>)
+        .with_method("Filecoin.MpoolPushMessage", push_message::<DB, KS, MP>)
         // Sync API
         .with_method("Filecoin.SyncCheckBad", sync_check_bad::<DB, KS, MP>)
         .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB, KS, MP>)
