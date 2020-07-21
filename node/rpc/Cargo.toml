@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+actor = { path = "../../vm/actor/" }
 async-std = { version = "1.6.0", features = ["attributes"] }
 tide = "0.9.0"
 serde = { version = "1.0.101", default-features = false, features = ["derive"] }
@@ -27,6 +28,8 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 thiserror = "1.0"
 state_tree = { path = "../../vm/state_tree" }
 forest_libp2p = { path = "../forest_libp2p" }
+interpreter = { path = "../../vm/interpreter/" }
+fil_types = { path = "../../types" }
 
 [dev-dependencies]
 db = { path = "../db" }

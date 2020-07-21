@@ -12,7 +12,8 @@ pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{blake2b_variable, de, ser, serde_bytes, Cbor};
+use encoding::{blake2b_variable, serde_bytes, Cbor};
+use serde::{Deserialize, de,Deserializer,Serialize, ser,Serializer};
 use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -50,20 +51,8 @@ pub struct Address {
     payload: Payload,
 }
 
-#[derive(Deserialize, Serialize)]
-#[serde(transparent)]
-pub struct AddressJson(#[serde(with = "self")] pub Address);
 
-/// Wrapper for serializing a cid reference to JSON.
-#[derive(Serialize)]
-#[serde(transparent)]
-pub struct AddressJsonRef<'a>(#[serde(with = "self")] pub &'a Address);
 
-impl From<AddressJson> for Address {
-    fn from(wrapper: AddressJson) -> Self {
-        wrapper.0
-    }
-}
 
 impl Address {
     /// Address constructor
@@ -234,20 +223,20 @@ impl FromStr for Address {
     }
 }
 
-impl ser::Serialize for Address {
+impl Serialize for Address {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
-        S: ser::Serializer,
+        S: Serializer,
     {
         let address_bytes = self.to_bytes();
         serde_bytes::Serialize::serialize(&address_bytes, s)
     }
 }
 
-impl<'de> de::Deserialize<'de> for Address {
+impl<'de> Deserialize<'de> for Address {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: de::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
 
@@ -318,3 +307,65 @@ fn address_hash(ingest: &[u8]) -> [u8; 20] {
     hash.clone_from_slice(&digest);
     hash
 }
+
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use crate::header;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    /// Wrapper for serializing and deserializing a GossipBlock from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct AddressJson(#[serde(with = "self")] pub Address);
+
+    /// Wrapper for serializing a GossipBlock reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct AddressJsonRef<'a>(#[serde(with = "self")] pub &'a Address);
+
+    pub fn serialize<S>(m: &Address, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct AddressSer<'a> {
+            #[serde(with = "network::json")]
+            pub network: &'a Network,
+            #[serde(with = "payload::vec")]
+            pub payload: &'a Payload,
+
+        }
+        AddressSet {
+            network: &m.network,
+            payload: &m.payload,
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Address, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct AddressDe{
+            #[serde(with = "network::json")]
+            pub network: Network,
+            #[serde(with = "payload::json")]
+            pub payload: Payload,
+
+        }
+        let AddressDe {
+            network,
+            payload
+        } = Deserialize::deserialize(deserializer)?;
+        Ok(Address {
+            network,
+            payload
+        })
+    }
+}
+

@@ -170,3 +170,4 @@ pub struct Fault {
     pub miner: Address,
     pub fault: ChainEpoch,
 }
+

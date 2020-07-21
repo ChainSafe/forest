@@ -240,6 +240,7 @@ pub fn state_pledge_collateral<DB>(
 where
     DB: BlockStore,
 {
+    /// TODO needs to be implemented when available on lotus
     Ok(BigUint::zero())
 }
 

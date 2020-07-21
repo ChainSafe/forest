@@ -32,7 +32,7 @@ fn annotating_struct_json() {
     struct TestStruct {
         #[serde(with = "json")]
         cid_one: Cid,
-        #[serde(with = "json")]
+        #[serde(with = "")]
         cid_two: Cid,
         other: String,
     }

@@ -4,6 +4,7 @@
 mod chain_api;
 mod sync_api;
 mod wallet_api;
+mod state_api;
 
 use async_std::sync::{RwLock, Sender};
 use blockstore::BlockStore;

@@ -7,7 +7,7 @@ use cid::Cid;
 use derive_builder::Builder;
 use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize,de, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
@@ -59,6 +59,9 @@ pub struct UnsignedMessage {
     #[builder(default)]
     gas_limit: u64,
 }
+
+
+
 
 impl UnsignedMessage {
     pub fn builder() -> MessageBuilder {
@@ -166,7 +169,6 @@ impl Cbor for UnsignedMessage {}
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::de;
 
     /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
     #[derive(Deserialize, Serialize)]
@@ -183,6 +185,15 @@ pub mod json {
             wrapper.0
         }
     }
+
+impl From<UnsignedMessage> for UnsignedMessageJson
+{
+    fn from(wrapper : UnsignedMessage) -> Self
+    {
+        UnsignedMessageJson(wrapper)
+    }
+}
+   
 
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
