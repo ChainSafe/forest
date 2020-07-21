@@ -11,18 +11,15 @@ use encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{
-    signed_message::{
-        self,
-        json::SignedMessageJson
-    },
+    signed_message::{self, json::SignedMessageJson},
     unsigned_message::json::UnsignedMessageJson,
-    SignedMessage
+    SignedMessage,
 };
 use message_pool::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use wallet::KeyStore;
 use std::str::FromStr;
+use wallet::KeyStore;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Pending {

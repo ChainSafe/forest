@@ -97,11 +97,11 @@ mod tests {
     use db::MemoryDB;
     use forest_libp2p::NetworkMessage;
     use futures::StreamExt;
+    use message_pool::test_provider::*;
     use message_pool::MessagePool;
     use serde_json::from_str;
     use std::sync::Arc;
     use wallet::MemKeyStore;
-    use message_pool::test_provider::*;
 
     const TEST_NET_NAME: &str = "test";
 
