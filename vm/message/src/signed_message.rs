@@ -100,7 +100,6 @@ impl Message for SignedMessage {
     fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()
     }
-
 }
 
 impl Cbor for SignedMessage {

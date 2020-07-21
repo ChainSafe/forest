@@ -17,7 +17,7 @@ use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
-use message::{Message, MessageReceipt,ChainMessage, SignedMessage, UnsignedMessage};
+use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -36,8 +36,6 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
 
-
-
 /// Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
@@ -45,9 +43,6 @@ pub enum HeadChange {
     Apply(Arc<Tipset>),
     Revert(Arc<Tipset>),
 }
-
-
-
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {

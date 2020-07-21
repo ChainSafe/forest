@@ -17,20 +17,19 @@ use chain::{block_messages, get_heaviest_tipset, ChainStore, HeadChange};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
+use encoding::Cbor;
 use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use futures::*;
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
-use message::{Message, MessageReceipt, ChainMessage,UnsignedMessage};
+use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use encoding::Cbor;
-
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -78,7 +77,7 @@ where
         }
     }
 
-    //Creates a constructor that passes in a HeadChange subscriber
+    // Creates a constructor that passes in a HeadChange subscriber
     pub fn new_with_chain_message_subscriber(
         bs: Arc<DB>,
         chain_sub: Subscriber<HeadChange>,
@@ -91,7 +90,7 @@ where
         }
     }
 
-    //Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
+    // Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
     pub fn new_with_subscribers(
         bs: Arc<DB>,
         chain_subs: Subscriber<HeadChange>,
@@ -413,7 +412,9 @@ where
                     err
                 ))
             })?;
-        let cid = message.cid().map_err(|e|Error::Other(format!("Could not convert message to cid {:?}",e)))?;
+        let cid = message
+            .cid()
+            .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
         let r = self.tipset_executed_message(&tipset, &cid, message)?;
 
         if let Some(receipt) = r {
