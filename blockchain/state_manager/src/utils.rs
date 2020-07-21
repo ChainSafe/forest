@@ -124,7 +124,7 @@ where
         .load_actor_state(&address, &tipset.parent_state())
         .map_err(|err| {
             Error::State(format!(
-                "(get sset) failed to load miner actor state: {:}",
+                "(get miner sector set) failed to load miner actor state: {:}",
                 err
             ))
         })?;
@@ -182,7 +182,7 @@ where
         .load_actor_state(&address, &tipset.parent_state())
         .map_err(|err| {
             Error::State(format!(
-                "(get sset) failed to load miner actor state: {:}",
+                "(get miner sector info) failed to load miner actor state: {:}",
                 err
             ))
         })?;
@@ -204,7 +204,7 @@ where
         .load_actor_state(&address, &tipset.parent_state())
         .map_err(|err| {
             Error::State(format!(
-                "(get sset) failed to load miner actor state: {:}",
+                "(get precommit info) failed to load miner actor state: {:}",
                 err
             ))
         })?;
@@ -212,7 +212,7 @@ where
         .get_precommitted_sector(state_manager.get_block_store_ref(), *sector_number)
         .map_err(|err| {
             Error::Other(format!(
-                "(get sectors) failed to load miner actor state: %{:}",
+                "(precommit info) failed to load miner actor state: %{:}",
                 err
             ))
         })?;
@@ -231,7 +231,7 @@ where
         .load_actor_state(&address, &tipset.parent_state())
         .map_err(|err| {
             Error::State(format!(
-                "(get sset) failed to load miner actor state: {:}",
+                "(get miner info) failed to load miner actor state: {:}",
                 err
             ))
         })?;
@@ -250,7 +250,7 @@ where
         .load_actor_state(&address, &tipset.parent_state())
         .map_err(|err| {
             Error::State(format!(
-                "(get sset) failed to load miner actor state: {:}",
+                "(get miner deadlines) failed to load miner actor state: {:}",
                 err
             ))
         })?;
@@ -276,7 +276,7 @@ where
         .load_actor_state(&address, &tipset.parent_state())
         .map_err(|err| {
             Error::State(format!(
-                "(get sset) failed to load miner actor state: {:}",
+                "(get miner faults) failed to load miner actor state: {:}",
                 err
             ))
         })?;
@@ -295,7 +295,7 @@ where
         .load_actor_state(&address, &tipset.parent_state())
         .map_err(|err| {
             Error::State(format!(
-                "(get sset) failed to load miner actor state: {:}",
+                "(get miner recoveries) failed to load miner actor state: {:}",
                 err
             ))
         })?;
