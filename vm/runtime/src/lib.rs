@@ -23,7 +23,7 @@ use filecoin_proofs_api::{
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use log::warn;
-use message::UnsignedMessage;
+use message::Message;
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -35,7 +35,7 @@ use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 /// this is everything that is accessible to actors, beyond parameters.
 pub trait Runtime<BS: BlockStore> {
     /// Information related to the current message being executed.
-    fn message(&self) -> &UnsignedMessage;
+    fn message(&self) -> &dyn MessageInfo;
 
     /// The current chain epoch number. The genesis block has epoch zero.
     fn curr_epoch(&self) -> ChainEpoch;
@@ -134,14 +134,29 @@ pub trait Runtime<BS: BlockStore> {
 
 /// Message information available to the actor about executing message.
 pub trait MessageInfo {
-    // The address of the immediate calling actor. Always an ID-address.
-    fn caller(&self) -> Address;
+    /// The address of the immediate calling actor. Always an ID-address.
+    fn caller(&self) -> &Address;
 
-    // The address of the actor receiving the message. Always an ID-address.
-    fn receiver(&self) -> Address;
+    /// The address of the actor receiving the message. Always an ID-address.
+    fn receiver(&self) -> &Address;
 
-    // The value attached to the message being processed, implicitly added to current_balance() before method invocation.
-    fn value_received(&self) -> TokenAmount;
+    /// The value attached to the message being processed, implicitly added to current_balance() before method invocation.
+    fn value_received(&self) -> &TokenAmount;
+}
+
+impl<M> MessageInfo for M
+where
+    M: Message,
+{
+    fn caller(&self) -> &Address {
+        Message::from(self)
+    }
+    fn receiver(&self) -> &Address {
+        Message::to(self)
+    }
+    fn value_received(&self) -> &TokenAmount {
+        Message::value(self)
+    }
 }
 
 /// Pure functions implemented as primitives by the runtime.

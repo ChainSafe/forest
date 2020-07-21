@@ -20,7 +20,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -135,7 +135,7 @@ where
 
     /// Update the state Cid of the Message receiver
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
-        let to_addr = *self.message().to();
+        let to_addr = *self.message().receiver();
         let mut actor = self.get_actor(&to_addr)?;
 
         if &actor.state != old_h {
@@ -161,8 +161,8 @@ where
     BS: BlockStore,
     SYS: Syscalls,
 {
-    fn message(&self) -> &UnsignedMessage {
-        &self.message
+    fn message(&self) -> &dyn MessageInfo {
+        self.message
     }
     fn curr_epoch(&self) -> ChainEpoch {
         self.epoch
@@ -172,13 +172,13 @@ where
     where
         I: IntoIterator<Item = &'db Address>,
     {
-        let imm = self.resolve_address(self.message().from())?;
+        let imm = self.resolve_address(self.message().caller())?;
 
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| *a == imm) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
-                format!("caller is not one of {}", self.message().from()),
+                format!("caller is not one of {}", self.message().caller()),
             ));
         }
         Ok(())
@@ -188,14 +188,14 @@ where
     where
         I: IntoIterator<Item = &'db Cid>,
     {
-        let caller_cid = self.get_actor_code_cid(self.message().to())?;
+        let caller_cid = self.get_actor_code_cid(self.message().receiver())?;
         if types.into_iter().any(|c| *c == caller_cid) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
                 format!(
                     "caller cid type {} one of {}",
                     caller_cid,
-                    self.message().from()
+                    self.message().caller()
                 ),
             ));
         }
@@ -239,7 +239,7 @@ where
         self.state_commit(&Cid::default(), c)
     }
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        let actor = self.get_actor(self.message().to())?;
+        let actor = self.get_actor(self.message().receiver())?;
         self.store
             .get(&actor.state)
             .map_err(|e| {
@@ -262,7 +262,7 @@ where
         F: FnOnce(&mut C, &mut Self) -> R,
     {
         // get actor
-        let act = self.get_actor(self.message().to())?;
+        let act = self.get_actor(self.message().receiver())?;
 
         // get state for actor based on generic C
         let mut state: C = self

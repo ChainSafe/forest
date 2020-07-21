@@ -9,7 +9,6 @@ pub use self::types::*;
 use crate::{make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
-use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -67,7 +66,7 @@ impl Actor {
         };
 
         if params.unlock_duration != 0 {
-            st.initial_balance = rt.message().value().clone();
+            st.initial_balance = rt.message().value_received().clone();
             st.unlock_duration = params.unlock_duration;
             st.start_epoch = rt.curr_epoch();
         }
@@ -83,7 +82,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let caller_addr: Address = *rt.message().from();
+        let caller_addr: Address = *rt.message().caller();
 
         let st: State = rt.state()?;
         Self::validate_signer(rt, &st, &caller_addr)?;
@@ -129,7 +128,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let caller_addr: Address = *rt.message().from();
+        let caller_addr: Address = *rt.message().caller();
 
         // Validate signer
         let st = rt.state()?;
@@ -145,7 +144,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let caller_addr: Address = *rt.message().from();
+        let caller_addr: Address = *rt.message().caller();
 
         let st: State = rt.state()?;
         Self::validate_signer(rt, &st, &caller_addr)?;
@@ -187,7 +186,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()))?;
+        rt.validate_immediate_caller_is(std::iter::once(rt.message().receiver()))?;
 
         rt.transaction::<State, _, _>(|st, _| {
             // Check if signer to add is already signer
@@ -214,7 +213,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()))?;
+        rt.validate_immediate_caller_is(std::iter::once(rt.message().receiver()))?;
 
         rt.transaction::<State, _, _>(|st, _| {
             // Check that signer to remove exists
@@ -249,7 +248,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()))?;
+        rt.validate_immediate_caller_is(std::iter::once(rt.message().receiver()))?;
 
         rt.transaction::<State, _, _>(|st, _| {
             // Check that signer to remove exists
@@ -287,7 +286,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().to()))?;
+        rt.validate_immediate_caller_is(std::iter::once(rt.message().receiver()))?;
 
         rt.transaction::<State, _, _>(|st, _| {
             // Check if valid threshold value
@@ -309,7 +308,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let from = *rt.message().from();
+        let from = *rt.message().caller();
         let curr_bal = rt.current_balance()?;
         let curr_epoch = rt.curr_epoch();
         // Approval transaction

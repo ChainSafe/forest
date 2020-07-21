@@ -23,7 +23,6 @@ use encoding::to_vec;
 use fil_types::PieceInfo;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use message::Message;
 use num_bigint::{BigInt, BigUint};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
@@ -89,7 +88,7 @@ impl Actor {
     {
         let (nominal, _) = escrow_address(rt, &provider_or_client)?;
 
-        let msg_value = rt.message().value().clone();
+        let msg_value = rt.message().value_received().clone();
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             st.add_escrow_balance(rt.store(), &nominal, msg_value)
                 .map_err(|e| {
@@ -194,7 +193,7 @@ impl Actor {
         let provider = rt.resolve_address(&provider_raw)?;
 
         let (_, worker) = request_miner_control_addrs(rt, &provider)?;
-        if &worker != rt.message().from() {
+        if &worker != rt.message().caller() {
             return Err(ActorError::new(
                 ExitCode::ErrForbidden,
                 format!("Caller is not provider {}", worker),
@@ -296,7 +295,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().from();
+        let miner_addr = *rt.message().caller();
         let mut total_deal_space_time = BigUint::zero();
         let mut total_verified_deal_space_time = BigUint::zero();
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
@@ -386,7 +385,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().from();
+        let miner_addr = *rt.message().caller();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             let prop = Amt::load(&st.proposals, rt.store())
