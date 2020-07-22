@@ -172,7 +172,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
         Ok(GetControlAddressesReturn {
             owner: st.info.owner,
@@ -581,7 +581,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
 
         let sector_number = params.sector_number;
         let st: State = rt.state()?;
@@ -782,7 +782,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
 
         let sec = st.get_sector(rt.store(), params.sector_number);

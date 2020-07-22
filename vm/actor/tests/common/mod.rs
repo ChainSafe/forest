@@ -45,8 +45,8 @@ pub struct MockRuntime {
 
     // Expectations
     pub expect_validate_caller_any: Cell<bool>,
-    pub expect_validate_caller_addr: RefCell<Option<Vec<Address>>>,
-    pub expect_validate_caller_type: RefCell<Option<Vec<Cid>>>,
+    pub expect_validate_caller_addr: Option<Vec<Address>>,
+    pub expect_validate_caller_type: Option<Vec<Cid>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
     pub expect_verify_sigs: RefCell<Vec<ExpectedVerifySig>>,
@@ -172,9 +172,9 @@ impl MockRuntime {
             .unwrap();
         Ok(data)
     }
-    pub fn expect_validate_caller_addr(&self, addr: &[Address]) {
+    pub fn expect_validate_caller_addr(&mut self, addr: Vec<Address>) {
         assert!(addr.len() > 0, "addrs must be non-empty");
-        *self.expect_validate_caller_addr.borrow_mut() = Some(addr.to_vec());
+        self.expect_validate_caller_addr = Some(addr);
     }
 
     #[allow(dead_code)]
@@ -207,9 +207,9 @@ impl MockRuntime {
     }
 
     #[allow(dead_code)]
-    pub fn expect_validate_caller_type(&self, types: &[Cid]) {
+    pub fn expect_validate_caller_type(&mut self, types: Vec<Cid>) {
         assert!(types.len() > 0, "addrs must be non-empty");
-        *self.expect_validate_caller_type.borrow_mut() = Some(types.to_vec());
+        self.expect_validate_caller_type = Some(types);
     }
 
     #[allow(dead_code)]
@@ -278,14 +278,14 @@ impl MockRuntime {
             "expected ValidateCallerAny, not received"
         );
         assert!(
-            self.expect_validate_caller_addr.borrow().as_ref().is_none(),
+            self.expect_validate_caller_addr.is_none(),
             "expected ValidateCallerAddr {:?}, not received",
-            self.expect_validate_caller_addr.borrow().as_ref().unwrap()
+            self.expect_validate_caller_addr
         );
         assert!(
-            self.expect_validate_caller_type.borrow().as_ref().is_none(),
+            self.expect_validate_caller_type.is_none(),
             "expected ValidateCallerType {:?}, not received",
-            self.expect_validate_caller_type.borrow().as_ref().unwrap()
+            self.expect_validate_caller_type
         );
         assert!(
             self.expect_sends.is_empty(),
@@ -314,15 +314,15 @@ impl MockRuntime {
                 .borrow()
                 .as_ref()
                 .is_none(),
-            "expect_compute_unsealed_sector_cid not received",
+            "expect_verify_consensus_fault not received",
         );
 
         self.reset();
     }
     pub fn reset(&mut self) {
         self.expect_validate_caller_any.set(false);
-        *self.expect_validate_caller_addr.borrow_mut() = None;
-        *self.expect_validate_caller_type.borrow_mut() = None;
+        self.expect_validate_caller_addr = None;
+        self.expect_validate_caller_type = None;
         self.expect_create_actor = None;
         self.expect_verify_sigs.borrow_mut().clear();
         *self.expect_verify_seal.borrow_mut() = None;
@@ -405,16 +405,17 @@ impl Runtime<MemoryDB> for MockRuntime {
         self.epoch
     }
 
-    fn validate_immediate_caller_accept_any(&self) {
+    fn validate_immediate_caller_accept_any(&mut self) -> Result<(), ActorError> {
         self.require_in_call();
         assert!(
             self.expect_validate_caller_any.get(),
             "unexpected validate-caller-any"
         );
         self.expect_validate_caller_any.set(false);
+        Ok(())
     }
 
-    fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_is<'a, I>(&mut self, addresses: I) -> Result<(), ActorError>
     where
         I: IntoIterator<Item = &'a Address>,
     {
@@ -425,23 +426,23 @@ impl Runtime<MemoryDB> for MockRuntime {
         self.check_argument(addrs.len() > 0, "addrs must be non-empty".to_owned())?;
 
         assert!(
-            self.expect_validate_caller_addr.borrow().is_some(),
+            self.expect_validate_caller_addr.is_some(),
             "unexpected validate caller addrs"
         );
         assert!(
-            &addrs == self.expect_validate_caller_addr.borrow().as_ref().unwrap(),
+            &addrs == self.expect_validate_caller_addr.as_ref().unwrap(),
             "unexpected validate caller addrs {:?}, expected {:?}",
             addrs,
-            self.expect_validate_caller_addr.borrow().as_ref()
+            self.expect_validate_caller_addr
         );
 
         for expected in &addrs {
             if self.message().caller() == expected {
-                *self.expect_validate_caller_addr.borrow_mut() = None;
+                self.expect_validate_caller_addr = None;
                 return Ok(());
             }
         }
-        *self.expect_validate_caller_addr.borrow_mut() = None;
+        self.expect_validate_caller_addr = None;
         return Err(ActorError::new(
             ExitCode::ErrForbidden,
             format!(
@@ -451,7 +452,7 @@ impl Runtime<MemoryDB> for MockRuntime {
             ),
         ));
     }
-    fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_type<'a, I>(&mut self, types: I) -> Result<(), ActorError>
     where
         I: IntoIterator<Item = &'a Cid>,
     {
@@ -461,11 +462,11 @@ impl Runtime<MemoryDB> for MockRuntime {
         self.check_argument(types.len() > 0, "types must be non-empty".to_owned())?;
 
         assert!(
-            self.expect_validate_caller_type.borrow().is_some(),
+            self.expect_validate_caller_type.is_some(),
             "unexpected validate caller code"
         );
         assert!(
-            &types == self.expect_validate_caller_type.borrow().as_ref().unwrap(),
+            &types == self.expect_validate_caller_type.as_ref().unwrap(),
             "unexpected validate caller code {:?}, expected {:?}",
             types,
             self.expect_validate_caller_type
@@ -473,12 +474,12 @@ impl Runtime<MemoryDB> for MockRuntime {
 
         for expected in &types {
             if &self.caller_type == expected {
-                *self.expect_validate_caller_type.borrow_mut() = None;
+                self.expect_validate_caller_type = None;
                 return Ok(());
             }
         }
 
-        *self.expect_validate_caller_type.borrow_mut() = None;
+        self.expect_validate_caller_type = None;
 
         Err(self.abort(
             ExitCode::ErrForbidden,

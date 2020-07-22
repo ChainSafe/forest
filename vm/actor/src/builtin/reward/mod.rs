@@ -124,12 +124,12 @@ impl Actor {
         Ok(())
     }
 
-    fn last_per_epoch_reward<BS, RT>(rt: &RT) -> Result<TokenAmount, ActorError>
+    fn last_per_epoch_reward<BS, RT>(rt: &mut RT) -> Result<TokenAmount, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
         Ok(st.last_per_epoch_reward)
     }

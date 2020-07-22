@@ -243,7 +243,7 @@ fn sending_constructor_failure() {
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
     let params = ConstructorParams {
         network_name: "mock".to_string(),
     };

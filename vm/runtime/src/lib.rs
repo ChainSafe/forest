@@ -42,11 +42,11 @@ pub trait Runtime<BS: BlockStore> {
 
     /// Validates the caller against some predicate.
     /// Exported actor methods must invoke at least one caller validation before returning.
-    fn validate_immediate_caller_accept_any(&self);
-    fn validate_immediate_caller_is<'a, I>(&self, addresses: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_accept_any(&mut self) -> Result<(), ActorError>;
+    fn validate_immediate_caller_is<'a, I>(&mut self, addresses: I) -> Result<(), ActorError>
     where
         I: IntoIterator<Item = &'a Address>;
-    fn validate_immediate_caller_type<'a, I>(&self, types: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_type<'a, I>(&mut self, types: I) -> Result<(), ActorError>
     where
         I: IntoIterator<Item = &'a Cid>;
 

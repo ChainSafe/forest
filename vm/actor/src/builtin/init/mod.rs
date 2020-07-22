@@ -56,7 +56,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let caller_code = rt
             .get_actor_code_cid(rt.message().caller())?
             .ok_or_else(|| actor_error!(ErrForbidden; "No code for actor"))?;

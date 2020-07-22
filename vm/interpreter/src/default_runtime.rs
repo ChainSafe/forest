@@ -40,6 +40,7 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
     num_actors_created: u64,
     price_list: PriceList,
     rand: &'r ChainRand,
+    caller_validated: bool,
     params: PhantomData<P>,
 }
 
@@ -87,6 +88,7 @@ where
             num_actors_created,
             price_list,
             rand,
+            caller_validated: false,
             params: PhantomData,
         }
     }
@@ -143,6 +145,16 @@ where
 
         Ok(())
     }
+
+    fn abort_if_already_validated(&mut self) -> Result<(), ActorError> {
+        if self.caller_validated {
+            Err(actor_error!(SysErrorIllegalActor;
+                    "Method must validate caller identity exactly once"))
+        } else {
+            self.caller_validated = true;
+            Ok(())
+        }
+    }
 }
 
 impl<BS, SYS, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, P>
@@ -157,39 +169,38 @@ where
     fn curr_epoch(&self) -> ChainEpoch {
         self.epoch
     }
-    fn validate_immediate_caller_accept_any(&self) {}
-    fn validate_immediate_caller_is<'db, I>(&self, addresses: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_accept_any(&mut self) -> Result<(), ActorError> {
+        self.abort_if_already_validated()
+    }
+    fn validate_immediate_caller_is<'db, I>(&mut self, addresses: I) -> Result<(), ActorError>
     where
         I: IntoIterator<Item = &'db Address>,
     {
+        self.abort_if_already_validated()?;
+
         let imm = self.resolve_address(self.message().caller())?;
 
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| *a == imm) {
-            return Err(self.abort(
-                ExitCode::SysErrForbidden,
-                format!("caller is not one of {}", self.message().caller()),
+            return Err(actor_error!(SysErrForbidden;
+                "caller {} is not one of supported", self.message().caller()
             ));
         }
         Ok(())
     }
 
-    fn validate_immediate_caller_type<'db, I>(&self, types: I) -> Result<(), ActorError>
+    fn validate_immediate_caller_type<'db, I>(&mut self, types: I) -> Result<(), ActorError>
     where
         I: IntoIterator<Item = &'db Cid>,
     {
+        self.abort_if_already_validated()?;
+
         let caller_cid = self
-            .get_actor_code_cid(self.message().receiver())?
+            .get_actor_code_cid(self.message().caller())?
             .ok_or_else(|| actor_error!(fatal("failed to lookup code cid for caller")))?;
-        if types.into_iter().any(|c| *c == caller_cid) {
-            return Err(self.abort(
-                ExitCode::SysErrForbidden,
-                format!(
-                    "caller cid type {} one of {}",
-                    caller_cid,
-                    self.message().caller()
-                ),
-            ));
+        if !types.into_iter().any(|c| *c == caller_cid) {
+            return Err(actor_error!(SysErrForbidden;
+                    "caller cid type {} not one of supported", caller_cid));
         }
         Ok(())
     }

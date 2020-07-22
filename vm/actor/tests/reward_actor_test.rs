@@ -29,7 +29,7 @@ fn balance_less_than_reward() {
     let miner = Address::new_id(1000);
     let gas_reward = TokenAmount::from(10u8);
 
-    rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
+    rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
 
     let params = AwardBlockRewardParams {
         miner: miner,
@@ -49,7 +49,7 @@ fn balance_less_than_reward() {
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
     let ret = rt
         .call(
             &*REWARD_ACTOR_CODE_ID,
