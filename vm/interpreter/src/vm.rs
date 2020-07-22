@@ -18,7 +18,7 @@ use runtime::Syscalls;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::error::Error as StdError;
-use vm::{ActorError, ExitCode, Serialized};
+use vm::{actor_error, ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
@@ -218,10 +218,7 @@ where
                     gas_used: 0,
                 },
                 msg.gas_price() * msg_gas_cost,
-                Some(ActorError::new(
-                    ExitCode::SysErrOutOfGas,
-                    "Out of gas".to_owned(),
-                )),
+                Some(actor_error!(SysErrOutOfGas; "Out of gas")),
             ));
         }
 
@@ -236,10 +233,7 @@ where
                         gas_used: 0,
                     },
                     msg.gas_price() * msg_gas_cost,
-                    Some(ActorError::new(
-                        ExitCode::SysErrSenderInvalid,
-                        "Sender invalid".to_owned(),
-                    )),
+                    Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
                 ));
             }
         };
@@ -252,10 +246,7 @@ where
                     gas_used: 0,
                 },
                 miner_penalty_amount,
-                Some(ActorError::new(
-                    ExitCode::SysErrSenderInvalid,
-                    "Sender invalid".to_owned(),
-                )),
+                Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
             ));
         };
 
@@ -267,10 +258,7 @@ where
                     gas_used: 0,
                 },
                 miner_penalty_amount,
-                Some(ActorError::new(
-                    ExitCode::SysErrSenderStateInvalid,
-                    "Sender state invalid".to_owned(),
-                )),
+                Some(actor_error!(SysErrSenderStateInvalid; "Sender state invalid")),
             ));
         };
 
@@ -285,10 +273,7 @@ where
                     gas_used: 0,
                 },
                 miner_penalty_amount,
-                Some(ActorError::new(
-                    ExitCode::SysErrSenderStateInvalid,
-                    "Sender state invalid".to_owned(),
-                )),
+                Some(actor_error!(SysErrSenderStateInvalid; "Sender state invalid")),
             ));
         };
 

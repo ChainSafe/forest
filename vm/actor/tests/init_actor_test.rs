@@ -12,29 +12,22 @@ use actor::{
 use address::Address;
 use cid::Cid;
 use common::*;
-use db::MemoryDB;
-use ipld_blockstore::BlockStore;
-use message::{Message, UnsignedMessage};
 use serde::Serialize;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
-fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
-    let receiver = Address::new_id(1000);
-    let message = UnsignedMessage::builder()
-        .to(receiver.clone())
-        .from(SYSTEM_ACTOR_ADDR.clone())
-        .build()
-        .unwrap();
-    let mut rt = MockRuntime::new(bs, message);
-    rt.caller_type = SYSTEM_ACTOR_CODE_ID.clone();
-    return rt;
+fn construct_runtime() -> MockRuntime {
+    MockRuntime {
+        receiver: Address::new_id(1000),
+        caller: *SYSTEM_ACTOR_ADDR,
+        caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
+        ..Default::default()
+    }
 }
 
 // Test to make sure we abort actors that can not call the exec function
 #[test]
 fn abort_cant_call_exec() {
-    let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001);
 
@@ -47,8 +40,7 @@ fn abort_cant_call_exec() {
 
 #[test]
 fn create_2_payment_channels() {
-    let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001);
 
@@ -58,14 +50,8 @@ fn create_2_payment_channels() {
         let pay_channel_string = format!("paych_{}", n);
         let paych = pay_channel_string.as_bytes();
 
-        rt.balance = TokenAmount::from(100u8);
-
-        rt.message = UnsignedMessage::builder()
-            .to(rt.message.to().clone())
-            .from(rt.message.from().clone())
-            .value(TokenAmount::from(100u8))
-            .build()
-            .unwrap();
+        rt.balance = TokenAmount::from(100);
+        rt.value_received = TokenAmount::from(100);
 
         let unique_address = Address::new_actor(paych);
         rt.new_actor_addr = Some(Address::new_actor(paych));
@@ -102,7 +88,7 @@ fn create_2_payment_channels() {
 
         let state: State = rt.get_state().unwrap();
         let returned_address = state
-            .resolve_address(rt.store, &unique_address)
+            .resolve_address(&rt.store, &unique_address)
             .expect("Address should have been found");
 
         assert_eq!(returned_address, expected_id_addr, "Wrong Address returned");
@@ -111,8 +97,7 @@ fn create_2_payment_channels() {
 
 #[test]
 fn create_storage_miner() {
-    let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
     construct_and_verify(&mut rt);
 
     // only the storage power actor can create a miner
@@ -149,21 +134,20 @@ fn create_storage_miner() {
     // Address should be resolved
     let state: State = rt.get_state().unwrap();
     let returned_address = state
-        .resolve_address(rt.store, &unique_address)
+        .resolve_address(&rt.store, &unique_address)
         .expect("Address should have been found");
     assert_eq!(expected_id_addr, returned_address);
 
     // Should return error since the address of flurbo is unknown
     let unknown_addr = Address::new_actor(b"flurbo");
     state
-        .resolve_address(rt.store, &unknown_addr)
+        .resolve_address(&rt.store, &unknown_addr)
         .expect_err("Address should have not been found");
 }
 
 #[test]
 fn create_multisig_actor() {
-    let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
     construct_and_verify(&mut rt);
 
     // Actor creating multisig actor
@@ -206,8 +190,7 @@ fn create_multisig_actor() {
 
 #[test]
 fn sending_constructor_failure() {
-    let bs = MemoryDB::default();
-    let mut rt = construct_runtime(&bs);
+    let mut rt = construct_runtime();
     construct_and_verify(&mut rt);
 
     // Only the storage power actor can create a miner
@@ -250,7 +233,7 @@ fn sending_constructor_failure() {
     let state: State = rt.get_state().unwrap();
 
     let returned_address = state
-        .resolve_address(rt.store, &unique_address)
+        .resolve_address(&rt.store, &unique_address)
         .expect_err("Address resolution should have failed");
 
     assert_eq!(
@@ -259,7 +242,7 @@ fn sending_constructor_failure() {
     );
 }
 
-fn construct_and_verify<'a, BS: BlockStore>(rt: &mut MockRuntime<'a, BS>) {
+fn construct_and_verify(rt: &mut MockRuntime) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
     let params = ConstructorParams {
         network_name: "mock".to_string(),
@@ -278,7 +261,7 @@ fn construct_and_verify<'a, BS: BlockStore>(rt: &mut MockRuntime<'a, BS>) {
     let state_data: State = rt.get_state().unwrap();
 
     // Gets the Result(CID)
-    let empty_map = Multimap::from_root(rt.store, &state_data.address_map)
+    let empty_map = Multimap::from_root(&rt.store, &state_data.address_map)
         .unwrap()
         .root();
 
@@ -287,8 +270,8 @@ fn construct_and_verify<'a, BS: BlockStore>(rt: &mut MockRuntime<'a, BS>) {
     assert_eq!("mock".to_string(), state_data.network_name);
 }
 
-fn exec_and_verify<'a, BS: BlockStore, S: Serialize>(
-    rt: &mut MockRuntime<'a, BS>,
+fn exec_and_verify<'a, S: Serialize>(
+    rt: &mut MockRuntime,
     code_id: Cid,
     params: &S,
 ) -> Result<Serialized, ActorError>

@@ -13,10 +13,8 @@ use actor::{
 use address::Address;
 use clock::EPOCH_UNDEFINED;
 use common::*;
-use db::MemoryDB;
 use ipld_amt::Amt;
-use ipld_blockstore::BlockStore;
-use message::UnsignedMessage;
+use std::collections::HashMap;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
 const OWNER_ID: u64 = 101;
@@ -24,25 +22,20 @@ const PROVIDER_ID: u64 = 102;
 const WORKER_ID: u64 = 103;
 const CLIENT_ID: u64 = 104;
 
-fn setup<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
-    let message = UnsignedMessage::builder()
-        .to(*STORAGE_MARKET_ACTOR_ADDR)
-        .from(*SYSTEM_ACTOR_ADDR)
-        .build()
-        .unwrap();
+fn setup() -> MockRuntime {
+    let mut actor_code_cids = HashMap::default();
+    actor_code_cids.insert(Address::new_id(OWNER_ID), ACCOUNT_ACTOR_CODE_ID.clone());
+    actor_code_cids.insert(Address::new_id(WORKER_ID), ACCOUNT_ACTOR_CODE_ID.clone());
+    actor_code_cids.insert(Address::new_id(PROVIDER_ID), MINER_ACTOR_CODE_ID.clone());
+    actor_code_cids.insert(Address::new_id(CLIENT_ID), ACCOUNT_ACTOR_CODE_ID.clone());
 
-    let mut rt = MockRuntime::new(bs, message);
-
-    rt.caller_type = INIT_ACTOR_CODE_ID.clone();
-
-    rt.actor_code_cids
-        .insert(Address::new_id(OWNER_ID), ACCOUNT_ACTOR_CODE_ID.clone());
-    rt.actor_code_cids
-        .insert(Address::new_id(WORKER_ID), ACCOUNT_ACTOR_CODE_ID.clone());
-    rt.actor_code_cids
-        .insert(Address::new_id(PROVIDER_ID), MINER_ACTOR_CODE_ID.clone());
-    rt.actor_code_cids
-        .insert(Address::new_id(CLIENT_ID), ACCOUNT_ACTOR_CODE_ID.clone());
+    let mut rt = MockRuntime {
+        receiver: *STORAGE_MARKET_ACTOR_ADDR,
+        caller: *SYSTEM_ACTOR_ADDR,
+        caller_type: INIT_ACTOR_CODE_ID.clone(),
+        actor_code_cids,
+        ..Default::default()
+    };
     construct_and_verify(&mut rt);
 
     rt
@@ -51,18 +44,12 @@ fn setup<BS: BlockStore>(bs: &BS) -> MockRuntime<'_, BS> {
 // TODO add array stuff
 #[test]
 fn simple_construction() {
-    let bs = MemoryDB::default();
-
-    let receiver: Address = Address::new_id(100);
-
-    let message = UnsignedMessage::builder()
-        .to(receiver.clone())
-        .from(*SYSTEM_ACTOR_ADDR)
-        .build()
-        .unwrap();
-
-    let mut rt = MockRuntime::new(&bs, message);
-    rt.caller_type = INIT_ACTOR_CODE_ID.clone();
+    let mut rt = MockRuntime {
+        receiver: Address::new_id(100),
+        caller: *SYSTEM_ACTOR_ADDR,
+        caller_type: INIT_ACTOR_CODE_ID.clone(),
+        ..Default::default()
+    };
 
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
 
@@ -78,7 +65,7 @@ fn simple_construction() {
 
     rt.verify();
 
-    let store = rt.store;
+    let store = &rt.store;
     let empty_map = Multimap::new(store).root().unwrap();
     let empty_set = SetMultimap::new(store).root().unwrap();
     let empty_array = Amt::<u64, _>::new(store).flush().unwrap();
@@ -103,8 +90,7 @@ fn add_provider_escrow_funds() {
     let provider_addr = Address::new_id(PROVIDER_ID);
 
     for caller_addr in vec![owner_addr, worker_addr] {
-        let bs = MemoryDB::default();
-        let mut rt = setup(&bs);
+        let mut rt = setup();
 
         for test_case in test_cases.clone() {
             rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), caller_addr);
@@ -127,7 +113,7 @@ fn add_provider_escrow_funds() {
             let state_data: State = rt.get_state().unwrap();
             assert_eq!(
                 state_data
-                    .get_escrow_balance(rt.store, &provider_addr)
+                    .get_escrow_balance(&rt.store, &provider_addr)
                     .unwrap(),
                 TokenAmount::from(test_case.1 as u64)
             );
@@ -137,8 +123,7 @@ fn add_provider_escrow_funds() {
 
 #[test]
 fn account_actor_check() {
-    let bs = MemoryDB::default();
-    let mut rt = setup(&bs);
+    let mut rt = setup();
 
     let amount = TokenAmount::from(10u8);
     rt.set_value(amount);
@@ -173,8 +158,7 @@ fn add_non_provider_funds() {
     let worker_addr = Address::new_id(WORKER_ID);
 
     for caller_addr in vec![client_addr, worker_addr] {
-        let bs = MemoryDB::default();
-        let mut rt = setup(&bs);
+        let mut rt = setup();
 
         for test_case in test_cases.clone() {
             rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), caller_addr);
@@ -197,7 +181,7 @@ fn add_non_provider_funds() {
             let state_data: State = rt.get_state().unwrap();
             assert_eq!(
                 state_data
-                    .get_escrow_balance(rt.store, &caller_addr)
+                    .get_escrow_balance(&rt.store, &caller_addr)
                     .unwrap(),
                 TokenAmount::from(test_case.1 as u8)
             );
@@ -207,8 +191,7 @@ fn add_non_provider_funds() {
 
 #[test]
 fn withdraw_provider_to_owner() {
-    let bs = MemoryDB::default();
-    let mut rt = setup(&bs);
+    let mut rt = setup();
 
     let owner_addr = Address::new_id(OWNER_ID);
     let worker_addr = Address::new_id(WORKER_ID);
@@ -227,7 +210,7 @@ fn withdraw_provider_to_owner() {
     assert_eq!(
         amount,
         state_data
-            .get_escrow_balance(rt.store, &provider_addr)
+            .get_escrow_balance(&rt.store, &provider_addr)
             .unwrap()
     );
 
@@ -264,7 +247,7 @@ fn withdraw_provider_to_owner() {
 
     assert_eq!(
         state_data
-            .get_escrow_balance(rt.store, &provider_addr)
+            .get_escrow_balance(&rt.store, &provider_addr)
             .unwrap(),
         TokenAmount::from(19u8)
     );
@@ -273,8 +256,7 @@ fn withdraw_provider_to_owner() {
 #[test]
 fn withdraw_non_provider() {
     // Test is currently failing because curr_epoch  is 0. When subtracted by 1, it goe snmegative causing a overflow error
-    let bs = MemoryDB::default();
-    let mut rt = setup(&bs);
+    let mut rt = setup();
 
     let client_addr = Address::new_id(CLIENT_ID);
 
@@ -285,7 +267,7 @@ fn withdraw_non_provider() {
     assert_eq!(
         amount,
         state_data
-            .get_escrow_balance(rt.store, &client_addr)
+            .get_escrow_balance(&rt.store, &client_addr)
             .unwrap()
     );
 
@@ -325,7 +307,7 @@ fn withdraw_non_provider() {
 
     assert_eq!(
         state_data
-            .get_escrow_balance(rt.store, &client_addr)
+            .get_escrow_balance(&rt.store, &client_addr)
             .unwrap(),
         TokenAmount::from(19u8)
     );
@@ -333,8 +315,7 @@ fn withdraw_non_provider() {
 
 #[test]
 fn client_withdraw_more_than_available() {
-    let bs = MemoryDB::default();
-    let mut rt = setup(&bs);
+    let mut rt = setup();
 
     let client_addr = Address::new_id(CLIENT_ID);
 
@@ -377,7 +358,7 @@ fn client_withdraw_more_than_available() {
 
     assert_eq!(
         state_data
-            .get_escrow_balance(rt.store, &client_addr)
+            .get_escrow_balance(&rt.store, &client_addr)
             .unwrap(),
         TokenAmount::from(0u8)
     );
@@ -385,8 +366,7 @@ fn client_withdraw_more_than_available() {
 
 #[test]
 fn worker_withdraw_more_than_available() {
-    let bs = MemoryDB::default();
-    let mut rt = setup(&bs);
+    let mut rt = setup();
 
     let owner_addr = Address::new_id(OWNER_ID);
     let worker_addr = Address::new_id(WORKER_ID);
@@ -405,7 +385,7 @@ fn worker_withdraw_more_than_available() {
     assert_eq!(
         amount,
         state_data
-            .get_escrow_balance(rt.store, &provider_addr)
+            .get_escrow_balance(&rt.store, &provider_addr)
             .unwrap()
     );
 
@@ -442,14 +422,14 @@ fn worker_withdraw_more_than_available() {
 
     assert_eq!(
         state_data
-            .get_escrow_balance(rt.store, &provider_addr)
+            .get_escrow_balance(&rt.store, &provider_addr)
             .unwrap(),
         TokenAmount::from(0u8)
     );
 }
 
-fn expect_provider_control_address<BS: BlockStore>(
-    rt: &mut MockRuntime<'_, BS>,
+fn expect_provider_control_address(
+    rt: &mut MockRuntime,
     provider: Address,
     owner: Address,
     worker: Address,
@@ -471,8 +451,8 @@ fn expect_provider_control_address<BS: BlockStore>(
     );
 }
 
-fn add_provider_funds<BS: BlockStore>(
-    rt: &mut MockRuntime<'_, BS>,
+fn add_provider_funds(
+    rt: &mut MockRuntime,
     provider: Address,
     owner: Address,
     worker: Address,
@@ -496,11 +476,7 @@ fn add_provider_funds<BS: BlockStore>(
     rt.balance = rt.balance.clone() + amount;
 }
 
-fn add_participant_funds<BS: BlockStore>(
-    rt: &mut MockRuntime<'_, BS>,
-    addr: Address,
-    amount: TokenAmount,
-) {
+fn add_participant_funds(rt: &mut MockRuntime, addr: Address, amount: TokenAmount) {
     rt.set_value(amount.clone());
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), addr.clone());
@@ -523,7 +499,7 @@ fn add_participant_funds<BS: BlockStore>(
     rt.balance = rt.balance.clone() + amount;
 }
 
-fn construct_and_verify<BS: BlockStore>(rt: &mut MockRuntime<'_, BS>) {
+fn construct_and_verify(rt: &mut MockRuntime) {
     rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
     assert_eq!(
         Serialized::default(),
