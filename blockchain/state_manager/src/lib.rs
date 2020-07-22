@@ -20,6 +20,7 @@ use encoding::de::DeserializeOwned;
 use encoding::Cbor;
 use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
+use futures::channel::oneshot;
 use futures::*;
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
@@ -58,9 +59,6 @@ pub struct StateManager<DB> {
     bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
     subscriber: Option<Subscriber<HeadChange>>,
-
-    // send a message to the channel to initiate a back_search while waiting for a message
-    back_search_wait: Option<Subscriber<()>>,
 }
 
 impl<DB> StateManager<DB>
@@ -73,34 +71,15 @@ where
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
-            back_search_wait: None,
-        }
-    }
-
-    // Creates a constructor that passes in a HeadChange subscriber
-    pub fn new_with_chain_message_subscriber(
-        bs: Arc<DB>,
-        chain_sub: Subscriber<HeadChange>,
-    ) -> Self {
-        Self {
-            bs,
-            cache: RwLock::new(HashMap::new()),
-            subscriber: Some(chain_sub),
-            back_search_wait: None,
         }
     }
 
     // Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
-    pub fn new_with_subscribers(
-        bs: Arc<DB>,
-        chain_subs: Subscriber<HeadChange>,
-        back_search_sub: Subscriber<()>,
-    ) -> Self {
+    pub fn new_with_subscribers(bs: Arc<DB>, chain_subs: Subscriber<HeadChange>) -> Self {
         Self {
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
-            back_search_wait: Some(back_search_sub),
         }
     }
     /// Loads actor state from IPLD Store
@@ -493,13 +472,11 @@ where
         &self,
         cid: &Cid,
         confidence: i64,
-    ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Error> {
+    ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error> {
         let mut subscribers = self.subscriber.clone().ok_or_else(|| {
             Error::Other("State Manager not subscribed to tipset head changes".to_string())
         })?;
-        let mut back_search_wait = self.back_search_wait.clone().ok_or_else(|| {
-            Error::Other("State manager not subscribed to back search wait".to_string())
-        })?;
+        let (sender, receiver) = oneshot::channel::<()>();
         let message = chain::get_chain_message(self.get_block_store_ref(), cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
@@ -519,19 +496,39 @@ where
         };
         let maybe_message_reciept = self.tipset_executed_message(&tipset, cid, &message)?;
         if let Some(r) = maybe_message_reciept {
-            return Ok(Some((tipset.clone(), r)));
+            return Ok((Some(tipset.clone()), Some(r)));
         }
-
-        let (back_tipset, _back_receipt) = self
-            .search_back_for_message(&tipset, &message)?
-            .ok_or_else(|| {
-                Error::Other("State manager not subscribed to back search wait".to_string())
-            })?;
 
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
         let mut candidate_receipt: Option<MessageReceipt> = None;
+        let mut back_tipset: Option<Tipset> = None;
+        let mut back_receipt: Option<MessageReceipt> = None;
+        async {
+            let (back_t, back_r) = self
+                .search_back_for_message(&tipset, &message)?
+                .ok_or_else(|| {
+                    Error::Other("State manager not subscribed to back search wait".to_string())
+                })?;
+            back_tipset = Some(back_t);
+            back_receipt = Some(back_r);
+            sender
+                .send(())
+                .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
+            Ok::<(), Error>(())
+        }
+        .await?;
+
         let height_of_head = tipset.epoch();
         let mut reverts: HashMap<TipsetKeys, bool> = HashMap::new();
+        let mut back_search_recieved = None;
+        async {
+            back_search_recieved =
+                Some(receiver.await.map_err(|e| {
+                    Error::Other(format!("Could not receieve from channel {:?}", e))
+                })?);
+            Ok::<(), Error>(())
+        }
+        .await?;
 
         while let Some(subscriber) = self
             .subscriber
@@ -555,21 +552,16 @@ where
                         .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
                         .unwrap_or_default()
                     {
-                        let ts = candidate_tipset
-                            .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
-
-                        let rs = candidate_receipt
-                            .ok_or_else(|| Error::Other("Candidate Receipt not set".to_string()))?;
-
-                        return Ok(Some((ts, rs)));
+                        return Ok((candidate_tipset, candidate_receipt));
                     }
-
-                    reverts.insert(tipset.key().to_owned(), true);
+                    if back_search_recieved.is_some() {
+                        reverts.insert(tipset.key().to_owned(), true);
+                    }
 
                     let maybe_receipt = self.tipset_executed_message(&tipset, cid, &message)?;
                     if let Some(receipt) = maybe_receipt {
                         if confidence == 0 {
-                            return Ok(Some((tipset, receipt)));
+                            return Ok((Some(tipset), Some(receipt)));
                         }
                         candidate_tipset = Some(tipset);
                         candidate_receipt = Some(receipt)
@@ -579,21 +571,21 @@ where
             }
         }
 
-        while back_search_wait.next().await.is_some() {
-            if !reverts.get(back_tipset.key()).unwrap_or(&false)
-                && height_of_head >= back_tipset.epoch() + confidence
-            {
-                let ts = candidate_tipset
-                    .ok_or_else(|| Error::Other("Candidate Tipset not".to_string()))?;
-
-                let rs = candidate_receipt
-                    .ok_or_else(|| Error::Other("Candidate Receipt not set".to_string()))?;
-
-                return Ok(Some((ts, rs)));
+        if back_search_recieved.is_some() {
+            let should_revert = back_tipset
+                .as_ref()
+                .map(|b| reverts.get(b.key()).unwrap_or(&false))
+                .unwrap_or(&false);
+            let larger_height_of_head = back_tipset
+                .as_ref()
+                .map(|b| height_of_head >= b.epoch() + confidence)
+                .unwrap_or(false);
+            if !should_revert && larger_height_of_head {
+                return Ok((back_tipset.map(Arc::new), back_receipt));
             }
         }
 
-        Ok(None)
+        Ok((None, None))
     }
 
     /// Returns a bls public key from provided address

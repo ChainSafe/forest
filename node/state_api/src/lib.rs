@@ -388,7 +388,8 @@ pub fn state_wait_msg<DB>(
 where
     DB: BlockStore,
 {
-    let maybe_tuple = task::block_on(state_manager.wait_for_message(cid, confidence))?;
-    let (tipset, receipt) = maybe_tuple.ok_or_else(|| "wait for msg returned empty tuple")?;
+    let (tipset, receipt) = task::block_on(state_manager.wait_for_message(cid, confidence))?;
+    let tipset = tipset.ok_or_else(|| "wait for msg returned empty tipset")?;
+    let receipt = receipt.ok_or_else(|| "wait for msg returned empty tipset")?;
     Ok(MessageLookup { receipt, tipset })
 }
