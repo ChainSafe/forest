@@ -10,7 +10,6 @@ use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use encoding::to_vec;
 use ipld_blockstore::BlockStore;
-use message::Message;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
@@ -87,7 +86,7 @@ impl Actor {
         let st: State = rt.state()?;
 
         rt.validate_immediate_caller_is([st.from, st.to].iter())?;
-        let signer = if rt.message().from() == &st.from {
+        let signer = if rt.message().caller() == &st.from {
             st.to
         } else {
             st.from

@@ -3,7 +3,6 @@
 
 use super::{Message, UnsignedMessage};
 use address::Address;
-use cid::Cid;
 use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
@@ -100,10 +99,6 @@ impl Message for SignedMessage {
     }
     fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()
-    }
-
-    fn to_cid(&self) -> Result<Cid, String> {
-        self.message.to_cid()
     }
 }
 

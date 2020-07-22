@@ -3,7 +3,6 @@
 
 use super::Message;
 use address::Address;
-use cid::Cid;
 use derive_builder::Builder;
 use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
@@ -158,10 +157,6 @@ impl Message for UnsignedMessage {
         let total: TokenAmount = self.gas_price() * self.gas_limit();
         total + self.value()
     }
-
-    fn to_cid(&self) -> Result<Cid, String> {
-        self.cid().map_err(|e| e.to_string())
-    }
 }
 
 impl Cbor for UnsignedMessage {}
@@ -208,7 +203,7 @@ impl From<UnsignedMessage> for UnsignedMessageJson
         gas_limit: u64,
         #[serde(rename = "Method")]
         method_num: u64,
-        params: String,
+        params: Option<String>,
     }
 
     pub fn serialize<S>(m: &UnsignedMessage, serializer: S) -> Result<S::Ok, S::Error>
@@ -224,7 +219,7 @@ impl From<UnsignedMessage> for UnsignedMessageJson
             gas_price: m.gas_price.to_string(),
             gas_limit: m.gas_limit,
             method_num: m.method_num,
-            params: base64::encode(m.params.bytes()),
+            params: Some(base64::encode(m.params.bytes())),
         }
         .serialize(serializer)
     }
@@ -243,7 +238,10 @@ impl From<UnsignedMessage> for UnsignedMessageJson
             gas_price: m.gas_price.parse().map_err(de::Error::custom)?,
             gas_limit: m.gas_limit,
             method_num: m.method_num,
-            params: Serialized::new(base64::decode(&m.params).map_err(de::Error::custom)?),
+            params: Serialized::new(
+                base64::decode(&m.params.unwrap_or_else(|| "".to_string()))
+                    .map_err(de::Error::custom)?,
+            ),
         })
     }
 

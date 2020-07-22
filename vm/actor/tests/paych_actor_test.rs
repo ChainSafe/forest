@@ -8,19 +8,17 @@ use actor::{
         SignedVoucher, State as PState, UpdateChannelStateParams, LANE_LIMIT, SETTLE_DELAY,
     },
     ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
-    PAYCH_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
+    PAYCH_ACTOR_CODE_ID,
 };
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use common::*;
 use crypto::Signature;
-use db::MemoryDB;
 use derive_builder::Builder;
 use encoding::to_vec;
-use ipld_blockstore::BlockStore;
-use message::UnsignedMessage;
 use num_bigint::BigInt;
+use std::collections::HashMap;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
 const R_PAYEE_ADDR: u64 = 103;
@@ -34,16 +32,11 @@ struct LaneParams {
     nonce: u64,
 }
 
-fn is_ok<'a, BS: BlockStore>(rt: &mut MockRuntime<'a, BS>, method_num: u64, ser: &Serialized) {
+fn is_ok(rt: &mut MockRuntime, method_num: u64, ser: &Serialized) {
     assert!(rt.call(&*PAYCH_ACTOR_CODE_ID, method_num, ser).is_ok());
 }
 
-fn expect_error<'a, BS: BlockStore>(
-    rt: &mut MockRuntime<'a, BS>,
-    method_num: u64,
-    ser: &Serialized,
-    exp: ExitCode,
-) {
+fn expect_error(rt: &mut MockRuntime, method_num: u64, ser: &Serialized, exp: ExitCode) {
     assert_eq!(
         exp,
         rt.call(&*PAYCH_ACTOR_CODE_ID, method_num, ser,)
@@ -59,27 +52,26 @@ mod paych_constructor {
     const TEST_PAYER_ADDR: u64 = 101;
     const TEST_CALLER_ADDR: u64 = 102;
 
-    fn construct_runtime<'a, BS: BlockStore>(bs: &'a BS) -> MockRuntime<'a, BS> {
+    fn construct_runtime() -> MockRuntime {
         let paych_addr = Address::new_id(TEST_PAYCH_ADDR);
         let payer_addr = Address::new_id(TEST_PAYER_ADDR);
         let caller_addr = Address::new_id(TEST_CALLER_ADDR);
-        let message = UnsignedMessage::builder()
-            .from(*SYSTEM_ACTOR_ADDR)
-            .to(paych_addr)
-            .build()
-            .unwrap();
-        let mut rt = MockRuntime::new(bs, message);
-        rt.set_caller(INIT_ACTOR_CODE_ID.clone(), caller_addr);
-        rt.actor_code_cids
-            .insert(payer_addr, ACCOUNT_ACTOR_CODE_ID.clone());
-        rt
+        let mut actor_code_cids = HashMap::default();
+        actor_code_cids.insert(payer_addr, ACCOUNT_ACTOR_CODE_ID.clone());
+
+        MockRuntime {
+            receiver: paych_addr,
+            caller: caller_addr,
+            caller_type: INIT_ACTOR_CODE_ID.clone(),
+            actor_code_cids,
+            ..Default::default()
+        }
     }
 
     #[test]
     fn create_paych_actor_test() {
         let caller_addr = Address::new_id(TEST_CALLER_ADDR);
-        let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
+        let mut rt = construct_runtime();
         rt.actor_code_cids
             .insert(caller_addr, ACCOUNT_ACTOR_CODE_ID.clone());
         construct_and_verify(&mut rt, Address::new_id(TEST_PAYER_ADDR), caller_addr);
@@ -87,8 +79,7 @@ mod paych_constructor {
 
     #[test]
     fn actor_doesnt_exist_test() {
-        let bs = MemoryDB::default();
-        let mut rt = construct_runtime(&bs);
+        let mut rt = construct_runtime();
         rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
         let params = ConstructorParams {
             to: Address::new_id(TEST_PAYCH_ADDR),
@@ -134,18 +125,18 @@ mod paych_constructor {
         ];
 
         for test_case in test_cases {
-            let bs = MemoryDB::default();
-            let message = UnsignedMessage::builder()
-                .from(*SYSTEM_ACTOR_ADDR)
-                .to(paych_addr)
-                .build()
-                .unwrap();
-            let mut rt = MockRuntime::new(&bs, message);
-            rt.set_caller(test_case.caller_code, caller_addr);
+            let mut actor_code_cids = HashMap::default();
+            actor_code_cids.insert(test_case.paych_addr, test_case.new_actor_code);
+            actor_code_cids.insert(payer_addr, test_case.payer_code);
 
-            rt.actor_code_cids
-                .insert(test_case.paych_addr, test_case.new_actor_code);
-            rt.actor_code_cids.insert(payer_addr, test_case.payer_code);
+            let mut rt = MockRuntime {
+                receiver: paych_addr,
+                caller: caller_addr,
+                caller_type: test_case.caller_code,
+                actor_code_cids,
+                ..Default::default()
+            };
+
             rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
             let params = ConstructorParams {
                 to: test_case.paych_addr,
@@ -269,22 +260,21 @@ mod create_lane_tests {
 
         for test_case in test_cases {
             println!("Test Description {}", test_case.desc);
-            let bs = MemoryDB::default();
-            let message = UnsignedMessage::builder()
-                .from(*SYSTEM_ACTOR_ADDR)
-                .to(paych_addr)
-                .gas_limit(1000)
-                .build()
-                .unwrap();
-            let mut rt = MockRuntime::new(&bs, message);
-            rt.epoch = test_case.epoch;
-            rt.balance = TokenAmount::from(paych_balance.clone());
-            rt.set_caller(INIT_ACTOR_CODE_ID.clone(), init_actor_addr);
 
-            rt.actor_code_cids
-                .insert(payee_addr, ACCOUNT_ACTOR_CODE_ID.clone());
-            rt.actor_code_cids
-                .insert(payer_addr, ACCOUNT_ACTOR_CODE_ID.clone());
+            let mut actor_code_cids = HashMap::default();
+            actor_code_cids.insert(payee_addr, ACCOUNT_ACTOR_CODE_ID.clone());
+            actor_code_cids.insert(payer_addr, ACCOUNT_ACTOR_CODE_ID.clone());
+
+            let mut rt = MockRuntime {
+                receiver: paych_addr,
+                caller: init_actor_addr,
+                caller_type: INIT_ACTOR_CODE_ID.clone(),
+                actor_code_cids,
+                epoch: test_case.epoch,
+                balance: paych_balance.clone(),
+                ..Default::default()
+            };
+
             construct_and_verify(&mut rt, payer_addr, payee_addr);
 
             let sv = SignedVoucher {
@@ -348,8 +338,7 @@ mod update_channel_state_redeem {
 
     #[test]
     fn redeem_voucher_one_lane() {
-        let bs = MemoryDB::default();
-        let (mut rt, mut sv) = require_create_cannel_with_lanes(&bs, 1);
+        let (mut rt, mut sv) = require_create_cannel_with_lanes(1);
         let state: PState = rt.get_state().unwrap();
         let payee_addr = Address::new_id(R_PAYEE_ADDR);
 
@@ -392,8 +381,7 @@ mod update_channel_state_redeem {
 
     #[test]
     fn redeem_voucher_correct_lane() {
-        let bs = MemoryDB::default();
-        let (mut rt, mut sv) = require_create_cannel_with_lanes(&bs, 3);
+        let (mut rt, mut sv) = require_create_cannel_with_lanes(3);
         let state: PState = rt.get_state().unwrap();
         let payee_addr = Address::new_id(R_PAYEE_ADDR);
 
@@ -436,22 +424,15 @@ mod update_channel_state_redeem {
 mod merge_tests {
     use super::*;
 
-    fn construct_runtime<'a, BS: BlockStore>(
-        bs: &'a BS,
-        num_lanes: u64,
-    ) -> (MockRuntime<'a, BS>, SignedVoucher, PState) {
-        let (mut rt, sv) = require_create_cannel_with_lanes(bs, num_lanes);
+    fn construct_runtime(num_lanes: u64) -> (MockRuntime, SignedVoucher, PState) {
+        let (mut rt, sv) = require_create_cannel_with_lanes(num_lanes);
         let state: PState = rt.get_state().unwrap();
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from.clone());
         rt.expect_validate_caller_addr(&[state.from, state.to]);
         (rt, sv, state)
     }
 
-    fn failure_end<BS: BlockStore>(
-        rt: &mut MockRuntime<BS>,
-        sv: SignedVoucher,
-        exp_exit_code: ExitCode,
-    ) {
+    fn failure_end(rt: &mut MockRuntime, sv: SignedVoucher, exp_exit_code: ExitCode) {
         let payee_addr = Address::new_id(R_PAYEE_ADDR);
         rt.expect_verify_signature(ExpectedVerifySig {
             sig: sv.clone().signature.unwrap(),
@@ -471,8 +452,7 @@ mod merge_tests {
     #[test]
     fn merge_success() {
         let num_lanes = 3;
-        let bs = MemoryDB::default();
-        let (mut rt, mut sv, mut state) = construct_runtime(&bs, num_lanes);
+        let (mut rt, mut sv, mut state) = construct_runtime(num_lanes);
 
         let merge_to: &LaneState = &state.lane_states[0];
         let merge_from: &LaneState = &state.lane_states[1];
@@ -560,9 +540,8 @@ mod merge_tests {
         ];
 
         for tc in test_cases {
-            let bs = MemoryDB::default();
             let num_lanes = 2;
-            let (mut rt, mut sv, state) = construct_runtime(&bs, num_lanes);
+            let (mut rt, mut sv, state) = construct_runtime(num_lanes);
 
             rt.balance = TokenAmount::from(tc.balance as u64);
 
@@ -580,9 +559,8 @@ mod merge_tests {
 
     #[test]
     fn invalid_merge_lane_999() {
-        let bs = MemoryDB::default();
         let num_lanes = 2;
-        let (mut rt, mut sv, state) = construct_runtime(&bs, num_lanes);
+        let (mut rt, mut sv, state) = construct_runtime(num_lanes);
 
         let merge_to: &LaneState = &state.lane_states[0];
         let merge_from = LaneState {
@@ -602,9 +580,8 @@ mod merge_tests {
 
     #[test]
     fn lane_limit_exceeded() {
-        let bs = MemoryDB::default();
         let num_lanes = LANE_LIMIT as u64;
-        let (mut rt, mut sv, _) = construct_runtime(&bs, num_lanes);
+        let (mut rt, mut sv, _) = construct_runtime(num_lanes);
 
         sv.lane += 1;
         sv.nonce += 1;
@@ -617,11 +594,8 @@ mod update_channel_state_extra {
     use super::*;
     const OTHER_ADDR: u64 = 104;
 
-    fn construct_runtime<'a, BS: BlockStore>(
-        bs: &'a BS,
-        exit_code: ExitCode,
-    ) -> (MockRuntime<'a, BS>, SignedVoucher) {
-        let (mut rt, mut sv) = require_create_cannel_with_lanes(bs, 1);
+    fn construct_runtime(exit_code: ExitCode) -> (MockRuntime, SignedVoucher) {
+        let (mut rt, mut sv) = require_create_cannel_with_lanes(1);
         let state: PState = rt.get_state().unwrap();
         let other_addr = Address::new_id(OTHER_ADDR);
         let fake_params = [1, 2, 3, 4];
@@ -656,8 +630,7 @@ mod update_channel_state_extra {
     }
     #[test]
     fn extra_call_succeed() {
-        let bs = MemoryDB::default();
-        let (mut rt, sv) = construct_runtime(&bs, ExitCode::Ok);
+        let (mut rt, sv) = construct_runtime(ExitCode::Ok);
         is_ok(
             &mut rt,
             Method::UpdateChannelState as u64,
@@ -668,8 +641,7 @@ mod update_channel_state_extra {
 
     #[test]
     fn extra_call_fail() {
-        let bs = MemoryDB::default();
-        let (mut rt, sv) = construct_runtime(&bs, ExitCode::ErrPlaceholder);
+        let (mut rt, sv) = construct_runtime(ExitCode::ErrPlaceholder);
         expect_error(
             &mut rt,
             Method::UpdateChannelState as u64,
@@ -684,8 +656,7 @@ mod update_channel_state_settling {
     use super::*;
     #[test]
     fn update_channel_setting() {
-        let bs = MemoryDB::default();
-        let (mut rt, sv) = require_create_cannel_with_lanes(&bs, 1);
+        let (mut rt, sv) = require_create_cannel_with_lanes(1);
         rt.epoch = 10;
         let state: PState = rt.get_state().unwrap();
         rt.expect_validate_caller_addr(&[state.from, state.to]);
@@ -744,8 +715,7 @@ mod secret_preimage {
     use super::*;
     #[test]
     fn succeed_correct_secret() {
-        let bs = MemoryDB::default();
-        let (mut rt, sv) = require_create_cannel_with_lanes(&bs, 1);
+        let (mut rt, sv) = require_create_cannel_with_lanes(1);
         let state: PState = rt.get_state().unwrap();
         rt.expect_validate_caller_addr(&[state.from, state.to]);
 
@@ -769,8 +739,7 @@ mod secret_preimage {
 
     #[test]
     fn incorrect_secret() {
-        let bs = MemoryDB::default();
-        let (mut rt, sv) = require_create_cannel_with_lanes(&bs, 1);
+        let (mut rt, sv) = require_create_cannel_with_lanes(1);
 
         let state: PState = rt.get_state().unwrap();
         rt.expect_validate_caller_addr(&[state.from, state.to]);
@@ -806,8 +775,7 @@ mod actor_settle {
     const EP: i64 = 10;
     #[test]
     fn adjust_settling_at() {
-        let bs = MemoryDB::default();
-        let (mut rt, _sv) = require_create_cannel_with_lanes(&bs, 1);
+        let (mut rt, _sv) = require_create_cannel_with_lanes(1);
         rt.epoch = EP;
         let mut state: PState = rt.get_state().unwrap();
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
@@ -823,8 +791,7 @@ mod actor_settle {
 
     #[test]
     fn call_twice() {
-        let bs = MemoryDB::default();
-        let (mut rt, _sv) = require_create_cannel_with_lanes(&bs, 1);
+        let (mut rt, _sv) = require_create_cannel_with_lanes(1);
         rt.epoch = EP;
         let state: PState = rt.get_state().unwrap();
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
@@ -842,8 +809,7 @@ mod actor_settle {
 
     #[test]
     fn settle_if_height_less() {
-        let bs = MemoryDB::default();
-        let (mut rt, mut sv) = require_create_cannel_with_lanes(&bs, 1);
+        let (mut rt, mut sv) = require_create_cannel_with_lanes(1);
         rt.epoch = EP;
         let mut state: PState = rt.get_state().unwrap();
 
@@ -876,11 +842,7 @@ mod actor_settle {
 mod actor_collect {
     use super::*;
 
-    fn exp_send_multiple<BS: BlockStore>(
-        rt: &mut MockRuntime<BS>,
-        state: &PState,
-        exit_codes: [ExitCode; 2],
-    ) {
+    fn exp_send_multiple(rt: &mut MockRuntime, state: &PState, exit_codes: [ExitCode; 2]) {
         rt.epoch = 12;
         let sent_to_from = &rt.balance - state.to_send.clone();
         rt.expect_send(
@@ -904,8 +866,7 @@ mod actor_collect {
 
     #[test]
     fn happy_path() {
-        let bs = MemoryDB::default();
-        let (mut rt, _sv) = require_create_cannel_with_lanes(&bs, 1);
+        let (mut rt, _sv) = require_create_cannel_with_lanes(1);
         rt.epoch = 10;
         let mut state: PState = rt.get_state().unwrap();
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
@@ -956,8 +917,7 @@ mod actor_collect {
         ];
 
         for tc in test_cases {
-            let bs = MemoryDB::default();
-            let (mut rt, _sv) = require_create_cannel_with_lanes(&bs, 1);
+            let (mut rt, _sv) = require_create_cannel_with_lanes(1);
             rt.epoch = 10;
             let mut state: PState = rt.get_state().unwrap();
 
@@ -983,35 +943,29 @@ mod actor_collect {
     }
 }
 
-fn require_create_cannel_with_lanes<'a, BS: BlockStore>(
-    bs: &'a BS,
-    num_lanes: u64,
-) -> (MockRuntime<'a, BS>, SignedVoucher) {
-    let paych_addr = Address::new_id(100 as u64);
+fn require_create_cannel_with_lanes(num_lanes: u64) -> (MockRuntime, SignedVoucher) {
+    let paych_addr = Address::new_id(100);
     let payer_addr = Address::new_id(R_PAYER_ADDR);
     let payee_addr = Address::new_id(R_PAYEE_ADDR);
-    let balance = TokenAmount::from(100_000 as u64);
-    let recieved = TokenAmount::from(0 as u64);
-
+    let balance = TokenAmount::from(100_000);
+    let received = TokenAmount::from(0);
     let curr_epoch = 2;
 
-    let message = UnsignedMessage::builder()
-        .from(*SYSTEM_ACTOR_ADDR)
-        .to(paych_addr)
-        .gas_limit(1000)
-        .build()
-        .unwrap();
+    let mut actor_code_cids = HashMap::default();
+    actor_code_cids.insert(payee_addr, ACCOUNT_ACTOR_CODE_ID.clone());
+    actor_code_cids.insert(payer_addr, ACCOUNT_ACTOR_CODE_ID.clone());
 
-    let mut rt = MockRuntime::new(bs, message);
+    let mut rt = MockRuntime {
+        receiver: paych_addr,
+        caller: *INIT_ACTOR_ADDR,
+        caller_type: INIT_ACTOR_CODE_ID.clone(),
+        actor_code_cids,
+        received,
+        balance,
+        epoch: curr_epoch,
+        ..Default::default()
+    };
 
-    rt.epoch = curr_epoch;
-    rt.balance = TokenAmount::from(balance);
-    rt.received = TokenAmount::from(recieved);
-    rt.set_caller(INIT_ACTOR_CODE_ID.clone(), *INIT_ACTOR_ADDR);
-    rt.actor_code_cids
-        .insert(payee_addr, ACCOUNT_ACTOR_CODE_ID.clone());
-    rt.actor_code_cids
-        .insert(payer_addr, ACCOUNT_ACTOR_CODE_ID.clone());
     construct_and_verify(&mut rt, payer_addr, payee_addr);
 
     let mut last_sv = SignedVoucher::default();
@@ -1031,10 +985,7 @@ fn require_create_cannel_with_lanes<'a, BS: BlockStore>(
     (rt, last_sv)
 }
 
-fn require_add_new_lane<BS: BlockStore>(
-    rt: &mut MockRuntime<'_, BS>,
-    param: LaneParams,
-) -> SignedVoucher {
+fn require_add_new_lane(rt: &mut MockRuntime, param: LaneParams) -> SignedVoucher {
     let payee_addr = Address::new_id(103 as u64);
     let sig = Signature::new_bls(vec![0, 1, 2, 3, 4, 5, 6, 7]);
     let sv = SignedVoucher {
@@ -1071,11 +1022,7 @@ fn require_add_new_lane<BS: BlockStore>(
     }
 }
 
-fn construct_and_verify<BS: BlockStore>(
-    rt: &mut MockRuntime<'_, BS>,
-    sender: Address,
-    receiver: Address,
-) {
+fn construct_and_verify(rt: &mut MockRuntime, sender: Address, receiver: Address) {
     let params = ConstructorParams {
         from: sender,
         to: receiver,
@@ -1090,21 +1037,13 @@ fn construct_and_verify<BS: BlockStore>(
     verify_initial_state(rt, sender, receiver);
 }
 
-fn verify_initial_state<BS: BlockStore>(
-    rt: &mut MockRuntime<'_, BS>,
-    sender: Address,
-    receiver: Address,
-) {
+fn verify_initial_state(rt: &mut MockRuntime, sender: Address, receiver: Address) {
     let _state: PState = rt.get_state().unwrap();
     let expected_state = PState::new(sender, receiver);
     verify_state(rt, -1, expected_state)
 }
 
-fn verify_state<BS: BlockStore>(
-    rt: &mut MockRuntime<'_, BS>,
-    exp_lanes: i64,
-    expected_state: PState,
-) {
+fn verify_state(rt: &mut MockRuntime, exp_lanes: i64, expected_state: PState) {
     let state: PState = rt.get_state().unwrap();
     assert_eq!(expected_state.to, state.to);
     assert_eq!(expected_state.from, state.from);
