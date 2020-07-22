@@ -18,7 +18,7 @@ use runtime::{ActorCode, ConsensusFault, MessageInfo, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error as StdError;
-use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 pub struct MockRuntime {
     pub epoch: ChainEpoch,
@@ -152,7 +152,7 @@ impl MockRuntime {
     }
     fn check_argument(&self, predicate: bool, msg: String) -> Result<(), ActorError> {
         if !predicate {
-            return Err(ActorError::new(ExitCode::SysErrorIllegalArgument, msg));
+            return Err(actor_error!(SysErrorIllegalArgument; msg));
         }
         Ok(())
     }
@@ -260,10 +260,7 @@ impl MockRuntime {
             x if x == &*VERIFIED_ACTOR_CODE_ID => {
                 actor::verifreg::Actor.invoke_method(self, method_num, params)
             }
-            _ => Err(ActorError::new(
-                ExitCode::SysErrForbidden,
-                "invalid method id".to_owned(),
-            )),
+            _ => Err(actor_error!(SysErrForbidden; "invalid method id")),
         };
 
         if res.is_err() {
@@ -443,13 +440,9 @@ impl Runtime<MemoryDB> for MockRuntime {
             }
         }
         self.expect_validate_caller_addr = None;
-        return Err(ActorError::new(
-            ExitCode::ErrForbidden,
-            format!(
+        return Err(actor_error!(ErrForbidden;
                 "caller address {:?} forbidden, allowed: {:?}",
-                self.message().caller(),
-                &addrs
-            ),
+                self.message().caller(), &addrs
         ));
     }
     fn validate_immediate_caller_type<'a, I>(&mut self, types: I) -> Result<(), ActorError>
@@ -481,13 +474,10 @@ impl Runtime<MemoryDB> for MockRuntime {
 
         self.expect_validate_caller_type = None;
 
-        Err(self.abort(
-            ExitCode::ErrForbidden,
-            format!(
-                "caller type {:?} forbidden, allowed: {:?}",
-                self.caller_type, types
-            ),
-        ))
+        Err(
+            actor_error!(ErrForbidden; "caller type {:?} forbidden, allowed: {:?}",
+                self.caller_type, types),
+        )
     }
 
     fn current_balance(&self) -> Result<TokenAmount, ActorError> {
@@ -504,10 +494,7 @@ impl Runtime<MemoryDB> for MockRuntime {
         self.id_addresses
             .get(&address)
             .cloned()
-            .ok_or(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                "Address not found".to_string(),
-            ))
+            .ok_or(actor_error!(ErrIllegalArgument; "Address not found"))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {
@@ -527,10 +514,7 @@ impl Runtime<MemoryDB> for MockRuntime {
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
         if self.state.is_some() == true {
-            return Err(self.abort(
-                ExitCode::SysErrorIllegalActor,
-                "state already constructed".to_owned(),
-            ));
+            return Err(actor_error!(SysErrorIllegalActor; "state already constructed"));
         }
         self.state = Some(self.store.put(obj, Blake2b256).unwrap());
         Ok(())
@@ -572,10 +556,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     ) -> Result<Serialized, ActorError> {
         self.require_in_call();
         if self.in_transaction {
-            return Err(self.abort(
-                ExitCode::SysErrorIllegalActor,
-                "side-effect within transaction",
-            ));
+            return Err(actor_error!(SysErrorIllegalActor; "side-effect within transaction"));
         }
 
         assert!(
@@ -592,12 +573,9 @@ impl Runtime<MemoryDB> for MockRuntime {
         assert!(&expected_msg.to == to && expected_msg.method == method && &expected_msg.params == params && &expected_msg.value == value, "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, self.expect_sends[0]);
 
         if value > &self.balance {
-            return Err(self.abort(
-                ExitCode::SysErrSenderStateInvalid,
-                format!(
+            return Err(actor_error!(SysErrSenderStateInvalid;
                     "cannot send value: {:?} exceeds balance: {:?}",
                     value, self.balance
-                ),
             ));
         }
         self.balance -= value;
@@ -628,10 +606,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
-            return Err(self.abort(
-                ExitCode::SysErrorIllegalActor,
-                "side-effect within transaction".to_owned(),
-            ));
+            return Err(actor_error!(SysErrorIllegalActor; "side-effect within transaction"));
         }
         let expect_create_actor = self
             .expect_create_actor
@@ -645,10 +620,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
-            return Err(self.abort(
-                ExitCode::SysErrorIllegalActor,
-                "side-effect within transaction".to_owned(),
-            ));
+            return Err(actor_error!(SysErrorIllegalActor; "side-effect within transaction"));
         }
         todo!("implement me???")
     }
@@ -670,19 +642,15 @@ impl Syscalls for MockRuntime {
         plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
         if self.expect_verify_sigs.borrow().len() == 0 {
-            return Err(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected signature verification".to_string(),
-            )));
+            return Err(Box::new(
+                actor_error!(ErrIllegalState; "Unexpected signature verification"),
+            ));
         }
         let exp = self
             .expect_verify_sigs
             .borrow_mut()
             .pop()
-            .ok_or(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected signature verification".to_string(),
-            ))?;
+            .ok_or(actor_error!(ErrIllegalState; "Unexpected signature verification"))?;
         if exp.sig == *signature && exp.signer == *signer && &exp.plaintext[..] == plaintext {
             if exp.result == ExitCode::Ok {
                 return Ok(());
@@ -693,10 +661,9 @@ impl Syscalls for MockRuntime {
                 )));
             }
         } else {
-            return Err(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Signatures did not match".to_string(),
-            )));
+            return Err(Box::new(
+                actor_error!(ErrIllegalState; "Signatures did not match"),
+            ));
         }
     }
 
@@ -711,22 +678,19 @@ impl Syscalls for MockRuntime {
         let exp = self
             .expect_compute_unsealed_sector_cid
             .replace(None)
-            .ok_or(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected syscall to ComputeUnsealedSectorCID".to_string(),
+            .ok_or(Box::new(actor_error!(ErrIllegalState;
+                "Unexpected syscall to ComputeUnsealedSectorCID"
             )))?;
 
         if exp.reg != reg {
-            return Err(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected compute_unsealed_sector_cid : reg mismatch".to_string(),
+            return Err(Box::new(actor_error!(ErrIllegalState;
+                "Unexpected compute_unsealed_sector_cid : reg mismatch"
             )));
         }
 
         if exp.pieces[..].eq(pieces) {
-            return Err(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected compute_unsealed_sector_cid : pieces mismatch".to_string(),
+            return Err(Box::new(actor_error!(ErrIllegalState;
+                "Unexpected compute_unsealed_sector_cid : pieces mismatch"
             )));
         }
 
@@ -739,19 +703,14 @@ impl Syscalls for MockRuntime {
         Ok(exp.cid)
     }
     fn verify_seal(&self, seal: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        let exp = self
-            .expect_verify_seal
-            .replace(None)
-            .ok_or(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected syscall to verify seal".to_string(),
-            )))?;
+        let exp = self.expect_verify_seal.replace(None).ok_or(Box::new(
+            actor_error!(ErrIllegalState; "Unexpected syscall to verify seal"),
+        ))?;
 
         if exp.seal != *seal {
-            return Err(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected seal verification".to_string(),
-            )));
+            return Err(Box::new(
+                actor_error!(ErrIllegalState; "Unexpected seal verification"),
+            ));
         }
         if exp.exit_code != ExitCode::Ok {
             return Err(Box::new(ActorError::new(
@@ -762,19 +721,14 @@ impl Syscalls for MockRuntime {
         Ok(())
     }
     fn verify_post(&self, post: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        let exp = self
-            .expect_verify_post
-            .replace(None)
-            .ok_or(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected syscall to verify PoSt ".to_string(),
-            )))?;
+        let exp = self.expect_verify_post.replace(None).ok_or(Box::new(
+            actor_error!(ErrIllegalState; "Unexpected syscall to verify PoSt"),
+        ))?;
 
         if exp.post != *post {
-            return Err(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected PoSt verification".to_string(),
-            )));
+            return Err(Box::new(
+                actor_error!(ErrIllegalState; "Unexpected PoSt verification"),
+            ));
         }
         if exp.exit_code != ExitCode::Ok {
             return Err(Box::new(ActorError::new(
@@ -793,28 +747,20 @@ impl Syscalls for MockRuntime {
         let exp = self
             .expect_verify_consensus_fault
             .replace(None)
-            .ok_or(Box::new(ActorError::new(
-                ExitCode::ErrIllegalState,
-                "Unexpected syscall to verify_consensus_fault".to_string(),
-            )))?;
+            .ok_or(Box::new(
+                actor_error!(ErrIllegalState; "Unexpected syscall to verify_consensus_fault"),
+            ))?;
         if exp.require_correct_input {
             if exp.block_header_1 != h1 {
-                return Err(Box::new(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "Header 1 mismatch".to_string(),
-                )));
+                return Err(Box::new(actor_error!(ErrIllegalState; "Header 1 mismatch")));
             }
             if exp.block_header_2 != h2 {
-                return Err(Box::new(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "Header 2 mismatch".to_string(),
-                )));
+                return Err(Box::new(actor_error!(ErrIllegalState; "Header 2 mismatch")));
             }
             if exp.block_header_extra != extra {
-                return Err(Box::new(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "Header extra mismatch".to_string(),
-                )));
+                return Err(Box::new(
+                    actor_error!(ErrIllegalState; "Header extra mismatch"),
+                ));
             }
         }
         if exp.exit_code != ExitCode::Ok {
