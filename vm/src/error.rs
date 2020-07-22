@@ -7,7 +7,7 @@ use thiserror::Error;
 use crate::ExitCode;
 
 /// The error type that gets returned by actor method calls.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 #[error("ActorError(fatal: {fatal}, exit_code: {exit_code:?}, msg: {msg})")]
 pub struct ActorError {
     /// Is this a fatal error.
@@ -55,5 +55,44 @@ impl From<EncodingError> for ActorError {
             exit_code: ExitCode::ErrSerialization,
             msg: e.to_string(),
         }
+    }
+}
+
+/// Convenience macro for generating Actor Errors
+#[macro_export]
+macro_rules! actor_error {
+    // Fatal Errors
+    ( fatal($msg:expr) ) => { ActorError::new_fatal($msg.to_string()) };
+    ( fatal($msg:literal $(, $ex:expr)+) ) => {
+        ActorError::new_fatal(format!($msg, $($ex,)*))
+    };
+
+    // Error with only one stringable expression
+    ( $code:ident; $msg:expr ) => { ActorError::new(ExitCode::$code, $msg.to_string()) };
+
+    // String with positional arguments
+    ( $code:ident; $msg:literal $(, $ex:expr)+ ) => {
+        ActorError::new(ExitCode::$code, format!($msg, $($ex,)*))
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_macro_generation() {
+        assert_eq!(
+            actor_error!(SysErrSenderInvalid; "test"),
+            ActorError::new(ExitCode::SysErrSenderInvalid, "test".to_owned())
+        );
+        assert_eq!(
+            actor_error!(SysErrSenderInvalid; "test {}, {}", 8, 10),
+            ActorError::new(ExitCode::SysErrSenderInvalid, format!("test {}, {}", 8, 10))
+        );
+        assert_eq!(
+            actor_error!(fatal("test {}, {}", 8, 10)),
+            ActorError::new_fatal(format!("test {}, {}", 8, 10))
+        );
     }
 }
