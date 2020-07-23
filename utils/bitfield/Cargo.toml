@@ -19,6 +19,10 @@ rand = "0.7.3"
 encoding = { package = "forest_encoding", path = "../../encoding/" }
 criterion = "0.3"
 
+
+[features]
+json = []
+
 [[bench]]
 name = "benchmarks"
 harness = false

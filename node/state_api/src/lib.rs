@@ -249,7 +249,7 @@ pub fn state_call<DB>(
     state_manager: &StateManager<DB>,
     message: &mut UnsignedMessage,
     key: &TipsetKeys,
-) -> Result<InvocResult<UnsignedMessage>, BoxError>
+) -> Result<InvocResult, BoxError>
 where
     DB: BlockStore,
 {
@@ -264,7 +264,7 @@ pub fn state_reply<DB>(
     state_manager: &StateManager<DB>,
     key: &TipsetKeys,
     cid: &Cid,
-) -> Result<InvocResult<UnsignedMessage>, BoxError>
+) -> Result<InvocResult, BoxError>
 where
     DB: BlockStore,
 {

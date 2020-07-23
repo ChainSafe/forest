@@ -5515,6 +5515,7 @@ version = "0.1.0"
 dependencies = [
  "actor",
  "async-std",
+ "bitfield",
  "chain",
  "chain_sync",
  "clock",

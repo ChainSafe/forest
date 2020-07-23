@@ -34,6 +34,12 @@ pub mod json {
         }
     }
 
+    impl From<MessageReceipt> for MessageReceiptJson {
+        fn from(wrapper: MessageReceipt) -> Self {
+            MessageReceiptJson(wrapper)
+        }
+    }
+
     pub fn serialize<S>(m: &MessageReceipt, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

@@ -11,18 +11,20 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Range, Sub, SubAssign},
 };
 
+use serde::{Deserialize,Serialize};
+
 type Result<T> = std::result::Result<T, &'static str>;
 
 /// An bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
 /// `HashSet<usize>`, but more memory-efficient when long runs of 1s and 0s are present.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default,Clone)]
 pub struct BitField {
     /// The underlying ranges of 1s.
-    ranges: Vec<Range<usize>>,
+    pub ranges: Vec<Range<usize>>,
     /// Bits set to 1. Never overlaps with `unset`.
-    set: AHashSet<usize>,
+    pub set: AHashSet<usize>,
     /// Bits set to 0. Never overlaps with `set`.
-    unset: AHashSet<usize>,
+    pub unset: AHashSet<usize>,
 }
 
 impl PartialEq for BitField {
@@ -314,4 +316,69 @@ macro_rules! bitfield {
     ($($val:literal),* $(,)?) => {
         bitfield!(@iter $($val),*).collect::<$crate::BitField>()
     };
+}
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+
+    /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct BitFieldJson(#[serde(with = "self")] pub BitField);
+
+    /// Wrapper for serializing a UnsignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct BitFieldJsonRef<'a>(#[serde(with = "self")] pub &'a BitField);
+
+    impl From<BitfieldJson> for Bitfield {
+        fn from(wrapper: BitFieldJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    impl From<BitField> for BitFieldJson
+    {
+        fn from(wrapper : BitField) -> Self
+        {
+            BitFieldJson(wrapper)
+        }
+    }
+   
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct JsonHelper {
+    /// The underlying ranges of 1s.
+    ranges: Vec<Range<usize>>,
+    /// Bits set to 1. Never overlaps with `unset`.
+    set: AHashSet<usize>,
+    /// Bits set to 0. Never overlaps with `set`.
+    unset: AHashSet<usize>,
+    }
+
+    pub fn serialize<S>(m: &BitField, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        JsonHelper {
+            ranges: m.ranges,
+            set : m.set,
+            unset : m.set
+        }
+        .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        Ok(JsonHelper {
+            ranges: m.ranges,
+            set: m.set,
+            unset : m.unset
+        })
+    }
 }

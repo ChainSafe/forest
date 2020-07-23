@@ -30,6 +30,7 @@ state_tree = { path = "../../vm/state_tree" }
 forest_libp2p = { path = "../forest_libp2p" }
 interpreter = { path = "../../vm/interpreter/" }
 fil_types = { path = "../../types" }
+bitfield = { path = "../../utils/bitfield" }
 
 [dev-dependencies]
 db = { path = "../db" }

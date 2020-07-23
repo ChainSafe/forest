@@ -31,22 +31,22 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use serde::{Deserialize,Serialize};
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
 /// Type to represent invocation of state call results
-pub struct InvocResult<Msg>
-where
-    Msg: Message,
+#[derive(Deserialize,Serialize)]
+pub struct InvocResult
 {
-    pub msg: Msg,
+    pub msg: UnsignedMessage,
     pub msg_rct: Option<MessageReceipt>,
     pub actor_error: Option<String>,
 }
 
 // An alias Result that represents an InvocResult and an Error
-pub type StateCallResult<T> = Result<InvocResult<T>, Error>;
+pub type StateCallResult = Result<InvocResult, Error>;
 
 #[allow(dead_code)]
 #[derive(Default)]
@@ -227,7 +227,7 @@ where
         bstate: &Cid,
         rand: &ChainRand,
         bheight: &ChainEpoch,
-    ) -> StateCallResult<UnsignedMessage>
+    ) -> StateCallResult
     where
         DB: BlockStore,
     {
@@ -274,7 +274,7 @@ where
         &self,
         message: &mut UnsignedMessage,
         tipset: Option<Tipset>,
-    ) -> StateCallResult<UnsignedMessage>
+    ) -> StateCallResult
     where
         DB: BlockStore,
     {
