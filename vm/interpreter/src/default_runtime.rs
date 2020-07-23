@@ -155,6 +155,34 @@ where
             Ok(())
         }
     }
+
+    /// Helper function for inserting into blockstore.
+    fn put<T>(&self, obj: &T) -> Result<Cid, ActorError>
+    where
+        T: Cbor,
+    {
+        self.store
+            .put(obj, Blake2b256)
+            .map_err(|e| match e.downcast::<EncodingError>() {
+                Ok(ser_error) => actor_error!(ErrSerialization;
+                        "failed to marshal cbor object {}", ser_error),
+                Err(other) => actor_error!(fatal("failed to put cbor object: {}", other)),
+            })
+    }
+
+    /// Helper function for getting deserializable objects from blockstore.
+    fn get<T>(&self, cid: &Cid) -> Result<Option<T>, ActorError>
+    where
+        T: Cbor,
+    {
+        self.store
+            .get(cid)
+            .map_err(|e| match e.downcast::<EncodingError>() {
+                Ok(ser_error) => actor_error!(ErrSerialization;
+                "failed to unmarshal cbor object {}", ser_error),
+                Err(other) => actor_error!(fatal("failed to get cbor object: {}", other)),
+            })
+    }
 }
 
 impl<BS, SYS, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, P>
@@ -238,38 +266,30 @@ where
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
-        let c =
-            self.store
-                .put(obj, Blake2b256)
-                .map_err(|e| match e.downcast::<EncodingError>() {
-                    Ok(ser_error) => actor_error!(ErrSerialization;
-                        "failed to marshal cbor object {}", ser_error),
-                    Err(other) => actor_error!(fatal("failed to put cbor object: {}", other)),
-                })?;
+        let c = self.put(obj)?;
 
         self.state_commit(&EMPTY_ARR_CID, c)
     }
 
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        let actor = self.state.get_actor(self.message().receiver())
-            .map_err(|e| actor_error!(SysErrorIllegalArgument; 
-                "failed to get actor for Readonly state: {}", e))?
-            .ok_or_else(|| actor_error!(SysErrorIllegalArgument; 
-                "Actor readonly state does not exist"))?;
-        self.store
-            .get(&actor.state)
+        let actor = self
+            .state
+            .get_actor(self.message().receiver())
             .map_err(|e| {
-                self.abort(
-                    ExitCode::ErrPlaceholder,
-                    format!("storage get error in read only state: {}", e.to_string()),
-                )
+                actor_error!(SysErrorIllegalArgument;
+                "failed to get actor for Readonly state: {}", e)
             })?
-            .ok_or_else(|| {
-                self.abort(
-                    ExitCode::ErrPlaceholder,
-                    "storage get error in read only state".to_owned(),
-                )
-            })
+            .ok_or_else(
+                || actor_error!(SysErrorIllegalArgument; "Actor readonly state does not exist"),
+            )?;
+
+        // TODO revisit as the go impl doesn't handle not exists and nil cases
+        self.get(&actor.state)?.ok_or_else(|| {
+            actor_error!(fatal(
+                "State does not exist for actor state cid: {}",
+                actor.state
+            ))
+        })
     }
 
     fn transaction<C, R, F>(&mut self, f: F) -> Result<R, ActorError>
@@ -278,34 +298,21 @@ where
         F: FnOnce(&mut C, &mut Self) -> R,
     {
         // get actor
-        let act = self.state.get_actor(self.message().receiver()).map_err(|e| actor_error!(SysErrorIllegalActor; "failed to get actor for transaction: {}", e))?.ok_or_else(|| actor_error!(SysErrorIllegalActor; "actor state for transaction doesn't exist"))?;
+        let act = self.state.get_actor(self.message().receiver())
+            .map_err(|e| actor_error!(SysErrorIllegalActor; "failed to get actor for transaction: {}", e))?
+            .ok_or_else(|| actor_error!(SysErrorIllegalActor;
+                "actor state for transaction doesn't exist"))?;
 
         // get state for actor based on generic C
+        // TODO Lotus is not handling the not exist case, revisit
         let mut state: C = self
-            .store
-            .get(&act.state)
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::ErrPlaceholder,
-                    format!("storage get error in transaction: {}", e.to_string()),
-                )
-            })?
-            .ok_or_else(|| {
-                self.abort(
-                    ExitCode::ErrPlaceholder,
-                    "storage get error in transaction".to_owned(),
-                )
-            })?;
+            .get(&act.state)?
+            .ok_or_else(|| actor_error!(fatal("Actor state does not exist: {}", act.state)))?;
 
         // Update the state
         let r = f(&mut state, self);
 
-        let c = self.store.put(&state, Blake2b256).map_err(|e| {
-            self.abort(
-                ExitCode::ErrPlaceholder,
-                format!("storage put in create: {}", e.to_string()),
-            )
-        })?;
+        let c = self.put(&state)?;
 
         // Committing that change
         self.state_commit(&act.state, c)?;
