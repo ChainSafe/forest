@@ -41,6 +41,7 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
     price_list: PriceList,
     rand: &'r ChainRand,
     caller_validated: bool,
+    allow_internal: bool,
     params: PhantomData<P>,
 }
 
@@ -88,6 +89,7 @@ where
             num_actors_created,
             price_list,
             rand,
+            allow_internal: true,
             caller_validated: false,
             params: PhantomData,
         }
@@ -310,7 +312,9 @@ where
             .ok_or_else(|| actor_error!(fatal("Actor state does not exist: {}", act.state)))?;
 
         // Update the state
+        self.allow_internal = false;
         let r = f(&mut state, self);
+        self.allow_internal = true;
 
         let c = self.put(&state)?;
 
@@ -330,6 +334,10 @@ where
         params: &Serialized,
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError> {
+        if !self.allow_internal {
+            return Err(actor_error!(SysErrorIllegalActor; "runtime.send() is not allowed"));
+        }
+
         let msg = UnsignedMessage::builder()
             .to(*to)
             .from(*self.message.from())
