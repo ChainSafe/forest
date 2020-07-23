@@ -306,19 +306,21 @@ pub mod tipset_json {
         .serialize(serializer)
     }
 
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct TipsetDe {
+        #[serde(with = "super::super::header::json::vec")]
+        blocks: Vec<BlockHeader>,
+        #[serde(with = "super::tipset_keys_json")]
+        cids: TipsetKeys,
+        height: ChainEpoch,
+    }
+
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Tipset, D::Error>
     where
         D: Deserializer<'de>,
     {
-        #[derive(Serialize, Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct TipsetDe {
-            #[serde(with = "super::super::header::json::vec")]
-            blocks: Vec<BlockHeader>,
-            #[serde(with = "super::tipset_keys_json")]
-            cids: TipsetKeys,
-            height: ChainEpoch,
-        }
+
         let TipsetDe { blocks, .. } = Deserialize::deserialize(deserializer)?;
         Tipset::new(blocks).map_err(de::Error::custom)
     }

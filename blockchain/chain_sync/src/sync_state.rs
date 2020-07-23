@@ -1,25 +1,30 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
+use blocks::{tipset::tipset_json::{TipsetJsonRef, TipsetJson, self}, Tipset};
 use clock::ChainEpoch;
-use serde::{Serialize, Serializer};
+use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
 
 /// Current state of the ChainSyncer using the BlockSync protocol.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Deserialize)]
 pub enum SyncStage {
     /// Syncing headers from the heaviest tipset to genesis.
+    #[serde(rename(deserialize = "header sync"))]
     Headers,
     /// Persisting headers on chain from heaviest to genesis.
+    #[serde(rename(deserialize = "persisting headers"))]
     PersistHeaders,
     /// Syncing messages and performing state transitions.
+    #[serde(rename(deserialize = "message sync"))]
     Messages,
     /// ChainSync completed and is following chain.
+    #[serde(rename(deserialize = "complete"))]
     Complete,
     /// Error has occured while syncing.
+    #[serde(rename(deserialize = "error"))]
     Error,
 }
 
@@ -129,5 +134,42 @@ impl Serialize for SyncState {
             message: &self.message,
         }
         .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SyncState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct SyncStateJson {
+            base: Option<TipsetJson>,
+            target: Option<TipsetJson>,
+            stage: SyncStage,
+            epoch: ChainEpoch,
+            start: Option<SystemTime>,
+            end: Option<SystemTime>,
+            message: String,
+        }
+        let SyncStateJson {
+            base,
+            target,
+            stage,
+            epoch,
+            start,
+            end,
+            message,
+        } = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            base: base.map(|b| Arc::new(b.0)),
+            target: target.map(|b| Arc::new(b.0)),
+            stage,
+            epoch,
+            start,
+            end,
+            message,
+        })
     }
 }
