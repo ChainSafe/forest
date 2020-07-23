@@ -393,7 +393,7 @@ pub fn state_wait_msg<DB: BlockStore + Send + Sync + 'static>(
         cid,
         confidence,
     ))?;
-    let tipset = tipset.ok_or_else(|| "wait for msg returned empty tipset")?;
-    let receipt = receipt.ok_or_else(|| "wait for msg returned empty tipset")?;
+    let tipset = tipset.ok_or_else(|| "wait _for_msg returned empty tipset")?;
+    let receipt = receipt.ok_or_else(|| "wait_for_msg returned empty message receipt")?;
     Ok(MessageLookup { receipt, tipset })
 }
