@@ -12,8 +12,8 @@ use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use fil_types::NetworkParams;
-use forest_encoding::to_vec;
 use forest_encoding::Cbor;
+use forest_encoding::{error::Error as EncodingError, to_vec};
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
@@ -24,7 +24,7 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use vm::{
     actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
-    METHOD_SEND,
+    EMPTY_ARR_CID, METHOD_SEND,
 };
 
 /// Implementation of the Runtime trait.
@@ -232,26 +232,30 @@ where
         let r = self
             .rand
             .get_randomness(&self.store, personalization, rand_epoch, entropy)
-            .map_err(|e| {
-                ActorError::new_fatal(format!("could not get randomness: {}", e.to_string()))
-            })?;
+            .map_err(|e| actor_error!(fatal("could not get randomness: {}", e.to_string())))?;
 
         Ok(Randomness(r))
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
-        let c = self.store.put(obj, Blake2b256).map_err(|e| {
-            self.abort(
-                ExitCode::ErrPlaceholder,
-                format!("storage put in create: {}", e.to_string()),
-            )
-        })?;
-        // TODO: This is almost certainly wrong. Need to CBOR an empty slice and calculate Cid
-        self.state_commit(&Cid::default(), c)
+        let c =
+            self.store
+                .put(obj, Blake2b256)
+                .map_err(|e| match e.downcast::<EncodingError>() {
+                    Ok(ser_error) => actor_error!(ErrSerialization;
+                        "failed to marshal cbor object {}", ser_error),
+                    Err(other) => actor_error!(fatal("failed to put cbor object: {}", other)),
+                })?;
+
+        self.state_commit(&EMPTY_ARR_CID, c)
     }
 
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        let actor = self.state.get_actor(self.message().receiver()).map_err(|e| actor_error!(SysErrorIllegalArgument; "failed to get actor for Readonly state: {}", e))?.ok_or_else(|| actor_error!(SysErrorIllegalArgument; "Actor readonly state does not exist"))?;
+        let actor = self.state.get_actor(self.message().receiver())
+            .map_err(|e| actor_error!(SysErrorIllegalArgument; 
+                "failed to get actor for Readonly state: {}", e))?
+            .ok_or_else(|| actor_error!(SysErrorIllegalArgument; 
+                "Actor readonly state does not exist"))?;
         self.store
             .get(&actor.state)
             .map_err(|e| {

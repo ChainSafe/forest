@@ -239,10 +239,10 @@ impl Actor {
                     ));
                 }
 
-                let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(
-                    || actor_error!(ErrNotFound; 
-                        "failed to resolve provider address {}", provider_raw),
-                )?;
+                let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(|| {
+                    actor_error!(ErrNotFound;
+                        "failed to resolve provider address {}", provider_raw)
+                })?;
                 // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
                 deal.proposal.provider = provider;
                 deal.proposal.client = client;
@@ -770,9 +770,9 @@ where
     RT: Runtime<BS>,
 {
     // Resolve the provided address to the canonical form against which the balance is held.
-    let nominal = rt.resolve_address(addr)?.ok_or_else(
-        || actor_error!(ErrIllegalArgument; "failed to resolve address {}", addr),
-    )?;
+    let nominal = rt
+        .resolve_address(addr)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "failed to resolve address {}", addr))?;
 
     let code_id = rt
         .get_actor_code_cid(&nominal)?
