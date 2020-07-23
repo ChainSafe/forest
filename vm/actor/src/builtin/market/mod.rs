@@ -190,8 +190,10 @@ impl Actor {
         }
 
         // All deals should have the same provider so get worker once
-        let provider_raw = &params.deals[0].proposal.provider;
-        let provider = rt.resolve_address(&provider_raw)?;
+        let provider_raw = params.deals[0].proposal.provider;
+        let provider = rt.resolve_address(&provider_raw)?.ok_or_else(
+            || actor_error!(ErrNotFound; "failed to resolve provider address {}", provider_raw),
+        )?;
 
         let (_, worker) = request_miner_control_addrs(rt, &provider)?;
         if &worker != rt.message().caller() {
@@ -219,10 +221,6 @@ impl Actor {
             }
         }
 
-        // All deals should have the same provider so get worker once
-        let provider_raw = params.deals[0].proposal.provider;
-        let provider = rt.resolve_address(&provider_raw)?;
-
         let mut new_deal_ids: Vec<DealID> = Vec::new();
         rt.transaction(|st: &mut State, rt| {
             let mut prop = Amt::load(&st.proposals, rt.store())
@@ -241,7 +239,10 @@ impl Actor {
                     ));
                 }
 
-                let client = rt.resolve_address(&deal.proposal.client)?;
+                let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(
+                    || actor_error!(ErrNotFound; 
+                        "failed to resolve provider address {}", provider_raw),
+                )?;
                 // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
                 deal.proposal.provider = provider;
                 deal.proposal.client = client;
@@ -769,8 +770,8 @@ where
     RT: Runtime<BS>,
 {
     // Resolve the provided address to the canonical form against which the balance is held.
-    let nominal = rt.resolve_address(addr).map_err(
-        |e| actor_error!(ErrIllegalArgument; "Failed to resolve address provided: {}", e),
+    let nominal = rt.resolve_address(addr)?.ok_or_else(
+        || actor_error!(ErrIllegalArgument; "failed to resolve address {}", addr),
     )?;
 
     let code_id = rt

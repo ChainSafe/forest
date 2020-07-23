@@ -485,16 +485,13 @@ impl Runtime<MemoryDB> for MockRuntime {
         Ok(self.balance.clone())
     }
 
-    fn resolve_address(&self, address: &Address) -> Result<Address, ActorError> {
+    fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
         self.require_in_call();
         if address.protocol() == address::Protocol::ID {
-            return Ok(address.clone());
+            return Ok(Some(address.clone()));
         }
 
-        self.id_addresses
-            .get(&address)
-            .cloned()
-            .ok_or(actor_error!(ErrIllegalArgument; "Address not found"))
+        Ok(self.id_addresses.get(&address).cloned())
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {

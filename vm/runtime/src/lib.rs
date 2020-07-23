@@ -56,7 +56,7 @@ pub trait Runtime<BS: BlockStore> {
     /// Resolves an address of any protocol to an ID address (via the Init actor's table).
     /// This allows resolution of externally-provided SECP, BLS, or actor addresses to the canonical form.
     /// If the argument is an ID address it is returned directly.
-    fn resolve_address(&self, address: &Address) -> Result<Address, ActorError>;
+    fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError>;
 
     /// Look up the code ID at an actor address.
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError>;
@@ -96,8 +96,8 @@ pub trait Runtime<BS: BlockStore> {
     fn store(&self) -> &BS;
 
     /// Sends a message to another actor, returning the exit code and return value envelope.
-    /// If the invoked method does not return successfully, its state changes (and that of any messages it sent in turn)
-    /// will be rolled back.
+    /// If the invoked method does not return successfully, its state changes
+    /// (and that of any messages it sent in turn) will be rolled back.
     fn send(
         &mut self,
         to: &Address,
@@ -106,9 +106,9 @@ pub trait Runtime<BS: BlockStore> {
         value: &TokenAmount,
     ) -> Result<Serialized, ActorError>;
 
-    /// Halts execution upon an error from which the receiver cannot recover. The caller will receive the exitcode and
-    /// an empty return value. State changes made within this call will be rolled back.
-    /// This method does not return.
+    /// Halts execution upon an error from which the receiver cannot recover.
+    /// The caller will receive the exitcode and an empty return value.
+    /// State changes made within this call will be rolled back. This method does not return.
     /// The message and args are for diagnostic purposes and do not persist on chain.
     fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError;
 
@@ -118,7 +118,8 @@ pub trait Runtime<BS: BlockStore> {
     /// Always an ActorExec address.
     fn new_actor_address(&mut self) -> Result<Address, ActorError>;
 
-    /// Creates an actor with code `codeID` and address `address`, with empty state. May only be called by Init actor.
+    /// Creates an actor with code `codeID` and address `address`, with empty state.
+    /// May only be called by Init actor.
     fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError>;
 
     /// Deletes the executing actor from the state tree, transferring any balance to beneficiary.
@@ -140,7 +141,8 @@ pub trait MessageInfo {
     /// The address of the actor receiving the message. Always an ID-address.
     fn receiver(&self) -> &Address;
 
-    /// The value attached to the message being processed, implicitly added to current_balance() before method invocation.
+    /// The value attached to the message being processed, implicitly
+    /// added to current_balance() before method invocation.
     fn value_received(&self) -> &TokenAmount;
 }
 

@@ -20,7 +20,8 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{
-    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
 
 // * Updated to specs-actors commit: 52599b21919df07f44d7e61cc028e265ec18f700
@@ -84,10 +85,9 @@ impl Actor {
             "cannot give block reward for zero tickets"
         );
 
-        let miner_addr = rt
-            .resolve_address(&params.miner)
-            // TODO revisit later if all address resolutions end up being the same exit code
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.msg().to_string()))?;
+        let miner_addr = rt.resolve_address(&params.miner)?.ok_or_else(
+            || actor_error!(ErrIllegalState; "failed to resolve given owner address"),
+        )?;
 
         let prior_balance = rt.current_balance()?;
 

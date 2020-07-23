@@ -2266,8 +2266,8 @@ where
     RT: Runtime<BS>,
 {
     let resolved = rt
-        .resolve_address(&raw)
-        .map_err(|_| actor_error!(ErrIllegalArgument; "unable to resolve address {}", raw))?;
+        .resolve_address(&raw)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "unable to resolve address: {}", raw))?;
     assert!(resolved.protocol() == Protocol::ID);
 
     let owner_code = rt
@@ -2289,9 +2289,9 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let resolved = rt.resolve_address(&raw).map_err(
-        |e| actor_error!(ErrIllegalArgument; "unable to resolve address: {},{}", raw, e),
-    )?;
+    let resolved = rt
+        .resolve_address(&raw)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "unable to resolve address: {}", raw))?;
     assert!(resolved.protocol() == Protocol::ID);
 
     let owner_code = rt

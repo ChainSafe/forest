@@ -110,7 +110,8 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let nominal = rt.resolve_address(&params.miner)?;
+        // TODO this function does not exist anymore, make sure it is removed/replaced later
+        let nominal = rt.resolve_address(&params.miner)?.unwrap();
 
         let st: State = rt.state()?;
 

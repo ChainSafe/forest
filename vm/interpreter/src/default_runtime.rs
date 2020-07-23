@@ -178,10 +178,10 @@ where
     {
         self.abort_if_already_validated()?;
 
-        let imm = self.resolve_address(self.message().caller())?;
+        let imm = self.message().caller();
 
         // Check if theres is at least one match
-        if !addresses.into_iter().any(|a| *a == imm) {
+        if !addresses.into_iter().any(|a| a == imm) {
             return Err(actor_error!(SysErrForbidden;
                 "caller {} is not one of supported", self.message().caller()
             ));
@@ -209,7 +209,7 @@ where
         self.get_balance(self.message.to())
     }
 
-    fn resolve_address(&self, address: &Address) -> Result<Address, ActorError> {
+    fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
         self.state
             .lookup_id(&address)
             .map_err(ActorError::new_fatal)

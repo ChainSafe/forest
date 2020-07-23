@@ -247,7 +247,7 @@ where
         }
     }
 
-    pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+    pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())?;
         state_tree.lookup_id(addr).map_err(Error::State)
     }
@@ -256,7 +256,9 @@ where
         let market_state: market::State =
             self.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
 
-        let new_addr = self.lookup_id(addr, ts)?;
+        let new_addr = self
+            .lookup_id(addr, ts)?
+            .ok_or_else(|| Error::State(format!("Failed to resolve address {}", addr)))?;
 
         let out = MarketBalance {
             escrow: {

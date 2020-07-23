@@ -62,8 +62,10 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let resolved = rt
+            // TODO: fatal error not handled here. To match go this will have to be refactored
             .resolve_address(raw)
-            .map_err(|e| format!("failed to resolve address {}", e))?;
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("failed to resolve address {}", raw))?;
 
         let code_cid = rt
             .get_actor_code_cid(&resolved)
