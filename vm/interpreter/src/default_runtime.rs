@@ -215,18 +215,18 @@ where
             .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
 
         let send_res = vm_send::<BS, SYS, P>(self, &msg, None);
-        match send_res {
-            Ok(ret) => {
-                // self.num_actors_created = subrt.num_actors_created;
-                Ok(ret)
+        send_res.map_err(|e| {
+            if let Err(e) = self.state.revert_to_snapshot(&snapshot) {
+                actor_error!(fatal("failed to revert snapshot: {}", e))
+            } else {
+                e
             }
-            Err(e) => {
-                self.state
-                    .revert_to_snapshot(&snapshot)
-                    .map_err(|e| actor_error!(fatal("failed to revert snapshot: {}", e)))?;
-                Err(e)
-            }
-        }
+        })
+    }
+
+    /// TryCreateAccountActor creates account actors from only BLS/SECP256K1 addresses.
+    fn try_create_account_actor(&mut self, addr: Address) -> Result<ActorState, ActorError> {
+        todo!()
     }
 }
 
@@ -539,7 +539,7 @@ where
             Some(act) => act,
             None => {
                 // Try to create actor if not exist
-                todo!()
+                rt.try_create_account_actor(*msg.to())?
             }
         };
 
@@ -594,15 +594,19 @@ fn transfer<BS: BlockStore>(
     let mut f = state
         .get_actor(&from_id)
         .map_err(ActorError::new_fatal)?
-        .ok_or_else(|| actor_error!(fatal(
-            "sender actor does not exist in state during transfer"
-        )))?;
+        .ok_or_else(|| {
+            actor_error!(fatal(
+                "sender actor does not exist in state during transfer"
+            ))
+        })?;
     let mut t = state
         .get_actor(&to_id)
         .map_err(ActorError::new_fatal)?
-        .ok_or_else(|| actor_error!(fatal(
-            "receiver actor does not exist in state during transfer"
-        )))?;
+        .ok_or_else(|| {
+            actor_error!(fatal(
+                "receiver actor does not exist in state during transfer"
+            ))
+        })?;
 
     f.deduct_funds(&value).map_err(|e| {
         actor_error!(SysErrInsufficientFunds; 
@@ -616,7 +620,8 @@ fn transfer<BS: BlockStore>(
     Ok(())
 }
 
-pub fn invoke<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>(
+/// Calls actor code with method and parameters.
+fn invoke<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>(
     rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>,
     code: Cid,
     method_num: MethodNum,
@@ -639,7 +644,7 @@ where
         x if x == *PAYCH_ACTOR_CODE_ID => paych::Actor.invoke_method(rt, method_num, params),
         x if x == *MULTISIG_ACTOR_CODE_ID => multisig::Actor.invoke_method(rt, method_num, params),
         x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params),
-        x if x == *VERIFIED_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
+        x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
         _ => Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to)),
     }
 }

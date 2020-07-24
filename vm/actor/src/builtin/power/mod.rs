@@ -83,7 +83,12 @@ impl Actor {
         let value = rt.message().value_received().clone();
         // TODO update this send, is now outdated
         let addresses: init::ExecReturn = rt
-            .send(*INIT_ACTOR_ADDR, init::Method::Exec as u64, params.clone(), value)?
+            .send(
+                *INIT_ACTOR_ADDR,
+                init::Method::Exec as u64,
+                params.clone(),
+                value,
+            )?
             .deserialize()?;
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {

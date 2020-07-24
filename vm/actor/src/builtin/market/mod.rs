@@ -785,7 +785,7 @@ where
     }
 
     // Storage miner actor entry; implied funds recipient is the associated owner address.
-let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
+    let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
     rt.validate_immediate_caller_is([owner_addr, worker_addr].iter())?;
     Ok((nominal, owner_addr))
 }
