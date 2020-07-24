@@ -1,15 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod commands;
 mod config;
 mod genesis;
-pub mod commands;
-
 
 pub use self::config::Config;
 pub(super) use self::genesis::initialize_genesis;
 pub use commands::*;
 
+use async_trait::async_trait;
 use std::cell::RefCell;
 use std::io;
 use std::process;
@@ -17,7 +17,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
 use utils::{read_file_to_string, read_toml};
-use async_trait::async_trait;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -52,12 +51,8 @@ pub enum Subcommand {
         verbose: bool,
     },
 
-    #[structopt(
-        name = "sync",
-        about = "Inspect or interact with the chain syncer"
-    )]
+    #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
     SyncCommand(SyncCommand),
-
 }
 
 /// Daemon process command line options.

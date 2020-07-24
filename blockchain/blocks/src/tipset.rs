@@ -320,7 +320,6 @@ pub mod tipset_json {
     where
         D: Deserializer<'de>,
     {
-
         let TipsetDe { blocks, .. } = Deserialize::deserialize(deserializer)?;
         Tipset::new(blocks).map_err(de::Error::custom)
     }

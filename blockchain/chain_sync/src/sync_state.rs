@@ -1,9 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::{tipset::tipset_json::{TipsetJsonRef, TipsetJson, self}, Tipset};
+use blocks::{
+    tipset::tipset_json::{self, TipsetJson, TipsetJsonRef},
+    Tipset,
+};
 use clock::ChainEpoch;
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -58,15 +61,15 @@ impl Serialize for SyncStage {
 /// State of a given sync.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SyncState {
-    base: Option<Arc<Tipset>>,
-    target: Option<Arc<Tipset>>,
+    pub base: Option<Arc<Tipset>>,
+    pub target: Option<Arc<Tipset>>,
 
     stage: SyncStage,
-    epoch: ChainEpoch,
+    pub epoch: ChainEpoch,
 
-    start: Option<SystemTime>,
-    end: Option<SystemTime>,
-    message: String,
+    pub start: Option<SystemTime>,
+    pub end: Option<SystemTime>,
+    pub message: String,
 }
 
 impl SyncState {

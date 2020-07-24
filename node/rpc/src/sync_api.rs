@@ -9,12 +9,12 @@ use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RPCSyncState {
     #[serde(rename = "ActiveSyncs")]
-    active_syncs: Vec<SyncState>,
+    pub active_syncs: Vec<SyncState>,
 }
 
 /// Checks if a given block is marked as bad.

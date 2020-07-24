@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{cli::{Subcommand,commands::*}};
+use super::cli::{commands::*, Subcommand};
 use super::paramfetch::{get_params_default, SectorSizeOpt};
 use fil_types::SectorSize;
 
@@ -48,9 +48,9 @@ pub(super) async fn process(command: Subcommand) {
             };
 
             get_params_default(sizes, verbose).await.unwrap();
-        },
-        
-        Subcommand::SyncCommand( s ) => {
+        }
+
+        Subcommand::SyncCommand(s) => {
             s.handle().await;
         }
     }
