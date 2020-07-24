@@ -183,7 +183,7 @@ where
     }
 
     fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        chain::get_heaviest_tipset(self.db.as_ref()).ok()?
+        chain::get_heaviest_tipset(self.db.as_ref()).unwrap()
     }
 
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
@@ -827,7 +827,7 @@ pub mod test_provider {
         }
     }
 
-    fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
+    pub fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         BlockHeader::builder()
             .weight(BigUint::from(weight))
             .cached_bytes(cached_bytes.to_vec())

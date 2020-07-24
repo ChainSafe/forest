@@ -5457,6 +5457,7 @@ dependencies = [
  "forest_libp2p",
  "forest_message",
  "futures 0.3.5",
+ "hex",
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",
@@ -5466,6 +5467,7 @@ dependencies = [
  "serde_json",
  "state_manager",
  "state_tree",
+ "test_utils",
  "thiserror",
  "tide",
 ]

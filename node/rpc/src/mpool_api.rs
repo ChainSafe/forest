@@ -4,38 +4,29 @@
 use crate::RpcState;
 
 use address::Address;
-use blocks::{BlockHeader, Tipset, TipsetKeys};
+use blocks::TipsetKeys;
 use blockstore::BlockStore;
-use cid::json::CidJson;
+use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{
-    signed_message::{self, json::SignedMessageJson},
-    unsigned_message::json::UnsignedMessageJson,
+    signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
-use message_pool::*;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
 use wallet::KeyStore;
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct Pending {
-    #[serde(rename = "Messages", with = "signed_message::json::vec")]
-    pub msgs: Vec<SignedMessage>,
-}
-
 /// Estimate the gas price for an Address
-pub(crate) async fn estimate_gas_price<DB, KS, MP>(
-    data: Data<RpcState<DB, KS, MP>>,
+pub(crate) async fn mpool_estimate_gas_price<DB, KS>(
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(u64, String, u64, TipsetKeys)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
-    MP: Provider + Send + Sync + 'static,
+    // MP: Provider + Send + Sync + 'static,
 {
     let (nblocks, sender_str, gas_limit, tsk) = params;
     let sender = Address::from_str(&sender_str)?;
@@ -46,14 +37,13 @@ where
 }
 
 /// get the sequence of given address in mpool
-pub(crate) async fn get_sequence<DB, KS, MP>(
-    data: Data<RpcState<DB, KS, MP>>,
+pub(crate) async fn mpool_get_sequence<DB, KS>(
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(String,)>,
 ) -> Result<u64, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
-    MP: Provider + Send + Sync + 'static,
 {
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
@@ -62,16 +52,16 @@ where
 }
 
 /// Return Vec of pending messages in mpool
-pub(crate) async fn pending<DB, KS, MP>(
-    data: Data<RpcState<DB, KS, MP>>,
-    Params(params): Params<(TipsetKeys,)>,
-) -> Result<Pending, JsonRpcError>
+pub(crate) async fn mpool_pending<DB, KS>(
+    data: Data<RpcState<DB, KS>>,
+    Params(params): Params<(CidJsonVec,)>,
+) -> Result<Vec<SignedMessage>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
-    MP: Provider + Send + Sync + 'static,
 {
-    let (tsk,) = params;
+    let (CidJsonVec(cid_vec),) = params;
+    let tsk = TipsetKeys::new(cid_vec);
     let mut ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending().await?;
@@ -82,13 +72,13 @@ where
     }
 
     if mpts.epoch() > ts.epoch() {
-        return Ok(Pending { msgs: pending });
+        return Ok(pending);
     }
 
     loop {
         if mpts.epoch() == ts.epoch() {
             if mpts == ts {
-                return Ok(Pending { msgs: pending });
+                return Ok(pending);
             }
 
             // mpts has different blocks than ts
@@ -111,32 +101,21 @@ where
         }
 
         if mpts.epoch() >= ts.epoch() {
-            return Ok(Pending { msgs: pending });
+            return Ok(pending);
         }
 
-        let mut headers: Vec<BlockHeader> = Vec::new();
-        let parents = ts.parents().cids();
-        for cid in parents {
-            let block: BlockHeader = data
-                .store
-                .as_ref()
-                .get(cid)?
-                .ok_or("can't find block with cid")?;
-            headers.push(block);
-        }
-        ts = Tipset::new(headers)?;
+        ts = chain::tipset_from_keys(data.store.as_ref(), ts.parents())?;
     }
 }
 
 /// Add SignedMessage to mpool, return msg CID
-pub(crate) async fn push<DB, KS, MP>(
-    data: Data<RpcState<DB, KS, MP>>,
+pub(crate) async fn mpool_push<DB, KS>(
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(SignedMessageJson,)>,
 ) -> Result<CidJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
-    MP: Provider + Send + Sync + 'static,
 {
     let (SignedMessageJson(smsg),) = params;
 
@@ -145,16 +124,16 @@ where
     Ok(CidJson(cid))
 }
 
-/// Sign given UnsignedMessage and add it ot mpool, return SignedMessage
-pub(crate) async fn push_message<DB, KS, MP>(
-    data: Data<RpcState<DB, KS, MP>>,
+/// Sign given UnsignedMessage and add it to mpool, return SignedMessage
+pub(crate) async fn mpool_push_message<DB, KS>(
+    data: Data<RpcState<DB, KS>>,
     Params(params): Params<(UnsignedMessageJson,)>,
 ) -> Result<SignedMessageJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
-    MP: Provider + Send + Sync + 'static,
 {
+    // TODO handle defaults for sequence, gas limit and gas price
     let (UnsignedMessageJson(umsg),) = params;
 
     let from = umsg.from();
