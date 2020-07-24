@@ -20,21 +20,21 @@ pub struct ChainCommands {
         value_name = "CID",
         help = "Read the raw bytes of an object"
     )]
-    pub read_obj: String,
+    pub read_obj: Option<String>,
 
     #[structopt(
         long = "message",
         value_name = "CIDs",
         help = "Retrieve and print messages by CIDs"
     )]
-    pub messages: String,
+    pub messages: Option<String>,
 
     #[structopt(
         long = "block",
         value_name = "CID",
         help = "Retrieve a block and print its details"
     )]
-    pub block: String,
+    pub block: Option<String>,
 }
 
 impl ChainCommands {
