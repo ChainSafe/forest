@@ -33,7 +33,7 @@ where
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let bz = include_bytes!("devnet.car");
-            let reader = BufReader::new(bz.as_ref());
+            let reader = BufReader::<&[u8]>::new(bz.as_ref());
             process_car(reader, chain_store)?
         }
     };
