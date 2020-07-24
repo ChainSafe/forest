@@ -183,7 +183,9 @@ where
     }
 
     fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        chain::get_heaviest_tipset(self.db.as_ref()).unwrap()
+        chain::get_heaviest_tipset(self.db.as_ref())
+            .ok()
+            .unwrap_or(None)
     }
 
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
