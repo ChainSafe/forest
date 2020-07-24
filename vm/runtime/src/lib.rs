@@ -29,7 +29,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error as StdError;
-use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
@@ -188,7 +188,7 @@ pub trait Syscalls {
             .iter()
             .map(proofs::PieceInfo::try_from)
             .collect::<Result<_, &'static str>>()
-            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))?;
+            .map_err(|e| actor_error!(ErrPlaceholder; e))?;
 
         // pad remaining space with 0 piece commitments
         {
@@ -207,7 +207,7 @@ pub trait Syscalls {
         }
 
         let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)
-            .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e.to_string()))?;
+            .map_err(|e| actor_error!(ErrPlaceholder; e))?;
 
         Ok(data_commitment_v1_to_cid(&comm_d))
     }
