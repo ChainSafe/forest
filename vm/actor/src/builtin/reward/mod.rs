@@ -107,18 +107,18 @@ impl Actor {
         );
 
         rt.send(
-            &miner_addr,
+            miner_addr,
             miner::Method::AddLockedFund as u64,
-            &Serialized::serialize(&BigIntSer(&reward_payable))?,
-            &reward_payable,
+            Serialized::serialize(&BigIntSer(&reward_payable))?,
+            reward_payable,
         )?;
 
         // Burn the penalty
         rt.send(
-            &*BURNT_FUNDS_ACTOR_ADDR,
+            *BURNT_FUNDS_ACTOR_ADDR,
             METHOD_SEND,
-            &Serialized::default(),
-            &penalty,
+            Serialized::default(),
+            penalty.clone(),
         )?;
 
         Ok(())

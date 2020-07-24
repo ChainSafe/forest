@@ -15,6 +15,7 @@ use fil_types::NetworkParams;
 use forest_encoding::Cbor;
 use forest_encoding::{error::Error as EncodingError, to_vec};
 use ipld_blockstore::BlockStore;
+use log::warn;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
 use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
@@ -27,6 +28,9 @@ use vm::{
     EMPTY_ARR_CID, METHOD_SEND,
 };
 
+// TODO this param isn't finalized
+const ACTOR_EXEC_GAS: i64 = 0;
+
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
     state: &'st mut StateTree<'db, BS>,
@@ -37,7 +41,7 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
     epoch: ChainEpoch,
     origin: Address,
     origin_nonce: u64,
-    num_actors_created: u64,
+    pub num_actors_created: u64,
     price_list: PriceList,
     rand: &'r ChainRand,
     caller_validated: bool,
@@ -185,6 +189,45 @@ where
                 Err(other) => actor_error!(fatal("failed to get cbor object: {}", other)),
             })
     }
+
+    fn internal_send(
+        &mut self,
+        from: Address,
+        to: Address,
+        method: MethodNum,
+        value: TokenAmount,
+        params: Serialized,
+    ) -> Result<Serialized, ActorError> {
+        let msg = UnsignedMessage::builder()
+            .from(from)
+            .to(to)
+            .method_num(method)
+            .value(value)
+            .params(params)
+            .gas_limit(self.gas_available())
+            .build()
+            .expect("Message creation fails");
+
+        // snapshot state tree
+        let snapshot = self
+            .state
+            .snapshot()
+            .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
+
+        let send_res = vm_send::<BS, SYS, P>(self, &msg, None);
+        match send_res {
+            Ok(ret) => {
+                // self.num_actors_created = subrt.num_actors_created;
+                Ok(ret)
+            }
+            Err(e) => {
+                self.state
+                    .revert_to_snapshot(&snapshot)
+                    .map_err(|e| actor_error!(fatal("failed to revert snapshot: {}", e)))?;
+                Err(e)
+            }
+        }
+    }
 }
 
 impl<BS, SYS, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, P>
@@ -329,53 +372,27 @@ where
 
     fn send(
         &mut self,
-        to: &Address,
+        to: Address,
         method: MethodNum,
-        params: &Serialized,
-        value: &TokenAmount,
+        params: Serialized,
+        value: TokenAmount,
     ) -> Result<Serialized, ActorError> {
         if !self.allow_internal {
             return Err(actor_error!(SysErrorIllegalActor; "runtime.send() is not allowed"));
         }
 
-        let msg = UnsignedMessage::builder()
-            .to(*to)
-            .from(*self.message.from())
-            .method_num(method)
-            .value(value.clone())
-            .gas_limit(self.gas_available())
-            .params(params.clone())
-            .build()
-            .unwrap();
+        let ret = self
+            .internal_send(*self.message.receiver(), to, method, value, params)
+            .map_err(|e| {
+                warn!(
+                    "internal send failed: (to: {}) (method: {}) {}",
+                    to, method, e
+                );
+                e
+            })?;
+        self.charge_gas(ACTOR_EXEC_GAS)?;
 
-        // snapshot state tree
-        let snapshot = self
-            .state
-            .snapshot()
-            .map_err(|_e| self.abort(ExitCode::ErrPlaceholder, "failed to create snapshot"))?;
-
-        let epoch = self.curr_epoch();
-        let send_res = {
-            let mut parent = DefaultRuntime::new(
-                self.state,
-                self.store.store,
-                self.syscalls.syscalls,
-                self.gas_used(),
-                &msg,
-                epoch,
-                self.origin,
-                self.origin_nonce,
-                self.num_actors_created,
-                self.rand,
-            );
-            internal_send::<BS, SYS, P>(&mut parent, &msg, 0)
-        };
-        if send_res.is_err() {
-            self.state
-                .revert_to_snapshot(&snapshot)
-                .map_err(|_e| self.abort(ExitCode::ErrPlaceholder, "failed to revert snapshot"))?;
-        }
-        send_res
+        Ok(ret)
     }
 
     fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
@@ -484,83 +501,63 @@ where
         Ok(total)
     }
 }
+
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn internal_send<BS, SYS, P>(
-    runtime: &mut DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, P>,
+pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>(
+    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>,
     msg: &UnsignedMessage,
-    _gas_cost: i64,
+    gas_cost: Option<i64>,
 ) -> Result<Serialized, ActorError>
 where
     BS: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
 {
-    runtime.charge_gas(
-        runtime
-            .price_list()
+    if let Some(cost) = gas_cost {
+        rt.charge_gas(cost)?;
+    }
+
+    // TODO maybe move this
+    rt.charge_gas(
+        rt.price_list()
             .on_method_invocation(msg.value(), msg.method_num()),
     )?;
 
-    // TODO: we need to try to recover here and try to create account actor
-    // TODO: actually fix this and don't leave as unwrap for PR
-    let to_actor = runtime
-        .state
-        .get_actor(msg.to())
-        .map_err(ActorError::new_fatal)?
-        .unwrap();
+    {
+        // On get actor gas charge
+        // TODO this value shouldn't be final
+        rt.charge_gas(0)?;
 
-    if msg.value() != &0u8.into() {
-        transfer(runtime.state, &msg.from(), &msg.to(), &msg.value())
-            .map_err(|e| actor_error!(SysErrSenderInvalid; e))?;
-    }
-
-    let method_num = msg.method_num();
-
-    if method_num != METHOD_SEND {
-        let ret = {
-            // TODO: make its own method/struct
-            match to_actor.code {
-                x if x == *SYSTEM_ACTOR_CODE_ID => {
-                    actor::system::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *INIT_ACTOR_CODE_ID => {
-                    actor::init::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *CRON_ACTOR_CODE_ID => {
-                    actor::cron::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *ACCOUNT_ACTOR_CODE_ID => {
-                    actor::account::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *POWER_ACTOR_CODE_ID => {
-                    actor::power::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *MINER_ACTOR_CODE_ID => {
-                    actor::miner::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *MARKET_ACTOR_CODE_ID => {
-                    actor::market::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *PAYCH_ACTOR_CODE_ID => {
-                    actor::paych::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *MULTISIG_ACTOR_CODE_ID => {
-                    actor::multisig::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *REWARD_ACTOR_CODE_ID => {
-                    actor::reward::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                x if x == *VERIFIED_ACTOR_CODE_ID => {
-                    actor::verifreg::Actor.invoke_method(runtime, method_num, msg.params())
-                }
-                _ => Err(
-                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", msg.to()),
-                ),
+        // TODO: we need to try to recover here and try to create account actor
+        // TODO: actually fix this and don't leave as unwrap for PR
+        let to_actor = match rt
+            .state
+            .get_actor(msg.to())
+            .map_err(ActorError::new_fatal)?
+        {
+            Some(act) => act,
+            None => {
+                // Try to create actor if not exist
+                todo!()
             }
         };
-        return ret;
+
+        rt.charge_gas(
+            rt.price_list()
+                .on_method_invocation(msg.value(), msg.method_num()),
+        )?;
+
+        if msg.value() > &TokenAmount::from(0) {
+            transfer(rt.state, &msg.from(), &msg.to(), &msg.value())?;
+        }
+
+        if msg.method_num() != METHOD_SEND {
+            rt.charge_gas(ACTOR_EXEC_GAS)?;
+            return invoke(rt, to_actor.code, msg.method_num(), msg.params(), msg.to());
+        }
     }
+
     Ok(Serialized::default())
 }
 
@@ -570,28 +567,81 @@ fn transfer<BS: BlockStore>(
     from: &Address,
     to: &Address,
     value: &TokenAmount,
-) -> Result<(), String> {
+) -> Result<(), ActorError> {
     if from == to {
         return Ok(());
     }
-    if value < &0u8.into() {
-        return Err("Negative transfer value".to_owned());
+
+    let from_id = state
+        .lookup_id(from)
+        .map_err(ActorError::new_fatal)?
+        .ok_or_else(|| actor_error!(fatal("Failed to lookup from id for address {}", from)))?;
+    let to_id = state
+        .lookup_id(to)
+        .map_err(ActorError::new_fatal)?
+        .ok_or_else(|| actor_error!(fatal("Failed to lookup to id for address {}", to)))?;
+
+    if from_id == to_id {
+        return Ok(());
+    }
+
+    if value < &0.into() {
+        return Err(
+            actor_error!(SysErrForbidden; "attempted to transfer negative transfer value {}", value),
+        );
     }
 
     let mut f = state
-        .get_actor(from)?
-        .ok_or("Transfer failed when retrieving sender actor")?;
+        .get_actor(&from_id)
+        .map_err(ActorError::new_fatal)?
+        .ok_or_else(|| actor_error!(fatal(
+            "sender actor does not exist in state during transfer"
+        )))?;
     let mut t = state
-        .get_actor(to)?
-        .ok_or("Transfer failed when retrieving receiver actor")?;
+        .get_actor(&to_id)
+        .map_err(ActorError::new_fatal)?
+        .ok_or_else(|| actor_error!(fatal(
+            "receiver actor does not exist in state during transfer"
+        )))?;
 
-    f.deduct_funds(&value)?;
+    f.deduct_funds(&value).map_err(|e| {
+        actor_error!(SysErrInsufficientFunds; 
+        "transfer failed when deducting funds ({}): {}", value, e)
+    })?;
     t.deposit_funds(&value);
 
-    state.set_actor(from, f)?;
-    state.set_actor(to, t)?;
+    state.set_actor(from, f).map_err(ActorError::new_fatal)?;
+    state.set_actor(to, t).map_err(ActorError::new_fatal)?;
 
     Ok(())
+}
+
+pub fn invoke<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>(
+    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>,
+    code: Cid,
+    method_num: MethodNum,
+    params: &Serialized,
+    to: &Address,
+) -> Result<Serialized, ActorError>
+where
+    BS: BlockStore,
+    SYS: Syscalls,
+    P: NetworkParams,
+{
+    match code {
+        x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params),
+        x if x == *INIT_ACTOR_CODE_ID => init::Actor.invoke_method(rt, method_num, params),
+        x if x == *CRON_ACTOR_CODE_ID => cron::Actor.invoke_method(rt, method_num, params),
+        x if x == *ACCOUNT_ACTOR_CODE_ID => account::Actor.invoke_method(rt, method_num, params),
+        x if x == *POWER_ACTOR_CODE_ID => power::Actor.invoke_method(rt, method_num, params),
+        x if x == *MINER_ACTOR_CODE_ID => miner::Actor.invoke_method(rt, method_num, params),
+        x if x == *MARKET_ACTOR_CODE_ID => market::Actor.invoke_method(rt, method_num, params),
+        x if x == *PAYCH_ACTOR_CODE_ID => paych::Actor.invoke_method(rt, method_num, params),
+        x if x == *MULTISIG_ACTOR_CODE_ID => multisig::Actor.invoke_method(rt, method_num, params),
+        x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params),
+        x if x == *VERIFIED_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
+        _ => Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to)),
+    }
 }
 
 /// Returns public address of the specified actor address

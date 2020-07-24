@@ -147,13 +147,13 @@ impl Actor {
 
         if let Some(extra) = &sv.extra {
             rt.send(
-                &extra.actor,
+                extra.actor,
                 extra.method,
-                &Serialized::serialize(PaymentVerifyParams {
+                Serialized::serialize(PaymentVerifyParams {
                     extra: extra.data.clone(),
                     proof: params.proof,
                 })?,
-                &TokenAmount::from(0u8),
+                TokenAmount::from(0u8),
             )?;
         }
 
@@ -307,10 +307,10 @@ impl Actor {
             })?;
 
         // send remaining balance to `from`
-        rt.send(&st.from, METHOD_SEND, &Serialized::default(), &rem_bal)?;
+        rt.send(st.from, METHOD_SEND, Serialized::default(), rem_bal)?;
 
         // send ToSend to `to`
-        rt.send(&st.to, METHOD_SEND, &Serialized::default(), &st.to_send)?;
+        rt.send(st.to, METHOD_SEND, Serialized::default(), st.to_send)?;
 
         rt.transaction(|st: &mut State, _| {
             st.to_send = TokenAmount::from(0u8);

@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{gas_tracker::price_list_by_epoch, internal_send, ChainRand, DefaultRuntime};
+use super::{gas_tracker::price_list_by_epoch, vm_send, ChainRand, DefaultRuntime};
 use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
@@ -372,11 +372,10 @@ where
             self.rand,
         );
 
-        let ser = match internal_send(&mut rt, msg, gas_cost) {
-            Ok(ser) => ser,
-            Err(actor_err) => return (Serialized::default(), rt, Some(actor_err)),
-        };
-        (ser, rt, None)
+        match vm_send(&mut rt, msg, Some(gas_cost)) {
+            Ok(ser) => (ser, rt, None),
+            Err(actor_err) => (Serialized::default(), rt, Some(actor_err)),
+        }
     }
 }
 

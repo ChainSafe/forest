@@ -7,7 +7,7 @@ use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
 use fil_types::DevnetParams;
-use interpreter::{internal_send, ChainRand, DefaultRuntime, DefaultSyscalls};
+use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
@@ -108,7 +108,7 @@ fn transfer_test() {
         0,
         &dummy_rand,
     );
-    let _serialized = internal_send(&mut runtime, &message, 0).unwrap();
+    let _serialized = vm_send(&mut runtime, &message, None).unwrap();
 
     let actor_state_result_1 = state.get_actor(&actor_addr_1).unwrap().unwrap();
     let actor_state_result_2 = state.get_actor(&actor_addr_2).unwrap().unwrap();

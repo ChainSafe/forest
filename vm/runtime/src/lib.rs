@@ -100,10 +100,10 @@ pub trait Runtime<BS: BlockStore> {
     /// (and that of any messages it sent in turn) will be rolled back.
     fn send(
         &mut self,
-        to: &Address,
+        to: Address,
         method: MethodNum,
-        params: &Serialized,
-        value: &TokenAmount,
+        params: Serialized,
+        value: TokenAmount,
     ) -> Result<Serialized, ActorError>;
 
     /// Halts execution upon an error from which the receiver cannot recover.

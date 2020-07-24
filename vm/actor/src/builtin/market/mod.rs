@@ -155,17 +155,17 @@ impl Actor {
         // TODO this will never be hit
         if amount_slashed_total > BigInt::zero() {
             rt.send(
-                &*BURNT_FUNDS_ACTOR_ADDR,
+                *BURNT_FUNDS_ACTOR_ADDR,
                 METHOD_SEND,
-                &Serialized::default(),
-                &amount_slashed_total,
+                Serialized::default(),
+                amount_slashed_total,
             )?;
         }
         rt.send(
-            &recipient,
+            recipient,
             METHOD_SEND,
-            &Serialized::default(),
-            &amount_extracted,
+            Serialized::default(),
+            amount_extracted,
         )?;
         Ok(())
     }
@@ -195,7 +195,7 @@ impl Actor {
             || actor_error!(ErrNotFound; "failed to resolve provider address {}", provider_raw),
         )?;
 
-        let (_, worker) = request_miner_control_addrs(rt, &provider)?;
+        let (_, worker) = request_miner_control_addrs(rt, provider)?;
         if &worker != rt.message().caller() {
             return Err(ActorError::new(
                 ExitCode::ErrForbidden,
@@ -213,10 +213,10 @@ impl Actor {
                     deal_size: BigInt::from(deal.proposal.piece_size.0),
                 })?;
                 rt.send(
-                    &*VERIFIED_REGISTRY_ACTOR_ADDR,
+                    *VERIFIED_REGISTRY_ACTOR_ADDR,
                     VerifregMethod::UseBytes as u64,
-                    &ser_params,
-                    &TokenAmount::zero(),
+                    ser_params,
+                    TokenAmount::zero(),
                 )?;
             }
         }
@@ -617,18 +617,18 @@ impl Actor {
                 deal_size: BigInt::from(d.piece_size.0),
             })?;
             rt.send(
-                &*VERIFIED_REGISTRY_ACTOR_ADDR,
+                *VERIFIED_REGISTRY_ACTOR_ADDR,
                 VerifregMethod::RestoreBytes as u64,
-                &ser_params,
-                &TokenAmount::zero(),
+                ser_params,
+                TokenAmount::zero(),
             )?;
         }
 
         rt.send(
-            &*BURNT_FUNDS_ACTOR_ADDR,
+            *BURNT_FUNDS_ACTOR_ADDR,
             METHOD_SEND,
-            &Serialized::default(),
-            &amount_slashed,
+            Serialized::default(),
+            amount_slashed,
         )?;
         Ok(())
     }
@@ -785,7 +785,7 @@ where
     }
 
     // Storage miner actor entry; implied funds recipient is the associated owner address.
-    let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
+let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
     rt.validate_immediate_caller_is([owner_addr, worker_addr].iter())?;
     Ok((nominal, owner_addr))
 }

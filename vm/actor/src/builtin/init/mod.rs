@@ -87,10 +87,10 @@ impl Actor {
 
         // Invoke constructor
         rt.send(
-            &id_address,
+            id_address,
             METHOD_CONSTRUCTOR,
-            &params.constructor_params,
-            &rt.message().value_received().clone(),
+            params.constructor_params,
+            rt.message().value_received().clone(),
         )
         .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))?;
 
