@@ -381,16 +381,20 @@ where
 
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
-pub fn state_wait_msg<DB>(
+pub fn state_wait_msg<DB: BlockStore + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     cid: &Cid,
     confidence: i64,
-) -> Result<MessageLookup, BoxError>
-where
-    DB: BlockStore,
-{
-    let (tipset, receipt) = task::block_on(state_manager.wait_for_message(cid, confidence))?;
-    let tipset = tipset.ok_or_else(|| "wait for msg returned empty tipset")?;
-    let receipt = receipt.ok_or_else(|| "wait for msg returned empty tipset")?;
+) -> Result<MessageLookup, BoxError> {
+    let block_store = state_manager.get_block_store();
+    let subscriber = state_manager.get_subscriber();
+    let (tipset, receipt) = task::block_on(StateManager::wait_for_message(
+        block_store,
+        subscriber,
+        cid,
+        confidence,
+    ))?;
+    let tipset = tipset.ok_or_else(|| "wait _for_msg returned empty tipset")?;
+    let receipt = receipt.ok_or_else(|| "wait_for_msg returned empty message receipt")?;
     Ok(MessageLookup { receipt, tipset })
 }

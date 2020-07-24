@@ -10,7 +10,7 @@ use actor::{
 };
 use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
 use async_log::span;
-use async_std::sync::RwLock;
+use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use chain::{block_messages, get_heaviest_tipset, ChainStore, HeadChange};
@@ -25,7 +25,7 @@ use futures::*;
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
-use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
+use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -147,6 +147,10 @@ where
                 "Failed to retrieve claimed power from actor state".to_owned(),
             ))
         }
+    }
+
+    pub fn get_subscriber(&self) -> &Option<Subscriber<HeadChange>> {
+        &self.subscriber
     }
 
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
@@ -370,48 +374,67 @@ where
     }
 
     fn search_back_for_message(
-        &self,
+        block_store: Arc<DB>,
         current: &Tipset,
-        message: &ChainMessage,
-    ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
+        (message_from_address, message_cid, message_sequence): (&Address, &Cid, &u64),
+    ) -> Result<Option<(Tipset, MessageReceipt)>, Error>
+    where
+        DB: BlockStore,
+    {
         if current.epoch() == 0 {
             return Ok(None);
         }
+        let state = StateTree::new_from_root(&*block_store, current.parent_state())
+            .map_err(Error::State)?;
 
-        if let Some(actor_state) = self.get_actor(message.from(), current.parent_state())? {
-            if actor_state.sequence == 0 || actor_state.sequence < message.sequence() {
+        if let Some(actor_state) = state
+            .get_actor(message_from_address)
+            .map_err(Error::State)?
+        {
+            if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
                 return Ok(None);
             }
         }
 
-        let tipset = chain::tipset_from_keys(self.get_block_store_ref(), current.parents())
-            .map_err(|err| {
-                Error::Other(format!(
-                    "failed to load tipset during msg wait searchback: {:}",
-                    err
-                ))
-            })?;
-        let cid = message
-            .cid()
-            .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
-        let r = self.tipset_executed_message(&tipset, &cid, message)?;
+        let tipset = chain::tipset_from_keys(&*block_store, current.parents()).map_err(|err| {
+            Error::Other(format!(
+                "failed to load tipset during msg wait searchback: {:}",
+                err
+            ))
+        })?;
+        let r = Self::tipset_executed_message(
+            &*block_store,
+            &tipset,
+            message_cid,
+            (message_from_address, message_sequence),
+        )?;
 
         if let Some(receipt) = r {
             return Ok(Some((tipset, receipt)));
         }
-        self.search_back_for_message(&tipset, message)
+        Self::search_back_for_message(
+            block_store,
+            &tipset,
+            (message_from_address, message_cid, message_sequence),
+        )
     }
     /// returns a message receipt from a given tipset and message cid
     pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
         let m = chain::get_chain_message(self.get_block_store_ref(), msg)
             .map_err(|e| Error::Other(e.to_string()))?;
-        let message_receipt = self.tipset_executed_message(tipset, msg, &m)?;
+        let message_var = (m.from(), &m.sequence());
+        let message_receipt =
+            Self::tipset_executed_message(self.get_block_store_ref(), tipset, msg, message_var)?;
 
         if let Some(receipt) = message_receipt {
             return Ok(receipt);
         }
-
-        let maybe_tuple = self.search_back_for_message(tipset, &m)?;
+        let cid = m
+            .cid()
+            .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
+        let message_var = (m.from(), &cid, &m.sequence());
+        let maybe_tuple =
+            Self::search_back_for_message(self.get_block_store(), tipset, message_var)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -421,29 +444,32 @@ where
     }
 
     fn tipset_executed_message(
-        &self,
+        block_store: &DB,
         tipset: &Tipset,
         cid: &Cid,
-        message: &ChainMessage,
-    ) -> Result<Option<MessageReceipt>, Error> {
+        (message_from_address, message_sequence): (&Address, &u64),
+    ) -> Result<Option<MessageReceipt>, Error>
+    where
+        DB: BlockStore,
+    {
         if tipset.epoch() == 0 {
             return Ok(None);
         }
-        let tipset = chain::tipset_from_keys(self.get_block_store_ref(), tipset.parents())
+        let tipset = chain::tipset_from_keys(block_store, tipset.parents())
             .map_err(|err| Error::Other(err.to_string()))?;
-        let messages = chain::messages_for_tipset(self.get_block_store_ref(), &tipset)
+        let messages = chain::messages_for_tipset(block_store, &tipset)
             .map_err(|err| Error::Other(err.to_string()))?;
         messages
             .iter()
             .enumerate()
             .rev()
-            .filter(|(_, s)| s.from() == message.from())
+            .filter(|(_, s)| s.from() == message_from_address)
             .filter_map(|(index,s)| {
-                if s.sequence() == message.sequence() {
+                if s.sequence() == *message_sequence {
                     if s.cid().map(|s| &s == cid).unwrap_or_default() {
                         return Some(
                             chain::get_parent_reciept(
-                                self.get_block_store_ref(),
+                                block_store,
                                 tipset.blocks().first().unwrap(),
                                 index as u64,
                             )
@@ -452,10 +478,10 @@ where
                             }),
                         );
                     }
-                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message.sequence(), s.sequence());
+                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message_sequence, s.sequence());
                     return Some(Err(Error::Other(error_msg)))
                 }
-                if s.sequence() < message.sequence() {
+                if s.sequence() < *message_sequence {
                     return Some(Ok(None));
                 }
 
@@ -469,15 +495,19 @@ where
     /// happened. It guarantees that the message has been on chain for at least confidence epochs without being reverted
     /// before returning.
     pub async fn wait_for_message(
-        &self,
+        block_store: Arc<DB>,
+        subscriber: &Option<Subscriber<HeadChange>>,
         cid: &Cid,
         confidence: i64,
-    ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error> {
-        let mut subscribers = self.subscriber.clone().ok_or_else(|| {
+    ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>
+    where
+        DB: BlockStore + Send + Sync + 'static,
+    {
+        let mut subscribers = subscriber.clone().ok_or_else(|| {
             Error::Other("State Manager not subscribed to tipset head changes".to_string())
         })?;
-        let (sender, receiver) = oneshot::channel::<()>();
-        let message = chain::get_chain_message(self.get_block_store_ref(), cid)
+        let (sender, mut receiver) = oneshot::channel::<()>();
+        let message = chain::get_chain_message(&*block_store, cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
         let maybe_subscriber: Option<HeadChange> = subscribers.next().await;
@@ -494,44 +524,43 @@ where
                 )))
             }
         };
-        let maybe_message_reciept = self.tipset_executed_message(&tipset, cid, &message)?;
+        let message_var = (message.from(), &message.sequence());
+        let maybe_message_reciept =
+            Self::tipset_executed_message(&*block_store, &tipset, cid, message_var)?;
         if let Some(r) = maybe_message_reciept {
             return Ok((Some(tipset.clone()), Some(r)));
         }
 
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
         let mut candidate_receipt: Option<MessageReceipt> = None;
-        let mut back_tipset: Option<Tipset> = None;
-        let mut back_receipt: Option<MessageReceipt> = None;
-        async {
-            let (back_t, back_r) = self
-                .search_back_for_message(&tipset, &message)?
-                .ok_or_else(|| {
-                    Error::Other("State manager not subscribed to back search wait".to_string())
-                })?;
-            back_tipset = Some(back_t);
-            back_receipt = Some(back_r);
+
+        let block_store_for_message = block_store.clone();
+        let cid = message
+            .cid()
+            .map_err(|e| Error::Other(format!("Could not get cid from message {:?}", e)))?;
+
+        let cid_for_task = cid.clone();
+        let address_for_task = *message.from();
+        let sequence_for_task = message.sequence();
+        let height_of_head = tipset.epoch();
+        let task = task::spawn(async move {
+            let (back_t, back_r) = Self::search_back_for_message(
+                block_store_for_message,
+                &tipset,
+                (&address_for_task, &cid_for_task, &sequence_for_task),
+            )?
+            .ok_or_else(|| {
+                Error::Other("State manager not subscribed to back search wait".to_string())
+            })?;
+            let back_tuple = (back_t, back_r);
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
-            Ok::<(), Error>(())
-        }
-        .await?;
+            Ok::<_, Error>(back_tuple)
+        });
 
-        let height_of_head = tipset.epoch();
         let mut reverts: HashMap<TipsetKeys, bool> = HashMap::new();
-        let mut back_search_recieved = None;
-        async {
-            back_search_recieved =
-                Some(receiver.await.map_err(|e| {
-                    Error::Other(format!("Could not receieve from channel {:?}", e))
-                })?);
-            Ok::<(), Error>(())
-        }
-        .await?;
-
-        while let Some(subscriber) = self
-            .subscriber
+        while let Some(subscriber) = subscriber
             .clone()
             .ok_or_else(|| {
                 Error::Other("State Manager not subscribed to tipset head changes".to_string())
@@ -554,11 +583,16 @@ where
                     {
                         return Ok((candidate_tipset, candidate_receipt));
                     }
-                    if back_search_recieved.is_some() {
+                    let poll_receiver = receiver.try_recv().map_err(|e| {
+                        Error::Other(format!("Could not receieve from channel {:?}", e))
+                    })?;
+                    if poll_receiver.is_some() {
                         reverts.insert(tipset.key().to_owned(), true);
                     }
 
-                    let maybe_receipt = self.tipset_executed_message(&tipset, cid, &message)?;
+                    let message_var = (message.from(), &message.sequence());
+                    let maybe_receipt =
+                        Self::tipset_executed_message(&*block_store, &tipset, &cid, message_var)?;
                     if let Some(receipt) = maybe_receipt {
                         if confidence == 0 {
                             return Ok((Some(tipset), Some(receipt)));
@@ -570,21 +604,18 @@ where
                 _ => (),
             }
         }
-
-        if back_search_recieved.is_some() {
-            let should_revert = back_tipset
-                .as_ref()
-                .map(|b| reverts.get(b.key()).unwrap_or(&false))
-                .unwrap_or(&false);
-            let larger_height_of_head = back_tipset
-                .as_ref()
-                .map(|b| height_of_head >= b.epoch() + confidence)
-                .unwrap_or(false);
+        let (back_tipset, back_receipt) = task.await?;
+        if receiver
+            .try_recv()
+            .map_err(|e| Error::Other(format!("Could not receieve from channel {:?}", e)))?
+            .is_some()
+        {
+            let should_revert = reverts.get(back_tipset.key()).unwrap_or(&false);
+            let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
             if !should_revert && larger_height_of_head {
-                return Ok((back_tipset.map(Arc::new), back_receipt));
+                return Ok((Some(Arc::new(back_tipset)), Some(back_receipt)));
             }
         }
-
         Ok((None, None))
     }
 
