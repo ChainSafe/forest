@@ -76,12 +76,10 @@ fn transfer_test() {
         0,
     );
 
-    let actor_addr_1 = state
-        .register_new_address(&actor_addr_1, actor_state_1)
-        .unwrap();
-    let actor_addr_2 = state
-        .register_new_address(&actor_addr_2, actor_state_2)
-        .unwrap();
+    let actor_addr_1 = state.register_new_address(&actor_addr_1).unwrap();
+    let actor_addr_2 = state.register_new_address(&actor_addr_2).unwrap();
+    state.set_actor(&actor_addr_1, actor_state_1).unwrap();
+    state.set_actor(&actor_addr_2, actor_state_2).unwrap();
 
     let message = UnsignedMessage::builder()
         .to(actor_addr_1.clone())

@@ -144,11 +144,7 @@ where
     }
 
     /// Register a new address through the init actor.
-    pub fn register_new_address(
-        &mut self,
-        addr: &Address,
-        actor: ActorState,
-    ) -> Result<Address, String> {
+    pub fn register_new_address(&mut self, addr: &Address) -> Result<Address, String> {
         let mut init_act: ActorState = self
             .get_actor(&INIT_ACTOR_ADDR)?
             .ok_or("Could not retrieve init actor")?;
@@ -173,9 +169,6 @@ where
             .map_err(|e| e.to_string())?;
 
         self.set_actor(&INIT_ACTOR_ADDR, init_act)?;
-
-        // After mutating the init actor, set the state at the ID address created
-        self.set_actor(&new_addr, actor)?;
 
         Ok(new_addr)
     }

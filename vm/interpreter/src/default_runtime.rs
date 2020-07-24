@@ -224,9 +224,43 @@ where
         })
     }
 
-    /// TryCreateAccountActor creates account actors from only BLS/SECP256K1 addresses.
-    fn try_create_account_actor(&mut self, addr: Address) -> Result<ActorState, ActorError> {
-        todo!()
+    /// creates account actors from only BLS/SECP256K1 addresses.
+    pub fn try_create_account_actor(&mut self, addr: &Address) -> Result<ActorState, ActorError> {
+        self.charge_gas(self.price_list().on_create_actor())?;
+
+        let addr_id = self
+            .state
+            .register_new_address(addr)
+            .map_err(ActorError::new_fatal)?;
+
+        let act = make_actor(addr)?;
+
+        self.state
+            .set_actor(&addr_id, act)
+            .map_err(ActorError::new_fatal)?;
+
+        let p = Serialized::serialize(&addr).map_err(|e| {
+            actor_error!(fatal(
+                "couldn't serialize params for actor construction: {}",
+                e
+            ))
+        })?;
+
+        self.internal_send(
+            *SYSTEM_ACTOR_ADDR,
+            addr_id,
+            account::Method::Constructor as u64,
+            TokenAmount::from(0),
+            p,
+        )?;
+
+        let act = self
+            .state
+            .get_actor(&addr_id)
+            .map_err(ActorError::new_fatal)?
+            .ok_or_else(|| actor_error!(fatal("failed to retrieve created actor state")))?;
+
+        Ok(act)
     }
 }
 
@@ -539,7 +573,7 @@ where
             Some(act) => act,
             None => {
                 // Try to create actor if not exist
-                rt.try_create_account_actor(*msg.to())?
+                rt.try_create_account_actor(msg.to())?
             }
         };
 
@@ -609,7 +643,7 @@ fn transfer<BS: BlockStore>(
         })?;
 
     f.deduct_funds(&value).map_err(|e| {
-        actor_error!(SysErrInsufficientFunds; 
+        actor_error!(SysErrInsufficientFunds;
         "transfer failed when deducting funds ({}): {}", value, e)
     })?;
     t.deposit_funds(&value);
@@ -690,4 +724,33 @@ where
         })?;
 
     Ok(acc_st.address)
+}
+
+fn make_actor(addr: &Address) -> Result<ActorState, ActorError> {
+    match addr.protocol() {
+        Protocol::BLS => Ok(new_bls_account_actor()),
+        Protocol::Secp256k1 => Ok(new_secp256k1_account_actor()),
+        Protocol::ID => {
+            Err(actor_error!(SysErrInvalidReceiver; "no actor with given id: {}", addr))
+        }
+        Protocol::Actor => Err(actor_error!(SysErrInvalidReceiver; "no such actor: {}", addr)),
+    }
+}
+
+fn new_bls_account_actor() -> ActorState {
+    ActorState {
+        code: ACCOUNT_ACTOR_CODE_ID.clone(),
+        balance: TokenAmount::from(0),
+        state: EMPTY_ARR_CID.clone(),
+        sequence: 0,
+    }
+}
+
+fn new_secp256k1_account_actor() -> ActorState {
+    ActorState {
+        code: ACCOUNT_ACTOR_CODE_ID.clone(),
+        balance: TokenAmount::from(0),
+        state: EMPTY_ARR_CID.clone(),
+        sequence: 0,
+    }
 }
