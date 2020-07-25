@@ -31,6 +31,24 @@ use vm::{
 // TODO this param isn't finalized
 const ACTOR_EXEC_GAS: i64 = 0;
 
+struct VMMsg {
+    caller: Address,
+    receiver: Address,
+    value_received: TokenAmount,
+}
+
+impl MessageInfo for VMMsg {
+    fn caller(&self) -> &Address {
+        &self.caller
+    }
+    fn receiver(&self) -> &Address {
+        &self.receiver
+    }
+    fn value_received(&self) -> &TokenAmount {
+        &self.value_received
+    }
+}
+
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
     state: &'st mut StateTree<'db, BS>,
@@ -38,10 +56,11 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
     syscalls: GasSyscalls<'sys, SYS>,
     gas_tracker: Rc<RefCell<GasTracker>>,
     message: &'msg UnsignedMessage,
+    vm_msg: VMMsg,
     epoch: ChainEpoch,
     origin: Address,
     origin_nonce: u64,
-    pub num_actors_created: u64,
+    num_actors_created: u64,
     price_list: PriceList,
     rand: &'r ChainRand,
     caller_validated: bool,
@@ -68,7 +87,7 @@ where
         origin_nonce: u64,
         num_actors_created: u64,
         rand: &'r ChainRand,
-    ) -> Self {
+    ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
         let gas_block_store = GasBlockStore {
@@ -81,12 +100,27 @@ where
             gas: Rc::clone(&gas_tracker),
             syscalls,
         };
-        DefaultRuntime {
+
+        let caller_id = state
+            .lookup_id(&message.from())
+            .map_err(|e| actor_error!(fatal("failed to lookup id: {}", e)))?
+            .ok_or_else(
+                || actor_error!(SysErrInvalidReceiver; "resolve msg from address failed"),
+            )?;
+
+        let vm_msg = VMMsg {
+            caller: caller_id,
+            receiver: *message.receiver(),
+            value_received: message.value_received().clone(),
+        };
+
+        Ok(DefaultRuntime {
             state,
             store: gas_block_store,
             syscalls: gas_syscalls,
             gas_tracker,
             message,
+            vm_msg,
             epoch,
             origin,
             origin_nonce,
@@ -96,7 +130,7 @@ where
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
-        }
+        })
     }
 
     /// Adds to amount of used
@@ -271,7 +305,7 @@ where
     P: NetworkParams,
 {
     fn message(&self) -> &dyn MessageInfo {
-        self.message
+        &self.vm_msg
     }
     fn curr_epoch(&self) -> ChainEpoch {
         self.epoch
@@ -683,7 +717,8 @@ where
     }
 }
 
-/// Returns public address of the specified actor address
+/// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
+/// identified by `addr`.
 pub fn resolve_to_key_addr<'st, 'bs, BS, S>(
     st: &'st StateTree<'bs, S>,
     store: &'bs BS,

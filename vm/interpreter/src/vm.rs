@@ -301,7 +301,9 @@ where
 
         // scoped to deal with mutable reference borrowing
         let (ret_data, gas_used, act_err) = {
-            let (ret_data, mut rt, act_err) = self.send(msg, msg_gas_cost);
+            let (ret_data, rt, act_err) = self.send(msg, msg_gas_cost);
+            // TODO update this
+            let mut rt = rt.unwrap();
             rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
                 .map_err(|e| e.to_string())?;
             (ret_data, rt.gas_used(), act_err)
@@ -356,10 +358,10 @@ where
         gas_cost: i64,
     ) -> (
         Serialized,
-        DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, P>,
+        Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, P>>,
         Option<ActorError>,
     ) {
-        let mut rt = DefaultRuntime::new(
+        let res = DefaultRuntime::new(
             &mut self.state,
             self.store,
             &self.syscalls,
@@ -372,9 +374,12 @@ where
             self.rand,
         );
 
-        match vm_send(&mut rt, msg, Some(gas_cost)) {
-            Ok(ser) => (ser, rt, None),
-            Err(actor_err) => (Serialized::default(), rt, Some(actor_err)),
+        match res {
+            Ok(mut rt) => match vm_send(&mut rt, msg, Some(gas_cost)) {
+                Ok(ser) => (ser, Some(rt), None),
+                Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
+            },
+            Err(e) => (Serialized::default(), None, Some(e)),
         }
     }
 }
