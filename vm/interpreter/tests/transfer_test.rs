@@ -105,7 +105,8 @@ fn transfer_test() {
         0,
         0,
         &dummy_rand,
-    ).unwrap();
+    )
+    .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();
 
     let actor_state_result_1 = state.get_actor(&actor_addr_1).unwrap().unwrap();
