@@ -25,10 +25,18 @@ impl SignedMessage {
         Ok(SignedMessage { message, signature })
     }
 
-    /// Construct a new SignedMessage given an UnsignedMessage and Signature
-    pub fn new_from_parts(message: UnsignedMessage, signature: Signature) -> Self {
-        SignedMessage { message, signature }
+    /// Generate a new signed message from fields
+    pub fn new_from_parts(
+        message: UnsignedMessage,
+        signature: Signature,
+    ) -> Result<SignedMessage, String> {
+        signature.verify(
+            &message.marshal_cbor().map_err(|err| err.to_string())?,
+            message.from(),
+        )?;
+        Ok(SignedMessage { message, signature })
     }
+
     /// Returns reference to the unsigned message.
     pub fn message(&self) -> &UnsignedMessage {
         &self.message

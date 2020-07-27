@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, initialize_genesis, Config};
+use async_std::sync::RwLock;
 use async_std::task;
 use beacon::DrandBeacon;
 use chain::ChainStore;
@@ -13,6 +14,7 @@ use log::{debug, info, trace};
 use rpc::{start_rpc, RpcState};
 use std::sync::Arc;
 use utils::write_to_file;
+use wallet::MemKeyStore;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -38,6 +40,7 @@ pub(super) async fn start(config: Config) {
     let mut db = RocksDb::new(config.data_dir + "/db");
     db.open().unwrap();
     let db = Arc::new(db);
+    let keystore = Arc::new(RwLock::new(MemKeyStore::new()));
     let mut chain_store = ChainStore::new(Arc::clone(&db));
 
     // Read Genesis file
@@ -80,12 +83,14 @@ pub(super) async fn start(config: Config) {
 
     let rpc_task = if config.enable_rpc {
         let db_rpc = Arc::clone(&db);
+        let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(
                 RpcState {
                     store: db_rpc,
+                    keystore: keystore_rpc,
                     bad_blocks,
                     sync_state,
                     network_send,

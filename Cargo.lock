@@ -2320,6 +2320,7 @@ dependencies = [
  "futures 0.3.5",
  "hex",
  "ipld_blockstore",
+ "key_management",
  "libp2p",
  "log",
  "pbr",
@@ -3412,12 +3413,14 @@ dependencies = [
 name = "key_management"
 version = "0.1.0"
 dependencies = [
+ "base64 0.12.3",
  "bls-signatures",
  "forest_address",
  "forest_crypto",
  "forest_encoding",
  "libsecp256k1",
  "rand 0.7.3",
+ "serde",
  "thiserror",
 ]
 
@@ -5445,6 +5448,8 @@ dependencies = [
  "chain_sync",
  "clock",
  "db",
+ "forest_address",
+ "forest_bigint",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
@@ -5454,9 +5459,13 @@ dependencies = [
  "futures 0.3.5",
  "ipld_blockstore",
  "jsonrpc-v2",
+ "key_management",
  "num-traits 0.2.12",
  "serde",
  "serde_json",
+ "state_manager",
+ "state_tree",
+ "thiserror",
  "tide",
 ]
 
@@ -5825,6 +5834,7 @@ name = "serialization_tests"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
+ "bls-signatures",
  "fil_types",
  "forest_address",
  "forest_blocks",

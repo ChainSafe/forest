@@ -503,7 +503,8 @@ async fn recover_sig(
     let val = bls_sig_cache
         .get(&msg.cid()?)
         .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
-    Ok(SignedMessage::new_from_parts(msg, val.clone()))
+    let smsg = SignedMessage::new_from_parts(msg, val.clone()).map_err(Error::Other)?;
+    Ok(smsg)
 }
 
 /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
@@ -777,7 +778,7 @@ mod tests {
             .unwrap();
         let message_cbor = Cbor::marshal_cbor(&umsg).unwrap();
         let sig = wallet.sign(&from, message_cbor.as_slice()).unwrap();
-        SignedMessage::new_from_parts(umsg, sig)
+        SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
 
     fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {

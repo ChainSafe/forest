@@ -738,7 +738,7 @@ where
         .ok_or_else(|| actor_error!(SysErrInternal; "Failed to retrieve actor: {}", addr))?;
 
     if act.code != *ACCOUNT_ACTOR_CODE_ID {
-        return Err(ActorError::new_fatal(format!(
+        return Err(actor_error!(fatal(
             "Address was not found for an account actor: {}",
             addr
         )));
@@ -746,13 +746,14 @@ where
     let acc_st: account::State = store
         .get(&act.state)
         .map_err(|e| {
-            ActorError::new_fatal(format!(
+            actor_error!(fatal(
                 "Failed to get account actor state for: {}, e: {}",
-                addr, e
+                addr,
+                e
             ))
         })?
         .ok_or_else(|| {
-            ActorError::new_fatal(format!(
+            actor_error!(fatal(
                 "Address was not found for an account actor: {}",
                 addr
             ))

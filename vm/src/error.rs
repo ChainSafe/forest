@@ -89,7 +89,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serialize_symmetric() {
+    fn error_macro_generation() {
         assert_eq!(
             actor_error!(SysErrSenderInvalid; "test"),
             ActorError::new(ExitCode::SysErrSenderInvalid, "test".to_owned())
@@ -97,6 +97,10 @@ mod tests {
         assert_eq!(
             actor_error!(SysErrSenderInvalid; "test {}, {}", 8, 10),
             ActorError::new(ExitCode::SysErrSenderInvalid, format!("test {}, {}", 8, 10))
+        );
+        assert_eq!(
+            actor_error!(fatal("test {}, {}", 8, 10)),
+            ActorError::new_fatal(format!("test {}, {}", 8, 10))
         );
     }
 }

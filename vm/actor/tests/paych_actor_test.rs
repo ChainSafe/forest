@@ -80,7 +80,7 @@ mod paych_constructor {
     #[test]
     fn actor_doesnt_exist_test() {
         let mut rt = construct_runtime();
-        rt.expect_validate_caller_type(vec![INIT_ACTOR_CODE_ID.clone()]);
+        rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
         let params = ConstructorParams {
             to: Address::new_id(TEST_PAYCH_ADDR),
             from: Address::new_id(TEST_PAYER_ADDR),
@@ -137,7 +137,7 @@ mod paych_constructor {
                 ..Default::default()
             };
 
-            rt.expect_validate_caller_type(vec![INIT_ACTOR_CODE_ID.clone()]);
+            rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
             let params = ConstructorParams {
                 to: test_case.paych_addr,
                 from: Address::new_id(10001),
