@@ -1,12 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{
-    miner::{
-        compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault,
-        MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
-    },
-    power::Claim,
+use actor::miner::{
+    compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault, MinerInfo,
+    SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
 };
 use address::Address;
 use async_std::sync::Arc;
@@ -218,19 +215,6 @@ where
 {
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
     state_manager::utils::get_miner_recoveries(&state_manager, &tipset, actor).map_err(|e| e.into())
-}
-
-/// returns the power of the indicated miner
-pub fn state_miner_power<DB>(
-    state_manager: &StateManager<DB>,
-    actor: &Address,
-    key: &TipsetKeys,
-) -> Result<(Option<Claim>, Claim), BoxError>
-where
-    DB: BlockStore,
-{
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::get_power(&state_manager, &tipset, Some(actor)).map_err(|e| e.into())
 }
 
 pub fn state_pledge_collateral<DB>(

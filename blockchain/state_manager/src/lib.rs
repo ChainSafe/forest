@@ -21,7 +21,7 @@ use encoding::Cbor;
 use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use futures::channel::oneshot;
-use futures::*;
+use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
@@ -149,8 +149,8 @@ where
         }
     }
 
-    pub fn get_subscriber(&self) -> &Option<Subscriber<HeadChange>> {
-        &self.subscriber
+    pub fn get_subscriber(&self) -> Option<Subscriber<HeadChange>> {
+        self.subscriber.clone()
     }
 
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
@@ -494,9 +494,9 @@ where
     /// WaitForMessage blocks until a message appears on chain. It looks backwards in the chain to see if this has already
     /// happened. It guarantees that the message has been on chain for at least confidence epochs without being reverted
     /// before returning.
-    pub async fn wait_for_message(
+    pub async fn wait_for_message<'a>(
         block_store: Arc<DB>,
-        subscriber: &Option<Subscriber<HeadChange>>,
+        subscriber: Option<Subscriber<HeadChange>>,
         cid: &Cid,
         confidence: i64,
     ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>
@@ -559,64 +559,84 @@ where
             Ok::<_, Error>(back_tuple)
         });
 
-        let mut reverts: HashMap<TipsetKeys, bool> = HashMap::new();
-        while let Some(subscriber) = subscriber
-            .clone()
-            .ok_or_else(|| {
-                Error::Other("State Manager not subscribed to tipset head changes".to_string())
-            })?
-            .next()
-            .await
-        {
-            match subscriber {
-                HeadChange::Revert(_tipset) => {
-                    if candidate_tipset.is_some() {
-                        candidate_tipset = None;
-                        candidate_receipt = None;
-                    }
-                }
-                HeadChange::Apply(tipset) => {
-                    if candidate_tipset
-                        .as_ref()
-                        .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
-                        .unwrap_or_default()
-                    {
-                        return Ok((candidate_tipset, candidate_receipt));
-                    }
-                    let poll_receiver = receiver.try_recv().map_err(|e| {
-                        Error::Other(format!("Could not receieve from channel {:?}", e))
-                    })?;
-                    if poll_receiver.is_some() {
-                        reverts.insert(tipset.key().to_owned(), true);
-                    }
-
-                    let message_var = (message.from(), &message.sequence());
-                    let maybe_receipt =
-                        Self::tipset_executed_message(&*block_store, &tipset, &cid, message_var)?;
-                    if let Some(receipt) = maybe_receipt {
-                        if confidence == 0 {
-                            return Ok((Some(tipset), Some(receipt)));
+        let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
+        let block_revert = reverts.clone();
+        let mut futures = FuturesUnordered::new();
+        let subscriber_poll = task::spawn(async move {
+            while let Some(subscriber) = subscriber
+                .clone()
+                .ok_or_else(|| {
+                    Error::Other("State Manager not subscribed to tipset head changes".to_string())
+                })?
+                .next()
+                .await
+            {
+                match subscriber {
+                    HeadChange::Revert(_tipset) => {
+                        if candidate_tipset.is_some() {
+                            candidate_tipset = None;
+                            candidate_receipt = None;
                         }
-                        candidate_tipset = Some(tipset);
-                        candidate_receipt = Some(receipt)
                     }
+                    HeadChange::Apply(tipset) => {
+                        if candidate_tipset
+                            .as_ref()
+                            .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
+                            .unwrap_or_default()
+                        {
+                            return Ok((candidate_tipset, candidate_receipt));
+                        }
+                        let poll_receiver = receiver.try_recv().map_err(|e| {
+                            Error::Other(format!("Could not receieve from channel {:?}", e))
+                        })?;
+                        if poll_receiver.is_some() {
+                            block_revert
+                                .write()
+                                .await
+                                .insert(tipset.key().to_owned(), true);
+                        }
+
+                        let message_var = (message.from(), &message.sequence());
+                        let maybe_receipt = Self::tipset_executed_message(
+                            &*block_store,
+                            &tipset,
+                            &cid,
+                            message_var,
+                        )?;
+                        if let Some(receipt) = maybe_receipt {
+                            if confidence == 0 {
+                                return Ok((Some(tipset), Some(receipt)));
+                            }
+                            candidate_tipset = Some(tipset);
+                            candidate_receipt = Some(receipt)
+                        }
+                    }
+                    _ => (),
                 }
-                _ => (),
             }
-        }
-        let (back_tipset, back_receipt) = task.await?;
-        if receiver
-            .try_recv()
-            .map_err(|e| Error::Other(format!("Could not receieve from channel {:?}", e)))?
-            .is_some()
-        {
-            let should_revert = reverts.get(back_tipset.key()).unwrap_or(&false);
+
+            Ok((None, None))
+        });
+
+        futures.push(subscriber_poll);
+        let search_back_poll = task::spawn(async move {
+            let (back_tipset, back_receipt) = task.await?;
+            let should_revert = *reverts
+                .read()
+                .await
+                .get(back_tipset.key())
+                .unwrap_or(&false);
             let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
             if !should_revert && larger_height_of_head {
                 return Ok((Some(Arc::new(back_tipset)), Some(back_receipt)));
             }
-        }
-        Ok((None, None))
+
+            Ok((None, None))
+        });
+        futures.push(search_back_poll);
+
+        futures.next().await.ok_or_else(|| Error::Other("wait_for_message could not be completed due to failure of subscriber poll or search_back functionality".to_string()))?
+        // Ok((None, None));
     }
 
     /// Returns a bls public key from provided address
