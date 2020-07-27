@@ -203,7 +203,7 @@ where
         if msg_gas_cost > msg.gas_limit() {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
-                    return_data: Serialized::default(),
+                    return_data: Serialized::empty(),
                     exit_code: ExitCode::SysErrOutOfGas,
                     gas_used: 0,
                 },
@@ -219,15 +219,12 @@ where
             Err(_) => {
                 return Ok(ApplyRet {
                     msg_receipt: MessageReceipt {
-                        return_data: Serialized::default(),
+                        return_data: Serialized::empty(),
                         exit_code: ExitCode::SysErrSenderInvalid,
                         gas_used: 0,
                     },
                     penalty: msg.gas_price() * msg_gas_cost,
-                    act_error: Some(ActorError::new(
-                        ExitCode::SysErrSenderInvalid,
-                        "Sender invalid".to_owned(),
-                    )),
+                    act_error: Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
                 });
             }
         };
@@ -235,48 +232,41 @@ where
         if from_act.code != *ACCOUNT_ACTOR_CODE_ID {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
-                    return_data: Serialized::default(),
+                    return_data: Serialized::empty(),
                     exit_code: ExitCode::SysErrSenderInvalid,
                     gas_used: 0,
                 },
                 penalty: miner_penalty_amount,
-                act_error: Some(ActorError::new(
-                    ExitCode::SysErrSenderInvalid,
-                    "Sender invalid".to_owned(),
-                )),
+                act_error: Some(actor_error!(SysErrSenderInvalid; "send not from account actor")),
             });
         };
 
+        // TODO revisit if this is removed in future
         if msg.sequence() != from_act.sequence {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
-                    return_data: Serialized::default(),
+                    return_data: Serialized::empty(),
                     exit_code: ExitCode::SysErrSenderStateInvalid,
                     gas_used: 0,
                 },
                 penalty: miner_penalty_amount,
-                act_error: Some(ActorError::new(
-                    ExitCode::SysErrSenderStateInvalid,
-                    "Sender state invalid".to_owned(),
-                )),
+                act_error: Some(actor_error!(SysErrSenderStateInvalid;
+                    "actor sequence invalid: {} != {}", msg.sequence(), from_act.sequence)),
             });
         };
 
         let gas_cost = msg.gas_price() * msg.gas_limit();
-        // TODO requires network_tx_fee to be added as per the spec
         let total_cost = &gas_cost + msg.value();
         if from_act.balance < total_cost {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
-                    return_data: Serialized::default(),
+                    return_data: Serialized::empty(),
                     exit_code: ExitCode::SysErrSenderStateInvalid,
                     gas_used: 0,
                 },
                 penalty: miner_penalty_amount,
-                act_error: Some(ActorError::new(
-                    ExitCode::SysErrSenderStateInvalid,
-                    "Sender state invalid".to_owned(),
-                )),
+                act_error: Some(actor_error!(SysErrSenderStateInvalid;
+                    "actor balance less than needed: {} < {}", from_act.balance, total_cost)),
             });
         };
 
@@ -288,30 +278,59 @@ where
 
         let snapshot = self.state.snapshot()?;
 
-        // scoped to deal with mutable reference borrowing
-        let (ret_data, gas_used, act_err) = {
-            let (ret_data, rt, act_err) = self.send(msg, Some(msg_gas_cost));
-            // TODO update this
-            let mut rt = rt.unwrap();
-            rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
-                .map_err(|e| e.to_string())?;
-            (ret_data, rt.gas_used(), act_err)
+        let (mut ret_data, rt, mut act_err) = self.send(msg, Some(msg_gas_cost));
+        if let Some(err) = &act_err {
+            if err.is_fatal() {
+                return Err(format!(
+                    "[from={}, to={}, seq={}, m={}, h={}] fatal error: {}",
+                    msg.from(),
+                    msg.to(),
+                    msg.sequence(),
+                    msg.method_num(),
+                    self.epoch,
+                    err
+                ));
+            } else {
+                warn!(
+                    "[from={}, to={}, seq={}, m={}] send error: {}",
+                    msg.from(),
+                    msg.to(),
+                    msg.sequence(),
+                    msg.method_num(),
+                    err
+                );
+                if !ret_data.is_empty() {
+                    return Err(format!(
+                        "message invocation errored, but had a return value anyway: {}",
+                        err
+                    ));
+                }
+            }
+        }
+
+        let gas_used = if let Some(mut rt) = rt {
+            if !ret_data.is_empty() {
+                if let Err(e) = rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
+                {
+                    act_err = Some(e);
+                    ret_data = Serialized::empty();
+                }
+            }
+            if rt.gas_used() < 0 {
+                0
+            } else {
+                rt.gas_used()
+            }
+        } else {
+            return Err(format!("send returned None runtime: {:?}", act_err));
         };
 
-        if let Some(err) = act_err {
-            if err.is_fatal() {
-                return Err(format!("Fatal send actor error occurred, err: {:?}", err));
-            };
-            if err.exit_code() != ExitCode::Ok {
-                // revert all state changes since snapshot
-                if let Err(state_err) = self.state.revert_to_snapshot(&snapshot) {
-                    return Err(format!("Revert state failed: {}", state_err));
-                };
+        if let Some(err) = &act_err {
+            if !err.is_ok() {
+                // Revert all state changes on error.
+                self.state.revert_to_snapshot(&snapshot)?;
             }
-            warn!("Send actor error: from:{}, to:{}", msg.from(), msg.to());
         }
-        // TODO recheck this
-        let gas_used = if gas_used < 0 { 0 } else { gas_used };
 
         // refund unused gas
         let refund = (msg.gas_limit() - gas_used) * msg.gas_price();
@@ -366,9 +385,9 @@ where
         match res {
             Ok(mut rt) => match vm_send(&mut rt, msg, gas_cost) {
                 Ok(ser) => (ser, Some(rt), None),
-                Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
+                Err(actor_err) => (Serialized::empty(), Some(rt), Some(actor_err)),
             },
-            Err(e) => (Serialized::default(), None, Some(e)),
+            Err(e) => (Serialized::empty(), None, Some(e)),
         }
     }
 }

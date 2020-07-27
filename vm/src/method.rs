@@ -47,6 +47,11 @@ impl Serialized {
         Self { bytes }
     }
 
+    /// Empty bytes constructor. Used for empty return values.
+    pub fn empty() -> Self {
+        Self { bytes: Vec::new() }
+    }
+
     /// Contructor for encoding Cbor encodable structure
     pub fn serialize<O: ser::Serialize>(obj: O) -> Result<Self, EncodingError> {
         Ok(Self {
