@@ -4,10 +4,12 @@
 // workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
 extern crate serde;
 
+pub mod chain_message;
 mod message_receipt;
 pub mod signed_message;
 pub mod unsigned_message;
 
+pub use chain_message::ChainMessage;
 pub use message_receipt::*;
 pub use signed_message::SignedMessage;
 pub use unsigned_message::UnsignedMessage;
@@ -30,6 +32,12 @@ pub trait Message {
     fn params(&self) -> &Serialized;
     /// gas_price returns gas price for the message
     fn gas_price(&self) -> &TokenAmount;
+    /// sets the gas price
+    fn set_gas_price(&mut self, amount: TokenAmount);
+    /// sets the gas limit for the message
+    fn set_gas_limit(&mut self, _: u64);
+    /// sets a new sequence to the message
+    fn set_sequence(&mut self, _: u64);
     /// Returns the gas limit for the message
     fn gas_limit(&self) -> u64;
     /// Returns the required funds for the message
