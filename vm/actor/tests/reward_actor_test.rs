@@ -49,7 +49,7 @@ fn balance_less_than_reward() {
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
     let ret = rt
         .call(
             &*REWARD_ACTOR_CODE_ID,

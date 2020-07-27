@@ -499,7 +499,7 @@ fn add_participant_funds(rt: &mut MockRuntime, addr: Address, amount: TokenAmoun
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
     assert_eq!(
         Serialized::default(),
         rt.call(

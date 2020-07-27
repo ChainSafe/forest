@@ -21,7 +21,7 @@ macro_rules! account_tests {
                     caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
                     ..Default::default()
                 };
-                rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
+                rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
 
                 if exit_code.is_success() {
                     rt
