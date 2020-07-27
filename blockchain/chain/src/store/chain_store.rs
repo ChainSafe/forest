@@ -476,10 +476,10 @@ where
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
         let (unsigned, signed) = block_messages(db, b)?;
+        let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
         let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
         let signed_box = signed.into_iter().map(ChainMessage::Signed);
 
-        let mut messages = Vec::new();
         for message in unsigned_box.chain(signed_box) {
             let from_address = message.from();
             if applied.contains_key(&from_address) {

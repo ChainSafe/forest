@@ -636,7 +636,6 @@ where
         futures.push(search_back_poll);
 
         futures.next().await.ok_or_else(|| Error::Other("wait_for_message could not be completed due to failure of subscriber poll or search_back functionality".to_string()))?
-        // Ok((None, None));
     }
 
     /// Returns a bls public key from provided address
