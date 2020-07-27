@@ -135,7 +135,7 @@ where
         )?;
 
         // Apply tipset messages
-        let receipts = vm.apply_tip_set_messages(ts)?;
+        let receipts = vm.apply_tipset_messages(ts)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;

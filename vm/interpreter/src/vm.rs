@@ -26,7 +26,6 @@ use vm::{actor_error, ActorError, ExitCode, Serialized};
 /// from the vm execution.
 pub struct VM<'db, 'r, DB, SYS, P> {
     state: StateTree<'db, DB>,
-    // TODO revisit handling buffered store specifically in VM
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
@@ -70,7 +69,7 @@ where
 
     /// Apply all messages from a tipset
     /// Returns the receipts from the transactions.
-    pub fn apply_tip_set_messages(
+    pub fn apply_tipset_messages(
         &mut self,
         tipset: &FullTipset,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
@@ -175,24 +174,16 @@ where
     }
 
     fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        let (ret_data, _, act_err) = self.send(msg, 0);
-
-        if let Some(err) = act_err {
-            return ApplyRet {
-                msg_receipt: MessageReceipt {
-                    return_data: ret_data,
-                    exit_code: err.exit_code(),
-                    gas_used: 0,
-                },
-                penalty: BigInt::zero(),
-                act_error: Some(err),
-            };
-        };
+        let (return_data, _, act_err) = self.send(msg, None);
 
         ApplyRet {
             msg_receipt: MessageReceipt {
-                return_data: ret_data,
-                exit_code: ExitCode::Ok,
+                return_data,
+                exit_code: if let Some(err) = act_err {
+                    err.exit_code()
+                } else {
+                    ExitCode::Ok
+                },
                 gas_used: 0,
             },
             act_error: None,
@@ -299,7 +290,7 @@ where
 
         // scoped to deal with mutable reference borrowing
         let (ret_data, gas_used, act_err) = {
-            let (ret_data, rt, act_err) = self.send(msg, msg_gas_cost);
+            let (ret_data, rt, act_err) = self.send(msg, Some(msg_gas_cost));
             // TODO update this
             let mut rt = rt.unwrap();
             rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
@@ -353,7 +344,7 @@ where
     fn send<'m>(
         &mut self,
         msg: &'m UnsignedMessage,
-        gas_cost: i64,
+        gas_cost: Option<i64>,
     ) -> (
         Serialized,
         Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, P>>,
@@ -363,7 +354,7 @@ where
             &mut self.state,
             self.store,
             &self.syscalls,
-            gas_cost,
+            gas_cost.unwrap_or_default(),
             &msg,
             self.epoch,
             *msg.from(),
@@ -373,7 +364,7 @@ where
         );
 
         match res {
-            Ok(mut rt) => match vm_send(&mut rt, msg, Some(gas_cost)) {
+            Ok(mut rt) => match vm_send(&mut rt, msg, gas_cost) {
                 Ok(ser) => (ser, Some(rt), None),
                 Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
             },
@@ -393,6 +384,9 @@ pub struct ApplyRet {
 fn check_message(msg: &UnsignedMessage) -> Result<(), &'static str> {
     if msg.gas_limit() == 0 {
         return Err("Message has no gas limit set");
+    }
+    if msg.gas_limit() < 0 {
+        return Err("Message has negative gas limit");
     }
     if msg.value() == &BigInt::zero() {
         return Err("Message has no value set");
