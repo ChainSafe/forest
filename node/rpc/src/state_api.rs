@@ -357,9 +357,9 @@ pub fn state_wait_msg<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Se
     let (cidjson,confidence) = params;
     let state_manager = StateManager::new(data.store);
     let cid : Cid = cidjson.into();
-    let (tipset,receipt) = task::block_on(state_manager.wait_for_message(&cid, confidence))?;
+    let (tipset,receipt) = task::block_on(StateManager::wait_for_message(state_manager.get_block_store(),state_manager.get_subscriber(),&cid, confidence))?;
     let tipset = tipset.ok_or_else(|| "wait for msg returned empty tuple")?;
-    let receipt = receipt.ok_or_else(|| "wait for msg returned empty tuple")?;
+    let receipt = receipt.ok_or_else(|| "wait for msg returned empty receipt")?;
     Ok(MessageLookup { receipt : receipt.into(), tipset : (*tipset.clone()).into() }.into())
 }
 

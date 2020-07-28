@@ -312,7 +312,6 @@ fn address_hash(ingest: &[u8]) -> [u8; 20] {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use crate::header;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a GossipBlock from JSON.
@@ -332,9 +331,7 @@ pub mod json {
         #[derive(Serialize)]
         #[serde(rename_all = "PascalCase")]
         struct AddressSer<'a> {
-            #[serde(with = "network::json")]
             pub network: &'a Network,
-            #[serde(with = "payload::vec")]
             pub payload: &'a Payload,
 
         }
