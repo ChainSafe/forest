@@ -237,6 +237,9 @@ where
         }
         self.set_stage(SyncStage::Complete).await;
 
+        // At this point the head is synced and the head can be set as the heaviest.
+        self.chain_store.put_tipset(head.as_ref()).await?;
+
         Ok(())
     }
 

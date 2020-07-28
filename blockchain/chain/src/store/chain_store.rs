@@ -106,7 +106,7 @@ where
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
-    pub async fn put_tipsets(&mut self, ts: &Tipset) -> Result<(), Error> {
+    pub async fn put_tipset(&mut self, ts: &Tipset) -> Result<(), Error> {
         persist_headers(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         self.update_heaviest(ts).await?;
