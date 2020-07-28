@@ -20,11 +20,11 @@ use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
+use serde::Serialize;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
-use serde::Serialize;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -290,7 +290,7 @@ where
 pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
     DB: BlockStore,
-    C: Serialize
+    C: Serialize,
 {
     for chunk in headers.chunks(256) {
         db.bulk_put(chunk, Blake2b256)
