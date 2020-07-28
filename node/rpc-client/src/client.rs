@@ -1,9 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused_imports)]
-#![allow(unused_variables)]
-#![allow(dead_code)]
+#![allow(clippy::all)]
 
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
