@@ -16,7 +16,7 @@ use async_std::sync::{Receiver, RwLock, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use chain::ChainStore;
+use chain::{persist_objects, ChainStore};
 use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
 use core::time::Duration;
@@ -224,9 +224,10 @@ where
 
         // Persist header chain pulled from network
         self.set_stage(SyncStage::PersistHeaders).await;
-        if let Err(e) = self.persist_headers(&tipsets).await {
+        let headers: Vec<&BlockHeader> = tipsets.iter().map(|t| t.blocks()).flatten().collect();
+        if let Err(e) = persist_objects(self.chain_store.blockstore(), &headers) {
             self.state.write().await.error(e.to_string());
-            return Err(e);
+            return Err(e.into());
         }
 
         // Sync and validate messages from fetched tipsets
@@ -933,18 +934,6 @@ where
         Err(Error::Other(
             "Fork longer than threshold finality of 500".to_string(),
         ))
-    }
-
-    /// Persists headers from tipset slice to chain store
-    async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
-        let headers: Vec<&BlockHeader> = tipsets.iter().map(|t| t.blocks()).flatten().collect();
-        for chunk in headers.chunks(256) {
-            self.chain_store
-                .blockstore()
-                .bulk_put(chunk, Blake2b256)
-                .map_err(|e| Error::Other(e.to_string()))?;
-        }
-        Ok(())
     }
 
     /// Sets the managed sync status

@@ -24,6 +24,8 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
+use serde::Serialize;
+
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
 // constants for Weight calculation
@@ -101,13 +103,13 @@ where
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&self, header: BlockHeader) -> Result<(), Error> {
+    pub fn set_genesis(&self, header: BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
     pub async fn put_tipset(&mut self, ts: &Tipset) -> Result<(), Error> {
-        persist_headers(self.blockstore(), ts.blocks())?;
+        persist_objects(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         self.update_heaviest(ts).await?;
         Ok(())
@@ -275,29 +277,26 @@ where
     }
 }
 
-fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<(), Error>
+fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<Cid, Error>
 where
     DB: BlockStore,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    Ok(persist_headers(db, &[header])?)
+    Ok(db
+        .put(&header, Blake2b256)
+        .map_err(|e| Error::Other(e.to_string()))?)
 }
 
-fn persist_headers<DB>(db: &DB, bh: &[BlockHeader]) -> Result<(), Error>
+pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
     DB: BlockStore,
+    C: Serialize
 {
-    let mut raw_header_data = Vec::new();
-    let mut keys = Vec::new();
-    // loop through block to push blockheader raw data and cid into vector to be stored
-    for header in bh {
-        if !db.exists(header.cid().key())? {
-            raw_header_data.push(header.marshal_cbor()?);
-            keys.push(header.cid().key());
-        }
+    for chunk in headers.chunks(256) {
+        db.bulk_put(chunk, Blake2b256)
+            .map_err(|e| Error::Other(e.to_string()))?;
     }
-
-    Ok(db.bulk_write(&keys, &raw_header_data)?)
+    Ok(())
 }
 
 pub fn put_messages<DB, T: Cbor>(db: &DB, msgs: &[T]) -> Result<(), Error>
@@ -367,17 +366,16 @@ pub fn tipset_from_keys<DB>(db: &DB, tsk: &TipsetKeys) -> Result<Tipset, Error>
 where
     DB: BlockStore,
 {
-    let mut block_headers = Vec::new();
-    for c in tsk.cids() {
-        let raw_header = db.read(c.key())?;
-        if let Some(x) = raw_header {
-            // decode raw header into BlockHeader
-            let bh = BlockHeader::unmarshal_cbor(&x)?;
-            block_headers.push(bh);
-        } else {
-            return Err(Error::NotFound("Key for header"));
-        }
-    }
+    let block_headers: Vec<BlockHeader> = tsk
+        .cids()
+        .iter()
+        .map(|c| {
+            db.get(c)
+                .map_err(|e| Error::Other(e.to_string()))?
+                .ok_or_else(|| Error::NotFound("Key for header"))
+        })
+        .collect::<Result<_, Error>>()?;
+
     // construct new Tipset to return
     let ts = Tipset::new(block_headers)?;
     Ok(ts)
@@ -528,12 +526,9 @@ where
 {
     keys.iter()
         .map(|k| {
-            let value = db.read(&k.key())?;
-            let bytes = value.ok_or_else(|| Error::UndefinedKey(k.to_string()))?;
-
-            // Decode bytes into type T
-            let t = from_slice(&bytes)?;
-            Ok(t)
+            db.get(k)
+                .map_err(|e| Error::Other(e.to_string()))?
+                .ok_or_else(|| Error::UndefinedKey(k.to_string()))
         })
         .collect()
 }
