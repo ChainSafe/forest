@@ -156,9 +156,74 @@ where
     }
 }
 
+/// This is the Provider implementation that will be used for the mpool RPC
+pub struct MpoolRpcProvider<DB> {
+    subscriber: Subscriber<HeadChange>,
+    db: Arc<DB>,
+}
+
+impl<DB> MpoolRpcProvider<DB>
+where
+    DB: BlockStore,
+{
+    pub fn new(subscriber: Subscriber<HeadChange>, db: Arc<DB>) -> Self
+    where
+        DB: BlockStore,
+    {
+        MpoolRpcProvider { subscriber, db }
+    }
+}
+
+impl<DB> Provider for MpoolRpcProvider<DB>
+where
+    DB: BlockStore,
+{
+    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+        self.subscriber.clone()
+    }
+
+    fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
+        chain::get_heaviest_tipset(self.db.as_ref())
+            .ok()
+            .unwrap_or(None)
+    }
+
+    fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
+        let cid = self
+            .db
+            .as_ref()
+            .put(msg, Blake2b256)
+            .map_err(|err| Error::Other(err.to_string()))?;
+        Ok(cid)
+    }
+
+    fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
+        let state =
+            StateTree::new_from_root(self.db.as_ref(), ts.parent_state()).map_err(Error::Other)?;
+        let actor = state.get_actor(addr).map_err(Error::Other)?;
+        actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
+    }
+
+    fn messages_for_block(
+        &self,
+        h: &BlockHeader,
+    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
+        chain::block_messages(self.db.as_ref(), h).map_err(|err| err.into())
+    }
+
+    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
+        chain::unsigned_messages_for_tipset(self.db.as_ref(), h).map_err(|err| err.into())
+    }
+
+    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
+        let ts = chain::tipset_from_keys(self.db.as_ref(), tsk)?;
+        Ok(ts)
+    }
+}
+
 /// This is the main MessagePool struct
 pub struct MessagePool<T: 'static> {
-    local_addrs: Vec<Address>,
+    local_addrs: Arc<RwLock<Vec<Address>>>,
     pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
     pub cur_tipset: Arc<RwLock<Tipset>>,
     api: Arc<RwLock<T>>,
@@ -166,9 +231,9 @@ pub struct MessagePool<T: 'static> {
     pub max_tx_pool_size: i64,
     pub network_name: String,
     bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
-    sig_val_cache: LruCache<Cid, ()>,
+    sig_val_cache: Arc<RwLock<LruCache<Cid, ()>>>,
     // TODO look into adding a cap to local_msgs
-    local_msgs: HashSet<SignedMessage>,
+    local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
 }
 
 impl<T> MessagePool<T>
@@ -180,17 +245,19 @@ where
     where
         T: Provider,
     {
+        let local_addrs = Arc::new(RwLock::new(Vec::new()));
         // LruCache sizes have been taken from the lotus implementation
         let pending = Arc::new(RwLock::new(HashMap::new()));
         let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().ok_or_else(|| {
             Error::Other("No ts in api to set as cur_tipset".to_owned())
         })?));
         let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(40000)));
-        let sig_val_cache = LruCache::new(32000);
+        let sig_val_cache = Arc::new(RwLock::new(LruCache::new(32000)));
         let api_mutex = Arc::new(RwLock::new(api));
+        let local_msgs = Arc::new(RwLock::new(HashSet::new()));
 
         let mut mp = MessagePool {
-            local_addrs: Vec::new(),
+            local_addrs,
             pending,
             cur_tipset: tipset,
             api: api_mutex,
@@ -199,7 +266,7 @@ where
             network_name,
             bls_sig_cache,
             sig_val_cache,
-            local_msgs: HashSet::new(),
+            local_msgs,
         };
 
         mp.load_local().await?;
@@ -236,23 +303,23 @@ where
     }
 
     /// Add a signed message to local_addrs and local_msgs
-    fn add_local(&mut self, m: SignedMessage) -> Result<(), Error> {
-        self.local_addrs.push(*m.from());
-        self.local_msgs.insert(m);
+    async fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
+        self.local_addrs.write().await.push(*m.from());
+        self.local_msgs.write().await.insert(m);
         Ok(())
     }
 
     /// Push a signed message to the MessagePool
-    pub async fn push(&mut self, msg: SignedMessage) -> Result<Cid, Error> {
+    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
         self.add(&msg).await?;
-        self.add_local(msg)?;
+        self.add_local(msg).await?;
         Ok(cid)
     }
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
     /// to be pushed to the MessagePool
-    pub async fn add(&mut self, msg: &SignedMessage) -> Result<(), Error> {
+    pub async fn add(&self, msg: &SignedMessage) -> Result<(), Error> {
         let size = msg.marshal_cbor()?.len();
         if size > 32 * 1024 {
             return Err(Error::MessageTooBig);
@@ -261,7 +328,7 @@ where
             return Err(Error::MessageValueTooHigh);
         }
 
-        self.verify_msg_sig(msg)?;
+        self.verify_msg_sig(msg).await?;
         let tmp = msg.clone();
 
         let tip = self.cur_tipset.read().await.clone();
@@ -276,10 +343,10 @@ where
 
     /// Verify the message signature. first check if it has already been verified and put into
     /// cache. If it has not, then manually verify it then put it into cache for future use
-    fn verify_msg_sig(&mut self, msg: &SignedMessage) -> Result<(), Error> {
+    async fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid()?;
 
-        if let Some(()) = self.sig_val_cache.get(&cid) {
+        if let Some(()) = self.sig_val_cache.write().await.get(&cid) {
             return Ok(());
         }
 
@@ -288,14 +355,14 @@ where
             .verify(umsg.as_slice(), msg.from())
             .map_err(Error::Other)?;
 
-        self.sig_val_cache.put(cid, ());
+        self.sig_val_cache.write().await.put(cid, ());
 
         Ok(())
     }
 
     /// Verify the state_sequence and balance for the sender of the message given then call add_locked
     /// to finish adding the signed_message to pending
-    async fn add_tipset(&mut self, msg: SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
+    async fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
         let sequence = self.get_state_sequence(msg.from(), cur_ts).await?;
 
         if sequence > msg.message().sequence() {
@@ -314,7 +381,7 @@ where
     /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
     /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
     /// and push it to the pending phashmap
-    async fn add_helper(&mut self, msg: SignedMessage) -> Result<(), Error> {
+    async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
@@ -368,7 +435,7 @@ where
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error
-    async fn get_state_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
+    async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
         let actor = self.api.read().await.state_get_actor(&addr, &ts)?;
         Ok(actor.balance)
     }
@@ -417,7 +484,7 @@ where
 
     /// Return Vector of signed messages given a block header for self
     pub async fn messages_for_blocks(
-        &mut self,
+        &self,
         blks: &[BlockHeader],
     ) -> Result<Vec<SignedMessage>, Error> {
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
@@ -437,7 +504,13 @@ where
 
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
     /// most likely need to be implemented
-    pub fn estimate_gas_price(&self, nblocksincl: u64) -> Result<BigInt, Error> {
+    pub fn estimate_gas_price(
+        &self,
+        nblocksincl: u64,
+        _sender: Address,
+        _gas_limit: u64,
+        _tsk: TipsetKeys,
+    ) -> Result<BigInt, Error> {
         // TODO possibly come up with a smarter way to estimate the gas price
         let min_gas_price = 0;
         match nblocksincl {
@@ -450,10 +523,11 @@ where
     /// Load local messages into pending. As of  right now messages are not deleted from self's
     /// local_message field, possibly implement this in the future?
     pub async fn load_local(&mut self) -> Result<(), Error> {
+        let mut local_msgs = self.local_msgs.write().await;
         let mut rm_vec = Vec::new();
-        let thing: Vec<SignedMessage> = self.local_msgs.iter().cloned().collect();
+        let msg_vec: Vec<SignedMessage> = local_msgs.iter().cloned().collect();
 
-        for k in thing {
+        for k in msg_vec {
             self.add(&k).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
@@ -463,7 +537,7 @@ where
         }
 
         for item in rm_vec {
-            self.local_msgs.remove(&item);
+            local_msgs.remove(&item);
         }
 
         Ok(())
@@ -641,34 +715,27 @@ fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage
     }
 }
 
-#[cfg(test)]
-mod tests {
+pub mod test_provider {
     use super::Error as Errors;
     use super::*;
-    use crate::MessagePool;
     use address::Address;
-    use async_std::task;
-    use blocks::{BlockHeader, Ticket, Tipset};
+    use blocks::{BlockHeader, Tipset};
     use cid::Cid;
-    use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
     use flo_stream::{MessagePublisher, Publisher, Subscriber};
-    use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigUint;
-    use std::borrow::BorrowMut;
-    use std::convert::TryFrom;
-    use std::thread::sleep;
-    use std::time::Duration;
 
-    struct TestApi {
+    /// Struct used for creating a provider when writing tests involving message pool
+    pub struct TestApi {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
         state_sequence: HashMap<Address, u64>,
         tipsets: Vec<Tipset>,
         publisher: Publisher<HeadChange>,
     }
 
-    impl TestApi {
-        pub fn new() -> Self {
+    impl Default for TestApi {
+        /// Create a new TestApi
+        fn default() -> Self {
             TestApi {
                 bmsgs: HashMap::new(),
                 state_sequence: HashMap::new(),
@@ -676,17 +743,22 @@ mod tests {
                 publisher: Publisher::new(1),
             }
         }
+    }
 
+    impl TestApi {
+        /// Set the state sequence for an Address for TestApi
         pub fn set_state_sequence(&mut self, addr: &Address, sequence: u64) {
-            self.state_sequence.insert(addr.clone(), sequence);
+            self.state_sequence.insert(*addr, sequence);
         }
 
+        /// Set the block messages for TestApi
         pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
             self.bmsgs.insert(h.cid().clone(), msgs);
             self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
         }
 
-        pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> () {
+        /// Set the heaviest tipset for TestApi
+        pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
             self.publisher.publish(HeadChange::Current(ts)).await
         }
     }
@@ -707,8 +779,8 @@ mod tests {
         fn state_get_actor(&self, addr: &Address, _ts: &Tipset) -> Result<ActorState, Errors> {
             let s = self.state_sequence.get(addr);
             let mut sequence = 0;
-            if s.is_some() {
-                sequence = s.unwrap().clone();
+            if let Some(sq) = s {
+                sequence = *sq;
             }
             let actor = ActorState::new(
                 Cid::default(),
@@ -758,16 +830,34 @@ mod tests {
         }
     }
 
-    fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
-        let header = BlockHeader::builder()
+    pub fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
+        BlockHeader::builder()
             .weight(BigUint::from(weight))
             .cached_bytes(cached_bytes.to_vec())
             .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
-            .unwrap();
-        header
+            .unwrap()
     }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::test_provider::*;
+    use super::*;
+    use crate::MessagePool;
+    use address::Address;
+    use async_std::task;
+    use blocks::{BlockHeader, Ticket, Tipset};
+    use cid::Cid;
+    use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
+    use key_management::{MemKeyStore, Wallet};
+    use message::{SignedMessage, UnsignedMessage};
+    use num_bigint::BigUint;
+    use std::borrow::BorrowMut;
+    use std::convert::TryFrom;
+    use std::thread::sleep;
+    use std::time::Duration;
 
     fn create_smsg(
         to: &Address,
@@ -844,11 +934,11 @@ mod tests {
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut tma = TestApi::new();
+        let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let mut mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
 
             let mut smsg_vec = Vec::new();
             for i in 0..4 {
@@ -893,7 +983,7 @@ mod tests {
 
     #[test]
     fn test_revert_messages() {
-        let tma = TestApi::new();
+        let tma = TestApi::default();
         let mut wallet = Wallet::new(MemKeyStore::new());
 
         let a = mock_block(1, 1);
@@ -911,7 +1001,7 @@ mod tests {
         }
 
         task::block_on(async move {
-            let mut mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
 
             let mut api_temp = mpool.api.write().await;
             api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
@@ -991,11 +1081,11 @@ mod tests {
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut tma = TestApi::new();
+        let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let mut mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
 
             let mut smsg_vec = Vec::new();
             for i in 0..3 {

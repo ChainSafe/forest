@@ -33,4 +33,5 @@ blake2b_simd = "0.5.9"
 surf = "2.0.0-alpha.4"
 pbr = "1.0.3"
 pin-project-lite = "0.1"
+message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
 wallet = {package = "key_management", path = "../key_management"}

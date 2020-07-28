@@ -87,10 +87,14 @@ where
 mod tests {
     use super::*;
     use async_std::sync::{channel, Receiver, RwLock};
+    use async_std::task;
+    use blocks::{BlockHeader, Tipset};
+    use chain::ChainStore;
     use chain_sync::SyncStage;
-    use db::MemoryDB;
+    use db::{MemoryDB, Store};
     use forest_libp2p::NetworkMessage;
     use futures::StreamExt;
+    use message_pool::{MessagePool, MpoolRpcProvider};
     use serde_json::from_str;
     use std::sync::Arc;
     use wallet::MemKeyStore;
@@ -102,9 +106,31 @@ mod tests {
         Receiver<NetworkMessage>,
     ) {
         let (network_send, network_rx) = channel(5);
+
+        let pool = task::block_on(async {
+            let mut cs = ChainStore::new(Arc::new(MemoryDB::default()));
+            let bz = hex::decode("8f4200008158207672662070726f6f66303030303030307672662070726f6f663030303030303081408182005820000000000000000000000000000000000000000000000000000000000000000080804000d82a5827000171a0e402206b5f2a7a2c2be076e0635b908016ddca0de082e14d9c8d776a017660628b5bfdd82a5827000171a0e4022001cd927fdccd7938faba323e32e70c44541b8a83f5dc941d90866565ef5af14ad82a5827000171a0e402208d6f0e09e0453685b8816895cd56a7ee2fce600026ee23ac445d78f020c1ca40f61a5ebdc1b8f600").unwrap();
+            let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
+            let ts = Tipset::new(vec![header]).unwrap();
+            let subscriber = cs.subscribe();
+            let db = cs.db.clone();
+            let tsk = ts.key().cids.clone();
+            cs.set_heaviest_tipset(Arc::new(ts)).await.unwrap();
+
+            for i in tsk {
+                let bz2 = bz.clone();
+                db.as_ref().write(i.key(), bz2).unwrap();
+            }
+            let provider = MpoolRpcProvider::new(subscriber, cs.db);
+            MessagePool::new(provider, "test".to_string())
+                .await
+                .unwrap()
+        });
+
         let state = Arc::new(RpcState {
             store: Arc::new(MemoryDB::default()),
             keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
+            mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             sync_state: Default::default(),
             network_send,
