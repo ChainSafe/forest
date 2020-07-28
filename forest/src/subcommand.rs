@@ -7,11 +7,9 @@ use super::cli::Subcommand;
 pub(super) async fn process(command: Subcommand) {
     match command {
         Subcommand::Fetch(cmd) => {
-            // TODO should pass in config?
             cmd.run().await;
         }
         Subcommand::Chain(cmd) => {
-            // TODO should pass in config?
             cmd.run().await;
         }
     }
