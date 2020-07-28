@@ -44,6 +44,7 @@ const NETWORK_DEFAULT: Network = Network::Testnet;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
+/// TODO add Address JSON implementation
 #[derive(PartialEq, Eq, Clone, Debug, Hash, Copy)]
 pub struct Address {
     network: Network,
