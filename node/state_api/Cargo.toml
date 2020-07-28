@@ -1,0 +1,23 @@
+[package]
+name = "state_api"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+state_manager = { path = "../../blockchain/state_manager" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
+chain = { path = "../../blockchain/chain" }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
+address = { package = "forest_address", path = "../../vm/address" }
+bitfield = { path = "../../utils/bitfield" }
+actor = { path = "../../vm/actor/" }
+clock = { path = "../../node/clock" }
+message = { package = "forest_message", path = "../../vm/message" }
+num-bigint = "0.2.6"
+num-traits = "0.2"
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+async-std = { version = "1.6.0", features = ["unstable"] }
+state_tree = { path = "../../vm/state_tree/" }
+interpreter = { path = "../../vm/interpreter/" }
+fil_types = { path = "../../types" }

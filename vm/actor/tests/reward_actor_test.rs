@@ -38,7 +38,7 @@ fn balance_less_than_reward() {
         ticket_count: 0,
     };
 
-    //Expect call to fail because actor doesnt have enough tokens to reward
+    // Expect call to fail because actor doesnt have enough tokens to reward
     let _res = rt.call(
         &*REWARD_ACTOR_CODE_ID,
         Method::AwardBlockReward as u64,

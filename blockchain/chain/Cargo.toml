@@ -25,10 +25,9 @@ blake2b_simd = "0.5.9"
 byteorder = "1.3.4"
 beacon = { path = "../beacon" }
 flo_stream = "0.4.0"
-
+address = { package = "forest_address", path = "../../vm/address" }
 
 [dev-dependencies]
-address = { package = "forest_address", path = "../../vm/address" }
 multihash = "0.10.0"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
     "test_constructors"
