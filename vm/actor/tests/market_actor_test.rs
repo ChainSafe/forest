@@ -96,7 +96,7 @@ fn add_provider_escrow_funds() {
             rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), caller_addr);
 
             let amount = TokenAmount::from(test_case.0 as u64);
-            //rt.balance = rt.balance + amount.clone();
+            // rt.balance = rt.balance + amount.clone();
             rt.set_value(amount);
 
             expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
@@ -164,7 +164,7 @@ fn add_non_provider_funds() {
             rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), caller_addr);
 
             let amount = TokenAmount::from(test_case.0 as u64);
-            //rt.balance = rt.balance + amount.clone();
+            // rt.balance = rt.balance + amount.clone();
             rt.set_value(amount);
             rt.expect_validate_caller_type(&CALLER_TYPES_SIGNABLE.clone());
 

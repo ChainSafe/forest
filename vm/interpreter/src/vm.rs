@@ -69,6 +69,7 @@ where
     pub fn apply_tip_set_messages(
         &mut self,
         tipset: &FullTipset,
+        mut callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -141,7 +142,9 @@ where
                 .into());
             }
 
-            // Add callback here for reward message if needed
+            if let Some(callback) = &mut callback {
+                callback(rew_msg.cid()?, rew_msg, ret)?;
+            }
         }
 
         // TODO same as above, unnecessary state retrieval
@@ -166,11 +169,13 @@ where
             return Err(format!("failed to apply block cron message: {}", err).into());
         }
 
-        // Add callback here for cron message if needed
+        if let Some(mut callback) = callback {
+            callback(cron_msg.cid()?, cron_msg, ret)?;
+        }
         Ok(receipts)
     }
 
-    fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+    pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         let (ret_data, _, act_err) = self.send(msg, 0);
 
         if let Some(err) = act_err {
@@ -362,6 +367,7 @@ where
 // TODO remove allow dead_code
 #[allow(dead_code)]
 /// Apply message return data
+#[derive(Clone)]
 pub struct ApplyRet {
     msg_receipt: MessageReceipt,
     penalty: BigInt,
@@ -375,6 +381,14 @@ impl ApplyRet {
             penalty,
             act_error,
         }
+    }
+
+    pub fn msg_receipt(&self) -> &MessageReceipt {
+        &self.msg_receipt
+    }
+
+    pub fn act_error(&self) -> Option<&ActorError> {
+        self.act_error.as_ref()
     }
 }
 

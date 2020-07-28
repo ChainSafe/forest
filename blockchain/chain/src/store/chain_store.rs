@@ -3,6 +3,7 @@
 
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
+use address::Address;
 use beacon::BeaconEntry;
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -16,13 +17,13 @@ use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
-use message::{SignedMessage, UnsignedMessage};
+use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
+use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
-
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
 // constants for Weight calculation
@@ -35,9 +36,17 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
 
+/// Enum for pubsub channel that defines message type variant and data contained in message type.
+#[derive(Clone, Debug)]
+pub enum HeadChange {
+    Current(Arc<Tipset>),
+    Apply(Arc<Tipset>),
+    Revert(Arc<Tipset>),
+}
+
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
-    publisher: Publisher<Arc<Tipset>>,
+    publisher: Publisher<HeadChange>,
 
     // key-value datastore
     pub db: Arc<DB>,
@@ -70,12 +79,12 @@ where
     pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         self.heaviest = Some(ts.clone());
-        self.publisher.publish(ts).await;
+        self.publisher.publish(HeadChange::Current(ts)).await;
         Ok(())
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub fn subscribe(&mut self) -> Subscriber<Arc<Tipset>> {
+    pub fn subscribe(&mut self) -> Subscriber<HeadChange> {
         self.publisher.subscribe()
     }
 
@@ -119,7 +128,9 @@ where
         // set as heaviest tipset
         let heaviest_ts = Arc::new(heaviest_ts);
         self.heaviest = Some(heaviest_ts.clone());
-        self.publisher.publish(heaviest_ts).await;
+        self.publisher
+            .publish(HeadChange::Current(heaviest_ts))
+            .await;
         Ok(())
     }
 
@@ -202,7 +213,7 @@ where
 }
 
 /// Returns messages for a given tipset from db
-pub fn messages_for_tipset<DB>(db: &DB, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>
+pub fn unsigned_messages_for_tipset<DB>(db: &DB, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>
 where
     DB: BlockStore,
 {
@@ -437,6 +448,78 @@ where
     })
 }
 
+/// Attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
+pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
+where
+    DB: BlockStore,
+{
+    let value = db
+        .read(key.key())?
+        .ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
+    if let Ok(message) = from_slice::<UnsignedMessage>(&value) {
+        Ok(ChainMessage::Unsigned(message))
+    } else {
+        let signed_message: SignedMessage = from_slice(&value)?;
+        Ok(ChainMessage::Signed(signed_message))
+    }
+}
+
+/// given a tipset this function will return all messages
+pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
+where
+    DB: BlockStore,
+{
+    let mut applied: HashMap<Address, u64> = HashMap::new();
+    let mut balances: HashMap<Address, BigInt> = HashMap::new();
+    let state = StateTree::new_from_root(db, ts.parent_state())?;
+
+    // message to get all messages for block_header into a single iterator
+    let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
+        let (unsigned, signed) = block_messages(db, b)?;
+        let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
+        let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
+        let signed_box = signed.into_iter().map(ChainMessage::Signed);
+
+        for message in unsigned_box.chain(signed_box) {
+            let from_address = message.from();
+            if applied.contains_key(&from_address) {
+                let actor_state = state
+                    .get_actor(from_address)?
+                    .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
+                applied.insert(*from_address, actor_state.sequence);
+                balances.insert(*from_address, actor_state.balance);
+            }
+            if let Some(seq) = applied.get_mut(from_address) {
+                if *seq != message.sequence() {
+                    continue;
+                }
+                *seq += 1;
+            } else {
+                continue;
+            }
+            if let Some(bal) = balances.get_mut(from_address) {
+                if *bal < message.required_funds() {
+                    continue;
+                }
+                *bal -= message.required_funds();
+            } else {
+                continue;
+            }
+
+            messages.push(message)
+        }
+
+        Ok(messages)
+    };
+
+    ts.blocks().iter().fold(Ok(Vec::new()), |vec, b| {
+        let mut message_vec = vec?;
+        let mut messages = get_message_for_block_header(b)?;
+        message_vec.append(&mut messages);
+        Ok(message_vec)
+    })
+}
+
 /// Returns messages from key-value store
 fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
@@ -453,6 +536,20 @@ where
             Ok(t)
         })
         .collect()
+}
+
+/// returns message receipt given block_header
+pub fn get_parent_reciept<DB>(
+    db: &DB,
+    block_header: &BlockHeader,
+    i: u64,
+) -> Result<Option<MessageReceipt>, Error>
+where
+    DB: BlockStore,
+{
+    let amt = Amt::load(block_header.message_receipts(), db)?;
+    let receipts = amt.get(i)?;
+    Ok(receipts)
 }
 
 /// Returns the weight of provided tipset

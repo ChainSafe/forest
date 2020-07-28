@@ -7,7 +7,7 @@ use async_std::sync::{Arc, RwLock};
 use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
-use chain::{messages_for_tipset, ChainStore};
+use chain::{ChainStore, HeadChange};
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
@@ -74,7 +74,7 @@ impl MsgSet {
 /// the operations that are listed below that are required for the messagepool.
 pub trait Provider {
     /// Update Mpool's cur_tipset whenever there is a chnge to the provider
-    fn subscribe_head_changes(&mut self) -> Subscriber<Arc<Tipset>>;
+    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
     fn get_heaviest_tipset(&mut self) -> Option<Tipset>;
     /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
@@ -115,7 +115,7 @@ impl<DB> Provider for MpoolProvider<DB>
 where
     DB: BlockStore,
 {
-    fn subscribe_head_changes(&mut self) -> Subscriber<Arc<Tipset>> {
+    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.cs.subscribe()
     }
 
@@ -148,7 +148,7 @@ where
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        messages_for_tipset(self.cs.blockstore(), h).map_err(|err| err.into())
+        chain::unsigned_messages_for_tipset(self.cs.blockstore(), h).map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
@@ -214,6 +214,11 @@ where
         task::spawn(async move {
             loop {
                 if let Some(ts) = subscriber.next().await {
+                    let ts = match ts {
+                        HeadChange::Current(tipset)
+                        | HeadChange::Revert(tipset)
+                        | HeadChange::Apply(tipset) => tipset,
+                    };
                     head_change(
                         api.as_ref(),
                         bls_sig_cache.as_ref(),
@@ -659,7 +664,7 @@ mod tests {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
         state_sequence: HashMap<Address, u64>,
         tipsets: Vec<Tipset>,
-        publisher: Publisher<Arc<Tipset>>,
+        publisher: Publisher<HeadChange>,
     }
 
     impl TestApi {
@@ -682,12 +687,12 @@ mod tests {
         }
 
         pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> () {
-            self.publisher.publish(ts).await
+            self.publisher.publish(HeadChange::Current(ts)).await
         }
     }
 
     impl Provider for TestApi {
-        fn subscribe_head_changes(&mut self) -> Subscriber<Arc<Tipset>> {
+        fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
             self.publisher.subscribe()
         }
 

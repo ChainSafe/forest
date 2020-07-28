@@ -8,7 +8,6 @@ use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
-
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
 /// Usage:
@@ -138,8 +137,18 @@ impl Message for UnsignedMessage {
     fn gas_price(&self) -> &TokenAmount {
         &self.gas_price
     }
+    fn set_gas_price(&mut self, token_amount: TokenAmount) {
+        self.gas_price = token_amount
+    }
+    fn set_sequence(&mut self, new_sequence: u64) {
+        self.sequence = new_sequence
+    }
     fn gas_limit(&self) -> u64 {
         self.gas_limit
+    }
+
+    fn set_gas_limit(&mut self, token_amount: u64) {
+        self.gas_limit = token_amount
     }
     fn required_funds(&self) -> TokenAmount {
         let total: TokenAmount = self.gas_price() * self.gas_limit();

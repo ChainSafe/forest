@@ -154,7 +154,7 @@ fn create_multisig_actor() {
     let some_acc_actor = Address::new_id(1234);
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), some_acc_actor);
 
-    //Assign addresses
+    // Assign addresses
     let unique_address = Address::new_actor(b"multisig");
     rt.new_actor_addr = Some(unique_address.clone());
 
@@ -199,7 +199,7 @@ fn sending_constructor_failure() {
         STORAGE_POWER_ACTOR_ADDR.clone(),
     );
 
-    //Assign new address for the storage actor miner
+    // Assign new address for the storage actor miner
     let unique_address = Address::new_actor(b"miner");
     rt.new_actor_addr = Some(unique_address.clone());
 
