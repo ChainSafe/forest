@@ -5,7 +5,7 @@
 
 use super::errors::Error;
 use super::{DatabaseService, Store};
-use rocksdb::{Options, WriteBatch, DB};
+pub use rocksdb::{Options, WriteBatch, DB};
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
 

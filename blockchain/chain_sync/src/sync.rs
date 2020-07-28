@@ -934,8 +934,12 @@ where
 
     /// Persists headers from tipset slice to chain store
     async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
-        for tipset in tipsets.iter() {
-            self.chain_store.put_tipsets(tipset).await?
+        let headers: Vec<&BlockHeader> = tipsets.iter().map(|t| t.blocks()).flatten().collect();
+        for chunk in headers.chunks(256) {
+            self.chain_store
+                .blockstore()
+                .bulk_put(chunk, Blake2b256)
+                .map_err(|e| Error::Other(e.to_string()))?;
         }
         Ok(())
     }
