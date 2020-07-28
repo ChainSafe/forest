@@ -53,7 +53,7 @@ where
         }
     }
     /// Loads actor state from IPLD Store
-    fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
+    pub fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
     where
         D: DeserializeOwned,
     {
@@ -67,7 +67,7 @@ where
             .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }
-    fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
+    pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
         let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
     }

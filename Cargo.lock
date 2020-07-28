@@ -4776,6 +4776,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "paych"
+version = "0.1.0"
+dependencies = [
+ "actor",
+ "async-std",
+ "forest_address",
+ "forest_cid",
+ "forest_encoding",
+ "ipld_blockstore",
+ "serde",
+ "state_manager",
+ "thiserror",
+]
+
+[[package]]
 name = "pbr"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

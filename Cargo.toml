@@ -34,4 +34,5 @@ members = [
     "utils/json_utils",
     "types",
     "key_management",
+    "paych",
 ]

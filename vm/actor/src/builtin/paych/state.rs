@@ -43,7 +43,7 @@ impl State {
 
 /// The Lane state tracks the latest (highest) voucher nonce used to merge the lane
 /// as well as the amount it has already redeemed.
-#[derive(Default, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, PartialEq, Debug, Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct LaneState {
     /// Identifier unique to this channel
     pub id: u64,
