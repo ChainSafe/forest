@@ -14,8 +14,5 @@ pub(super) async fn process(command: Subcommand) {
             // TODO should pass in config?
             cmd.run().await;
         }
-        Subcommand::Wallet(_cmd) => {
-            // do something
-        }
     }
 }

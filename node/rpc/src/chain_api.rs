@@ -145,7 +145,7 @@ pub(crate) async fn chain_head<DB, KS>(
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
-{
+{   
     let heaviest =
         chain::get_heaviest_tipset(data.store.as_ref())?.ok_or("can't find heaviest tipset")?;
     Ok(TipsetJson(heaviest))

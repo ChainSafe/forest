@@ -5573,6 +5573,7 @@ name = "rpc-client"
 version = "0.1.0"
 dependencies = [
  "forest_blocks",
+ "forest_cid",
  "forest_crypto",
  "forest_message",
  "jsonrpc-v2",

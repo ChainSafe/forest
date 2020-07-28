@@ -5,7 +5,7 @@ use super::Cid;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Wrapper for serializing and deserializing a Cid from JSON.
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(transparent)]
 pub struct CidJson(#[serde(with = "self")] pub Cid);
 

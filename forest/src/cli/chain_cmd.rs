@@ -1,10 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use rpc_client::{get_genesis, get_head};
+use rpc_client::{genesis, head, messages};
+use cid::Cid;
 use structopt::StructOpt;
 
-#[allow(missing_docs)]
 #[derive(Debug, StructOpt)]
 pub struct ChainCommands {
     /// Prints out the genesis tipset
@@ -15,6 +15,8 @@ pub struct ChainCommands {
     #[structopt(long, help = "Print chain head")]
     pub head: bool,
 
+    /// Reads and prints out ipld nodes referenced by the specified CID from chain
+	/// blockstore and returns raw bytes
     #[structopt(
         long = "read-obj",
         value_name = "CID",
@@ -22,13 +24,16 @@ pub struct ChainCommands {
     )]
     pub read_obj: Option<String>,
 
+    /// Reads and prints out a message referenced by the specified CID from the
+	/// chain blockstore.
     #[structopt(
         long = "message",
         value_name = "CIDs",
-        help = "Retrieve and print messages by CIDs"
+        help = "Retrieves and prints messages by CIDs"
     )]
     pub messages: Option<String>,
 
+    /// Retrieves and prints out the block specified by the given CID
     #[structopt(
         long = "block",
         value_name = "CID",
@@ -40,12 +45,17 @@ pub struct ChainCommands {
 impl ChainCommands {
     pub async fn run(&self) {
         if self.genesis {
-            let gen = get_genesis().await;
+            let gen = genesis().await;
             println!("{}", serde_json::to_string_pretty(&gen).unwrap());
         }
         if self.head {
-            let head = get_head().await;
+            let head = head().await;
             println!("{}", serde_json::to_string_pretty(&head).unwrap());
+        }
+        if let Some(params) = &self.messages {
+            let cid: Cid = params.parse().unwrap();
+            let msg = messages(cid).await;
+            println!("{}", serde_json::to_string_pretty(&msg).unwrap());
         }
     }
 }
