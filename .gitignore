@@ -6,4 +6,6 @@ config*.toml
 .vscode
 /test_dir*
 /devnet.car
+*.orig
 criterion
+
