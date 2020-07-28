@@ -158,7 +158,7 @@ where
 
 /// This is the Provider implementation that will be used for the mpool RPC
 pub struct MpoolRpcProvider<DB> {
-    subscriber: Subscriber<Arc<Tipset>>,
+    subscriber: Subscriber<HeadChange>,
     db: Arc<DB>,
 }
 
@@ -166,7 +166,7 @@ impl<DB> MpoolRpcProvider<DB>
 where
     DB: BlockStore,
 {
-    pub fn new(subscriber: Subscriber<Arc<Tipset>>, db: Arc<DB>) -> Self
+    pub fn new(subscriber: Subscriber<HeadChange>, db: Arc<DB>) -> Self
     where
         DB: BlockStore,
     {
@@ -178,7 +178,7 @@ impl<DB> Provider for MpoolRpcProvider<DB>
 where
     DB: BlockStore,
 {
-    fn subscribe_head_changes(&mut self) -> Subscriber<Arc<Tipset>> {
+    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.clone()
     }
 
@@ -212,7 +212,7 @@ where
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        messages_for_tipset(self.db.as_ref(), h).map_err(|err| err.into())
+        chain::unsigned_messages_for_tipset(self.db.as_ref(), h).map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
@@ -734,14 +734,8 @@ pub mod test_provider {
     }
 
     impl Default for TestApi {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl TestApi {
         /// Create a new TestApi
-        pub fn new() -> Self {
+        fn default() -> Self {
             TestApi {
                 bmsgs: HashMap::new(),
                 state_sequence: HashMap::new(),
@@ -749,7 +743,9 @@ pub mod test_provider {
                 publisher: Publisher::new(1),
             }
         }
+    }
 
+    impl TestApi {
         /// Set the state sequence for an Address for TestApi
         pub fn set_state_sequence(&mut self, addr: &Address, sequence: u64) {
             self.state_sequence.insert(*addr, sequence);

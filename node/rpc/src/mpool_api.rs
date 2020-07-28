@@ -26,7 +26,6 @@ pub(crate) async fn mpool_estimate_gas_price<DB, KS>(
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
-    // MP: Provider + Send + Sync + 'static,
 {
     let (nblocks, sender_str, gas_limit, tsk) = params;
     let sender = Address::from_str(&sender_str)?;
