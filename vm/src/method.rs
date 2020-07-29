@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::EMPTY_ARR_BYTES;
 use encoding::{de, from_slice, ser, serde_bytes, to_vec, Cbor, Error as EncodingError};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -15,21 +14,11 @@ pub const METHOD_SEND: MethodNum = 0;
 pub const METHOD_CONSTRUCTOR: MethodNum = 1;
 
 /// Serialized bytes to be used as parameters into actor methods
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq, Default)]
 #[serde(transparent)]
 pub struct Serialized {
     #[serde(with = "serde_bytes")]
     bytes: Vec<u8>,
-}
-
-impl Default for Serialized {
-    /// Default serialized bytes is an empty array serialized
-    #[inline]
-    fn default() -> Self {
-        Self {
-            bytes: EMPTY_ARR_BYTES.clone(),
-        }
-    }
 }
 
 impl Cbor for Serialized {}
@@ -45,11 +34,6 @@ impl Serialized {
     /// Constructor if data is encoded already
     pub fn new(bytes: Vec<u8>) -> Self {
         Self { bytes }
-    }
-
-    /// Empty bytes constructor. Used for empty return values.
-    pub fn empty() -> Self {
-        Self { bytes: Vec::new() }
     }
 
     /// Contructor for encoding Cbor encodable structure

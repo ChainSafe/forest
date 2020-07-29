@@ -10,7 +10,7 @@ use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Account actor methods available
 #[derive(FromPrimitive)]
@@ -33,10 +33,8 @@ impl Actor {
         match address.protocol() {
             Protocol::Secp256k1 | Protocol::BLS => {}
             protocol => {
-                return Err(rt.abort(
-                    ExitCode::ErrIllegalArgument,
-                    format!("address must use BLS or SECP protocol, got {}", protocol),
-                ));
+                return Err(actor_error!(ErrIllegalArgument;
+                    "address must use BLS or SECP protocol, got {}", protocol));
             }
         }
         rt.create(&State { address })?;
@@ -74,9 +72,9 @@ impl ActorCode for Actor {
             Some(Method::PubkeyAddress) => {
                 check_empty_params(params)?;
                 let addr = Self::pubkey_address(rt)?;
-                Ok(Serialized::serialize(addr).unwrap())
+                Ok(Serialized::serialize(addr)?)
             }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }

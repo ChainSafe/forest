@@ -208,7 +208,7 @@ where
         if msg_gas_cost > msg.gas_limit() {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
-                    return_data: Serialized::empty(),
+                    return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrOutOfGas,
                     gas_used: 0,
                 },
@@ -224,7 +224,7 @@ where
             Err(_) => {
                 return Ok(ApplyRet {
                     msg_receipt: MessageReceipt {
-                        return_data: Serialized::empty(),
+                        return_data: Serialized::default(),
                         exit_code: ExitCode::SysErrSenderInvalid,
                         gas_used: 0,
                     },
@@ -237,7 +237,7 @@ where
         if from_act.code != *ACCOUNT_ACTOR_CODE_ID {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
-                    return_data: Serialized::empty(),
+                    return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderInvalid,
                     gas_used: 0,
                 },
@@ -250,7 +250,7 @@ where
         if msg.sequence() != from_act.sequence {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
-                    return_data: Serialized::empty(),
+                    return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderStateInvalid,
                     gas_used: 0,
                 },
@@ -265,7 +265,7 @@ where
         if from_act.balance < total_cost {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
-                    return_data: Serialized::empty(),
+                    return_data: Serialized::default(),
                     exit_code: ExitCode::SysErrSenderStateInvalid,
                     gas_used: 0,
                 },
@@ -318,7 +318,7 @@ where
                 if let Err(e) = rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
                 {
                     act_err = Some(e);
-                    ret_data = Serialized::empty();
+                    ret_data = Serialized::default();
                 }
             }
             if rt.gas_used() < 0 {
@@ -390,9 +390,9 @@ where
         match res {
             Ok(mut rt) => match vm_send(&mut rt, msg, gas_cost) {
                 Ok(ser) => (ser, Some(rt), None),
-                Err(actor_err) => (Serialized::empty(), Some(rt), Some(actor_err)),
+                Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
             },
-            Err(e) => (Serialized::empty(), None, Some(e)),
+            Err(e) => (Serialized::default(), None, Some(e)),
         }
     }
 }

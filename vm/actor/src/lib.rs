@@ -12,9 +12,8 @@ mod util;
 
 pub use self::builtin::*;
 pub use self::util::*;
-pub use vm::{ActorState, DealID, Serialized};
+pub use vm::{actor_error, ActorError, ActorState, DealID, ExitCode, Serialized};
 
-use encoding::Error as EncodingError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Hamt};
 use num_bigint::BigUint;
@@ -22,16 +21,16 @@ use unsigned_varint::decode::Error as UVarintError;
 
 const HAMT_BIT_WIDTH: u8 = 5;
 
-type EmptyType = [u8; 0];
-const EMPTY_VALUE: EmptyType = [];
-
 /// Deal weight
 type DealWeight = BigUint;
 
 /// Used when invocation requires parameters to be an empty array of bytes
-#[inline]
-fn check_empty_params(params: &Serialized) -> Result<(), EncodingError> {
-    params.deserialize::<[u8; 0]>().map(|_| ())
+fn check_empty_params(params: &Serialized) -> Result<(), ActorError> {
+    if !params.is_empty() {
+        Err(actor_error!(ErrSerialization; "pa"))
+    } else {
+        Ok(())
+    }
 }
 
 /// Create a map
