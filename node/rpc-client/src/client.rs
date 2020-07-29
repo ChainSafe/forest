@@ -7,7 +7,6 @@ use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
-use jsonrpsee::transport::TransportClient;
 use message::unsigned_message::json::UnsignedMessageJson;
 
 jsonrpsee::rpc_api! {
