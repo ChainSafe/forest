@@ -45,33 +45,33 @@ impl ChainCommands {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
+                let client = new_client();
 
                 let blk = block(client, cid).await;
                 println!("{}", serde_json::to_string_pretty(&blk).unwrap());
             }
             Self::Genesis => {
-                let mut client = new_client();
+                let client = new_client();
 
                 let gen = genesis(client).await;
                 println!("{}", serde_json::to_string_pretty(&gen).unwrap());
             }
             Self::Head => {
-                let mut client = new_client();
+                let client = new_client();
 
                 let head = head(client).await;
                 println!("{}", serde_json::to_string_pretty(&head).unwrap());
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
+                let client = new_client();
 
                 let msg = messages(client, cid).await;
                 println!("{}", serde_json::to_string_pretty(&msg).unwrap());
             }
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
+                let client = new_client();
 
                 let obj = read_obj(client, cid).await;
                 println!("{}", serde_json::to_string_pretty(&obj).unwrap());

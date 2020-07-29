@@ -11,6 +11,9 @@ pub(super) async fn process(command: Subcommand) {
         }
         Subcommand::Chain(cmd) => {
             cmd.run().await;
+        },
+        Subcommand::Wallet(cmd) => {
+            cmd.run().await;
         }
     }
 }
