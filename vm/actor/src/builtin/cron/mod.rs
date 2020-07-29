@@ -58,12 +58,13 @@ impl Actor {
 
         let st: State = rt.state()?;
         for entry in st.entries {
-            rt.send(
+            // Intentionally ignore any error when calling cron methods
+            let _ = rt.send(
                 entry.receiver,
                 entry.method_num,
                 Serialized::default(),
                 TokenAmount::from(0u8),
-            )?;
+            );
         }
         Ok(())
     }
