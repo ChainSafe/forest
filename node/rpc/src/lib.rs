@@ -52,6 +52,7 @@ pub async fn start_rpc<DB: BlockStore + Send + Sync + 'static>(
         .with_method("Filecoin.GetRandomness", chain_get_randomness::<DB>)
         .with_method("Filecoin.ChainGetBlock", chain_get_block::<DB>)
         .with_method("Filecoin.ChainHead", chain_head::<DB>)
+        
         // Sync API
         .with_method("Filecoin.SyncCheckBad", sync_check_bad::<DB>)
         .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB>)

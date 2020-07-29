@@ -4,10 +4,15 @@
 pub mod commands;
 mod config;
 mod genesis;
+mod sync_cmd;
+mod chain_cmd;
+mod fetch_params_cmd;
 
+pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
+pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis::initialize_genesis;
-pub use commands::*;
+use sync_cmd::*;
 
 use async_trait::async_trait;
 use std::cell::RefCell;
@@ -35,21 +40,16 @@ pub struct CLI {
 
 /// Forest binary subcommands available.
 #[derive(StructOpt)]
+#[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 pub enum Subcommand {
     #[structopt(
         name = "fetch-params",
         about = "Download parameters for generating and verifying proofs for given size"
     )]
-    FetchParams {
-        #[structopt(short, long, help = "Download all proof parameters")]
-        all: bool,
-        #[structopt(short, long, help = "Download only verification keys")]
-        keys: bool,
-        #[structopt(required_ifs(&[("all", "false"), ("keys", "false")]), help = "Size in bytes")]
-        params_size: Option<String>,
-        #[structopt(short, long, help = "Show verbose logging")]
-        verbose: bool,
-    },
+    Fetch(FetchCommands),
+
+    #[structopt(name = "chain", about = "Interact with Filecoin blockchain")]
+    Chain(ChainCommands),
 
     #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
     SyncCommand(SyncCommand),

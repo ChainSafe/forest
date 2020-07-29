@@ -5,7 +5,7 @@ use super::Cid;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Wrapper for serializing and deserializing a Cid from JSON.
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(transparent)]
 pub struct CidJson(#[serde(with = "self")] pub Cid);
 
@@ -17,6 +17,13 @@ pub struct CidJsonRef<'a>(#[serde(with = "self")] pub &'a Cid);
 impl From<CidJson> for Cid {
     fn from(wrapper: CidJson) -> Self {
         wrapper.0
+    }
+}
+
+impl From<String> for CidJson {
+    fn from(s: String) -> Self {
+        let generated_cid = Cid::from_raw_cid(s).unwrap_or_default();
+        CidJson(generated_cid)
     }
 }
 
