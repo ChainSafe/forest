@@ -27,7 +27,8 @@ type DealWeight = BigUint;
 /// Used when invocation requires parameters to be an empty array of bytes
 fn check_empty_params(params: &Serialized) -> Result<(), ActorError> {
     if !params.is_empty() {
-        Err(actor_error!(ErrSerialization; "pa"))
+        Err(actor_error!(ErrSerialization;
+                "params expected to be empty, was: {}", base64::encode(params.bytes())))
     } else {
         Ok(())
     }
