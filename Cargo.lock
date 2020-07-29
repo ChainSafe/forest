@@ -2529,6 +2529,7 @@ dependencies = [
  "forest_bigint",
  "forest_cid",
  "forest_encoding",
+ "lazy_static",
  "num-derive",
  "num-traits 0.2.12",
  "serde",

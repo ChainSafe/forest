@@ -15,7 +15,8 @@ use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use vm::{
-    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
 
 /// Payment Channel actor methods available
@@ -42,9 +43,11 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*INIT_ACTOR_CODE_ID))?;
 
         // Check both parties are capable of signing vouchers
-        let to = Self::resolve_account(rt, &params.to)?;
+        let to = Self::resolve_account(rt, &params.to)
+            .map_err(|e| actor_error!(ErrIllegalArgument; e))?;
 
-        let from = Self::resolve_account(rt, &params.from)?;
+        let from = Self::resolve_account(rt, &params.from)
+            .map_err(|e| actor_error!(ErrIllegalArgument; e))?;
 
         rt.create(&State::new(from, to))?;
         Ok(())
@@ -53,22 +56,26 @@ impl Actor {
     /// Resolves an address to a canonical ID address and requires it to address an account actor.
     /// The account actor constructor checks that the embedded address is associated with an appropriate key.
     /// An alternative (more expensive) would be to send a message to the actor to fetch its key.
-    fn resolve_account<BS, RT>(rt: &RT, raw: &Address) -> Result<Address, ActorError>
+    fn resolve_account<BS, RT>(rt: &RT, raw: &Address) -> Result<Address, String>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let resolved = rt.resolve_address(raw)?;
+        let resolved = rt
+            // TODO: fatal error not handled here. To match go this will have to be refactored
+            .resolve_address(raw)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("failed to resolve address {}", raw))?;
 
-        let code_cid = rt.get_actor_code_cid(&resolved)?;
+        let code_cid = rt
+            .get_actor_code_cid(&resolved)
+            .expect("Failed to get code Cid")
+            .ok_or_else(|| format!("no code for address {}", raw))?;
 
         if code_cid != *ACCOUNT_ACTOR_CODE_ID {
-            Err(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                format!(
-                    "actor {} must be an account ({}), was {}",
-                    raw, &*ACCOUNT_ACTOR_CODE_ID, code_cid
-                ),
+            Err(format!(
+                "actor {} must be an account ({}), was {}",
+                raw, &*ACCOUNT_ACTOR_CODE_ID, code_cid
             ))
         } else {
             Ok(resolved)
@@ -140,13 +147,13 @@ impl Actor {
 
         if let Some(extra) = &sv.extra {
             rt.send(
-                &extra.actor,
+                extra.actor,
                 extra.method,
-                &Serialized::serialize(PaymentVerifyParams {
+                Serialized::serialize(PaymentVerifyParams {
                     extra: extra.data.clone(),
                     proof: params.proof,
                 })?,
-                &TokenAmount::from(0u8),
+                TokenAmount::from(0u8),
             )?;
         }
 
@@ -300,10 +307,10 @@ impl Actor {
             })?;
 
         // send remaining balance to `from`
-        rt.send(&st.from, METHOD_SEND, &Serialized::default(), &rem_bal)?;
+        rt.send(st.from, METHOD_SEND, Serialized::default(), rem_bal)?;
 
         // send ToSend to `to`
-        rt.send(&st.to, METHOD_SEND, &Serialized::default(), &st.to_send)?;
+        rt.send(st.to, METHOD_SEND, Serialized::default(), st.to_send)?;
 
         rt.transaction(|st: &mut State, _| {
             st.to_send = TokenAmount::from(0u8);

@@ -11,7 +11,7 @@ use vm::{ActorError, Serialized, TokenAmount};
 
 pub(crate) fn request_miner_control_addrs<BS, RT>(
     rt: &mut RT,
-    miner_addr: &Address,
+    miner_addr: Address,
 ) -> Result<(Address, Address), ActorError>
 where
     BS: BlockStore,
@@ -20,8 +20,8 @@ where
     let ret = rt.send(
         miner_addr,
         Method::ControlAddresses as u64,
-        &Serialized::default(),
-        &TokenAmount::zero(),
+        Serialized::default(),
+        TokenAmount::zero(),
     )?;
     let addrs: MinerAddrs = ret.deserialize()?;
 

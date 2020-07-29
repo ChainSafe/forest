@@ -6,7 +6,8 @@ use address::Address;
 use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
-use interpreter::{internal_send, ChainRand, DefaultRuntime, DefaultSyscalls};
+use fil_types::DevnetParams;
+use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
@@ -75,12 +76,10 @@ fn transfer_test() {
         0,
     );
 
-    let actor_addr_1 = state
-        .register_new_address(&actor_addr_1, actor_state_1)
-        .unwrap();
-    let actor_addr_2 = state
-        .register_new_address(&actor_addr_2, actor_state_2)
-        .unwrap();
+    let actor_addr_1 = state.register_new_address(&actor_addr_1).unwrap();
+    let actor_addr_2 = state.register_new_address(&actor_addr_2).unwrap();
+    state.set_actor(&actor_addr_1, actor_state_1).unwrap();
+    state.set_actor(&actor_addr_2, actor_state_2).unwrap();
 
     let message = UnsignedMessage::builder()
         .to(actor_addr_1.clone())
@@ -95,7 +94,7 @@ fn transfer_test() {
     let default_syscalls = DefaultSyscalls::new(&store);
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
-    let mut runtime = DefaultRuntime::new(
+    let mut runtime = DefaultRuntime::<_, _, DevnetParams>::new(
         &mut state,
         &store,
         &default_syscalls,
@@ -106,8 +105,9 @@ fn transfer_test() {
         0,
         0,
         &dummy_rand,
-    );
-    let _serialized = internal_send(&mut runtime, &message, 0).unwrap();
+    )
+    .unwrap();
+    let _serialized = vm_send(&mut runtime, &message, None).unwrap();
 
     let actor_state_result_1 = state.get_actor(&actor_addr_1).unwrap().unwrap();
     let actor_state_result_2 = state.get_actor(&actor_addr_2).unwrap().unwrap();
