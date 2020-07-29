@@ -20,12 +20,13 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
 use std::rc::Rc;
 use vm::{
-    ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount, METHOD_SEND,
+    actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
+    METHOD_SEND,
 };
 
 /// Implementation of the Runtime trait.
@@ -135,7 +136,7 @@ where
 
     /// Update the state Cid of the Message receiver
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
-        let to_addr = *self.message().to();
+        let to_addr = *self.message().receiver();
         let mut actor = self.get_actor(&to_addr)?;
 
         if &actor.state != old_h {
@@ -161,8 +162,8 @@ where
     BS: BlockStore,
     SYS: Syscalls,
 {
-    fn message(&self) -> &UnsignedMessage {
-        &self.message
+    fn message(&self) -> &dyn MessageInfo {
+        self.message
     }
     fn curr_epoch(&self) -> ChainEpoch {
         self.epoch
@@ -172,13 +173,13 @@ where
     where
         I: IntoIterator<Item = &'db Address>,
     {
-        let imm = self.resolve_address(self.message().from())?;
+        let imm = self.resolve_address(self.message().caller())?;
 
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| *a == imm) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
-                format!("caller is not one of {}", self.message().from()),
+                format!("caller is not one of {}", self.message().caller()),
             ));
         }
         Ok(())
@@ -188,14 +189,14 @@ where
     where
         I: IntoIterator<Item = &'db Cid>,
     {
-        let caller_cid = self.get_actor_code_cid(self.message().to())?;
+        let caller_cid = self.get_actor_code_cid(self.message().receiver())?;
         if types.into_iter().any(|c| *c == caller_cid) {
             return Err(self.abort(
                 ExitCode::SysErrForbidden,
                 format!(
                     "caller cid type {} one of {}",
                     caller_cid,
-                    self.message().from()
+                    self.message().caller()
                 ),
             ));
         }
@@ -221,9 +222,7 @@ where
         let r = self
             .rand
             .get_randomness(&self.store, personalization, rand_epoch, entropy)
-            .map_err(|e| {
-                ActorError::new_fatal(format!("could not get randomness: {}", e.to_string()))
-            })?;
+            .map_err(|e| actor_error!(fatal("could not get randomness: {}", e.to_string())))?;
 
         Ok(Randomness(r))
     }
@@ -239,7 +238,7 @@ where
         self.state_commit(&Cid::default(), c)
     }
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
-        let actor = self.get_actor(self.message().to())?;
+        let actor = self.get_actor(self.message().receiver())?;
         self.store
             .get(&actor.state)
             .map_err(|e| {
@@ -262,7 +261,7 @@ where
         F: FnOnce(&mut C, &mut Self) -> R,
     {
         // get actor
-        let act = self.get_actor(self.message().to())?;
+        let act = self.get_actor(self.message().receiver())?;
 
         // get state for actor based on generic C
         let mut state: C = self
@@ -437,7 +436,7 @@ where
 
     if msg.value() != &0u8.into() {
         transfer(runtime.state, &msg.from(), &msg.to(), &msg.value())
-            .map_err(|e| ActorError::new(ExitCode::SysErrSenderInvalid, e))?;
+            .map_err(|e| actor_error!(SysErrSenderInvalid; e))?;
     }
 
     let method_num = msg.method_num();
@@ -479,10 +478,9 @@ where
                 x if x == *VERIFIED_ACTOR_CODE_ID => {
                     actor::verifreg::Actor.invoke_method(runtime, method_num, msg.params())
                 }
-                _ => Err(ActorError::new(
-                    ExitCode::SysErrorIllegalActor,
-                    format!("no code for actor at address {}", msg.to()),
-                )),
+                _ => Err(
+                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", msg.to()),
+                ),
             }
         };
         return ret;
@@ -536,16 +534,11 @@ where
 
     let act = st
         .get_actor(&addr)
-        .map_err(|e| ActorError::new(ExitCode::SysErrInternal, e))?
-        .ok_or_else(|| {
-            ActorError::new(
-                ExitCode::SysErrInternal,
-                format!("Failed to retrieve actor: {}", addr),
-            )
-        })?;
+        .map_err(|e| actor_error!(SysErrInternal; e))?
+        .ok_or_else(|| actor_error!(SysErrInternal; "Failed to retrieve actor: {}", addr))?;
 
     if act.code != *ACCOUNT_ACTOR_CODE_ID {
-        return Err(ActorError::new_fatal(format!(
+        return Err(actor_error!(fatal(
             "Address was not found for an account actor: {}",
             addr
         )));
@@ -553,13 +546,14 @@ where
     let acc_st: account::State = store
         .get(&act.state)
         .map_err(|e| {
-            ActorError::new_fatal(format!(
+            actor_error!(fatal(
                 "Failed to get account actor state for: {}, e: {}",
-                addr, e
+                addr,
+                e
             ))
         })?
         .ok_or_else(|| {
-            ActorError::new_fatal(format!(
+            actor_error!(fatal(
                 "Address was not found for an account actor: {}",
                 addr
             ))

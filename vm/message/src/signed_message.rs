@@ -25,10 +25,18 @@ impl SignedMessage {
         Ok(SignedMessage { message, signature })
     }
 
-    /// Construct a new SignedMessage given an UnsignedMessage and Signature
-    pub fn new_from_parts(message: UnsignedMessage, signature: Signature) -> Self {
-        SignedMessage { message, signature }
+    /// Generate a new signed message from fields
+    pub fn new_from_parts(
+        message: UnsignedMessage,
+        signature: Signature,
+    ) -> Result<SignedMessage, String> {
+        signature.verify(
+            &message.marshal_cbor().map_err(|err| err.to_string())?,
+            message.from(),
+        )?;
+        Ok(SignedMessage { message, signature })
     }
+
     /// Returns reference to the unsigned message.
     pub fn message(&self) -> &UnsignedMessage {
         &self.message
@@ -77,8 +85,17 @@ impl Message for SignedMessage {
     fn gas_price(&self) -> &TokenAmount {
         self.message.gas_price()
     }
+    fn set_gas_price(&mut self, token_amount: TokenAmount) {
+        self.message.set_gas_price(token_amount)
+    }
     fn gas_limit(&self) -> u64 {
         self.message.gas_limit()
+    }
+    fn set_gas_limit(&mut self, token_amount: u64) {
+        self.message.set_gas_limit(token_amount)
+    }
+    fn set_sequence(&mut self, new_sequence: u64) {
+        self.message.set_sequence(new_sequence)
     }
     fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()

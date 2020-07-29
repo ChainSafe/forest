@@ -10,25 +10,26 @@ use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
+use db::MemoryDB;
 use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
 use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
-use message::{Message, UnsignedMessage};
-use runtime::{ActorCode, ConsensusFault, Runtime, Syscalls};
+use runtime::{ActorCode, ConsensusFault, MessageInfo, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error as StdError;
 use vm::{ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
 
-pub struct MockRuntime<'a, BS: BlockStore> {
+pub struct MockRuntime {
     pub epoch: ChainEpoch,
-    pub caller_type: Cid,
     pub miner: Address,
-    //pub value_received: TokenAmount,
     pub id_addresses: HashMap<Address, Address>,
     pub actor_code_cids: HashMap<Address, Cid>,
     pub new_actor_addr: Option<Address>,
-    pub message: UnsignedMessage,
+    pub receiver: Address,
+    pub caller: Address,
+    pub caller_type: Cid,
+    pub value_received: TokenAmount,
 
     // TODO: syscalls: syscaller
 
@@ -39,7 +40,7 @@ pub struct MockRuntime<'a, BS: BlockStore> {
 
     // VM Impl
     pub in_call: bool,
-    pub store: &'a BS,
+    pub store: MemoryDB,
     pub in_transaction: bool,
 
     // Expectations
@@ -53,6 +54,38 @@ pub struct MockRuntime<'a, BS: BlockStore> {
     pub expect_verify_post: RefCell<Option<ExpectVerifyPoSt>>,
     pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid>>,
     pub expect_verify_consensus_fault: RefCell<Option<ExpectVerifyConsensusFault>>,
+}
+
+impl Default for MockRuntime {
+    fn default() -> Self {
+        Self {
+            epoch: Default::default(),
+            miner: Address::new_id(0),
+            id_addresses: Default::default(),
+            actor_code_cids: Default::default(),
+            new_actor_addr: Default::default(),
+            receiver: Address::new_id(0),
+            caller: Address::new_id(0),
+            caller_type: Default::default(),
+            value_received: Default::default(),
+            state: Default::default(),
+            balance: Default::default(),
+            received: Default::default(),
+            in_call: Default::default(),
+            store: Default::default(),
+            in_transaction: Default::default(),
+            expect_validate_caller_any: Default::default(),
+            expect_validate_caller_addr: Default::default(),
+            expect_validate_caller_type: Default::default(),
+            expect_sends: Default::default(),
+            expect_create_actor: Default::default(),
+            expect_verify_sigs: Default::default(),
+            expect_verify_seal: Default::default(),
+            expect_verify_post: Default::default(),
+            expect_compute_unsealed_sector_cid: Default::default(),
+            expect_verify_consensus_fault: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -110,44 +143,7 @@ pub struct ExpectComputeUnsealedSectorCid {
     exit_code: ExitCode,
 }
 
-impl<'a, BS> MockRuntime<'a, BS>
-where
-    BS: BlockStore,
-{
-    pub fn new(bs: &'a BS, message: UnsignedMessage) -> Self {
-        MockRuntime {
-            epoch: 0,
-            caller_type: Cid::default(),
-
-            miner: Address::new_id(0),
-
-            id_addresses: HashMap::new(),
-            actor_code_cids: HashMap::new(),
-            new_actor_addr: None,
-
-            message: message,
-            state: None,
-            balance: 0u8.into(),
-            received: 0u8.into(),
-
-            // VM Impl
-            in_call: false,
-            store: bs,
-            in_transaction: false,
-
-            // Expectations
-            expect_validate_caller_any: Cell::new(false),
-            expect_validate_caller_addr: RefCell::new(None),
-            expect_validate_caller_type: RefCell::new(None),
-            expect_sends: VecDeque::new(),
-            expect_create_actor: None,
-            expect_verify_sigs: RefCell::new(vec![]),
-            expect_verify_seal: RefCell::new(None),
-            expect_verify_post: RefCell::new(None),
-            expect_compute_unsealed_sector_cid: RefCell::new(None),
-            expect_verify_consensus_fault: RefCell::new(None),
-        }
-    }
+impl MockRuntime {
     fn require_in_call(&self) {
         assert!(
             self.in_call,
@@ -375,34 +371,33 @@ where
 
     #[allow(dead_code)]
     pub fn set_caller(&mut self, code_id: Cid, address: Address) {
-        self.message = UnsignedMessage::builder()
-            .to(self.message.to().clone())
-            .from(address.clone())
-            .value(self.message.value().clone())
-            .build()
-            .unwrap();
+        self.caller = address;
         self.caller_type = code_id.clone();
         self.actor_code_cids.insert(address, code_id);
     }
 
     #[allow(dead_code)]
     pub fn set_value(&mut self, value: TokenAmount) {
-        self.message = UnsignedMessage::builder()
-            .to(self.message.to().clone())
-            .from(self.message.from().clone())
-            .value(value)
-            .build()
-            .unwrap();
+        self.value_received = value;
     }
 }
 
-impl<BS> Runtime<BS> for MockRuntime<'_, BS>
-where
-    BS: BlockStore,
-{
-    fn message(&self) -> &UnsignedMessage {
+impl MessageInfo for MockRuntime {
+    fn caller(&self) -> &Address {
+        &self.caller
+    }
+    fn receiver(&self) -> &Address {
+        &self.receiver
+    }
+    fn value_received(&self) -> &TokenAmount {
+        &self.value_received
+    }
+}
+
+impl Runtime<MemoryDB> for MockRuntime {
+    fn message(&self) -> &dyn MessageInfo {
         self.require_in_call();
-        &self.message
+        self
     }
 
     fn curr_epoch(&self) -> ChainEpoch {
@@ -441,7 +436,7 @@ where
         );
 
         for expected in &addrs {
-            if self.message().from() == expected {
+            if self.message().caller() == expected {
                 *self.expect_validate_caller_addr.borrow_mut() = None;
                 return Ok(());
             }
@@ -451,7 +446,7 @@ where
             ExitCode::ErrForbidden,
             format!(
                 "caller address {:?} forbidden, allowed: {:?}",
-                self.message().from(),
+                self.message().caller(),
                 &addrs
             ),
         ));
@@ -569,8 +564,8 @@ where
         Ok(ret)
     }
 
-    fn store(&self) -> &BS {
-        self.store
+    fn store(&self) -> &MemoryDB {
+        &self.store
     }
 
     fn send(
@@ -672,10 +667,7 @@ where
     }
 }
 
-impl<BS> Syscalls for MockRuntime<'_, BS>
-where
-    BS: BlockStore,
-{
+impl Syscalls for MockRuntime {
     fn verify_signature(
         &self,
         signature: &Signature,

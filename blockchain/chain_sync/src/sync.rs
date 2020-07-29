@@ -496,7 +496,7 @@ where
         block: Block,
         tip: Tipset,
     ) -> Result<(), Error> {
-        //do the initial loop here
+        // do the initial loop here
         // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();

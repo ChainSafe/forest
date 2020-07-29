@@ -8,7 +8,6 @@ use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
-
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
 /// Usage:
@@ -138,8 +137,18 @@ impl Message for UnsignedMessage {
     fn gas_price(&self) -> &TokenAmount {
         &self.gas_price
     }
+    fn set_gas_price(&mut self, token_amount: TokenAmount) {
+        self.gas_price = token_amount
+    }
+    fn set_sequence(&mut self, new_sequence: u64) {
+        self.sequence = new_sequence
+    }
     fn gas_limit(&self) -> u64 {
         self.gas_limit
+    }
+
+    fn set_gas_limit(&mut self, token_amount: u64) {
+        self.gas_limit = token_amount
     }
     fn required_funds(&self) -> TokenAmount {
         let total: TokenAmount = self.gas_price() * self.gas_limit();
@@ -183,7 +192,7 @@ pub mod json {
         gas_limit: u64,
         #[serde(rename = "Method")]
         method_num: u64,
-        params: String,
+        params: Option<String>,
     }
 
     pub fn serialize<S>(m: &UnsignedMessage, serializer: S) -> Result<S::Ok, S::Error>
@@ -199,7 +208,7 @@ pub mod json {
             gas_price: m.gas_price.to_string(),
             gas_limit: m.gas_limit,
             method_num: m.method_num,
-            params: base64::encode(m.params.bytes()),
+            params: Some(base64::encode(m.params.bytes())),
         }
         .serialize(serializer)
     }
@@ -218,7 +227,10 @@ pub mod json {
             gas_price: m.gas_price.parse().map_err(de::Error::custom)?,
             gas_limit: m.gas_limit,
             method_num: m.method_num,
-            params: Serialized::new(base64::decode(&m.params).map_err(de::Error::custom)?),
+            params: Serialized::new(
+                base64::decode(&m.params.unwrap_or_else(|| "".to_string()))
+                    .map_err(de::Error::custom)?,
+            ),
         })
     }
 
