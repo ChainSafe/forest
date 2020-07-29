@@ -1,12 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::deal::ClientDealProposal;
+use super::deal::{ClientDealProposal, DealProposal, DealState};
 use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::RegisteredSealProof;
+use ipld_amt::Amt;
 use num_bigint::bigint_ser;
 use num_bigint::biguint_ser;
 use vm::{DealID, TokenAmount};
@@ -57,3 +58,9 @@ pub struct ComputeDataCommitmentParams {
     pub deal_ids: Vec<DealID>,
     pub sector_type: RegisteredSealProof,
 }
+
+/// A specialization of a array to deals.
+pub type DealArray<'bs, BS> = Amt<'bs, DealProposal, BS>;
+
+/// A specialization of a array to deals.
+pub type DealMetaArray<'bs, BS> = Amt<'bs, DealState, BS>;

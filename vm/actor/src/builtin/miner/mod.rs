@@ -688,7 +688,8 @@ impl Actor {
             // TODO revisit spec TODOs
             let mut ret = rt.send(
                 *STORAGE_MARKET_ACTOR_ADDR,
-                MarketMethod::VerifyDealsOnSectorProveCommit as u64,
+                // TODO this is probably wrong method call but this has been refactored
+                MarketMethod::VerifyDealsForActivation as u64,
                 ser_params,
                 TokenAmount::zero(),
             )?;

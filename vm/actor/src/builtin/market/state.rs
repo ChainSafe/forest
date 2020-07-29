@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    collateral_penalty_for_deal_activation_missed, DealProposal, DealState, DEAL_UPDATED_INTERVAL,
+    collateral_penalty_for_deal_activation_missed, types::*, DealProposal, DealState,
+    DEAL_UPDATED_INTERVAL,
 };
-use crate::{BalanceTable, DealID};
+use crate::{BalanceTable, DealID, Map, SetMultimap};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
@@ -12,6 +13,7 @@ use encoding::tuple::*;
 use encoding::Cbor;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
+use num_bigint::bigint_ser;
 use num_traits::Zero;
 use vm::{ActorError, ExitCode, TokenAmount};
 
@@ -22,18 +24,36 @@ pub struct State {
     pub proposals: Cid,
     /// Amt<DealID, DealState>
     pub states: Cid,
+
+    /// PendingProposals tracks dealProposals that have not yet reached their deal start date.
+    /// We track them here to ensure that miners can't publish the same deal proposal twice
+    pub pending_proposals: Cid,
+
     /// Total amount held in escrow, indexed by actor address (including both locked and unlocked amounts).
     pub escrow_table: Cid,
+
     /// Amount locked, indexed by actor address.
     /// Note: the amounts in this table do not affect the overall amount in escrow:
     /// only the _portion_ of the total escrow amount that is locked.
     pub locked_table: Cid,
+
     /// Deal id state sequential incrementer
     pub next_id: DealID,
+
     /// Metadata cached for efficient iteration over deals.
     /// SetMultimap<Address>
     pub deal_ops_by_epoch: Cid,
     pub last_cron: ChainEpoch,
+
+    /// Total Client Collateral that is locked -> unlocked when deal is terminated
+    #[serde(with = "bigint_ser")]
+    pub total_client_locked_colateral: TokenAmount,
+    /// Total Provider Collateral that is locked -> unlocked when deal is terminated
+    #[serde(with = "bigint_ser")]
+    pub total_provider_locked_colateral: TokenAmount,
+    /// Total storage fee that is locked in escrow -> unlocked when payments are made
+    #[serde(with = "bigint_ser")]
+    pub total_client_storage_fee: TokenAmount,
 }
 
 impl State {
@@ -41,11 +61,16 @@ impl State {
         Self {
             proposals: empty_arr.clone(),
             states: empty_arr,
+            pending_proposals: empty_map.clone(),
             escrow_table: empty_map.clone(),
             locked_table: empty_map,
             next_id: 0,
             deal_ops_by_epoch: empty_mset,
             last_cron: EPOCH_UNDEFINED,
+
+            total_client_locked_colateral: TokenAmount::default(),
+            total_provider_locked_colateral: TokenAmount::default(),
+            total_client_storage_fee: TokenAmount::default(),
         }
     }
 
@@ -492,3 +517,37 @@ fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAm
 }
 
 impl Cbor for State {}
+
+enum MarketStatePermission {
+    Invalid,
+    ReadOnly,
+    Write,
+}
+
+struct MarketStateMutation<'bs, BS> {
+    st: State,
+    store: &'bs BS,
+
+    proposal_permit: MarketStatePermission,
+    deal_proposals: Option<DealArray<'bs, BS>>,
+
+    state_permit: MarketStatePermission,
+    deal_states: Option<DealMetaArray<'bs, BS>>,
+
+    escrow_permit: MarketStatePermission,
+    escrow_table: Option<BalanceTable<'bs, BS>>,
+
+    pending_permit: MarketStatePermission,
+    pending_deals: Option<Map<'bs, BS>>,
+
+    dpe_permit: MarketStatePermission,
+    deals_by_epoch: Option<SetMultimap<'bs, BS>>,
+
+    locked_permit: MarketStatePermission,
+    locked_table: Option<BalanceTable<'bs, BS>>,
+    // total_client_locked_colateral: Option<TokenAmount>,
+    // total_provider_locked_colateral: Option<TokenAmount>,
+    // total_client_storage_fee: Option<TokenAmount>,
+
+    // next_deal_id: Option<todo!()>,
+}

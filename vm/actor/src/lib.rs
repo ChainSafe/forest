@@ -25,6 +25,9 @@ const HAMT_BIT_WIDTH: u8 = 5;
 type EmptyType = [u8; 0];
 const EMPTY_VALUE: EmptyType = [];
 
+/// Map type to be used within actors. The underlying type is a hamt.
+pub type Map<'bs, BS> = Hamt<'bs, BytesKey, BS>;
+
 /// Deal weight
 type DealWeight = BigUint;
 
