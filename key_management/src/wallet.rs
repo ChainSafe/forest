@@ -5,17 +5,18 @@ use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
 use address::Address;
 use crypto::{Signature, SignatureType};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
 /// A Key, this contains a key_info, address, and public_key which holds the key type and private key
-#[derive(Clone, PartialEq, Debug, Eq)]
+#[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct Key {
-    key_info: KeyInfo,
+    pub key_info: KeyInfo,
     // Vec<u8> is used because The public keys for BLS and SECP256K1 are not of the same type
-    public_key: Vec<u8>,
-    address: Address,
+    pub public_key: Vec<u8>,
+    pub address: Address,
 }
 
 impl TryFrom<KeyInfo> for Key {
@@ -101,18 +102,7 @@ where
 
     /// Return a Vec that contains all of the Addresses in the Wallet's KeyStore
     pub fn list_addrs(&self) -> Result<Vec<Address>, Error> {
-        let mut all = self.keystore.list();
-        all.sort();
-        let mut out = Vec::new();
-        for i in all {
-            if i.starts_with("wallet-") {
-                // TODO replace this with strip_prefix after it has been added to stable rust
-                let name = i.trim_start_matches("wallet-");
-                let addr = Address::from_str(name).map_err(|err| Error::Other(err.to_string()))?;
-                out.push(addr);
-            }
-        }
-        Ok(out)
+        list_addrs(&self.keystore)
     }
 
     /// Return the Address of the default KeyInfo in the Wallet
@@ -153,11 +143,59 @@ where
     }
 }
 
-/// Generate a new Key that satisfies the given SignatureType
-fn generate_key(typ: SignatureType) -> Result<Key, Error> {
+/// Return the default Address for KeyStore
+pub fn get_default<T: KeyStore>(keystore: &T) -> Result<Address, Error> {
+    let key_info = keystore.get(&"default".to_string())?;
+    let k = Key::try_from(key_info)?;
+    Ok(k.address)
+}
+
+/// Return Vec of Addresses sorted by their string representation in KeyStore
+pub fn list_addrs<T: KeyStore>(keystore: &T) -> Result<Vec<Address>, Error> {
+    let mut all = keystore.list();
+    all.sort();
+    let mut out = Vec::new();
+    for i in all {
+        if i.starts_with("wallet-") {
+            // TODO replace this with strip_prefix after it has been added to stable rust
+            let name = i.trim_start_matches("wallet-");
+            let addr = Address::from_str(name).map_err(|err| Error::Other(err.to_string()))?;
+            out.push(addr);
+        }
+    }
+    Ok(out)
+}
+
+/// Return Key corresponding to given Address in KeyStore
+pub fn find_key<T: KeyStore>(addr: &Address, keystore: &T) -> Result<Key, Error> {
+    let key_string = format!("wallet-{}", addr.to_string());
+    let key_info = keystore.get(&key_string)?;
+    let new_key = Key::try_from(key_info)?;
+    Ok(new_key)
+}
+
+/// Return keyInfo for given Address in KeyStore
+pub fn export_key_info<T: KeyStore>(addr: &Address, keystore: &T) -> Result<KeyInfo, Error> {
+    let key = find_key(addr, keystore)?;
+    Ok(key.key_info)
+}
+
+/// Generate new Key of given SignatureType
+pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
     let private_key = wallet_helpers::generate(typ)?;
     let key_info = KeyInfo::new(typ, private_key);
     Key::try_from(key_info)
+}
+
+/// Import KeyInfo into KeyStore
+pub fn import<T: KeyStore + Sync + Send>(
+    key_info: KeyInfo,
+    keystore: &mut T,
+) -> Result<Address, Error> {
+    let k = Key::try_from(key_info)?;
+    let addr = format!("wallet-{}", k.address.to_string());
+    keystore.put(addr, k.key_info)?;
+    Ok(k.address)
 }
 
 #[cfg(test)]

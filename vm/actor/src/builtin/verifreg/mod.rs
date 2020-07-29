@@ -11,7 +11,6 @@ use address::Address;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::BytesKey;
 use ipld_hamt::Hamt;
-use message::Message;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -116,8 +115,7 @@ impl Actor {
         rt.validate_immediate_caller_accept_any();
         rt.transaction(|st: &mut State, rt| {
             // Validate caller is one of the verifiers.
-            let message: Box<&dyn Message> = Box::new(rt.message());
-            let verify_addr = message.from();
+            let verify_addr = rt.message().caller();
 
             let verifier_cap = st
                 .get_verifier(rt.store(), &verify_addr)

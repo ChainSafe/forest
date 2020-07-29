@@ -17,7 +17,6 @@ use crate::{
 use address::Address;
 use fil_types::{SealVerifyInfo, StoragePower};
 use ipld_blockstore::BlockStore;
-use message::Message;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
@@ -81,7 +80,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let value = rt.message().value().clone();
+        let value = rt.message().value_received().clone();
         // TODO update this send, is now outdated
         let addresses: init::ExecReturn = rt
             .send(&INIT_ACTOR_ADDR, init::Method::Exec as u64, params, &value)?
@@ -176,7 +175,7 @@ impl Actor {
         rt.transaction(|st: &mut State, rt| {
             let rb_power = BigInt::from(params.weight.sector_size as u64);
             let qa_power = qa_power_for_weight(&params.weight);
-            st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
+            st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -198,7 +197,7 @@ impl Actor {
 
         rt.transaction(|st: &mut State, rt| {
             let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
+            st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -219,7 +218,7 @@ impl Actor {
 
         rt.transaction(|st: &mut State, rt| {
             let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
+            st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -239,7 +238,7 @@ impl Actor {
 
         rt.transaction(|st: &mut State, rt| {
             let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), rt.message().from(), &rb_power, &qa_power)
+            st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
                 .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
@@ -269,7 +268,7 @@ impl Actor {
 
             st.add_to_claim(
                 rt.store(),
-                rt.message().from(),
+                rt.message().caller(),
                 &BigInt::from(prev_weight.sector_size as u64),
                 &prev_power,
             )
@@ -283,7 +282,7 @@ impl Actor {
             let new_power = qa_power_for_weight(&new_weight);
             st.add_to_claim(
                 rt.store(),
-                rt.message().from(),
+                rt.message().caller(),
                 &BigInt::from(new_weight.sector_size as u64),
                 &new_power,
             )
@@ -307,7 +306,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_event = CronEvent {
-            miner_addr: *rt.message().from(),
+            miner_addr: *rt.message().caller(),
             callback_payload: params.payload.clone(),
         };
 
@@ -387,7 +386,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().from();
+        let miner_addr = *rt.message().caller();
         let st: State = rt.state()?;
 
         let claim = st
@@ -456,7 +455,7 @@ impl Actor {
                 Multimap::new(rt.store())
             };
 
-            let miner_addr = rt.message().from();
+            let miner_addr = rt.message().caller();
             mmap.add(miner_addr.to_bytes().into(), seal_info)
                 .map_err(|e| {
                     ActorError::new(

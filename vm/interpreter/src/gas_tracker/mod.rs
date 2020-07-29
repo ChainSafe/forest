@@ -4,7 +4,7 @@
 mod price_list;
 
 pub use self::price_list::{price_list_by_epoch, PriceList};
-use vm::{ActorError, ExitCode};
+use vm::{actor_error, ActorError, ExitCode};
 
 pub struct GasTracker {
     gas_available: i64,
@@ -23,13 +23,10 @@ impl GasTracker {
     pub fn charge_gas(&mut self, to_use: i64) -> Result<(), ActorError> {
         if self.gas_used + to_use > self.gas_available {
             self.gas_used = self.gas_available;
-            Err(ActorError::new(
-                ExitCode::SysErrOutOfGas,
-                format!(
-                    "not enough gas (used={}) (available={})",
-                    self.gas_used + to_use,
-                    self.gas_available
-                ),
+            Err(actor_error!(SysErrOutOfGas;
+                "not enough gas (used={}) (available={})",
+                self.gas_used + to_use,
+                self.gas_available
             ))
         } else {
             self.gas_used += to_use;
