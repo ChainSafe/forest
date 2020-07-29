@@ -4,6 +4,8 @@
 use cid::Cid;
 use rpc_client::{block, genesis, head, messages, new_client, read_obj};
 use structopt::StructOpt;
+use jsonrpc_v2::Error as JsonRpcError;
+use log::warn;
 
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
@@ -45,37 +47,58 @@ impl ChainCommands {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
+                let client = new_client();
 
-                let blk = block(client, cid).await;
+                let blk = block(client, cid).await.map_err(|e| {
+                    stringify_rpc_err(e);
+                }).unwrap();
                 println!("{}", serde_json::to_string_pretty(&blk).unwrap());
             }
             Self::Genesis => {
-                let mut client = new_client();
+                let client = new_client();
 
-                let gen = genesis(client).await;
+                let gen = genesis(client).await.map_err(|e| {
+                    stringify_rpc_err(e);
+                }).unwrap();
                 println!("{}", serde_json::to_string_pretty(&gen).unwrap());
             }
             Self::Head => {
-                let mut client = new_client();
+                let client = new_client();
 
-                let head = head(client).await;
-                println!("{}", serde_json::to_string_pretty(&head).unwrap());
+                let canonical = head(client).await.map_err(|e| {
+                    stringify_rpc_err(e);
+                }).unwrap();
+                println!("{}", serde_json::to_string_pretty(&canonical.0.cids()).unwrap());
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
+                let client = new_client();
 
-                let msg = messages(client, cid).await;
+                let msg = messages(client, cid).await.map_err(|e| {
+                    stringify_rpc_err(e);
+                }).unwrap();
                 println!("{}", serde_json::to_string_pretty(&msg).unwrap());
             }
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
+                let client = new_client();
 
-                let obj = read_obj(client, cid).await;
+                let obj = read_obj(client, cid).await.map_err(|e| {
+                    stringify_rpc_err(e);
+                }).unwrap();
                 println!("{}", serde_json::to_string_pretty(&obj).unwrap());
             }
+        }
+    }
+}
+
+fn stringify_rpc_err(e: JsonRpcError) -> String {
+    match e {
+        JsonRpcError::Full { code, message, data } => {
+            warn!("JSON RPC Error: Code: {} Message: {}", code, message)
+        },
+        JsonRpcError::Provided { code, message, data } => {
+            warn!("JSON RPC Error: Code: {} Message: {}", code, message)
         }
     }
 }
