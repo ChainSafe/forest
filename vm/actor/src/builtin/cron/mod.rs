@@ -10,7 +10,9 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Serialize};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use vm::{
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+};
 
 // * Updated to specs-actors commit: 4fc33d7142272b4296941e94208df9fcbc73e159
 
@@ -91,7 +93,7 @@ impl ActorCode for Actor {
                 Self::epoch_tick(rt)?;
                 Ok(Serialized::default())
             }
-            None => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
