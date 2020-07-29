@@ -284,7 +284,7 @@ dependencies = [
  "ipld_blockstore",
  "ipld_hamt",
  "lazy_static",
- "libp2p",
+ "libp2p 0.22.0",
  "num-derive",
  "num-traits 0.2.12",
  "runtime",
@@ -1192,7 +1192,7 @@ dependencies = [
  "futures 0.3.5",
  "ipld_amt",
  "ipld_blockstore",
- "libp2p",
+ "libp2p 0.22.0",
  "log",
  "lru 0.5.3",
  "num-traits 0.2.12",
@@ -2241,7 +2241,7 @@ dependencies = [
  "futures 0.3.5",
  "hex",
  "ipld_blockstore",
- "libp2p",
+ "libp2p 0.22.0",
  "log",
  "pbr",
  "pin-project-lite",
@@ -2409,7 +2409,7 @@ dependencies = [
  "futures_codec",
  "ipld_blockstore",
  "libipld-core",
- "libp2p",
+ "libp2p 0.22.0",
  "libp2p-bitswap",
  "libp2p-request-response 0.1.0",
  "log",
@@ -2752,7 +2752,7 @@ dependencies = [
  "futures-util",
  "futures_codec",
  "ipld_blockstore",
- "libp2p",
+ "libp2p 0.22.0",
  "log",
  "multihash 0.10.1",
  "protobuf",
@@ -3447,7 +3447,46 @@ dependencies = [
  "libp2p-kad",
  "libp2p-mdns",
  "libp2p-mplex",
- "libp2p-noise",
+ "libp2p-noise 0.20.0",
+ "libp2p-ping",
+ "libp2p-plaintext",
+ "libp2p-pnet",
+ "libp2p-request-response 0.1.1",
+ "libp2p-secio",
+ "libp2p-swarm",
+ "libp2p-tcp",
+ "libp2p-uds",
+ "libp2p-wasm-ext",
+ "libp2p-websocket",
+ "libp2p-yamux",
+ "multihash 0.11.2",
+ "parity-multiaddr",
+ "parking_lot 0.10.2",
+ "pin-project",
+ "smallvec 1.4.1",
+ "wasm-timer",
+]
+
+[[package]]
+name = "libp2p"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0306a49ee6a89468f96089906f36b0eef82c988dcfc8acf3e2dcd6ad1c859f85"
+dependencies = [
+ "bytes 0.5.6",
+ "futures 0.3.5",
+ "lazy_static",
+ "libp2p-core",
+ "libp2p-core-derive",
+ "libp2p-deflate",
+ "libp2p-dns",
+ "libp2p-floodsub",
+ "libp2p-gossipsub",
+ "libp2p-identify",
+ "libp2p-kad",
+ "libp2p-mdns",
+ "libp2p-mplex",
+ "libp2p-noise 0.21.0",
  "libp2p-ping",
  "libp2p-plaintext",
  "libp2p-pnet",
@@ -3697,6 +3736,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-noise"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f353f8966bbaaf7456535fffd3f366f153148773a0cf04b2ec3860955cb720e"
+dependencies = [
+ "bytes 0.5.6",
+ "curve25519-dalek",
+ "futures 0.3.5",
+ "lazy_static",
+ "libp2p-core",
+ "log",
+ "prost",
+ "prost-build",
+ "rand 0.7.3",
+ "sha2 0.8.2",
+ "snow",
+ "static_assertions",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
 name = "libp2p-ping"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3746,12 +3807,11 @@ dependencies = [
 [[package]]
 name = "libp2p-request-response"
 version = "0.1.0"
-source = "git+https://github.com/ChainSafe/rust-libp2p?rev=836f3e3df0119d10618b11901f1ce3d1f36de836#836f3e3df0119d10618b11901f1ce3d1f36de836"
 dependencies = [
  "async-std",
  "async-trait",
  "futures 0.3.5",
- "libp2p",
+ "libp2p 0.21.1",
  "smallvec 1.4.1",
  "wasm-timer",
 ]

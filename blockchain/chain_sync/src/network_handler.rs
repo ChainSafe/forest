@@ -9,6 +9,7 @@ use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::NetworkEvent;
 use log::trace;
 use std::sync::Arc;
+use forest_libp2p::hello::HelloResponse;
 
 /// Handles network events from channel and splits based on request
 pub(crate) struct NetworkHandler {
@@ -35,6 +36,7 @@ impl NetworkHandler {
                 // Update peer on this thread before sending hello
                 if let NetworkEvent::HelloRequest { channel, .. } = &event {
                     // TODO should probably add peer with their tipset/ not handled seperately
+                    channel.clone().send(HelloResponse{ arrival: 100, sent: 101 }).await;
                     peer_manager.add_peer(channel.peer.clone(), None).await;
                 }
                 event_send.publish(event).await

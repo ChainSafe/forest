@@ -326,14 +326,15 @@ impl BlockHeader {
         {
             return Err(Error::Validation("Header was from the future".to_string()));
         }
-        const FIXED_BLOCK_DELAY: u64 = 45;
+        const FIXED_BLOCK_DELAY: u64 = 25;
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
             < base_tipset.min_timestamp()
                 + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64
         {
             return Err(Error::Validation(
-                "Header was generated too soon".to_string(),
+                format!("Header was generated too soon: timestamp: {}, max time: {}", self.timestamp(),base_tipset.min_timestamp()
+                    + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64)
             ));
         }
 
