@@ -11,7 +11,7 @@ use self::policy::*;
 pub use self::state::State;
 pub use self::types::*;
 use crate::{
-    make_map, request_miner_control_addrs,
+    check_empty_params, make_map, request_miner_control_addrs,
     verifreg::{BytesParams, Method as VerifregMethod},
     BalanceTable, DealID, SetMultimap, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE,
     CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, VERIFIED_REGISTRY_ACTOR_ADDR,
@@ -32,6 +32,8 @@ use vm::{
     METHOD_SEND,
 };
 
+// * Updated to specs-actors commit: 4784ddb8e54d53c118e63763e4efbcf0a419da28
+
 /// Market actor methods available
 #[derive(FromPrimitive)]
 #[repr(u64)]
@@ -40,11 +42,13 @@ pub enum Method {
     AddBalance = 2,
     WithdrawBalance = 3,
     PublishStorageDeals = 4,
-    VerifyDealsOnSectorProveCommit = 5,
-    OnMinerSectorsTerminate = 6,
-    ComputeDataCommitment = 7,
-    CronTick = 8,
+    VerifyDealsForActivation = 5,
+    ActivateDeals = 6,
+    OnMinerSectorsTerminate = 7,
+    ComputeDataCommitment = 8,
+    CronTick = 9,
 }
+
 /// Market Actor
 pub struct Actor;
 impl Actor {
@@ -55,26 +59,17 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        let empty_root = Amt::<Cid, BS>::new(rt.store()).flush().map_err(|e| {
-            rt.abort(
-                ExitCode::ErrIllegalState,
-                format!("Failed to create market state: {}", e),
-            )
-        })?;
+        let empty_root = Amt::<(), BS>::new(rt.store())
+            .flush()
+            .map_err(|e| actor_error!(ErrIllegalState; "Failed to create market state: {}", e))?;
 
-        let empty_map = make_map(rt.store()).flush().map_err(|err| {
-            rt.abort(
-                ExitCode::ErrIllegalState,
-                format!("Failed to create market state: {}", err),
-            )
-        })?;
+        let empty_map = make_map(rt.store())
+            .flush()
+            .map_err(|e| actor_error!(ErrIllegalState; "Failed to create market state: {}", e))?;
 
-        let empty_m_set = SetMultimap::new(rt.store()).root().map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("Failed to create market state: {}", e),
-            )
-        })?;
+        let empty_m_set = SetMultimap::new(rt.store())
+            .root()
+            .map_err(|e| actor_error!(ErrIllegalState; "Failed to create market state: {}", e))?;
 
         let st = State::new(empty_root, empty_map, empty_m_set);
         rt.create(&st)?;
@@ -739,12 +734,8 @@ where
         ));
     }
     // Generate unsigned bytes
-    let sv_bz = to_vec(&proposal.proposal).map_err(|_| {
-        rt.abort(
-            ExitCode::ErrIllegalArgument,
-            "failed to serialize DealProposal",
-        )
-    })?;
+    let sv_bz = to_vec(&proposal.proposal)
+        .map_err(|_| actor_error!(ErrIllegalArgument; "failed to serialize DealProposal"))?;
 
     rt.syscalls()
         .verify_signature(
@@ -803,6 +794,7 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
+                check_empty_params(params)?;
                 Self::constructor(rt)?;
                 Ok(Serialized::default())
             }
@@ -818,10 +810,8 @@ impl ActorCode for Actor {
                 let res = Self::publish_storage_deals(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
-            Some(Method::VerifyDealsOnSectorProveCommit) => {
-                let res = Self::verify_deals_on_sector_prove_commit(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(&res)?)
-            }
+            Some(Method::VerifyDealsForActivation) => todo!(),
+            Some(Method::ActivateDeals) => todo!(),
             Some(Method::OnMinerSectorsTerminate) => {
                 Self::on_miners_sector_terminate(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
@@ -831,10 +821,11 @@ impl ActorCode for Actor {
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::CronTick) => {
+                check_empty_params(params)?;
                 Self::cron_tick(rt)?;
                 Ok(Serialized::default())
             }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
