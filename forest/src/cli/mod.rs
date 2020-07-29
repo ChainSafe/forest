@@ -8,10 +8,10 @@ mod genesis;
 mod wallet_cmd;
 
 pub(super) use self::chain_cmd::ChainCommands;
-pub(super) use self::wallet_cmd::WalletCommands;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis::initialize_genesis;
+pub(super) use self::wallet_cmd::WalletCommands;
 
 use std::cell::RefCell;
 use std::io;

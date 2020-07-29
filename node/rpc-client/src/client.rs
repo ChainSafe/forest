@@ -7,12 +7,12 @@
 
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
+use crypto::signature::json::SignatureJson;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use jsonrpsee::transport::TransportClient;
 use message::unsigned_message::json::UnsignedMessageJson;
 use wallet::json::KeyInfoJson;
-use crypto::signature::json::SignatureJson;
 
 jsonrpsee::rpc_api! {
     pub Filecoin {
@@ -52,7 +52,7 @@ jsonrpsee::rpc_api! {
         fn wallet_sign(params: (String, String)) -> SignatureJson;
 
         #[rpc(method = "Filecoin.WalletVerify")]
-        fn wallet_verify() -> bool;
+        fn wallet_verify(params: (String, String, SignatureJson)) -> bool;
 
         #[rpc(method = "Filecoin.WalletImport", positional_params)]
         fn wallet_import(key_info: KeyInfoJson) -> String;
