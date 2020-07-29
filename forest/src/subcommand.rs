@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::{commands::*, Subcommand};
+use super::cli::{Subcommand};
 
 /// Process CLI subcommand
 pub(super) async fn process(command: Subcommand) {
