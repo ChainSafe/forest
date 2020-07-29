@@ -12,6 +12,8 @@ use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Serialize};
 use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
+// * Updated to specs-actors commit: 4fc33d7142272b4296941e94208df9fcbc73e159
+
 /// Cron actor methods available
 #[derive(FromPrimitive)]
 #[repr(u64)]
@@ -56,12 +58,12 @@ impl Actor {
 
         let st: State = rt.state()?;
         for entry in st.entries {
-            let _v = rt.send(
+            rt.send(
                 entry.receiver,
                 entry.method_num,
                 Serialized::default(),
                 TokenAmount::from(0u8),
-            );
+            )?;
         }
         Ok(())
     }
@@ -88,7 +90,7 @@ impl ActorCode for Actor {
                 Self::epoch_tick(rt)?;
                 Ok(Serialized::default())
             }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            None => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }
 }
