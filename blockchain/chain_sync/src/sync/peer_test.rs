@@ -30,7 +30,7 @@ fn peer_manager_update() {
     chain_store.set_genesis(dummy_header.clone()).unwrap();
 
     let genesis_ts = Tipset::new(vec![dummy_header]).unwrap();
-    let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+    let beacon = Arc::new(RwLock::new(MockBeacon::new(Duration::from_secs(1))));
     let cs = ChainSyncer::new(
         chain_store,
         beacon,

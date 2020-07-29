@@ -26,7 +26,7 @@ async fn construct_drand_beacon() {
 #[ignore]
 #[async_std::test]
 async fn ask_and_verify_beacon_entry() {
-    let beacon = new_beacon().await;
+    let mut beacon = new_beacon().await;
 
     let e2 = beacon.entry(2).await.unwrap();
     let e3 = beacon.entry(3).await.unwrap();
@@ -36,7 +36,7 @@ async fn ask_and_verify_beacon_entry() {
 #[ignore]
 #[async_std::test]
 async fn ask_and_verify_beacon_entry_fail() {
-    let beacon = new_beacon().await;
+    let mut beacon = new_beacon().await;
 
     let e2 = beacon.entry(2).await.unwrap();
     let e3 = beacon.entry(3).await.unwrap();
