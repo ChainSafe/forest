@@ -51,7 +51,7 @@ fn simple_construction() {
         ..Default::default()
     };
 
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
 
     assert_eq!(
         Serialized::default(),
@@ -164,9 +164,8 @@ fn add_non_provider_funds() {
             rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), caller_addr);
 
             let amount = TokenAmount::from(test_case.0 as u64);
-            // rt.balance = rt.balance + amount.clone();
             rt.set_value(amount);
-            rt.expect_validate_caller_type(&CALLER_TYPES_SIGNABLE.clone());
+            rt.expect_validate_caller_type(CALLER_TYPES_SIGNABLE.to_vec());
 
             assert!(rt
                 .call(
@@ -272,7 +271,7 @@ fn withdraw_non_provider() {
     );
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), client_addr.clone());
-    rt.expect_validate_caller_type(&[
+    rt.expect_validate_caller_type(vec![
         ACCOUNT_ACTOR_CODE_ID.clone(),
         MULTISIG_ACTOR_CODE_ID.clone(),
     ]);
@@ -323,7 +322,7 @@ fn client_withdraw_more_than_available() {
     add_participant_funds(&mut rt, client_addr.clone(), amount.clone());
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), client_addr.clone());
-    rt.expect_validate_caller_type(&[
+    rt.expect_validate_caller_type(vec![
         ACCOUNT_ACTOR_CODE_ID.clone(),
         MULTISIG_ACTOR_CODE_ID.clone(),
     ]);
@@ -434,7 +433,7 @@ fn expect_provider_control_address(
     owner: Address,
     worker: Address,
 ) {
-    rt.expect_validate_caller_addr(&[owner.clone(), worker.clone()]);
+    rt.expect_validate_caller_addr(vec![owner.clone(), worker.clone()]);
 
     let return_value = GetControlAddressesReturn {
         owner: owner.clone(),
@@ -481,7 +480,7 @@ fn add_participant_funds(rt: &mut MockRuntime, addr: Address, amount: TokenAmoun
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), addr.clone());
 
-    rt.expect_validate_caller_type(&[
+    rt.expect_validate_caller_type(vec![
         ACCOUNT_ACTOR_CODE_ID.clone(),
         MULTISIG_ACTOR_CODE_ID.clone(),
     ]);
@@ -500,7 +499,7 @@ fn add_participant_funds(rt: &mut MockRuntime, addr: Address, amount: TokenAmoun
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
     assert_eq!(
         Serialized::default(),
         rt.call(

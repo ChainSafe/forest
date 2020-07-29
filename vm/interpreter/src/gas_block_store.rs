@@ -9,6 +9,7 @@ use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
 use std::error::Error as StdError;
 use std::rc::Rc;
+use vm::{actor_error, ActorError};
 
 /// Blockstore wrapper to charge gas on reads and writes
 pub(crate) struct GasBlockStore<'bs, BS> {
@@ -23,8 +24,10 @@ where
 {
     /// Get bytes from block store by Cid
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        // TODO investigate if should panic/exit here, should be fatal
-        let ret = self.store.get_bytes(cid)?;
+        let ret = self
+            .store
+            .get_bytes(cid)
+            .map_err(|e| actor_error!(fatal("failed to get block from blockstore: {}", e)))?;
         if let Some(bz) = &ret {
             self.gas
                 .borrow_mut()
@@ -54,8 +57,10 @@ where
             .borrow_mut()
             .charge_gas(self.price_list.on_ipld_put(to_vec(obj).unwrap().len()))?;
 
-        // TODO investigate if error here should be fatal
-        self.store.put(obj, hash)
+        Ok(self
+            .store
+            .put(obj, hash)
+            .map_err(|e| actor_error!(fatal("failed to write to store {}", e)))?)
     }
 }
 

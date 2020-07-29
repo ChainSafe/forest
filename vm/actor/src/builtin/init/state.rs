@@ -55,19 +55,17 @@ impl State {
         &self,
         store: &BS,
         addr: &Address,
-    ) -> Result<Address, String> {
+    ) -> Result<Option<Address>, String> {
         if addr.protocol() == Protocol::ID {
-            return Ok(*addr);
+            return Ok(Some(*addr));
         }
 
         let map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&self.address_map, store, HAMT_BIT_WIDTH)?;
 
-        let actor_id: ActorID = map
-            .get(&addr.to_bytes())?
-            .ok_or_else(|| "Address not found".to_owned())?;
-
-        Ok(Address::new_id(actor_id))
+        Ok(map
+            .get::<_, ActorID>(&addr.to_bytes())?
+            .map(Address::new_id))
     }
 }
 
