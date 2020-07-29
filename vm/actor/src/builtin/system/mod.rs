@@ -20,7 +20,7 @@ pub enum Method {
 pub struct Actor;
 impl Actor {
     /// Init actor constructor
-    pub fn constructor<BS, RT>(rt: &RT) -> Result<(), ActorError>
+    pub fn constructor<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,

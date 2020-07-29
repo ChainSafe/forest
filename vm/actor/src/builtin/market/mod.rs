@@ -28,7 +28,8 @@ use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use vm::{
-    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
 
 /// Market actor methods available
@@ -154,17 +155,17 @@ impl Actor {
         // TODO this will never be hit
         if amount_slashed_total > BigInt::zero() {
             rt.send(
-                &*BURNT_FUNDS_ACTOR_ADDR,
+                *BURNT_FUNDS_ACTOR_ADDR,
                 METHOD_SEND,
-                &Serialized::default(),
-                &amount_slashed_total,
+                Serialized::default(),
+                amount_slashed_total,
             )?;
         }
         rt.send(
-            &recipient,
+            recipient,
             METHOD_SEND,
-            &Serialized::default(),
-            &amount_extracted,
+            Serialized::default(),
+            amount_extracted,
         )?;
         Ok(())
     }
@@ -189,10 +190,12 @@ impl Actor {
         }
 
         // All deals should have the same provider so get worker once
-        let provider_raw = &params.deals[0].proposal.provider;
-        let provider = rt.resolve_address(&provider_raw)?;
+        let provider_raw = params.deals[0].proposal.provider;
+        let provider = rt.resolve_address(&provider_raw)?.ok_or_else(
+            || actor_error!(ErrNotFound; "failed to resolve provider address {}", provider_raw),
+        )?;
 
-        let (_, worker) = request_miner_control_addrs(rt, &provider)?;
+        let (_, worker) = request_miner_control_addrs(rt, provider)?;
         if &worker != rt.message().caller() {
             return Err(ActorError::new(
                 ExitCode::ErrForbidden,
@@ -210,17 +213,13 @@ impl Actor {
                     deal_size: BigInt::from(deal.proposal.piece_size.0),
                 })?;
                 rt.send(
-                    &*VERIFIED_REGISTRY_ACTOR_ADDR,
+                    *VERIFIED_REGISTRY_ACTOR_ADDR,
                     VerifregMethod::UseBytes as u64,
-                    &ser_params,
-                    &TokenAmount::zero(),
+                    ser_params,
+                    TokenAmount::zero(),
                 )?;
             }
         }
-
-        // All deals should have the same provider so get worker once
-        let provider_raw = params.deals[0].proposal.provider;
-        let provider = rt.resolve_address(&provider_raw)?;
 
         let mut new_deal_ids: Vec<DealID> = Vec::new();
         rt.transaction(|st: &mut State, rt| {
@@ -240,7 +239,10 @@ impl Actor {
                     ));
                 }
 
-                let client = rt.resolve_address(&deal.proposal.client)?;
+                let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(|| {
+                    actor_error!(ErrNotFound;
+                        "failed to resolve provider address {}", provider_raw)
+                })?;
                 // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
                 deal.proposal.provider = provider;
                 deal.proposal.client = client;
@@ -615,18 +617,18 @@ impl Actor {
                 deal_size: BigInt::from(d.piece_size.0),
             })?;
             rt.send(
-                &*VERIFIED_REGISTRY_ACTOR_ADDR,
+                *VERIFIED_REGISTRY_ACTOR_ADDR,
                 VerifregMethod::RestoreBytes as u64,
-                &ser_params,
-                &TokenAmount::zero(),
+                ser_params,
+                TokenAmount::zero(),
             )?;
         }
 
         rt.send(
-            &*BURNT_FUNDS_ACTOR_ADDR,
+            *BURNT_FUNDS_ACTOR_ADDR,
             METHOD_SEND,
-            &Serialized::default(),
-            &amount_slashed,
+            Serialized::default(),
+            amount_slashed,
         )?;
         Ok(())
     }
@@ -768,19 +770,13 @@ where
     RT: Runtime<BS>,
 {
     // Resolve the provided address to the canonical form against which the balance is held.
-    let nominal = rt.resolve_address(addr).map_err(|e| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("Failed to resolve address provided: {}", e),
-        )
-    })?;
+    let nominal = rt
+        .resolve_address(addr)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "failed to resolve address {}", addr))?;
 
-    let code_id = rt.get_actor_code_cid(&nominal).map_err(|e| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("Failed to retrieve actor code cid: {}", e),
-        )
-    })?;
+    let code_id = rt
+        .get_actor_code_cid(&nominal)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "no code for address {}", nominal))?;
 
     if code_id != *MINER_ACTOR_CODE_ID {
         // Ordinary account-style actor entry; funds recipient is just the entry address itself.
@@ -789,7 +785,7 @@ where
     }
 
     // Storage miner actor entry; implied funds recipient is the associated owner address.
-    let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
+    let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
     rt.validate_immediate_caller_is([owner_addr, worker_addr].iter())?;
     Ok((nominal, owner_addr))
 }

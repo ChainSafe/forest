@@ -18,6 +18,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
+use fil_types::DevnetParams;
 use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use futures::channel::oneshot;
@@ -163,7 +164,8 @@ where
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
-        let mut vm = VM::new(
+        // TODO change from statically using devnet params when needed
+        let mut vm = VM::<_, _, DevnetParams>::new(
             ts.parent_state(),
             &buf_store,
             ts.epoch(),
@@ -172,7 +174,7 @@ where
         )?;
 
         // Apply tipset messages
-        let receipts = vm.apply_tip_set_messages(ts, callback)?;
+        let receipts = vm.apply_tipset_messages(ts, callback)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
@@ -238,7 +240,7 @@ where
         span!("state_call_raw", {
             let block_store = self.get_block_store_ref();
             let buf_store = BufferedBlockStore::new(block_store);
-            let mut vm = VM::new(
+            let mut vm = VM::<_, _, DevnetParams>::new(
                 bstate,
                 &buf_store,
                 *bheight,
@@ -261,14 +263,14 @@ where
                 msg.gas_price(),
                 msg.value()
             );
-            if let Some(err) = apply_ret.act_error() {
+            if let Some(err) = &apply_ret.act_error {
                 warn!("chain call failed: {:?}", err);
             }
 
             Ok(InvocResult {
                 msg: msg.clone(),
-                msg_rct: Some(apply_ret.msg_receipt().clone()),
-                actor_error: apply_ret.act_error().map(|e| e.to_string()),
+                msg_rct: Some(apply_ret.msg_receipt.clone()),
+                actor_error: apply_ret.act_error.map(|e| e.to_string()),
             })
         })
     }
@@ -672,7 +674,7 @@ where
         Ok(actor.balance)
     }
 
-    pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+    pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())?;
         state_tree.lookup_id(addr).map_err(Error::State)
     }
@@ -681,7 +683,9 @@ where
         let market_state: market::State =
             self.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
 
-        let new_addr = self.lookup_id(addr, ts)?;
+        let new_addr = self
+            .lookup_id(addr, ts)?
+            .ok_or_else(|| Error::State(format!("Failed to resolve address {}", addr)))?;
 
         let out = MarketBalance {
             escrow: {
