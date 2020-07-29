@@ -1,13 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, FIRST_NON_SINGLETON_ADDR, HAMT_BIT_WIDTH};
+use crate::{make_map_with_root, FIRST_NON_SINGLETON_ADDR};
 use address::{Address, Protocol};
 use cid::Cid;
 use encoding::tuple::*;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error as HamtError, Hamt};
+use ipld_hamt::Error as HamtError;
 use vm::ActorID;
 
 /// State is reponsible for creating
@@ -37,8 +37,7 @@ impl State {
         let id = self.next_id;
         self.next_id += 1;
 
-        let mut map: Hamt<BytesKey, _> =
-            Hamt::load_with_bit_width(&self.address_map, store, HAMT_BIT_WIDTH)?;
+        let mut map = make_map_with_root(&self.address_map, store)?;
         map.set(addr.to_bytes().into(), id)?;
         self.address_map = map.flush()?;
 
@@ -60,8 +59,7 @@ impl State {
             return Ok(Some(*addr));
         }
 
-        let map: Hamt<BytesKey, _> =
-            Hamt::load_with_bit_width(&self.address_map, store, HAMT_BIT_WIDTH)?;
+        let map = make_map_with_root(&self.address_map, store)?;
 
         Ok(map
             .get::<_, ActorID>(&addr.to_bytes())?
