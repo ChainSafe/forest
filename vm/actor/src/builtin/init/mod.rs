@@ -127,12 +127,7 @@ impl ActorCode for Actor {
 }
 
 fn can_exec(caller: &Cid, exec: &Cid) -> bool {
-    if (exec == &*MINER_ACTOR_CODE_ID && caller == &*POWER_ACTOR_CODE_ID)
+    (exec == &*MINER_ACTOR_CODE_ID && caller == &*POWER_ACTOR_CODE_ID)
         || exec == &*MULTISIG_ACTOR_CODE_ID
         || exec == &*PAYCH_ACTOR_CODE_ID
-    {
-        true
-    } else {
-        false
-    }
 }
