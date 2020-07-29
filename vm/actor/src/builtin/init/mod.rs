@@ -118,10 +118,7 @@ impl ActorCode for Actor {
                 let res = Self::exec(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
-            None => {
-                // Method number does not match available, abort in runtime
-                Err(actor_error!(SysErrInvalidMethod; "Invalid method"))
-            }
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
