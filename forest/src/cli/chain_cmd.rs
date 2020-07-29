@@ -92,13 +92,13 @@ impl ChainCommands {
     }
 }
 
-fn stringify_rpc_err(e: JsonRpcError) -> String {
+fn stringify_rpc_err(e: JsonRpcError) {
     match e {
-        JsonRpcError::Full { code, message, data } => {
-            warn!("JSON RPC Error: Code: {} Message: {}", code, message)
+        JsonRpcError::Full { code, message, data: _ } => {
+            return warn!("JSON RPC Error: Code: {} Message: {}", code, message);
         },
-        JsonRpcError::Provided { code, message, data } => {
-            warn!("JSON RPC Error: Code: {} Message: {}", code, message)
+        JsonRpcError::Provided { code, message } => {
+            return warn!("JSON RPC Error: Code: {} Message: {}", code, message);
         }
     }
 }
