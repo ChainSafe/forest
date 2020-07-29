@@ -49,7 +49,8 @@ impl State {
     /// This means that ID-addresses (which should only appear as values, not keys)
     /// and singleton actor addresses pass through unchanged.
     ///
-    /// Post-condition: all addresses succesfully returned by this method satisfy `addr.protocol() == Protocol::ID`.
+    /// Post-condition: all addresses succesfully returned by this method satisfy 
+    /// `addr.protocol() == Protocol::ID`.
     pub fn resolve_address<BS: BlockStore>(
         &self,
         store: &BS,
