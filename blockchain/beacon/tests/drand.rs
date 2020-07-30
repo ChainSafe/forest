@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use beacon::{Beacon,DrandPublic, DrandBeacon};
+use beacon::{Beacon, DrandBeacon, DrandPublic};
 use serde::{Deserialize, Serialize};
-
 
 async fn new_beacon() -> DrandBeacon {
     // Current public parameters, subject to change.

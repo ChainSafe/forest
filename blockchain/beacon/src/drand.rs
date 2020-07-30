@@ -2,11 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::beacon_entries::BeaconEntry;
-use super::drand_api::api::PublicRandRequest;
-use super::drand_api::api_grpc::PublicClient;
-use super::drand_api::common::{ChainInfoRequest, GroupRequest};
-// use super::group::Group;
-
 use ahash::AHashMap;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
@@ -26,7 +21,7 @@ use tls_api_rustls::TlsConnector;
 /// This is shared by all participants on the Drand network.
 #[derive(Clone, Debug, SerdeSerialize, SerdeDeserialize)]
 pub struct DrandPublic {
-    pub coefficient: Vec<u8> ,
+    pub coefficient: Vec<u8>,
 }
 
 impl DrandPublic {
@@ -34,8 +29,6 @@ impl DrandPublic {
         PublicKey::from_bytes(&self.coefficient).unwrap()
     }
 }
-
-
 
 #[async_trait]
 pub trait Beacon
@@ -74,7 +67,6 @@ pub struct BeaconEntryJson {
     previous_signature: String,
 }
 
-
 pub struct DrandBeacon {
     pub_key: DrandPublic,
     interval: u64,
@@ -100,7 +92,9 @@ impl DrandBeacon {
         let mut chain_info: ChainInfo = surf::get(&url).recv_json().await.unwrap();
         let remote_pub_key = hex::decode(chain_info.public_key)?;
         if remote_pub_key != pub_key.coefficient {
-            return Err(Box::try_from("Drand pub key from config is different than one on drand servers")?);
+            return Err(Box::try_from(
+                "Drand pub key from config is different than one on drand servers",
+            )?);
         }
 
         Ok(Self {
@@ -155,7 +149,10 @@ impl Beacon for DrandBeacon {
             None => {
                 let url = format!("https://pl-eu.testnet.drand.sh/public/{}", round);
                 let mut resp: BeaconEntryJson = surf::get(&url).recv_json().await.unwrap();
-                Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature).unwrap()))
+                Ok(BeaconEntry::new(
+                    resp.round,
+                    hex::decode(resp.signature).unwrap(),
+                ))
             }
         }
     }
