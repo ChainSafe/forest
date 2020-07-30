@@ -5,7 +5,7 @@ use super::{
     collateral_penalty_for_deal_activation_missed, types::*, DealProposal, DealState,
     DEAL_UPDATED_INTERVAL,
 };
-use crate::{BalanceTable, DealID, Map, SetMultimap};
+use crate::{make_map_with_root, BalanceTable, DealID, Map, SetMultimap};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
@@ -72,6 +72,10 @@ impl State {
             total_provider_locked_colateral: TokenAmount::default(),
             total_client_storage_fee: TokenAmount::default(),
         }
+    }
+
+    fn mutator<'bs, BS: BlockStore>(&mut self, store: &'bs BS) -> MarketStateMutation<'bs, '_, BS> {
+        MarketStateMutation::new(self, store)
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -518,36 +522,197 @@ fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAm
 
 impl Cbor for State {}
 
-enum MarketStatePermission {
+#[derive(Debug, PartialEq)]
+enum Permission {
     Invalid,
     ReadOnly,
     Write,
 }
 
-struct MarketStateMutation<'bs, BS> {
-    st: State,
+struct MarketStateMutation<'bs, 's, BS> {
+    st: &'s mut State,
     store: &'bs BS,
 
-    proposal_permit: MarketStatePermission,
+    proposal_permit: Permission,
     deal_proposals: Option<DealArray<'bs, BS>>,
 
-    state_permit: MarketStatePermission,
+    state_permit: Permission,
     deal_states: Option<DealMetaArray<'bs, BS>>,
 
-    escrow_permit: MarketStatePermission,
+    escrow_permit: Permission,
     escrow_table: Option<BalanceTable<'bs, BS>>,
 
-    pending_permit: MarketStatePermission,
+    pending_permit: Permission,
     pending_deals: Option<Map<'bs, BS>>,
 
-    dpe_permit: MarketStatePermission,
+    dpe_permit: Permission,
     deals_by_epoch: Option<SetMultimap<'bs, BS>>,
 
-    locked_permit: MarketStatePermission,
+    locked_permit: Permission,
     locked_table: Option<BalanceTable<'bs, BS>>,
-    // total_client_locked_colateral: Option<TokenAmount>,
-    // total_provider_locked_colateral: Option<TokenAmount>,
-    // total_client_storage_fee: Option<TokenAmount>,
+    total_client_locked_colateral: Option<TokenAmount>,
+    total_provider_locked_colateral: Option<TokenAmount>,
+    total_client_storage_fee: Option<TokenAmount>,
 
-    // next_deal_id: Option<todo!()>,
+    next_deal_id: Option<DealID>,
+}
+
+impl<'bs, 's, BS> MarketStateMutation<'bs, 's, BS>
+where
+    BS: BlockStore,
+{
+    fn new(st: &'s mut State, store: &'bs BS) -> Self {
+        Self {
+            st,
+            store,
+            proposal_permit: Permission::Invalid,
+            deal_proposals: None,
+            state_permit: Permission::Invalid,
+            deal_states: None,
+            escrow_permit: Permission::Invalid,
+            escrow_table: None,
+            pending_permit: Permission::Invalid,
+            pending_deals: None,
+            dpe_permit: Permission::Invalid,
+            deals_by_epoch: None,
+            locked_permit: Permission::Invalid,
+            locked_table: None,
+            total_client_locked_colateral: None,
+            total_provider_locked_colateral: None,
+            total_client_storage_fee: None,
+            next_deal_id: None,
+        }
+    }
+
+    fn build(&mut self) -> Result<&mut Self, String> {
+        if self.proposal_permit != Permission::Invalid {
+            self.deal_proposals = Some(DealArray::load(&self.st.proposals, self.store)?);
+        }
+
+        if self.state_permit != Permission::Invalid {
+            self.deal_states = Some(DealMetaArray::load(&self.st.states, self.store)?);
+        }
+
+        if self.locked_permit != Permission::Invalid {
+            self.locked_table = Some(BalanceTable::from_root(self.store, &self.st.locked_table)?);
+            self.total_client_locked_colateral =
+                Some(self.st.total_client_locked_colateral.clone());
+            self.total_client_storage_fee = Some(self.st.total_client_storage_fee.clone());
+            self.total_provider_locked_colateral =
+                Some(self.st.total_provider_locked_colateral.clone());
+        }
+
+        if self.escrow_permit != Permission::Invalid {
+            self.escrow_table = Some(BalanceTable::from_root(self.store, &self.st.escrow_table)?);
+        }
+
+        if self.pending_permit != Permission::Invalid {
+            self.pending_deals = Some(make_map_with_root(&self.st.pending_proposals, self.store)?);
+        }
+
+        if self.dpe_permit != Permission::Invalid {
+            self.deals_by_epoch = Some(SetMultimap::from_root(
+                self.store,
+                &self.st.deal_ops_by_epoch,
+            )?);
+        }
+
+        self.next_deal_id = Some(self.st.next_id);
+
+        Ok(self)
+    }
+
+    fn with_deal_proposals(&mut self, permit: Permission) -> &mut Self {
+        self.proposal_permit = permit;
+        self
+    }
+
+    fn with_deal_states(&mut self, permit: Permission) -> &mut Self {
+        self.state_permit = permit;
+        self
+    }
+
+    fn with_escrow_table(&mut self, permit: Permission) -> &mut Self {
+        self.escrow_permit = permit;
+        self
+    }
+
+    fn with_locked_table(&mut self, permit: Permission) -> &mut Self {
+        self.locked_permit = permit;
+        self
+    }
+
+    fn with_pending_proposals(&mut self, permit: Permission) -> &mut Self {
+        self.pending_permit = permit;
+        self
+    }
+
+    fn with_deals_by_epoch(&mut self, permit: Permission) -> &mut Self {
+        self.dpe_permit = permit;
+        self
+    }
+
+    fn commit_state(&mut self) -> Result<(), String> {
+        if self.proposal_permit == Permission::Write {
+            if let Some(s) = &mut self.deal_proposals {
+                self.st.proposals = s
+                    .flush()
+                    .map_err(|e| format!("failed to flush deal proposals: {}", e))?;
+            }
+        }
+
+        if self.state_permit == Permission::Write {
+            if let Some(s) = &mut self.deal_states {
+                self.st.states = s
+                    .flush()
+                    .map_err(|e| format!("failed to flush deal states: {}", e))?;
+            }
+        }
+
+        if self.locked_permit == Permission::Write {
+            if let Some(s) = &mut self.locked_table {
+                self.st.locked_table = s
+                    .root()
+                    .map_err(|e| format!("failed to flush locked table: {}", e))?;
+            }
+            if let Some(s) = &mut self.total_client_locked_colateral {
+                self.st.total_client_locked_colateral = s.clone();
+            }
+            if let Some(s) = &mut self.total_provider_locked_colateral {
+                self.st.total_provider_locked_colateral = s.clone();
+            }
+            if let Some(s) = &mut self.total_client_storage_fee {
+                self.st.total_client_storage_fee = s.clone();
+            }
+        }
+
+        if self.escrow_permit == Permission::Write {
+            if let Some(s) = &mut self.escrow_table {
+                self.st.escrow_table = s
+                    .root()
+                    .map_err(|e| format!("failed to flush escrow table: {}", e))?;
+            }
+        }
+
+        if self.pending_permit == Permission::Write {
+            if let Some(s) = &mut self.pending_deals {
+                self.st.pending_proposals = s
+                    .flush()
+                    .map_err(|e| format!("failed to flush escrow table: {}", e))?;
+            }
+        }
+
+        if self.dpe_permit == Permission::Write {
+            if let Some(s) = &mut self.deals_by_epoch {
+                self.st.deal_ops_by_epoch = s
+                    .root()
+                    .map_err(|e| format!("failed to flush escrow table: {}", e))?;
+            }
+        }
+
+        if let Some(deal_id) = self.next_deal_id {
+            self.st.next_id = deal_id;
+        }
+        Ok(())
+    }
 }
