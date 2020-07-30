@@ -5,22 +5,32 @@ syntax = "proto3";
 
 package drand;
 
-/*option go_package = "github.com/drand/drand/protobuf/drand";*/
-option go_package = "drand";
+option go_package = "github.com/drand/drand/protobuf/drand";
+/*option go_package = "drand";*/
 
 message Empty {
 
 }
-// Identity holds the necessary information to contact a drand node
+
 message Identity {
     string address = 1;
     bytes key = 2;
     bool tls = 3;
+    // BLS signature over the identity to prove possession of the private key
+    bytes signature = 4;
 }
 
-// GroupPacket represents a group
+// Node holds the information related to a server in a group that forms a drand
+// network
+message Node {
+    Identity public = 1;
+    uint32 index = 2;
+}
+
+// GroupPacket represents a group that is running a drand network (or is in the
+// process of creating one or performing a resharing).
 message GroupPacket {
-    repeated Identity nodes = 1;
+    repeated Node nodes = 1;
     uint32 threshold = 2;
     // period in seconds
     uint32 period = 3;
@@ -28,8 +38,26 @@ message GroupPacket {
     uint64 transition_time = 5;
     bytes genesis_seed = 6;
     repeated bytes dist_key = 7;
+    // catchup_period in seconds
+    uint32 catchup_period = 8;
 }
 message GroupRequest {
 
 }
 
+message ChainInfoRequest {
+}
+
+message ChainInfoPacket {
+    // marshalled public key
+    bytes public_key = 1;
+    // period in seconds
+    uint32 period = 2;
+    // genesis time of the chain
+    int64 genesis_time = 3;
+    // hash is included for ease of use - not needing to have a drand client to
+    // compute its hash
+    bytes hash = 4;
+    // hash of the genesis group
+    bytes groupHash = 5;
+}

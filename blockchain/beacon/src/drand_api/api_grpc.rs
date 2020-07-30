@@ -28,9 +28,7 @@ pub trait Public {
 
     fn private_rand(&self, o: ::grpc::ServerHandlerContext, req: ::grpc::ServerRequestSingle<super::api::PrivateRandRequest>, resp: ::grpc::ServerResponseUnarySink<super::api::PrivateRandResponse>) -> ::grpc::Result<()>;
 
-    fn group(&self, o: ::grpc::ServerHandlerContext, req: ::grpc::ServerRequestSingle<super::common::GroupRequest>, resp: ::grpc::ServerResponseUnarySink<super::common::GroupPacket>) -> ::grpc::Result<()>;
-
-    fn dist_key(&self, o: ::grpc::ServerHandlerContext, req: ::grpc::ServerRequestSingle<super::api::DistKeyRequest>, resp: ::grpc::ServerResponseUnarySink<super::api::DistKeyResponse>) -> ::grpc::Result<()>;
+    fn chain_info(&self, o: ::grpc::ServerHandlerContext, req: ::grpc::ServerRequestSingle<super::common::ChainInfoRequest>, resp: ::grpc::ServerResponseUnarySink<super::common::ChainInfoPacket>) -> ::grpc::Result<()>;
 
     fn home(&self, o: ::grpc::ServerHandlerContext, req: ::grpc::ServerRequestSingle<super::api::HomeRequest>, resp: ::grpc::ServerResponseUnarySink<super::api::HomeResponse>) -> ::grpc::Result<()>;
 }
@@ -80,19 +78,9 @@ impl PublicClient {
         self.grpc_client.call_unary(o, req, descriptor)
     }
 
-    pub fn group(&self, o: ::grpc::RequestOptions, req: super::common::GroupRequest) -> ::grpc::SingleResponse<super::common::GroupPacket> {
+    pub fn chain_info(&self, o: ::grpc::RequestOptions, req: super::common::ChainInfoRequest) -> ::grpc::SingleResponse<super::common::ChainInfoPacket> {
         let descriptor = ::grpc::rt::ArcOrStatic::Static(&::grpc::rt::MethodDescriptor {
-            name: ::grpc::rt::StringOrStatic::Static("/drand.Public/Group"),
-            streaming: ::grpc::rt::GrpcStreaming::Unary,
-            req_marshaller: ::grpc::rt::ArcOrStatic::Static(&::grpc_protobuf::MarshallerProtobuf),
-            resp_marshaller: ::grpc::rt::ArcOrStatic::Static(&::grpc_protobuf::MarshallerProtobuf),
-        });
-        self.grpc_client.call_unary(o, req, descriptor)
-    }
-
-    pub fn dist_key(&self, o: ::grpc::RequestOptions, req: super::api::DistKeyRequest) -> ::grpc::SingleResponse<super::api::DistKeyResponse> {
-        let descriptor = ::grpc::rt::ArcOrStatic::Static(&::grpc::rt::MethodDescriptor {
-            name: ::grpc::rt::StringOrStatic::Static("/drand.Public/DistKey"),
+            name: ::grpc::rt::StringOrStatic::Static("/drand.Public/ChainInfo"),
             streaming: ::grpc::rt::GrpcStreaming::Unary,
             req_marshaller: ::grpc::rt::ArcOrStatic::Static(&::grpc_protobuf::MarshallerProtobuf),
             resp_marshaller: ::grpc::rt::ArcOrStatic::Static(&::grpc_protobuf::MarshallerProtobuf),
@@ -159,26 +147,14 @@ impl PublicServer {
                 ),
                 ::grpc::rt::ServerMethod::new(
                     ::grpc::rt::ArcOrStatic::Static(&::grpc::rt::MethodDescriptor {
-                        name: ::grpc::rt::StringOrStatic::Static("/drand.Public/Group"),
+                        name: ::grpc::rt::StringOrStatic::Static("/drand.Public/ChainInfo"),
                         streaming: ::grpc::rt::GrpcStreaming::Unary,
                         req_marshaller: ::grpc::rt::ArcOrStatic::Static(&::grpc_protobuf::MarshallerProtobuf),
                         resp_marshaller: ::grpc::rt::ArcOrStatic::Static(&::grpc_protobuf::MarshallerProtobuf),
                     }),
                     {
                         let handler_copy = handler_arc.clone();
-                        ::grpc::rt::MethodHandlerUnary::new(move |ctx, req, resp| (*handler_copy).group(ctx, req, resp))
-                    },
-                ),
-                ::grpc::rt::ServerMethod::new(
-                    ::grpc::rt::ArcOrStatic::Static(&::grpc::rt::MethodDescriptor {
-                        name: ::grpc::rt::StringOrStatic::Static("/drand.Public/DistKey"),
-                        streaming: ::grpc::rt::GrpcStreaming::Unary,
-                        req_marshaller: ::grpc::rt::ArcOrStatic::Static(&::grpc_protobuf::MarshallerProtobuf),
-                        resp_marshaller: ::grpc::rt::ArcOrStatic::Static(&::grpc_protobuf::MarshallerProtobuf),
-                    }),
-                    {
-                        let handler_copy = handler_arc.clone();
-                        ::grpc::rt::MethodHandlerUnary::new(move |ctx, req, resp| (*handler_copy).dist_key(ctx, req, resp))
+                        ::grpc::rt::MethodHandlerUnary::new(move |ctx, req, resp| (*handler_copy).chain_info(ctx, req, resp))
                     },
                 ),
                 ::grpc::rt::ServerMethod::new(
