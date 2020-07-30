@@ -8,14 +8,10 @@ use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
 use clock::ChainEpoch;
-use grpc::ClientStub;
-use grpc::RequestOptions;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::convert::TryFrom;
 use std::error;
-use std::sync::Arc;
-use tls_api_rustls::TlsConnector;
 
 /// Coeffiencients of the publicly available Drand keys.
 /// This is shared by all participants on the Drand network.
@@ -89,7 +85,7 @@ impl DrandBeacon {
             panic!("Genesis timestamp cannot be 0")
         }
         let url = "https://pl-eu.testnet.drand.sh/info";
-        let mut chain_info: ChainInfo = surf::get(&url).recv_json().await.unwrap();
+        let chain_info: ChainInfo = surf::get(&url).recv_json().await?;
         let remote_pub_key = hex::decode(chain_info.public_key)?;
         if remote_pub_key != pub_key.coefficient {
             return Err(Box::try_from(
@@ -148,10 +144,10 @@ impl Beacon for DrandBeacon {
             Some(cached_entry) => Ok(cached_entry.clone()),
             None => {
                 let url = format!("https://pl-eu.testnet.drand.sh/public/{}", round);
-                let mut resp: BeaconEntryJson = surf::get(&url).recv_json().await.unwrap();
+                let resp: BeaconEntryJson = surf::get(&url).recv_json().await?;
                 Ok(BeaconEntry::new(
                     resp.round,
-                    hex::decode(resp.signature).unwrap(),
+                    hex::decode(resp.signature)?,
                 ))
             }
         }
