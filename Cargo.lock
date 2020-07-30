@@ -740,16 +740,6 @@ checksum = "1b20b618342cf9891c292c4f5ac2cde7287cc5c87e87e9c769d617793607dec1"
 
 [[package]]
 name = "base64"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "489d6c0ed21b11d038c31b6ceccca973e65d73ba3bd8ecb9a2babf5546164643"
-dependencies = [
- "byteorder 1.3.4",
- "safemem",
-]
-
-[[package]]
-name = "base64"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b25d992356d2eb0ed82172f5248873db5560c4721f564b13cb5193bda5e668e"
@@ -782,15 +772,12 @@ dependencies = [
  "clock",
  "forest_encoding",
  "forest_json_utils",
- "grpc",
- "grpc-protobuf",
  "hex",
- "protobuf",
  "protoc-rust-grpc",
  "serde",
  "serde_json",
  "sha2 0.9.1",
- "tls-api-rustls",
+ "surf",
 ]
 
 [[package]]
@@ -2916,23 +2903,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2632a201d4680b900494389747c9a8407d4fe85b0dbd8002cab55b649246b114"
-dependencies = [
- "base64 0.9.3",
- "bytes 0.5.6",
- "futures 0.3.5",
- "httpbis",
- "log",
- "log-ndc",
- "tls-api",
- "tls-api-stub",
- "tokio",
-]
-
-[[package]]
 name = "grpc-compiler"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2940,17 +2910,6 @@ checksum = "28639c0bf54b98edbb908c113b0e24ed8443c921b090eee628cfd4ed28a9cd3d"
 dependencies = [
  "protobuf",
  "protobuf-codegen",
-]
-
-[[package]]
-name = "grpc-protobuf"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59e991b06899ac6b40399f9c83ed539f58da4007091b2972cd336b7e00098d8d"
-dependencies = [
- "bytes 0.5.6",
- "grpc",
- "protobuf",
 ]
 
 [[package]]
@@ -3174,25 +3133,6 @@ name = "httparse"
 version = "1.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd179ae861f0c2e53da70d892f5f3029f9594be0c41dc5269cd371691b1dc2f9"
-
-[[package]]
-name = "httpbis"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d3e4404f8f87938a2db89336609bde64363f5a556b15af936343e7252c9648d"
-dependencies = [
- "bytes 0.5.6",
- "futures 0.3.5",
- "log",
- "log-ndc",
- "net2",
- "rand 0.5.6",
- "tls-api",
- "tls-api-stub",
- "tokio",
- "unix_socket",
- "void",
-]
 
 [[package]]
 name = "humansize"
@@ -4210,15 +4150,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "log-ndc"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edb09057c7b58b7d27498b528eaee9a1e661b2974a733fcabbbc3350360bc8bd"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "lru"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5221,9 +5152,6 @@ name = "protobuf"
 version = "2.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d883f78645c21b7281d21305181aa1f4dd9e9363e7cf2566c93121552cff003e"
-dependencies = [
- "bytes 0.5.6",
-]
 
 [[package]]
 name = "protobuf-codegen"
@@ -5339,19 +5267,6 @@ dependencies = [
  "libc",
  "rand_core 0.3.1",
  "rdrand",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "rand"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c618c47cd3ebd209790115ab837de41425723956ad3ce2e6a7f09890947cacb9"
-dependencies = [
- "cloudabi 0.0.3",
- "fuchsia-cprng",
- "libc",
- "rand_core 0.3.1",
  "winapi 0.3.9",
 ]
 
@@ -5733,19 +5648,6 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0d4a31f5d68413404705d6982529b0e11a9aacd4839d1d6222ee3b8cb4015e1"
-dependencies = [
- "base64 0.11.0",
- "log",
- "ring",
- "sct",
- "webpki",
-]
-
-[[package]]
-name = "rustls"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cac94b333ee2aac3284c5b8a1b7fb4dd11cba88c244e3fe33cdbd047af0eb693"
@@ -5773,12 +5675,6 @@ name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
-
-[[package]]
-name = "safemem"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef703b7cb59335eae2eb93ceb664c0eb7ea6bf567079d843e09420219668e072"
 
 [[package]]
 name = "salsa20"
@@ -6879,40 +6775,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53953d2d3a5ad81d9f844a32f14ebb121f50b650cd59d0ee2a07cf13c617efed"
 
 [[package]]
-name = "tls-api"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ebb4107c167a4087349fcf08aea4debc358fe69d60fe1df991781842cfe98a3"
-dependencies = [
- "log",
- "tokio",
-]
-
-[[package]]
-name = "tls-api-rustls"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17e236b7cea18986a1fd8d3247e8fdb5515ad43d8ab254920cc86f4a160a7910"
-dependencies = [
- "rustls 0.17.0",
- "tls-api",
- "tokio",
- "webpki",
- "webpki-roots 0.19.0",
-]
-
-[[package]]
-name = "tls-api-stub"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f8ff269def04f25ae84b9aac156a400b92c97018a184036548c91cedaafd783"
-dependencies = [
- "tls-api",
- "tokio",
- "void",
-]
-
-[[package]]
 name = "tokio"
 version = "0.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7173,16 +7035,6 @@ checksum = "8326b2c654932e3e4f9196e69d08fdf7cfd718e1dc6f66b347e6024a0c961402"
 dependencies = [
  "generic-array 0.14.3",
  "subtle 2.2.3",
-]
-
-[[package]]
-name = "unix_socket"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aa2700417c405c38f5e6902d699345241c28c0b7ade4abaad71e35a87eb1564"
-dependencies = [
- "cfg-if",
- "libc",
 ]
 
 [[package]]
