@@ -145,10 +145,7 @@ impl Beacon for DrandBeacon {
             None => {
                 let url = format!("https://pl-eu.testnet.drand.sh/public/{}", round);
                 let resp: BeaconEntryJson = surf::get(&url).recv_json().await?;
-                Ok(BeaconEntry::new(
-                    resp.round,
-                    hex::decode(resp.signature)?,
-                ))
+                Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
             }
         }
     }
