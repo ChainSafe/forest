@@ -50,9 +50,7 @@ impl ChainCommands {
 
                 let blk = block(&mut client, cid)
                     .await
-                    .map_err(|e| {
-                        stringify_rpc_err(e);
-                    })
+                    .map_err(stringify_rpc_err)
                     .unwrap();
                 println!("{}", serde_json::to_string_pretty(&blk).unwrap());
             }
@@ -61,21 +59,14 @@ impl ChainCommands {
 
                 let gen = genesis(&mut client)
                     .await
-                    .map_err(|e| {
-                        stringify_rpc_err(e);
-                    })
+                    .map_err(stringify_rpc_err)
                     .unwrap();
                 println!("{}", serde_json::to_string_pretty(&gen).unwrap());
             }
             Self::Head => {
                 let mut client = new_client();
 
-                let canonical = head(&mut client)
-                    .await
-                    .map_err(|e| {
-                        stringify_rpc_err(e);
-                    })
-                    .unwrap();
+                let canonical = head(&mut client).await.map_err(stringify_rpc_err).unwrap();
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&canonical.0.cids()).unwrap()
@@ -87,9 +78,7 @@ impl ChainCommands {
 
                 let msg = messages(&mut client, cid)
                     .await
-                    .map_err(|e| {
-                        stringify_rpc_err(e);
-                    })
+                    .map_err(stringify_rpc_err)
                     .unwrap();
                 println!("{}", serde_json::to_string_pretty(&msg).unwrap());
             }
@@ -99,9 +88,7 @@ impl ChainCommands {
 
                 let obj = read_obj(&mut client, cid)
                     .await
-                    .map_err(|e| {
-                        stringify_rpc_err(e);
-                    })
+                    .map_err(stringify_rpc_err)
                     .unwrap();
                 println!("{}", serde_json::to_string_pretty(&obj).unwrap());
             }
