@@ -15,7 +15,6 @@ pub use self::util::*;
 pub use vm::{actor_error, ActorError, ActorState, DealID, ExitCode, Serialized};
 
 use cid::Cid;
-use encoding::Error as EncodingError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Error as HamtError, Hamt};
 use num_bigint::BigUint;
