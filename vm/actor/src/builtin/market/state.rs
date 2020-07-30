@@ -11,7 +11,6 @@ use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::tuple::*;
 use encoding::Cbor;
-use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
 use num_traits::Zero;
@@ -79,26 +78,17 @@ impl State {
     }
 }
 
-fn mutate_balance_table<BS, F>(store: &BS, c: &mut Cid, f: F) -> Result<(), String>
-where
-    F: FnOnce(&mut BalanceTable<BS>) -> Result<(), String>,
-    BS: BlockStore,
-{
-    let mut t = BalanceTable::from_root(store, &c)?;
-
-    f(&mut t)?;
-
-    *c = t.root()?;
-    Ok(())
-}
-
-fn deal_get_payment_remaining(deal: &DealProposal, epoch: ChainEpoch) -> TokenAmount {
+fn deal_get_payment_remaining(deal: &DealProposal, mut slash_epoch: ChainEpoch) -> TokenAmount {
     assert!(
-        epoch <= deal.end_epoch,
+        slash_epoch <= deal.end_epoch,
         "Current epoch must be before the end epoch of the deal"
     );
 
-    let duration_remaining = deal.end_epoch - (epoch - 1);
+    // Payments are always for start -> end epoch irrespective of when the deal is slashed.
+    slash_epoch = std::cmp::max(slash_epoch, deal.start_epoch);
+
+    let duration_remaining = deal.end_epoch - slash_epoch;
+    assert!(duration_remaining >= 0);
 
     deal.storage_price_per_epoch.clone() * duration_remaining as u64
 }
@@ -395,39 +385,6 @@ where
 
         Ok((TokenAmount::zero(), next, false))
     }
-    // fn mutate_deal_proposals<F>(&mut self, f: F) -> Result<(), ActorError>
-    // where
-    //     F: FnOnce(&mut Amt<Cid, BS>) -> Result<(), ActorError>,
-    // {
-    //     let mut prop = Amt::load(&self.proposals, store)
-    //         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-    //     f(&mut prop)?;
-
-    //     let r_cid = prop.flush().map_err(|e| {
-    //         ActorError::new(
-    //             ExitCode::ErrIllegalState,
-    //             format!("flushing deal proposals set failed: {}", e),
-    //         )
-    //     })?;
-
-    //     self.proposals = r_cid;
-    //     Ok(())
-    // }
-
-    // fn delete_deal(&mut self, store: &BS, deal_id: DealID) -> Result<(), ActorError> {
-    //     self.mutate_deal_proposals(store, |props: &mut Amt<Cid, BS>| {
-    //         props.delete(deal_id).map_err(|e| {
-    //             ActorError::new(
-    //                 ExitCode::ErrPlaceholder,
-    //                 format!("failed to delete deal: {}", e),
-    //             )
-    //         })?;
-    //         Ok(())
-    //     })?;
-
-    //     Ok(())
-    // }
 
     /// Deal start deadline elapsed without appearing in a proven sector.
     /// Slash a portion of provider's collateral, and unlock remaining collaterals
@@ -510,96 +467,6 @@ where
         ret
     }
 
-    // ////////////////////////////////////////////////////////////////////////////////
-    // // Balance table operations
-    // ////////////////////////////////////////////////////////////////////////////////
-
-    // pub fn add_escrow_balance(&mut self, a: &Address, amount: TokenAmount) -> Result<(), String> {
-    //     mutate_balance_table(
-    //         store,
-    //         &mut self.escrow_table,
-    //         |et: &mut BalanceTable<BS>| {
-    //             et.add_create(a, amount)?;
-    //             Ok(())
-    //         },
-    //     )?;
-
-    //     Ok(())
-    // }
-    // pub fn add_locked_balance(&mut self, a: &Address, amount: TokenAmount) -> Result<(), String> {
-    //     mutate_balance_table(
-    //         store,
-    //         &mut self.locked_table,
-    //         |lt: &mut BalanceTable<BS>| {
-    //             lt.add_create(a, amount)?;
-    //             Ok(())
-    //         },
-    //     )?;
-
-    //     Ok(())
-    // }
-    // pub fn get_escrow_balance(&self, a: &Address) -> Result<TokenAmount, ActorError> {
-    //     let bt = BalanceTable::from_root(store, &self.escrow_table).map_err(|e| {
-    //         ActorError::new(
-    //             ExitCode::ErrIllegalState,
-    //             format!("get escrow balance {}", e),
-    //         )
-    //     })?;
-    //     bt.get(a).map_err(|e| {
-    //         ActorError::new(
-    //             ExitCode::ErrIllegalState,
-    //             format!("get escrow balance {}", e),
-    //         )
-    //     })
-    // }
-    // pub fn get_locked_balance(&self, store: &BS, a: &Address) -> Result<TokenAmount, ActorError> {
-    //     let bt = BalanceTable::from_root(store, &self.locked_table).map_err(|e| {
-    //         ActorError::new(
-    //             ExitCode::ErrIllegalState,
-    //             format!("get locked balance {}", e),
-    //         )
-    //     })?;
-    //     bt.get(a).map_err(|e| {
-    //         ActorError::new(
-    //             ExitCode::ErrIllegalState,
-    //             format!("get locked balance {}", e),
-    //         )
-    //     })
-    // }
-
-    // fn maybe_lock_balance(
-    //     &mut self,
-    //     store: &BS,
-    //     addr: &Address,
-    //     amount: &TokenAmount,
-    // ) -> Result<(), ActorError> {
-    //     let prev_locked = self.get_locked_balance(store, addr)?;
-    //     let escrow_balance = self.get_escrow_balance(store, addr)?;
-    //     if &prev_locked + amount > escrow_balance {
-    //         return Err(ActorError::new(
-    //             ExitCode::ErrInsufficientFunds,
-    //             format!(
-    //                 "not enough balance to lock for addr {}: {} <  {}",
-    //                 addr,
-    //                 prev_locked + amount,
-    //                 escrow_balance
-    //             ),
-    //         ));
-    //     }
-
-    //     mutate_balance_table(
-    //         store,
-    //         &mut self.locked_table,
-    //         |lt: &mut BalanceTable<BS>| {
-    //             lt.add(addr, amount)?;
-    //             Ok(())
-    //         },
-    //     )
-    //     .map_err(|e| ActorError::new(ExitCode::ErrPlaceholder, e))?;
-
-    //     Ok(())
-    // }
-
     fn unlock_balance(
         &mut self,
         addr: &Address,
@@ -671,41 +538,4 @@ where
             .must_subtract(addr, &amount)?;
         self.unlock_balance(addr, amount, lock_reason)
     }
-
-    // ////////////////////////////////////////////////////////////////////////////////
-    // // Method utility functions
-    // ////////////////////////////////////////////////////////////////////////////////
-
-    // pub(super) fn must_get_deal(&self) -> Result<DealProposal, ActorError> {
-    //     let proposals = Amt::load(&self.proposals, store)
-    //         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-    //     Ok(proposals
-    //         .get(deal_id)
-    //         .map_err(|e| {
-    //             ActorError::new(
-    //                 ExitCode::ErrIllegalState,
-    //                 format!("get proposal for id {}: {}", deal_id, e),
-    //             )
-    //         })?
-    //         .ok_or_else(|| {
-    //             ActorError::new(
-    //                 ExitCode::ErrIllegalState,
-    //                 format!("proposal not found for id {}", deal_id),
-    //             )
-    //         })?)
-    // }
-    // pub(super) fn lock_balance_or_abort(
-    //     &mut self,
-    //     addr: &Address,
-    //     amount: &TokenAmount,
-    // ) -> Result<(), ActorError> {
-    //     if amount < &TokenAmount::zero() {
-    //         return Err(ActorError::new(
-    //             ExitCode::ErrIllegalArgument,
-    //             format!("negative amount {}", amount),
-    //         ));
-    //     }
-
-    //     self.maybe_lock_balance(store, addr, amount)
-    // }
 }
