@@ -117,7 +117,7 @@ where
 
     /// Writes encoded message data to blockstore
     pub fn put_messages<T: Cbor>(&self, msgs: &[T]) -> Result<(), Error> {
-        put_messages(self.blockstore(), msgs)
+        persist_objects(self.blockstore(), msgs)
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
@@ -287,6 +287,7 @@ where
         .map_err(|e| Error::Other(e.to_string()))?)
 }
 
+/// Persists slice of serializable objects to blockstore.
 pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
     DB: BlockStore,
@@ -294,17 +295,6 @@ where
 {
     for chunk in headers.chunks(256) {
         db.bulk_put(chunk, Blake2b256)
-            .map_err(|e| Error::Other(e.to_string()))?;
-    }
-    Ok(())
-}
-
-pub fn put_messages<DB, T: Cbor>(db: &DB, msgs: &[T]) -> Result<(), Error>
-where
-    DB: BlockStore,
-{
-    for m in msgs {
-        db.put(m, Blake2b256)
             .map_err(|e| Error::Other(e.to_string()))?;
     }
     Ok(())
