@@ -7,6 +7,8 @@ use super::drand_api::api_grpc::PublicClient;
 use super::drand_api::common::GroupRequest;
 use super::group::Group;
 
+use ahash::AHashMap;
+use async_std::sync::RwLock;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -39,7 +41,7 @@ where
     Self: Sized,
 {
     /// Verify a new beacon entry against the most recent one before it.
-    fn verify_entry(
+    async fn verify_entry(
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
@@ -59,6 +61,9 @@ pub struct DrandBeacon {
     drand_gen_time: u64,
     fil_gen_time: u64,
     fil_round_time: u64,
+
+    /// Keeps track of computed beacon entries.
+    local_cache: RwLock<AHashMap<u64, BeaconEntry>>,
 }
 
 impl DrandBeacon {
@@ -95,6 +100,7 @@ impl DrandBeacon {
             drand_gen_time: group.genesis_time,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
+            local_cache: Default::default(),
         })
     }
 }
@@ -102,7 +108,7 @@ impl DrandBeacon {
 /// Use this to source randomness and to verify Drand beacon entries.
 #[async_trait]
 impl Beacon for DrandBeacon {
-    fn verify_entry(
+    async fn verify_entry(
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
@@ -123,21 +129,32 @@ impl Beacon for DrandBeacon {
         // Signature
         let sig = Signature::from_bytes(curr.data())?;
         let sig_match = bls_signatures::verify(&sig, &[digest], &[self.pub_key.key()]);
-        // TODO: Cache this result
+
+        // Cache the result
+        if sig_match && !self.local_cache.read().await.contains_key(&curr.round()) {
+            self.local_cache
+                .write()
+                .await
+                .insert(curr.round(), curr.clone());
+        }
         Ok(sig_match)
     }
 
     async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>> {
-        // TODO: Cache values into a database
-        let mut req = PublicRandRequest::new();
-        req.round = round;
-        let resp = self
-            .client
-            .public_rand(grpc::RequestOptions::new(), req)
-            .drop_metadata()
-            .await?;
+        match self.local_cache.read().await.get(&round) {
+            Some(cached_entry) => Ok(cached_entry.clone()),
+            None => {
+                let mut req = PublicRandRequest::new();
+                req.round = round;
+                let resp = self
+                    .client
+                    .public_rand(grpc::RequestOptions::new(), req)
+                    .drop_metadata()
+                    .await?;
 
-        Ok(BeaconEntry::new(resp.round, resp.signature))
+                Ok(BeaconEntry::new(resp.round, resp.signature))
+            }
+        }
     }
 
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64 {
