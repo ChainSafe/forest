@@ -56,7 +56,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     state: Arc<RwLock<SyncState>>,
 
     /// Drand randomness beacon
-    beacon: Arc<RwLock<TBeacon>>,
+    beacon: Arc<TBeacon>,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -100,7 +100,7 @@ where
 {
     pub fn new(
         chain_store: ChainStore<DB>,
-        beacon: Arc<RwLock<TBeacon>>,
+        beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
@@ -1017,7 +1017,7 @@ mod tests {
         let gen = dummy_header();
         chain_store.set_genesis(gen.clone()).unwrap();
 
-        let beacon = Arc::new(RwLock::new(MockBeacon::new(Duration::from_secs(1))));
+        let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
 
         let genesis_ts = Tipset::new(vec![gen]).unwrap();
         (

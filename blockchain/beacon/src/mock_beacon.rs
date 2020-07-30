@@ -29,8 +29,8 @@ impl MockBeacon {
 
 #[async_trait]
 impl Beacon for MockBeacon {
-    fn verify_entry(
-        &mut self,
+    async fn verify_entry(
+        &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
     ) -> Result<bool, Box<dyn Error>> {

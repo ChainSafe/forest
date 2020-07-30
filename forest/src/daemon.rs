@@ -64,7 +64,7 @@ pub(super) async fn start(config: Config) {
     // Initialize ChainSyncer
     let chain_syncer = ChainSyncer::new(
         chain_store,
-        Arc::new(RwLock::new(beacon)),
+        Arc::new(beacon),
         network_send.clone(),
         network_rx,
         genesis,

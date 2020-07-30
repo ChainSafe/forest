@@ -3,7 +3,6 @@
 
 use super::{Error, Ticket, Tipset, TipsetKeys};
 use address::Address;
-use async_std::sync::RwLock;
 use beacon::{self, Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
@@ -369,10 +368,10 @@ impl BlockHeader {
     /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
     pub async fn validate_block_drand<B: Beacon>(
         &self,
-        beacon: Arc<RwLock<B>>,
+        beacon: Arc<B>,
         prev_entry: BeaconEntry,
     ) -> Result<(), Error> {
-        let max_round = beacon.read().await.max_beacon_round_for_epoch(self.epoch);
+        let max_round = beacon.max_beacon_round_for_epoch(self.epoch);
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {
                 return Err(Error::Validation(format!(
@@ -395,9 +394,8 @@ impl BlockHeader {
         let mut prev = &prev_entry;
         for curr in &self.beacon_entries {
             if !beacon
-                .write()
-                .await
                 .verify_entry(&curr, &prev)
+                .await
                 .map_err(|e| Error::Validation(e.to_string()))?
             {
                 return Err(Error::Validation(format!(
