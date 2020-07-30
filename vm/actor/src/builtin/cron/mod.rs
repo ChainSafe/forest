@@ -10,7 +10,11 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Serialize};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use vm::{
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+};
+
+// * Updated to specs-actors commit: 4784ddb8e54d53c118e63763e4efbcf0a419da28
 
 /// Cron actor methods available
 #[derive(FromPrimitive)]
@@ -56,7 +60,8 @@ impl Actor {
 
         let st: State = rt.state()?;
         for entry in st.entries {
-            let _v = rt.send(
+            // Intentionally ignore any error when calling cron methods
+            let _ = rt.send(
                 entry.receiver,
                 entry.method_num,
                 Serialized::default(),
@@ -88,7 +93,7 @@ impl ActorCode for Actor {
                 Self::epoch_tick(rt)?;
                 Ok(Serialized::default())
             }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
