@@ -88,10 +88,10 @@ impl Message for SignedMessage {
     fn set_gas_price(&mut self, token_amount: TokenAmount) {
         self.message.set_gas_price(token_amount)
     }
-    fn gas_limit(&self) -> u64 {
+    fn gas_limit(&self) -> i64 {
         self.message.gas_limit()
     }
-    fn set_gas_limit(&mut self, token_amount: u64) {
+    fn set_gas_limit(&mut self, token_amount: i64) {
         self.message.set_gas_limit(token_amount)
     }
     fn set_sequence(&mut self, new_sequence: u64) {

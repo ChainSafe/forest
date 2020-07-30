@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod chain_api;
+mod mpool_api;
 mod sync_api;
 mod wallet_api;
 
@@ -10,12 +11,12 @@ use blockstore::BlockStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
+use message_pool::{MessagePool, MpoolRpcProvider};
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
 use wallet::KeyStore;
 
 /// This is where you store persistant data, or at least access to stateful data.
-
 pub struct RpcState<DB, KS>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -23,6 +24,7 @@ where
 {
     pub store: Arc<DB>,
     pub keystore: Arc<RwLock<KS>>,
+    pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<SyncState>>,
     pub network_send: Sender<NetworkMessage>,
@@ -41,6 +43,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     use chain_api::*;
+    use mpool_api::*;
     use sync_api::*;
     use wallet_api::*;
 
@@ -69,6 +72,15 @@ where
             chain_api::chain_get_block::<DB, KS>,
         )
         .with_method("Filecoin.ChainHead", chain_head::<DB, KS>)
+        // Message Pool API
+        .with_method(
+            "Filecoin.MpoolEstimateGasPrice",
+            mpool_estimate_gas_price::<DB, KS>,
+        )
+        .with_method("Filecoin.MpoolGetNonce", mpool_get_sequence::<DB, KS>)
+        .with_method("Filecoin.MpoolPending", mpool_pending::<DB, KS>)
+        .with_method("Filecoin.MpoolPush", mpool_push::<DB, KS>)
+        .with_method("Filecoin.MpoolPushMessage", mpool_push_message::<DB, KS>)
         // Sync API
         .with_method("Filecoin.SyncCheckBad", sync_check_bad::<DB, KS>)
         .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB, KS>)

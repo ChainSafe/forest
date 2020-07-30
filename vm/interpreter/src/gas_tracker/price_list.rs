@@ -77,8 +77,8 @@ pub struct PriceList {
 impl PriceList {
     /// Returns the gas required for storing a message of a given size in the chain.
     #[inline]
-    pub fn on_chain_message(&self, msg_size: i64) -> i64 {
-        self.on_chain_message_base + self.on_chain_message_per_byte * msg_size
+    pub fn on_chain_message(&self, msg_size: usize) -> i64 {
+        self.on_chain_message_base + self.on_chain_message_per_byte * msg_size as i64
     }
     /// Returns the gas required for storing the response of a message in the chain.
     #[inline]

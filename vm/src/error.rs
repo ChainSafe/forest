@@ -35,16 +35,30 @@ impl ActorError {
         }
     }
 
+    /// Returns true if error is fatal.
     pub fn is_fatal(&self) -> bool {
         self.fatal
     }
 
+    /// Returns the exit code of the error.
     pub fn exit_code(&self) -> ExitCode {
         self.exit_code
     }
 
+    /// Returns true when the exit code is `Ok`.
+    pub fn is_ok(&self) -> bool {
+        self.exit_code == ExitCode::Ok
+    }
+
+    /// Error message of the actor error.
     pub fn msg(&self) -> &str {
         &self.msg
+    }
+
+    /// Prefix error message with a string message.
+    pub fn wrap(mut self, msg: &str) -> Self {
+        self.msg = format!("{}: {}", msg, self.msg);
+        self
     }
 }
 
