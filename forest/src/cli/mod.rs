@@ -11,6 +11,7 @@ pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis::initialize_genesis;
 
+use jsonrpc_v2::Error as JsonRpcError;
 use std::cell::RefCell;
 use std::io;
 use std::process;
@@ -108,4 +109,20 @@ pub(super) async fn block_until_sigint() {
     .expect("Error setting Ctrl-C handler");
 
     ctrlc_oneshot.await.unwrap();
+}
+
+/// Returns a stringified JSON-RPC error
+pub(super) fn stringify_rpc_err(e: JsonRpcError) -> String {
+    match e {
+        JsonRpcError::Full {
+            code,
+            message,
+            data: _,
+        } => {
+            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
+        }
+        JsonRpcError::Provided { code, message } => {
+            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
+        }
+    }
 }

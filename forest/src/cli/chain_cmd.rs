@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::stringify_rpc_err;
 use cid::Cid;
-use jsonrpc_v2::Error as JsonRpcError;
 use rpc_client::{block, genesis, head, messages, new_client, read_obj};
 use structopt::StructOpt;
 
@@ -105,21 +105,6 @@ impl ChainCommands {
                     .unwrap();
                 println!("{}", serde_json::to_string_pretty(&obj).unwrap());
             }
-        }
-    }
-}
-
-fn stringify_rpc_err(e: JsonRpcError) -> String {
-    match e {
-        JsonRpcError::Full {
-            code,
-            message,
-            data: _,
-        } => {
-            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
-        }
-        JsonRpcError::Provided { code, message } => {
-            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
         }
     }
 }
