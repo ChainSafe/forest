@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod chain_cmd;
 mod config;
+mod fetch_params_cmd;
 mod genesis;
 mod sync_cmd;
-mod chain_cmd;
-mod fetch_params_cmd;
 
 pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;

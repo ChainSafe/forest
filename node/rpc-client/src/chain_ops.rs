@@ -20,8 +20,8 @@ pub async fn genesis(mut client: RawClient<HTC>) -> Result<TipsetJson, JsonRpcEr
 }
 
 /// Returns canonical head of the chain via RPC
-pub async fn head(mut client: RawClient<HTC>) -> Result<TipsetJson, JsonRpcError> {
-    Ok(Filecoin::chain_get_head(&mut client).await?)
+pub async fn head(client: &mut RawClient<HTC>) -> Result<TipsetJson, JsonRpcError> {
+    Ok(Filecoin::chain_get_head(client).await?)
 }
 
 /// Returns messages with specified CID from chain via RPC

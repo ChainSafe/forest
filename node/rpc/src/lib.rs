@@ -65,7 +65,6 @@ where
             "Filecoin.ChainGetTipsetByHeight",
             chain_get_tipset_by_height::<DB, KS>,
         )
-
         .with_method("Filecoin.ChainGetGenesis", chain_get_genesis::<DB, KS>)
         .with_method("Filecoin.ChainTipsetWeight", chain_tipset_weight::<DB, KS>)
         .with_method("Filecoin.ChainGetTipset", chain_get_tipset::<DB, KS>)
@@ -84,13 +83,11 @@ where
         .with_method("Filecoin.MpoolPending", mpool_pending::<DB, KS>)
         .with_method("Filecoin.MpoolPush", mpool_push::<DB, KS>)
         .with_method("Filecoin.MpoolPushMessage", mpool_push_message::<DB, KS>)
-
         // Sync API
         .with_method("Filecoin.SyncCheckBad", sync_check_bad::<DB, KS>)
         .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB, KS>)
         .with_method("Filecoin.SyncState", sync_state::<DB, KS>)
         .with_method("Filecoin.SyncSubmitBlock", sync_submit_block::<DB, KS>)
-    
         // Wallet API
         .with_method("Filecoin.WalletBalance", wallet_balance::<DB, KS>)
         .with_method(

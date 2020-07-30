@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::{
-    tipset::tipset_json::{self, TipsetJson, TipsetJsonRef},
+    tipset::tipset_json::{TipsetJson, TipsetJsonRef},
     Tipset,
 };
 use clock::ChainEpoch;

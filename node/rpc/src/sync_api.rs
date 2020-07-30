@@ -12,7 +12,6 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use serde::{Deserialize, Serialize};
 use wallet::KeyStore;
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RPCSyncState {
     #[serde(rename = "ActiveSyncs")]

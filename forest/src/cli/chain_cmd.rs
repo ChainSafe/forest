@@ -59,7 +59,7 @@ impl ChainCommands {
             Self::Head => {
                 let mut client = new_client();
 
-                let head = head(client).await;
+                let head = head(&mut client).await;
                 println!("{}", serde_json::to_string_pretty(&head).unwrap());
             }
             Self::Message { cid } => {
