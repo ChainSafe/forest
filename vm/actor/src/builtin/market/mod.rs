@@ -8,7 +8,7 @@ mod types;
 
 pub use self::deal::*;
 use self::policy::*;
-pub use self::state::State;
+pub use self::state::*;
 pub use self::types::*;
 use crate::{
     check_empty_params, make_map, request_miner_control_addrs,
@@ -23,7 +23,7 @@ use encoding::to_vec;
 use fil_types::PieceInfo;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -82,29 +82,39 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let (nominal, _) = escrow_address(rt, &provider_or_client)?;
-
         let msg_value = rt.message().value_received().clone();
-        todo!();
-        // rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-        //     st.add_escrow_balance(rt.store(), &nominal, msg_value)
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalState,
-        //                 format!("adding to escrow table: {}", e),
-        //             )
-        //         })?;
 
-        //     // ensure there is an entry in the locked table
-        //     st.add_locked_balance(rt.store(), &nominal, TokenAmount::zero())
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalArgument,
-        //                 format!("adding to locked table: {}", e),
-        //             )
-        //         })?;
-        //     Ok(())
-        // })??;
+        if msg_value <= TokenAmount::from(0) {
+            return Err(actor_error!(ErrIllegalArgument;
+                "balance to add must be greater than zero was: {}", msg_value));
+        }
+
+        // only signing parties can add balance for client AND provider.
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
+
+        let (nominal, _, _) = escrow_address(rt, &provider_or_client)?;
+
+        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+            let mut msm = st.mutator(rt.store());
+            msm.with_escrow_table(Permission::Write)
+                .with_locked_table(Permission::Write)
+                .build()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load state: {}", e))?;
+
+            msm.escrow_table
+                .as_mut()
+                .unwrap()
+                .add(&nominal, &msg_value)
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                            "failed to add balance to escrow table: {}", e)
+                })?;
+
+            msm.commit_state()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
+
+            Ok(())
+        })??;
 
         Ok(())
     }
@@ -119,44 +129,49 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let (nominal, recipient) = escrow_address(rt, &params.provider_or_client)?;
-
-        let amount_slashed_total = TokenAmount::zero();
-        let amount_extracted = todo!();
-        // rt.transaction::<_, Result<TokenAmount, ActorError>, _>(|st: &mut State, rt| {
-        //     // The withdrawable amount might be slightly less than nominal
-        //     // depending on whether or not all relevant entries have been processed
-        //     // by cron
-
-        //     let min_balance = st.get_locked_balance(rt.store(), &nominal)?;
-
-        //     let mut et = BalanceTable::from_root(rt.store(), &st.escrow_table)
-        //         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        //     let ex = et
-        //         .subtract_with_minimum(&nominal, &params.amount, &min_balance)
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalState,
-        //                 format!("Subtract form escrow table: {}", e),
-        //             )
-        //         })?;
-
-        //     st.escrow_table = et
-        //         .root()
-        //         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-        //     Ok(ex)
-        // })??;
-
-        // TODO this will never be hit
-        if amount_slashed_total > BigInt::zero() {
-            rt.send(
-                *BURNT_FUNDS_ACTOR_ADDR,
-                METHOD_SEND,
-                Serialized::default(),
-                amount_slashed_total,
-            )?;
+        if params.amount < TokenAmount::from(0) {
+            return Err(actor_error!(ErrIllegalArgument; "negative amount: {}", params.amount));
         }
+        // withdrawal can ONLY be done by a signing party.
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
+
+        let (nominal, recipient, approved) = escrow_address(rt, &params.provider_or_client)?;
+        // for providers -> only corresponding owner or worker can withdraw
+        // for clients -> only the client i.e the recipient can withdraw
+        rt.validate_immediate_caller_is(&approved)?;
+
+        let amount_extracted =
+            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
+                let mut msm = st.mutator(rt.store());
+                msm.with_escrow_table(Permission::Write)
+                    .with_locked_table(Permission::Write)
+                    .build()
+                    .map_err(|e| actor_error!(ErrIllegalState; "failed to load state: {}", e))?;
+
+                // The withdrawable amount might be slightly less than nominal
+                // depending on whether or not all relevant entries have been processed
+                // by cron
+
+                let min_balance = msm.locked_table.as_ref().unwrap().get(&nominal).map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to get locked balance: {}", e),
+                )?;
+
+                let ex = msm
+                    .escrow_table
+                    .as_mut()
+                    .unwrap()
+                    .subtract_with_minimum(&nominal, &params.amount, &min_balance)
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                            "failed to subtract from escrow table: {}", e)
+                    })?;
+
+                msm.commit_state()
+                    .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
+
+                Ok(ex)
+            })??;
+
         rt.send(
             recipient,
             METHOD_SEND,
@@ -760,7 +775,10 @@ where
 
 // Resolves a provider or client address to the canonical form against which a balance should be held, and
 // the designated recipient address of withdrawals (which is the same, for simple account parties).
-fn escrow_address<BS, RT>(rt: &mut RT, addr: &Address) -> Result<(Address, Address), ActorError>
+fn escrow_address<BS, RT>(
+    rt: &mut RT,
+    addr: &Address,
+) -> Result<(Address, Address, Vec<Address>), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
@@ -774,16 +792,13 @@ where
         .get_actor_code_cid(&nominal)?
         .ok_or_else(|| actor_error!(ErrIllegalArgument; "no code for address {}", nominal))?;
 
-    if code_id != *MINER_ACTOR_CODE_ID {
-        // Ordinary account-style actor entry; funds recipient is just the entry address itself.
-        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        return Ok((nominal, nominal));
+    if code_id == *MINER_ACTOR_CODE_ID {
+        // Storage miner actor entry; implied funds recipient is the associated owner address.
+        let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
+        return Ok((nominal, owner_addr, vec![owner_addr, worker_addr]));
     }
 
-    // Storage miner actor entry; implied funds recipient is the associated owner address.
-    let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
-    rt.validate_immediate_caller_is([owner_addr, worker_addr].iter())?;
-    Ok((nominal, owner_addr))
+    Ok((nominal, nominal, vec![nominal]))
 }
 
 impl ActorCode for Actor {

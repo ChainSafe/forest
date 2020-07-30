@@ -70,7 +70,10 @@ impl State {
         }
     }
 
-    fn mutator<'bs, BS: BlockStore>(&mut self, store: &'bs BS) -> MarketStateMutation<'bs, '_, BS> {
+    pub(super) fn mutator<'bs, BS: BlockStore>(
+        &mut self,
+        store: &'bs BS,
+    ) -> MarketStateMutation<'bs, '_, BS> {
         MarketStateMutation::new(self, store)
     }
 }
@@ -93,51 +96,51 @@ fn deal_get_payment_remaining(deal: &DealProposal, mut slash_epoch: ChainEpoch) 
 impl Cbor for State {}
 
 #[derive(Debug, PartialEq)]
-enum Permission {
+pub(super) enum Permission {
     Invalid,
     ReadOnly,
     Write,
 }
 
-enum Reason {
+pub(super) enum Reason {
     ClientCollateral,
     ClientStorageFee,
     ProviderCollateral,
 }
 
-struct MarketStateMutation<'bs, 's, BS> {
-    st: &'s mut State,
-    store: &'bs BS,
+pub(super) struct MarketStateMutation<'bs, 's, BS> {
+    pub(super) st: &'s mut State,
+    pub(super) store: &'bs BS,
 
-    proposal_permit: Permission,
-    deal_proposals: Option<DealArray<'bs, BS>>,
+    pub(super) proposal_permit: Permission,
+    pub(super) deal_proposals: Option<DealArray<'bs, BS>>,
 
-    state_permit: Permission,
-    deal_states: Option<DealMetaArray<'bs, BS>>,
+    pub(super) state_permit: Permission,
+    pub(super) deal_states: Option<DealMetaArray<'bs, BS>>,
 
-    escrow_permit: Permission,
-    escrow_table: Option<BalanceTable<'bs, BS>>,
+    pub(super) escrow_permit: Permission,
+    pub(super) escrow_table: Option<BalanceTable<'bs, BS>>,
 
-    pending_permit: Permission,
-    pending_deals: Option<Map<'bs, BS>>,
+    pub(super) pending_permit: Permission,
+    pub(super) pending_deals: Option<Map<'bs, BS>>,
 
-    dpe_permit: Permission,
-    deals_by_epoch: Option<SetMultimap<'bs, BS>>,
+    pub(super) dpe_permit: Permission,
+    pub(super) deals_by_epoch: Option<SetMultimap<'bs, BS>>,
 
-    locked_permit: Permission,
-    locked_table: Option<BalanceTable<'bs, BS>>,
-    total_client_locked_colateral: Option<TokenAmount>,
-    total_provider_locked_colateral: Option<TokenAmount>,
-    total_client_storage_fee: Option<TokenAmount>,
+    pub(super) locked_permit: Permission,
+    pub(super) locked_table: Option<BalanceTable<'bs, BS>>,
+    pub(super) total_client_locked_colateral: Option<TokenAmount>,
+    pub(super) total_provider_locked_colateral: Option<TokenAmount>,
+    pub(super) total_client_storage_fee: Option<TokenAmount>,
 
-    next_deal_id: DealID,
+    pub(super) next_deal_id: DealID,
 }
 
 impl<'bs, 's, BS> MarketStateMutation<'bs, 's, BS>
 where
     BS: BlockStore,
 {
-    fn new(st: &'s mut State, store: &'bs BS) -> Self {
+    pub(super) fn new(st: &'s mut State, store: &'bs BS) -> Self {
         Self {
             next_deal_id: st.next_id,
             st,
@@ -160,7 +163,7 @@ where
         }
     }
 
-    fn build(&mut self) -> Result<&mut Self, String> {
+    pub(super) fn build(&mut self) -> Result<&mut Self, String> {
         if self.proposal_permit != Permission::Invalid {
             self.deal_proposals = Some(DealArray::load(&self.st.proposals, self.store)?);
         }
@@ -198,37 +201,37 @@ where
         Ok(self)
     }
 
-    fn with_deal_proposals(&mut self, permit: Permission) -> &mut Self {
+    pub(super) fn with_deal_proposals(&mut self, permit: Permission) -> &mut Self {
         self.proposal_permit = permit;
         self
     }
 
-    fn with_deal_states(&mut self, permit: Permission) -> &mut Self {
+    pub(super) fn with_deal_states(&mut self, permit: Permission) -> &mut Self {
         self.state_permit = permit;
         self
     }
 
-    fn with_escrow_table(&mut self, permit: Permission) -> &mut Self {
+    pub(super) fn with_escrow_table(&mut self, permit: Permission) -> &mut Self {
         self.escrow_permit = permit;
         self
     }
 
-    fn with_locked_table(&mut self, permit: Permission) -> &mut Self {
+    pub(super) fn with_locked_table(&mut self, permit: Permission) -> &mut Self {
         self.locked_permit = permit;
         self
     }
 
-    fn with_pending_proposals(&mut self, permit: Permission) -> &mut Self {
+    pub(super) fn with_pending_proposals(&mut self, permit: Permission) -> &mut Self {
         self.pending_permit = permit;
         self
     }
 
-    fn with_deals_by_epoch(&mut self, permit: Permission) -> &mut Self {
+    pub(super) fn with_deals_by_epoch(&mut self, permit: Permission) -> &mut Self {
         self.dpe_permit = permit;
         self
     }
 
-    fn commit_state(&mut self) -> Result<(), String> {
+    pub(super) fn commit_state(&mut self) -> Result<(), String> {
         if self.proposal_permit == Permission::Write {
             if let Some(s) = &mut self.deal_proposals {
                 self.st.proposals = s
