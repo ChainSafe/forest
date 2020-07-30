@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, EmptyType, EMPTY_VALUE, HAMT_BIT_WIDTH};
+use crate::{BytesKey, HAMT_BIT_WIDTH};
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error, Hamt};
@@ -41,13 +41,13 @@ where
     #[inline]
     pub fn put(&mut self, key: BytesKey) -> Result<(), String> {
         // Set hamt node to array root
-        Ok(self.0.set(key, EMPTY_VALUE)?)
+        Ok(self.0.set(key, ())?)
     }
 
     /// Checks if key exists in the set.
     #[inline]
     pub fn has(&self, key: &[u8]) -> Result<bool, String> {
-        Ok(self.0.get::<_, EmptyType>(key)?.is_some())
+        Ok(self.0.get::<_, ()>(key)?.is_some())
     }
 
     /// Deletes key from set.
@@ -68,7 +68,7 @@ where
         // iterator should be Box<dyn Error> to not convert to String and lose exit code
         Ok(self
             .0
-            .for_each(|s, _: EmptyType| f(s).map_err(|e| e.to_string()))?)
+            .for_each(|s, _: ()| f(s).map_err(|e| e.to_string()))?)
     }
 
     /// Collects all keys from the set into a vector.

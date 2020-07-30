@@ -1,10 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{
-    types::*, DealProposal, DealState,
-    DEAL_UPDATES_INTERVAL,
-};
+use super::{types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
 use crate::{make_map_with_root, BalanceTable, DealID, Map, SetMultimap};
 use address::Address;
 use cid::Cid;

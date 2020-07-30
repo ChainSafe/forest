@@ -26,7 +26,7 @@ pub const PROV_COLLATERAL_PERCENT_SUPPLY_DENOM: i64 = 100;
 /// Bounds (inclusive) on deal duration.
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {
     // TODO Cryptoecon not finalized
-    (180 * EPOCHS_IN_DAY, 366 * EPOCHS_IN_DAY)
+    (180 * EPOCHS_IN_DAY, 540 * EPOCHS_IN_DAY)
 }
 
 pub(super) fn deal_price_per_epoch_bounds(

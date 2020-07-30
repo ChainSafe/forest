@@ -119,7 +119,6 @@ fn add_provider_escrow_funds() {
                 .is_ok());
             rt.verify();
 
-            let state_data: State = rt.get_state().unwrap();
             assert_eq!(
                 get_escrow_balance(&rt, &provider_addr).unwrap(),
                 TokenAmount::from(test_case.1 as u64)
