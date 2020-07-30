@@ -22,13 +22,13 @@ pub struct BeaconEntryJson {
     previous_signature: String,
 }
 
-// #[ignore]
+#[ignore]
 #[async_std::test]
 async fn construct_drand_beacon() {
     new_beacon().await;
 }
 
-// #[ignore]
+#[ignore]
 #[async_std::test]
 async fn ask_and_verify_beacon_entry() {
     let beacon = new_beacon().await;
@@ -38,7 +38,7 @@ async fn ask_and_verify_beacon_entry() {
     assert!(beacon.verify_entry(&e3, &e2).await.unwrap());
 }
 
-// #[ignore]
+#[ignore]
 #[async_std::test]
 async fn ask_and_verify_beacon_entry_fail() {
     let beacon = new_beacon().await;
