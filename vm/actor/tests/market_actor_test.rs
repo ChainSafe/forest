@@ -6,16 +6,17 @@ mod common;
 use actor::{
     market::{Method, State, WithdrawBalanceParams},
     miner::{GetControlAddressesReturn, Method as MinerMethod},
-    Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE, INIT_ACTOR_CODE_ID,
-    MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR,
-    SYSTEM_ACTOR_ADDR,
+    BalanceTable, Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE,
+    INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
+    STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use clock::EPOCH_UNDEFINED;
 use common::*;
 use ipld_amt::Amt;
+use runtime::Runtime;
 use std::collections::HashMap;
-use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
+use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
 const OWNER_ID: u64 = 101;
 const PROVIDER_ID: u64 = 102;
@@ -39,6 +40,14 @@ fn setup() -> MockRuntime {
     construct_and_verify(&mut rt);
 
     rt
+}
+
+fn get_escrow_balance(rt: &MockRuntime, addr: &Address) -> Result<TokenAmount, ActorError> {
+    let st: State = rt.get_state()?;
+
+    let et = BalanceTable::from_root(rt.store(), &st.escrow_table).unwrap();
+
+    Ok(et.get(addr).unwrap())
 }
 
 // TODO add array stuff
@@ -112,9 +121,7 @@ fn add_provider_escrow_funds() {
 
             let state_data: State = rt.get_state().unwrap();
             assert_eq!(
-                state_data
-                    .get_escrow_balance(&rt.store, &provider_addr)
-                    .unwrap(),
+                get_escrow_balance(&rt, &provider_addr).unwrap(),
                 TokenAmount::from(test_case.1 as u64)
             );
         }
@@ -177,11 +184,8 @@ fn add_non_provider_funds() {
 
             rt.verify();
 
-            let state_data: State = rt.get_state().unwrap();
             assert_eq!(
-                state_data
-                    .get_escrow_balance(&rt.store, &caller_addr)
-                    .unwrap(),
+                get_escrow_balance(&rt, &caller_addr).unwrap(),
                 TokenAmount::from(test_case.1 as u8)
             );
         }
@@ -205,13 +209,7 @@ fn withdraw_provider_to_owner() {
         amount.clone(),
     );
 
-    let state_data: State = rt.get_state().unwrap();
-    assert_eq!(
-        amount,
-        state_data
-            .get_escrow_balance(&rt.store, &provider_addr)
-            .unwrap()
-    );
+    assert_eq!(amount, get_escrow_balance(&rt, &provider_addr).unwrap());
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), worker_addr.clone());
     expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
@@ -242,12 +240,8 @@ fn withdraw_provider_to_owner() {
 
     rt.verify();
 
-    let state_data: State = rt.get_state().unwrap();
-
     assert_eq!(
-        state_data
-            .get_escrow_balance(&rt.store, &provider_addr)
-            .unwrap(),
+        get_escrow_balance(&rt, &provider_addr).unwrap(),
         TokenAmount::from(19u8)
     );
 }
@@ -262,13 +256,7 @@ fn withdraw_non_provider() {
     let amount = TokenAmount::from(20u8);
     add_participant_funds(&mut rt, client_addr.clone(), amount.clone());
 
-    let state_data: State = rt.get_state().unwrap();
-    assert_eq!(
-        amount,
-        state_data
-            .get_escrow_balance(&rt.store, &client_addr)
-            .unwrap()
-    );
+    assert_eq!(amount, get_escrow_balance(&rt, &client_addr).unwrap());
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), client_addr.clone());
     rt.expect_validate_caller_type(vec![
@@ -302,12 +290,8 @@ fn withdraw_non_provider() {
 
     rt.verify();
 
-    let state_data: State = rt.get_state().unwrap();
-
     assert_eq!(
-        state_data
-            .get_escrow_balance(&rt.store, &client_addr)
-            .unwrap(),
+        get_escrow_balance(&rt, &client_addr).unwrap(),
         TokenAmount::from(19u8)
     );
 }
@@ -353,12 +337,8 @@ fn client_withdraw_more_than_available() {
 
     rt.verify();
 
-    let state_data: State = rt.get_state().unwrap();
-
     assert_eq!(
-        state_data
-            .get_escrow_balance(&rt.store, &client_addr)
-            .unwrap(),
+        get_escrow_balance(&rt, &client_addr).unwrap(),
         TokenAmount::from(0u8)
     );
 }
@@ -380,13 +360,7 @@ fn worker_withdraw_more_than_available() {
         amount.clone(),
     );
 
-    let state_data: State = rt.get_state().unwrap();
-    assert_eq!(
-        amount,
-        state_data
-            .get_escrow_balance(&rt.store, &provider_addr)
-            .unwrap()
-    );
+    assert_eq!(amount, get_escrow_balance(&rt, &provider_addr).unwrap());
 
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), worker_addr.clone());
     expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
@@ -417,12 +391,8 @@ fn worker_withdraw_more_than_available() {
 
     rt.verify();
 
-    let state_data: State = rt.get_state().unwrap();
-
     assert_eq!(
-        state_data
-            .get_escrow_balance(&rt.store, &provider_addr)
-            .unwrap(),
+        get_escrow_balance(&rt, &provider_addr).unwrap(),
         TokenAmount::from(0u8)
     );
 }
