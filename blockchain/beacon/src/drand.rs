@@ -7,6 +7,7 @@ use super::drand_api::api_grpc::PublicClient;
 use super::drand_api::common::GroupRequest;
 use super::group::Group;
 
+use ahash::AHashMap;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -15,7 +16,6 @@ use grpc::ClientStub;
 use grpc::RequestOptions;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::error;
 use std::sync::Arc;
@@ -61,8 +61,8 @@ pub struct DrandBeacon {
     fil_gen_time: u64,
     fil_round_time: u64,
 
-    // Keeps track of computed beacon entries.
-    local_cache: HashMap<u64, BeaconEntry>,
+    /// Keeps track of computed beacon entries.
+    local_cache: AHashMap<u64, BeaconEntry>,
 }
 
 impl DrandBeacon {
@@ -99,7 +99,7 @@ impl DrandBeacon {
             drand_gen_time: group.genesis_time,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            local_cache: HashMap::new(),
+            local_cache: AHashMap::new(),
         })
     }
 }

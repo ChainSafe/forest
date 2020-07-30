@@ -8,6 +8,7 @@ edition = "2018"
 features = ["json"]
 
 [dependencies]
+ahash = "0.4"
 grpc = "0.8"
 grpc-protobuf = "0.8"
 protobuf = "2.14.0"
