@@ -80,7 +80,7 @@ mod paych_constructor {
     #[test]
     fn actor_doesnt_exist_test() {
         let mut rt = construct_runtime();
-        rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
+        rt.expect_validate_caller_type(vec![INIT_ACTOR_CODE_ID.clone()]);
         let params = ConstructorParams {
             to: Address::new_id(TEST_PAYCH_ADDR),
             from: Address::new_id(TEST_PAYER_ADDR),
@@ -137,7 +137,7 @@ mod paych_constructor {
                 ..Default::default()
             };
 
-            rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
+            rt.expect_validate_caller_type(vec![INIT_ACTOR_CODE_ID.clone()]);
             let params = ConstructorParams {
                 to: test_case.paych_addr,
                 from: Address::new_id(10001),
@@ -290,7 +290,7 @@ mod create_lane_tests {
 
             let ucp = UpdateChannelStateParams::from(sv.clone());
             rt.set_caller(test_case.target_code, payee_addr);
-            rt.expect_validate_caller_addr(&[payer_addr, payee_addr]);
+            rt.expect_validate_caller_addr(vec![payer_addr, payee_addr]);
 
             if test_case.sig.is_some() && test_case.secret_preimage.len() == 0 {
                 let exp_exit_code = if !test_case.verify_sig {
@@ -343,7 +343,7 @@ mod update_channel_state_redeem {
         let payee_addr = Address::new_id(R_PAYEE_ADDR);
 
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), payee_addr);
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
 
         sv.amount = BigInt::from(9);
 
@@ -386,7 +386,7 @@ mod update_channel_state_redeem {
         let payee_addr = Address::new_id(R_PAYEE_ADDR);
 
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), payee_addr);
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
 
         let initial_amount = state.to_send;
         sv.amount = BigInt::from(9);
@@ -428,7 +428,7 @@ mod merge_tests {
         let (mut rt, sv) = require_create_cannel_with_lanes(num_lanes);
         let state: PState = rt.get_state().unwrap();
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from.clone());
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
         (rt, sv, state)
     }
 
@@ -600,7 +600,7 @@ mod update_channel_state_extra {
         let other_addr = Address::new_id(OTHER_ADDR);
         let fake_params = [1, 2, 3, 4];
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
 
         sv.extra = Some(ModVerifyParams {
             actor: other_addr,
@@ -659,7 +659,7 @@ mod update_channel_state_settling {
         let (mut rt, sv) = require_create_cannel_with_lanes(1);
         rt.epoch = 10;
         let state: PState = rt.get_state().unwrap();
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
         is_ok(&mut rt, Method::Settle as u64, &Serialized::default());
 
@@ -693,7 +693,7 @@ mod update_channel_state_settling {
         for tc in test_cases {
             let mut ucp = UpdateChannelStateParams::from(sv.clone());
             ucp.sv.min_settle_height = tc.min_settle;
-            rt.expect_validate_caller_addr(&[state.from, state.to]);
+            rt.expect_validate_caller_addr(vec![state.from, state.to]);
             rt.expect_verify_signature(ExpectedVerifySig {
                 sig: sv.clone().signature.unwrap(),
                 signer: state.to,
@@ -717,7 +717,7 @@ mod secret_preimage {
     fn succeed_correct_secret() {
         let (mut rt, sv) = require_create_cannel_with_lanes(1);
         let state: PState = rt.get_state().unwrap();
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
 
         let ucp = UpdateChannelStateParams::from(sv.clone());
 
@@ -742,7 +742,7 @@ mod secret_preimage {
         let (mut rt, sv) = require_create_cannel_with_lanes(1);
 
         let state: PState = rt.get_state().unwrap();
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
 
         let mut ucp = UpdateChannelStateParams {
             proof: vec![],
@@ -779,7 +779,7 @@ mod actor_settle {
         rt.epoch = EP;
         let mut state: PState = rt.get_state().unwrap();
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
 
         is_ok(&mut rt, Method::Settle as u64, &Serialized::default());
 
@@ -795,10 +795,10 @@ mod actor_settle {
         rt.epoch = EP;
         let state: PState = rt.get_state().unwrap();
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
         is_ok(&mut rt, Method::Settle as u64, &Serialized::default());
 
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
         expect_error(
             &mut rt,
             Method::Settle as u64,
@@ -816,7 +816,7 @@ mod actor_settle {
         sv.min_settle_height = (EP + SETTLE_DELAY) + 1;
         let ucp = UpdateChannelStateParams::from(sv.clone());
 
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
         rt.expect_verify_signature(ExpectedVerifySig {
             sig: ucp.sv.clone().signature.unwrap(),
             signer: state.to,
@@ -832,7 +832,7 @@ mod actor_settle {
         assert_eq!(state.settling_at, 0);
         assert_eq!(state.min_settle_height, ucp.sv.min_settle_height);
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
         is_ok(&mut rt, Method::Settle as u64, &Serialized::default());
         state = rt.get_state().unwrap();
         assert_eq!(state.settling_at, ucp.sv.min_settle_height);
@@ -861,7 +861,7 @@ mod actor_collect {
             Serialized::default(),
             exit_codes[1],
         );
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
     }
 
     #[test]
@@ -870,12 +870,12 @@ mod actor_collect {
         rt.epoch = 10;
         let mut state: PState = rt.get_state().unwrap();
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
         is_ok(&mut rt, Method::Settle as u64, &Serialized::default());
         state = rt.get_state().unwrap();
 
         assert_eq!(state.settling_at, 11);
-        rt.expect_validate_caller_addr(&[state.from, state.to]);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
 
         exp_send_multiple(&mut rt, &state, [ExitCode::Ok, ExitCode::Ok]);
 
@@ -923,7 +923,7 @@ mod actor_collect {
 
             if !tc.dont_settle {
                 rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
-                rt.expect_validate_caller_addr(&[state.from, state.to]);
+                rt.expect_validate_caller_addr(vec![state.from, state.to]);
                 is_ok(&mut rt, Method::Settle as u64, &Serialized::default());
                 state = rt.get_state().unwrap();
                 assert_eq!(state.settling_at, 11);
@@ -998,7 +998,7 @@ fn require_add_new_lane(rt: &mut MockRuntime, param: LaneParams) -> SignedVouche
         ..SignedVoucher::default()
     };
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), param.from);
-    rt.expect_validate_caller_addr(&[param.from, param.to]);
+    rt.expect_validate_caller_addr(vec![param.from, param.to]);
     rt.expect_verify_signature(ExpectedVerifySig {
         sig: sig.clone(),
         signer: payee_addr,
@@ -1027,7 +1027,7 @@ fn construct_and_verify(rt: &mut MockRuntime, sender: Address, receiver: Address
         from: sender,
         to: receiver,
     };
-    rt.expect_validate_caller_type(&[INIT_ACTOR_CODE_ID.clone()]);
+    rt.expect_validate_caller_type(vec![INIT_ACTOR_CODE_ID.clone()]);
     is_ok(
         rt,
         METHOD_CONSTRUCTOR,

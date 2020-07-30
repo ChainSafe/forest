@@ -44,12 +44,12 @@ impl Actor {
     }
 
     // Fetches the pubkey-type address from this actor.
-    pub fn pubkey_address<BS, RT>(rt: &RT) -> Result<Address, ActorError>
+    pub fn pubkey_address<BS, RT>(rt: &mut RT) -> Result<Address, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
         Ok(st.address)
     }
