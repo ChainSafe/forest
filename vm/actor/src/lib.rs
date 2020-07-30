@@ -38,7 +38,7 @@ fn check_empty_params(params: &Serialized) -> Result<(), EncodingError> {
     params.deserialize::<[u8; 0]>().map(|_| ())
 }
 
-/// Create a map
+/// Create a hamt configured with constant bit width.
 #[inline]
 fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, BytesKey, BS> {
     Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH)
