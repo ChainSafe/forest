@@ -2,36 +2,27 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::beacon_entries::BeaconEntry;
-use super::drand_api::api::PublicRandRequest;
-use super::drand_api::api_grpc::PublicClient;
-use super::drand_api::common::GroupRequest;
-use super::group::Group;
-
 use ahash::AHashMap;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
 use clock::ChainEpoch;
-use grpc::ClientStub;
-use grpc::RequestOptions;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::convert::TryFrom;
 use std::error;
-use std::sync::Arc;
-use tls_api_rustls::TlsConnector;
 
 /// Coeffiencients of the publicly available Drand keys.
 /// This is shared by all participants on the Drand network.
 #[derive(Clone, Debug, SerdeSerialize, SerdeDeserialize)]
-pub struct DistPublic {
-    pub coefficients: [Vec<u8>; 4],
+pub struct DrandPublic {
+    pub coefficient: Vec<u8>,
 }
 
-impl DistPublic {
+impl DrandPublic {
     pub fn key(&self) -> PublicKey {
-        PublicKey::from_bytes(&self.coefficients[0]).unwrap()
+        PublicKey::from_bytes(&self.coefficient).unwrap()
     }
 }
 
@@ -54,9 +45,26 @@ where
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
 }
 
+#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone)]
+pub struct ChainInfo {
+    public_key: String,
+    period: i32,
+    genesis_time: i32,
+    hash: String,
+    #[serde(rename = "groupHash")]
+    group_hash: String,
+}
+
+#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone)]
+pub struct BeaconEntryJson {
+    round: u64,
+    randomness: String,
+    signature: String,
+    previous_signature: String,
+}
+
 pub struct DrandBeacon {
-    client: PublicClient,
-    pub_key: DistPublic,
+    pub_key: DrandPublic,
     interval: u64,
     drand_gen_time: u64,
     fil_gen_time: u64,
@@ -69,35 +77,26 @@ pub struct DrandBeacon {
 impl DrandBeacon {
     /// Construct a new DrandBeacon.
     pub async fn new(
-        pub_key: DistPublic,
+        pub_key: DrandPublic,
         genesis_ts: u64,
         interval: u64,
     ) -> Result<Self, Box<dyn error::Error>> {
         if genesis_ts == 0 {
             panic!("Genesis timestamp cannot be 0")
         }
-        // construct grpc client
-        // TODO: Allow to randomize between different drand servers
-        let client = grpc::ClientBuilder::new("nicolas.drand.fil-test.net", 443)
-            .tls::<TlsConnector>()
-            .build()
-            .unwrap();
-        let client = PublicClient::with_client(Arc::new(client));
-
-        // get nodes in group
-        let req = GroupRequest::new();
-        let group_resp = client
-            .group(RequestOptions::new(), req)
-            .drop_metadata()
-            .await?;
-        let group: Group = Group::try_from(group_resp)?;
-        // TODO: Compare pubkeys with one in config
+        let url = "https://pl-eu.testnet.drand.sh/info";
+        let chain_info: ChainInfo = surf::get(&url).recv_json().await?;
+        let remote_pub_key = hex::decode(chain_info.public_key)?;
+        if remote_pub_key != pub_key.coefficient {
+            return Err(Box::try_from(
+                "Drand pub key from config is different than one on drand servers",
+            )?);
+        }
 
         Ok(Self {
             pub_key,
-            client,
-            interval: group.period as u64,
-            drand_gen_time: group.genesis_time,
+            interval: chain_info.period as u64,
+            drand_gen_time: chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
             local_cache: Default::default(),
@@ -144,15 +143,9 @@ impl Beacon for DrandBeacon {
         match self.local_cache.read().await.get(&round) {
             Some(cached_entry) => Ok(cached_entry.clone()),
             None => {
-                let mut req = PublicRandRequest::new();
-                req.round = round;
-                let resp = self
-                    .client
-                    .public_rand(grpc::RequestOptions::new(), req)
-                    .drop_metadata()
-                    .await?;
-
-                Ok(BeaconEntry::new(resp.round, resp.signature))
+                let url = format!("https://pl-eu.testnet.drand.sh/public/{}", round);
+                let resp: BeaconEntryJson = surf::get(&url).recv_json().await?;
+                Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
             }
         }
     }
