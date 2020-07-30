@@ -20,11 +20,7 @@ pub struct WithdrawBalanceParams {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct OnMinerSectorsTerminateParams {
-    pub deal_ids: Vec<DealID>,
-}
-
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct HandleExpiredDealsParams {
+    pub epoch: ChainEpoch,
     pub deal_ids: Vec<DealID>,
 }
 
@@ -39,13 +35,14 @@ pub struct PublishStorageDealsReturn {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct VerifyDealsOnSectorProveCommitParams {
+pub struct VerifyDealsForActivationParams {
     pub deal_ids: Vec<DealID>,
     pub sector_expiry: ChainEpoch,
+    pub sector_start: ChainEpoch,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct VerifyDealsOnSectorProveCommitReturn {
+pub struct VerifyDealsForActivationReturn {
     #[serde(with = "bigint_ser")]
     pub deal_weight: DealWeight,
     #[serde(with = "bigint_ser")]

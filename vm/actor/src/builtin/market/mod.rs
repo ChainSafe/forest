@@ -287,8 +287,8 @@ impl Actor {
     /// sector power, collateral, and/or other parameters.    
     fn verify_deals_on_sector_prove_commit<BS, RT>(
         rt: &mut RT,
-        params: VerifyDealsOnSectorProveCommitParams,
-    ) -> Result<VerifyDealsOnSectorProveCommitReturn, ActorError>
+        params: VerifyDealsForActivationParams,
+    ) -> Result<VerifyDealsForActivationReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -366,7 +366,7 @@ impl Actor {
             Ok(())
         })??;
 
-        Ok(VerifyDealsOnSectorProveCommitReturn {
+        Ok(VerifyDealsForActivationReturn {
             deal_weight: total_deal_space_time,
             verified_deal_weight: total_verified_deal_space_time,
         })

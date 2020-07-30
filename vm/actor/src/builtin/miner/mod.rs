@@ -15,7 +15,7 @@ pub use self::types::*;
 use crate::account::Method as AccountMethod;
 use crate::market::{
     ComputeDataCommitmentParams, Method as MarketMethod, OnMinerSectorsTerminateParams,
-    VerifyDealsOnSectorProveCommitParams, VerifyDealsOnSectorProveCommitReturn,
+    VerifyDealsForActivationParams, VerifyDealsForActivationReturn,
 };
 use crate::power::{
     EnrollCronEventParams, Method as PowerMethod, OnFaultBeginParams, OnFaultEndParams,
@@ -680,9 +680,11 @@ impl Actor {
 
             // Check (and activate) storage deals associated to sector. Abort if checks failed.
             // return DealWeight for the deal set in the sector
-            let ser_params = Serialized::serialize(VerifyDealsOnSectorProveCommitParams {
+            let ser_params = Serialized::serialize(VerifyDealsForActivationParams {
                 deal_ids: precommit.info.deal_ids.clone(),
                 sector_expiry: precommit.info.expiration,
+                // TODO has been refactored and this is not correct
+                sector_start: 0,
             })?;
 
             // TODO revisit spec TODOs
@@ -693,7 +695,7 @@ impl Actor {
                 ser_params,
                 TokenAmount::zero(),
             )?;
-            let deal_weights: VerifyDealsOnSectorProveCommitReturn = ret.deserialize()?;
+            let deal_weights: VerifyDealsForActivationReturn = ret.deserialize()?;
 
             // Request power for activated sector.
             // Return initial pledge requirement.
@@ -2057,7 +2059,11 @@ where
     rt.send(
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::OnMinerSectorsTerminate as u64,
-        Serialized::serialize(OnMinerSectorsTerminateParams { deal_ids })?,
+        Serialized::serialize(OnMinerSectorsTerminateParams {
+            deal_ids,
+            // TODO this may not be correct (refactored)
+            epoch: rt.curr_epoch(),
+        })?,
         TokenAmount::zero(),
     )?;
     Ok(())

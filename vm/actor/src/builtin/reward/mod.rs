@@ -15,7 +15,6 @@ use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::BigInt;
-use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
