@@ -390,21 +390,21 @@ impl BlockHeader {
                 last.round()
             )));
         }
-        self.beacon_entries.iter().try_fold(
-            &prev_entry,
-            |prev, curr| -> Result<&BeaconEntry, Error> {
-                if !beacon
-                    .verify_entry(curr, &prev)
-                    .map_err(|e| Error::Validation(e.to_string()))?
-                {
-                    return Err(Error::Validation(format!(
-                        "beacon entry was invalid: curr:{:?}, prev: {:?}",
-                        curr, prev
-                    )));
-                }
-                Ok(curr)
-            },
-        )?;
+
+        let mut prev = &prev_entry;
+        for curr in &self.beacon_entries {
+            if !beacon
+                .verify_entry(&curr, &prev)
+                .await
+                .map_err(|e| Error::Validation(e.to_string()))?
+            {
+                return Err(Error::Validation(format!(
+                    "beacon entry was invalid: curr:{:?}, prev: {:?}",
+                    curr, prev
+                )));
+            }
+            prev = &curr;
+        }
         Ok(())
     }
 }
