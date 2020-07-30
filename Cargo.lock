@@ -741,6 +741,7 @@ checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 name = "beacon"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.4.4",
  "async-std",
  "async-trait",
  "base64 0.12.3",

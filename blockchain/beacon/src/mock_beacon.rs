@@ -29,7 +29,11 @@ impl MockBeacon {
 
 #[async_trait]
 impl Beacon for MockBeacon {
-    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, Box<dyn Error>> {
+    async fn verify_entry(
+        &self,
+        curr: &BeaconEntry,
+        prev: &BeaconEntry,
+    ) -> Result<bool, Box<dyn Error>> {
         let oe = Self::entry_for_index(prev.round());
         Ok(oe.data() == curr.data())
     }
