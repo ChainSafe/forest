@@ -14,9 +14,10 @@ pub use self::builtin::*;
 pub use self::util::*;
 pub use vm::{ActorState, DealID, Serialized};
 
+use cid::Cid;
 use encoding::Error as EncodingError;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{BytesKey, Hamt};
+use ipld_hamt::{BytesKey, Error as HamtError, Hamt};
 use num_bigint::BigUint;
 use unsigned_varint::decode::Error as UVarintError;
 
@@ -34,10 +35,19 @@ fn check_empty_params(params: &Serialized) -> Result<(), EncodingError> {
     params.deserialize::<[u8; 0]>().map(|_| ())
 }
 
-/// Create a map
+/// Create a hamt configured with constant bit width.
 #[inline]
 fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, BytesKey, BS> {
     Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH)
+}
+
+/// Create a map with a root cid.
+#[inline]
+fn make_map_with_root<'bs, BS: BlockStore>(
+    root: &Cid,
+    store: &'bs BS,
+) -> Result<Hamt<'bs, BytesKey, BS>, HamtError> {
+    Hamt::load_with_bit_width(root, store, HAMT_BIT_WIDTH)
 }
 
 pub fn u64_key(k: u64) -> BytesKey {

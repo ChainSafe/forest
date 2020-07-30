@@ -54,6 +54,12 @@ impl ActorError {
     pub fn msg(&self) -> &str {
         &self.msg
     }
+
+    /// Prefix error message with a string message.
+    pub fn wrap(mut self, msg: &str) -> Self {
+        self.msg = format!("{}: {}", msg, self.msg);
+        self
+    }
 }
 
 impl From<EncodingError> for ActorError {
