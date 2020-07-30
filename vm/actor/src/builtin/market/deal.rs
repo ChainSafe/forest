@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::DealWeight;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -47,6 +48,10 @@ impl Cbor for DealProposal {}
 impl DealProposal {
     pub fn duration(&self) -> ChainEpoch {
         self.end_epoch - self.start_epoch
+    }
+    /// Computes weight for a deal proposal, which is a function of its size and duration.
+    pub fn weight(&self) -> DealWeight {
+        DealWeight::from(self.duration()) * self.piece_size.0
     }
     pub fn total_storage_fee(&self) -> TokenAmount {
         self.storage_price_per_epoch.clone() * self.duration() as u64

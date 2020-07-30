@@ -9,7 +9,6 @@ use encoding::tuple::*;
 use fil_types::RegisteredSealProof;
 use ipld_amt::Amt;
 use num_bigint::bigint_ser;
-use num_bigint::biguint_ser;
 use vm::{DealID, TokenAmount};
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -47,9 +46,9 @@ pub struct VerifyDealsOnSectorProveCommitParams {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct VerifyDealsOnSectorProveCommitReturn {
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub deal_weight: DealWeight,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub verified_deal_weight: DealWeight,
 }
 

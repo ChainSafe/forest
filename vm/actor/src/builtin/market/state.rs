@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    collateral_penalty_for_deal_activation_missed, types::*, DealProposal, DealState,
-    DEAL_UPDATED_INTERVAL,
+    types::*, DealProposal, DealState,
+    DEAL_UPDATES_INTERVAL,
 };
 use crate::{make_map_with_root, BalanceTable, DealID, Map, SetMultimap};
 use address::Address;
@@ -381,7 +381,7 @@ where
             return Ok((TokenAmount::zero(), EPOCH_UNDEFINED, true));
         }
 
-        let next: ChainEpoch = std::cmp::min(epoch + DEAL_UPDATED_INTERVAL, deal.end_epoch);
+        let next: ChainEpoch = std::cmp::min(epoch + DEAL_UPDATES_INTERVAL, deal.end_epoch);
 
         Ok((TokenAmount::zero(), next, false))
     }
@@ -407,23 +407,24 @@ where
         )
         .map_err(|e| actor_error!(ErrIllegalState;"failure unlocking client collateral: {}",e))?;
 
-        let amount_slashed =
-            collateral_penalty_for_deal_activation_missed(deal.provider_collateral.clone());
-        let amount_remaining = deal.provider_balance_requirement() - &amount_slashed;
+        todo!();
+        // let amount_slashed =
+        //     collateral_penalty_for_deal_activation_missed(deal.provider_collateral.clone());
+        // let amount_remaining = deal.provider_balance_requirement() - &amount_slashed;
 
-        self.slash_balance(&deal.provider, &amount_slashed, Reason::ProviderCollateral)
-            .map_err(|e| actor_error!(ErrIllegalState; "failed to slash balance: {}", e))?;
+        // self.slash_balance(&deal.provider, &amount_slashed, Reason::ProviderCollateral)
+        //     .map_err(|e| actor_error!(ErrIllegalState; "failed to slash balance: {}", e))?;
 
-        self.unlock_balance(
-            &deal.provider,
-            &amount_remaining,
-            Reason::ProviderCollateral,
-        )
-        .map_err(
-            |e| actor_error!(ErrIllegalArgument; "failed to unlock deal provider balance: {}", e),
-        )?;
+        // self.unlock_balance(
+        //     &deal.provider,
+        //     &amount_remaining,
+        //     Reason::ProviderCollateral,
+        // )
+        // .map_err(
+        //     |e| actor_error!(ErrIllegalArgument; "failed to unlock deal provider balance: {}", e),
+        // )?;
 
-        Ok(amount_slashed)
+        // Ok(amount_slashed)
     }
 
     /// Normal expiration. Unlock collaterals for both miner and client.

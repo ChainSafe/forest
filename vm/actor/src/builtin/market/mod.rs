@@ -295,8 +295,8 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().caller();
-        let mut total_deal_space_time = BigUint::zero();
-        let mut total_verified_deal_space_time = BigUint::zero();
+        let mut total_deal_space_time = BigInt::zero();
+        let mut total_verified_deal_space_time = BigInt::zero();
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
             // if there are no dealIDs, it is a CommittedCapacity sector
             // and the totalDealSpaceTime should be zero
@@ -698,27 +698,28 @@ where
         ));
     };
 
-    let (min_provider_collateral, max_provider_collateral) =
-        deal_provider_collateral_bounds(deal.proposal.piece_size, deal.proposal.duration());
-    if deal.proposal.provider_collateral < min_provider_collateral
-        || deal.proposal.provider_collateral > max_provider_collateral
-    {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Provider collateral out of bounds.".to_owned(),
-        ));
-    };
+    todo!();
+    // let (min_provider_collateral, max_provider_collateral) =
+    //     deal_provider_collateral_bounds(deal.proposal.piece_size, deal.proposal.duration());
+    // if deal.proposal.provider_collateral < min_provider_collateral
+    //     || deal.proposal.provider_collateral > max_provider_collateral
+    // {
+    //     return Err(ActorError::new(
+    //         ExitCode::ErrIllegalArgument,
+    //         "Provider collateral out of bounds.".to_owned(),
+    //     ));
+    // };
 
-    let (min_client_collateral, max_client_collateral) =
-        deal_client_collateral_bounds(deal.proposal.piece_size, deal.proposal.duration());
-    if deal.proposal.provider_collateral < min_client_collateral
-        || deal.proposal.provider_collateral > max_client_collateral
-    {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Client collateral out of bounds.".to_owned(),
-        ));
-    };
+    // let (min_client_collateral, max_client_collateral) =
+    //     deal_client_collateral_bounds(deal.proposal.piece_size, deal.proposal.duration());
+    // if deal.proposal.provider_collateral < min_client_collateral
+    //     || deal.proposal.provider_collateral > max_client_collateral
+    // {
+    //     return Err(ActorError::new(
+    //         ExitCode::ErrIllegalArgument,
+    //         "Client collateral out of bounds.".to_owned(),
+    //     ));
+    // };
 
     Ok(())
 }

@@ -12,13 +12,13 @@ mod util;
 
 pub use self::builtin::*;
 pub use self::util::*;
-pub use vm::{ActorState, DealID, Serialized};
+pub use vm::{ActorState, DealID, Serialized, TokenAmount};
 
 use cid::Cid;
 use encoding::Error as EncodingError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Error as HamtError, Hamt};
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use unsigned_varint::decode::Error as UVarintError;
 
 const HAMT_BIT_WIDTH: u8 = 5;
@@ -26,11 +26,21 @@ const HAMT_BIT_WIDTH: u8 = 5;
 type EmptyType = [u8; 0];
 const EMPTY_VALUE: EmptyType = [];
 
+lazy_static! {
+    /// The maximum supply of Filecoin that will ever exist (in token units)
+    pub static ref TOTAL_FILECOIN: TokenAmount = TokenAmount::from(2_000_000_000) * TOKEN_PRECISION;
+}
+
+/// Number of token units in an abstract "FIL" token.
+/// The network works purely in the indivisible token amounts.
+/// This constant converts to a fixed decimal with more human-friendly scale.
+const TOKEN_PRECISION: u64 = 1_000_000_000_000_000_000;
+
 /// Map type to be used within actors. The underlying type is a hamt.
 pub type Map<'bs, BS> = Hamt<'bs, BytesKey, BS>;
 
 /// Deal weight
-type DealWeight = BigUint;
+type DealWeight = BigInt;
 
 /// Used when invocation requires parameters to be an empty array of bytes
 #[inline]

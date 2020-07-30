@@ -32,9 +32,9 @@ pub struct CreateMinerParams {
 pub struct SectorStorageWeightDesc {
     pub sector_size: SectorSize,
     pub duration: ChainEpoch,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub deal_weight: DealWeight,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub verified_deal_weight: DealWeight,
 }
 

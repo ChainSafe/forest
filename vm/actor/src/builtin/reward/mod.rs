@@ -139,7 +139,7 @@ impl Actor {
         // TODO update when finished in specs
         let new_simple_supply = minting_function(
             &SIMPLE_TOTAL,
-            &(BigUint::from(st.reward_epochs_paid as u64) << MINTING_INPUT_FIXED_POINT),
+            &(BigInt::from(st.reward_epochs_paid) << MINTING_INPUT_FIXED_POINT),
         );
         let new_baseline_supply = minting_function(&*BASELINE_TOTAL, &st.effective_network_time);
 
@@ -183,21 +183,11 @@ impl Actor {
             st.realized_power = curr_realized_power;
 
             st.baseline_power = Self::new_baseline_power(st, st.reward_epochs_paid);
-            st.cumsum_baseline += &st.baseline_power.to_biguint().ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "Negative Baseline Power".to_string(),
-                )
-            })?;
+            st.cumsum_baseline += &st.baseline_power;
 
             // Cap realized power in computing CumsumRealized so that progress is only relative to the current epoch.
             let capped_realized_power = std::cmp::min(&st.baseline_power, &st.realized_power);
-            st.cumsum_realized += capped_realized_power.to_biguint().ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "Negative Realized Power".to_string(),
-                )
-            })?;
+            st.cumsum_realized += capped_realized_power;
             st.effective_network_time =
                 st.get_effective_network_time(&st.cumsum_baseline, &st.cumsum_realized);
             Self::compute_per_epoch_reward(st, 1);

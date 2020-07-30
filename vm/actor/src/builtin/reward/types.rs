@@ -4,12 +4,12 @@
 use crate::network::*;
 use address::Address;
 use encoding::tuple::*;
-use num_bigint::{bigint_ser, BigInt, BigUint, ToBigInt};
+use num_bigint::{bigint_ser, BigInt, BigUint};
 use num_traits::{Pow, Zero};
 use std::ops::Neg;
 use vm::TokenAmount;
 
-pub type NetworkTime = BigUint;
+pub type NetworkTime = BigInt;
 
 /// Number of token units in an abstract "FIL" token.
 /// The network works purely in the indivisible token amounts. This constant converts to a fixed decimal with more
@@ -65,7 +65,7 @@ pub struct AwardBlockRewardParams {
 ///   epoch number. The prose specification of the simple exponential decay is
 ///   that the unminted supply should decay exponentially with a half-life of
 ///   6 years.
-fn taylor_series_expansion(lambda_num: &BigInt, lambda_den: &BigInt, t: BigInt) -> BigInt {
+fn taylor_series_expansion(lambda_num: &BigInt, lambda_den: &BigInt, t: &BigInt) -> BigInt {
     // `numerator_base` is the numerator of the rational representation of (-λt).
     let numerator_base = lambda_num.neg() * t;
 
@@ -130,13 +130,8 @@ fn taylor_series_expansion(lambda_num: &BigInt, lambda_den: &BigInt, t: BigInt) 
 ///   wrapper implements those conventions. However, it does NOT implement
 ///   left-shifting the input by the MintingInputFixedPoint, because baseline
 ///   minting will actually supply a fractional input.
-pub(super) fn minting_function(factor: &BigInt, t: &BigUint) -> BigInt {
-    let value = factor
-        * taylor_series_expansion(
-            &*LAMBDA_NUM,
-            &*LAMBDA_DEN,
-            t.to_bigint().unwrap_or_default(),
-        );
+pub(super) fn minting_function(factor: &BigInt, t: &BigInt) -> BigInt {
+    let value = factor * taylor_series_expansion(&*LAMBDA_NUM, &*LAMBDA_DEN, t);
 
     // This conversion is safe because the minting function should always return a positive value
     value >> MINTING_OUTPUT_FIXED_POINT
@@ -166,7 +161,7 @@ mod tests {
         ];
         for v in vectors {
             let ts_input = BigInt::from(v.0) << MINTING_INPUT_FIXED_POINT;
-            let ts_output = taylor_series_expansion(&test_lambda_num, &test_lambda_den, ts_input);
+            let ts_output = taylor_series_expansion(&test_lambda_num, &test_lambda_den, &ts_input);
 
             let ts_truncated_fractional_part =
                 ts_output >> (MINTING_OUTPUT_FIXED_POINT - MINTING_TEST_VECTOR_PRECISION);
