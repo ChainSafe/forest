@@ -3,9 +3,10 @@
 
 use cid::{json::CidJson, Cid};
 use rpc::RPCSyncState;
-use rpc_client::{check_bad, mark_bad, new_client, status, head};
+use rpc_client::{check_bad, mark_bad, new_client, status, submit_block, head};
 use std::time::SystemTime;
 use structopt::StructOpt;
+use super::stringify_rpc_err;
 
 #[derive(Debug, StructOpt)]
 pub enum SyncCommand {
@@ -25,6 +26,15 @@ pub enum SyncCommand {
     CheckBad {
         #[structopt(short, long, help = "Block Cid given as string argument")]
         block_cid: String,
+    },
+
+    #[structopt(
+        name = "submit",
+        about = "Submit newly created block to network through node"
+    )]
+    Submit {
+        #[structopt(short, long, help = "Gossip block as String argument")]
+        gossip_block: String,
     },
 
     #[structopt(name = "status", about = "Check sync status")]
@@ -151,6 +161,16 @@ impl SyncCommand {
                     println!("Block {} is bad because \"{}\"", block_cid, reason);
                 } else {
                     println!("Failed to check if block {} is bad", block_cid);
+                }
+            }
+            SyncCommand::Submit { gossip_block } => {
+                println!("In submit command. Gossip Block is {:?}", gossip_block);
+                let response = submit_block(&mut client, gossip_block).await;
+                if response.is_ok() {
+                    println!("Successfully submitted block");
+                }
+                else {
+                    println!("Did not submit block because {:#?}", stringify_rpc_err (response.unwrap_err()) );
                 }
             }
         }

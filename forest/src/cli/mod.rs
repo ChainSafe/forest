@@ -21,6 +21,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
 use utils::{read_file_to_string, read_toml};
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -114,4 +115,19 @@ pub(super) async fn block_until_sigint() {
     .expect("Error setting Ctrl-C handler");
 
     ctrlc_oneshot.await.unwrap();
+}
+
+pub(super) fn stringify_rpc_err(e: JsonRpcError) -> String {
+    match e {
+        JsonRpcError::Full {
+            code,
+            message,
+            data: _,
+        } => {
+            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
+        }
+        JsonRpcError::Provided { code, message } => {
+            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
+        }
+    }
 }

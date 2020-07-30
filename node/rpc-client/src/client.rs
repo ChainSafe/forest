@@ -5,6 +5,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use blocks::gossip_block::json::GossipBlockJson;
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
 use jsonrpsee::raw::RawClient;
@@ -41,6 +42,8 @@ jsonrpsee::rpc_api! {
         #[rpc(method = "Filecoin.SyncCheckBad", positional_params)]
         fn check_bad(params : CidJson)  -> String;
 
+        #[rpc(method = "Filecoin.SyncSubmitBlock", positional_params)]
+        fn submit_block(params : GossipBlockJson)  ;
     }
 }
 

@@ -5,7 +5,8 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-jsonrpsee = "0.1.0"
+#jsonrpsee = "0.1.0"
+jsonrpsee = { path = "../../../../projects/rust/jsonrpsee" }
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 message = { package = "forest_message", path = "../../vm/message", features = ["json"] }

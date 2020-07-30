@@ -20,11 +20,18 @@ pub mod json {
     use super::*;
     use crate::header;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde_json::from_str;
 
     /// Wrapper for serializing and deserializing a GossipBlock from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct GossipBlockJson(#[serde(with = "self")] pub GossipBlock);
+
+    impl From<String> for GossipBlockJson {
+        fn from(s: String) -> Self {
+            from_str(&s).unwrap()
+        }
+    }
 
     /// Wrapper for serializing a GossipBlock reference to JSON.
     #[derive(Serialize)]
