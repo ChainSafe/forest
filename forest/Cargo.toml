@@ -18,7 +18,7 @@ pretty_env_logger = "0.4.0"
 ctrlc = "3.1.4"
 chain_sync = { path = "../blockchain/chain_sync" }
 state_manager = { path = "../blockchain/state_manager" }
-cid = { package = "forest_cid", path = "../ipld/cid" }
+cid = { package = "forest_cid", path = "../ipld/cid", features = ["json"] }
 forest_car = { path = "../ipld/car" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore", features = ["rocksdb"] }
@@ -27,6 +27,7 @@ structopt = { version = "0.3" }
 beacon = { path = "../blockchain/beacon" }
 hex = "0.4.2"
 rpc = { path = "../node/rpc" }
+rpc_client = {package = "rpc-client", path = "../node/rpc-client" }
 fil_types = { path = "../types" }
 serde_json = "1.0"
 blake2b_simd = "0.5.9"
@@ -35,3 +36,4 @@ pbr = "1.0.3"
 pin-project-lite = "0.1"
 message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
 wallet = {package = "key_management", path = "../key_management"}
+jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
