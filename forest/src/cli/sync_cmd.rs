@@ -1,12 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{json::CidJson, Cid};
-use rpc::RPCSyncState;
-use rpc_client::{check_bad, mark_bad, new_client, status, submit_block, head};
-use std::time::SystemTime;
-use structopt::StructOpt;
 use super::stringify_rpc_err;
+use cid::{Cid};
+use rpc::RPCSyncState;
+use rpc_client::{check_bad, head, mark_bad, new_client, status, submit_block};
+use structopt::StructOpt;
+use jsonrpc_v2::Error as JsonRpcError;
+use jsonrpsee::transport::http::HttpTransportClient as HTC;
+use jsonrpsee::raw::RawClient;
+use std::time::{SystemTime, Duration};
+use actor::EPOCH_DURATION_SECONDS;
 
 #[derive(Debug, StructOpt)]
 pub enum SyncCommand {
@@ -50,7 +54,6 @@ impl SyncCommand {
 
         match self {
             SyncCommand::Status {} => {
-                println!("In status sub command.");
                 let response = status(&mut client).await;
                 if let Ok(r) = response {
                     println!("sync status:");
@@ -70,8 +73,7 @@ impl SyncCommand {
                         if let Some(b) = &active_sync.target {
                             target = Some(b.cids().to_vec());
                             height_diff = b.epoch() - height_diff;
-                        }
-                        else{
+                        } else {
                             height_diff = 0;
                         }
 
@@ -105,57 +107,27 @@ impl SyncCommand {
                         }
                     }
                 }
-            },
+            }
 
-            //TODO : This command hasn't been completed in Lotus. Needs to be updated
             SyncCommand::Wait {} => {
-                println!("In wait sub command.");
-                let response = status(&mut client).await;
-                if let Ok(state) = response {
-
-                    //client = new_client();
-                    let head_result = head(&mut client).await;
-
-                    if let Ok(head) = head_result {
-
-                        let mut working = 0;
-                        for (i, active_sync) in state.active_syncs.iter().enumerate() {
-                            // TODO update this loop when lotus adds logic
-                            working = i;
-                        }
-
-                        let ss = &state.active_syncs[working];
-                        let mut target : Option<Vec<Cid>> = None;
-                        if let Some(ss_target) = &ss.target {
-                            target = Some(ss_target.cids().to_vec());
-                        }
-
-                        println!("\r\x1b[2KWorker {}: Target: {:?}\tState: {}\tHeight: {}", working, target, ss.stage(), ss.epoch);
-                        
-
-
-                    }
-                    else{
-                        println!("Unable to get Chain Head");
+                loop {
+                    // If not done syncing or runs into a error stop waiting
+                    if sync_wait(&mut client).await.unwrap_or(true){
+                        break
                     }
                 }
-                else{
-                    println!("Unable to retrieve state from the daemon");
-                }
-            },
+            }
 
             SyncCommand::MarkBad { block_cid } => {
-                println!("In mark-bad sub command. Block is {:?}", block_cid);
                 let response = mark_bad(&mut client, block_cid.clone()).await;
                 if response.is_ok() {
                     println!("Successfully marked block {} as bad", block_cid);
                 } else {
                     println!("Failed to mark block {} as bad", block_cid);
                 }
-            },
+            }
 
             SyncCommand::CheckBad { block_cid } => {
-                println!("In check-bad sub command. Block is {:?}", block_cid);
                 let response = check_bad(&mut client, block_cid.clone()).await;
                 if let Ok(reason) = response {
                     println!("Block {} is bad because \"{}\"", block_cid, reason);
@@ -164,15 +136,50 @@ impl SyncCommand {
                 }
             }
             SyncCommand::Submit { gossip_block } => {
-                println!("In submit command. Gossip Block is {:?}", gossip_block);
                 let response = submit_block(&mut client, gossip_block).await;
                 if response.is_ok() {
                     println!("Successfully submitted block");
-                }
-                else {
-                    println!("Did not submit block because {:#?}", stringify_rpc_err (response.unwrap_err()) );
+                } else {
+                    println!(
+                        "Did not submit block because {:#?}",
+                        stringify_rpc_err(response.unwrap_err())
+                    );
                 }
             }
         }
     }
+}
+
+//TODO : This command hasn't been completed in Lotus. Needs to be updated
+async fn sync_wait(client: &mut RawClient<HTC>) -> Result<bool,JsonRpcError> {
+
+    let state = status(client).await?;
+    let head = head(client).await?;
+    
+    let mut working = 0;
+    for (i, active_sync) in state.active_syncs.iter().enumerate() {
+        // TODO update this loop when lotus adds logic
+        working = i;
+    }
+
+    let ss = &state.active_syncs[working];
+    let mut target: Option<Vec<Cid>> = None;
+    if let Some(ss_target) = &ss.target {
+        target = Some(ss_target.cids().to_vec());
+    }
+
+    println!(
+        "\r\x1b[2KWorker {}: Target: {:?}\tState: {}\tHeight: {}",
+        working,
+        target,
+        ss.stage(),
+        ss.epoch
+    );
+      
+    let time_diff = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or( Duration::from_secs(0)).as_secs() as i64 - head.0.epoch();
+    if  time_diff < EPOCH_DURATION_SECONDS {
+        println!("Done");
+        return Ok(true);
+    }
+    Ok(false)
 }

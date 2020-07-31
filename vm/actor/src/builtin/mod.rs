@@ -20,3 +20,5 @@ pub mod verifreg;
 pub use self::codes::*;
 pub(crate) use self::shared::*;
 pub use self::singletons::*;
+pub use self::network::*;
+

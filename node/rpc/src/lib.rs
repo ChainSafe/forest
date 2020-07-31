@@ -88,7 +88,6 @@ where
         .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB, KS>)
         .with_method("Filecoin.SyncState", sync_state::<DB, KS>)
         .with_method("Filecoin.SyncSubmitBlock", sync_submit_block::<DB, KS>)
-        
         // Wallet API
         .with_method("Filecoin.WalletBalance", wallet_balance::<DB, KS>)
         .with_method(

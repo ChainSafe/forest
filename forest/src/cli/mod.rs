@@ -12,9 +12,6 @@ pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis::initialize_genesis;
 use sync_cmd::*;
-
-
-use async_trait::async_trait;
 use jsonrpc_v2::Error as JsonRpcError;
 use std::cell::RefCell;
 use std::io;
@@ -23,7 +20,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
 use utils::{read_file_to_string, read_toml};
-use jsonrpc_v2::{Data, Params};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]

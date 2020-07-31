@@ -28,6 +28,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
+    println!("Check Bad Return reason is {}",data.bad_blocks.peek(&cid).await.unwrap_or_default());
     Ok(data.bad_blocks.peek(&cid).await.unwrap_or_default())
 }
 
@@ -42,8 +43,10 @@ where
 {
     let (CidJson(cid),) = params;
     data.bad_blocks
-        .put(cid, "Marked bad manually through RPC API".to_string())
+        .put(cid.clone(), "Marked bad manually through RPC API".to_string())
         .await;
+    println!("Mark-bad return reason is {}",data.bad_blocks.peek(&cid).await.unwrap_or_default());
+
     Ok(())
 }
 
