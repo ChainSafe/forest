@@ -120,7 +120,7 @@ where
     }
 
     fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        let ts = task::block_on(self.cs.heaviest_tipset())?;
+        let ts = self.cs.heaviest_tipset()?;
         Some(ts.as_ref().clone())
     }
 

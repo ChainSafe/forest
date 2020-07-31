@@ -64,7 +64,7 @@ pub(super) async fn start(config: Config) {
     );
 
     // Get Drand Coefficients
-    let coeff = config.drand_dist_public;
+    let coeff = config.drand_public;
 
     // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
     let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)

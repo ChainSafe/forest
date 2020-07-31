@@ -9,7 +9,7 @@ use vm::{ExitCode, Serialized};
 pub struct MessageReceipt {
     pub exit_code: ExitCode,
     pub return_data: Serialized,
-    pub gas_used: u64,
+    pub gas_used: i64,
 }
 
 #[cfg(feature = "json")]
@@ -44,7 +44,7 @@ pub mod json {
             exit_code: u64,
             #[serde(rename = "Return")]
             return_data: &'a [u8],
-            gas_used: u64,
+            gas_used: i64,
         }
         MessageReceiptSer {
             exit_code: m.exit_code as u64,
@@ -64,7 +64,7 @@ pub mod json {
             exit_code: u64,
             #[serde(rename = "Return")]
             return_data: Vec<u8>,
-            gas_used: u64,
+            gas_used: i64,
         }
         let MessageReceiptDe {
             exit_code,
