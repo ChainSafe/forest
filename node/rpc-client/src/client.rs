@@ -7,6 +7,7 @@
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
 use crypto::signature::json::SignatureJson;
+use crypto::signature::SignatureType;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use message::unsigned_message::json::UnsignedMessageJson;
@@ -32,7 +33,7 @@ jsonrpsee::rpc_api! {
 
         /// Wallet
         #[rpc(method = "Filecoin.WalletNew", positional_params)]
-        fn wallet_new(sig_type: Vec<u8>) -> String;
+        fn wallet_new(sig_type: SignatureType) -> String;
 
         #[rpc(method = "Filecoin.WalletList")]
         fn wallet_list() -> Vec<String>;
@@ -43,7 +44,7 @@ jsonrpsee::rpc_api! {
         #[rpc(method = "Filecoin.WalletSetDefault", positional_params)]
         fn wallet_set_default(address: String);
 
-        #[rpc(method = "Filecoin.WalletDefault")]
+        #[rpc(method = "Filecoin.WalletDefaultAddress")]
         fn wallet_default() -> String;
 
         #[rpc(method = "Filecoin.WalletSign", positional_params)]

@@ -198,6 +198,18 @@ pub fn import<T: KeyStore + Sync + Send>(
     Ok(k.address)
 }
 
+/// Returns signature type to be used for new wallet via cli-rpc command
+pub fn get_sig_type(sig_type: &str) -> Result<SignatureType, String> {
+    match sig_type {
+        "bls" => Ok(SignatureType::BLS),
+        "secp256k1" => Ok(SignatureType::Secp256k1),
+        _ => Err(format!(
+            "Invalid signature type: {}, must be either bls or secp256k1",
+            sig_type
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -139,16 +139,15 @@ where
 /// Generate a new Address that is stored in the Wallet
 pub(crate) async fn wallet_new<DB, KS>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(u8,)>,
+    Params(params): Params<(SignatureType,)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
     let (sig_raw,) = params;
-    let sig_type: SignatureType = serde_json::from_str(&sig_raw.to_string())?;
     let mut keystore = data.keystore.write().await;
-    let key = wallet::generate_key(sig_type)?;
+    let key = wallet::generate_key(sig_raw)?;
 
     let addr = format!("wallet-{}", key.address.to_string());
     keystore.put(addr, key.key_info.clone())?;

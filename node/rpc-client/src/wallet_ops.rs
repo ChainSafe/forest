@@ -3,13 +3,17 @@
 
 use super::client::Filecoin;
 use crypto::signature::json::SignatureJson;
+use crypto::signature::SignatureType;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient as HTC;
 use wallet::json::KeyInfoJson;
 
 /// Creates a new address in the wallet with the given signature type
-pub async fn new(mut client: RawClient<HTC>, sig_type: Vec<u8>) -> Result<String, JsonRpcError> {
+pub async fn new(
+    mut client: RawClient<HTC>,
+    sig_type: SignatureType,
+) -> Result<String, JsonRpcError> {
     Ok(Filecoin::wallet_new(&mut client, sig_type).await?)
 }
 
