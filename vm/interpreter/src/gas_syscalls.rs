@@ -29,20 +29,16 @@ where
         signer: &Address,
         plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
-        self.gas
-            .borrow_mut()
-            .charge_gas(
-                self.price_list
-                    .on_verify_signature(signature.signature_type(), plaintext.len()),
-            )
-            .unwrap();
+        self.gas.borrow_mut().charge_gas(
+            self.price_list
+                .on_verify_signature(signature.signature_type(), plaintext.len()),
+        )?;
         self.syscalls.verify_signature(signature, signer, plaintext)
     }
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_hashing(data.len()))
-            .unwrap();
+            .charge_gas(self.price_list.on_hashing(data.len()))?;
         self.syscalls.hash_blake2b(data)
     }
     fn compute_unsealed_sector_cid(
@@ -52,22 +48,19 @@ where
     ) -> Result<Cid, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_compute_unsealed_sector_cid(reg, pieces))
-            .unwrap();
+            .charge_gas(self.price_list.on_compute_unsealed_sector_cid(reg, pieces))?;
         self.syscalls.compute_unsealed_sector_cid(reg, pieces)
     }
     fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_verify_seal(vi))
-            .unwrap();
+            .charge_gas(self.price_list.on_verify_seal(vi))?;
         self.syscalls.verify_seal(vi)
     }
     fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_verify_post(vi))
-            .unwrap();
+            .charge_gas(self.price_list.on_verify_post(vi))?;
         self.syscalls.verify_post(vi)
     }
     fn verify_consensus_fault(
@@ -78,8 +71,7 @@ where
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_verify_consensus_fault())
-            .unwrap();
+            .charge_gas(self.price_list.on_verify_consensus_fault())?;
         self.syscalls.verify_consensus_fault(h1, h2, extra)
     }
 

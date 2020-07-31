@@ -88,15 +88,9 @@ fn get_set_non_id() {
 
     // Register new address
     let addr = Address::new_secp256k1(&[2; SECP_PUB_LEN]).unwrap();
-    let secp_state = ActorState::new(e_cid.clone(), e_cid.clone(), Default::default(), 0);
-    let assigned_addr = tree
-        .register_new_address(&addr, secp_state.clone())
-        .unwrap();
+    let assigned_addr = tree.register_new_address(&addr).unwrap();
 
     assert_eq!(assigned_addr, Address::new_id(100));
-
-    // Test resolution of Secp address
-    assert_eq!(tree.get_actor(&addr).unwrap(), Some(secp_state));
 
     // Test reverting snapshot to before init actor set
     tree.revert_to_snapshot(&snapshot).unwrap();

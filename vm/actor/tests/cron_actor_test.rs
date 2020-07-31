@@ -137,7 +137,7 @@ fn epoch_tick_with_entries() {
 }
 
 fn construct_and_verify(rt: &mut MockRuntime, params: &ConstructorParams) {
-    rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
+    rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
     let ret = rt
         .call(
             &*CRON_ACTOR_CODE_ID,
@@ -150,7 +150,7 @@ fn construct_and_verify(rt: &mut MockRuntime, params: &ConstructorParams) {
 }
 
 fn epoch_tick_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(&[*SYSTEM_ACTOR_ADDR]);
+    rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
     let ret = rt
         .call(&*CRON_ACTOR_CODE_ID, 2, &Serialized::default())
         .unwrap();

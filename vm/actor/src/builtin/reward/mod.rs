@@ -20,7 +20,8 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{
-    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
 
 // * Updated to specs-actors commit: 52599b21919df07f44d7e61cc028e265ec18f700
@@ -84,10 +85,9 @@ impl Actor {
             "cannot give block reward for zero tickets"
         );
 
-        let miner_addr = rt
-            .resolve_address(&params.miner)
-            // TODO revisit later if all address resolutions end up being the same exit code
-            .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.msg().to_string()))?;
+        let miner_addr = rt.resolve_address(&params.miner)?.ok_or_else(
+            || actor_error!(ErrIllegalState; "failed to resolve given owner address"),
+        )?;
 
         let prior_balance = rt.current_balance()?;
 
@@ -107,29 +107,29 @@ impl Actor {
         );
 
         rt.send(
-            &miner_addr,
+            miner_addr,
             miner::Method::AddLockedFund as u64,
-            &Serialized::serialize(&BigIntSer(&reward_payable))?,
-            &reward_payable,
+            Serialized::serialize(&BigIntSer(&reward_payable))?,
+            reward_payable,
         )?;
 
         // Burn the penalty
         rt.send(
-            &*BURNT_FUNDS_ACTOR_ADDR,
+            *BURNT_FUNDS_ACTOR_ADDR,
             METHOD_SEND,
-            &Serialized::default(),
-            &penalty,
+            Serialized::default(),
+            penalty.clone(),
         )?;
 
         Ok(())
     }
 
-    fn last_per_epoch_reward<BS, RT>(rt: &RT) -> Result<TokenAmount, ActorError>
+    fn last_per_epoch_reward<BS, RT>(rt: &mut RT) -> Result<TokenAmount, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
         Ok(st.last_per_epoch_reward)
     }

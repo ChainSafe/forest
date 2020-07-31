@@ -256,9 +256,9 @@ where
 
     Ok(InvocResult {
         msg,
-        msg_rct: ret.clone().map(|s| s.msg_receipt().clone()),
+        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone()),
         actor_error: ret
-            .map(|act| act.act_error().map(|e| e.to_string()))
+            .map(|act| act.act_error.map(|e| e.to_string()))
             .unwrap_or_default(),
     })
 }
@@ -323,7 +323,7 @@ pub fn state_lookup_id<DB>(
     state_manager: &StateManager<DB>,
     address: &Address,
     key: &TipsetKeys,
-) -> Result<Address, BoxError>
+) -> Result<Option<Address>, BoxError>
 where
     DB: BlockStore,
 {

@@ -1,16 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused_imports)]
-#![allow(unused_variables)]
-#![allow(dead_code)]
+#![allow(clippy::all)]
+#![allow(unused_variables, dead_code)]
 
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
 use crypto::signature::json::SignatureJson;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
-use jsonrpsee::transport::TransportClient;
 use message::unsigned_message::json::UnsignedMessageJson;
 use wallet::json::KeyInfoJson;
 

@@ -83,7 +83,12 @@ impl Actor {
         let value = rt.message().value_received().clone();
         // TODO update this send, is now outdated
         let addresses: init::ExecReturn = rt
-            .send(&INIT_ACTOR_ADDR, init::Method::Exec as u64, params, &value)?
+            .send(
+                *INIT_ACTOR_ADDR,
+                init::Method::Exec as u64,
+                params.clone(),
+                value,
+            )?
             .deserialize()?;
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
@@ -110,11 +115,12 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let nominal = rt.resolve_address(&params.miner)?;
+        // TODO this function does not exist anymore, make sure it is removed/replaced later
+        let nominal = rt.resolve_address(&params.miner)?.unwrap();
 
         let st: State = rt.state()?;
 
-        let (owner_addr, worker_addr) = request_miner_control_addrs(rt, &nominal)?;
+        let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
         rt.validate_immediate_caller_is(&[owner_addr, worker_addr])?;
 
         let claim = st
@@ -357,10 +363,10 @@ impl Actor {
         for event in cron_events {
             // TODO switch 12 to OnDeferredCronEvent on miner actor impl
             rt.send(
-                &event.miner_addr,
+                event.miner_addr,
                 12,
-                &event.callback_payload,
-                &TokenAmount::from(0u8),
+                event.callback_payload,
+                TokenAmount::from(0u8),
             )?;
         }
 
@@ -490,10 +496,10 @@ where
 {
     let st: State = rt.state()?;
     let ret = rt.send(
-        &*REWARD_ACTOR_ADDR,
+        *REWARD_ACTOR_ADDR,
         RewardMethod::LastPerEpochReward as u64,
-        &Serialized::default(),
-        &TokenAmount::zero(),
+        Serialized::default(),
+        TokenAmount::zero(),
     )?;
     let BigIntDe(epoch_reward) = ret.deserialize()?;
 

@@ -186,7 +186,8 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().receiver()))?;
+        let receiver = *rt.message().receiver();
+        rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
         rt.transaction::<State, _, _>(|st, _| {
             // Check if signer to add is already signer
@@ -213,7 +214,8 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().receiver()))?;
+        let receiver = *rt.message().receiver();
+        rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
         rt.transaction::<State, _, _>(|st, _| {
             // Check that signer to remove exists
@@ -248,7 +250,8 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().receiver()))?;
+        let receiver = *rt.message().receiver();
+        rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
         rt.transaction::<State, _, _>(|st, _| {
             // Check that signer to remove exists
@@ -286,7 +289,8 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(rt.message().receiver()))?;
+        let receiver = *rt.message().receiver();
+        rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
         rt.transaction::<State, _, _>(|st, _| {
             // Check if valid threshold value
@@ -371,7 +375,7 @@ impl Actor {
 
         // Sufficient number of approvals have arrived, relay message
         if threshold_met {
-            rt.send(&tx.to, tx.method, &tx.params, &tx.value)?;
+            rt.send(tx.to, tx.method, tx.params, tx.value)?;
         }
 
         Ok(())

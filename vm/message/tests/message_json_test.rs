@@ -85,7 +85,7 @@ fn message_json_annotations() {
                 "GasPrice": "9",
                 "GasLimit": 8,
                 "Method": 7,
-                "Params": "gA=="
+                "Params": ""
             },
             "signed": {
                 "Message": {
@@ -97,7 +97,7 @@ fn message_json_annotations() {
                     "GasPrice": "9",
                     "GasLimit": 8,
                     "Method": 7,
-                    "Params": "gA=="
+                    "Params": ""
                 },
                 "Signature": {
                     "Type": 2,
