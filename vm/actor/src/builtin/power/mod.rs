@@ -31,17 +31,13 @@ pub enum Method {
     /// Constructor for Storage Power Actor
     Constructor = METHOD_CONSTRUCTOR,
     CreateMiner = 2,
-    DeleteMiner = 3,
-    OnSectorProveCommit = 4,
-    OnSectorTerminate = 5,
-    OnFaultBegin = 6,
-    OnFaultEnd = 7,
-    OnSectorModifyWeightDesc = 8,
-    EnrollCronEvent = 9,
-    OnEpochTickEnd = 10,
-    UpdatePledgeTotal = 11,
-    OnConsensusFault = 12,
-    SubmitPoRepForBulkVerify = 13,
+    UpdateClaimedPower = 3,
+    EnrollCronEvent = 4,
+    OnEpochTickEnd = 5,
+    UpdatePledgeTotal = 6,
+    OnConsensusFault = 7,
+    SubmitPoRepForBulkVerify = 8,
+    CurrentTotalPower = 9,
 }
 
 /// Storage Power Actor
@@ -497,7 +493,7 @@ where
     let st: State = rt.state()?;
     let ret = rt.send(
         *REWARD_ACTOR_ADDR,
-        RewardMethod::LastPerEpochReward as u64,
+        RewardMethod::ThisEpochReward as u64,
         Serialized::default(),
         TokenAmount::zero(),
     )?;
@@ -547,30 +543,6 @@ impl ActorCode for Actor {
                 let res = Self::create_miner(rt, params)?;
                 Ok(Serialized::serialize(res)?)
             }
-            Some(Method::DeleteMiner) => {
-                Self::delete_miner(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
-            }
-            Some(Method::OnSectorProveCommit) => {
-                let res = Self::on_sector_prove_commit(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(BigIntSer(&res))?)
-            }
-            Some(Method::OnSectorTerminate) => {
-                Self::on_sector_terminate(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
-            }
-            Some(Method::OnFaultBegin) => {
-                Self::on_fault_begin(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
-            }
-            Some(Method::OnFaultEnd) => {
-                Self::on_fault_end(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
-            }
-            Some(Method::OnSectorModifyWeightDesc) => {
-                let res = Self::on_sector_modify_weight_desc(rt, params.deserialize()?)?;
-                Ok(Serialized::serialize(BigIntSer(&res))?)
-            }
             Some(Method::EnrollCronEvent) => {
                 Self::enroll_cron_event(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
@@ -594,6 +566,7 @@ impl ActorCode for Actor {
                 Self::submit_porep_for_bulk_verify(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
+            // TODO update with new/updated methods
             _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }

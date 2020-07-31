@@ -40,9 +40,9 @@ pub(super) fn deal_price_per_epoch_bounds(
 pub(super) fn deal_provider_collateral_bounds(
     size: PaddedPieceSize,
     verified: bool,
-    network_qa_power: StoragePower,
-    baseline_power: StoragePower,
-    network_circulating_supply: TokenAmount,
+    network_qa_power: &StoragePower,
+    baseline_power: &StoragePower,
+    network_circulating_supply: &TokenAmount,
 ) -> (TokenAmount, TokenAmount) {
     // minimumProviderCollateral = (ProvCollateralPercentSupplyNum / ProvCollateralPercentSupplyDenom) * normalizedCirculatingSupply
     // normalizedCirculatingSupply = FILCirculatingSupply * dealPowerShare
@@ -53,12 +53,9 @@ pub(super) fn deal_provider_collateral_bounds(
 
     let qa_power = deal_qa_power(size, verified);
     let power_share_num = qa_power;
-    let power_share_denom = max(
-        max(network_qa_power, baseline_power),
-        power_share_num.clone(),
-    );
+    let power_share_denom = max(max(network_qa_power, baseline_power), &power_share_num);
 
-    let num = lock_target_num * power_share_num;
+    let num = lock_target_num * &power_share_num;
     let denom = lock_target_denom * power_share_denom;
     ((num / denom), TOTAL_FILECOIN.clone())
 }

@@ -31,7 +31,7 @@ use vm::{
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     AwardBlockReward = 2,
-    LastPerEpochReward = 3,
+    ThisEpochReward = 3,
     UpdateNetworkKPI = 4,
 }
 
@@ -217,7 +217,7 @@ impl ActorCode for Actor {
                 Self::award_block_reward(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            Some(Method::LastPerEpochReward) => {
+            Some(Method::ThisEpochReward) => {
                 let res = Self::last_per_epoch_reward(rt)?;
                 Ok(Serialized::serialize(BigIntSer(&res))?)
             }

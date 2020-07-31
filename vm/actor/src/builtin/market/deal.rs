@@ -3,7 +3,7 @@
 
 use crate::DealWeight;
 use address::Address;
-use cid::Cid;
+use cid::{multihash::Code, Cid, Codec, Prefix, Version};
 use clock::ChainEpoch;
 use crypto::Signature;
 use encoding::tuple::*;
@@ -11,6 +11,17 @@ use encoding::Cbor;
 use fil_types::PaddedPieceSize;
 use num_bigint::bigint_ser;
 use vm::TokenAmount;
+
+// TODO this hash code should probably be in common place
+const SHA2_256_TRUNC254_PADDED: u64 = 0x1012;
+
+/// Cid prefix for piece Cids
+pub const PIECE_CID_PREFIX: Prefix = Prefix {
+    version: Version::V1,
+    codec: Codec::FilCommitmentUnsealed,
+    mh_type: Code::Custom(SHA2_256_TRUNC254_PADDED),
+    mh_len: 32,
+};
 
 /// Note: Deal Collateral is only released and returned to clients and miners
 /// when the storage deal stops counting towards power. In the current iteration,
@@ -70,6 +81,8 @@ pub struct ClientDealProposal {
     pub proposal: DealProposal,
     pub client_signature: Signature,
 }
+
+impl Cbor for ClientDealProposal {}
 
 #[derive(Clone, Debug, PartialEq, Copy, Serialize_tuple, Deserialize_tuple)]
 pub struct DealState {

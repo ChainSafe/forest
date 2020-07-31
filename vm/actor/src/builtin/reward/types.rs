@@ -4,6 +4,7 @@
 use crate::network::*;
 use address::Address;
 use encoding::tuple::*;
+use fil_types::StoragePower;
 use num_bigint::{bigint_ser, BigInt, BigUint};
 use num_traits::{Pow, Zero};
 use std::ops::Neg;
@@ -52,6 +53,16 @@ pub struct AwardBlockRewardParams {
     #[serde(with = "bigint_ser")]
     pub gas_reward: TokenAmount,
     pub ticket_count: u64,
+}
+
+// TODO replace this type for return and update smoothed type
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+pub struct ThisEpochRewardReturn {
+    #[serde(with = "bigint_ser")]
+    pub this_epoch_reward: TokenAmount,
+    pub this_epoch_reward_smoothed: (),
+    #[serde(with = "bigint_ser")]
+    pub this_epoch_baseline_power: StoragePower,
 }
 
 /// Minting Function: Taylor series expansion

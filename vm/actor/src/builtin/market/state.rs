@@ -9,7 +9,7 @@ use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::tuple::*;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser;
+use num_bigint::{bigint_ser, Sign};
 use num_traits::Zero;
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
@@ -468,13 +468,66 @@ where
         ret
     }
 
+    pub(super) fn maybe_lock_balance(
+        &mut self,
+        addr: &Address,
+        amount: &TokenAmount,
+    ) -> Result<(), ActorError> {
+        assert_ne!(amount.sign(), Sign::Minus);
+
+        let prev_locked =
+            self.locked_table.as_ref().unwrap().get(addr).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to get locked balance: {}", e),
+            )?;
+
+        let escrow_balance =
+            self.escrow_table.as_ref().unwrap().get(addr).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to get escrow balance: {}", e),
+            )?;
+
+        if prev_locked.clone() + amount > escrow_balance {
+            return Err(actor_error!(ErrInsufficientFunds;
+                    "not enough balance to lock for addr {}: {} < {} + {}", 
+                    addr, escrow_balance, prev_locked, amount));
+        }
+
+        self.locked_table
+            .as_mut()
+            .unwrap()
+            .add(addr, amount)
+            .map_err(|e| actor_error!(ErrIllegalState; "failed to add locked balance: {}", e))?;
+        Ok(())
+    }
+
+    pub(super) fn lock_client_and_provider_balances(
+        &mut self,
+        proposal: &DealProposal,
+    ) -> Result<(), ActorError> {
+        self.maybe_lock_balance(&proposal.client, &proposal.client_balance_requirement())
+            .map_err(|e| e.wrap("failed to lock client funds: "))?;
+
+        self.maybe_lock_balance(&proposal.provider, &proposal.provider_collateral)
+            .map_err(|e| e.wrap("failed to lock provider funds: "))?;
+
+        self.total_client_locked_colateral.as_mut().map(|v| {
+            *v += &proposal.client_collateral;
+        });
+        self.total_client_storage_fee.as_mut().map(|v| {
+            *v += proposal.total_storage_fee();
+        });
+        self.total_provider_locked_colateral.as_mut().map(|v| {
+            *v += &proposal.provider_collateral;
+        });
+        Ok(())
+    }
+
     fn unlock_balance(
         &mut self,
         addr: &Address,
         amount: &TokenAmount,
         lock_reason: Reason,
     ) -> Result<(), String> {
-        assert!(amount >= &TokenAmount::from(0));
+        assert_ne!(amount.sign(), Sign::Minus);
         self.locked_table
             .as_mut()
             .unwrap()

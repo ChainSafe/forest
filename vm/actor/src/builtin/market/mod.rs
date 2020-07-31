@@ -11,22 +11,24 @@ use self::policy::*;
 pub use self::state::*;
 pub use self::types::*;
 use crate::{
-    check_empty_params, make_map, request_miner_control_addrs,
-    verifreg::{BytesParams, Method as VerifregMethod},
+    check_empty_params, make_map, power, request_miner_control_addrs, reward,
+    verifreg::{Method as VerifregMethod, UseBytesParams},
     BalanceTable, DealID, SetMultimap, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE,
-    CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, VERIFIED_REGISTRY_ACTOR_ADDR,
+    CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
+    SYSTEM_ACTOR_ADDR, VERIFIED_REGISTRY_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
-use encoding::to_vec;
-use fil_types::PieceInfo;
+use encoding::{to_vec, Cbor};
+use fil_types::{PieceInfo, StoragePower};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
+use std::collections::HashMap;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
     METHOD_SEND,
@@ -184,7 +186,7 @@ impl Actor {
     /// Publish a new set of storage deals (not yet included in a sector).
     fn publish_storage_deals<BS, RT>(
         rt: &mut RT,
-        params: PublishStorageDealsParams,
+        mut params: PublishStorageDealsParams,
     ) -> Result<PublishStorageDealsReturn, ActorError>
     where
         BS: BlockStore,
@@ -194,10 +196,7 @@ impl Actor {
         // This allows us to retain and verify only the client's signature in each deal proposal itself.
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         if params.deals.is_empty() {
-            return Err(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                "Empty deals parameter.".to_owned(),
-            ));
+            return Err(actor_error!(ErrIllegalArgument; "Empty deals parameter"));
         }
 
         // All deals should have the same provider so get worker once
@@ -206,92 +205,128 @@ impl Actor {
             || actor_error!(ErrNotFound; "failed to resolve provider address {}", provider_raw),
         )?;
 
+        let code_id = rt.get_actor_code_cid(&provider)?.ok_or_else(
+            || actor_error!(ErrIllegalArgument; "no code ID for address {}", provider),
+        )?;
+        if code_id != *MINER_ACTOR_CODE_ID {
+            return Err(
+                actor_error!(ErrIllegalArgument; "deal provider is not a storage miner actor"),
+            );
+        }
+
         let (_, worker) = request_miner_control_addrs(rt, provider)?;
         if &worker != rt.message().caller() {
-            return Err(ActorError::new(
-                ExitCode::ErrForbidden,
-                format!("Caller is not provider {}", worker),
-            ));
+            return Err(actor_error!(ErrForbidden; "Caller is not provider {}", worker));
         }
+
+        let mut resolved_addrs = HashMap::<Address, Address>::with_capacity(params.deals.len());
+        let baseline_power = request_current_baseline_power(rt)?;
+        let network_qa_power = request_current_network_qa_power(rt)?;
+
+        let mut new_deal_ids: Vec<DealID> = Vec::new();
+        rt.transaction(|st: &mut State, rt| {
+            let mut msm = st.mutator(rt.store());
+            msm.with_pending_proposals(Permission::Write)
+                .with_deal_proposals(Permission::Write)
+                .with_deals_by_epoch(Permission::Write)
+                .with_escrow_table(Permission::Write)
+                .with_locked_table(Permission::Write)
+                .build()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load state: {}", e))?;
+
+            for deal in &mut params.deals {
+                validate_deal(rt, &deal, &baseline_power, &network_qa_power)?;
+
+                if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
+                    return Err(actor_error!(ErrIllegalArgument;
+                        "cannot publish deals from different providers at the same time."));
+                }
+
+                let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(|| {
+                    actor_error!(ErrNotFound;
+                        "failed to resolve provider address {}", provider_raw)
+                })?;
+                // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
+                deal.proposal.provider = provider;
+                resolved_addrs.insert(deal.proposal.client, client);
+                deal.proposal.client = client;
+
+                msm.lock_client_and_provider_balances(&deal.proposal)?;
+
+                let id = msm.generate_storage_deal_id();
+
+                let pcid = deal.proposal.cid().map_err(
+                    |e| actor_error!(ErrIllegalArgument; "failed to take cid of proposal: {}", e),
+                )?;
+
+                let has = msm
+                    .pending_deals
+                    .as_ref()
+                    .unwrap()
+                    .contains_key(&pcid.to_bytes())
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                        "failed to check for existence of deal proposal: {}", e)
+                    })?;
+                if has {
+                    return Err(actor_error!(ErrIllegalArgument; "cannot publish duplicate deals"));
+                }
+
+                msm.pending_deals
+                    .as_mut()
+                    .unwrap()
+                    .set(pcid.to_bytes().into(), deal.proposal.clone())
+                    .map_err(
+                        |e| actor_error!(ErrIllegalState; "failed to set pending deal: {}", e),
+                    )?;
+                msm.deal_proposals
+                    .as_mut()
+                    .unwrap()
+                    .set(id, deal.proposal.clone())
+                    .map_err(|e| actor_error!(ErrIllegalState; "failed to set deal: {}", e))?;
+                msm.deals_by_epoch
+                    .as_mut()
+                    .unwrap()
+                    .put(deal.proposal.start_epoch, id)
+                    .map_err(
+                        |e| actor_error!(ErrIllegalState; "failed to set deal ops by epoch: {}", e),
+                    )?;
+
+                new_deal_ids.push(id);
+            }
+
+            msm.commit_state()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
+            Ok(())
+        })??;
 
         for deal in &params.deals {
             // Check VerifiedClient allowed cap and deduct PieceSize from cap.
             // Either the DealSize is within the available DataCap of the VerifiedClient
             // or this message will fail. We do not allow a deal that is partially verified.
             if deal.proposal.verified_deal {
-                let ser_params = Serialized::serialize(&BytesParams {
-                    address: deal.proposal.client,
-                    deal_size: BigInt::from(deal.proposal.piece_size.0),
-                })?;
+                let resolved_client = resolved_addrs.get(&deal.proposal.client).ok_or_else(
+                    || actor_error!(ErrIllegalArgument; "could not get resolved client address"),
+                )?;
                 rt.send(
                     *VERIFIED_REGISTRY_ACTOR_ADDR,
                     VerifregMethod::UseBytes as u64,
-                    ser_params,
+                    Serialized::serialize(&UseBytesParams {
+                        address: deal.proposal.client,
+                        deal_size: BigInt::from(deal.proposal.piece_size.0),
+                    })?,
                     TokenAmount::zero(),
-                )?;
+                )
+                .map_err(|e| {
+                    e.wrap(&format!(
+                        "failed to add verified deal for client ({}): ",
+                        deal.proposal.client
+                    ))
+                })?;
             }
         }
 
-        let mut new_deal_ids: Vec<DealID> = Vec::new();
-        todo!()
-        // rt.transaction(|st: &mut State, rt| {
-        //     let mut prop = Amt::load(&st.proposals, rt.store())
-        //         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        //     let mut deal_ops = SetMultimap::from_root(rt.store(), &st.deal_ops_by_epoch)
-        //         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-        //     for mut deal in params.deals {
-        //         validate_deal(rt, &deal)?;
-
-        //         if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
-        //             return Err(ActorError::new(
-        //                 ExitCode::ErrIllegalArgument,
-        //                 "Cannot publish deals from different providers at the same time."
-        //                     .to_owned(),
-        //             ));
-        //         }
-
-        //         let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(|| {
-        //             actor_error!(ErrNotFound;
-        //                 "failed to resolve provider address {}", provider_raw)
-        //         })?;
-        //         // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
-        //         deal.proposal.provider = provider;
-        //         deal.proposal.client = client;
-
-        //         st.lock_balance_or_abort(
-        //             rt.store(),
-        //             &client,
-        //             &deal.proposal.client_balance_requirement(),
-        //         )?;
-        //         st.lock_balance_or_abort(
-        //             rt.store(),
-        //             &provider,
-        //             deal.proposal.provider_balance_requirement(),
-        //         )?;
-
-        //         let id = st.generate_storage_deal_id();
-
-        //         deal_ops
-        //             .put(deal.proposal.start_epoch, id)
-        //             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
-
-        //         prop.set(id, deal.proposal)
-        //             .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-        //         new_deal_ids.push(id);
-        //     }
-        //     st.proposals = prop
-        //         .flush()
-        //         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-        //     st.deal_ops_by_epoch = deal_ops
-        //         .root()
-        //         .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-        //     Ok(())
-        // })??;
-
-        // Ok(PublishStorageDealsReturn { ids: new_deal_ids })
+        Ok(PublishStorageDealsReturn { ids: new_deal_ids })
     }
 
     /// Verify that a given set of storage deals is valid for a sector currently being ProveCommitted,
@@ -625,18 +660,18 @@ impl Actor {
         //     Ok(())
         // })??;
 
-        for d in timed_out_verified_deals {
-            let ser_params = Serialized::serialize(BytesParams {
-                address: d.client,
-                deal_size: BigInt::from(d.piece_size.0),
-            })?;
-            rt.send(
-                *VERIFIED_REGISTRY_ACTOR_ADDR,
-                VerifregMethod::RestoreBytes as u64,
-                ser_params,
-                TokenAmount::zero(),
-            )?;
-        }
+        // for d in timed_out_verified_deals {
+        //     let ser_params = Serialized::serialize(UseBytesParams {
+        //         address: d.client,
+        //         deal_size: BigInt::from(d.piece_size.0),
+        //     })?;
+        //     rt.send(
+        //         *VERIFIED_REGISTRY_ACTOR_ADDR,
+        //         VerifregMethod::RestoreBytes as u64,
+        //         ser_params,
+        //         TokenAmount::zero(),
+        //     )?;
+        // }
 
         rt.send(
             *BURNT_FUNDS_ACTOR_ADDR,
@@ -680,61 +715,71 @@ fn validate_deal_can_activate(
     Ok(())
 }
 
-fn validate_deal<BS, RT>(rt: &RT, deal: &ClientDealProposal) -> Result<(), ActorError>
+fn validate_deal<BS, RT>(
+    rt: &RT,
+    deal: &ClientDealProposal,
+    baseline_power: &StoragePower,
+    network_qa_power: &StoragePower,
+) -> Result<(), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
     deal_proposal_is_internally_valid(rt, deal)?;
 
-    if rt.curr_epoch() > deal.proposal.start_epoch {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Deal start epoch has already elapsed.".to_owned(),
-        ));
+    let proposal = &deal.proposal;
+
+    proposal
+        .piece_size
+        .validate()
+        .map_err(|e| actor_error!(ErrIllegalArgument; "proposal piece size is invalid: {}", e))?;
+
+    // TODO we are skipping the check for if Cid is defined, but this shouldn't be possible
+
+    if proposal.piece_cid.prefix() != PIECE_CID_PREFIX {
+        return Err(actor_error!(ErrIllegalArgument; "proposal PieceCID undefined"));
+    }
+
+    if proposal.end_epoch <= proposal.start_epoch {
+        return Err(actor_error!(ErrIllegalArgument; "proposal end before start"));
+    }
+
+    if rt.curr_epoch() > proposal.start_epoch {
+        return Err(actor_error!(ErrIllegalArgument; "Deal start epoch has already elapsed."));
     };
 
-    let (min_dur, max_dur) = deal_duration_bounds(deal.proposal.piece_size);
-    if deal.proposal.duration() < min_dur || deal.proposal.duration() > max_dur {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Deal duration out of bounds.".to_owned(),
-        ));
+    let (min_dur, max_dur) = deal_duration_bounds(proposal.piece_size);
+    if proposal.duration() < min_dur || proposal.duration() > max_dur {
+        return Err(actor_error!(ErrIllegalArgument; "Deal duration out of bounds."));
     };
 
     let (min_price, max_price) =
-        deal_price_per_epoch_bounds(deal.proposal.piece_size, deal.proposal.duration());
-    if deal.proposal.storage_price_per_epoch < min_price
-        || deal.proposal.storage_price_per_epoch > max_price
+        deal_price_per_epoch_bounds(proposal.piece_size, proposal.duration());
+    if proposal.storage_price_per_epoch < min_price || proposal.storage_price_per_epoch > max_price
     {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Storage price out of bounds.".to_owned(),
-        ));
+        return Err(actor_error!(ErrIllegalArgument; "Storage price out of bounds."));
     };
 
-    todo!();
-    // let (min_provider_collateral, max_provider_collateral) =
-    //     deal_provider_collateral_bounds(deal.proposal.piece_size, deal.proposal.duration());
-    // if deal.proposal.provider_collateral < min_provider_collateral
-    //     || deal.proposal.provider_collateral > max_provider_collateral
-    // {
-    //     return Err(ActorError::new(
-    //         ExitCode::ErrIllegalArgument,
-    //         "Provider collateral out of bounds.".to_owned(),
-    //     ));
-    // };
+    let (min_provider_collateral, max_provider_collateral) = deal_provider_collateral_bounds(
+        proposal.piece_size,
+        proposal.verified_deal,
+        network_qa_power,
+        baseline_power,
+        &rt.total_fil_circ_supply()?,
+    );
+    if proposal.provider_collateral < min_provider_collateral
+        || proposal.provider_collateral > max_provider_collateral
+    {
+        return Err(actor_error!(ErrIllegalArgument; "Provider collateral out of bounds."));
+    };
 
-    // let (min_client_collateral, max_client_collateral) =
-    //     deal_client_collateral_bounds(deal.proposal.piece_size, deal.proposal.duration());
-    // if deal.proposal.provider_collateral < min_client_collateral
-    //     || deal.proposal.provider_collateral > max_client_collateral
-    // {
-    //     return Err(ActorError::new(
-    //         ExitCode::ErrIllegalArgument,
-    //         "Client collateral out of bounds.".to_owned(),
-    //     ));
-    // };
+    let (min_client_collateral, max_client_collateral) =
+        deal_client_collateral_bounds(proposal.piece_size, proposal.duration());
+    if proposal.provider_collateral < min_client_collateral
+        || proposal.provider_collateral > max_client_collateral
+    {
+        return Err(actor_error!(ErrIllegalArgument; "Client collateral out of bounds."));
+    };
 
     Ok(())
 }
@@ -799,6 +844,38 @@ where
     }
 
     Ok((nominal, nominal, vec![nominal]))
+}
+
+// Requests the current epoch target block reward from the reward actor.
+fn request_current_baseline_power<BS, RT>(rt: &mut RT) -> Result<StoragePower, ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    let rwret = rt.send(
+        *REWARD_ACTOR_ADDR,
+        reward::Method::ThisEpochReward as u64,
+        Serialized::default(),
+        0.into(),
+    )?;
+    let ret: reward::ThisEpochRewardReturn = rwret.deserialize()?;
+    Ok(ret.this_epoch_baseline_power)
+}
+
+// Requests the current network total power and pledge from the power actor.
+fn request_current_network_qa_power<BS, RT>(rt: &mut RT) -> Result<StoragePower, ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    let rwret = rt.send(
+        *STORAGE_POWER_ACTOR_ADDR,
+        power::Method::CurrentTotalPower as u64,
+        Serialized::default(),
+        0.into(),
+    )?;
+    let ret: power::CurrentTotalPowerReturn = rwret.deserialize()?;
+    Ok(ret.quality_adj_power)
 }
 
 impl ActorCode for Actor {

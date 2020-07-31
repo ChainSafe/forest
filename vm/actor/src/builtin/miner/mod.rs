@@ -707,12 +707,14 @@ impl Actor {
                     duration: precommit.info.expiration - rt.curr_epoch(),
                 },
             })?;
-            ret = rt.send(
-                *STORAGE_POWER_ACTOR_ADDR,
-                PowerMethod::OnSectorProveCommit as u64,
-                param,
-                TokenAmount::zero(),
-            )?;
+            // TODO was refactored
+            ret = Default::default();
+            // rt.send(
+            //     *STORAGE_POWER_ACTOR_ADDR,
+            //     PowerMethod::OnSectorProveCommit as u64,
+            //     param,
+            //     TokenAmount::zero(),
+            // )?;
             let BigIntDe(initial_pledge) = ret.deserialize()?;
 
             // Add sector and pledge lock-up to miner state
@@ -847,12 +849,13 @@ impl Actor {
             new_weight: storage_weight_desc_new,
         })?;
 
-        rt.send(
-            *STORAGE_POWER_ACTOR_ADDR,
-            PowerMethod::OnSectorModifyWeightDesc as u64,
-            ser_params,
-            BigInt::zero(),
-        )?;
+        // TODO was refactored
+        // rt.send(
+        //     *STORAGE_POWER_ACTOR_ADDR,
+        //     PowerMethod::OnSectorModifyWeightDesc as u64,
+        //     ser_params,
+        //     BigInt::zero(),
+        // )?;
 
         // store new sector expiry
         rt.transaction(|st: &mut State, rt| {
@@ -2010,12 +2013,13 @@ where
         .collect();
     let ser_params = Serialized::serialize(OnFaultBeginParams { weights })?;
 
-    rt.send(
-        *STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnFaultBegin as u64,
-        ser_params,
-        TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnFaultBegin as u64,
+    //     ser_params,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
@@ -2038,12 +2042,13 @@ where
         .collect();
     let ser_params = Serialized::serialize(OnFaultEndParams { weights })?;
 
-    rt.send(
-        *STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnFaultEnd as u64,
-        ser_params,
-        TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnFaultEnd as u64,
+    //     ser_params,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
@@ -2091,12 +2096,13 @@ where
         weights,
     })?;
 
-    rt.send(
-        *STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnSectorTerminate as u64,
-        ser_params,
-        TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnSectorTerminate as u64,
+    //     ser_params,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
