@@ -29,6 +29,7 @@ use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use std::collections::HashMap;
+use std::error::Error as StdError;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
     METHOD_SEND,
@@ -305,14 +306,14 @@ impl Actor {
             // Either the DealSize is within the available DataCap of the VerifiedClient
             // or this message will fail. We do not allow a deal that is partially verified.
             if deal.proposal.verified_deal {
-                let resolved_client = resolved_addrs.get(&deal.proposal.client).ok_or_else(
+                let resolved_client = *resolved_addrs.get(&deal.proposal.client).ok_or_else(
                     || actor_error!(ErrIllegalArgument; "could not get resolved client address"),
                 )?;
                 rt.send(
                     *VERIFIED_REGISTRY_ACTOR_ADDR,
                     VerifregMethod::UseBytes as u64,
                     Serialized::serialize(&UseBytesParams {
-                        address: deal.proposal.client,
+                        address: resolved_client,
                         deal_size: BigInt::from(deal.proposal.piece_size.0),
                     })?,
                     TokenAmount::zero(),
@@ -329,13 +330,11 @@ impl Actor {
         Ok(PublishStorageDealsReturn { ids: new_deal_ids })
     }
 
-    /// Verify that a given set of storage deals is valid for a sector currently being ProveCommitted,
-    /// update the market's internal state accordingly, and return DealWeight of the set of storage deals given.
-    /// Note: in the case of a capacity-commitment sector (one with zero deals), this function should succeed vacuously.
-    /// The weight is defined as the sum, over all deals in the set, of the product of its size
-    /// with its duration. This quantity may be an input into the functions specifying block reward,
-    /// sector power, collateral, and/or other parameters.    
-    fn verify_deals_on_sector_prove_commit<BS, RT>(
+    /// Verify that a given set of storage deals is valid for a sector currently being PreCommitted
+    /// and return DealWeight of the set of storage deals given.
+    /// The weight is defined as the sum, over all deals in the set, of the product of deal size
+    /// and duration.
+    fn verify_deals_for_activation<BS, RT>(
         rt: &mut RT,
         params: VerifyDealsForActivationParams,
     ) -> Result<VerifyDealsForActivationReturn, ActorError>
@@ -345,81 +344,134 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().caller();
-        let mut total_deal_space_time = BigInt::zero();
-        let mut total_verified_deal_space_time = BigInt::zero();
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-            // if there are no dealIDs, it is a CommittedCapacity sector
-            // and the totalDealSpaceTime should be zero
-            let mut states = Amt::load(&st.states, rt.store())
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-            let proposals = Amt::load(&st.proposals, rt.store())
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
 
-            for id in &params.deal_ids {
-                let deal = states
-                    .get(*id)
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+        let st: State = rt.state()?;
 
-                if deal.is_some() {
-                    // Sector is currently precommitted but still not proven.
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("given deal already included in another sector: {}", id),
-                    ));
-                };
+        let (deal_weight, verified_deal_weight) = validate_deals_for_activation(
+            &st,
+            rt.store(),
+            &params.deal_ids,
+            &miner_addr,
+            params.sector_expiry,
+            params.sector_start,
+        )
+        .map_err(|e| match e.downcast::<ActorError>() {
+            Ok(actor_err) => *actor_err,
+            Err(other) => actor_error!(ErrIllegalState;
+                "failed to validate deal proposals for activation: {}", other),
+        })?;
 
-                let proposal: DealProposal = proposals
-                    .get(*id)
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?
-                    .ok_or_else(|| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            "Failed to retrieve the DealProposal".to_owned(),
-                        )
+        Ok(VerifyDealsForActivationReturn {
+            deal_weight,
+            verified_deal_weight,
+        })
+    }
+
+    /// Verify that a given set of storage deals is valid for a sector currently being ProveCommitted,
+    /// update the market's internal state accordingly.
+    fn activate_deals<BS, RT>(rt: &mut RT, params: ActivateDealsParams) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
+        let miner_addr = *rt.message().caller();
+        let curr_epoch = rt.curr_epoch();
+
+        // Update deal states
+        rt.transaction(|st: &mut State, rt| {
+            validate_deals_for_activation(
+                &st,
+                rt.store(),
+                &params.deal_ids,
+                &miner_addr,
+                params.sector_expiry,
+                curr_epoch,
+            )
+            .map_err(|e| match e.downcast::<ActorError>() {
+                Ok(actor_err) => *actor_err,
+                Err(other) => actor_error!(ErrIllegalState;
+                    "failed to validate deal proposals for activation: {}", other),
+            })?;
+
+            let mut msm = st.mutator(rt.store());
+            msm.with_deal_states(Permission::Write)
+                .with_pending_proposals(Permission::ReadOnly)
+                .with_deal_proposals(Permission::ReadOnly)
+                .build()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load state: {}", e))?;
+
+            for deal_id in params.deal_ids {
+                // This construction could be replaced with a single "update deal state"
+                // state method, possibly batched over all deal ids at once.
+                let s = msm
+                    .deal_states
+                    .as_ref()
+                    .unwrap()
+                    .get(deal_id)
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                        "failed to get state for deal_id ({}): {}", deal_id, e)
+                    })?;
+                if s.is_some() {
+                    return Err(actor_error!(ErrIllegalArgument;
+                        "deal {} already included in another sector", deal_id));
+                }
+
+                let proposal = msm
+                    .deal_proposals
+                    .as_ref()
+                    .unwrap()
+                    .get(deal_id)
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                            "failed to get deal_id ({}): {}", deal_id, e)
+                    })?
+                    .ok_or_else(|| actor_error!(ErrNotFound; "no such deal_id: {}", deal_id))?;
+
+                let propc = proposal.cid().map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                        "failed to calculate proposal CID: {}", e)
+                })?;
+
+                let has = msm
+                    .pending_deals
+                    .as_ref()
+                    .unwrap()
+                    .contains_key(&propc.to_bytes())
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                            "failed to get pending proposal ({}): {}", propc, e)
                     })?;
 
-                validate_deal_can_activate(
-                    rt.curr_epoch(),
-                    &miner_addr,
-                    params.sector_expiry,
-                    &proposal,
-                )?;
+                if !has {
+                    return Err(actor_error!(ErrIllegalState;
+                        "tried to activate deal that was not in the pending set ({})", propc));
+                }
 
-                states
+                msm.deal_states
+                    .as_mut()
+                    .unwrap()
                     .set(
-                        *id,
+                        deal_id,
                         DealState {
-                            sector_start_epoch: rt.curr_epoch(),
+                            sector_start_epoch: curr_epoch,
                             last_updated_epoch: EPOCH_UNDEFINED,
                             slash_epoch: EPOCH_UNDEFINED,
                         },
                     )
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-
-                // compute deal weight
-                let deal_space_time = proposal.duration() as u64 * proposal.piece_size.0;
-                if proposal.verified_deal {
-                    total_verified_deal_space_time += deal_space_time;
-                } else {
-                    total_deal_space_time += deal_space_time;
-                }
-
-                if proposal.verified_deal {
-                    total_verified_deal_space_time += deal_space_time;
-                } else {
-                    total_deal_space_time += deal_space_time;
-                }
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                            "failed to set deal state {}: {}", deal_id, e)
+                    })?;
             }
-            st.states = states
-                .flush()
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+
+            msm.commit_state()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
             Ok(())
         })??;
 
-        Ok(VerifyDealsForActivationReturn {
-            deal_weight: total_deal_space_time,
-            verified_deal_weight: total_verified_deal_space_time,
-        })
+        Ok(())
     }
 
     /// Terminate a set of deals in response to their containing sector being terminated.
@@ -682,34 +734,68 @@ impl Actor {
         Ok(())
     }
 }
+
+/// Validates a collection of deal dealProposals for activation, and returns their combined weight,
+/// split into regular deal weight and verified deal weight.
+pub fn validate_deals_for_activation<BS>(
+    st: &State,
+    store: &BS,
+    deal_ids: &[DealID],
+    miner_addr: &Address,
+    sector_expiry: ChainEpoch,
+    curr_epoch: ChainEpoch,
+) -> Result<(BigInt, BigInt), Box<dyn StdError>>
+where
+    BS: BlockStore,
+{
+    let proposals = DealArray::load(&st.proposals, store)?;
+
+    let mut total_deal_space_time = BigInt::zero();
+    let mut total_verified_space_time = BigInt::zero();
+    for deal_id in deal_ids {
+        let proposal = proposals
+            .get(*deal_id)?
+            .ok_or_else(|| actor_error!(ErrNotFound; "no such deal {}", deal_id))?;
+
+        // TODO Specs actors is dropping the exit code here, checking that is intended
+        validate_deal_can_activate(&proposal, miner_addr, sector_expiry, curr_epoch)
+            .map_err(|e| format!("cannot activate deal {}: {}", deal_id, e))?;
+
+        let deal_space_time = deal_weight(&proposal);
+        if proposal.verified_deal {
+            total_verified_space_time += deal_space_time;
+        } else {
+            total_deal_space_time += deal_space_time;
+        }
+    }
+
+    Ok((total_deal_space_time, total_verified_space_time))
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Checks
 ////////////////////////////////////////////////////////////////////////////////
 fn validate_deal_can_activate(
-    curr_epoch: ChainEpoch,
-    miner_addr: &Address,
-    sector_exp: ChainEpoch,
     proposal: &DealProposal,
+    miner_addr: &Address,
+    sector_expiration: ChainEpoch,
+    curr_epoch: ChainEpoch,
 ) -> Result<(), ActorError> {
     if &proposal.provider != miner_addr {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Deal has incorrect miner as its provider.".to_owned(),
-        ));
+        return Err(actor_error!(ErrForbidden;
+                "proposal has provider {}, must be {}", proposal.provider, miner_addr));
     };
 
     if curr_epoch > proposal.start_epoch {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Deal start epoch has already elapsed.".to_owned(),
-        ));
+        return Err(actor_error!(ErrIllegalArgument;
+                "proposal start epoch {} has already elapsed at {}",
+                proposal.start_epoch, curr_epoch));
     };
 
-    if proposal.end_epoch > sector_exp {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            "Deal would outlive its containing sector.".to_owned(),
-        ));
+    if proposal.end_epoch > sector_expiration {
+        return Err(actor_error!(ErrIllegalArgument;
+                "proposal expiration {} exceeds sector expiration {}",
+                proposal.end_epoch, sector_expiration));
     };
 
     Ok(())
@@ -907,8 +993,14 @@ impl ActorCode for Actor {
                 let res = Self::publish_storage_deals(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
-            Some(Method::VerifyDealsForActivation) => todo!(),
-            Some(Method::ActivateDeals) => todo!(),
+            Some(Method::VerifyDealsForActivation) => {
+                let res = Self::verify_deals_for_activation(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
+            }
+            Some(Method::ActivateDeals) => {
+                Self::activate_deals(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
             Some(Method::OnMinerSectorsTerminate) => {
                 Self::on_miners_sector_terminate(rt, params.deserialize()?)?;
                 Ok(Serialized::default())

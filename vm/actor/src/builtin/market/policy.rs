@@ -1,11 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::deal::DealProposal;
 use crate::network::{
     DEAL_WEIGHT_MULTIPLIER, EPOCHS_IN_DAY, QUALITY_BASE_MULTIPLIER, SECTOR_QUALITY_PRECISION,
     VERIFIED_DEAL_WEIGHT_MULTIPLIER,
 };
-use crate::TOTAL_FILECOIN;
+use crate::{DealWeight, TOTAL_FILECOIN};
 use clock::ChainEpoch;
 use fil_types::{PaddedPieceSize, StoragePower};
 use num_traits::Zero;
@@ -67,7 +68,12 @@ pub(super) fn deal_client_collateral_bounds(
     (TokenAmount::zero(), TOTAL_FILECOIN.clone()) // PARAM_FINISH
 }
 
-pub(super) fn deal_qa_power(deal_size: PaddedPieceSize, verified: bool) -> StoragePower {
+pub(super) fn deal_weight(proposal: &DealProposal) -> DealWeight {
+    let deal_duration = DealWeight::from(proposal.duration());
+    deal_duration * proposal.piece_size.0
+}
+
+pub(super) fn deal_qa_power(deal_size: PaddedPieceSize, verified: bool) -> DealWeight {
     let scaled_up_quality = if verified {
         (StoragePower::from(VERIFIED_DEAL_WEIGHT_MULTIPLIER) << SECTOR_QUALITY_PRECISION)
             / QUALITY_BASE_MULTIPLIER

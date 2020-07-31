@@ -50,6 +50,12 @@ pub struct VerifyDealsForActivationReturn {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct ActivateDealsParams {
+    pub deal_ids: Vec<DealID>,
+    pub sector_expiry: ChainEpoch,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ComputeDataCommitmentParams {
     pub deal_ids: Vec<DealID>,
     pub sector_type: RegisteredSealProof,
