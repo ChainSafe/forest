@@ -35,7 +35,7 @@ use vm::{
     METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: 4784ddb8e54d53c118e63763e4efbcf0a419da28
+// * Updated to specs-actors commit: b7fa99207e344e2294bf27f15e5be5c76233d760 (0.8.5)
 
 /// Market actor methods available
 #[derive(FromPrimitive)]
@@ -489,46 +489,57 @@ impl Actor {
         let miner_addr = *rt.message().caller();
 
         rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-            let prop = Amt::load(&st.proposals, rt.store())
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
-            let mut states = Amt::load(&st.states, rt.store())
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+            let mut msm = st.mutator(rt.store());
+            msm.with_deal_states(Permission::Write)
+                .with_deal_proposals(Permission::ReadOnly)
+                .build()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load state: {}", e))?;
 
             for id in params.deal_ids {
-                let deal: DealProposal = prop
+                let deal = msm.deal_proposals.as_ref().unwrap().get(id).map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to get deal proposal: {}", e),
+                )?;
+                // deal could have terminated and hence deleted before the sector is terminated.
+                // we should simply continue instead of aborting execution here if a deal is not found.
+                if deal.is_none() {
+                    continue;
+                }
+                let deal = deal.unwrap();
+
+                assert_eq!(
+                    deal.provider, miner_addr,
+                    "caller is not the provider of the deal"
+                );
+
+                // do not slash expired deals
+                if deal.end_epoch <= params.epoch {
+                    continue;
+                }
+
+                let mut state: DealState = msm
+                    .deal_states
+                    .as_ref()
+                    .unwrap()
                     .get(id)
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?
-                    .ok_or_else(|| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            "Failed to retrieve DealProposal".to_owned(),
-                        )
-                    })?;
-                assert_eq!(deal.provider, miner_addr);
+                    .map_err(|e| actor_error!(ErrIllegalState; "failed to get deal state {}", e))?
+                    .ok_or_else(|| actor_error!(ErrIllegalArgument; "no state for deal {}", id))?;
 
-                let mut state: DealState = states
-                    .get(id)
-                    .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?
-                    .ok_or_else(|| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            "Failed to retrieve DealState".to_owned(),
-                        )
-                    })?;
+                // If a deal is already slashed, don't need to do anything
+                if state.slash_epoch != EPOCH_UNDEFINED {
+                    continue;
+                }
 
-                // Note: we do not perform the balance transfers here, but rather simply record the flag
-                // to indicate that processDealSlashed should be called when the deferred state computation
-                // is performed. // TODO: Do that here
+                // mark the deal for slashing here.
+                // actual releasing of locked funds for the client and slashing of provider collateral happens in CronTick.
+                state.slash_epoch = params.epoch;
 
-                state.slash_epoch = rt.curr_epoch();
-                states.set(id, state).map_err(|e| {
-                    ActorError::new(ExitCode::ErrIllegalState, format!("Set deal error: {}", e))
-                })?;
+                msm.deal_states.as_mut().unwrap().set(id, state).map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to set deal state ({}): {}", id, e),
+                )?;
             }
 
-            st.states = states
-                .flush()
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e.into()))?;
+            msm.commit_state()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
             Ok(())
         })??;
         Ok(())
@@ -580,7 +591,7 @@ impl Actor {
         let mut amount_slashed = BigInt::zero();
         let mut timed_out_verified_deals: Vec<DealProposal> = Vec::new();
 
-        todo!();
+        1;
         // rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
         //     let mut dbe =
         //         SetMultimap::from_root(rt.store(), &st.deal_ops_by_epoch).map_err(|e| {
