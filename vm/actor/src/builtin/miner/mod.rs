@@ -18,9 +18,7 @@ use crate::market::{
     VerifyDealsForActivationParams, VerifyDealsForActivationReturn,
 };
 use crate::power::{
-    EnrollCronEventParams, Method as PowerMethod, OnFaultBeginParams, OnFaultEndParams,
-    OnSectorModifyWeightDescParams, OnSectorProveCommitParams, OnSectorTerminateParams,
-    SectorStorageWeightDesc, SectorTermination, SECTOR_TERMINATION_EXPIRED,
+    EnrollCronEventParams, Method as PowerMethod, SectorTermination, SECTOR_TERMINATION_EXPIRED,
     SECTOR_TERMINATION_FAULTY, SECTOR_TERMINATION_MANUAL,
 };
 use crate::{
@@ -699,15 +697,15 @@ impl Actor {
 
             // Request power for activated sector.
             // Return initial pledge requirement.
-            let param = Serialized::serialize(OnSectorProveCommitParams {
-                weight: SectorStorageWeightDesc {
-                    sector_size: st.info.sector_size,
-                    deal_weight: deal_weights.deal_weight.clone(),
-                    verified_deal_weight: deal_weights.verified_deal_weight.clone(),
-                    duration: precommit.info.expiration - rt.curr_epoch(),
-                },
-            })?;
             // TODO was refactored
+            // let param = Serialized::serialize(OnSectorProveCommitParams {
+            //     weight: SectorStorageWeightDesc {
+            //         sector_size: st.info.sector_size,
+            //         deal_weight: deal_weights.deal_weight.clone(),
+            //         verified_deal_weight: deal_weights.verified_deal_weight.clone(),
+            //         duration: precommit.info.expiration - rt.curr_epoch(),
+            //     },
+            // })?;
             ret = Default::default();
             // rt.send(
             //     *STORAGE_POWER_ACTOR_ADDR,
@@ -844,12 +842,11 @@ impl Actor {
         let mut storage_weight_desc_new = storage_weight_desc_prev.clone();
         storage_weight_desc_new.duration = storage_weight_desc_prev.duration + extension_len;
 
-        let ser_params = Serialized::serialize(OnSectorModifyWeightDescParams {
-            prev_weight: storage_weight_desc_prev,
-            new_weight: storage_weight_desc_new,
-        })?;
-
         // TODO was refactored
+        // let ser_params = Serialized::serialize(OnSectorModifyWeightDescParams {
+        //     prev_weight: storage_weight_desc_prev,
+        //     new_weight: storage_weight_desc_new,
+        // })?;
         // rt.send(
         //     *STORAGE_POWER_ACTOR_ADDR,
         //     PowerMethod::OnSectorModifyWeightDesc as u64,
@@ -1995,8 +1992,8 @@ where
 }
 
 fn request_begin_faults<BS, RT>(
-    rt: &mut RT,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2007,25 +2004,24 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnFaultBeginParams { weights })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
     // TODO was refactored
     // rt.send(
     //     *STORAGE_POWER_ACTOR_ADDR,
     //     PowerMethod::OnFaultBegin as u64,
-    //     ser_params,
+    //     Serialized::serialize(OnFaultBeginParams { weights })?,
     //     TokenAmount::zero(),
     // )?;
     Ok(())
 }
 
 fn request_end_faults<BS, RT>(
-    rt: &mut RT,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2036,17 +2032,16 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnFaultEndParams { weights })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
     // TODO was refactored
     // rt.send(
     //     *STORAGE_POWER_ACTOR_ADDR,
     //     PowerMethod::OnFaultEnd as u64,
-    //     ser_params,
+    //     Serialized::serialize(OnFaultEndParams { weights })?,
     //     TokenAmount::zero(),
     // )?;
     Ok(())
@@ -2074,9 +2069,9 @@ where
     Ok(())
 }
 fn request_terminate_power<BS, RT>(
-    rt: &mut RT,
-    termination_type: SectorTermination,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _termination_type: SectorTermination,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2087,20 +2082,19 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnSectorTerminateParams {
-        termination_type,
-        weights,
-    })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
     // TODO was refactored
     // rt.send(
     //     *STORAGE_POWER_ACTOR_ADDR,
     //     PowerMethod::OnSectorTerminate as u64,
-    //     ser_params,
+    //     Serialized::serialize(OnSectorTerminateParams {
+    //         termination_type,
+    //         weights,
+    //     })?,
     //     TokenAmount::zero(),
     // )?;
     Ok(())

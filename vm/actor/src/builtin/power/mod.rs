@@ -17,7 +17,7 @@ use crate::{
 use address::Address;
 use fil_types::{SealVerifyInfo, StoragePower};
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::bigint_ser::BigIntDe;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
@@ -211,7 +211,7 @@ impl Actor {
         Ok(())
     }
 
-    fn on_fault_begin<BS, RT>(rt: &mut RT, params: OnFaultBeginParams) -> Result<(), ActorError>
+    fn _on_fault_begin<BS, RT>(rt: &mut RT, params: OnFaultBeginParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -231,7 +231,7 @@ impl Actor {
         })?
     }
 
-    fn on_fault_end<BS, RT>(rt: &mut RT, params: OnFaultEndParams) -> Result<(), ActorError>
+    fn _on_fault_end<BS, RT>(rt: &mut RT, params: OnFaultEndParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
