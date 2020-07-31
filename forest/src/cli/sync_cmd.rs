@@ -2,15 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::stringify_rpc_err;
-use cid::{Cid};
-use rpc::RPCSyncState;
-use rpc_client::{check_bad, head, mark_bad, new_client, status, submit_block};
-use structopt::StructOpt;
-use jsonrpc_v2::Error as JsonRpcError;
-use jsonrpsee::transport::http::HttpTransportClient as HTC;
-use jsonrpsee::raw::RawClient;
-use std::time::{SystemTime, Duration};
 use actor::EPOCH_DURATION_SECONDS;
+use cid::Cid;
+use jsonrpc_v2::Error as JsonRpcError;
+use jsonrpsee::raw::RawClient;
+use jsonrpsee::transport::http::HttpTransportClient as HTC;
+use rpc_client::{check_bad, head, mark_bad, new_client, status, submit_block};
+use std::time::{Duration, SystemTime};
+use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 pub enum SyncCommand {
@@ -77,10 +76,10 @@ impl SyncCommand {
                             height_diff = 0;
                         }
 
-                        println!("\tBase:\t{:?}\n", base.unwrap_or(vec![]));
+                        println!("\tBase:\t{:?}\n", base.unwrap_or_default());
                         println!(
                             "\tTarget:\t{:?} Height:\t({})\n",
-                            target.unwrap_or(vec![]),
+                            target.unwrap_or_default(),
                             height
                         );
                         println!("\tHeight diff:\t{}\n", height_diff);
@@ -112,8 +111,8 @@ impl SyncCommand {
             SyncCommand::Wait {} => {
                 loop {
                     // If not done syncing or runs into a error stop waiting
-                    if sync_wait(&mut client).await.unwrap_or(true){
-                        break
+                    if sync_wait(&mut client).await.unwrap_or(true) {
+                        break;
                     }
                 }
             }
@@ -151,13 +150,12 @@ impl SyncCommand {
 }
 
 //TODO : This command hasn't been completed in Lotus. Needs to be updated
-async fn sync_wait(client: &mut RawClient<HTC>) -> Result<bool,JsonRpcError> {
-
+async fn sync_wait(client: &mut RawClient<HTC>) -> Result<bool, JsonRpcError> {
     let state = status(client).await?;
     let head = head(client).await?;
-    
+
     let mut working = 0;
-    for (i, active_sync) in state.active_syncs.iter().enumerate() {
+    for (i, _active_sync) in state.active_syncs.iter().enumerate() {
         // TODO update this loop when lotus adds logic
         working = i;
     }
@@ -175,9 +173,13 @@ async fn sync_wait(client: &mut RawClient<HTC>) -> Result<bool,JsonRpcError> {
         ss.stage(),
         ss.epoch
     );
-      
-    let time_diff = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or( Duration::from_secs(0)).as_secs() as i64 - head.0.epoch();
-    if  time_diff < EPOCH_DURATION_SECONDS {
+
+    let time_diff = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or(Duration::from_secs(0))
+        .as_secs() as i64
+        - head.0.epoch();
+    if time_diff < EPOCH_DURATION_SECONDS {
         println!("Done");
         return Ok(true);
     }

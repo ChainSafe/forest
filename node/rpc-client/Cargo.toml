@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
-
 [dependencies]
 jsonrpsee = "0.1.0"
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }
@@ -16,4 +15,3 @@ log = "0.4.8"
 crypto = { package = "forest_crypto", path = "../../crypto", features = ["json"] }
 rpc = { path = "../../node/rpc" }
 wallet = {package = "key_management", path = "../../key_management", features = ["json"] }
-

@@ -2331,7 +2331,6 @@ dependencies = [
  "actor",
  "async-log",
  "async-std",
- "async-trait",
  "beacon",
  "blake2b_simd",
  "chain",
