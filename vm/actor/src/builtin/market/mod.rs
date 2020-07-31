@@ -247,7 +247,8 @@ impl Actor {
                     actor_error!(ErrNotFound;
                         "failed to resolve provider address {}", provider_raw)
                 })?;
-                // Normalise provider and client addresses in the proposal stored on chain (after signature verification).
+                // Normalise provider and client addresses in the proposal stored on chain
+                // (after signature verification).
                 deal.proposal.provider = provider;
                 resolved_addrs.insert(deal.proposal.client, client);
                 deal.proposal.client = client;
@@ -529,8 +530,8 @@ impl Actor {
                     continue;
                 }
 
-                // mark the deal for slashing here.
-                // actual releasing of locked funds for the client and slashing of provider collateral happens in CronTick.
+                // mark the deal for slashing here. Actual releasing of locked funds for the client
+                // and slashing of provider collateral happens in cron_tick.
                 state.slash_epoch = params.epoch;
 
                 msm.deal_states.as_mut().unwrap().set(id, state).map_err(
@@ -555,27 +556,32 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        let mut pieces: Vec<PieceInfo> = Vec::new();
-        todo!();
-        // rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-        //     for id in &params.deal_ids {
-        //         let deal = st.must_get_deal(rt.store(), *id)?;
-        //         pieces.push(PieceInfo {
-        //             size: deal.piece_size,
-        //             cid: deal.piece_cid,
-        //         });
-        //     }
-        //     Ok(())
-        // })??;
+        let st: State = rt.state()?;
+
+        let proposals = DealArray::load(&st.proposals, rt.store())
+            .map_err(|e| actor_error!(ErrIllegalState; "failed to load deal proposals: {}", e))?;
+
+        let mut pieces: Vec<PieceInfo> = Vec::with_capacity(params.deal_ids.len());
+        for deal_id in params.deal_ids {
+            let deal = proposals
+                .get(deal_id)
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to get deal_id ({}): {}", deal_id, e),
+                )?
+                .ok_or_else(|| actor_error!(ErrNotFound; "proposal doesn't exist ({})", deal_id))?;
+
+            pieces.push(PieceInfo {
+                cid: deal.piece_cid,
+                size: deal.piece_size,
+            });
+        }
 
         let commd = rt
             .syscalls()
             .compute_unsealed_sector_cid(params.sector_type, &pieces)
             .map_err(|e| {
-                ActorError::new(
-                    ExitCode::SysErrorIllegalArgument,
-                    format!("failed to compute unsealed sector CID: {}", e),
-                )
+                actor_error!(SysErrorIllegalArgument;
+                    "failed to compute unsealed sector CID: {}", e)
             })?;
 
         Ok(commd)
