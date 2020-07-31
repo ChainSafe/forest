@@ -8,6 +8,7 @@ use jsonrpc_v2::Error as JsonRpcError;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient as HTC;
 use rpc_client::{check_bad, head, mark_bad, new_client, status, submit_block};
+use std::thread;
 use std::time::{Duration, SystemTime};
 use structopt::StructOpt;
 
@@ -183,5 +184,6 @@ async fn sync_wait(client: &mut RawClient<HTC>) -> Result<bool, JsonRpcError> {
         println!("Done");
         return Ok(true);
     }
+    thread::sleep(Duration::from_secs(1));
     Ok(false)
 }
