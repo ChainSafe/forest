@@ -68,6 +68,14 @@ pub(super) fn deal_client_collateral_bounds(
     (TokenAmount::zero(), TOTAL_FILECOIN.clone()) // PARAM_FINISH
 }
 
+/// Penalty to provider deal collateral if the deadline expires before sector commitment.
+pub(super) fn collateral_penalty_for_deal_activation_missed(
+    provider_collateral: TokenAmount,
+) -> TokenAmount {
+    provider_collateral
+}
+
+/// Computes the weight for a deal proposal, which is a function of its size and duration.
 pub(super) fn deal_weight(proposal: &DealProposal) -> DealWeight {
     let deal_duration = DealWeight::from(proposal.duration());
     deal_duration * proposal.piece_size.0

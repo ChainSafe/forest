@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
+use super::{policy::*, types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
 use crate::{make_map_with_root, BalanceTable, DealID, Map, SetMultimap};
 use address::Address;
 use cid::Cid;
@@ -398,33 +398,34 @@ where
             &deal.total_storage_fee(),
             Reason::ClientStorageFee,
         )
-        .map_err(|e| actor_error!(ErrIllegalState;"failure unlocking client storage fee: {}",e))?;
+        .map_err(
+            |e| actor_error!(ErrIllegalState; "failure unlocking client storage fee: {}", e),
+        )?;
 
         self.unlock_balance(
             &deal.client,
             &deal.client_collateral,
             Reason::ClientCollateral,
         )
-        .map_err(|e| actor_error!(ErrIllegalState;"failure unlocking client collateral: {}",e))?;
+        .map_err(|e| actor_error!(ErrIllegalState; "failure unlocking client collateral: {}", e))?;
 
-        todo!();
-        // let amount_slashed =
-        //     collateral_penalty_for_deal_activation_missed(deal.provider_collateral.clone());
-        // let amount_remaining = deal.provider_balance_requirement() - &amount_slashed;
+        let amount_slashed =
+            collateral_penalty_for_deal_activation_missed(deal.provider_collateral.clone());
+        let amount_remaining = deal.provider_balance_requirement() - &amount_slashed;
 
-        // self.slash_balance(&deal.provider, &amount_slashed, Reason::ProviderCollateral)
-        //     .map_err(|e| actor_error!(ErrIllegalState; "failed to slash balance: {}", e))?;
+        self.slash_balance(&deal.provider, &amount_slashed, Reason::ProviderCollateral)
+            .map_err(|e| actor_error!(ErrIllegalState; "failed to slash balance: {}", e))?;
 
-        // self.unlock_balance(
-        //     &deal.provider,
-        //     &amount_remaining,
-        //     Reason::ProviderCollateral,
-        // )
-        // .map_err(
-        //     |e| actor_error!(ErrIllegalArgument; "failed to unlock deal provider balance: {}", e),
-        // )?;
+        self.unlock_balance(
+            &deal.provider,
+            &amount_remaining,
+            Reason::ProviderCollateral,
+        )
+        .map_err(
+            |e| actor_error!(ErrIllegalState; "failed to unlock deal provider balance: {}", e),
+        )?;
 
-        // Ok(amount_slashed)
+        Ok(amount_slashed)
     }
 
     /// Normal expiration. Unlock collaterals for both miner and client.
@@ -509,15 +510,15 @@ where
         self.maybe_lock_balance(&proposal.provider, &proposal.provider_collateral)
             .map_err(|e| e.wrap("failed to lock provider funds: "))?;
 
-        self.total_client_locked_colateral.as_mut().map(|v| {
+        if let Some(v) = self.total_client_locked_colateral.as_mut() {
             *v += &proposal.client_collateral;
-        });
-        self.total_client_storage_fee.as_mut().map(|v| {
+        }
+        if let Some(v) = self.total_client_storage_fee.as_mut() {
             *v += proposal.total_storage_fee();
-        });
-        self.total_provider_locked_colateral.as_mut().map(|v| {
+        }
+        if let Some(v) = self.total_provider_locked_colateral.as_mut() {
             *v += &proposal.provider_collateral;
-        });
+        }
         Ok(())
     }
 
