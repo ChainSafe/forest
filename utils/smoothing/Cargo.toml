@@ -1,0 +1,15 @@
+[package]
+name = "forest_smoothing"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+clock = { path = "../../node/clock" }
+forest_math = {path = "../math"}
+lazy_static = "1.4"
+num-traits = "0.2"
+
+
+[dev-dependencies]

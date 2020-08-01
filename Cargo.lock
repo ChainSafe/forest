@@ -2526,6 +2526,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "forest_math"
+version = "0.1.0"
+dependencies = [
+ "forest_bigint",
+]
+
+[[package]]
 name = "forest_message"
 version = "0.3.0"
 dependencies = [
@@ -2541,6 +2548,17 @@ dependencies = [
  "num-traits 0.2.12",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "forest_smoothing"
+version = "0.1.0"
+dependencies = [
+ "clock",
+ "forest_bigint",
+ "forest_math",
+ "lazy_static",
+ "num-traits 0.2.12",
 ]
 
 [[package]]
