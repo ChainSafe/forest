@@ -2554,11 +2554,15 @@ dependencies = [
 name = "forest_smoothing"
 version = "0.1.0"
 dependencies = [
+ "actor",
  "clock",
+ "fil_types",
  "forest_bigint",
+ "forest_encoding",
  "forest_math",
  "lazy_static",
  "num-traits 0.2.12",
+ "serde",
 ]
 
 [[package]]
