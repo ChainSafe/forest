@@ -29,8 +29,8 @@ fn per_million_error(val_1: &BigInt, val_2: &BigInt) -> BigInt {
 }
 
 fn iterative_cum_sum_of_ratio(
-    num: &filterEstimate,
-    denom: &filterEstimate,
+    num: &FilterEstimate,
+    denom: &FilterEstimate,
     t0: ChainEpoch,
     delta: ChainEpoch,
 ) -> BigInt {
@@ -51,8 +51,8 @@ fn iterative_cum_sum_of_ratio(
 }
 
 fn assert_err_bound(
-    num: &filterEstimate,
-    denom: &filterEstimate,
+    num: &FilterEstimate,
+    denom: &FilterEstimate,
     delta: ChainEpoch,
     t0: ChainEpoch,
     err_bound: BigInt,
