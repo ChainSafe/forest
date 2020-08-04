@@ -162,20 +162,20 @@ impl FromStr for Address {
             return Err(Error::InvalidLength);
         }
         // ensure the network character is valid before converting
-        let network: Network = match &addr[0..1] {
-            TESTNET_PREFIX => Network::Testnet,
-            MAINNET_PREFIX => Network::Mainnet,
+        let network: Network = match &addr.get(0..1) {
+            Some(TESTNET_PREFIX) => Network::Testnet,
+            Some(MAINNET_PREFIX) => Network::Mainnet,
             _ => {
                 return Err(Error::UnknownNetwork);
             }
         };
 
         // get protocol from second character
-        let protocol: Protocol = match &addr[1..2] {
-            "0" => Protocol::ID,
-            "1" => Protocol::Secp256k1,
-            "2" => Protocol::Actor,
-            "3" => Protocol::BLS,
+        let protocol: Protocol = match &addr.get(1..2) {
+            Some("0") => Protocol::ID,
+            Some("1") => Protocol::Secp256k1,
+            Some("2") => Protocol::Actor,
+            Some("3") => Protocol::BLS,
             _ => {
                 return Err(Error::UnknownProtocol);
             }
