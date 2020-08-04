@@ -162,27 +162,27 @@ impl FromStr for Address {
             return Err(Error::InvalidLength);
         }
         // ensure the network character is valid before converting
-        let network: Network = match &addr.get(0..1) {
-            Some(TESTNET_PREFIX) => Network::Testnet,
-            Some(MAINNET_PREFIX) => Network::Mainnet,
+        let network: Network = match addr.get(0..1).ok_or(Error::UnknownNetwork)? {
+            TESTNET_PREFIX => Network::Testnet,
+            MAINNET_PREFIX => Network::Mainnet,
             _ => {
                 return Err(Error::UnknownNetwork);
             }
         };
 
         // get protocol from second character
-        let protocol: Protocol = match &addr.get(1..2) {
-            Some("0") => Protocol::ID,
-            Some("1") => Protocol::Secp256k1,
-            Some("2") => Protocol::Actor,
-            Some("3") => Protocol::BLS,
+        let protocol: Protocol = match addr.get(1..2).ok_or(Error::UnknownProtocol)? {
+            "0" => Protocol::ID,
+            "1" => Protocol::Secp256k1,
+            "2" => Protocol::Actor,
+            "3" => Protocol::BLS,
             _ => {
                 return Err(Error::UnknownProtocol);
             }
         };
 
         // bytes after the protocol character is the data payload of the address
-        let raw = &addr[2..];
+        let raw = addr.get(2..).ok_or(Error::InvalidPayload)?;
         if protocol == Protocol::ID {
             if raw.len() > 20 {
                 // 20 is max u64 as string

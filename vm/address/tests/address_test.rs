@@ -564,7 +564,7 @@ fn set_network() {
 fn invalid_strings_tests() {
     let invalid_strings = &[
         "fömk3zcefvlgpay4f32c5vmruk5gqig6dumc7pz6q",
-        "🗻∈🌏ömk3zcefvlgpay4f32c5vmruk5gqig6dumc7pz6q",
+        "🗻∈🌏ömk3zcefvlgpay4f32c5vmruk5gqig6dumc7",
         "ö",
     ];
     for s in invalid_strings {
