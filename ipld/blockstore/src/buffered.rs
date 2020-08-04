@@ -59,14 +59,15 @@ where
     }
 
     let raw_cid_bz = cid.to_bytes();
-    let raw_bz = cache
-        .get(cid)
-        .ok_or_else(|| "Invalid link in flushing buffered store".to_owned())?;
 
     // If root exists in base store already, can skip
     if base.exists(&raw_cid_bz)? {
         return Ok(());
     }
+
+    let raw_bz = cache
+        .get(cid)
+        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", cid))?;
 
     // Deserialize the bytes to Ipld to traverse links.
     // This is safer than finding links in place,
