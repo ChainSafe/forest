@@ -15,7 +15,6 @@ pub fn poly_val(poly: &[BigInt], x: &BigInt) -> BigInt {
 }
 
 pub fn parse(coefs: &[&str]) -> Result<Vec<BigInt>, ()> {
-    println!("Num elements is {}", coefs.len());
 
     let mut out: Vec<BigInt> = Vec::with_capacity(coefs.len() as usize);
 
