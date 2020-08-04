@@ -6,9 +6,10 @@ mod types;
 
 pub use self::state::State;
 pub use self::types::*;
-use crate::{make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
+use crate::{make_map, make_map_with_root, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
+use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -97,7 +98,7 @@ impl Actor {
     }
 
     /// Multisig actor propose function
-    pub fn propose<BS, RT>(rt: &mut RT, params: ProposeParams) -> Result<TxnID, ActorError>
+    pub fn propose<BS, RT>(rt: &mut RT, params: ProposeParams) -> Result<ProposeReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -105,41 +106,51 @@ impl Actor {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: Address = *rt.message().caller();
 
-        let st: State = rt.state()?;
-        Self::validate_signer(rt, &st, &caller_addr)?;
+        if params.value.sign() == Sign::Minus {
+            return Err(
+                actor_error!(ErrIllegalArgument; "proposed value must be non-negative, was {}", params.value),
+            );
+        }
 
-        let tx_id = rt.transaction::<State, _, _>(|st, rt| {
+        let (txn_id, txn) = rt.transaction(|st: &mut State, rt| {
+            if !is_signer(rt, st, &caller_addr)? {
+                return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
+            }
+
+            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
+            )?;
+
             let t_id = st.next_tx_id;
             st.next_tx_id.0 += 1;
 
-            if let Err(err) = st.put_pending_transaction(
-                rt.store(),
-                t_id,
-                Transaction {
-                    to: params.to,
-                    value: params.value,
-                    method: params.method,
-                    params: params.params,
-                    approved: Vec::new(),
-                },
-            ) {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("Failed to put transaction for reason: {}", err),
-                ));
-            }
-            // Return the tx id
-            Ok(t_id)
+            let txn = Transaction {
+                to: params.to,
+                value: params.value,
+                method: params.method,
+                params: params.params,
+                approved: Vec::new(),
+            };
+
+            ptx.set(t_id.key(), txn.clone()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to put transaction for propose: {}", e),
+            )?;
+
+            st.pending_txs = ptx.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
+            )?;
+
+            Ok((t_id, txn))
         })??;
 
-        // Proposal implicitly includes approval of a transaction
-        Self::approve_transaction(rt, tx_id)?;
+        let (applied, ret, code) = Self::approve_transaction(rt, txn_id, txn)?;
 
-        // TODO revisit issue referenced in spec:
-        // Note: this ID may not be stable across chain re-orgs.
-        // https://github.com/filecoin-project/specs-actors/issues/7
-
-        Ok(tx_id)
+        Ok(ProposeReturn {
+            txn_id,
+            applied,
+            code,
+            ret,
+        })
     }
 
     /// Multisig actor approve function
@@ -155,7 +166,8 @@ impl Actor {
         let st = rt.state()?;
         Self::validate_signer(rt, &st, &caller_addr)?;
 
-        Self::approve_transaction(rt, params.id)
+        todo!()
+        // Self::approve_transaction(rt, params.id)?;
     }
 
     /// Multisig actor cancel function
@@ -328,7 +340,11 @@ impl Actor {
         })?
     }
 
-    fn approve_transaction<BS, RT>(rt: &mut RT, tx_id: TxnID) -> Result<(), ActorError>
+    fn approve_transaction<BS, RT>(
+        rt: &mut RT,
+        tx_id: TxnID,
+        _transaction: Transaction,
+    ) -> Result<(bool, Serialized, ExitCode), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -399,7 +415,7 @@ impl Actor {
             rt.send(tx.to, tx.method, tx.params, tx.value)?;
         }
 
-        Ok(())
+        todo!();
     }
 
     fn validate_signer<BS, RT>(rt: &RT, st: &State, address: &Address) -> Result<(), ActorError>
@@ -413,6 +429,23 @@ impl Actor {
 
         Ok(())
     }
+}
+
+fn is_signer<BS, RT>(rt: &RT, st: &State, address: &Address) -> Result<bool, ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    let candidate_resolved = resolve(rt, address)?;
+
+    for s in &st.signers {
+        let signer_resolved = resolve(rt, s)?;
+        if signer_resolved == candidate_resolved {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 /// Resolves address to ID or returns address as is if it doesn't have an ID address.
