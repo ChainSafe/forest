@@ -22,12 +22,10 @@ pub enum Method {
     Propose = 2,
     Approve = 3,
     Cancel = 4,
-    // TODO verify on finished spec this not needed
-    // ClearCompleted = 5,
-    AddSigner = 6,
-    RemoveSigner = 7,
-    SwapSigner = 8,
-    ChangeNumApprovalsThreshold = 9,
+    AddSigner = 5,
+    RemoveSigner = 6,
+    SwapSigner = 7,
+    ChangeNumApprovalsThreshold = 8,
 }
 
 /// Multisig Actor

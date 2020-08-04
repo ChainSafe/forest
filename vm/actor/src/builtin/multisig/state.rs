@@ -16,7 +16,7 @@ use vm::TokenAmount;
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     pub signers: Vec<Address>,
-    pub num_approvals_threshold: i64,
+    pub num_approvals_threshold: u64,
     pub next_tx_id: TxnID,
 
     // Linear unlock
@@ -32,12 +32,13 @@ impl State {
     /// Returns amount locked in multisig contract
     pub fn amount_locked(&self, elapsed_epoch: ChainEpoch) -> TokenAmount {
         if elapsed_epoch >= self.unlock_duration {
-            return TokenAmount::from(0u8);
+            return TokenAmount::from(0);
         }
-        let unit_locked = self.initial_balance.clone() / self.unlock_duration as u64;
-        unit_locked * (self.unlock_duration - elapsed_epoch) as u64
+        let unit_locked: TokenAmount = self.initial_balance.clone() / self.unlock_duration;
+        unit_locked * (self.unlock_duration - elapsed_epoch)
     }
 
+    // TODO seems removed
     pub(crate) fn is_signer(&self, addr: &Address) -> bool {
         for s in &self.signers {
             if addr == s {
@@ -53,7 +54,12 @@ impl State {
         amount_to_spend: TokenAmount,
         curr_epoch: ChainEpoch,
     ) -> Result<(), String> {
-        // * Note `< 0` check skipped because `TokenAmount` is big uint
+        if amount_to_spend < 0.into() {
+            return Err(format!(
+                "amount to spend {} less than zero",
+                amount_to_spend
+            ));
+        }
         if balance < amount_to_spend {
             return Err(format!(
                 "current balance {} less than amount to spend {}",
@@ -80,14 +86,12 @@ impl State {
         let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
         match map.get(&txn_id.key()) {
             Ok(Some(tx)) => Ok(tx),
-            Ok(None) => Err(format!(
-                "failed to find transaction {} in HAMT {}",
-                txn_id.0, self.pending_txs
-            )),
+            Ok(None) => Err(format!("failed to find transaction: {}", txn_id.0,)),
             Err(e) => Err(format!("failed to read transaction: {}", e)),
         }
     }
 
+    // TODO seems removed
     pub(crate) fn put_pending_transaction<BS: BlockStore>(
         &mut self,
         s: &BS,
@@ -100,6 +104,7 @@ impl State {
         Ok(())
     }
 
+    // TODO seems removed
     pub(crate) fn delete_pending_transaction<BS: BlockStore>(
         &mut self,
         s: &BS,
