@@ -16,7 +16,7 @@ use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{info, warn};
+use log::{info, warn, debug};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
@@ -111,7 +111,7 @@ where
     pub async fn put_tipset(&mut self, ts: &Tipset) -> Result<(), Error> {
         persist_objects(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
-        self.update_heaviest(ts).await?;
+        // self.update_heaviest(ts).await?;
         Ok(())
     }
 
@@ -182,6 +182,8 @@ where
 
         for header in ts.into_blocks() {
             let (bls_messages, secp_messages) = block_messages(self.blockstore(), &header)?;
+            info!("Fill Tipsets for header {:?} with bls_messages: {:?}", header.cid(), bls_messages.iter().map(|b| b.cid().unwrap()).collect::<Vec<_>>());
+
             blocks.push(Block {
                 header,
                 bls_messages,

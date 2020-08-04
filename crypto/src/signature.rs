@@ -132,7 +132,7 @@ impl Signature {
         if verify(&sig, &[hashed], &[pk]) {
             Ok(())
         } else {
-            Err("bls signature verification failed".to_owned())
+            Err(format!("bls signature verification failed for addr: {}", addr))
         }
     }
 

@@ -291,7 +291,7 @@ where
                                 continue;
                             }
                         }.chain;
-                        ts_bundle.reverse();
+                        // ts_bundle.reverse();
                         let mut ts_r =ts[(idx) as usize..(idx+1+req_len) as usize].to_vec();
                         // since the bundle only has messages, we have to put the headers in them
                         for b in ts_bundle.iter_mut() {
@@ -588,7 +588,7 @@ where
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         let db = state_manager.get_block_store();
         let (state_root, _) = block_on(state_manager.tipset_state(&tip))
-            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
+            .map_err(|e| Error::Validation(format!("Could not update state: {}", e)))?;
         let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
             Error::Validation("Could not load from new state root in state manager".to_owned())
         })?;
@@ -645,14 +645,14 @@ where
             .state_manager
             .tipset_state(&parent_tipset)
             .await
-            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
+            .map_err(|e| Error::Validation(format!("Could not update state: {}", e.to_string())))?;
         let work_addr_result = self
             .state_manager
             .get_miner_work_addr(&state_root, header.miner_address());
 
         // temp header needs to live long enough in static context returned by task::spawn
         let signature = block.header().signature().clone();
-        let cid_bytes = block.header().cid().to_bytes().clone();
+        let cid_bytes = block.header().to_signing_bytes()?;
         match work_addr_result {
             Ok(_) => validations.push(task::spawn_blocking(move || {
                 signature
@@ -718,6 +718,7 @@ where
     /// validates tipsets and adds header data to tipset tracker
     async fn validate_tipset(&mut self, fts: FullTipset) -> Result<(), Error> {
         if fts.to_tipset() == self.genesis {
+            debug!("Skipping tipset validation for genesis");
             return Ok(());
         }
 
@@ -850,7 +851,7 @@ where
             }
 
             // TODO tweak request window when socket frame is tested
-            const REQUEST_WINDOW: i64 = 50;
+            const REQUEST_WINDOW: i64 = 30;
             let epoch_diff = cur_ts.epoch() - to_epoch;
             info!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);

@@ -408,6 +408,11 @@ impl BlockHeader {
         }
         Ok(())
     }
+    pub fn to_signing_bytes(&self) -> Result<Vec<u8>, String> {
+       let mut blk = self.clone();
+        blk.signature = None;
+        blk.marshal_cbor().map_err(|e| e.to_string())
+    }
 }
 
 /// human-readable string representation of a block CID
