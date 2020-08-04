@@ -9,8 +9,7 @@ pub fn poly_val(poly: &[BigInt], x: &BigInt) -> BigInt {
     let mut res = BigInt::default();
 
     for coeff in poly {
-        let temp = &res * x;
-        res = (temp >> PRECISION) + coeff;
+        res = ((res * x) >> PRECISION) + coeff;
     }
     res
 }
