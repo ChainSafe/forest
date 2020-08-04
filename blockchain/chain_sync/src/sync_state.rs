@@ -150,28 +150,30 @@ impl<'de> Deserialize<'de> for SyncState {
         struct SyncStateJson {
             base: Option<TipsetJson>,
             target: Option<TipsetJson>,
-            stage: SyncStage,
-            epoch: ChainEpoch,
-            start: Option<SystemTime>,
-            end: Option<SystemTime>,
+            stage: u64,
+            height: i64,
+            start: Option<String>,
+            end: Option<String>,
             message: String,
         }
         let SyncStateJson {
             base,
             target,
             stage,
-            epoch,
+            height,
             start,
             end,
             message,
         } = Deserialize::deserialize(deserializer)?;
+        println!("Start is {:?}", start);
         Ok(Self {
             base: base.map(|b| Arc::new(b.0)),
             target: target.map(|b| Arc::new(b.0)),
-            stage,
-            epoch,
-            start,
-            end,
+            // Need to change this to use number to version
+            stage : SyncStage::Headers,
+            epoch : height,
+            start : Some(SystemTime::now()),
+            end : Some(SystemTime::now()),
             message,
         })
     }
