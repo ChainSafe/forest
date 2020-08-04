@@ -7,12 +7,15 @@ mod types;
 pub use self::state::State;
 pub use self::types::*;
 use crate::{make_map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
-use address::Address;
+use address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use std::collections::HashSet;
+use vm::{
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+};
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -40,24 +43,44 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(&*INIT_ACTOR_ADDR))?;
 
         if params.signers.is_empty() {
-            return Err(rt.abort(
-                ExitCode::ErrIllegalArgument,
-                "Must have at least one signer".to_owned(),
-            ));
+            return Err(actor_error!(ErrIllegalArgument; "Must have at least one signer"));
         }
 
-        let empty_root = make_map(rt.store()).flush().map_err(|err| {
-            rt.abort(
-                ExitCode::ErrIllegalState,
-                format!("Failed to create empty map: {}", err),
-            )
-        })?;
+        // do not allow duplicate signers
+        let mut resolved_signers = HashSet::with_capacity(params.signers.len());
+        for signer in &params.signers {
+            let resolved = resolve(rt, signer)?;
+            if resolved_signers.contains(&resolved) {
+                return Err(
+                    actor_error!(ErrIllegalArgument; "duplicate signer not allowed: {}", signer),
+                );
+            }
+            resolved_signers.insert(resolved);
+        }
+
+        if params.num_approvals_threshold > params.signers.len() as u64 {
+            return Err(
+                actor_error!(ErrIllegalArgument; "must not require more approvals than signers"),
+            );
+        }
+
+        if params.num_approvals_threshold < 1 {
+            return Err(actor_error!(ErrIllegalArgument; "must require at least one approval"));
+        }
+
+        if params.unlock_duration < 0 {
+            return Err(actor_error!(ErrIllegalArgument; "negative unlock duration disallowed"));
+        }
+
+        let empty_root = make_map(rt.store())
+            .flush()
+            .map_err(|err| actor_error!(ErrIllegalState; "Failed to create empty map: {}", err))?;
 
         let mut st: State = State {
             signers: params.signers,
             num_approvals_threshold: params.num_approvals_threshold,
             pending_txs: empty_root,
-            initial_balance: TokenAmount::from(0u8),
+            initial_balance: TokenAmount::from(0),
             next_tx_id: Default::default(),
             start_epoch: Default::default(),
             unlock_duration: Default::default(),
@@ -392,6 +415,19 @@ impl Actor {
     }
 }
 
+/// Resolves address to ID or returns address as is if it doesn't have an ID address.
+fn resolve<BS, RT>(rt: &RT, address: &Address) -> Result<Address, ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    if address.protocol() != Protocol::ID {
+        Ok(rt.resolve_address(address)?.unwrap_or(address.clone()))
+    } else {
+        Ok(address.clone())
+    }
+}
+
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
         &self,
@@ -404,6 +440,7 @@ impl ActorCode for Actor {
         RT: Runtime<BS>,
     {
         match FromPrimitive::from_u64(method) {
+            // TODO double check added return values
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
@@ -436,7 +473,7 @@ impl ActorCode for Actor {
                 Self::change_num_approvals_threshold(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned())),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
