@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use vm::{ExitCode, MethodNum, Serialized, TokenAmount};
 
 /// Transaction ID type
-// TODO change to uvarint encoding
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TxnID(pub i64);
@@ -87,7 +86,6 @@ pub struct ProposeReturn {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TxnIDParams {
     pub id: TxnID,
-    // TODO revisit type
     pub proposal_hash: Vec<u8>,
 }
 

@@ -571,7 +571,6 @@ impl ActorCode for Actor {
         RT: Runtime<BS>,
     {
         match FromPrimitive::from_u64(method) {
-            // TODO double check added return values
             Some(Method::Constructor) => {
                 Self::constructor(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
