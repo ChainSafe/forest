@@ -22,6 +22,9 @@ use unsigned_varint::decode::Error as UVarintError;
 
 const HAMT_BIT_WIDTH: u8 = 5;
 
+/// Map type to be used within actors. The underlying type is a hamt.
+pub type Map<'bs, BS> = Hamt<'bs, BytesKey, BS>;
+
 /// Deal weight
 type DealWeight = BigUint;
 

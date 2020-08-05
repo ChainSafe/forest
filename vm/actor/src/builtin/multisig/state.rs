@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Transaction, TxnID};
-use crate::BytesKey;
+use crate::{BytesKey, Map};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -51,16 +51,16 @@ impl State {
     pub(crate) fn check_available(
         &self,
         balance: TokenAmount,
-        amount_to_spend: TokenAmount,
+        amount_to_spend: &TokenAmount,
         curr_epoch: ChainEpoch,
     ) -> Result<(), String> {
-        if amount_to_spend < 0.into() {
+        if amount_to_spend < &0.into() {
             return Err(format!(
                 "amount to spend {} less than zero",
                 amount_to_spend
             ));
         }
-        if balance < amount_to_spend {
+        if &balance < amount_to_spend {
             return Err(format!(
                 "current balance {} less than amount to spend {}",
                 balance, amount_to_spend
@@ -76,19 +76,6 @@ impl State {
             ));
         }
         Ok(())
-    }
-
-    pub(crate) fn get_pending_transaction<BS: BlockStore>(
-        &self,
-        s: &BS,
-        txn_id: TxnID,
-    ) -> Result<Transaction, String> {
-        let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
-        match map.get(&txn_id.key()) {
-            Ok(Some(tx)) => Ok(tx),
-            Ok(None) => Err(format!("failed to find transaction: {}", txn_id.0,)),
-            Err(e) => Err(format!("failed to read transaction: {}", e)),
-        }
     }
 
     // TODO seems removed

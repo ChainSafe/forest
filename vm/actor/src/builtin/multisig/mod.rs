@@ -4,16 +4,18 @@
 mod state;
 mod types;
 
-pub use self::state::State;
+pub use self::state::*;
 pub use self::types::*;
-use crate::{make_map, make_map_with_root, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
+use crate::{make_map, make_map_with_root, Map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
+use encoding::to_vec;
 use ipld_blockstore::BlockStore;
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use runtime::{ActorCode, Runtime};
+use runtime::{ActorCode, Runtime, Syscalls};
 use std::collections::HashSet;
+use std::error::Error as StdError;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
@@ -154,7 +156,7 @@ impl Actor {
     }
 
     /// Multisig actor approve function
-    pub fn approve<BS, RT>(rt: &mut RT, params: TxnIDParams) -> Result<(), ActorError>
+    pub fn approve<BS, RT>(rt: &mut RT, params: TxnIDParams) -> Result<ApproveReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -162,12 +164,29 @@ impl Actor {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: Address = *rt.message().caller();
 
-        // Validate signer
-        let st = rt.state()?;
-        Self::validate_signer(rt, &st, &caller_addr)?;
+        let (applied, ret, code) = rt.transaction(|st: &mut State, rt| {
+            if !is_signer(rt, st, &caller_addr)? {
+                return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
+            }
 
-        todo!()
-        // Self::approve_transaction(rt, params.id)?;
+            let ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
+            )?;
+
+            let txn = get_transaction(rt, &ptx, params.id, params.proposal_hash, true)?;
+
+            let (approved, ret, code) =
+                execute_transaction_if_approved(rt, &st, params.id, txn.clone())?;
+            if !approved {
+                // if the transaction hasn't already been approved, "process" the approval
+                // and see if the transaction can be executed
+                Self::approve_transaction(rt, params.id, txn)
+            } else {
+                Ok((approved, ret, code))
+            }
+        })??;
+
+        Ok(ApproveReturn { applied, code, ret })
     }
 
     /// Multisig actor cancel function
@@ -179,35 +198,43 @@ impl Actor {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: Address = *rt.message().caller();
 
-        let st: State = rt.state()?;
-        Self::validate_signer(rt, &st, &caller_addr)?;
+        rt.transaction(|st: &mut State, rt| {
+            if !is_signer(rt, st, &caller_addr)? {
+                return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
+            }
 
-        rt.transaction::<State, _, _>(|st, rt| {
+            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
+            )?;
+
             // Get transaction to cancel
-            let tx = st
-                .get_pending_transaction(rt.store(), params.id)
-                .map_err(|err| {
-                    ActorError::new(
-                        ExitCode::ErrNotFound,
-                        format!("Failed to get transaction for cancel: {}", err),
-                    )
-                })?;
+            let tx = get_pending_transaction(&ptx, params.id).map_err(
+                |err| actor_error!(ErrNotFound; "Failed to get transaction for cancel: {}", err),
+            )?;
 
             // Check to make sure transaction proposer is caller address
             if tx.approved.get(0) != Some(&caller_addr) {
-                return Err(ActorError::new(
-                    ExitCode::ErrForbidden,
-                    "Cannot cancel another signers transaction".to_owned(),
-                ));
+                return Err(
+                    actor_error!(ErrForbidden; "Cannot cancel another signers transaction"),
+                );
             }
 
-            // Remove transaction
-            if let Err(e) = st.delete_pending_transaction(rt.store(), params.id) {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("Failed to delete transaction for cancel: {}", e),
-                ));
+            let calculated_hash = compute_proposal_hash(&tx, rt.syscalls()).map_err(|e| {
+                actor_error!(ErrIllegalState;
+                    "failed to compute proposal hash for (tx: {:?}): {}", params.id, e)
+            })?;
+
+            if &params.proposal_hash != &calculated_hash {
+                return Err(actor_error!(ErrIllegalState; "hash does not match proposal params"));
             }
+
+            ptx.delete(&params.id.key()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to delete pending transaction: {}", e),
+            )?;
+
+            st.pending_txs = ptx.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
+            )?;
 
             Ok(())
         })?
@@ -355,15 +382,16 @@ impl Actor {
         // Approval transaction
         let (tx, threshold_met): (Transaction, bool) =
             rt.transaction::<State, _, _>(|st, rt| {
-                let mut txn = match st.get_pending_transaction(rt.store(), tx_id) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("Failed to get transaction for approval: {}", e),
-                        ));
-                    }
-                };
+                let mut txn: Transaction = todo!();
+                // match st.get_pending_transaction(rt.store(), tx_id) {
+                //     Ok(t) => t,
+                //     Err(e) => {
+                //         return Err(ActorError::new(
+                //             ExitCode::ErrIllegalState,
+                //             format!("Failed to get transaction for approval: {}", e),
+                //         ));
+                //     }
+                // };
 
                 // abort duplicate approval
                 for previous_approver in &txn.approved {
@@ -388,7 +416,7 @@ impl Actor {
                 // Check if number approvals is met
                 if txn.approved.len() >= st.num_approvals_threshold as usize {
                     // Ensure sufficient funds
-                    if let Err(e) = st.check_available(curr_bal, txn.value.clone(), curr_epoch) {
+                    if let Err(e) = st.check_available(curr_bal, &txn.value, curr_epoch) {
                         return Err(ActorError::new(
                             ExitCode::ErrInsufficientFunds,
                             format!("Insufficient funds unlocked: {}", e),
@@ -431,6 +459,94 @@ impl Actor {
     }
 }
 
+fn execute_transaction_if_approved<BS, RT>(
+    rt: &mut RT,
+    st: &State,
+    txn_id: TxnID,
+    txn: Transaction,
+) -> Result<(bool, Serialized, ExitCode), ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    let mut out = Serialized::default();
+    let mut code = ExitCode::Ok;
+    let mut applied = false;
+    let threshold_met = txn.approved.len() as u64 >= st.num_approvals_threshold;
+    if threshold_met {
+        st.check_available(rt.current_balance()?, &txn.value, rt.curr_epoch())
+            .map_err(
+                |e| actor_error!(ErrInsufficientFunds; "insufficient funds unlocked: {}", e),
+            )?;
+
+        match rt.send(txn.to, txn.method, txn.params, txn.value) {
+            Ok(ser) => {
+                out = ser;
+            }
+            Err(e) => {
+                code = e.exit_code();
+            }
+        }
+        applied = true;
+
+        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
+            )?;
+
+            ptx.delete(&txn_id.key()).map_err(|e| {
+                actor_error!(ErrIllegalState; "failed to delete transaction for cleanup: {}", e)
+            })?;
+
+            st.pending_txs = ptx.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
+            )?;
+            Ok(())
+        })??;
+    }
+
+    Ok((applied, out, code))
+}
+
+fn get_pending_transaction<'bs, BS: BlockStore>(
+    ptx: &Map<'bs, BS>,
+    txn_id: TxnID,
+) -> Result<Transaction, String> {
+    match ptx.get(&txn_id.key()) {
+        Ok(Some(tx)) => Ok(tx),
+        Ok(None) => Err(format!("failed to find transaction: {}", txn_id.0,)),
+        Err(e) => Err(format!("failed to read transaction: {}", e)),
+    }
+}
+
+fn get_transaction<'bs, BS, RT>(
+    rt: &RT,
+    ptx: &Map<'bs, BS>,
+    txn_id: TxnID,
+    proposal_hash: Vec<u8>,
+    check_hash: bool,
+) -> Result<Transaction, ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    let txn = get_pending_transaction(ptx, txn_id)
+        .map_err(|e| actor_error!(ErrNotFound; "failed to get transaction for approval: {}", e))?;
+
+    if check_hash {
+        let calculated_hash = compute_proposal_hash(&txn, rt.syscalls()).map_err(|e| {
+            actor_error!(ErrIllegalState;
+                "failed to compute proposal hash for (tx: {:?}): {}", txn_id, e)
+        })?;
+
+        if &proposal_hash != &calculated_hash {
+            return Err(actor_error!(ErrIllegalArgument; "hash does not match proposal params"));
+        }
+    }
+
+    Ok(txn)
+}
+
 fn is_signer<BS, RT>(rt: &RT, st: &State, address: &Address) -> Result<bool, ActorError>
 where
     BS: BlockStore,
@@ -446,6 +562,25 @@ where
     }
 
     Ok(false)
+}
+
+/// Computes a digest of a proposed transaction. This digest is used to confirm identity
+/// of the transaction associated with an ID, which might change under chain re-orgs.
+fn compute_proposal_hash(
+    txn: &Transaction,
+    sys: &dyn Syscalls,
+) -> Result<[u8; 32], Box<dyn StdError>> {
+    let proposal_hash = ProposalHashData {
+        requester: txn.approved.get(0),
+        to: &txn.to,
+        value: &txn.value,
+        method: &txn.method,
+        params: &txn.params,
+    };
+    let data = to_vec(&proposal_hash)
+        .map_err(|e| format!("failed to construct multisig approval hash: {}", e))?;
+
+    sys.hash_blake2b(&data)
 }
 
 /// Resolves address to ID or returns address as is if it doesn't have an ID address.

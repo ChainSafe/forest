@@ -12,7 +12,7 @@ use vm::{ExitCode, MethodNum, Serialized, TokenAmount};
 
 /// Transaction ID type
 // TODO change to uvarint encoding
-#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TxnID(pub i64);
 
@@ -40,14 +40,14 @@ pub struct Transaction {
 ///
 /// Requester - The requesting multisig wallet member.
 /// All other fields - From the "Transaction" struct.
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct ProposalHashData {
-    pub requester: Address,
-    pub to: Address,
+#[derive(Serialize_tuple, Debug)]
+pub struct ProposalHashData<'a> {
+    pub requester: Option<&'a Address>,
+    pub to: &'a Address,
     #[serde(with = "bigint_ser")]
-    pub value: TokenAmount,
-    pub method: MethodNum,
-    pub params: Serialized,
+    pub value: &'a TokenAmount,
+    pub method: &'a MethodNum,
+    pub params: &'a Serialized,
 }
 
 /// Constructor parameters for multisig actor.
@@ -99,10 +99,9 @@ pub struct ApproveReturn {
     pub applied: bool,
     /// Code is the exitcode of the transaction, if Applied is false this field should be ignored.
     pub code: ExitCode,
-    // TODO revisit type (should this be nullable?)
     /// Ret is the return value of the transaction, if Applied is false this field should
     /// be ignored.
-    pub ret: Vec<u8>,
+    pub ret: Serialized,
 }
 
 /// Add signer params.
