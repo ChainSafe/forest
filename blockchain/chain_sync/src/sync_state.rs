@@ -123,9 +123,8 @@ impl SyncState {
     }
 }
 
-fn format_se_date_time(s: Option<NaiveDateTime>) -> String {
+fn format_se_date_time(s: Option<NaiveDateTime>) -> Option<String> {
     s.map(|d| d.format(DATE_TIME_FORMAT).to_string())
-        .unwrap_or_default()
 }
 
 impl Serialize for SyncState {
@@ -142,8 +141,8 @@ impl Serialize for SyncState {
             stage: u64,
             height: ChainEpoch,
 
-            start: &'a String,
-            end: &'a String,
+            start: &'a Option<String>,
+            end: &'a Option<String>,
             message: &'a str,
         }
 

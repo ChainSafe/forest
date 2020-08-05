@@ -52,7 +52,7 @@ pub enum SyncCommand {
 }
 
 fn get_naive_time_zero() -> NaiveDateTime {
-    NaiveDate::from_ymd(0, 0, 0).and_hms(0, 0, 0)
+    NaiveDate::from_ymd(1, 1, 1).and_hms(0, 0, 0)
 }
 
 impl SyncCommand {
