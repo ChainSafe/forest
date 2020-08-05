@@ -56,27 +56,25 @@ impl Actor {
     /// Resolves an address to a canonical ID address and requires it to address an account actor.
     /// The account actor constructor checks that the embedded address is associated with an appropriate key.
     /// An alternative (more expensive) would be to send a message to the actor to fetch its key.
-    fn resolve_account<BS, RT>(rt: &RT, raw: &Address) -> Result<Address, String>
+    fn resolve_account<BS, RT>(rt: &RT, raw: &Address) -> Result<Address, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         let resolved = rt
-            // TODO: fatal error not handled here. To match go this will have to be refactored
-            .resolve_address(raw)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("failed to resolve address {}", raw))?;
+            .resolve_address(raw)?
+            .ok_or_else(|| actor_error!(ErrNotFound; "failed to resolve address {}", raw))?;
 
         let code_cid = rt
-            .get_actor_code_cid(&resolved)
-            .expect("Failed to get code Cid")
-            .ok_or_else(|| format!("no code for address {}", raw))?;
+            .get_actor_code_cid(&resolved)?
+            .ok_or_else(|| actor_error!(ErrIllegalState; "no code for address {}", raw))?;
 
         if code_cid != *ACCOUNT_ACTOR_CODE_ID {
-            Err(format!(
-                "actor {} must be an account ({}), was {}",
-                raw, &*ACCOUNT_ACTOR_CODE_ID, code_cid
-            ))
+            Err(
+                actor_error!(ErrForbidden; "actor {} must be an account ({}), was {}",
+                    raw, *ACCOUNT_ACTOR_CODE_ID, code_cid
+                ),
+            )
         } else {
             Ok(resolved)
         }
