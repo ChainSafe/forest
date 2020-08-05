@@ -5,11 +5,14 @@ extern crate serde_json;
 
 use super::errors::Error;
 use crypto::SignatureType;
+use log::warn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
-use std::io::BufReader;
+use std::io::{BufReader, ErrorKind};
+
+const KEYSTORE_NAME: &str = "/keystore.json";
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
@@ -145,21 +148,32 @@ pub struct PersistentKeyStore {
 }
 
 impl PersistentKeyStore {
-    pub fn new(location: String) -> Self {
+    pub fn new(mut location: String) -> Result<Self, Error> {
+        location.push_str(KEYSTORE_NAME);
         let file_op = File::open(&location);
         match file_op {
             Ok(file) => {
                 let reader = BufReader::new(file);
                 let data: HashMap<String, KeyInfo> = serde_json::from_reader(reader).unwrap();
-                Self {
+                Ok(Self {
                     key_info: data,
                     location,
+                })
+            }
+            Err(e) => {
+                if e.kind() == ErrorKind::NotFound {
+                    warn!("keystore.json does not exist creating keystore.json in given directory");
+                    File::create(&location).map_err(|err| Error::Other(err.to_string()))?;
+                    Ok(Self {
+                        key_info: HashMap::new(),
+                        location,
+                    })
+                } else {
+                    Err(Error::Other(
+                        "could not create/open keystore.json in given directory".to_string(),
+                    ))
                 }
             }
-            Err(_) => Self {
-                key_info: HashMap::new(),
-                location,
-            },
         }
     }
 }

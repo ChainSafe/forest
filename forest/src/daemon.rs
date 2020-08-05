@@ -38,9 +38,9 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize keystore
-    let keystore = Arc::new(RwLock::new(PersistentKeyStore::new(
-        config.data_dir.to_string(),
-    )));
+    let keystore = Arc::new(RwLock::new(
+        PersistentKeyStore::new(config.data_dir.to_string()).unwrap(),
+    ));
 
     // Initialize database
     let mut db = RocksDb::new(config.data_dir + "/db");
