@@ -1,14 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Transaction, TxnID};
-use crate::{BytesKey, Map};
+use super::TxnID;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
-use ipld_blockstore::BlockStore;
-use ipld_hamt::Hamt;
 use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
@@ -38,16 +35,6 @@ impl State {
         unit_locked * (self.unlock_duration - elapsed_epoch)
     }
 
-    // TODO seems removed
-    pub(crate) fn is_signer(&self, addr: &Address) -> bool {
-        for s in &self.signers {
-            if addr == s {
-                return true;
-            }
-        }
-        false
-    }
-
     pub(crate) fn check_available(
         &self,
         balance: TokenAmount,
@@ -75,31 +62,6 @@ impl State {
                 remaining_balance, amount_locked
             ));
         }
-        Ok(())
-    }
-
-    // TODO seems removed
-    pub(crate) fn put_pending_transaction<BS: BlockStore>(
-        &mut self,
-        s: &BS,
-        txn_id: TxnID,
-        txn: Transaction,
-    ) -> Result<(), String> {
-        let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
-        map.set(txn_id.key(), txn)?;
-        self.pending_txs = map.flush()?;
-        Ok(())
-    }
-
-    // TODO seems removed
-    pub(crate) fn delete_pending_transaction<BS: BlockStore>(
-        &mut self,
-        s: &BS,
-        txn_id: TxnID,
-    ) -> Result<(), String> {
-        let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
-        map.delete(&txn_id.key())?;
-        self.pending_txs = map.flush()?;
         Ok(())
     }
 }

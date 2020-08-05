@@ -227,7 +227,7 @@ impl Actor {
                     "failed to compute proposal hash for (tx: {:?}): {}", params.id, e)
             })?;
 
-            if &params.proposal_hash != &calculated_hash {
+            if params.proposal_hash != calculated_hash {
                 return Err(actor_error!(ErrIllegalState; "hash does not match proposal params"));
             }
 
@@ -328,14 +328,6 @@ impl Actor {
                 return Err(actor_error!(ErrIllegalArgument; "{} is already a signer", params.to));
             }
 
-            // Check if signer to add is already signer
-            if st.is_signer(&params.to) {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    "Party already present".to_owned(),
-                ));
-            }
-
             // Remove signer from state
             let mut new_signers = Vec::with_capacity(st.signers.len());
             for s in &st.signers {
@@ -420,18 +412,6 @@ impl Actor {
 
         execute_transaction_if_approved(rt, &st, tx_id, txn)
     }
-
-    fn validate_signer<BS, RT>(rt: &RT, st: &State, address: &Address) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        if !st.is_signer(address) {
-            return Err(rt.abort(ExitCode::ErrForbidden, "Party not a signer"));
-        }
-
-        Ok(())
-    }
 }
 
 fn execute_transaction_if_approved<BS, RT>(
@@ -514,7 +494,7 @@ where
                 "failed to compute proposal hash for (tx: {:?}): {}", txn_id, e)
         })?;
 
-        if &proposal_hash != &calculated_hash {
+        if proposal_hash != calculated_hash {
             return Err(actor_error!(ErrIllegalArgument; "hash does not match proposal params"));
         }
     }
@@ -573,9 +553,9 @@ where
     RT: Runtime<BS>,
 {
     if address.protocol() != Protocol::ID {
-        Ok(rt.resolve_address(address)?.unwrap_or(address.clone()))
+        Ok(rt.resolve_address(address)?.unwrap_or(*address))
     } else {
-        Ok(address.clone())
+        Ok(*address)
     }
 }
 
@@ -601,8 +581,8 @@ impl ActorCode for Actor {
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::Approve) => {
-                Self::approve(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
+                let res = Self::approve(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
             }
             Some(Method::Cancel) => {
                 Self::cancel(rt, params.deserialize()?)?;
