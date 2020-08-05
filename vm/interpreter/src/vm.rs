@@ -413,12 +413,6 @@ fn check_message(msg: &UnsignedMessage) -> Result<(), &'static str> {
     if msg.gas_limit() < 0 {
         return Err("Message has negative gas limit");
     }
-    if msg.value() == &BigInt::zero() {
-        return Err("Message has no value set");
-    }
-    if msg.gas_price() == &BigInt::zero() {
-        return Err("Message has no gas price set");
-    }
 
     Ok(())
 }
