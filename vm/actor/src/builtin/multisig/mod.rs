@@ -275,31 +275,36 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
-        rt.transaction::<State, _, _>(|st, _| {
-            // Check that signer to remove exists
-            if !st.is_signer(&params.signer) {
-                return Err(ActorError::new(
-                    ExitCode::ErrNotFound,
-                    "Party not found".to_owned(),
-                ));
+        rt.transaction(|st: &mut State, rt| {
+            if !is_signer(rt, st, &params.signer)? {
+                return Err(actor_error!(ErrNotFound; "{} is not a signer", params.signer));
             }
 
             if st.signers.len() == 1 {
-                ActorError::new(
-                    ExitCode::ErrForbidden,
-                    "Cannot remove only signer".to_owned(),
-                );
+                return Err(actor_error!(ErrForbidden; "Cannot remove only signer"));
             }
 
-            // Remove signer from state
-            st.signers.retain(|s| s != &params.signer);
+            let mut new_signers = Vec::with_capacity(st.signers.len());
+            for s in &st.signers {
+                if !is_address_equal(rt, s, &params.signer)? {
+                    new_signers.push(*s);
+                }
+            }
 
-            // Decrease approvals threshold if decrease param or below threshold
-            if params.decrease || st.signers.len() - 1 < st.num_approvals_threshold as usize {
+            if !params.decrease && st.signers.len() as u64 - 1 < st.num_approvals_threshold {
+                return Err(actor_error!(ErrIllegalArgument;
+                    "can't reduce signers to {} below threshold {} with decrease=false",
+                    new_signers.len(), st.num_approvals_threshold));
+            }
+
+            if params.decrease {
                 st.num_approvals_threshold -= 1;
             }
+            st.signers = new_signers;
             Ok(())
-        })?
+        })??;
+
+        Ok(())
     }
 
     /// Multisig actor function to swap signers to multisig
@@ -543,6 +548,14 @@ where
     }
 
     Ok(txn)
+}
+
+fn is_address_equal<BS, RT>(rt: &RT, addr1: &Address, addr2: &Address) -> Result<bool, ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    Ok(resolve(rt, addr1)? == resolve(rt, addr2)?)
 }
 
 fn is_signer<BS, RT>(rt: &RT, st: &State, address: &Address) -> Result<bool, ActorError>
