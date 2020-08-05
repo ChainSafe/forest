@@ -231,9 +231,13 @@ impl Actor {
                 return Err(actor_error!(ErrIllegalState; "hash does not match proposal params"));
             }
 
-            ptx.delete(&params.id.key()).map_err(
+            let deleted = ptx.delete(&params.id.key()).map_err(
                 |e| actor_error!(ErrIllegalState; "failed to delete pending transaction: {}", e),
             )?;
+            if !deleted {
+                return Err(actor_error!(ErrIllegalState;
+                    "failed to delete pending transaction: does not exist"));
+            }
 
             st.pending_txs = ptx.flush().map_err(
                 |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
@@ -449,9 +453,13 @@ where
                 |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
             )?;
 
-            ptx.delete(&txn_id.key()).map_err(|e| {
+            let deleted = ptx.delete(&txn_id.key()).map_err(|e| {
                 actor_error!(ErrIllegalState; "failed to delete transaction for cleanup: {}", e)
             })?;
+            if !deleted {
+                return Err(actor_error!(ErrIllegalState;
+                    "failed to delete transaction for cleanup: does not exist"));
+            }
 
             st.pending_txs = ptx.flush().map_err(
                 |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
