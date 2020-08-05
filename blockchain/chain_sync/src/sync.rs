@@ -528,7 +528,7 @@ where
                 &sig,
             ) {
                 return Err(Error::Validation(
-                    "Bls aggregate signature was invalid".to_owned(),
+                    format!("Bls aggregate signature {:?} was invalid: {:?}", sig, cids),
                 ));
             }
         } else {
