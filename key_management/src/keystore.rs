@@ -169,9 +169,7 @@ impl PersistentKeyStore {
                         location,
                     })
                 } else {
-                    Err(Error::Other(
-                        "could not create/open keystore.json in given directory".to_string(),
-                    ))
+                    Err(Error::Other(e.to_string()))
                 }
             }
         }
