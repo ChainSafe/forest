@@ -671,28 +671,28 @@ impl Actor {
                         }
 
                         // we should not attempt to delete the DealState because it does NOT exist
-                        if !msm
+                        let deleted = msm
                             .deal_proposals
                             .as_mut()
                             .unwrap()
                             .delete(deal_id)
                             .map_err(
                                 |e| actor_error!(ErrIllegalState; "failed to delete deal: {}", e),
-                            )?
-                        {
+                            )?;
+                        if !deleted {
                             return Err(actor_error!(ErrIllegalState;
                                         "failed to delete deal proposal: does not exist"));
                         }
-                        if !msm
+                        let deleted = msm
                             .pending_deals
                             .as_mut()
                             .unwrap()
                             .delete(&dcid.to_bytes())
                             .map_err(|e| {
                                 actor_error!(ErrIllegalState;
-                                    "failed to delete pending proposal: {}", e)
-                            })?
-                        {
+                                "failed to delete pending proposal: {}", e)
+                            })?;
+                        if !deleted {
                             return Err(actor_error!(ErrIllegalState;
                                             "failed to delete pending proposal: does not exist"));
                         }
@@ -700,16 +700,16 @@ impl Actor {
                     let mut state = state.unwrap();
 
                     if state.last_updated_epoch == EPOCH_UNDEFINED {
-                        if !msm
+                        let deleted = msm
                             .pending_deals
                             .as_mut()
                             .unwrap()
                             .delete(&dcid.to_bytes())
                             .map_err(|e| {
                                 actor_error!(ErrIllegalState;
-                                    "failed to delete pending proposal: {}", e)
-                            })?
-                        {
+                                "failed to delete pending proposal: {}", e)
+                            })?;
+                        if !deleted {
                             return Err(actor_error!(ErrIllegalState;
                                     "failed to delete pending proposal: does not exist"));
                         }
@@ -730,23 +730,24 @@ impl Actor {
                         );
 
                         amount_slashed += slash_amount;
-                        if !msm
+                        let deleted = msm
                             .deal_proposals
                             .as_mut()
                             .unwrap()
                             .delete(deal_id)
                             .map_err(|e| {
                                 actor_error!(ErrIllegalState;
-                                    "failed to delete deal proposal: {}", e)
-                            })?
-                        {
+                                "failed to delete deal proposal: {}", e)
+                            })?;
+                        if !deleted {
                             return Err(actor_error!(ErrIllegalState;
                                 "failed to delete deal proposal: does not exist"));
                         }
 
-                        if !msm.deal_states.as_mut().unwrap().delete(deal_id).map_err(
+                        let deleted = msm.deal_states.as_mut().unwrap().delete(deal_id).map_err(
                             |e| actor_error!(ErrIllegalState; "failed to delete deal state: {}", e),
-                        )? {
+                        )?;
+                        if !deleted {
                             return Err(actor_error!(ErrIllegalState;
                                     "failed to delete deal state: does not exist"));
                         }
