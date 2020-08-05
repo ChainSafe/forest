@@ -6,6 +6,3 @@ edition = "2018"
 
 [dependencies]
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-
-
-[dev-dependencies]

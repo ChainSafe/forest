@@ -1,10 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use num_bigint::BigInt;
+use num_bigint::{BigInt, ParseBigIntError};
 
 pub const PRECISION: u64 = 128;
 
+/// polyval evaluates a polynomial given by coefficients `p` in Q.128 format
+/// at point `x` in Q.128 format. Output is in Q.128.
+/// Coefficients should be ordered from the highest order coefficient to the lowest.
 pub fn poly_val(poly: &[BigInt], x: &BigInt) -> BigInt {
     let mut res = BigInt::default();
 
@@ -14,13 +17,6 @@ pub fn poly_val(poly: &[BigInt], x: &BigInt) -> BigInt {
     res
 }
 
-pub fn parse(coefs: &[&str]) -> Result<Vec<BigInt>, ()> {
-
-    let mut out: Vec<BigInt> = Vec::with_capacity(coefs.len() as usize);
-
-    for coef in coefs {
-        let c = BigInt::parse_bytes(coef.as_bytes(), 10).ok_or(())?;
-        out.push(c);
-    }
-    Ok(out)
+pub fn parse(coefs: &[&str]) -> Result<Vec<BigInt>, ParseBigIntError> {
+    coefs.iter().map(|c| c.parse()).collect()
 }
