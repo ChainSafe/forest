@@ -164,7 +164,8 @@ impl Actor {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let caller_addr: Address = *rt.message().caller();
 
-        let (applied, ret, code) = rt.transaction(|st: &mut State, rt| {
+        let id = params.id;
+        let (st, txn) = rt.transaction(|st: &mut State, rt| {
             if !is_signer(rt, st, &caller_addr)? {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
             }
@@ -175,18 +176,20 @@ impl Actor {
 
             let txn = get_transaction(rt, &ptx, params.id, params.proposal_hash, true)?;
 
-            let (approved, ret, code) =
-                execute_transaction_if_approved(rt, &st, params.id, txn.clone())?;
-            if !approved {
-                // if the transaction hasn't already been approved, "process" the approval
-                // and see if the transaction can be executed
-                Self::approve_transaction(rt, params.id, txn)
-            } else {
-                Ok((approved, ret, code))
-            }
+            // Go implementation holds reference to state after transaction so state must be cloned
+            // to match to handle possible exit code inconsistency
+            Ok((st.clone(), txn))
         })??;
 
-        Ok(ApproveReturn { applied, code, ret })
+        let (applied, ret, code) = execute_transaction_if_approved(rt, &st, id, txn.clone())?;
+        if !applied {
+            // if the transaction hasn't already been approved, "process" the approval
+            // and see if the transaction can be executed
+            let (applied, ret, code) = Self::approve_transaction(rt, id, txn)?;
+            Ok(ApproveReturn { applied, code, ret })
+        } else {
+            Ok(ApproveReturn { applied, code, ret })
+        }
     }
 
     /// Multisig actor cancel function
@@ -380,80 +383,42 @@ impl Actor {
     fn approve_transaction<BS, RT>(
         rt: &mut RT,
         tx_id: TxnID,
-        _transaction: Transaction,
+        mut txn: Transaction,
     ) -> Result<(bool, Serialized, ExitCode), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let from = *rt.message().caller();
-        let curr_bal = rt.current_balance()?;
-        let curr_epoch = rt.curr_epoch();
-        // Approval transaction
-        let (tx, threshold_met): (Transaction, bool) =
-            rt.transaction(|st: &mut State, rt| {
-                let mut txn: Transaction = todo!();
-                // match st.get_pending_transaction(rt.store(), tx_id) {
-                //     Ok(t) => t,
-                //     Err(e) => {
-                //         return Err(ActorError::new(
-                //             ExitCode::ErrIllegalState,
-                //             format!("Failed to get transaction for approval: {}", e),
-                //         ));
-                //     }
-                // };
-
-                // abort duplicate approval
-                for previous_approver in &txn.approved {
-                    if previous_approver == &from {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            "Already approved this message".to_owned(),
-                        ));
-                    }
-                }
-
-                // update approved on the transaction
-                txn.approved.push(from);
-
-                if let Err(e) = st.put_pending_transaction(rt.store(), tx_id, txn.clone()) {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("Failed to put transaction for approval: {}", e),
-                    ));
-                }
-
-                // Check if number approvals is met
-                if txn.approved.len() >= st.num_approvals_threshold as usize {
-                    // Ensure sufficient funds
-                    if let Err(e) = st.check_available(curr_bal, &txn.value, curr_epoch) {
-                        return Err(ActorError::new(
-                            ExitCode::ErrInsufficientFunds,
-                            format!("Insufficient funds unlocked: {}", e),
-                        ));
-                    }
-
-                    // Delete pending transaction
-                    if let Err(e) = st.delete_pending_transaction(rt.store(), tx_id) {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to delete transaction for cleanup: {}", e),
-                        ));
-                    }
-
-                    Ok((txn, true))
-                } else {
-                    // Number of approvals required not met, do not relay message
-                    Ok((txn, false))
-                }
-            })??;
-
-        // Sufficient number of approvals have arrived, relay message
-        if threshold_met {
-            rt.send(tx.to, tx.method, tx.params, tx.value)?;
+        for previous_approver in &txn.approved {
+            if previous_approver == rt.message().caller() {
+                return Err(actor_error!(ErrForbidden;
+                        "{} already approved this message", previous_approver));
+            }
         }
 
-        todo!();
+        let st = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
+            )?;
+
+            // update approved on the transaction
+            txn.approved.push(*rt.message().caller());
+
+            ptx.set(tx_id.key(), txn.clone()).map_err(|e| {
+                actor_error!(ErrIllegalState;
+                    "failed to put transaction {} for approval: {}", tx_id.0, e)
+            })?;
+
+            st.pending_txs = ptx.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
+            )?;
+
+            // Go implementation holds reference to state after transaction so this must be cloned
+            // to match to handle possible exit code inconsistency
+            Ok(st.clone())
+        })??;
+
+        execute_transaction_if_approved(rt, &st, tx_id, txn)
     }
 
     fn validate_signer<BS, RT>(rt: &RT, st: &State, address: &Address) -> Result<(), ActorError>

@@ -13,7 +13,7 @@ use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
 /// Multisig actor state
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct State {
     pub signers: Vec<Address>,
     pub num_approvals_threshold: usize,
