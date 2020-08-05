@@ -39,3 +39,4 @@ actor = { path = "../vm/actor/" }
 jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
 message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
 wallet = {package = "key_management", path = "../key_management"}
+chrono = "0.4.13"
