@@ -245,8 +245,7 @@ impl Actor {
                 }
 
                 let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(|| {
-                    actor_error!(ErrNotFound;
-                        "failed to resolve provider address {}", provider_raw)
+                    actor_error!(ErrNotFound; "failed to resolve client address {}", provider_raw)
                 })?;
                 // Normalise provider and client addresses in the proposal stored on chain
                 // (after signature verification).
@@ -479,7 +478,7 @@ impl Actor {
     /// Terminate a set of deals in response to their containing sector being terminated.
     /// Slash provider collateral, refund client collateral, and refund partial unpaid escrow
     /// amount to client.    
-    fn on_miners_sector_terminate<BS, RT>(
+    fn on_miner_sectors_terminate<BS, RT>(
         rt: &mut RT,
         params: OnMinerSectorsTerminateParams,
     ) -> Result<(), ActorError>
@@ -672,33 +671,48 @@ impl Actor {
                         }
 
                         // we should not attempt to delete the DealState because it does NOT exist
-                        msm.deal_proposals
+                        if !msm
+                            .deal_proposals
                             .as_mut()
                             .unwrap()
                             .delete(deal_id)
                             .map_err(
                                 |e| actor_error!(ErrIllegalState; "failed to delete deal: {}", e),
-                            )?;
-                        msm.pending_deals
+                            )?
+                        {
+                            return Err(actor_error!(ErrIllegalState;
+                                        "failed to delete deal proposal: does not exist"));
+                        }
+                        if !msm
+                            .pending_deals
                             .as_mut()
                             .unwrap()
                             .delete(&dcid.to_bytes())
                             .map_err(|e| {
                                 actor_error!(ErrIllegalState;
                                     "failed to delete pending proposal: {}", e)
-                            })?;
+                            })?
+                        {
+                            return Err(actor_error!(ErrIllegalState;
+                                            "failed to delete pending proposal: does not exist"));
+                        }
                     }
                     let mut state = state.unwrap();
 
                     if state.last_updated_epoch == EPOCH_UNDEFINED {
-                        msm.pending_deals
+                        if !msm
+                            .pending_deals
                             .as_mut()
                             .unwrap()
                             .delete(&dcid.to_bytes())
                             .map_err(|e| {
                                 actor_error!(ErrIllegalState;
                                     "failed to delete pending proposal: {}", e)
-                            })?;
+                            })?
+                        {
+                            return Err(actor_error!(ErrIllegalState;
+                                    "failed to delete pending proposal: does not exist"));
+                        }
                     }
 
                     let (slash_amount, next_epoch, remove_deal) =
@@ -716,17 +730,26 @@ impl Actor {
                         );
 
                         amount_slashed += slash_amount;
-                        msm.deal_proposals
+                        if !msm
+                            .deal_proposals
                             .as_mut()
                             .unwrap()
                             .delete(deal_id)
                             .map_err(|e| {
                                 actor_error!(ErrIllegalState;
                                     "failed to delete deal proposal: {}", e)
-                            })?;
-                        msm.deal_states.as_mut().unwrap().delete(deal_id).map_err(
+                            })?
+                        {
+                            return Err(actor_error!(ErrIllegalState;
+                                "failed to delete deal proposal: does not exist"));
+                        }
+
+                        if !msm.deal_states.as_mut().unwrap().delete(deal_id).map_err(
                             |e| actor_error!(ErrIllegalState; "failed to delete deal state: {}", e),
-                        )?;
+                        )? {
+                            return Err(actor_error!(ErrIllegalState;
+                                    "failed to delete deal state: does not exist"));
+                        }
                     } else {
                         assert!(
                             next_epoch > curr_epoch && slash_amount.is_zero(),
@@ -1088,7 +1111,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::OnMinerSectorsTerminate) => {
-                Self::on_miners_sector_terminate(rt, params.deserialize()?)?;
+                Self::on_miner_sectors_terminate(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ComputeDataCommitment) => {
