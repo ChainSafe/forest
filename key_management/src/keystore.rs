@@ -11,8 +11,6 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::BufReader;
 
-const KEYSTORE_LOCATION: &str = "keystore.json";
-
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
@@ -143,19 +141,24 @@ impl KeyStore for MemKeyStore {
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
 pub struct PersistentKeyStore {
     pub key_info: HashMap<String, KeyInfo>,
+    location: String,
 }
 
 impl PersistentKeyStore {
-    pub fn new() -> Self {
-        let file_op = File::open(KEYSTORE_LOCATION);
+    pub fn new(location: String) -> Self {
+        let file_op = File::open(&location);
         match file_op {
             Ok(file) => {
                 let reader = BufReader::new(file);
                 let data: HashMap<String, KeyInfo> = serde_json::from_reader(reader).unwrap();
-                Self { key_info: data }
+                Self {
+                    key_info: data,
+                    location,
+                }
             }
             Err(_) => Self {
                 key_info: HashMap::new(),
+                location,
             },
         }
     }
@@ -178,7 +181,7 @@ impl KeyStore for PersistentKeyStore {
         let file = OpenOptions::new()
             .write(true)
             .create(true)
-            .open(KEYSTORE_LOCATION)
+            .open(&self.location)
             .map_err(|err| Error::Other(err.to_string()))?;
         serde_json::to_writer(&file, &self.key_info)
             .map_err(|err| Error::Other(err.to_string()))?;
@@ -190,7 +193,7 @@ impl KeyStore for PersistentKeyStore {
         let file = OpenOptions::new()
             .write(true)
             .create(true)
-            .open(KEYSTORE_LOCATION)
+            .open(&self.location)
             .ok()?;
         serde_json::to_writer(file, &self.key_info).ok()?;
         key_out
