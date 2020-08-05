@@ -3505,6 +3505,7 @@ dependencies = [
  "libsecp256k1",
  "rand 0.7.3",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

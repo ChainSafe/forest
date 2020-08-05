@@ -1,10 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+extern crate serde_json;
+
 use super::errors::Error;
 use crypto::SignatureType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::File;
+use std::fs::OpenOptions;
+use std::io::BufReader;
+
+const KEYSTORE_LOCATION: &str = "keystore.json";
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
@@ -129,5 +136,63 @@ impl KeyStore for MemKeyStore {
 
     fn remove(&mut self, key: String) -> Option<KeyInfo> {
         self.key_info.remove(&key)
+    }
+}
+
+/// KeyStore that persists data in KEYSTORE_LOCATION
+#[derive(Default, Clone, PartialEq, Debug, Eq)]
+pub struct PersistantKeyStore {
+    pub key_info: HashMap<String, KeyInfo>,
+}
+
+impl PersistantKeyStore {
+    pub fn new() -> Self {
+        let file_op = File::open(KEYSTORE_LOCATION);
+        match file_op {
+            Ok(file) => {
+                let reader = BufReader::new(file);
+                let data: HashMap<String, KeyInfo> = serde_json::from_reader(reader).unwrap();
+                Self { key_info: data }
+            }
+            Err(_) => Self {
+                key_info: HashMap::new(),
+            },
+        }
+    }
+}
+
+impl KeyStore for PersistantKeyStore {
+    fn list(&self) -> Vec<String> {
+        self.key_info.iter().map(|(key, _)| key.clone()).collect()
+    }
+
+    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
+        self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
+    }
+
+    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
+        if self.key_info.contains_key(&key) {
+            return Err(Error::KeyExists);
+        }
+        self.key_info.insert(key, key_info);
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(KEYSTORE_LOCATION)
+            .map_err(|err| Error::Other(err.to_string()))?;
+        serde_json::to_writer(&file, &self.key_info)
+            .map_err(|err| Error::Other(err.to_string()))?;
+        Ok(())
+    }
+
+    fn remove(&mut self, key: String) -> Option<KeyInfo> {
+        let key_out = self.key_info.remove(&key);
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(KEYSTORE_LOCATION)
+            .ok()?;
+        serde_json::to_writer(file, &self.key_info).ok()?;
+        key_out
     }
 }
