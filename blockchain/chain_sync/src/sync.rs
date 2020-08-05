@@ -246,7 +246,12 @@ where
 
     /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
     async fn sync_messages_check_state(&mut self, ts: &[Tipset]) -> Result<(), Error> {
-        info!("Syncing messages of {} many tipsets: {} to {}", ts.len(), ts[0].epoch(), ts[ts.len() - 1].epoch());
+        info!(
+            "Syncing messages of {} many tipsets: {} to {}",
+            ts.len(),
+            ts[0].epoch(),
+            ts[ts.len() - 1].epoch()
+        );
         // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for request window size
         const REQUEST_WINDOW: i64 = 1;
         // TODO refactor type handling
@@ -272,7 +277,11 @@ where
                         let next = &ts[idx as usize];
                         let req_len = batch_size + 1;
                         info!("IDX: {}, req_len: {}", idx, req_len);
-                        info!("BlockSync message sync tipsets: epoch: {}, len: {}", next.epoch(), req_len);
+                        info!(
+                            "BlockSync message sync tipsets: epoch: {}, len: {}",
+                            next.epoch(),
+                            req_len
+                        );
                         // receive tipset bundle from block sync
                         let mut ts_bundle = match self
                             .network
@@ -284,30 +293,54 @@ where
                                     options: MESSAGES,
                                 },
                             )
-                            .await {
+                            .await
+                        {
                             Ok(k) => k,
                             Err(e) => {
                                 warn!("BlockSyncRequest for message failed: {}", e);
                                 continue;
                             }
-                        }.chain;
+                        }
+                        .chain;
                         // ts_bundle.reverse();
-                        let mut ts_r =ts[(idx) as usize..(idx+1+req_len) as usize].to_vec();
+                        let mut ts_r = ts[(idx) as usize..(idx + 1 + req_len) as usize].to_vec();
                         // since the bundle only has messages, we have to put the headers in them
                         for b in ts_bundle.iter_mut() {
                             let ttt = ts_r.pop().unwrap();
-                            info!("Putting tipset into tipset bundle at epoch: {} with block cid: {}", ttt.epoch(), ttt.blocks()[0].cid());
-                            info!("Number of blocks: {}, number of messages: bls {}, secp {}", ttt.blocks().len(), b.bls_msg_includes.len(), b.secp_msg_includes.len());
+                            info!(
+                                "Putting tipset into tipset bundle at epoch: {} with block cid: {}",
+                                ttt.epoch(),
+                                ttt.blocks()[0].cid()
+                            );
+                            info!(
+                                "Number of blocks: {}, number of messages: bls {}, secp {}",
+                                ttt.blocks().len(),
+                                b.bls_msg_includes.len(),
+                                b.secp_msg_includes.len()
+                            );
                             b.blocks = ttt.blocks().to_vec();
                         }
                         // ts_bundle.iter_mut().map(|b| b.blocks = ts_r.pop().unwrap().blocks().to_vec()).collect();
-                        info!("BlockSync message sync got messages for {} tipsets", ts_bundle.len());
+                        info!(
+                            "BlockSync message sync got messages for {} tipsets",
+                            ts_bundle.len()
+                        );
                         for mut b in ts_bundle {
-                            info!("Messages bls: {:?}, includes: {:?}", b.bls_msgs.clone().iter().map(|m| m.cid()).collect::<Vec<_>>(), b.bls_msg_includes);
-                            info!("Messages secp: {:?},  inclues: {:?}", b.secp_msgs, b.secp_msg_includes);
+                            info!(
+                                "Messages bls: {:?}, includes: {:?}",
+                                b.bls_msgs
+                                    .clone()
+                                    .iter()
+                                    .map(|m| m.cid())
+                                    .collect::<Vec<_>>(),
+                                b.bls_msg_includes
+                            );
+                            info!(
+                                "Messages secp: {:?},  inclues: {:?}",
+                                b.secp_msgs, b.secp_msg_includes
+                            );
                             // construct full tipsets from fetched messages
                             let fts: FullTipset = (&b).try_into().map_err(Error::Other)?;
-
 
                             // validate tipset and messages
                             let curr_epoch = fts.epoch();
@@ -343,7 +376,6 @@ where
             return Err(Error::NoBlocks);
         }
         // TODO: Check if tipset has height that is too far ahead to be possible
-
 
         for block in fts.blocks() {
             if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
@@ -527,9 +559,10 @@ where
                     .as_slice(),
                 &sig,
             ) {
-                return Err(Error::Validation(
-                    format!("Bls aggregate signature {:?} was invalid: {:?}", sig, cids),
-                ));
+                return Err(Error::Validation(format!(
+                    "Bls aggregate signature {:?} was invalid: {:?}",
+                    sig, cids
+                )));
             }
         } else {
             return Err(Error::Validation(
@@ -615,7 +648,11 @@ where
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     async fn validate(&self, block: &Block) -> Result<(), Error> {
-        debug!("Validating block at epoch: {} with weight: {}", block.header().epoch(), block.header().weight());
+        debug!(
+            "Validating block at epoch: {} with weight: {}",
+            block.header().epoch(),
+            block.header().weight()
+        );
         let mut error_vec: Vec<String> = Vec::new();
         let mut validations = FuturesUnordered::new();
         let header = block.header();
@@ -725,7 +762,10 @@ where
         for b in fts.blocks() {
             if let Err(e) = self.validate(&b).await {
                 self.bad_blocks.put(b.cid().clone(), e.to_string()).await;
-                return Err(Error::Other(format!("Invalid blocks detected: {}", e.to_string())));
+                return Err(Error::Other(format!(
+                    "Invalid blocks detected: {}",
+                    e.to_string()
+                )));
             }
             self.chain_store.set_tipset_tracker(b.header())?;
         }
@@ -871,7 +911,11 @@ where
                     continue;
                 }
             };
-            info!("Got tipsets: Height: {}, Len: {}", tipsets[0].epoch(), tipsets.len());
+            info!(
+                "Got tipsets: Height: {}, Len: {}",
+                tipsets[0].epoch(),
+                tipsets.len()
+            );
 
             // Loop through each tipset received from network
             for ts in tipsets {
@@ -967,18 +1011,18 @@ where
         ))
     }
 
-// <<<<<<< HEAD
-//     /// Persists headers from tipset slice to chain store
-//     async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
-//         info!("Persisting headers for height: {}", tipsets[0].epoch());
-//         for tipset in tipsets.iter() {
-//             self.chain_store.put_tipsets(tipset).await?
-//         }
-//         Ok(())
-//     }
-//
-// =======
-// >>>>>>> main
+    // <<<<<<< HEAD
+    //     /// Persists headers from tipset slice to chain store
+    //     async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
+    //         info!("Persisting headers for height: {}", tipsets[0].epoch());
+    //         for tipset in tipsets.iter() {
+    //             self.chain_store.put_tipsets(tipset).await?
+    //         }
+    //         Ok(())
+    //     }
+    //
+    // =======
+    // >>>>>>> main
     /// Sets the managed sync status
     pub async fn set_stage(&mut self, new_stage: SyncStage) {
         debug!("Sync stage set to: {}", new_stage);

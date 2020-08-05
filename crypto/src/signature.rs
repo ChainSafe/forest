@@ -132,7 +132,10 @@ impl Signature {
         if verify(&sig, &[hashed], &[pk]) {
             Ok(())
         } else {
-            Err(format!("bls signature verification failed for addr: {}", addr))
+            Err(format!(
+                "bls signature verification failed for addr: {}",
+                addr
+            ))
         }
     }
 

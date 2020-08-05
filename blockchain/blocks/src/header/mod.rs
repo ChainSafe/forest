@@ -332,10 +332,12 @@ impl BlockHeader {
             < base_tipset.min_timestamp()
                 + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64
         {
-            return Err(Error::Validation(
-                format!("Header was generated too soon: timestamp: {}, max time: {}", self.timestamp(),base_tipset.min_timestamp()
-                    + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64)
-            ));
+            return Err(Error::Validation(format!(
+                "Header was generated too soon: timestamp: {}, max time: {}",
+                self.timestamp(),
+                base_tipset.min_timestamp()
+                    + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64
+            )));
         }
 
         Ok(())
@@ -409,7 +411,7 @@ impl BlockHeader {
         Ok(())
     }
     pub fn to_signing_bytes(&self) -> Result<Vec<u8>, String> {
-       let mut blk = self.clone();
+        let mut blk = self.clone();
         blk.signature = None;
         blk.marshal_cbor().map_err(|e| e.to_string())
     }
