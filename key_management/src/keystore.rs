@@ -141,11 +141,11 @@ impl KeyStore for MemKeyStore {
 
 /// KeyStore that persists data in KEYSTORE_LOCATION
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
-pub struct PersistantKeyStore {
+pub struct PersistentKeyStore {
     pub key_info: HashMap<String, KeyInfo>,
 }
 
-impl PersistantKeyStore {
+impl PersistentKeyStore {
     pub fn new() -> Self {
         let file_op = File::open(KEYSTORE_LOCATION);
         match file_op {
@@ -161,7 +161,7 @@ impl PersistantKeyStore {
     }
 }
 
-impl KeyStore for PersistantKeyStore {
+impl KeyStore for PersistentKeyStore {
     fn list(&self) -> Vec<String> {
         self.key_info.iter().map(|(key, _)| key.clone()).collect()
     }
