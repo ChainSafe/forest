@@ -316,13 +316,13 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
-        rt.transaction::<State, _, _>(|st, _| {
-            // Check that signer to remove exists
-            if !st.is_signer(&params.from) {
-                return Err(ActorError::new(
-                    ExitCode::ErrNotFound,
-                    "Party not found".to_owned(),
-                ));
+        rt.transaction(|st: &mut State, rt| {
+            if !is_signer(rt, st, &params.from)? {
+                return Err(actor_error!(ErrNotFound; "{} is not a signer", params.from));
+            }
+
+            if is_signer(rt, st, &params.to)? {
+                return Err(actor_error!(ErrIllegalArgument; "{} is already a signer", params.to));
             }
 
             // Check if signer to add is already signer
@@ -334,13 +334,21 @@ impl Actor {
             }
 
             // Remove signer from state
-            st.signers.retain(|s| s != &params.from);
+            let mut new_signers = Vec::with_capacity(st.signers.len());
+            for s in &st.signers {
+                if !is_address_equal(rt, s, &params.from)? {
+                    new_signers.push(*s);
+                }
+            }
 
             // Add new signer
-            st.signers.push(params.to);
+            new_signers.push(params.to);
+            st.signers = new_signers;
 
             Ok(())
-        })?
+        })??;
+
+        Ok(())
     }
 
     /// Multisig actor function to change number of approvals needed
@@ -355,7 +363,7 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
-        rt.transaction::<State, _, _>(|st, _| {
+        rt.transaction(|st: &mut State, _| {
             // Check if valid threshold value
             if params.new_threshold <= 0 || params.new_threshold as usize > st.signers.len() {
                 return Err(ActorError::new(
@@ -384,7 +392,7 @@ impl Actor {
         let curr_epoch = rt.curr_epoch();
         // Approval transaction
         let (tx, threshold_met): (Transaction, bool) =
-            rt.transaction::<State, _, _>(|st, rt| {
+            rt.transaction(|st: &mut State, rt| {
                 let mut txn: Transaction = todo!();
                 // match st.get_pending_transaction(rt.store(), tx_id) {
                 //     Ok(t) => t,
