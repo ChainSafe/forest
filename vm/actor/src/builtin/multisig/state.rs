@@ -16,7 +16,7 @@ use vm::TokenAmount;
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     pub signers: Vec<Address>,
-    pub num_approvals_threshold: u64,
+    pub num_approvals_threshold: usize,
     pub next_tx_id: TxnID,
 
     // Linear unlock

@@ -61,7 +61,7 @@ impl Actor {
             resolved_signers.insert(resolved);
         }
 
-        if params.num_approvals_threshold > params.signers.len() as u64 {
+        if params.num_approvals_threshold > params.signers.len() {
             return Err(
                 actor_error!(ErrIllegalArgument; "must not require more approvals than signers"),
             );
@@ -291,7 +291,7 @@ impl Actor {
                 }
             }
 
-            if !params.decrease && st.signers.len() as u64 - 1 < st.num_approvals_threshold {
+            if !params.decrease && st.signers.len() - 1 < st.num_approvals_threshold {
                 return Err(actor_error!(ErrIllegalArgument;
                     "can't reduce signers to {} below threshold {} with decrease=false",
                     new_signers.len(), st.num_approvals_threshold));
@@ -365,17 +365,16 @@ impl Actor {
 
         rt.transaction(|st: &mut State, _| {
             // Check if valid threshold value
-            if params.new_threshold <= 0 || params.new_threshold as usize > st.signers.len() {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    "New threshold value not supported".to_owned(),
-                ));
+            if params.new_threshold == 0 || params.new_threshold > st.signers.len() {
+                return Err(actor_error!(ErrIllegalArgument; "New threshold value not supported"));
             }
 
             // Update threshold on state
             st.num_approvals_threshold = params.new_threshold;
             Ok(())
-        })?
+        })??;
+
+        Ok(())
     }
 
     fn approve_transaction<BS, RT>(
@@ -483,7 +482,7 @@ where
     let mut out = Serialized::default();
     let mut code = ExitCode::Ok;
     let mut applied = false;
-    let threshold_met = txn.approved.len() as u64 >= st.num_approvals_threshold;
+    let threshold_met = txn.approved.len() >= st.num_approvals_threshold;
     if threshold_met {
         st.check_available(rt.current_balance()?, &txn.value, rt.curr_epoch())
             .map_err(
