@@ -34,7 +34,7 @@ pub fn extrapolated_cum_sum_of_ratio(
 
     let squared_velo_2 = (velo_2 * velo_2) >> PRECISION;
 
-    if squared_velo_2 >= EPSILON.clone() {
+    if squared_velo_2 >= *EPSILON {
         let mut x2a = ((velo_2 * t0) >> PRECISION) + pos_2;
         let mut x2b = ((velo_2 * &delta_t) >> PRECISION) + &x2a;
         x2a = ln(&x2a);
@@ -61,7 +61,7 @@ pub fn ln(z: &BigInt) -> BigInt {
 
     let x: BigInt = if k > 0 { z >> k } else { z << k.abs() };
 
-    BigInt::from(k) * LN_2.clone() + ln_between_one_and_two(x)
+    BigInt::from(k) * &*LN_2 + ln_between_one_and_two(x)
 }
 
 fn ln_between_one_and_two(x: BigInt) -> BigInt {
