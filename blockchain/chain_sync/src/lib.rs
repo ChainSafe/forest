@@ -17,4 +17,4 @@ pub use self::bad_block_cache::BadBlockCache;
 pub use self::errors::Error;
 pub use self::network_context::SyncNetworkContext;
 pub use self::sync::ChainSyncer;
-pub use self::sync_state::{SyncStage, SyncState,get_naive_time_now};
+pub use self::sync_state::{get_naive_time_now, SyncStage, SyncState};

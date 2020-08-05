@@ -5,27 +5,24 @@ use blocks::{
     tipset::tipset_json::{TipsetJson, TipsetJsonRef},
     Tipset,
 };
-use clock::ChainEpoch;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
-use std::sync::Arc;
-use std::time::{SystemTime, Duration};
-use num_enum::TryFromPrimitive;
-use std::convert::TryFrom;
-use chrono::prelude::*;
+use chrono::format::ParseResult;
 use chrono::naive::NaiveDateTime;
 use chrono::offset::Utc;
-use chrono::format::ParseResult;
+use clock::ChainEpoch;
+use num_enum::TryFromPrimitive;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use std::convert::TryFrom;
+use std::fmt;
+use std::sync::Arc;
 
 // {YEAR}-{MONTH}-{DAY}T{HOUR}:{MINUTE}:{SECONDS}Z
 // Ex  2020-05-03T:05:30:00
-pub const DATE_TIME_FORMAT : &str = "%Y-%m-%dT%H:%M:%SZ";
+pub const DATE_TIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%SZ";
 
 pub fn get_naive_time_now() -> NaiveDateTime {
     let now = Utc::now();
     NaiveDateTime::new(now.date().naive_utc(), now.time())
 }
-
 
 /// Current state of the ChainSyncer using the BlockSync protocol.
 #[derive(TryFromPrimitive)]
@@ -93,7 +90,6 @@ pub struct SyncState {
 impl SyncState {
     /// Initializes the syncing state with base and target tipsets and sets start time.
     pub fn init(&mut self, base: Arc<Tipset>, target: Arc<Tipset>) {
-        let now = Utc::now();
         *self = Self {
             target: Some(target),
             base: Some(base),
@@ -108,7 +104,6 @@ impl SyncState {
 
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
-        let now = Utc::now();
         if let SyncStage::Complete = stage {
             self.end = Some(get_naive_time_now());
         }
@@ -124,13 +119,13 @@ impl SyncState {
     pub fn error(&mut self, err: String) {
         self.message = err;
         self.stage = SyncStage::Error;
-        let now = Utc::now();
         self.end = Some(get_naive_time_now());
     }
 }
 
-fn format_se_date_time(s : Option<NaiveDateTime>) -> String{
-    s.map(|d| d.format(DATE_TIME_FORMAT).to_string()).unwrap_or_default()
+fn format_se_date_time(s: Option<NaiveDateTime>) -> String {
+    s.map(|d| d.format(DATE_TIME_FORMAT).to_string())
+        .unwrap_or_default()
 }
 
 impl Serialize for SyncState {
@@ -144,7 +139,7 @@ impl Serialize for SyncState {
             base: Option<TipsetJsonRef<'a>>,
             target: Option<TipsetJsonRef<'a>>,
 
-            stage: u64 ,
+            stage: u64,
             height: ChainEpoch,
 
             start: &'a String,
@@ -165,8 +160,8 @@ impl Serialize for SyncState {
     }
 }
 
-fn format_de_date_time(s : String) -> ParseResult<Option<NaiveDateTime>>{
-    NaiveDateTime::parse_from_str (&s, DATE_TIME_FORMAT).map(|i| Some(i))
+fn format_de_date_time(s: String) -> ParseResult<Option<NaiveDateTime>> {
+    NaiveDateTime::parse_from_str(&s, DATE_TIME_FORMAT).map(Some)
 }
 
 impl<'de> Deserialize<'de> for SyncState {
@@ -194,18 +189,22 @@ impl<'de> Deserialize<'de> for SyncState {
             end,
             message,
         } = Deserialize::deserialize(deserializer)?;
-    
-        let start_naive_date_time = start.map_or(Ok(None),  |s| format_de_date_time(s)).map_err(de::Error::custom) ?;
-        let end_naive_date_time = end.map_or(Ok(None),  |s| format_de_date_time(s)).map_err(de::Error::custom) ?;
-        let stage_num = SyncStage::try_from(stage).map_err(de::Error::custom) ?;
-                
+
+        let start_naive_date_time = start
+            .map_or(Ok(None), format_de_date_time)
+            .map_err(de::Error::custom)?;
+        let end_naive_date_time = end
+            .map_or(Ok(None), format_de_date_time)
+            .map_err(de::Error::custom)?;
+        let stage_num = SyncStage::try_from(stage).map_err(de::Error::custom)?;
+
         Ok(Self {
             base: base.map(|b| Arc::new(b.0)),
             target: target.map(|b| Arc::new(b.0)),
-            stage :  stage_num,
-            epoch : height,
-            start : start_naive_date_time,
-            end : end_naive_date_time,
+            stage: stage_num,
+            epoch: height,
+            start: start_naive_date_time,
+            end: end_naive_date_time,
             message,
         })
     }

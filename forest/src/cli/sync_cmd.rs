@@ -3,18 +3,17 @@
 
 use super::stringify_rpc_err;
 use actor::EPOCH_DURATION_SECONDS;
+use chain_sync::get_naive_time_now;
+use chrono::naive::NaiveDateTime;
+use chrono::prelude::*;
 use cid::Cid;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient as HTC;
 use rpc_client::{check_bad, head, mark_bad, new_client, status, submit_block};
 use std::thread;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use structopt::StructOpt;
-use chrono::offset::Utc;
-use chrono::prelude::*;
-use chrono::naive::NaiveDateTime;
-use chain_sync:: get_naive_time_now;
 
 #[derive(Debug, StructOpt)]
 pub enum SyncCommand {
@@ -51,7 +50,6 @@ pub enum SyncCommand {
     #[structopt(name = "wait", about = "Wait for sync to be complete")]
     Wait,
 }
-
 
 fn get_naive_time_zero() -> NaiveDateTime {
     NaiveDate::from_ymd(0, 0, 0).and_hms(0, 0, 0)
@@ -97,8 +95,7 @@ impl SyncCommand {
                         println!("\tHeight: {}\n", active_sync.epoch);
                         if let Some(end_time) = active_sync.end {
                             if let Some(start_time) = active_sync.start {
-                            
-                            let zero_time = get_naive_time_zero();
+                                let zero_time = get_naive_time_zero();
 
                                 if end_time == zero_time {
                                     if start_time != zero_time {
@@ -187,7 +184,7 @@ async fn sync_wait(client: &mut RawClient<HTC>) -> Result<bool, JsonRpcError> {
     );
 
     let time_diff = get_naive_time_now().timestamp() - head.0.min_timestamp() as i64;
-    
+
     if time_diff < EPOCH_DURATION_SECONDS {
         println!("Done");
         return Ok(true);
