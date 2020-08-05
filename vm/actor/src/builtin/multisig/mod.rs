@@ -249,13 +249,11 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
-        rt.transaction::<State, _, _>(|st, _| {
-            // Check if signer to add is already signer
-            if st.is_signer(&params.signer) {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    "Party is already a signer".to_owned(),
-                ));
+        rt.transaction(|st: &mut State, rt| {
+            if is_signer(rt, st, &params.signer)? {
+                return Err(
+                    actor_error!(ErrIllegalArgument; "{} is already a signer", params.signer),
+                );
             }
 
             // Add signer and increase threshold if set
