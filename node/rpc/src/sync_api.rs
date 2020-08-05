@@ -151,7 +151,7 @@ mod tests {
             from_str(r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#)
                 .unwrap();
         match sync_check_bad(Data(state.clone()), Params((cid.clone(),))).await {
-            Ok(reason) => assert_eq!(reason, ""),
+            Ok(reason) => assert_eq!(reason, "Block not marked bad"),
             Err(e) => panic!(e),
         }
 
