@@ -5,11 +5,11 @@
 use super::math::PRECISION;
 
 use clock::ChainEpoch;
+use encoding::tuple::*;
 use encoding::Cbor;
 use num_bigint::{bigint_ser, BigInt};
-use serde::{Deserialize, Serialize};
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct FilterEstimate {
     #[serde(with = "bigint_ser")]
     pub pos: BigInt,
