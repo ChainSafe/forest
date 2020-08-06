@@ -24,8 +24,10 @@ pub struct ConstructorParams {
 
 /// A voucher is sent by `from` to `to` off-chain in order to enable
 /// `to` to redeem payments on-chain in the future
-#[derive(Default, Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct SignedVoucher {
+    /// ChannelAddr is the address of the payment channel this signed voucher is valid for
+    pub channel_addr: Address,
     /// Min epoch before which the voucher cannot be redeemed
     pub time_lock_min: ChainEpoch,
     /// Max epoch beyond which the voucher cannot be redeemed
@@ -87,32 +89,5 @@ impl From<SignedVoucher> for UpdateChannelStateParams {
             secret: vec![],
             sv,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use encoding::{from_slice, to_vec};
-
-    #[test]
-    fn signed_voucher_serialize_optional_unset() {
-        let v = SignedVoucher {
-            time_lock_min: 1,
-            time_lock_max: 2,
-            lane: 3,
-            nonce: 4,
-            amount: BigInt::from(5),
-            signature: Some(Signature::new_bls(b"doesn't matter".to_vec())),
-            ..Default::default()
-        };
-        let bz = to_vec(&v).unwrap();
-        assert_eq!(
-            hex::encode(&bz),
-            hex::encode(
-                &hex::decode("8a010240f6030442000500804f02646f65736e2774206d6174746572").unwrap()
-            )
-        );
-        assert_eq!(from_slice::<SignedVoucher>(&bz).unwrap(), v);
     }
 }

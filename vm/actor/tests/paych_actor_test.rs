@@ -21,8 +21,10 @@ use num_bigint::BigInt;
 use std::collections::HashMap;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
 
-const R_PAYEE_ADDR: u64 = 103;
-const R_PAYER_ADDR: u64 = 102;
+const PAYCH_ID: u64 = 100;
+const PAYER_ID: u64 = 102;
+const PAYEE_ID: u64 = 103;
+
 struct LaneParams {
     epoch_num: ChainEpoch,
     from: Address,
@@ -159,9 +161,12 @@ mod create_lane_tests {
     const PAYER_ADDR: u64 = 102;
     const PAYEE_ADDR: u64 = 103;
     const PAYCH_BALANCE: u64 = 9;
+
     #[derive(Builder, Debug)]
     #[builder(name = "TestCaseBuilder")]
     struct TestCase {
+        #[builder(default = "Address::new_id(PAYCH_ADDR)")]
+        payment_channel: Address,
         desc: String,
         #[builder(default = "ACCOUNT_ACTOR_CODE_ID.clone()")]
         target_code: Cid,
@@ -285,7 +290,10 @@ mod create_lane_tests {
                 nonce: test_case.nonce,
                 amount: BigInt::from(test_case.amt),
                 signature: test_case.sig.clone(),
-                ..SignedVoucher::default()
+                channel_addr: test_case.payment_channel,
+                extra: Default::default(),
+                min_settle_height: Default::default(),
+                merges: Default::default(),
             };
 
             let ucp = UpdateChannelStateParams::from(sv.clone());
@@ -340,14 +348,14 @@ mod update_channel_state_redeem {
     fn redeem_voucher_one_lane() {
         let (mut rt, mut sv) = require_create_cannel_with_lanes(1);
         let state: PState = rt.get_state().unwrap();
-        let payee_addr = Address::new_id(R_PAYEE_ADDR);
+        let payee_addr = Address::new_id(PAYEE_ID);
 
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), payee_addr);
         rt.expect_validate_caller_addr(vec![state.from, state.to]);
 
         sv.amount = BigInt::from(9);
 
-        let payer_addr = Address::new_id(R_PAYER_ADDR);
+        let payer_addr = Address::new_id(PAYER_ID);
 
         rt.expect_verify_signature(ExpectedVerifySig {
             sig: sv.clone().signature.unwrap(),
@@ -383,7 +391,7 @@ mod update_channel_state_redeem {
     fn redeem_voucher_correct_lane() {
         let (mut rt, mut sv) = require_create_cannel_with_lanes(3);
         let state: PState = rt.get_state().unwrap();
-        let payee_addr = Address::new_id(R_PAYEE_ADDR);
+        let payee_addr = Address::new_id(PAYEE_ID);
 
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), payee_addr);
         rt.expect_validate_caller_addr(vec![state.from, state.to]);
@@ -393,7 +401,7 @@ mod update_channel_state_redeem {
         sv.lane = 1;
         let ls_to_update: &LaneState = &state.lane_states[1];
         sv.nonce = ls_to_update.nonce + 1;
-        let payer_addr = Address::new_id(R_PAYER_ADDR);
+        let payer_addr = Address::new_id(PAYER_ID);
 
         rt.expect_verify_signature(ExpectedVerifySig {
             sig: sv.clone().signature.unwrap(),
@@ -433,7 +441,7 @@ mod merge_tests {
     }
 
     fn failure_end(rt: &mut MockRuntime, sv: SignedVoucher, exp_exit_code: ExitCode) {
-        let payee_addr = Address::new_id(R_PAYEE_ADDR);
+        let payee_addr = Address::new_id(PAYEE_ID);
         rt.expect_verify_signature(ExpectedVerifySig {
             sig: sv.clone().signature.unwrap(),
             signer: payee_addr,
@@ -463,7 +471,7 @@ mod merge_tests {
             lane: merge_from.id,
             nonce: merge_nonce,
         }];
-        let payee_addr = Address::new_id(R_PAYEE_ADDR);
+        let payee_addr = Address::new_id(PAYEE_ID);
         rt.expect_verify_signature(ExpectedVerifySig {
             sig: sv.clone().signature.unwrap(),
             signer: payee_addr,
@@ -945,8 +953,8 @@ mod actor_collect {
 
 fn require_create_cannel_with_lanes(num_lanes: u64) -> (MockRuntime, SignedVoucher) {
     let paych_addr = Address::new_id(100);
-    let payer_addr = Address::new_id(R_PAYER_ADDR);
-    let payee_addr = Address::new_id(R_PAYEE_ADDR);
+    let payer_addr = Address::new_id(PAYER_ID);
+    let payee_addr = Address::new_id(PAYEE_ID);
     let balance = TokenAmount::from(100_000);
     let received = TokenAmount::from(0);
     let curr_epoch = 2;
@@ -968,7 +976,7 @@ fn require_create_cannel_with_lanes(num_lanes: u64) -> (MockRuntime, SignedVouch
 
     construct_and_verify(&mut rt, payer_addr, payee_addr);
 
-    let mut last_sv = SignedVoucher::default();
+    let mut last_sv = None;
     for i in 0..num_lanes {
         let lane_param = LaneParams {
             epoch_num: curr_epoch,
@@ -979,10 +987,10 @@ fn require_create_cannel_with_lanes(num_lanes: u64) -> (MockRuntime, SignedVouch
             nonce: i + 1,
         };
 
-        last_sv = require_add_new_lane(&mut rt, lane_param);
+        last_sv = Some(require_add_new_lane(&mut rt, lane_param));
     }
 
-    (rt, last_sv)
+    (rt, last_sv.unwrap())
 }
 
 fn require_add_new_lane(rt: &mut MockRuntime, param: LaneParams) -> SignedVoucher {
@@ -995,7 +1003,11 @@ fn require_add_new_lane(rt: &mut MockRuntime, param: LaneParams) -> SignedVouche
         nonce: param.nonce,
         amount: BigInt::from(param.amt),
         signature: Some(sig.clone()),
-        ..SignedVoucher::default()
+        secret_pre_image: Default::default(),
+        channel_addr: Address::new_id(PAYCH_ID),
+        extra: Default::default(),
+        min_settle_height: Default::default(),
+        merges: Default::default(),
     };
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), param.from);
     rt.expect_validate_caller_addr(vec![param.from, param.to]);
@@ -1018,7 +1030,11 @@ fn require_add_new_lane(rt: &mut MockRuntime, param: LaneParams) -> SignedVouche
         nonce: param.nonce,
         amount: BigInt::from(param.amt),
         signature: Some(sig.clone()),
-        ..SignedVoucher::default()
+        secret_pre_image: Default::default(),
+        channel_addr: Address::new_id(PAYCH_ID),
+        extra: Default::default(),
+        min_settle_height: Default::default(),
+        merges: Default::default(),
     }
 }
 
