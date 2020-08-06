@@ -72,55 +72,61 @@ impl WalletCommands {
         // TODO add verify and import cmds
         match self {
             Self::Balance { address } => {
-                let client = new_client();
+                let mut client = new_client();
 
-                let balance = balance(client, address.to_string())
+                let balance = balance(&mut client, address.to_string())
                     .await
                     .map_err(stringify_rpc_err)
                     .unwrap();
                 println!("{}", balance);
             }
             Self::New { sig_type } => {
-                let client = new_client();
+                let mut client = new_client();
 
                 let sig = sig_type.parse().unwrap();
-                let addr = new(client, sig).await.map_err(stringify_rpc_err).unwrap();
+                let addr = new(&mut client, sig)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
                 println!("{}", addr);
             }
             Self::List => {
-                let client = new_client();
+                let mut client = new_client();
 
-                let addresses = list(client).await.map_err(stringify_rpc_err).unwrap();
+                let addresses = list(&mut client).await.map_err(stringify_rpc_err).unwrap();
                 println!("{:?}", addresses);
             }
             Self::SetDefault { address } => {
-                let client = new_client();
+                let mut client = new_client();
 
-                set_default(client, address.to_string())
+                set_default(&mut client, address.to_string())
                     .await
                     .map_err(stringify_rpc_err)
                     .unwrap();
                 println!("Default wallet address set: {}", address.to_string());
             }
             Self::Def => {
-                let client = new_client();
+                let mut client = new_client();
 
-                let def = default(client).await.map_err(stringify_rpc_err).unwrap();
+                let def = default(&mut client)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
                 println!("{}", def);
             }
             Self::Export { address } => {
-                let client = new_client();
+                let mut client = new_client();
 
-                let exp = export(client, address.to_string())
+                let exp = export(&mut client, address.to_string())
                     .await
                     .map_err(stringify_rpc_err)
                     .unwrap();
                 println!("{}", serde_json::to_string_pretty(&exp).unwrap());
             }
             Self::Sign { address, message } => {
-                let client = new_client();
+                let mut client = new_client();
 
-                let signed = sign(client, (address.to_string(), message.to_string()))
+                let signed = sign(&mut client, (address.to_string(), message.to_string()))
                     .await
                     .map_err(stringify_rpc_err)
                     .unwrap();
