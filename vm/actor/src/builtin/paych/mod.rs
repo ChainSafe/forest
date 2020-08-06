@@ -248,19 +248,14 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let epoch = rt.curr_epoch();
-        let st: State = rt.state()?;
-        rt.validate_immediate_caller_is([st.from, st.to].iter())?;
+        rt.transaction(|st: &mut State, rt| {
+            rt.validate_immediate_caller_is([st.from, st.to].iter())?;
 
-        rt.transaction(|st: &mut State, _| {
             if st.settling_at != 0 {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "channel already settling".to_owned(),
-                ));
+                return Err(actor_error!(ErrIllegalState; "channel already settling"));
             }
 
-            st.settling_at = epoch + SETTLE_DELAY;
+            st.settling_at = rt.curr_epoch() + SETTLE_DELAY;
             if st.settling_at < st.min_settle_height {
                 st.settling_at = st.min_settle_height;
             }
