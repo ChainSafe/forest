@@ -296,6 +296,7 @@ dependencies = [
  "ipld_hamt",
  "lazy_static",
  "libp2p 0.21.1",
+ "log",
  "num-derive",
  "num-traits 0.2.12",
  "runtime",

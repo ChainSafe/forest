@@ -4,7 +4,7 @@
 use super::deadlines::{compute_proving_period_deadline, DeadlineInfo};
 use super::policy::*;
 use super::types::*;
-use crate::{power, u64_key, BytesKey, HAMT_BIT_WIDTH};
+use crate::{power, u64_key, BytesKey, DealWeight, HAMT_BIT_WIDTH};
 use address::Address;
 use ahash::AHashSet;
 use bitfield::BitField;
@@ -17,7 +17,6 @@ use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
 use num_bigint::bigint_ser::{self, BigIntDe};
 use num_bigint::BigInt;
-use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use num_traits::Zero;
 use vm::TokenAmount;
@@ -802,8 +801,8 @@ impl SectorOnChainInfo {
     pub fn new(
         info: SectorPreCommitInfo,
         activation_epoch: ChainEpoch,
-        deal_weight: BigUint,
-        verified_deal_weight: BigUint,
+        deal_weight: DealWeight,
+        verified_deal_weight: DealWeight,
     ) -> Self {
         Self {
             info,
