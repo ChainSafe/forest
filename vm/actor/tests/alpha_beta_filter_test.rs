@@ -4,6 +4,7 @@
 use actor::math::{parse, PRECISION};
 use actor::smooth::extrapolated_cum_sum_of_ratio as ecsor;
 use actor::smooth::*;
+use actor::alpha_beta_filter::FilterEstimate;
 
 use num_bigint::BigInt;
 
@@ -158,12 +159,12 @@ fn flipped_signs() {
 
 #[test]
 fn values_in_range() {
-    let tens_Of_fil = BigInt::from(50 * 10_i128.pow(18));
+    let tens_of_fil = BigInt::from(50 * 10_i128.pow(18));
     let one_fil_per_sec = BigInt::from(25);
     let four_fil_per_second = BigInt::from(100);
 
-    let slow_money = testing_estimate(tens_Of_fil.clone(), one_fil_per_sec);
-    let fast_money = testing_estimate(tens_Of_fil.clone(), four_fil_per_second);
+    let slow_money = testing_estimate(tens_of_fil.clone(), one_fil_per_sec);
+    let fast_money = testing_estimate(tens_of_fil.clone(), four_fil_per_second);
 
     let tens_of_ei_bs = StoragePower::from(10_i128.pow(19));
     let thousands_of_ei_bs = StoragePower::from(2 * 10_i128.pow(22));
