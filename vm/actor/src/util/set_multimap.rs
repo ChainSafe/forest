@@ -47,6 +47,22 @@ where
         Ok(self.0.set(u64_key(key as u64), &new_root)?)
     }
 
+    /// Puts slice of DealIDs in the hash set of the key.
+    pub fn put_many(&mut self, key: ChainEpoch, values: &[DealID]) -> Result<(), String> {
+        // Get construct amt from retrieved cid or create new
+        let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
+
+        for &v in values {
+            set.put(u64_key(v))?;
+        }
+
+        // Save and calculate new root
+        let new_root = set.root()?;
+
+        // Set hamt node to set new root
+        Ok(self.0.set(u64_key(key as u64), &new_root)?)
+    }
+
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
     pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, String> {

@@ -161,6 +161,33 @@ where
         }
     }
 
+    /// Returns `true` if a value exists for the given key in the HAMT.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// `Hash` and `Eq` on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ipld_hamt::Hamt;
+    ///
+    /// let store = db::MemoryDB::default();
+    ///
+    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// map.set(1, "a".to_string()).unwrap();
+    /// assert_eq!(map.contains_key(&1).unwrap(), true);
+    /// assert_eq!(map.contains_key(&2).unwrap(), false);
+    /// ```
+    #[inline]
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, Error>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        Ok(self.root.get(k, self.store, self.bit_width)?.is_some())
+    }
+
     /// Removes a key from the HAMT, returning the value at the key if the key
     /// was previously in the HAMT.
     ///
