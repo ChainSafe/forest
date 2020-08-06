@@ -43,10 +43,10 @@ impl Actor {
 
         // Check both parties are capable of signing vouchers
         let to = Self::resolve_account(rt, &params.to)
-            .map_err(|e| actor_error!(ErrIllegalArgument; e))?;
+            .map_err(|e| actor_error!(ErrIllegalArgument; e.msg()))?;
 
         let from = Self::resolve_account(rt, &params.from)
-            .map_err(|e| actor_error!(ErrIllegalArgument; e))?;
+            .map_err(|e| actor_error!(ErrIllegalArgument; e.msg()))?;
 
         rt.create(&State::new(from, to))?;
         Ok(())
