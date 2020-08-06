@@ -1,14 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused_variables, unused_imports)]
-
 use super::stringify_rpc_err;
-use rpc_client::{
-    balance, default, export, import, list, new, new_client, set_default, sign, verify,
-};
+use rpc_client::{balance, default, export, list, new, new_client, set_default, sign};
 use structopt::StructOpt;
-use wallet::{get_sig_type, KeyInfo};
 
 #[derive(Debug, StructOpt)]
 pub enum WalletCommands {
@@ -28,7 +23,7 @@ pub enum WalletCommands {
         #[structopt(
             short,
             default_value = "secp256k1",
-            help = "Input signature type [bls | secp256k1] (default secp256k1"
+            help = "Input signature type [bls | secp256k1] (default secp256k1)"
         )]
         sig_type: String,
     },
@@ -74,7 +69,7 @@ pub enum WalletCommands {
 
 impl WalletCommands {
     pub async fn run(&self) {
-        // TODO handle cli config
+        // TODO add verify and import cmds
         match self {
             Self::Balance { address } => {
                 let client = new_client();
@@ -88,7 +83,7 @@ impl WalletCommands {
             Self::New { sig_type } => {
                 let client = new_client();
 
-                let sig = get_sig_type(sig_type).unwrap();
+                let sig = sig_type.parse().unwrap();
                 let addr = new(client, sig).await.map_err(stringify_rpc_err).unwrap();
                 println!("{}", addr);
             }

@@ -11,6 +11,7 @@ use encoding::{blake2b_256, de, repr::*, ser, serde_bytes};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
+use std::str::FromStr;
 
 /// BLS signature length in bytes
 pub const BLS_SIG_LEN: usize = 96;
@@ -31,6 +32,21 @@ pub enum SignatureType {
 impl Default for SignatureType {
     fn default() -> Self {
         SignatureType::BLS
+    }
+}
+
+impl FromStr for SignatureType {
+    type Err = String;
+
+    fn from_str(sig_type: &str) -> Result<Self, String> {
+        match sig_type {
+            "bls" => Ok(SignatureType::BLS),
+            "secp256k1" => Ok(SignatureType::Secp256k1),
+            _ => Err(format!(
+                "Invalid signature type: {}, must be either bls or secp256k1",
+                sig_type
+            )),
+        }
     }
 }
 
