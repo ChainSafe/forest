@@ -5531,6 +5531,7 @@ dependencies = [
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",
+ "log",
  "message_pool",
  "num-traits 0.2.12",
  "serde",
