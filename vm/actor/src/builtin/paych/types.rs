@@ -5,7 +5,7 @@ use super::Merge;
 use address::Address;
 use clock::ChainEpoch;
 use crypto::Signature;
-use encoding::{serde_bytes, tuple::*};
+use encoding::{error::Error, serde_bytes, to_vec, tuple::*};
 use num_bigint::{bigint_ser, BigInt};
 use vm::{MethodNum, Serialized};
 
@@ -54,6 +54,43 @@ pub struct SignedVoucher {
 
     /// Sender's signature over the voucher (sign on none)
     pub signature: Option<Signature>,
+}
+
+impl SignedVoucher {
+    pub fn signing_bytes(&self) -> Result<Vec<u8>, Error> {
+        /// Helper struct to avoid cloning for serializing structure.
+        #[derive(Serialize_tuple)]
+        struct SignedVoucherSer<'a> {
+            pub channel_addr: &'a Address,
+            pub time_lock_min: ChainEpoch,
+            pub time_lock_max: ChainEpoch,
+            #[serde(with = "serde_bytes")]
+            pub secret_pre_image: &'a [u8],
+            pub extra: &'a Option<ModVerifyParams>,
+            pub lane: u64,
+            pub nonce: u64,
+            #[serde(with = "bigint_ser")]
+            pub amount: &'a BigInt,
+            pub min_settle_height: ChainEpoch,
+            pub merges: &'a [Merge],
+            pub signature: (),
+        }
+        let osv = SignedVoucherSer {
+            channel_addr: &self.channel_addr,
+            time_lock_min: self.time_lock_min,
+            time_lock_max: self.time_lock_max,
+            secret_pre_image: &self.secret_pre_image,
+            extra: &self.extra,
+            lane: self.lane,
+            nonce: self.nonce,
+            amount: &self.amount,
+            min_settle_height: self.min_settle_height,
+            merges: &self.merges,
+            signature: (),
+        };
+        // Cbor serialize struct
+        to_vec(&osv)
+    }
 }
 
 /// Modular Verification method
