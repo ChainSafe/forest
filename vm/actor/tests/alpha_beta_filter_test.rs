@@ -1,10 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use actor::alpha_beta_filter::FilterEstimate;
 use actor::math::{parse, PRECISION};
 use actor::smooth::extrapolated_cum_sum_of_ratio as ecsor;
 use actor::smooth::*;
-use actor::alpha_beta_filter::FilterEstimate;
 
 use num_bigint::BigInt;
 
