@@ -18,6 +18,8 @@ use vm::{
     METHOD_SEND,
 };
 
+// * Updated to specs-actors commit: 2a207366baa881a599fe246dc7862eaa774be2f8 (0.8.6)
+
 /// Payment Channel actor methods available
 #[derive(FromPrimitive)]
 #[repr(u64)]
@@ -42,6 +44,7 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*INIT_ACTOR_CODE_ID))?;
 
         // Check both parties are capable of signing vouchers
+        // TODO This was indicated as incorrect, fix when updated on specs-actors
         let to = Self::resolve_account(rt, &params.to)
             .map_err(|e| actor_error!(ErrIllegalArgument; e.msg()))?;
 
