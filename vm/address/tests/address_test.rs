@@ -559,3 +559,24 @@ fn set_network() {
     assert_eq!(addr.network(), Network::Mainnet);
     assert_eq!(addr.to_string(), "f01");
 }
+
+#[test]
+fn invalid_strings_tests() {
+    let invalid_strings = &[
+        "fömk3zcefvlgpay4f32c5vmruk5gqig6dumc7pz6q",
+        "🗻∈🌏ömk3zcefvlgpay4f32c5vmruk5gqig6dumc7",
+        "ö",
+    ];
+    for s in invalid_strings {
+        assert!(Address::from_str(s).is_err());
+    }
+
+    let non_utf8_unchecked: &[&[u8]] = &[
+        b"\xF0\x90\x80",
+        b"f\xF0\x90\x80mk3zcefvlgpay4f32c5vmruk5gqig6dumc7pz6q",
+    ];
+    for s in non_utf8_unchecked {
+        let st = unsafe { std::str::from_utf8_unchecked(s.as_ref()) };
+        assert!(Address::from_str(st).is_err());
+    }
+}

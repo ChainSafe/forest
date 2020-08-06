@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::DealWeight;
 use address::Address;
 use bitfield::BitField;
 use cid::Cid;
@@ -8,7 +9,6 @@ use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*};
 use fil_types::{PoStProof, RegisteredSealProof, SectorNumber};
 use num_bigint::bigint_ser;
-use num_bigint::{biguint_ser, BigUint};
 use vm::{DealID, TokenAmount};
 
 pub type CronEvent = i64;
@@ -152,11 +152,11 @@ pub struct SectorOnChainInfo {
     /// Epoch at which SectorProveCommit is accepted
     pub activation_epoch: ChainEpoch,
     /// Integral of active deals over sector lifetime, 0 if CommittedCapacity sector
-    #[serde(with = "biguint_ser")]
-    pub deal_weight: BigUint,
+    #[serde(with = "bigint_ser")]
+    pub deal_weight: DealWeight,
     /// Integral of active verified deals over sector lifetime
-    #[serde(with = "biguint_ser")]
-    pub verified_deal_weight: BigUint,
+    #[serde(with = "bigint_ser")]
+    pub verified_deal_weight: DealWeight,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]

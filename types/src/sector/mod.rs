@@ -11,7 +11,6 @@ pub use self::seal::*;
 
 use encoding::{repr::*, tuple::*};
 use num_bigint::BigInt;
-use num_bigint::BigUint;
 use num_derive::FromPrimitive;
 use std::fmt;
 use vm::ActorID;
@@ -22,10 +21,10 @@ pub type SectorNumber = u64;
 pub type StoragePower = BigInt;
 
 /// The unit of spacetime committed to the network
-pub type Spacetime = BigUint;
+pub type Spacetime = BigInt;
 
 /// Unit of sector quality
-pub type SectorQuality = BigUint;
+pub type SectorQuality = BigInt;
 
 /// SectorSize indicates one of a set of possible sizes in the network.
 #[derive(Clone, Debug, PartialEq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
