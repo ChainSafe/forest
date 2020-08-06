@@ -273,34 +273,17 @@ impl Actor {
         rt.validate_immediate_caller_is(&[st.from, st.to])?;
 
         if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {
-            return Err(rt.abort(
-                ExitCode::ErrForbidden,
-                "payment channel not settling or settled",
-            ));
+            return Err(actor_error!(ErrForbidden; "payment channel not settling or settled"));
         }
 
-        // TODO revisit: Spec doesn't check this, could be possible balance is below to_send?
-        let rem_bal = rt
-            .current_balance()?
-            .checked_sub(&st.to_send)
-            .ok_or_else(|| {
-                rt.abort(
-                    ExitCode::ErrInsufficientFunds,
-                    "Cannot send more than remaining balance",
-                )
-            })?;
-
-        // send remaining balance to `from`
-        rt.send(st.from, METHOD_SEND, Serialized::default(), rem_bal)?;
-
         // send ToSend to `to`
-        rt.send(st.to, METHOD_SEND, Serialized::default(), st.to_send)?;
+        rt.send(st.to, METHOD_SEND, Serialized::default(), st.to_send)
+            .map_err(|e| e.wrap("Failed to send funds to `to` address: "))?;
 
-        rt.transaction(|st: &mut State, _| {
-            st.to_send = TokenAmount::from(0u8);
+        // the remaining balance will be returned to "From" upon deletion.
+        rt.delete_actor(&st.from)?;
 
-            Ok(())
-        })?
+        Ok(())
     }
 }
 
@@ -325,7 +308,11 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap())?;
+                Self::constructor(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::UpdateChannelState) => {
+                Self::update_channel_state(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             Some(Method::Settle) => {
@@ -336,10 +323,6 @@ impl ActorCode for Actor {
             Some(Method::Collect) => {
                 check_empty_params(params)?;
                 Self::collect(rt)?;
-                Ok(Serialized::default())
-            }
-            Some(Method::UpdateChannelState) => {
-                Self::update_channel_state(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             _ => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
