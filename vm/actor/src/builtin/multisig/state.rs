@@ -1,22 +1,19 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Transaction, TxnID};
-use crate::BytesKey;
+use super::TxnID;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
-use ipld_blockstore::BlockStore;
-use ipld_hamt::Hamt;
 use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
 /// Multisig actor state
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct State {
     pub signers: Vec<Address>,
-    pub num_approvals_threshold: i64,
+    pub num_approvals_threshold: usize,
     pub next_tx_id: TxnID,
 
     // Linear unlock
@@ -32,29 +29,25 @@ impl State {
     /// Returns amount locked in multisig contract
     pub fn amount_locked(&self, elapsed_epoch: ChainEpoch) -> TokenAmount {
         if elapsed_epoch >= self.unlock_duration {
-            return TokenAmount::from(0u8);
+            return TokenAmount::from(0);
         }
-        let unit_locked = self.initial_balance.clone() / self.unlock_duration as u64;
-        unit_locked * (self.unlock_duration - elapsed_epoch) as u64
-    }
-
-    pub(crate) fn is_signer(&self, addr: &Address) -> bool {
-        for s in &self.signers {
-            if addr == s {
-                return true;
-            }
-        }
-        false
+        let unit_locked: TokenAmount = self.initial_balance.clone() / self.unlock_duration;
+        unit_locked * (self.unlock_duration - elapsed_epoch)
     }
 
     pub(crate) fn check_available(
         &self,
         balance: TokenAmount,
-        amount_to_spend: TokenAmount,
+        amount_to_spend: &TokenAmount,
         curr_epoch: ChainEpoch,
     ) -> Result<(), String> {
-        // * Note `< 0` check skipped because `TokenAmount` is big uint
-        if balance < amount_to_spend {
+        if amount_to_spend < &0.into() {
+            return Err(format!(
+                "amount to spend {} less than zero",
+                amount_to_spend
+            ));
+        }
+        if &balance < amount_to_spend {
             return Err(format!(
                 "current balance {} less than amount to spend {}",
                 balance, amount_to_spend
@@ -69,45 +62,6 @@ impl State {
                 remaining_balance, amount_locked
             ));
         }
-        Ok(())
-    }
-
-    pub(crate) fn get_pending_transaction<BS: BlockStore>(
-        &self,
-        s: &BS,
-        txn_id: TxnID,
-    ) -> Result<Transaction, String> {
-        let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
-        match map.get(&txn_id.key()) {
-            Ok(Some(tx)) => Ok(tx),
-            Ok(None) => Err(format!(
-                "failed to find transaction {} in HAMT {}",
-                txn_id.0, self.pending_txs
-            )),
-            Err(e) => Err(format!("failed to read transaction: {}", e)),
-        }
-    }
-
-    pub(crate) fn put_pending_transaction<BS: BlockStore>(
-        &mut self,
-        s: &BS,
-        txn_id: TxnID,
-        txn: Transaction,
-    ) -> Result<(), String> {
-        let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
-        map.set(txn_id.key(), txn)?;
-        self.pending_txs = map.flush()?;
-        Ok(())
-    }
-
-    pub(crate) fn delete_pending_transaction<BS: BlockStore>(
-        &mut self,
-        s: &BS,
-        txn_id: TxnID,
-    ) -> Result<(), String> {
-        let mut map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&self.pending_txs, s, 5)?;
-        map.delete(&txn_id.key())?;
-        self.pending_txs = map.flush()?;
         Ok(())
     }
 }
