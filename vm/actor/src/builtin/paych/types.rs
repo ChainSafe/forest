@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Merge;
+use crate::network::EPOCHS_IN_HOUR;
 use address::Address;
 use clock::ChainEpoch;
 use crypto::Signature;
@@ -12,8 +13,7 @@ use vm::{MethodNum, Serialized};
 /// Maximum number of lanes in a channel
 pub const LANE_LIMIT: usize = 256;
 
-// TODO replace placeholder when params finished
-pub const SETTLE_DELAY: ChainEpoch = 1;
+pub const SETTLE_DELAY: ChainEpoch = EPOCHS_IN_HOUR * 12;
 
 /// Constructor parameters for payment channel actor
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -34,7 +34,6 @@ pub struct SignedVoucher {
     /// set to 0 means no timeout
     pub time_lock_max: ChainEpoch,
     /// (optional) Used by `to` to validate
-    // TODO revisit this type, can probably be a 32 byte array
     #[serde(with = "serde_bytes")]
     pub secret_pre_image: Vec<u8>,
     /// (optional) Specified by `from` to add a verification method to the voucher
@@ -105,7 +104,6 @@ pub struct ModVerifyParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PaymentVerifyParams {
     pub extra: Serialized,
-    // TODO revisit these to see if they should be arrays or optional
     #[serde(with = "serde_bytes")]
     pub proof: Vec<u8>,
 }

@@ -111,7 +111,12 @@ impl Actor {
         // Validate signature
         rt.syscalls()
             .verify_signature(&sig, &signer, &sv_bz)
-            .map_err(|e| actor_error!(ErrIllegalArgument; "voucher signature invalid: {}", e))?;
+            .map_err(|e| match e.downcast::<ActorError>() {
+                Ok(actor_err) => *actor_err,
+                Err(other) => {
+                    actor_error!(ErrIllegalArgument; "voucher signature invalid: {}", other)
+                }
+            })?;
 
         let pch_addr = rt.message().receiver();
         if pch_addr != &sv.channel_addr {
@@ -174,12 +179,10 @@ impl Actor {
                 lane_found = false;
             };
 
-            if lane_found {
-                if st.lane_states[idx].nonce >= sv.nonce {
-                    return Err(actor_error!(ErrIllegalArgument;
+            if lane_found && st.lane_states[idx].nonce >= sv.nonce {
+                return Err(actor_error!(ErrIllegalArgument;
                         "voucher has an outdated nonce, existing: {}, voucher: {}, cannot redeem",
                         st.lane_states[idx].nonce, sv.nonce));
-                }
             }
 
             // The next section actually calculates the payment amounts to update

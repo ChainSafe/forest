@@ -49,11 +49,13 @@ pub struct MockRuntime {
     pub expect_validate_caller_type: Option<Vec<Cid>>,
     pub expect_sends: VecDeque<ExpectedMessage>,
     pub expect_create_actor: Option<ExpectCreateActor>,
-    pub expect_verify_sigs: RefCell<Vec<ExpectedVerifySig>>,
+    pub expect_delete_actor: Option<Address>,
+    pub expect_verify_sigs: RefCell<VecDeque<ExpectedVerifySig>>,
     pub expect_verify_seal: RefCell<Option<ExpectVerifySeal>>,
     pub expect_verify_post: RefCell<Option<ExpectVerifyPoSt>>,
     pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid>>,
     pub expect_verify_consensus_fault: RefCell<Option<ExpectVerifyConsensusFault>>,
+    pub hash_func: Box<dyn Fn(&[u8]) -> [u8; 32]>,
 }
 
 impl Default for MockRuntime {
@@ -79,11 +81,13 @@ impl Default for MockRuntime {
             expect_validate_caller_type: Default::default(),
             expect_sends: Default::default(),
             expect_create_actor: Default::default(),
+            expect_delete_actor: Default::default(),
             expect_verify_sigs: Default::default(),
             expect_verify_seal: Default::default(),
             expect_verify_post: Default::default(),
             expect_compute_unsealed_sector_cid: Default::default(),
             expect_verify_consensus_fault: Default::default(),
+            hash_func: Box::new(|_| [0u8; 32]),
         }
     }
 }
@@ -105,12 +109,12 @@ pub struct ExpectedMessage {
     pub exit_code: ExitCode,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ExpectedVerifySig {
     pub sig: Signature,
     pub signer: Address,
     pub plaintext: Vec<u8>,
-    pub result: ExitCode,
+    pub result: Result<(), Box<dyn StdError>>,
 }
 
 #[derive(Clone, Debug)]
@@ -164,14 +168,11 @@ impl MockRuntime {
     }
 
     #[allow(dead_code)]
-    pub fn get_state<T: DeserializeOwned>(&self) -> Result<T, ActorError> {
-        let data: T = self
-            .store
-            .get(&self.state.as_ref().unwrap())
-            .unwrap()
-            .unwrap();
-        Ok(data)
+    pub fn get_state<T: Cbor>(&self) -> Result<T, ActorError> {
+        // TODO this doesn't handle errors exactly as go implementation
+        self.state()
     }
+
     pub fn expect_validate_caller_addr(&mut self, addr: Vec<Address>) {
         assert!(addr.len() > 0, "addrs must be non-empty");
         self.expect_validate_caller_addr = Some(addr);
@@ -179,7 +180,7 @@ impl MockRuntime {
 
     #[allow(dead_code)]
     pub fn expect_verify_signature(&self, exp: ExpectedVerifySig) {
-        self.expect_verify_sigs.borrow_mut().push(exp);
+        self.expect_verify_sigs.borrow_mut().push_back(exp);
     }
 
     #[allow(dead_code)]
@@ -215,6 +216,11 @@ impl MockRuntime {
     #[allow(dead_code)]
     pub fn expect_validate_caller_any(&self) {
         self.expect_validate_caller_any.set(true);
+    }
+
+    #[allow(dead_code)]
+    pub fn expect_delete_actor(&mut self, beneficiary: Address) {
+        self.expect_delete_actor = Some(beneficiary);
     }
 
     pub fn call(
@@ -614,12 +620,23 @@ impl Runtime<MemoryDB> for MockRuntime {
         Ok(())
     }
 
-    fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
+    fn delete_actor(&mut self, addr: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
             return Err(actor_error!(SysErrorIllegalActor; "side-effect within transaction"));
         }
-        todo!("implement me???")
+        let exp_act = self.expect_delete_actor.take();
+        if exp_act.is_none() {
+            panic!("unexpected call to delete actor: {}", addr);
+        }
+        if exp_act.as_ref().unwrap() != addr {
+            panic!(
+                "attempt to delete wrong actor. Expected: {}, got: {}",
+                exp_act.unwrap(),
+                addr
+            );
+        }
+        Ok(())
     }
 
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
@@ -638,30 +655,39 @@ impl Syscalls for MockRuntime {
         signer: &Address,
         plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
-        if self.expect_verify_sigs.borrow().len() == 0 {
-            return Err(Box::new(
-                actor_error!(ErrIllegalState; "Unexpected signature verification"),
-            ));
+        if self.expect_verify_sigs.borrow().is_empty() {
+            panic!(
+                "Unexpected signature verification sig: {:?}, signer: {}, plaintext: {}",
+                signature,
+                signer,
+                hex::encode(plaintext)
+            );
         }
-        let exp = self
-            .expect_verify_sigs
-            .borrow_mut()
-            .pop()
-            .ok_or(actor_error!(ErrIllegalState; "Unexpected signature verification"))?;
-        if exp.sig == *signature && exp.signer == *signer && &exp.plaintext[..] == plaintext {
-            if exp.result == ExitCode::Ok {
-                return Ok(());
-            } else {
-                return Err(Box::new(ActorError::new(
-                    exp.result,
-                    "Expected failure".to_string(),
-                )));
+        let exp = self.expect_verify_sigs.borrow_mut().pop_front();
+        if let Some(exp) = exp {
+            if exp.sig != *signature || exp.signer != *signer || &exp.plaintext[..] != plaintext {
+                panic!(
+                    "unexpected signature verification\n\
+                    sig: {:?}, signer: {}, plaintext: {}\n\
+                    expected sig: {:?}, signer: {}, plaintext: {}",
+                    signature,
+                    signer,
+                    hex::encode(plaintext),
+                    exp.sig,
+                    exp.signer,
+                    hex::encode(exp.plaintext)
+                )
             }
+            exp.result?
         } else {
-            return Err(Box::new(
-                actor_error!(ErrIllegalState; "Signatures did not match"),
-            ));
+            panic!(
+                "unexpected syscall to verify signature: {:?}, signer: {}, plaintext: {}",
+                signature,
+                signer,
+                hex::encode(plaintext)
+            )
         }
+        Ok(())
     }
 
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
