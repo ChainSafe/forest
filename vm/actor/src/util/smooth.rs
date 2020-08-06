@@ -1,18 +1,38 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[macro_use]
-extern crate lazy_static;
-
 use num_bigint::BigInt;
 
-mod alpha_beta_filter;
-mod constants;
-pub use alpha_beta_filter::*;
+use super::alpha_beta_filter::*;
+
+use crate::math::{parse, poly_val, PRECISION};
 use clock::ChainEpoch;
-use constants::*;
-use forest_math::{poly_val, PRECISION};
 use num_traits::sign::Signed;
+
+lazy_static! {
+    pub static ref NUM: Vec<BigInt> = parse(&[
+        "261417938209272870992496419296200268025",
+        "7266615505142943436908456158054846846897",
+        "32458783941900493142649393804518050491988",
+        "17078670566130897220338060387082146864806",
+        "-35150353308172866634071793531642638290419",
+        "-20351202052858059355702509232125230498980",
+        "-1563932590352680681114104005183375350999",
+    ])
+    .unwrap();
+    pub static ref DENOM: Vec<BigInt> = parse(&[
+        "49928077726659937662124949977867279384",
+        "2508163877009111928787629628566491583994",
+        "21757751789594546643737445330202599887121",
+        "53400635271583923415775576342898617051826",
+        "41248834748603606604000911015235164348839",
+        "9015227820322455780436733526367238305537",
+        "340282366920938463463374607431768211456",
+    ])
+    .unwrap();
+    pub static ref LN_2: BigInt = "235865763225513294137944142764154484399".parse().unwrap();
+    pub static ref EPSILON: BigInt = "302231454903657293676544".parse().unwrap();
+}
 
 fn get_bit_len(z: &BigInt) -> usize {
     z.abs().to_radix_le(2).1.len()

@@ -1,8 +1,0 @@
-[package]
-name = "forest_math"
-version = "0.1.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
-
-[dependencies]
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

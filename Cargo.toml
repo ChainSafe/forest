@@ -33,8 +33,6 @@ members = [
     "utils/test_utils",
     "utils/commcid",
     "utils/json_utils",
-    "utils/smoothing",
-    "utils/math",
     "types",
     "key_management",
 ]

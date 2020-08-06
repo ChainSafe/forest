@@ -1,9 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(dead_code)]
+use super::math::PRECISION;
+
 use clock::ChainEpoch;
 use encoding::Cbor;
-use forest_math::PRECISION;
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
 
