@@ -1,16 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::alpha_beta_filter::*;
+use crate::math::{poly_parse, poly_val, PRECISION};
+use clock::ChainEpoch;
 use num_bigint::BigInt;
 
-use super::alpha_beta_filter::*;
-
-use crate::math::{parse, poly_val, PRECISION};
-use clock::ChainEpoch;
-use num_traits::sign::Signed;
-
 lazy_static! {
-    pub static ref NUM: Vec<BigInt> = parse(&[
+    pub static ref NUM: Vec<BigInt> = poly_parse(&[
         "261417938209272870992496419296200268025",
         "7266615505142943436908456158054846846897",
         "32458783941900493142649393804518050491988",
@@ -20,7 +17,7 @@ lazy_static! {
         "-1563932590352680681114104005183375350999",
     ])
     .unwrap();
-    pub static ref DENOM: Vec<BigInt> = parse(&[
+    pub static ref DENOM: Vec<BigInt> = poly_parse(&[
         "49928077726659937662124949977867279384",
         "2508163877009111928787629628566491583994",
         "21757751789594546643737445330202599887121",
@@ -34,10 +31,11 @@ lazy_static! {
     pub static ref EPSILON: BigInt = "302231454903657293676544".parse().unwrap();
 }
 
-fn get_bit_len(z: &BigInt) -> usize {
-    z.abs().to_radix_le(2).1.len()
+fn get_bit_len(z: &BigInt) -> u64 {
+    z.bits()
 }
 
+/// Extrapolate the CumSumRatio given two filters.
 pub fn extrapolated_cum_sum_of_ratio(
     delta: ChainEpoch,
     relative_start: ChainEpoch,
@@ -47,14 +45,14 @@ pub fn extrapolated_cum_sum_of_ratio(
     let delta_t = BigInt::from(delta) << PRECISION;
     let t0 = BigInt::from(relative_start) << PRECISION;
 
-    let pos_1 = &est_num.pos;
-    let pos_2 = &est_denom.pos;
-    let velo_1 = &est_num.velo;
-    let velo_2 = &est_denom.velo;
+    let pos_1 = &est_num.position;
+    let pos_2 = &est_denom.position;
+    let velo_1 = &est_num.velocity;
+    let velo_2 = &est_denom.velocity;
 
     let squared_velo_2 = (velo_2 * velo_2) >> PRECISION;
 
-    if squared_velo_2 >= *EPSILON {
+    if squared_velo_2 > *EPSILON {
         let mut x2a = ((velo_2 * t0) >> PRECISION) + pos_2;
         let mut x2b = ((velo_2 * &delta_t) >> PRECISION) + &x2a;
         x2a = ln(&x2a);
@@ -76,26 +74,20 @@ pub fn extrapolated_cum_sum_of_ratio(
     (x1m * delta_t) / pos_2
 }
 
+/// The natural log of Q.128 x.
 pub fn ln(z: &BigInt) -> BigInt {
     let k: i64 = get_bit_len(z) as i64 - 1 - PRECISION as i64;
 
     let x: BigInt = if k > 0 { z >> k } else { z << k.abs() };
 
-    BigInt::from(k) * &*LN_2 + ln_between_one_and_two(x)
+    (BigInt::from(k) * &*LN_2) + ln_between_one_and_two(x)
 }
 
+/// The natural log of x, specified in Q.128 format
+/// Should only use with 1 <= x <= 2
+/// Output is in Q.128 format.
 fn ln_between_one_and_two(x: BigInt) -> BigInt {
     let num = poly_val(&NUM, &x) << PRECISION;
     let denom = poly_val(&DENOM, &x);
     num / denom
-}
-
-// Returns an estimate with position val and velocity 0
-pub fn testing_constant_estimate(val: BigInt) -> FilterEstimate {
-    FilterEstimate::new(val, BigInt::from(0u8))
-}
-
-// Returns and estimate with postion x and velocity v
-pub fn testing_estimate(x: BigInt, v: BigInt) -> FilterEstimate {
-    FilterEstimate::new(x, v)
 }

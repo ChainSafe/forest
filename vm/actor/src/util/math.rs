@@ -17,6 +17,6 @@ pub fn poly_val(poly: &[BigInt], x: &BigInt) -> BigInt {
     res
 }
 
-pub fn parse(coefs: &[&str]) -> Result<Vec<BigInt>, ParseBigIntError> {
+pub fn poly_parse(coefs: &[&str]) -> Result<Vec<BigInt>, ParseBigIntError> {
     coefs.iter().map(|c| c.parse()).collect()
 }

@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//TODO Remove Allow dead code when AlphaBetaFilter is used
 #![allow(dead_code)]
-use super::math::PRECISION;
-
+use crate::util::math::PRECISION;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use encoding::Cbor;
@@ -12,27 +12,30 @@ use num_bigint::{bigint_ser, BigInt};
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct FilterEstimate {
     #[serde(with = "bigint_ser")]
-    pub pos: BigInt,
+    pub position: BigInt,
     #[serde(with = "bigint_ser")]
-    pub velo: BigInt,
+    pub velocity: BigInt,
 }
 
 impl FilterEstimate {
-    pub fn new(pos: BigInt, velo: BigInt) -> Self {
+    /// Create a new filter estimate given two Q.0 format ints.
+    pub fn new(position: BigInt, velocity: BigInt) -> Self {
         FilterEstimate {
-            pos: pos << PRECISION,
-            velo: velo << PRECISION,
+            position: position << PRECISION,
+            velocity: velocity << PRECISION,
         }
     }
 
+    /// Returns the Q.0 position estimate of the filter
     pub fn estimate(&self) -> BigInt {
-        &self.pos >> PRECISION
+        &self.position >> PRECISION
     }
 
+    /// Extrapolate filter "position" delta epochs in the future.
     pub fn extrapolate(&self, delta: ChainEpoch) -> BigInt {
         let delta_t = BigInt::from(delta) << PRECISION;
-        let pos = &self.pos << PRECISION;
-        (&self.velo * delta_t) + pos
+        let position = &self.position << PRECISION;
+        (&self.velocity * delta_t) + position
     }
 }
 
@@ -56,16 +59,16 @@ impl AlphaBetaFilter {
 
     pub fn next_estimate(&self, obs: BigInt, epoch_delta: ChainEpoch) -> FilterEstimate {
         let delta_t = BigInt::from(epoch_delta) << PRECISION;
-        let delta_x = (&delta_t * &self.prev_est.velo) >> PRECISION;
-        let mut pos = delta_x + &self.prev_est.pos;
+        let delta_x = (&delta_t * &self.prev_est.velocity) >> PRECISION;
+        let mut position = delta_x + &self.prev_est.position;
 
         let obs = obs << PRECISION;
-        let residual = obs - &pos;
+        let residual = obs - &position;
         let revision_x = (&self.alpha * &residual) >> PRECISION;
-        pos += &revision_x;
+        position += &revision_x;
 
         let revision_v = (residual * &self.beta) / delta_t;
-        let velo = revision_v + &self.prev_est.velo;
-        FilterEstimate { pos, velo }
+        let velocity = revision_v + &self.prev_est.velocity;
+        FilterEstimate { position, velocity }
     }
 }

@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod alpha_beta_filter;
 mod balance_table;
 pub mod math;
 mod multimap;

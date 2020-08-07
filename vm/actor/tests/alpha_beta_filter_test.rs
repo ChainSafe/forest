@@ -1,16 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::alpha_beta_filter::FilterEstimate;
-use actor::math::{parse, PRECISION};
+use actor::math::{poly_parse, PRECISION};
 use actor::smooth::extrapolated_cum_sum_of_ratio as ecsor;
 use actor::smooth::*;
-
-use num_bigint::BigInt;
-
 use actor::EPOCHS_IN_DAY;
 use clock::ChainEpoch;
 use fil_types::StoragePower;
+use num_bigint::BigInt;
 use num_traits::sign::Signed;
 
 const ERR_BOUND: u64 = 350;
@@ -69,9 +66,19 @@ fn assert_err_bound(
     );
 }
 
+// Returns an estimate with position val and velocity 0
+pub fn testing_constant_estimate(val: BigInt) -> FilterEstimate {
+    FilterEstimate::new(val, BigInt::from(0u8))
+}
+
+// Returns and estimate with postion x and velocity v
+pub fn testing_estimate(x: BigInt, v: BigInt) -> FilterEstimate {
+    FilterEstimate::new(x, v)
+}
+
 #[test]
 fn test_natural_log() {
-    let ln_inputs: Vec<BigInt> = parse(&[
+    let ln_inputs: Vec<BigInt> = poly_parse(&[
         "340282366920938463463374607431768211456", // Q.128 format of 1
         "924990000000000000000000000000000000000", // Q.128 format of e (rounded up in 5th decimal place to handle truncation)
         "34028236692093846346337460743176821145600000000000000000000", // Q.128 format of 100e18
@@ -81,7 +88,7 @@ fn test_natural_log() {
     ])
     .unwrap();
 
-    let expected_ln_outputs: Vec<BigInt> = parse(&[
+    let expected_ln_outputs: Vec<BigInt> = poly_parse(&[
         "0",                                         // Q.128 format of 0 = ln(1)
         "340282366920938463463374607431768211456",   // Q.128 format of 1 = ln(e)
         "15670582109617661336106769654068947397831", // Q.128 format of 46.051... = ln(100e18)
