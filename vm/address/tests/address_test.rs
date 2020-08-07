@@ -561,6 +561,16 @@ fn set_network() {
 }
 
 #[test]
+fn from_string_retains_network() {
+    let addr_str = "f01";
+    let addr: Address = addr_str.parse().unwrap();
+    assert_eq!(addr.network(), Network::Mainnet);
+
+    let addr_to_string = addr.to_string();
+    assert_eq!(addr_str, &addr_to_string);
+}
+
+#[test]
 fn invalid_strings_tests() {
     let invalid_strings = &[
         "fömk3zcefvlgpay4f32c5vmruk5gqig6dumc7pz6q",
