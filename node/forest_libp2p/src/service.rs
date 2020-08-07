@@ -122,6 +122,7 @@ where
         for topic in PUBSUB_TOPICS.iter() {
             swarm.subscribe(Topic::new(format!("{}/{}", topic, network_name)));
         }
+        Swarm::dial_addr(&mut swarm, config.bootstrap_peers[0].clone());
 
         // Bootstrap with Kademlia
         if let Err(e) = swarm.bootstrap() {

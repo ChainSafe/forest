@@ -326,7 +326,7 @@ impl BlockHeader {
         {
             return Err(Error::Validation("Header was from the future".to_string()));
         }
-        const FIXED_BLOCK_DELAY: u64 = 25;
+        const FIXED_BLOCK_DELAY: u64 = 2;
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
             < base_tipset.min_timestamp()
