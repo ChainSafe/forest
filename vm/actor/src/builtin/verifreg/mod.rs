@@ -106,7 +106,7 @@ impl Actor {
         Ok(())
     }
 
-    pub fn remove_verifier<BS, RT>(rt: &mut RT, params: AddVerifierParams) -> Result<(), ActorError>
+    pub fn remove_verifier<BS, RT>(rt: &mut RT, verifier_addr: Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -115,13 +115,19 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
 
         rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
-            st.delete_verifier(rt.store(), &params.address)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to add verifier: {:}", e),
-                    )
-                })?;
+            let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+            )?;
+            let deleted = verifiers
+                .delete(&verifier_addr.to_bytes())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to remove verifier: {}", e))?;
+            if !deleted {
+                return Err(actor_error!(ErrIllegalState; "failed to remove verifier: not found"));
+            }
+
+            st.verifiers = verifiers
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush verifiers: {}", e))?;
             Ok(())
         })??;
 
