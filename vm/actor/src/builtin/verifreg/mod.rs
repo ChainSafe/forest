@@ -6,13 +6,16 @@ mod types;
 pub use self::state::State;
 pub use self::types::*;
 use crate::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
-use crate::{make_map, Map, HAMT_BIT_WIDTH, SYSTEM_ACTOR_ADDR};
+use crate::{make_map, make_map_with_root, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
+use num_bigint::bigint_ser::BigIntSer;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+
+// * Updated to specs-actors commit: 9d42fb163883f31325b08752c9f4e85d0b3ef22f (> 0.8.6)
 
 /// Account actor methods available
 #[derive(FromPrimitive)]
@@ -55,17 +58,48 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let state: State = rt.state()?;
-        rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
+        if &params.allowance < &MINIMUM_VERIFIED_SIZE {
+            return Err(actor_error!(ErrIllegalArgument;
+                    "Allowance {} below minimum deal size for add verifier {}",
+                    params.allowance, params.address));
+        }
+        let st: State = rt.state()?;
+        rt.validate_immediate_caller_is(std::iter::once(&st.root_key))?;
 
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
-            st.put_verifier(rt.store(), &params.address, &params.allowance)
+        // TODO track issue https://github.com/filecoin-project/specs-actors/issues/556
+        if params.address == st.root_key {
+            return Err(actor_error!(ErrIllegalArgument; "Rootkey cannot be added as verifier"));
+        }
+
+        rt.transaction(|st: &mut State, rt| {
+            let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+            )?;
+            let verified_clients = make_map_with_root(&st.verified_clients, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+            )?;
+
+            let found = verified_clients
+                .contains_key(&params.address.to_bytes())
                 .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to add verifier: {:}", e),
-                    )
+                    actor_error!(ErrIllegalState;
+                "failed to get client state for {}: {}", params.address, e)
                 })?;
+            if found {
+                return Err(actor_error!(ErrIllegalArgument;
+                        "verified client {} cannot become a verifier", params.address));
+            }
+
+            verifiers
+                .set(
+                    params.address.to_bytes().into(),
+                    BigIntSer(&params.allowance),
+                )
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to add verifier: {}", e))?;
+            st.verifiers = verifiers
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush verifiers: {}", e))?;
+
             Ok(())
         })??;
 
