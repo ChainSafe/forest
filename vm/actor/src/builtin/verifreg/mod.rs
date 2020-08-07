@@ -11,6 +11,7 @@ use crate::{make_map, make_map_with_root, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
@@ -259,63 +260,68 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
         if params.deal_size < *MINIMUM_VERIFIED_DEAL_SIZE {
-            return Err(actor_error!(ErrIllegalState;
-                "Verified Dealsize {} is below minimum in usedbytes",
-                params.deal_size
+            return Err(actor_error!(ErrIllegalArgument;
+                "Verified Dealsize {} is below minimum in usedbytes", params.deal_size
             ));
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let verifier_cap = st
-                .get_verifier(rt.store(), &params.address)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("Failed to get Verifier {:?}", &params.address),
-                    )
-                })?
-                .ok_or_else(|| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("Invalid Verifier {}", params.address),
-                    )
-                })?;
+            let mut verified_clients = make_map_with_root(&st.verified_clients, rt.store())
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+                )?;
 
-            if params.deal_size <= verifier_cap {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!(
-                        "Deal size of {} is greater than verifier_cap {}",
-                        params.deal_size, verifier_cap
-                    ),
+            let BigIntDe(vc_cap) = verified_clients
+                .get(&params.address.to_bytes())
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                        "failed to get verified client {}: {}", &params.address, e)
+                })?
+                .ok_or_else(
+                    || actor_error!(ErrNotFound; "no such verified client {}", params.address),
+                )?;
+            assert_ne!(vc_cap.sign(), Sign::Minus);
+
+            if params.deal_size > vc_cap {
+                return Err(actor_error!(ErrIllegalArgument;
+                        "Deal size of {} is greater than verifier_cap {} for verified client {}",
+                        params.deal_size, vc_cap, params.address
                 ));
             };
-            let new_verifier_cap = &verifier_cap - &params.deal_size;
-            if new_verifier_cap < *MINIMUM_VERIFIED_DEAL_SIZE {
+
+            let new_vc_cap = vc_cap - &params.deal_size;
+            if new_vc_cap < *MINIMUM_VERIFIED_DEAL_SIZE {
                 // Delete entry if remaining DataCap is less than MinVerifiedDealSize.
                 // Will be restored later if the deal did not get activated with a ProvenSector.
-                st.delete_verified_client(rt.store(), &params.address)
-                    .map_err(|_| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!(
-                                "Failed to delete verified client{} with bytes {:?}",
-                                params.address, params.deal_size
-                            ),
+                let deleted = verified_clients
+                    .delete(&params.address.to_bytes())
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                            "Failed to delete verified client {} with {}: {}",
+                            params.address, params.deal_size, e
                         )
-                    })
+                    })?;
+                if !deleted {
+                    return Err(actor_error!(ErrIllegalState;
+                        "Failed to delete verified client {} with {}: not found",
+                        params.address, params.deal_size
+                    ));
+                }
             } else {
-                st.put_verified_client(rt.store(), &params.address, &new_verifier_cap)
-                    .map_err(|_| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!(
-                                "Failed to put verified client{} with bytes {}",
-                                params.address, params.deal_size
-                            ),
+                verified_clients
+                    .set(params.address.to_bytes().into(), BigIntSer(&new_vc_cap))
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                            "Failed to update verified client {} with {}: {}",
+                            params.address, params.deal_size, e
                         )
-                    })
+                    })?;
             }
+
+            st.verified_clients = verified_clients.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush verified clients: {}", e),
+            )?;
+            Ok(())
         })??;
 
         Ok(())
@@ -403,7 +409,7 @@ impl ActorCode for Actor {
                 Self::restore_bytes(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            None => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned())),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
