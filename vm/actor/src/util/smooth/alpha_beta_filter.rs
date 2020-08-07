@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//TODO Remove Allow dead code when AlphaBetaFilter is used
-#![allow(dead_code)]
 use crate::util::math::PRECISION;
 use clock::ChainEpoch;
 use encoding::tuple::*;
