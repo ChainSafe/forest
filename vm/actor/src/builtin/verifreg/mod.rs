@@ -6,15 +6,13 @@ mod types;
 pub use self::state::State;
 pub use self::types::*;
 use crate::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
-use crate::{HAMT_BIT_WIDTH, SYSTEM_ACTOR_ADDR};
+use crate::{make_map, Map, HAMT_BIT_WIDTH, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::BytesKey;
-use ipld_hamt::Hamt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 /// Account actor methods available
 #[derive(FromPrimitive)]
@@ -37,15 +35,17 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
-        let empty_root = Hamt::<BytesKey, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
+
+        // root should be an ID address
+        let id_addr = rt
+            .resolve_address(&root_key)?
+            .ok_or_else(|| actor_error!(ErrIllegalArgument; "root should be an ID address"))?;
+
+        let empty_root = make_map(rt.store())
             .flush()
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("Failed to create registry state {:}", e),
-                )
-            })?;
-        let st = State::new(empty_root, root_key);
+            .map_err(|e| actor_error!(ErrIllegalState; "Failed to create registry state {:}", e))?;
+
+        let st = State::new(empty_root, id_addr);
         rt.create(&st)?;
         Ok(())
     }
