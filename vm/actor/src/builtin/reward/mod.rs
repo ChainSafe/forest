@@ -1,9 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod logic;
 mod state;
 mod types;
 
+pub use self::logic::*;
 pub use self::state::{Reward, State, VestingFunction};
 pub use self::types::*;
 use crate::network::EXPECTED_LEADERS_PER_EPOCH;
@@ -48,8 +50,9 @@ impl Actor {
 
         // TODO revisit based on issue: https://github.com/filecoin-project/specs-actors/issues/317
 
-        rt.create(&State::new())?;
-        Ok(())
+        todo!();
+        // rt.create(&State::new())?;
+        // Ok(())
     }
 
     /// Awards a reward to a block producer.
@@ -91,7 +94,7 @@ impl Actor {
         let prior_balance = rt.current_balance()?;
 
         let state: State = rt.state()?;
-        let block_reward = state.last_per_epoch_reward / EXPECTED_LEADERS_PER_EPOCH;
+        let block_reward = state.this_epoch_reward / EXPECTED_LEADERS_PER_EPOCH;
         let total_reward = block_reward + params.gas_reward;
 
         // Cap the penalty at the total reward value.
@@ -130,31 +133,32 @@ impl Actor {
     {
         rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
-        Ok(st.last_per_epoch_reward)
+        Ok(st.this_epoch_reward)
     }
 
     /// Withdraw available funds from reward map
     fn compute_per_epoch_reward(st: &mut State, _ticket_count: u64) -> TokenAmount {
-        // TODO update when finished in specs
-        let new_simple_supply = minting_function(
-            &SIMPLE_TOTAL,
-            &(BigInt::from(st.reward_epochs_paid) << MINTING_INPUT_FIXED_POINT),
-        );
-        let new_baseline_supply = minting_function(&*BASELINE_TOTAL, &st.effective_network_time);
+        todo!()
+        // // TODO update when finished in specs
+        // let new_simple_supply = minting_function(
+        //     &SIMPLE_TOTAL,
+        //     &(BigInt::from(st.epoch) << MINTING_INPUT_FIXED_POINT),
+        // );
+        // let new_baseline_supply = minting_function(&*BASELINE_TOTAL, &st.effective_network_time);
 
-        let new_simple_minted = new_simple_supply
-            .checked_sub(&st.simple_supply)
-            .unwrap_or_default();
-        let new_baseline_minted = new_baseline_supply
-            .checked_sub(&st.baseline_supply)
-            .unwrap_or_default();
+        // let new_simple_minted = new_simple_supply
+        //     .checked_sub(&st.simple_supply)
+        //     .unwrap_or_default();
+        // let new_baseline_minted = new_baseline_supply
+        //     .checked_sub(&st.total_mined)
+        //     .unwrap_or_default();
 
-        st.simple_supply = new_simple_supply;
-        st.baseline_supply = new_baseline_supply;
+        // st.simple_supply = new_simple_supply;
+        // st.total_mined = new_baseline_supply;
 
-        let per_epoch_reward = new_simple_minted + new_baseline_minted;
-        st.last_per_epoch_reward = per_epoch_reward.clone();
-        per_epoch_reward
+        // let per_epoch_reward = new_simple_minted + new_baseline_minted;
+        // st.this_epoch_reward = per_epoch_reward.clone();
+        // per_epoch_reward
     }
 
     fn new_baseline_power(_st: &State, _reward_epochs_paid: ChainEpoch) -> StoragePower {
@@ -174,25 +178,27 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
+        todo!();
+        // rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
 
-        rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, _| {
-            // By the time this is called, the rewards for this epoch have been paid to miners.
-            st.reward_epochs_paid += 1;
-            st.realized_power = curr_realized_power;
+        // rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, _| {
+        //     // By the time this is called, the rewards for this epoch have been paid to miners.
+        //     st.epoch += 1;
+        //     st.this_epoch_baseline_power = curr_realized_power;
 
-            st.baseline_power = Self::new_baseline_power(st, st.reward_epochs_paid);
-            st.cumsum_baseline += &st.baseline_power;
+        //     st.effective_baseline_power = Self::new_baseline_power(st, st.epoch);
+        //     st.cumsum_baseline += &st.effective_baseline_power;
 
-            // Cap realized power in computing CumsumRealized so that progress is only relative to the current epoch.
-            let capped_realized_power = std::cmp::min(&st.baseline_power, &st.realized_power);
-            st.cumsum_realized += capped_realized_power;
-            st.effective_network_time =
-                st.get_effective_network_time(&st.cumsum_baseline, &st.cumsum_realized);
-            Self::compute_per_epoch_reward(st, 1);
-            Ok(())
-        })??;
-        Ok(())
+        //     // Cap realized power in computing CumsumRealized so that progress is only relative to the current epoch.
+        //     let capped_realized_power =
+        //         std::cmp::min(&st.effective_baseline_power, &st.this_epoch_baseline_power);
+        //     st.cumsum_realized += capped_realized_power;
+        //     st.effective_network_time =
+        //         st.get_effective_network_time(&st.cumsum_baseline, &st.cumsum_realized);
+        //     Self::compute_per_epoch_reward(st, 1);
+        //     Ok(())
+        // })??;
+        // Ok(())
     }
 }
 
@@ -226,7 +232,7 @@ impl ActorCode for Actor {
                 Self::update_network_kpi(rt, param)?;
                 Ok(Serialized::default())
             }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
