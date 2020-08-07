@@ -221,7 +221,7 @@ impl Actor {
             st.lane_states[idx].redeemed = sv.amount;
 
             // 4. check operation validity
-            let new_send_balance = st.to_send.clone() + balance_delta;
+            let new_send_balance = balance_delta + &st.to_send;
 
             if new_send_balance < TokenAmount::from(0) {
                 return Err(actor_error!(ErrIllegalArgument;
