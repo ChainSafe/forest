@@ -1,16 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::types::DataCap;
 use crate::HAMT_BIT_WIDTH;
 use address::Address;
 use cid::Cid;
-
 use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Hamt};
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-
-use crate::builtin::verifreg::types::Datacap;
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
@@ -33,7 +31,7 @@ impl State {
         &mut self,
         store: &BS,
         verified_addr: &Address,
-        verifier_cap: &Datacap,
+        verifier_cap: &DataCap,
     ) -> StateResult<()> {
         self.verifiers = Self::put(&self.verifiers, store, verified_addr, verifier_cap)?;
         Ok(())
@@ -43,7 +41,7 @@ impl State {
         &mut self,
         store: &BS,
         address_get: &Address,
-    ) -> StateResult<Option<Datacap>> {
+    ) -> StateResult<Option<DataCap>> {
         Self::get(&self.verifiers, store, address_get)
     }
 
@@ -60,7 +58,7 @@ impl State {
         &mut self,
         store: &BS,
         verified_addr: &Address,
-        verifier_cap: &Datacap,
+        verifier_cap: &DataCap,
     ) -> StateResult<()> {
         self.verified_clients =
             Self::put(&self.verified_clients, store, verified_addr, verifier_cap)?;
@@ -72,7 +70,7 @@ impl State {
         &self,
         store: &BS,
         address: &Address,
-    ) -> StateResult<Option<Datacap>> {
+    ) -> StateResult<Option<DataCap>> {
         Self::get(&self.verified_clients, store, address)
     }
 
@@ -90,7 +88,7 @@ impl State {
         storage: &Cid,
         store: &BS,
         verified_addr: &Address,
-        verifier_cap: &Datacap,
+        verifier_cap: &DataCap,
     ) -> StateResult<Cid> {
         let mut map: Hamt<BytesKey, _> =
             Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
@@ -103,7 +101,7 @@ impl State {
         storage: &Cid,
         store: &BS,
         verified_addr: &Address,
-    ) -> StateResult<Option<Datacap>> {
+    ) -> StateResult<Option<DataCap>> {
         let map: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&storage, store, HAMT_BIT_WIDTH)?;
         Ok(map
             .get::<_, BigIntDe>(&verified_addr.to_bytes())?
