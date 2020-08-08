@@ -47,7 +47,6 @@ impl State {
 pub struct LaneState {
     /// Identifier unique to this channel
     pub id: u64,
-    // TODO this could possibly be a BigUint, but won't affect serialization
     #[serde(with = "bigint_ser")]
     pub redeemed: BigInt,
     pub nonce: u64,
