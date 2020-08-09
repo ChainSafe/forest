@@ -48,7 +48,7 @@ impl Deref for BLSPublicKey {
 }
 
 /// Payload is the data of the Address. Variants are the supported Address protocols.
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq,Serialize,Deserialize)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Payload {
     /// ID protocol address.
     ID(u64),

@@ -314,55 +314,20 @@ pub mod json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a GossipBlock from JSON.
-    #[derive(Deserialize, Serialize)]
-    #[serde(transparent)]
-    pub struct AddressJson(#[serde(with = "self")] pub Address);
-
-    /// Wrapper for serializing a GossipBlock reference to JSON.
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct AddressJsonRef<'a>(#[serde(with = "self")] pub &'a Address);
-
-    pub fn serialize<S>(m: &Address, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(m: &Address,serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        #[derive(Serialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct AddressSer<'a> {
-            pub network: &'a Network,
-            pub payload: &'a Payload,
-
-        }
-        AddressSet {
-            network: &m.network,
-            payload: &m.payload,
-        }
-        .serialize(serializer)
+        
+        serializer.serialize_str(&encode(m))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Address, D::Error>
     where
         D: Deserializer<'de>,
     {
-        #[derive(Serialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct AddressDe{
-            #[serde(with = "network::json")]
-            pub network: Network,
-            #[serde(with = "payload::json")]
-            pub payload: Payload,
-
-        }
-        let AddressDe {
-            network,
-            payload
-        } = Deserialize::deserialize(deserializer)?;
-        Ok(Address {
-            network,
-            payload
-        })
+       let address_as_string : &str =  Deserialize::deserialize(deserializer)?;
+       Ok(Address::from_str(address_as_string).map_err(de::Error::custom)?)
     }
 }
 

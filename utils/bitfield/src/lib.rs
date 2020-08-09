@@ -322,63 +322,27 @@ macro_rules! bitfield {
 pub mod json {
     use super::*;
 
-    /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
-    #[derive(Deserialize, Serialize)]
-    #[serde(transparent)]
-    pub struct BitFieldJson(#[serde(with = "self")] pub BitField);
-
-    /// Wrapper for serializing a UnsignedMessage reference to JSON.
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct BitFieldJsonRef<'a>(#[serde(with = "self")] pub &'a BitField);
-
-    impl From<BitfieldJson> for Bitfield {
-        fn from(wrapper: BitFieldJson) -> Self {
-            wrapper.0
-        }
-    }
-
-    impl From<BitField> for BitFieldJson
-    {
-        fn from(wrapper : BitField) -> Self
-        {
-            BitFieldJson(wrapper)
-        }
-    }
-   
-
-    #[derive(Serialize, Deserialize)]
-    #[serde(rename_all = "PascalCase")]
-    struct JsonHelper {
-    /// The underlying ranges of 1s.
-    ranges: Vec<Range<usize>>,
-    /// Bits set to 1. Never overlaps with `unset`.
-    set: AHashSet<usize>,
-    /// Bits set to 0. Never overlaps with `set`.
-    unset: AHashSet<usize>,
-    }
-
     pub fn serialize<S>(m: &BitField, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        JsonHelper {
-            ranges: m.ranges,
-            set : m.set,
-            unset : m.set
-        }
-        .serialize(serializer)
+
+       let iterator = m.iter();
+       let vec = if let Some(first) = iterator.first()
+       {
+           let ret = Vec::new();
+           if first==0
+           {
+               vec.push(0);
+           }
+       }
+
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        Ok(JsonHelper {
-            ranges: m.ranges,
-            set: m.set,
-            unset : m.unset
-        })
+        unimplemented!("Not implemented yet")
     }
 }
