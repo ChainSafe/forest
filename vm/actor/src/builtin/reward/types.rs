@@ -60,7 +60,7 @@ pub struct AwardBlockRewardParams {
 pub struct ThisEpochRewardReturn {
     #[serde(with = "bigint_ser")]
     pub this_epoch_reward: TokenAmount,
-    pub this_epoch_reward_smoothed: Option<FilterEstimate>,
+    pub this_epoch_reward_smoothed: FilterEstimate,
     #[serde(with = "bigint_ser")]
     pub this_epoch_baseline_power: StoragePower,
 }

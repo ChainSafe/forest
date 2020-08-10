@@ -12,17 +12,15 @@ use crate::network::EXPECTED_LEADERS_PER_EPOCH;
 use crate::{
     check_empty_params, miner, BURNT_FUNDS_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
-use clock::ChainEpoch;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use num_bigint::{BigInt, Sign};
+use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{
-    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
-    METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
 
 // * Updated to specs-actors commit: 9d42fb163883f31325b08752c9f4e85d0b3ef22f (> v0.8.6)
@@ -182,79 +180,51 @@ impl Actor {
         Ok(())
     }
 
-    fn last_per_epoch_reward<BS, RT>(rt: &mut RT) -> Result<TokenAmount, ActorError>
+    /// The award value used for the current epoch, updated at the end of an epoch
+    /// through cron tick.  In the case previous epochs were null blocks this
+    /// is the reward value as calculated at the last non-null epoch.
+    fn this_epoch_reward<BS, RT>(rt: &mut RT) -> Result<ThisEpochRewardReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
-        Ok(st.this_epoch_reward)
+        Ok(ThisEpochRewardReturn {
+            this_epoch_reward: st.this_epoch_reward,
+            this_epoch_baseline_power: st.this_epoch_baseline_power,
+            this_epoch_reward_smoothed: st.this_epoch_reward_smoothed,
+        })
     }
 
-    /// Withdraw available funds from reward map
-    fn compute_per_epoch_reward(st: &mut State, _ticket_count: u64) -> TokenAmount {
-        todo!()
-        // // TODO update when finished in specs
-        // let new_simple_supply = minting_function(
-        //     &SIMPLE_TOTAL,
-        //     &(BigInt::from(st.epoch) << MINTING_INPUT_FIXED_POINT),
-        // );
-        // let new_baseline_supply = minting_function(&*BASELINE_TOTAL, &st.effective_network_time);
-
-        // let new_simple_minted = new_simple_supply
-        //     .checked_sub(&st.simple_supply)
-        //     .unwrap_or_default();
-        // let new_baseline_minted = new_baseline_supply
-        //     .checked_sub(&st.total_mined)
-        //     .unwrap_or_default();
-
-        // st.simple_supply = new_simple_supply;
-        // st.total_mined = new_baseline_supply;
-
-        // let per_epoch_reward = new_simple_minted + new_baseline_minted;
-        // st.this_epoch_reward = per_epoch_reward.clone();
-        // per_epoch_reward
-    }
-
-    fn new_baseline_power(_st: &State, _reward_epochs_paid: ChainEpoch) -> StoragePower {
-        // TODO: this is not the final baseline function or value, PARAM_FINISH
-        BigInt::from(BASELINE_POWER)
-    }
-
-    // Called at the end of each epoch by the power actor (in turn by its cron hook).
-    // This is only invoked for non-empty tipsets. The impact of this is that block rewards are paid out over
-    // a schedule defined by non-empty tipsets, not by elapsed time/epochs.
-    // This is not necessarily what we want, and may change.
+    /// Called at the end of each epoch by the power actor (in turn by its cron hook).
+    /// This is only invoked for non-empty tipsets, but catches up any number of null
+    /// epochs to compute the next epoch reward.
     fn update_network_kpi<BS, RT>(
         rt: &mut RT,
-        curr_realized_power: StoragePower,
+        curr_realized_power: Option<StoragePower>,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!();
-        // rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
+        rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
+        let curr_realized_power = curr_realized_power
+            .ok_or_else(|| actor_error!(ErrIllegalArgument; "argument cannot be None"))?;
 
-        // rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, _| {
-        //     // By the time this is called, the rewards for this epoch have been paid to miners.
-        //     st.epoch += 1;
-        //     st.this_epoch_baseline_power = curr_realized_power;
+        rt.transaction(|st: &mut State, rt| {
+            let prev = st.epoch;
+            // if there were null runs catch up the computation until
+            // st.Epoch == rt.CurrEpoch()
+            while st.epoch < rt.curr_epoch() {
+                // Update to next epoch to process null rounds
+                st.update_to_next_epoch(&curr_realized_power);
+            }
 
-        //     st.effective_baseline_power = Self::new_baseline_power(st, st.epoch);
-        //     st.cumsum_baseline += &st.effective_baseline_power;
-
-        //     // Cap realized power in computing CumsumRealized so that progress is only relative to the current epoch.
-        //     let capped_realized_power =
-        //         std::cmp::min(&st.effective_baseline_power, &st.this_epoch_baseline_power);
-        //     st.cumsum_realized += capped_realized_power;
-        //     st.effective_network_time =
-        //         st.get_effective_network_time(&st.cumsum_baseline, &st.cumsum_realized);
-        //     Self::compute_per_epoch_reward(st, 1);
-        //     Ok(())
-        // })??;
-        // Ok(())
+            st.update_to_next_epoch_with_reward(&curr_realized_power);
+            st.update_smoothed_estimates(st.epoch - prev);
+        })?;
+        Ok(())
     }
 }
 
@@ -280,12 +250,13 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::ThisEpochReward) => {
-                let res = Self::last_per_epoch_reward(rt)?;
-                Ok(Serialized::serialize(BigIntSer(&res))?)
+                check_empty_params(params)?;
+                let res = Self::this_epoch_reward(rt)?;
+                Ok(Serialized::serialize(&res)?)
             }
             Some(Method::UpdateNetworkKPI) => {
-                let BigIntDe(param) = params.deserialize()?;
-                Self::update_network_kpi(rt, param)?;
+                let param: Option<BigIntDe> = params.deserialize()?;
+                Self::update_network_kpi(rt, param.map(|v| v.0))?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),

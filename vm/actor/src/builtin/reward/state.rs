@@ -79,15 +79,15 @@ impl State {
         st
     }
 
-    fn update_to_next_epoch(&mut self, curr_realized_power: &StoragePower) {
+    pub(super) fn update_to_next_epoch(&mut self, curr_realized_power: &StoragePower) {
         todo!()
     }
 
-    fn update_to_next_epoch_with_reward(&mut self, curr_realized_power: &StoragePower) {
+    pub(super) fn update_to_next_epoch_with_reward(&mut self, curr_realized_power: &StoragePower) {
         todo!()
     }
 
-    fn update_smoothed_estimates(&mut self, delta: ChainEpoch) {
+    pub(super) fn update_smoothed_estimates(&mut self, delta: ChainEpoch) {
         todo!()
     }
 }
