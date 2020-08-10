@@ -32,7 +32,7 @@ where
         .bad_blocks
         .peek(&cid)
         .await
-        .unwrap_or_else(|| "Block not marked bad".to_string()))
+        .unwrap_or_else(|| "Not present in cache".to_string()))
 }
 
 /// Marks a block as bad, meaning it will never be synced.

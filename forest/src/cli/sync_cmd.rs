@@ -22,7 +22,7 @@ pub enum SyncCommand {
         about = "Mark the given block as bad, will prevent syncing to a chain that contains it"
     )]
     MarkBad {
-        #[structopt(short, long, help = "Block Cid given as string argument")]
+        #[structopt( help = "Block Cid given as string argument")]
         block_cid: String,
     },
 
@@ -31,7 +31,7 @@ pub enum SyncCommand {
         about = "Check if the given block was marked bad, and for what reason"
     )]
     CheckBad {
-        #[structopt(short, long, help = "Block Cid given as string argument")]
+        #[structopt(help = "Block Cid given as string argument")]
         block_cid: String,
     },
 
@@ -40,7 +40,7 @@ pub enum SyncCommand {
         about = "Submit newly created block to network through node"
     )]
     Submit {
-        #[structopt(short, long, help = "Gossip block as String argument")]
+        #[structopt(help = "Gossip block as String argument")]
         gossip_block: String,
     },
 
@@ -84,15 +84,15 @@ impl SyncCommand {
                             height_diff = 0;
                         }
 
-                        println!("\tBase:\t{:?}\n", base.unwrap_or_default());
+                        println!("\tBase:\t{:?}", base.unwrap_or_default());
                         println!(
-                            "\tTarget:\t{:?} Height:\t({})\n",
+                            "\tTarget:\t{:?} Height:\t({})",
                             target.unwrap_or_default(),
                             height
                         );
-                        println!("\tHeight diff:\t{}\n", height_diff);
-                        println!("\tStage: {}\n", active_sync.stage());
-                        println!("\tHeight: {}\n", active_sync.epoch);
+                        println!("\tHeight diff:\t{}", height_diff);
+                        println!("\tStage: {}", active_sync.stage());
+                        println!("\tHeight: {}", active_sync.epoch);
                         if let Some(end_time) = active_sync.end {
                             if let Some(start_time) = active_sync.start {
                                 let zero_time = get_naive_time_zero();
@@ -138,7 +138,7 @@ impl SyncCommand {
             SyncCommand::CheckBad { block_cid } => {
                 let response = check_bad(&mut client, block_cid.clone()).await;
                 if let Ok(reason) = response {
-                    println!("Block {} is bad because \"{}\"", block_cid, reason);
+                    println!("Block {} is \"{}\"", block_cid, reason);
                 } else {
                     println!("Failed to check if block {} is bad", block_cid);
                 }
