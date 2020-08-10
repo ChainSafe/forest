@@ -6,17 +6,17 @@ use actor::{
     },
     power::Claim,
 };
-use address::json::AddressJson;
+use address::Address;
 use async_std::sync::Arc;
 use async_std::task;
-use bitfield::json::BitFieldJson;
+use bitfield::BitField;
 use blocks::{Tipset, tipset_json::TipsetJson,TipsetKeys};
 use blockstore::BlockStore;
 use chain::ChainStore;
 use cid::{Cid,json::CidJson};
 use clock::ChainEpoch;
 use fil_types::SectorNumber;
-use message::{json::MessageReceiptJson, MessageReceipt,unsigned_message::{UnsignedMessage,json::UnsignedMessageJson}};
+use message::{json::MessageReceiptJson, ChainMessage,MessageReceipt,unsigned_message::{UnsignedMessage,json::UnsignedMessageJson}};
 use num_bigint::BigUint;
 use num_traits::identities::Zero;
 use state_manager::{InvocResult, MarketBalance, StateManager};
@@ -39,19 +39,16 @@ pub struct MessageLookup {
 /// If false, only those sectors in the filter are included.
 pub(crate) async fn state_miner_sector<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,BitFieldJson,bool,TipsetKeys)>,
+    Params(params): Params<(Address,&mut BitField,bool,TipsetKeys)>,
 ) -> Result<Vec<ChainSectorInfo>, JsonRpcError> {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,bitfield_json,filter_out,key) = params;
-    let address = address_json.into();
-    let filter = bitfield_json.into();
-    let state_manager = StateManager::new(data.store);
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let (address,filter,filter_out,key) = params;
+    let state_manager = StateManager::new(data.store.clone());
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let mut filter = Some(filter);
     state_manager::utils::get_miner_sector_set(
         &state_manager,
         &tipset,
-        address,
+        &address,
         &mut filter,
         filter_out,
     )
@@ -77,25 +74,23 @@ pub(crate) async fn state_call<DB: BlockStore + Send + Sync + 'static,  KS: KeyS
 /// returns all the proving deadlines for the given miner
 pub(crate) async fn state_miner_deadlines<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
+    Params(params): Params<(Address,TipsetKeys)>,
 ) -> Result<Deadlines, JsonRpcError> {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let actor = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::get_miner_deadlines(&state_manager, &tipset, actor).map_err(|e| e.into())
+    let state_manager = StateManager::new(data.store.clone());
+    let (actor,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
+    state_manager::utils::get_miner_deadlines(&state_manager, &tipset, &actor).map_err(|e| e.into())
 }
 
 /// returns the PreCommit info for the specified miner's sector
 pub(crate) async fn state_sector_precommit_info<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,SectorNumber,TipsetKeys)>,
+    Params(params): Params<(Address,SectorNumber,TipsetKeys)>,
 ) -> Result<SectorPreCommitOnChainInfo, JsonRpcError> {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,sector_number,key) = params;
-    let address = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::precommit_info(&state_manager, address, sector_number, &tipset)
+    let state_manager = StateManager::new(data.store.clone());
+    let (address,sector_number,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
+    state_manager::utils::precommit_info(&state_manager, &address, &sector_number, &tipset)
         .map(|s|s.into())
         .map_err(|e| e.into())
 }
@@ -103,13 +98,13 @@ pub(crate) async fn state_sector_precommit_info<DB: BlockStore + Send + Sync + '
 /// returns info about those sectors that a given miner is actively proving.
 pub (crate) async fn state_miner_proving_set<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
+    Params(params): Params<(Address,TipsetKeys)>,
 ) -> Result<Vec<SectorOnChainInfo>, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
+    let state_manager = StateManager::new(data.store.clone());
     let (address_json,key) = params;
     let address = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let miner_actor_state: State =
         state_manager.load_actor_state(&address, &tipset.parent_state())?;
     state_manager::utils::get_proving_set_raw(&state_manager, &miner_actor_state)
@@ -120,14 +115,13 @@ pub (crate) async fn state_miner_proving_set<DB: BlockStore + Send + Sync + 'sta
 /// StateMinerInfo returns info about the indicated miner
 pub async fn state_miner_info<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
+    Params(params): Params<(Address,TipsetKeys)>,
 ) -> Result<MinerInfo, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let actor = address_json.into();
-    let tipset = chain::tipset_from_keys(state_manager.get_block_store_ref(), key)?;
-    state_manager::utils::get_miner_info(&state_manager, &tipset, actor)
+    let state_manager = StateManager::new(data.store.clone());
+    let (actor,key) = params;
+    let tipset = chain::tipset_from_keys(state_manager.get_block_store_ref(), &key)?;
+    state_manager::utils::get_miner_info(&state_manager, &tipset, &actor)
     .map(|s|s.into())
     .map_err(|e| e.into())
 }
@@ -135,14 +129,13 @@ pub async fn state_miner_info<DB: BlockStore + Send + Sync + 'static,  KS: KeySt
 /// returns the on-chain info for the specified miner's sector
 pub async fn state_sector_info<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,SectorNumber,TipsetKeys)>
+    Params(params): Params<(Address,SectorNumber,TipsetKeys)>
 ) -> Result<Option<SectorOnChainInfo>, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,sector_number,key) = params;
-    let address = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::miner_sector_info(&state_manager, address, sector_number, &tipset)
+    let state_manager = StateManager::new(data.store.clone());
+    let (address,sector_number,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
+    state_manager::utils::miner_sector_info(&state_manager, &address, &sector_number, &tipset)
     .map(|s|s.into())    
     .map_err(|e| e.into())
    
@@ -154,13 +147,13 @@ pub async fn state_sector_info<DB: BlockStore + Send + Sync + 'static,  KS: KeyS
 /// and returns the deadline-related calculations.
 pub fn state_miner_proving_deadline<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
+    Params(params): Params<(Address,TipsetKeys)>,
 ) -> Result<DeadlineInfo, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
+    let state_manager = StateManager::new(data.store.clone());
     let (address_json,key) = params;
     let actor = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let miner_actor_state: State =
         state_manager.load_actor_state(&actor, &tipset.parent_state())?;
     Ok(compute_proving_period_deadline(
@@ -173,14 +166,13 @@ pub fn state_miner_proving_deadline<DB: BlockStore + Send + Sync + 'static,  KS:
 /// returns a single non-expired Faults that occur within lookback epochs of the given tipset
 pub fn state_miner_faults<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
-) -> Result<BitFieldJson, JsonRpcError>
+    Params(params): Params<(Address,TipsetKeys)>,
+) -> Result<BitField, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let actor = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::get_miner_faults(&state_manager, &tipset, actor)
+    let state_manager = StateManager::new(data.store.clone());
+    let (actor,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
+    state_manager::utils::get_miner_faults(&state_manager, &tipset, &actor)
     .map(|s|s.into())
     .map_err(|e| e.into())
 }
@@ -191,7 +183,7 @@ pub fn state_all_miner_faults<DB: BlockStore + Send + Sync + 'static,  KS: KeySt
     Params(params): Params<(ChainEpoch,TipsetKeys)>,
 ) -> Result<Vec<Fault>, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
+    let state_manager = StateManager::new(data.store.clone());
     let (look_back,end_tsk) = params;
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&end_tsk)?;
     let cut_off = tipset.epoch() - look_back;
@@ -223,30 +215,13 @@ pub fn state_all_miner_faults<DB: BlockStore + Send + Sync + 'static,  KS: KeySt
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub fn state_miner_recoveries<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
-) -> Result<BitFieldJson, JsonRpcError>
+    Params(params): Params<(Address,TipsetKeys)>,
+) -> Result<BitField, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let actor = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::get_miner_recoveries(&state_manager, &tipset, actor).map_err(|e| e.into())
-}
-
-/// returns the power of the indicated miner
-pub fn state_miner_power<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
-    data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
-) -> Result<BitFieldJson, JsonRpcError>
-{
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let actor = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    state_manager::utils::get_power(&state_manager, &tipset, Some(actor))
-    .map(|s|s.into())
-    .map_err(|e| e.into())
-
+    let state_manager = StateManager::new(data.store.clone());
+    let (actor,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
+    state_manager::utils::get_miner_recoveries(&state_manager, &tipset, &actor).map_err(|e| e.into())
 }
 
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
@@ -255,14 +230,14 @@ pub fn state_reply<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send 
     Params(params): Params<(CidJson,TipsetKeys)>,
 ) -> Result<InvocResult, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
+    let state_manager = StateManager::new(data.store.clone());
     let (cidjson,key) = params;
     let cid = cidjson.into();
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let (msg, ret) = state_manager.replay(&tipset, &cid)?;
 
     Ok(InvocResult {
-        msg,
+        msg : ChainMessage::Unsigned(msg),
         msg_rct: ret.clone().map(|s| s.msg_receipt().clone()),
         actor_error: ret
             .map(|act| act.act_error().map(|e| e.to_string()))
@@ -273,15 +248,14 @@ pub fn state_reply<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send 
 /// returns the indicated actor's nonce and balance.
 pub fn state_get_actor<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
+    Params(params): Params<(Address,TipsetKeys)>,
 ) -> Result<Option<actor::ActorState>, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let actor = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let state_manager = StateManager::new(data.store.clone());
+    let (actor,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
-    state.get_actor(actor)
+    state.get_actor(&actor)
     .map(|s|s.into())
     .map_err(|e| e.into())
 }
@@ -289,30 +263,28 @@ pub fn state_get_actor<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + S
 /// returns the public key address of the given ID address
 pub fn state_account_key<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
-) -> Result<Option<AddressJson>, JsonRpcError>
+    Params(params): Params<(Address,TipsetKeys)>,
+) -> Result<Option<Address>, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let actor = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let state_manager = StateManager::new(data.store.clone());
+    let (actor,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
     let address =
-        interpreter::resolve_to_key_addr(&state, state_manager.get_block_store_ref(), actor)?;
+        interpreter::resolve_to_key_addr(&state, state_manager.get_block_store_ref(), &actor)?;
     Ok(address.into())
 }
 /// retrieves the ID address of the given address
 pub fn state_lookup_id<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
-) -> Result<AddressJson, JsonRpcError>
+    Params(params): Params<(Address,TipsetKeys)>,
+) -> Result<Address, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let address = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let state_manager = StateManager::new(data.store.clone());
+    let (address,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
-    state.lookup_id(address)
+    state.lookup_id(&address)
     .map(|s|s.into())
     .map_err(|e| e.into())
 }
@@ -320,15 +292,14 @@ pub fn state_lookup_id<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + S
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
 pub fn state_market_balance<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Send + Sync + 'static>(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(AddressJson,TipsetKeys)>,
+    Params(params): Params<(Address,TipsetKeys)>,
 ) -> Result<MarketBalance, JsonRpcError>
 {
-    let state_manager = StateManager::new(data.store);
-    let (address_json,key) = params;
-    let address = address_json.into();
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
+    let mut state_manager = StateManager::new(data.store.clone());
+    let (address,key) = params;
+    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     state_manager
-        .market_balance(address, &tipset)
+        .market_balance(&address, &tipset)
         .map_err(|e| e.into())
 }
 
@@ -339,7 +310,7 @@ pub fn state_get_receipt<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore +
 ) -> Result<MessageReceiptJson, JsonRpcError>
 {
     let (cidjson,key) = params;
-    let state_manager = StateManager::new(data.store);
+    let state_manager = StateManager::new(data.store.clone());
     let cid  = cidjson.into();
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     state_manager
@@ -355,12 +326,14 @@ pub fn state_wait_msg<DB: BlockStore + Send + Sync + 'static,  KS: KeyStore + Se
 ) -> Result<MessageLookup, JsonRpcError>
 {
     let (cidjson,confidence) = params;
-    let state_manager = StateManager::new(data.store);
+    let state_manager = StateManager::new(data.store.clone());
     let cid : Cid = cidjson.into();
     let (tipset,receipt) = task::block_on(StateManager::wait_for_message(state_manager.get_block_store(),state_manager.get_subscriber(),&cid, confidence))?;
     let tipset = tipset.ok_or_else(|| "wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or_else(|| "wait for msg returned empty receipt")?;
-    Ok(MessageLookup { receipt : receipt.into(), tipset : (*tipset.clone()).into() }.into())
+    let tipset : &Tipset = &*tipset;
+    let tipset_json : TipsetJson= tipset.clone().into();
+    Ok(MessageLookup { receipt : receipt.into(), tipset : tipset_json }.into())
 }
 
 

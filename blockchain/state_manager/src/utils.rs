@@ -6,8 +6,7 @@ use crate::StateManager;
 use actor::miner;
 use actor::{
     miner::{ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo},
-    power,
-};
+    power,power::Claim
 };
 use address::{Address, Protocol};
 use bitfield::BitField;
@@ -330,49 +329,6 @@ where
     Ok(miners)
 }
 
-pub fn get_power<DB>(
-    state_manager: &StateManager<DB>,
-    tipset: &Tipset,
-    address: Option<&Address>,
-) -> Result<(Option<Claim>, Claim), Error>
-where
-    DB: BlockStore,
-{
-    get_power_raw(state_manager, tipset.parent_state(), address)
-}
 
-pub fn get_power_raw<DB>(
-    state_manager: &StateManager<DB>,
-    cid: &Cid,
-    address: Option<&Address>,
-) -> Result<(Option<Claim>, Claim), Error>
-where
-    DB: BlockStore,
-{
-    let block_store = &*state_manager.get_block_store();
-    let power_actor_state: power::State = state_manager
-        .load_actor_state(&actor::STORAGE_POWER_ACTOR_ADDR, &cid)
-        .map_err(|err| {
-            Error::State(format!(
-                "(get sset) failed to load power actor state: {:}",
-                err
-            ))
-        })?;
 
-    let claim: Option<Claim> = if let Some(addr) = address {
-        let cm: Hamt<Vec<u8>, DB> = Hamt::load(&power_actor_state.claims, block_store)
-            .map_err(|err| Error::Other(err.to_string()))?;
-        cm.get(&addr.to_bytes())
-            .map_err(|err| Error::Other(err.to_string()))?
-    } else {
-        None
-    };
 
-    Ok((
-        claim,
-        Claim {
-            raw_byte_power: power_actor_state.total_raw_byte_power,
-            quality_adj_power: power_actor_state.total_quality_adj_power,
-        },
-    ))
-}

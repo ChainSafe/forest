@@ -232,7 +232,7 @@ pub fn state_call<DB>(
     state_manager: &StateManager<DB>,
     message: &mut UnsignedMessage,
     key: &TipsetKeys,
-) -> Result<InvocResult<UnsignedMessage>, BoxError>
+) -> Result<InvocResult, BoxError>
 where
     DB: BlockStore,
 {
@@ -242,26 +242,7 @@ where
         .map_err(|e| e.into())
 }
 
-/// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
-pub fn state_reply<DB>(
-    state_manager: &StateManager<DB>,
-    key: &TipsetKeys,
-    cid: &Cid,
-) -> Result<InvocResult<UnsignedMessage>, BoxError>
-where
-    DB: BlockStore,
-{
-    let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(key)?;
-    let (msg, ret) = state_manager.replay(&tipset, cid)?;
 
-    Ok(InvocResult {
-        msg,
-        msg_rct: ret.clone().map(|s| s.msg_receipt().clone()),
-        actor_error: ret
-            .map(|act| act.act_error().map(|e| e.to_string()))
-            .unwrap_or_default(),
-    })
-}
 
 /// returns a state tree given a tipset
 pub fn state_for_ts<DB>(

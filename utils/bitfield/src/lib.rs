@@ -330,12 +330,25 @@ pub mod json {
        let iterator = m.iter();
        let vec = if let Some(first) = iterator.first()
        {
-           let ret = Vec::new();
+           let mut ret = Vec::new();
            if first==0
            {
                vec.push(0);
            }
+
+           let ranges = iter.ranges().for_each(|s|{
+               vec.push(range.0);
+               vec.push(range.1);
+           });
        }
+       else
+       {
+           let vec = vec::with_capacity(1);
+           vec.push(0);
+           vec
+       };
+
+       serializer.serialize_bytes(vec)
 
     }
 
@@ -343,6 +356,10 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        unimplemented!("Not implemented yet")
+        let bitfield_bytes : Vec<u8> =  Deserialize::deserialize(deserializer)?;
+        let bitfield : BitField= address_bytes.into();
+        bitfield
+     
+
     }
 }

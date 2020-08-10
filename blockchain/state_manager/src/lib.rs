@@ -32,22 +32,21 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
 use serde::{Deserialize,Serialize};
+use message::ChainMessage;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
 /// Type to represent invocation of state call results
-pub struct InvocResult<Msg>
-where
-    Msg: Message,
+pub struct InvocResult
 {
-    pub msg: Msg,
+    pub msg: ChainMessage,
     pub msg_rct: Option<MessageReceipt>,
     pub actor_error: Option<String>,
 }
 
 // An alias Result that represents an InvocResult and an Error
-pub type StateCallResult<T> = Result<InvocResult<T>, Error>;
+pub type StateCallResult = Result<InvocResult, Error>;
 
 #[allow(dead_code)]
 #[derive(Default)]
@@ -232,7 +231,7 @@ where
         bstate: &Cid,
         rand: &ChainRand,
         bheight: &ChainEpoch,
-    ) -> StateCallResult<UnsignedMessage>
+    ) -> StateCallResult
     where
         DB: BlockStore,
     {
@@ -267,7 +266,7 @@ where
             }
 
             Ok(InvocResult {
-                msg: msg.clone(),
+                msg: ChainMessage::Unsigned(msg.clone()),
                 msg_rct: Some(apply_ret.msg_receipt().clone()),
                 actor_error: apply_ret.act_error().map(|e| e.to_string()),
             })
@@ -279,7 +278,7 @@ where
         &self,
         message: &mut UnsignedMessage,
         tipset: Option<Tipset>,
-    ) -> StateCallResult<UnsignedMessage>
+    ) -> StateCallResult
     where
         DB: BlockStore,
     {
@@ -374,192 +373,7 @@ where
         })
     }
 
-    fn search_back_for_message(
-        block_store: Arc<DB>,
-        current: &Tipset,
-        (message_from_address, message_cid, message_sequence): (&Address, &Cid, &u64),
-    ) -> Result<Option<(Tipset, MessageReceipt)>, Error>
-    where
-        DB: BlockStore,
-    {
-        if current.epoch() == 0 {
-            return Ok(None);
-        }
-        let state = StateTree::new_from_root(&*block_store, current.parent_state())
-            .map_err(Error::State)?;
-
-        if let Some(actor_state) = state
-            .get_actor(message_from_address)
-            .map_err(Error::State)?
-        {
-            if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
-                return Ok(None);
-            }
-        }
-
-        let tipset = chain::tipset_from_keys(&*block_store, current.parents()).map_err(|err| {
-            Error::Other(format!(
-                "failed to load tipset during msg wait searchback: {:}",
-                err
-            ))
-        })?;
-        let r = Self::tipset_executed_message(
-            &*block_store,
-            &tipset,
-            message_cid,
-            (message_from_address, message_sequence),
-        )?;
-
-        if let Some(receipt) = r {
-            return Ok(Some((tipset, receipt)));
-        }
-        Self::search_back_for_message(
-            block_store,
-            &tipset,
-            (message_from_address, message_cid, message_sequence),
-        )
-    }
-    /// returns a message receipt from a given tipset and message cid
-    pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
-        let m = chain::get_chain_message(self.get_block_store_ref(), msg)
-            .map_err(|e| Error::Other(e.to_string()))?;
-        let message_var = (m.from(), &m.sequence());
-        let message_receipt =
-            Self::tipset_executed_message(self.get_block_store_ref(), tipset, msg, message_var)?;
-
-        if let Some(receipt) = message_receipt {
-            return Ok(receipt);
-        }
-        let cid = m
-            .cid()
-            .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
-        let message_var = (m.from(), &cid, &m.sequence());
-        let maybe_tuple =
-            Self::search_back_for_message(self.get_block_store(), tipset, message_var)?;
-        let message_receipt = maybe_tuple
-            .ok_or_else(|| {
-                Error::Other("Could not get receipt from search back message".to_string())
-            })?
-            .1;
-        Ok(message_receipt)
-    }
-
-    fn tipset_executed_message(
-        block_store: &DB,
-        tipset: &Tipset,
-        cid: &Cid,
-        (message_from_address, message_sequence): (&Address, &u64),
-    ) -> Result<Option<MessageReceipt>, Error>
-    where
-        DB: BlockStore,
-    {
-        if tipset.epoch() == 0 {
-            return Ok(None);
-        }
-        let tipset = chain::tipset_from_keys(block_store, tipset.parents())
-            .map_err(|err| Error::Other(err.to_string()))?;
-        let messages = chain::messages_for_tipset(block_store, &tipset)
-            .map_err(|err| Error::Other(err.to_string()))?;
-        messages
-            .iter()
-            .enumerate()
-            .rev()
-            .filter(|(_, s)| s.from() == message_from_address)
-            .filter_map(|(index,s)| {
-                if s.sequence() == *message_sequence {
-                    if s.cid().map(|s| &s == cid).unwrap_or_default() {
-                        return Some(
-                            chain::get_parent_reciept(
-                                block_store,
-                                tipset.blocks().first().unwrap(),
-                                index as u64,
-                            )
-                            .map_err(|err| {
-                                Error::Other(err.to_string())
-                            }),
-                        );
-                    }
-                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message_sequence, s.sequence());
-                    return Some(Err(Error::Other(error_msg)))
-                }
-                if s.sequence() < *message_sequence {
-                    return Some(Ok(None));
-                }
-
-                None
-            })
-    }
-
-    fn search_back_for_message(
-        block_store: Arc<DB>,
-        current: &Tipset,
-        (message_from_address, message_cid, message_sequence): (&Address, &Cid, &u64),
-    ) -> Result<Option<(Tipset, MessageReceipt)>, Error>
-    where
-        DB: BlockStore,
-    {
-        if current.epoch() == 0 {
-            return Ok(None);
-        }
-        let state = StateTree::new_from_root(&*block_store, current.parent_state())
-            .map_err(Error::State)?;
-
-        if let Some(actor_state) = state
-            .get_actor(message_from_address)
-            .map_err(Error::State)?
-        {
-            if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
-                return Ok(None);
-            }
-        }
-
-        let tipset = chain::tipset_from_keys(&*block_store, current.parents()).map_err(|err| {
-            Error::Other(format!(
-                "failed to load tipset during msg wait searchback: {:}",
-                err
-            ))
-        })?;
-        let r = Self::tipset_executed_message(
-            &*block_store,
-            &tipset,
-            message_cid,
-            (message_from_address, message_sequence),
-        )?;
-
-        if let Some(receipt) = r {
-            return Ok(Some((tipset, receipt)));
-        }
-        Self::search_back_for_message(
-            block_store,
-            &tipset,
-            (message_from_address, message_cid, message_sequence),
-        )
-    }
-    /// returns a message receipt from a given tipset and message cid
-    pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
-        let m = chain::get_chain_message(self.get_block_store_ref(), msg)
-            .map_err(|e| Error::Other(e.to_string()))?;
-        let message_var = (m.from(), &m.sequence());
-        let message_receipt =
-            Self::tipset_executed_message(self.get_block_store_ref(), tipset, msg, message_var)?;
-
-        if let Some(receipt) = message_receipt {
-            return Ok(receipt);
-        }
-        let cid = m
-            .cid()
-            .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
-        let message_var = (m.from(), &cid, &m.sequence());
-        let maybe_tuple =
-            Self::search_back_for_message(self.get_block_store(), tipset, message_var)?;
-        let message_receipt = maybe_tuple
-            .ok_or_else(|| {
-                Error::Other("Could not get receipt from search back message".to_string())
-            })?
-            .1;
-        Ok(message_receipt)
-    }
-
+    
     fn tipset_executed_message(
         block_store: &DB,
         tipset: &Tipset,
@@ -607,7 +421,77 @@ where
             .next()
             .unwrap_or_else(|| Ok(None))
     }
+    fn search_back_for_message(
+        block_store: Arc<DB>,
+        current: &Tipset,
+        (message_from_address, message_cid, message_sequence): (&Address, &Cid, &u64),
+    ) -> Result<Option<(Tipset, MessageReceipt)>, Error>
+    where
+        DB: BlockStore,
+    {
+        if current.epoch() == 0 {
+            return Ok(None);
+        }
+        let state = StateTree::new_from_root(&*block_store, current.parent_state())
+            .map_err(Error::State)?;
 
+        if let Some(actor_state) = state
+            .get_actor(message_from_address)
+            .map_err(Error::State)?
+        {
+            if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
+                return Ok(None);
+            }
+        }
+
+        let tipset = chain::tipset_from_keys(&*block_store, current.parents()).map_err(|err| {
+            Error::Other(format!(
+                "failed to load tipset during msg wait searchback: {:}",
+                err
+            ))
+        })?;
+        let r = Self::tipset_executed_message(
+            &*block_store,
+            &tipset,
+            message_cid,
+            (message_from_address, message_sequence),
+        )?;
+
+        if let Some(receipt) = r {
+            return Ok(Some((tipset, receipt)));
+        }
+        Self::search_back_for_message(
+            block_store,
+            &tipset,
+            (message_from_address, message_cid, message_sequence),
+        )
+    }
+    /// returns a message receipt from a given tipset and message cid
+    pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
+        let m = chain::get_chain_message(self.get_block_store_ref(), msg)
+            .map_err(|e| Error::Other(e.to_string()))?;
+        let message_var = (m.from(), &m.sequence());
+        let message_receipt =
+            Self::tipset_executed_message(self.get_block_store_ref(), tipset, msg, message_var)?;
+
+        if let Some(receipt) = message_receipt {
+            return Ok(receipt);
+        }
+        let cid = m
+            .cid()
+            .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
+        let message_var = (m.from(), &cid, &m.sequence());
+        let maybe_tuple =
+            Self::search_back_for_message(self.get_block_store(), tipset, message_var)?;
+        let message_receipt = maybe_tuple
+            .ok_or_else(|| {
+                Error::Other("Could not get receipt from search back message".to_string())
+            })?
+            .1;
+        Ok(message_receipt)
+    }
+
+    
     /// WaitForMessage blocks until a message appears on chain. It looks backwards in the chain to see if this has already
     /// happened. It guarantees that the message has been on chain for at least confidence epochs without being reverted
     /// before returning.
