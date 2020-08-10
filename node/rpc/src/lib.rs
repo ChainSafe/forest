@@ -14,6 +14,7 @@ use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
 use wallet::KeyStore;
+use state_manager::StateManager;
 
 /// This is where you store persistant data, or at least access to stateful data.
 
@@ -22,7 +23,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    pub store: Arc<DB>,
+    pub store: StateManager<DB>,
     pub keystore: Arc<RwLock<KS>>,
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<SyncState>>,
