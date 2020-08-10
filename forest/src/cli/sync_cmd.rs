@@ -22,7 +22,7 @@ pub enum SyncCommand {
         about = "Mark the given block as bad, will prevent syncing to a chain that contains it"
     )]
     MarkBad {
-        #[structopt( help = "Block Cid given as string argument")]
+        #[structopt(help = "Block Cid given as string argument")]
         block_cid: String,
     },
 

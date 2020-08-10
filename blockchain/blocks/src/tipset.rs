@@ -312,7 +312,7 @@ pub mod tipset_json {
     {
         #[derive(Serialize, Deserialize)]
         #[serde(rename_all = "PascalCase")]
-        pub struct TipsetDe {
+        struct TipsetDe {
             #[serde(with = "super::super::header::json::vec")]
             blocks: Vec<BlockHeader>,
             #[serde(with = "super::tipset_keys_json")]
