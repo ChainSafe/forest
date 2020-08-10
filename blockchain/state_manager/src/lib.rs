@@ -25,21 +25,20 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
+use message::ChainMessage;
 use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigInt;
+use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use serde::{Deserialize,Serialize};
-use message::ChainMessage;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
 /// Type to represent invocation of state call results
-pub struct InvocResult
-{
+pub struct InvocResult {
     pub msg: ChainMessage,
     pub msg_rct: Option<MessageReceipt>,
     pub actor_error: Option<String>,
@@ -274,11 +273,7 @@ where
     }
 
     /// runs the given message and returns its result without any persisted changes.
-    pub fn call(
-        &self,
-        message: &mut UnsignedMessage,
-        tipset: Option<Tipset>,
-    ) -> StateCallResult
+    pub fn call(&self, message: &mut UnsignedMessage, tipset: Option<Tipset>) -> StateCallResult
     where
         DB: BlockStore,
     {
@@ -373,7 +368,6 @@ where
         })
     }
 
-    
     fn tipset_executed_message(
         block_store: &DB,
         tipset: &Tipset,
@@ -491,7 +485,6 @@ where
         Ok(message_receipt)
     }
 
-    
     /// WaitForMessage blocks until a message appears on chain. It looks backwards in the chain to see if this has already
     /// happened. It guarantees that the message has been on chain for at least confidence epochs without being reverted
     /// before returning.

@@ -242,8 +242,6 @@ where
         .map_err(|e| e.into())
 }
 
-
-
 /// returns a state tree given a tipset
 pub fn state_for_ts<DB>(
     state_manager: &StateManager<DB>,

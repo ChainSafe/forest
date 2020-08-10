@@ -11,13 +11,13 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Range, Sub, SubAssign},
 };
 
-use serde::{Deserialize,Serialize};
+use serde::{Deserialize, Serialize};
 
 type Result<T> = std::result::Result<T, &'static str>;
 
 /// An bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
 /// `HashSet<usize>`, but more memory-efficient when long runs of 1s and 0s are present.
-#[derive(Debug, Default,Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct BitField {
     /// The underlying ranges of 1s.
     pub ranges: Vec<Range<usize>>,
@@ -326,40 +326,32 @@ pub mod json {
     where
         S: Serializer,
     {
+        let iterator = m.iter();
+        let vec = if let Some(first) = iterator.first() {
+            let mut ret = Vec::new();
+            if first == 0 {
+                vec.push(0);
+            }
 
-       let iterator = m.iter();
-       let vec = if let Some(first) = iterator.first()
-       {
-           let mut ret = Vec::new();
-           if first==0
-           {
-               vec.push(0);
-           }
+            let ranges = iter.ranges().for_each(|s| {
+                vec.push(range.0);
+                vec.push(range.1);
+            });
+        } else {
+            let vec = vec::with_capacity(1);
+            vec.push(0);
+            vec
+        };
 
-           let ranges = iter.ranges().for_each(|s|{
-               vec.push(range.0);
-               vec.push(range.1);
-           });
-       }
-       else
-       {
-           let vec = vec::with_capacity(1);
-           vec.push(0);
-           vec
-       };
-
-       serializer.serialize_bytes(vec)
-
+        serializer.serialize_bytes(vec)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let bitfield_bytes : Vec<u8> =  Deserialize::deserialize(deserializer)?;
-        let bitfield : BitField= address_bytes.into();
+        let bitfield_bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
+        let bitfield: BitField = address_bytes.into();
         bitfield
-     
-
     }
 }

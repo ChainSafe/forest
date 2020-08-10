@@ -13,7 +13,7 @@ pub use self::protocol::Protocol;
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, serde_bytes, Cbor};
-use serde::{Deserialize, de,Deserializer,Serialize, ser,Serializer};
+use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -50,9 +50,6 @@ pub struct Address {
     network: Network,
     payload: Payload,
 }
-
-
-
 
 impl Address {
     /// Address constructor
@@ -308,17 +305,15 @@ fn address_hash(ingest: &[u8]) -> [u8; 20] {
     hash
 }
 
-
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S>(m: &Address,serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(m: &Address, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        
         serializer.serialize_str(&encode(m))
     }
 
@@ -326,8 +321,7 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-       let address_as_string : &str =  Deserialize::deserialize(deserializer)?;
-       Ok(Address::from_str(address_as_string).map_err(de::Error::custom)?)
+        let address_as_string: &str = Deserialize::deserialize(deserializer)?;
+        Ok(Address::from_str(address_as_string).map_err(de::Error::custom)?)
     }
 }
-

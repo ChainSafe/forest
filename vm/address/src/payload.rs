@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{from_leb_bytes, to_leb_bytes, Error, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::u64;
-use serde::{Deserialize,Serialize};
 
 /// Public key struct used as BLS Address data.
 /// This type is only needed to be able to implement traits on it due to limitations on

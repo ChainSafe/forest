@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod chain_api;
+mod state_api;
 mod sync_api;
 mod wallet_api;
-mod state_api;
 
 use async_std::sync::{RwLock, Sender};
 use blockstore::BlockStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
+use state_manager::StateManager;
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
 use wallet::KeyStore;
-use state_manager::StateManager;
 
 /// This is where you store persistant data, or at least access to stateful data.
 

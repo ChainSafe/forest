@@ -82,7 +82,11 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (CidJson(obj_cid),) = params;
-    Ok(data.store.get_block_store_ref().get_bytes(&obj_cid)?.is_some())
+    Ok(data
+        .store
+        .get_block_store_ref()
+        .get_bytes(&obj_cid)?
+        .is_some())
 }
 
 pub(crate) async fn chain_block_messages<DB, KS>(
@@ -100,9 +104,13 @@ where
         .get(&blk_cid)?
         .ok_or("can't find block with that cid")?;
     let blk_msgs = blk.messages();
-    let (unsigned_cids, signed_cids) = chain::read_msg_cids(data.store.get_block_store_ref(), &blk_msgs)?;
-    let (bls_msg, secp_msg) =
-        chain::block_messages_from_cids(data.store.get_block_store_ref(), &unsigned_cids, &signed_cids)?;
+    let (unsigned_cids, signed_cids) =
+        chain::read_msg_cids(data.store.get_block_store_ref(), &blk_msgs)?;
+    let (bls_msg, secp_msg) = chain::block_messages_from_cids(
+        data.store.get_block_store_ref(),
+        &unsigned_cids,
+        &signed_cids,
+    )?;
     let cids = unsigned_cids
         .into_iter()
         .chain(signed_cids)
@@ -137,7 +145,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let genesis = chain::genesis(data.store.get_block_store_ref())?.ok_or("can't find genesis tipset")?;
+    let genesis =
+        chain::genesis(data.store.get_block_store_ref())?.ok_or("can't find genesis tipset")?;
     let gen_ts = Tipset::new(vec![genesis])?;
     Ok(Some(TipsetJson(gen_ts)))
 }
@@ -149,8 +158,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let heaviest =
-        chain::get_heaviest_tipset(data.store.get_block_store_ref())?.ok_or("can't find heaviest tipset")?;
+    let heaviest = chain::get_heaviest_tipset(data.store.get_block_store_ref())?
+        .ok_or("can't find heaviest tipset")?;
     Ok(TipsetJson(heaviest))
 }
 

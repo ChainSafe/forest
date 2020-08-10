@@ -12,10 +12,10 @@ use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use rpc::{start_rpc, RpcState};
+use state_manager::StateManager;
 use std::sync::Arc;
 use utils::write_to_file;
 use wallet::MemKeyStore;
-use state_manager::StateManager;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
