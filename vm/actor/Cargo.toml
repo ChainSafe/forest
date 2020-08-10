@@ -35,4 +35,4 @@ log = "0.4.8"
 [dev-dependencies]
 db = { path = "../../node/db" }
 hex = "0.4.2"
-libp2p = "0.21.1"
+libp2p = "0.23.0"
