@@ -14,7 +14,7 @@ use vm::TokenAmount;
 lazy_static! {
     /// 36.266260308195979333 FIL
     pub static ref INITIAL_REWARD_POSITION_ESTIMATE: TokenAmount = TokenAmount::from(36266260308195979333u128);
-    /// -1.0982489*10^-7 FIL per epoch.  Change of simple minted tokens between epochs 0 and 1
+    /// -1.0982489*10^-7 FIL per epoch.  Change of simple minted tokens between epochs 0 and 1.
     pub static ref INITIAL_REWARD_VELOCITY_ESTIMATE: TokenAmount = TokenAmount::from(-109897758509i64);
 }
 
@@ -38,7 +38,7 @@ pub struct State {
     #[serde(with = "bigint_ser")]
     pub effective_network_time: NetworkTime,
 
-    /// EffectiveBaselinePower is the baseline power at the EffectiveNetworkTime epoch
+    /// EffectiveBaselinePower is the baseline power at the EffectiveNetworkTime epoch.
     #[serde(with = "bigint_ser")]
     pub effective_baseline_power: StoragePower,
 
@@ -50,14 +50,14 @@ pub struct State {
     /// Smoothed `this_epoch_reward`.
     pub this_epoch_reward_smoothed: FilterEstimate,
 
-    /// The baseline power the network is targeting at st.Epoch
+    /// The baseline power the network is targeting at st.Epoch.
     #[serde(with = "bigint_ser")]
     pub this_epoch_baseline_power: StoragePower,
 
-    /// Epoch tracks for which epoch the Reward was computed
+    /// Epoch tracks for which epoch the Reward was computed.
     pub epoch: ChainEpoch,
 
-    /// TotalMined tracks the total FIL awared to block miners
+    /// TotalMined tracks the total FIL awared to block miners.
     #[serde(with = "bigint_ser")]
     pub total_mined: TokenAmount,
 }
@@ -94,7 +94,7 @@ impl State {
 
 impl Cbor for State {}
 
-/// Defines vestion function type for reward actor
+/// Defines vestion function type for reward actor.
 #[derive(Clone, Debug, PartialEq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum VestingFunction {

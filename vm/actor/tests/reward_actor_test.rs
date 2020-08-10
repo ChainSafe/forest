@@ -35,7 +35,7 @@ fn balance_less_than_reward() {
         miner: miner,
         penalty: TokenAmount::from(0u8),
         gas_reward: gas_reward,
-        ticket_count: 0,
+        win_count: 0,
     };
 
     // Expect call to fail because actor doesnt have enough tokens to reward

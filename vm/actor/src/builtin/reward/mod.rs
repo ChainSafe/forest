@@ -16,7 +16,7 @@ use clock::ChainEpoch;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Sign};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
@@ -25,7 +25,7 @@ use vm::{
     METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: 52599b21919df07f44d7e61cc028e265ec18f700
+// * Updated to specs-actors commit: 9d42fb163883f31325b08752c9f4e85d0b3ef22f (> v0.8.6)
 
 /// Reward actor methods available
 #[derive(FromPrimitive)]
@@ -41,18 +41,22 @@ pub enum Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Reward actor
-    fn constructor<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+    fn constructor<BS, RT>(
+        rt: &mut RT,
+        curr_realized_power: Option<StoragePower>,
+    ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        // TODO revisit based on issue: https://github.com/filecoin-project/specs-actors/issues/317
-
-        todo!();
-        // rt.create(&State::new())?;
-        // Ok(())
+        if let Some(power) = curr_realized_power {
+            rt.create(&State::new(power))?;
+            Ok(())
+        } else {
+            Err(actor_error!(ErrIllegalArgument; "argument should not be nil"))
+        }
     }
 
     /// Awards a reward to a block producer.
@@ -74,28 +78,54 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
-        let balance = rt.current_balance()?;
-        assert!(
-            balance >= params.gas_reward,
-            "actor current balance {} insufficient to pay gas reward {}",
-            balance,
-            params.gas_reward
-        );
-
-        assert!(
-            params.ticket_count > 0,
-            "cannot give block reward for zero tickets"
-        );
-
-        let miner_addr = rt.resolve_address(&params.miner)?.ok_or_else(
-            || actor_error!(ErrIllegalState; "failed to resolve given owner address"),
-        )?;
-
         let prior_balance = rt.current_balance()?;
+        if params.penalty.sign() == Sign::Minus {
+            return Err(actor_error!(ErrIllegalArgument; "negative penalty {}", params.penalty));
+        }
+        if params.gas_reward.sign() == Sign::Minus {
+            return Err(
+                actor_error!(ErrIllegalArgument; "negative gas reward {}", params.gas_reward),
+            );
+        }
+        if prior_balance < params.gas_reward {
+            return Err(actor_error!(ErrIllegalState;
+                "actor current balance {} insufficient to pay gas reward {}",
+                prior_balance, params.gas_reward));
+        }
+        if params.win_count <= 0 {
+            return Err(actor_error!(ErrIllegalArgument; "invalid win count {}", params.win_count));
+        }
 
-        let state: State = rt.state()?;
-        let block_reward = state.this_epoch_reward / EXPECTED_LEADERS_PER_EPOCH;
-        let total_reward = block_reward + params.gas_reward;
+        let miner_addr = rt
+            .resolve_address(&params.miner)?
+            .ok_or_else(|| actor_error!(ErrNotFound; "failed to resolve given owner address"))?;
+
+        let total_reward = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+            let mut block_reward =
+                (st.this_epoch_reward.clone() * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
+            let mut total_reward = params.gas_reward.clone() + &block_reward;
+            // TODO revisit this, I removed duplicate calls to current balance, but should be
+            // matched once fully iteroping (if not fixed)
+            let curr_balance = rt.current_balance()?;
+            if total_reward > curr_balance {
+                log::warn!(
+                    "reward actor balance {} below totalReward expected {},\
+                    paying out rest of balance",
+                    curr_balance,
+                    total_reward
+                );
+                total_reward = curr_balance;
+                block_reward -= &params.gas_reward;
+                assert_ne!(
+                    block_reward.sign(),
+                    Sign::Minus,
+                    "block reward {} below zero",
+                    block_reward
+                );
+            }
+            st.total_mined += block_reward;
+            Ok(total_reward)
+        })??;
 
         // Cap the penalty at the total reward value.
         let penalty = std::cmp::min(&params.penalty, &total_reward);
@@ -104,24 +134,50 @@ impl Actor {
         let reward_payable = total_reward.clone() - penalty;
 
         assert!(
-            reward_payable <= prior_balance - penalty,
-            "Total reward exceeds balance of actor"
+            reward_payable.clone() + penalty <= prior_balance,
+            "reward payable {} + penalty {} exceeds balance {}",
+            reward_payable,
+            penalty,
+            prior_balance
         );
 
-        rt.send(
+        // if this fails, we can assume the miner is responsible and avoid failing here.
+        let res = rt.send(
             miner_addr,
             miner::Method::AddLockedFund as u64,
             Serialized::serialize(&BigIntSer(&reward_payable))?,
-            reward_payable,
-        )?;
+            reward_payable.clone(),
+        );
+        if let Err(e) = res {
+            log::error!(
+                "failed to send AddLockedFund call to the miner actor with funds {}, code: {:?}",
+                reward_payable,
+                e.exit_code()
+            );
+            let res = rt.send(
+                *BURNT_FUNDS_ACTOR_ADDR,
+                METHOD_SEND,
+                Serialized::default(),
+                reward_payable,
+            );
+            if let Err(e) = res {
+                log::error!(
+                    "failed to send unsent reward to the burnt funds actor, code: {:?}",
+                    e.exit_code()
+                );
+            }
+        }
 
-        // Burn the penalty
-        rt.send(
-            *BURNT_FUNDS_ACTOR_ADDR,
-            METHOD_SEND,
-            Serialized::default(),
-            penalty.clone(),
-        )?;
+        // Burn the penalty amount.
+        if penalty.sign() == Sign::Plus {
+            rt.send(
+                *BURNT_FUNDS_ACTOR_ADDR,
+                METHOD_SEND,
+                Serialized::default(),
+                penalty.clone(),
+            )
+            .map_err(|e| e.wrap("failed to send penalty to burnt funds actor: "))?;
+        }
 
         Ok(())
     }
@@ -215,8 +271,8 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                check_empty_params(params)?;
-                Self::constructor(rt)?;
+                let param: Option<BigIntDe> = params.deserialize()?;
+                Self::constructor(rt, param.map(|v| v.0))?;
                 Ok(Serialized::default())
             }
             Some(Method::AwardBlockReward) => {

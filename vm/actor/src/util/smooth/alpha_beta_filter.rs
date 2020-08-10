@@ -7,7 +7,7 @@ use encoding::tuple::*;
 use encoding::Cbor;
 use num_bigint::{bigint_ser, BigInt};
 
-#[derive(Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Serialize_tuple, Deserialize_tuple, Clone, Debug, PartialEq)]
 pub struct FilterEstimate {
     #[serde(with = "bigint_ser")]
     pub position: BigInt,

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::network::*;
+use crate::smooth::FilterEstimate;
 use address::Address;
 use encoding::tuple::*;
 use fil_types::StoragePower;
@@ -52,15 +53,14 @@ pub struct AwardBlockRewardParams {
     pub penalty: TokenAmount,
     #[serde(with = "bigint_ser")]
     pub gas_reward: TokenAmount,
-    pub ticket_count: u64,
+    pub win_count: i64,
 }
 
-// TODO replace this type for return and update smoothed type
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ThisEpochRewardReturn {
     #[serde(with = "bigint_ser")]
     pub this_epoch_reward: TokenAmount,
-    pub this_epoch_reward_smoothed: (),
+    pub this_epoch_reward_smoothed: Option<FilterEstimate>,
     #[serde(with = "bigint_ser")]
     pub this_epoch_baseline_power: StoragePower,
 }

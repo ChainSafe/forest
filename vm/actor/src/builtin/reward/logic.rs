@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::math::PRECISION;
 use fil_types::StoragePower;
 use std::str::FromStr;
