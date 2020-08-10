@@ -1,6 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[macro_use]
+extern crate lazy_static;
+
+mod auth;
 mod chain_api;
 mod mpool_api;
 mod sync_api;
@@ -32,6 +36,10 @@ where
 }
 
 async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
+    if let Some(header) = req.header("Authorization") {
+        println!("{:?}", header);
+    }
+    println!("{:?}", req.method());
     let call: RequestObject = req.body_json().await?;
     let res = req.state().handle(call).await;
     Ok(Response::new(StatusCode::Ok).body_json(&res)?)
@@ -42,6 +50,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
+    use auth::*;
     use chain_api::*;
     use mpool_api::*;
     use sync_api::*;
@@ -49,6 +58,10 @@ where
 
     let rpc = Server::new()
         .with_data(Data::new(state))
+        // Auth API
+        .with_method("Filecoin.AuthNew", auth_new)
+        .with_method("Filecoin.AuthVerify", auth_verify)
+        // Chain API
         .with_method(
             "Filecoin.ChainGetMessage",
             chain_api::chain_get_message::<DB, KS>,
