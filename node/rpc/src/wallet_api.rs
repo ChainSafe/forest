@@ -174,7 +174,7 @@ where
 
     let addr_string = format!("wallet-{}", address);
     let key_info = keystore.get(&addr_string)?;
-    keystore.remove("default".to_string()); // This line should unregister current default key then continue
+    keystore.remove("default".to_string())?; // This line should unregister current default key then continue
     keystore.put("default".to_string(), key_info)?;
     Ok(())
 }

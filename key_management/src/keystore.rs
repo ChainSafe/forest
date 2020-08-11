@@ -101,7 +101,7 @@ pub trait KeyStore {
     /// Save a key key_info pair to the KeyStore
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
-    fn remove(&mut self, key: String) -> Option<KeyInfo>;
+    fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
 }
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
@@ -135,8 +135,8 @@ impl KeyStore for MemKeyStore {
         Ok(())
     }
 
-    fn remove(&mut self, key: String) -> Option<KeyInfo> {
-        self.key_info.remove(&key)
+    fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
+        self.key_info.remove(&key).ok_or(Error::KeyInfo)
     }
 }
 
@@ -200,14 +200,14 @@ impl KeyStore for PersistentKeyStore {
         Ok(())
     }
 
-    fn remove(&mut self, key: String) -> Option<KeyInfo> {
-        let key_out = self.key_info.remove(&key);
+    fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
+        let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
         let file = OpenOptions::new()
             .write(true)
             .create(true)
             .open(&self.location)
-            .ok()?;
-        serde_json::to_writer(file, &self.key_info).ok()?;
-        key_out
+            .map_err(|err| Error::Other(err.to_string()))?;
+        serde_json::to_writer(file, &self.key_info).map_err(|err| Error::Other(err.to_string()))?;
+        Ok(key_out)
     }
 }
