@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::logic::*;
-use super::types::*;
-use crate::smooth::FilterEstimate;
+use crate::smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA};
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{repr::*, tuple::*, Cbor};
 use fil_types::{Spacetime, StoragePower};
@@ -35,8 +34,7 @@ pub struct State {
     /// CumsumBaselinePower(theta) == CumsumRealizedPower
     /// Theta captures the notion of how much the network has progressed in its baseline
     /// and in advancing network time.
-    #[serde(with = "bigint_ser")]
-    pub effective_network_time: NetworkTime,
+    pub effective_network_time: ChainEpoch,
 
     /// EffectiveBaselinePower is the baseline power at the EffectiveNetworkTime epoch.
     #[serde(with = "bigint_ser")]
@@ -79,16 +77,51 @@ impl State {
         st
     }
 
+    /// Takes in current realized power and updates internal state
+    /// Used for update of internal state during null rounds
     pub(super) fn update_to_next_epoch(&mut self, curr_realized_power: &StoragePower) {
-        todo!()
+        self.epoch += 1;
+        self.this_epoch_baseline_power = baseline_power_from_prev(&self.this_epoch_baseline_power);
+        let capped_realized_power =
+            std::cmp::min(&self.this_epoch_baseline_power, curr_realized_power);
+        self.cumsum_realized += capped_realized_power;
+
+        while self.cumsum_realized > self.cumsum_baseline {
+            self.effective_network_time += 1;
+            self.effective_baseline_power =
+                baseline_power_from_prev(&self.effective_baseline_power);
+            self.cumsum_baseline += &self.effective_baseline_power;
+        }
     }
 
+    /// Takes in a current realized power for a reward epoch and computes
+    /// and updates reward state to track reward for the next epoch
     pub(super) fn update_to_next_epoch_with_reward(&mut self, curr_realized_power: &StoragePower) {
-        todo!()
+        let prev_reward_theta = compute_r_theta(
+            self.effective_network_time,
+            &self.effective_baseline_power,
+            &self.cumsum_realized,
+            &self.cumsum_baseline,
+        );
+        self.update_to_next_epoch(curr_realized_power);
+        let curr_reward_theta = compute_r_theta(
+            self.effective_network_time,
+            &self.effective_baseline_power,
+            &self.cumsum_realized,
+            &self.cumsum_baseline,
+        );
+
+        self.this_epoch_reward = compute_reward(self.epoch, prev_reward_theta, curr_reward_theta);
     }
 
     pub(super) fn update_smoothed_estimates(&mut self, delta: ChainEpoch) {
-        todo!()
+        let filter_reward = AlphaBetaFilter::load(
+            &self.this_epoch_reward_smoothed,
+            &DEFAULT_ALPHA,
+            &DEFAULT_BETA,
+        );
+        self.this_epoch_reward_smoothed =
+            filter_reward.next_estimate(&self.this_epoch_reward, delta);
     }
 }
 
