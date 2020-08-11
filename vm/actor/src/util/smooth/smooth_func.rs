@@ -27,6 +27,8 @@ lazy_static! {
         "340282366920938463463374607431768211456",
     ])
     .unwrap();
+    pub static ref DEFAULT_ALPHA: BigInt = "314760000000000000000000000000000000".parse().unwrap();
+    pub static ref DEFAULT_BETA: BigInt = "96640100000000000000000000000000".parse().unwrap();
     pub static ref LN_2: BigInt = "235865763225513294137944142764154484399".parse().unwrap();
     pub static ref EPSILON: BigInt = "302231454903657293676544".parse().unwrap();
 }

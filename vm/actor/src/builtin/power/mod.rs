@@ -87,24 +87,25 @@ impl Actor {
             )?
             .deserialize()?;
 
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-            st.set_claim(rt.store(), &addresses.id_address, Claim::default())
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!(
-                            "failed to put power in claimed table while creating miner: {}",
-                            e
-                        ),
-                    )
-                })?;
-            st.miner_count += 1;
-            Ok(())
-        })??;
-        Ok(CreateMinerReturn {
-            id_address: addresses.id_address,
-            robust_address: addresses.robust_address,
-        })
+        todo!()
+        // rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+        //     st.set_claim(rt.store(), &addresses.id_address, Claim::default())
+        //         .map_err(|e| {
+        //             ActorError::new(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!(
+        //                     "failed to put power in claimed table while creating miner: {}",
+        //                     e
+        //                 ),
+        //             )
+        //         })?;
+        //     st.miner_count += 1;
+        //     Ok(())
+        // })??;
+        // Ok(CreateMinerReturn {
+        //     id_address: addresses.id_address,
+        //     robust_address: addresses.robust_address,
+        // })
     }
     pub fn delete_miner<BS, RT>(rt: &mut RT, params: DeleteMinerParams) -> Result<(), ActorError>
     where
@@ -319,15 +320,16 @@ impl Actor {
             callback_payload: params.payload.clone(),
         };
 
-        rt.transaction(|st: &mut State, rt| {
-            st.append_cron_event(rt.store(), params.event_epoch, miner_event)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to enroll cron event: {}", e),
-                    )
-                })
-        })?
+        todo!()
+        // rt.transaction(|st: &mut State, rt| {
+        //     st.append_cron_event(rt.store(), params.event_epoch, miner_event)
+        //         .map_err(|e| {
+        //             ActorError::new(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!("failed to enroll cron event: {}", e),
+        //             )
+        //         })
+        // })?
     }
 
     pub fn on_epoch_tick_end<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -337,43 +339,44 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR))?;
 
-        let rt_epoch = rt.curr_epoch();
-        let cron_events = rt
-            .transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
-                let mut events = Vec::new();
-                for i in st.last_processed_cron_epoch..=rt_epoch {
-                    // Load epoch cron events
-                    let epoch_events = st.load_cron_events(rt.store(), i)?;
+        todo!()
+        // let rt_epoch = rt.curr_epoch();
+        // let cron_events = rt
+        //     .transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
+        //         let mut events = Vec::new();
+        //         for i in st.last_processed_cron_epoch..=rt_epoch {
+        //             // Load epoch cron events
+        //             let epoch_events = st.load_cron_events(rt.store(), i)?;
 
-                    // Add all events to vector
-                    events.extend_from_slice(&epoch_events);
+        //             // Add all events to vector
+        //             events.extend_from_slice(&epoch_events);
 
-                    // Clear loaded events
-                    if !epoch_events.is_empty() {
-                        st.clear_cron_events(rt.store(), i)?;
-                    }
-                }
-                st.last_processed_cron_epoch = rt_epoch;
-                Ok(events)
-            })?
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("Failed to clear cron events: {}", e),
-                )
-            })?;
+        //             // Clear loaded events
+        //             if !epoch_events.is_empty() {
+        //                 st.clear_cron_events(rt.store(), i)?;
+        //             }
+        //         }
+        //         st.last_processed_cron_epoch = rt_epoch;
+        //         Ok(events)
+        //     })?
+        //     .map_err(|e| {
+        //         ActorError::new(
+        //             ExitCode::ErrIllegalState,
+        //             format!("Failed to clear cron events: {}", e),
+        //         )
+        //     })?;
 
-        for event in cron_events {
-            // TODO switch 12 to OnDeferredCronEvent on miner actor impl
-            rt.send(
-                event.miner_addr,
-                12,
-                event.callback_payload,
-                TokenAmount::from(0u8),
-            )?;
-        }
+        // for event in cron_events {
+        //     // TODO switch 12 to OnDeferredCronEvent on miner actor impl
+        //     rt.send(
+        //         event.miner_addr,
+        //         12,
+        //         event.callback_payload,
+        //         TokenAmount::from(0u8),
+        //     )?;
+        // }
 
-        Ok(())
+        // Ok(())
     }
 
     // TODO update this function from using unsigned delta (can be negative)
@@ -431,16 +434,17 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
-            st.delete_claim(rt.store(), miner)?;
+        todo!()
+        // rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
+        //     st.delete_claim(rt.store(), miner)?;
 
-            st.miner_count -= 1;
+        //     st.miner_count -= 1;
 
-            Ok(())
-        })?
-        .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
+        //     Ok(())
+        // })?
+        // .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
 
-        Ok(())
+        // Ok(())
     }
 
     fn submit_porep_for_bulk_verify<BS, RT>(

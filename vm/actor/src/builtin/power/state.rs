@@ -1,8 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::CONSENSUS_MINER_MIN_POWER;
-use crate::{smooth::FilterEstimate, BytesKey, Map, Multimap, HAMT_BIT_WIDTH};
+use super::{CONSENSUS_MINER_MIN_MINERS, CONSENSUS_MINER_MIN_POWER};
+use crate::{
+    smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA},
+    BytesKey, Map, Multimap, HAMT_BIT_WIDTH,
+};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
@@ -10,7 +13,6 @@ use encoding::{tuple::*, Cbor};
 use fil_types::StoragePower;
 use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::Hamt;
 use num_bigint::{bigint_ser, BigInt, Sign};
 use std::error::Error as StdError;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
@@ -140,78 +142,50 @@ impl State {
 
     pub(super) fn append_cron_event<BS: BlockStore>(
         &mut self,
-        s: &BS,
+        events: &mut Multimap<BS>,
         epoch: ChainEpoch,
         event: CronEvent,
     ) -> Result<(), String> {
-        let mut mmap = Multimap::from_root(s, &self.cron_event_queue)?;
-        mmap.add(epoch_key(epoch), event)?;
-        self.cron_event_queue = mmap.root()?;
+        if epoch < self.first_cron_epoch {
+            self.first_cron_epoch = epoch;
+        }
+
+        events
+            .add(epoch_key(epoch), event)
+            .map_err(|e| format!("failed to store cron event at epoch {}: {}", epoch, e))?;
         Ok(())
     }
 
     pub(super) fn load_cron_events<BS: BlockStore>(
-        &mut self,
-        s: &BS,
+        mmap: &Multimap<BS>,
         epoch: ChainEpoch,
     ) -> Result<Vec<CronEvent>, String> {
-        todo!()
-        // let mut events = Vec::new();
+        let mut events = Vec::new();
 
-        // let mmap = Multimap::from_root(s, &self.cron_event_queue)?;
-        // mmap.for_each(&epoch_key(epoch), |_, v: &CronEvent| {
-        //     match self.get_claim(s, &v.miner_addr) {
-        //         Ok(Some(_)) => events.push(v.clone()),
-        //         Err(e) => {
-        //             return Err(format!(
-        //                 "failed to find claimed power for {} for cron event: {}",
-        //                 v.miner_addr, e
-        //             ))
-        //         }
-        //         _ => (), // ignore events for defunct miners.
-        //     }
-        //     Ok(())
-        // })?;
+        mmap.for_each(&epoch_key(epoch), |_, v: &CronEvent| {
+            events.push(v.clone());
+            Ok(())
+        })?;
 
-        // Ok(events)
+        Ok(events)
     }
 
-    pub(super) fn clear_cron_events<BS: BlockStore>(
-        &mut self,
-        s: &BS,
-        epoch: ChainEpoch,
-    ) -> Result<(), String> {
-        let mut mmap = Multimap::from_root(s, &self.cron_event_queue)?;
-        mmap.remove_all(&epoch_key(epoch))?;
-        self.cron_event_queue = mmap.root()?;
-        Ok(())
+    pub(super) fn current_total_power(&self) -> (&StoragePower, &StoragePower) {
+        if self.miner_above_min_power_count < CONSENSUS_MINER_MIN_MINERS {
+            (&self.total_bytes_committed, &self.total_qa_bytes_committed)
+        } else {
+            (&self.total_raw_byte_power, &self.total_quality_adj_power)
+        }
     }
 
-    pub(super) fn set_claim<BS: BlockStore>(
-        &mut self,
-        store: &BS,
-        addr: &Address,
-        claim: Claim,
-    ) -> Result<(), String> {
-        let mut map: Hamt<BytesKey, _> =
-            Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
-
-        map.set(addr.to_bytes().into(), claim)?;
-        self.claims = map.flush()?;
-        Ok(())
-    }
-
-    pub(super) fn delete_claim<BS: BlockStore>(
-        &mut self,
-        store: &BS,
-        addr: &Address,
-    ) -> Result<(), String> {
-        let mut map: Hamt<BytesKey, _> =
-            Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
-
-        map.delete(&addr.to_bytes())?;
-        self.claims = map.flush()?;
-        Ok(())
+    pub(super) fn update_smoothed_estimate(&mut self, delta: ChainEpoch) {
+        let filter_qa_power = AlphaBetaFilter::load(
+            &self.this_epoch_qa_power_smoothed,
+            &*DEFAULT_ALPHA,
+            &*DEFAULT_BETA,
+        );
+        self.this_epoch_qa_power_smoothed =
+            filter_qa_power.next_estimate(&self.this_epoch_quality_adj_power, delta);
     }
 }
 
