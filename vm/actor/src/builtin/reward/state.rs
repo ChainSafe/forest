@@ -6,7 +6,6 @@ use clock::ChainEpoch;
 use encoding::{repr::*, tuple::*, Cbor};
 use fil_types::{Spacetime, StoragePower};
 use num_bigint::bigint_ser;
-use num_bigint::biguint_ser;
 use num_derive::FromPrimitive;
 use vm::TokenAmount;
 
@@ -17,11 +16,11 @@ pub struct State {
     pub baseline_power: StoragePower,
     #[serde(with = "bigint_ser")]
     pub realized_power: StoragePower,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub cumsum_baseline: Spacetime,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub cumsum_realized: Spacetime,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub effective_network_time: NetworkTime,
 
     #[serde(with = "bigint_ser")]

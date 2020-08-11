@@ -189,7 +189,10 @@ impl FromStr for Address {
                 return Err(Error::InvalidLength);
             }
             let id = raw.parse::<u64>()?;
-            return Ok(Address::new_id(id));
+            return Ok(Address {
+                network,
+                payload: Payload::ID(id),
+            });
         }
 
         // decode using byte32 encoding
