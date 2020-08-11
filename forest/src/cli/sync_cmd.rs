@@ -131,7 +131,11 @@ impl SyncCommand {
                 if response.is_ok() {
                     println!("Successfully marked block {} as bad", block_cid);
                 } else {
-                    println!("Failed to mark block {} as bad, error is {} ", block_cid, stringify_rpc_err(response.unwrap_err()));
+                    println!(
+                        "Failed to mark block {} as bad, error is {} ",
+                        block_cid,
+                        stringify_rpc_err(response.unwrap_err())
+                    );
                 }
             }
 

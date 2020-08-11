@@ -10,7 +10,10 @@ use jsonrpsee::transport::http::HttpTransportClient as HTC;
 use rpc::RPCSyncState;
 use serde_json::from_str;
 
-pub async fn mark_bad(client: &mut RawClient<HTC>, block_cid: String) -> Result<Option<()>, JsonRpcError> {
+pub async fn mark_bad(
+    client: &mut RawClient<HTC>,
+    block_cid: String,
+) -> Result<Option<()>, JsonRpcError> {
     let valid_cid = Cid::from_raw_cid(block_cid)?;
     Ok(Filecoin::mark_bad(client, CidJson(valid_cid)).await?)
 }
