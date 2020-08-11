@@ -334,7 +334,7 @@ impl Actor {
         let cron_events = rt
             .transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
                 let mut events = Vec::new();
-                for i in st.last_epoch_tick..=rt_epoch {
+                for i in st.last_processed_cron_epoch..=rt_epoch {
                     // Load epoch cron events
                     let epoch_events = st.load_cron_events(rt.store(), i)?;
 
@@ -346,7 +346,7 @@ impl Actor {
                         st.clear_cron_events(rt.store(), i)?;
                     }
                 }
-                st.last_epoch_tick = rt_epoch;
+                st.last_processed_cron_epoch = rt_epoch;
                 Ok(events)
             })?
             .map_err(|e| {
