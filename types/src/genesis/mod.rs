@@ -34,6 +34,7 @@ pub struct Miner {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Template {
     accounts: Vec<Actor>,
     miners: Vec<Miner>,
