@@ -7,7 +7,6 @@ use actor::miner;
 use actor::{
     miner::{ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
-    power::Claim,
 };
 use address::{Address, Protocol};
 use bitfield::BitField;

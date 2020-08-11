@@ -13,7 +13,7 @@ pub use self::protocol::Protocol;
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, serde_bytes, Cbor};
-use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de,Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -308,7 +308,7 @@ fn address_hash(ingest: &[u8]) -> [u8; 20] {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(m: &Address, serializer: S) -> Result<S::Ok, S::Error>
     where

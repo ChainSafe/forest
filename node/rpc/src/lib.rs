@@ -15,6 +15,7 @@ use state_manager::StateManager;
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
 use wallet::KeyStore;
+use crate::state_api::*;
 
 /// This is where you store persistant data, or at least access to stateful data.
 
@@ -91,6 +92,25 @@ where
         .with_method("Filecoin.WalletSign", wallet_sign::<DB, KS>)
         .with_method("Filecoin.WalletSignMessage", wallet_sign_message::<DB, KS>)
         .with_method("Filecoin.WalletVerify", wallet_verify::<DB, KS>)
+        //State API
+        .with_method("Filecoin.StateMinerSector",state_miner_sector::<DB,KS>)
+        .with_method("Filecoin.StateCall",state_call::<DB,KS>)
+        .with_method("Filecoin.StateMinerDeadlines",state_miner_deadlines::<DB,KS>)
+        .with_method("Filecoin.StateSectorPrecommitInfo",state_sector_precommit_info::<DB,KS>)
+        .with_method("Filecoin.StateSectorInfo",state_sector_info::<DB,KS>)
+        .with_method("Filecoin.StateMinerProvingSet",state_miner_proving_set::<DB,KS>)
+        .with_method("Filecoin.StateMinerProvingDeadline",state_miner_proving_deadline::<DB,KS>)
+        .with_method("Filecoin.StateMinerInfo",state_miner_info::<DB,KS>)
+        .with_method("Filecoin.StateMinerFaults",state_miner_faults::<DB,KS>)
+        .with_method("Filecoin.StateAllMinerFaults",state_all_miner_faults::<DB,KS>)
+        .with_method("Filecoin.StateMinerRecoveries",state_miner_recoveries::<DB,KS>)
+        .with_method("Filecoin.StateReplay",state_replay::<DB,KS>)
+        .with_method("Filecoin.StateGetActor",state_get_actor::<DB,KS>)
+        .with_method("Filecoin.StateAccountKey",state_account_key::<DB,KS>)
+        .with_method("Filecoin.StateLookupId",state_lookup_id::<DB,KS>)
+        .with_method("Filecoin.StateMartketBalance",state_market_balance::<DB,KS>)
+        .with_method("Filecoin.StateGetReceipt",state_get_receipt::<DB,KS>)
+        .with_method("Filecoin.StateWaitMsg",state_wait_msg::<DB,KS>)
         .finish_unwrapped();
 
     let mut app = tide::Server::with_state(rpc);

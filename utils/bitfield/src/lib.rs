@@ -11,7 +11,6 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Range, Sub, SubAssign},
 };
 
-use serde::{Deserialize, Serialize};
 
 type Result<T> = std::result::Result<T, &'static str>;
 
@@ -321,37 +320,32 @@ macro_rules! bitfield {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use serde::{Deserialize, Deserializer,  Serializer};
 
-    pub fn serialize<S>(m: &BitField, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(m: &BitField, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let iterator = m.iter();
-        let vec = if let Some(first) = iterator.first() {
-            let mut ret = Vec::new();
-            if first == 0 {
-                vec.push(0);
-            }
-
-            let ranges = iter.ranges().for_each(|s| {
-                vec.push(range.0);
-                vec.push(range.1);
+        let mut vec = Vec::new();
+        if !m.is_empty()
+        {
+            m.ranges().for_each(|s| {
+                vec.push(s.start as u8);
+                vec.push(s.end as u8);
             });
-        } else {
-            let vec = vec::with_capacity(1);
-            vec.push(0);
-            vec
-        };
-
-        serializer.serialize_bytes(vec)
+   
+        
+        }
+        else { vec.push(0);};
+        serializer.serialize_bytes(vec.as_slice())
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> std::result::Result<BitField, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let bitfield_bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
-        let bitfield: BitField = address_bytes.into();
-        bitfield
+        let bitfield_bytes: Vec<usize> = Deserialize::deserialize(deserializer)?;
+        let ranges = ranges_from_bits(bitfield_bytes.iter().cloned());
+        Ok(BitField::from_ranges(ranges))
     }
 }

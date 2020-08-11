@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Enum to encpasulate signed and unsigned messages. Useful when working with both types
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug,Serialize,Deserialize,Hash)]
 pub enum ChainMessage {
     Unsigned(UnsignedMessage),
     Signed(SignedMessage),
@@ -101,4 +101,76 @@ impl Cbor for ChainMessage {
             Self::Unsigned(t) => t.cid(),
         }
     }
+}
+
+
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use crate::{unsigned_message,signed_message};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+     #[derive(Deserialize, Serialize)]
+     #[serde(transparent)]
+     pub struct ChainMessageJson(#[serde(with = "self")] pub ChainMessage);
+ 
+     /// Wrapper for serializing a SignedMessage reference to JSON.
+     #[derive(Serialize)]
+     #[serde(transparent)]
+     pub struct SignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a ChainMessage);
+ 
+     impl From<ChainMessageJson> for ChainMessage {
+         fn from(wrapper: ChainMessageJson) -> Self {
+             wrapper.0
+         }
+     }
+
+     impl From<ChainMessage> for ChainMessageJson {
+        fn from(msg: ChainMessage) -> Self {
+            ChainMessageJson(msg)
+        }
+    }
+ 
+
+    pub fn serialize<S>(m: &ChainMessage, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        enum ChainMessageSer{
+            #[serde(with = "unsigned_message::json")]
+            Unsigned(UnsignedMessage),
+            #[serde(with = "signed_message::json")]
+            Signed(SignedMessage)
+        };
+
+        let chain_message_ser = match m 
+        {
+            ChainMessage::Unsigned(s) => ChainMessageSer::Unsigned(s.clone()),
+            ChainMessage::Signed(s) => ChainMessageSer::Signed(s.clone()),
+        };
+        chain_message_ser.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<ChainMessage, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Serialize, Deserialize)]
+        enum ChainMessageDe{
+            #[serde(with = "unsigned_message::json")]
+            Unsigned(UnsignedMessage),
+            #[serde(with = "signed_message::json")]
+            Signed(SignedMessage)
+        };
+        let chain_message : ChainMessageDe = Deserialize::deserialize(deserializer)?;
+        Ok(match chain_message
+        {
+            ChainMessageDe::Unsigned(s) => ChainMessage::Unsigned(s.to_owned()),
+            ChainMessageDe::Signed(s) => ChainMessage::Signed(s.to_owned())
+        })
+    }
+
 }

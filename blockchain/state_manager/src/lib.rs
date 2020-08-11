@@ -28,16 +28,18 @@ use log::{trace, warn};
 use message::ChainMessage;
 use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigInt;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serializer,Deserializer,Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use num_bigint::bigint_ser::{BigIntDe,BigIntSer};
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
 
 /// Type to represent invocation of state call results
+#[derive(Serialize,Deserialize)]
 pub struct InvocResult {
     pub msg: ChainMessage,
     pub msg_rct: Option<MessageReceipt>,
@@ -52,6 +54,36 @@ pub type StateCallResult = Result<InvocResult, Error>;
 pub struct MarketBalance {
     escrow: BigInt,
     locked: BigInt,
+}
+
+impl Serialize for MarketBalance {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (
+
+            BigIntSer(&self.escrow),
+            BigIntSer(&self.locked),
+        )
+            .serialize(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for MarketBalance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (
+            BigIntDe(escrow),
+            BigIntDe(locked),
+        ) = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            escrow,
+            locked
+        })
+    }
 }
 
 pub struct StateManager<DB> {
