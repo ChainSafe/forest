@@ -1,0 +1,12 @@
+[package]
+name = "auth"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
+jsonwebtoken = "7.2.0"
+lazy_static = "1.4.0"
+serde = { version = "1.0.101", default-features = false, features = ["derive"] }
+thiserror = "1.0"

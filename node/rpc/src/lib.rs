@@ -1,20 +1,36 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[macro_use]
+extern crate lazy_static;
+
+mod auth_api;
 mod chain_api;
 mod mpool_api;
 mod sync_api;
 mod wallet_api;
 
 use async_std::sync::{RwLock, Sender};
+use auth::{has_perms, Error};
 use blockstore::BlockStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
-use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
+use jsonrpc_v2::{Data, Error as JsonRpcError, ErrorLike, MapRouter, RequestObject, Server};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
 use wallet::KeyStore;
+
+lazy_static! {
+    pub static ref WRITE_ACCESS: Vec<String> = vec![
+        "Filecoin.MpoolPush".to_string(),
+        "Filecoin.WalletNew".to_string(),
+        "Filecoin.WalletHas".to_string(),
+        "Filecoin.WalletList".to_string(),
+        "Filecoin.WalletDefaultAddress".to_string(),
+        "Filecoin.WalletList".to_string(),
+    ];
+}
 
 /// This is where you store persistant data, or at least access to stateful data.
 pub struct RpcState<DB, KS>
@@ -33,6 +49,28 @@ where
 
 async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
     let call: RequestObject = req.body_json().await?;
+    let call_str = format!("{:?}", call);
+    let start = call_str
+        .find("method: \"")
+        .ok_or_else(|| Error::MethodParam)?
+        + 9;
+    let end = call_str
+        .find("\", params")
+        .ok_or_else(|| Error::MethodParam)?;
+    let method_name = &call_str[start..end];
+    if WRITE_ACCESS.contains(&method_name.to_string()) {
+        if let Some(header) = req.header("Authorization") {
+            let header_raw = header.get(0).unwrap().message();
+            let perm = has_perms(header_raw, "write");
+            if perm.is_err() {
+                return Ok(Response::new(StatusCode::Ok).body_json(&perm.unwrap_err())?);
+            }
+        } else {
+            return Ok(Response::new(StatusCode::Ok)
+                .body_json(&JsonRpcError::from(Error::NoAuthHeader))?);
+        }
+    }
+
     let res = req.state().handle(call).await;
     Ok(Response::new(StatusCode::Ok).body_json(&res)?)
 }
@@ -42,6 +80,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
+    use auth_api::*;
     use chain_api::*;
     use mpool_api::*;
     use sync_api::*;
@@ -49,6 +88,10 @@ where
 
     let rpc = Server::new()
         .with_data(Data::new(state))
+        // Auth API
+        .with_method("Filecoin.AuthNew", auth_new)
+        .with_method("Filecoin.AuthVerify", auth_verify)
+        // Chain API
         .with_method(
             "Filecoin.ChainGetMessage",
             chain_api::chain_get_message::<DB, KS>,
