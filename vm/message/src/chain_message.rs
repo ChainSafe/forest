@@ -163,8 +163,8 @@ pub mod json {
         };
         let chain_message: ChainMessageDe = Deserialize::deserialize(deserializer)?;
         Ok(match chain_message {
-            ChainMessageDe::Unsigned(s) => ChainMessage::Unsigned(s.to_owned()),
-            ChainMessageDe::Signed(s) => ChainMessage::Signed(s.to_owned()),
+            ChainMessageDe::Unsigned(s) => ChainMessage::Unsigned(s),
+            ChainMessageDe::Signed(s) => ChainMessage::Signed(s),
         })
     }
 }
