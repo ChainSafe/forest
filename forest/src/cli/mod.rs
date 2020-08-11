@@ -1,13 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod auth_cmd;
 mod chain_cmd;
 mod config;
 mod fetch_params_cmd;
 mod genesis;
 
-pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
@@ -49,9 +47,6 @@ pub enum Subcommand {
 
     #[structopt(name = "chain", about = "Interact with Filecoin blockchain")]
     Chain(ChainCommands),
-
-    #[structopt(name = "auth", about = "Manage RPC Permissions")]
-    Auth(AuthCommands),
 }
 
 /// Daemon process command line options.
