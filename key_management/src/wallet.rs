@@ -116,7 +116,9 @@ where
     pub fn set_default(&mut self, addr: Address) -> Result<(), Error> {
         let addr_string = format!("wallet-{}", addr.to_string());
         let key_info = self.keystore.get(&addr_string)?;
-        self.keystore.remove("default".to_string()); // This line should unregister current default key then continue
+        if self.keystore.get("default").is_ok() {
+            self.keystore.remove("default".to_string())?; // This line should unregister current default key then continue
+        }
         self.keystore.put("default".to_string(), key_info)?;
         Ok(())
     }

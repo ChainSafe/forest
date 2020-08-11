@@ -2,7 +2,7 @@
 name = "forest_address"
 description = "Filecoin addresses for use in Forest"
 license = "MIT OR Apache-2.0"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
