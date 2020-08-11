@@ -119,49 +119,51 @@ impl Actor {
         let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
         rt.validate_immediate_caller_is(&[owner_addr, worker_addr])?;
 
-        let claim = st
-            .get_claim(rt.store(), &nominal)
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to load miner claim for deletion: {}", e),
-                )
-            })?
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to find miner {} claim for deletion", nominal),
-                )
-            })?;
+        todo!();
+        // let claim =
+        // st
+        //     .get_claim(rt.store(), &nominal)
+        //     .map_err(|e| {
+        //         ActorError::new(
+        //             ExitCode::ErrIllegalState,
+        //             format!("failed to load miner claim for deletion: {}", e),
+        //         )
+        //     })?
+        //     .ok_or_else(|| {
+        //         ActorError::new(
+        //             ExitCode::ErrIllegalState,
+        //             format!("failed to find miner {} claim for deletion", nominal),
+        //         )
+        //     })?;
 
-        rt.transaction(|st: &mut State, rt| {
-            if claim.raw_byte_power > Zero::zero() {
-                return Err(rt.abort(
-                    ExitCode::ErrIllegalState,
-                    format!(
-                        "deletion requested for miner {} with power {}",
-                        nominal, claim.raw_byte_power
-                    ),
-                ));
-            }
+        // rt.transaction(|st: &mut State, rt| {
+        //     if claim.raw_byte_power > Zero::zero() {
+        //         return Err(rt.abort(
+        //             ExitCode::ErrIllegalState,
+        //             format!(
+        //                 "deletion requested for miner {} with power {}",
+        //                 nominal, claim.raw_byte_power
+        //             ),
+        //         ));
+        //     }
 
-            if claim.quality_adj_power > Zero::zero() {
-                return Err(rt.abort(
-                    ExitCode::ErrIllegalState,
-                    format!(
-                        "deletion requested for miner {} with quality adjusted power {}",
-                        nominal, claim.quality_adj_power
-                    ),
-                ));
-            }
+        //     if claim.quality_adj_power > Zero::zero() {
+        //         return Err(rt.abort(
+        //             ExitCode::ErrIllegalState,
+        //             format!(
+        //                 "deletion requested for miner {} with quality adjusted power {}",
+        //                 nominal, claim.quality_adj_power
+        //             ),
+        //         ));
+        //     }
 
-            st.total_quality_adj_power -= claim.quality_adj_power;
-            st.total_raw_byte_power -= claim.raw_byte_power;
-            Ok(())
-        })??;
+        //     st.total_quality_adj_power -= claim.quality_adj_power;
+        //     st.total_raw_byte_power -= claim.raw_byte_power;
+        //     Ok(())
+        // })??;
 
-        Self::delete_miner_actor(rt, &nominal)?;
-        Ok(())
+        // Self::delete_miner_actor(rt, &nominal)?;
+        // Ok(())
     }
     pub fn on_sector_prove_commit<BS, RT>(
         rt: &mut RT,
@@ -171,21 +173,22 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let initial_pledge = compute_initial_pledge(rt, &params.weight)?;
+        todo!()
+        // rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
+        // let initial_pledge = compute_initial_pledge(rt, &params.weight)?;
 
-        rt.transaction(|st: &mut State, rt| {
-            let rb_power = BigInt::from(params.weight.sector_size as u64);
-            let qa_power = qa_power_for_weight(&params.weight);
-            st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("Failed to add power for sector: {}", e),
-                    )
-                })?;
-            Ok(initial_pledge)
-        })?
+        // rt.transaction(|st: &mut State, rt| {
+        //     let rb_power = BigInt::from(params.weight.sector_size as u64);
+        //     let qa_power = qa_power_for_weight(&params.weight);
+        //     st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
+        //         .map_err(|e| {
+        //             ActorError::new(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!("Failed to add power for sector: {}", e),
+        //             )
+        //         })?;
+        //     Ok(initial_pledge)
+        // })?
     }
     pub fn on_sector_terminate<BS, RT>(
         rt: &mut RT,
@@ -197,18 +200,19 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        rt.transaction(|st: &mut State, rt| {
-            let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to deduct claimed power for sector: {}", e),
-                    )
-                })
-        })??;
+        todo!()
+        // rt.transaction(|st: &mut State, rt| {
+        //     let (rb_power, qa_power) = powers_for_weights(params.weights);
+        //     st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
+        //         .map_err(|e| {
+        //             ActorError::new(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!("failed to deduct claimed power for sector: {}", e),
+        //             )
+        //         })
+        // })??;
 
-        Ok(())
+        // Ok(())
     }
 
     fn _on_fault_begin<BS, RT>(rt: &mut RT, params: OnFaultBeginParams) -> Result<(), ActorError>
@@ -218,17 +222,18 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        rt.transaction(|st: &mut State, rt| {
-            let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to deduct claimed power for sector: {}", e),
-                    )
-                })?;
-            Ok(())
-        })?
+        todo!()
+        // rt.transaction(|st: &mut State, rt| {
+        //     let (rb_power, qa_power) = powers_for_weights(params.weights);
+        //     st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
+        //         .map_err(|e| {
+        //             ActorError::new(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!("failed to deduct claimed power for sector: {}", e),
+        //             )
+        //         })?;
+        //     Ok(())
+        // })?
     }
 
     fn _on_fault_end<BS, RT>(rt: &mut RT, params: OnFaultEndParams) -> Result<(), ActorError>
@@ -238,17 +243,18 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        rt.transaction(|st: &mut State, rt| {
-            let (rb_power, qa_power) = powers_for_weights(params.weights);
-            st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to deduct claimed power for sector: {}", e),
-                    )
-                })?;
-            Ok(())
-        })?
+        todo!()
+        // rt.transaction(|st: &mut State, rt| {
+        //     let (rb_power, qa_power) = powers_for_weights(params.weights);
+        //     st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
+        //         .map_err(|e| {
+        //             ActorError::new(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!("failed to deduct claimed power for sector: {}", e),
+        //             )
+        //         })?;
+        //     Ok(())
+        // })?
     }
 
     /// Returns new initial pledge, now committed in place of the old.
@@ -260,42 +266,43 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let new_initial_pledge = compute_initial_pledge(rt, &params.new_weight)?;
-        let prev_weight = params.prev_weight;
-        let new_weight = params.new_weight;
+        todo!()
+        // rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
+        // let new_initial_pledge = compute_initial_pledge(rt, &params.new_weight)?;
+        // let prev_weight = params.prev_weight;
+        // let new_weight = params.new_weight;
 
-        rt.transaction(|st: &mut State, rt| {
-            let prev_power = qa_power_for_weight(&prev_weight);
+        // rt.transaction(|st: &mut State, rt| {
+        //     let prev_power = qa_power_for_weight(&prev_weight);
 
-            st.add_to_claim(
-                rt.store(),
-                rt.message().caller(),
-                &BigInt::from(prev_weight.sector_size as u64),
-                &prev_power,
-            )
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to deduct claimed power for sector: {}", e),
-                )
-            })?;
+        //     st.add_to_claim(
+        //         rt.store(),
+        //         rt.message().caller(),
+        //         &BigInt::from(prev_weight.sector_size as u64),
+        //         &prev_power,
+        //     )
+        //     .map_err(|e| {
+        //         ActorError::new(
+        //             ExitCode::ErrIllegalState,
+        //             format!("failed to deduct claimed power for sector: {}", e),
+        //         )
+        //     })?;
 
-            let new_power = qa_power_for_weight(&new_weight);
-            st.add_to_claim(
-                rt.store(),
-                rt.message().caller(),
-                &BigInt::from(new_weight.sector_size as u64),
-                &new_power,
-            )
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to add claimed power for sector: {}", e),
-                )
-            })?;
-            Ok(new_initial_pledge)
-        })?
+        //     let new_power = qa_power_for_weight(&new_weight);
+        //     st.add_to_claim(
+        //         rt.store(),
+        //         rt.message().caller(),
+        //         &BigInt::from(new_weight.sector_size as u64),
+        //         &new_power,
+        //     )
+        //     .map_err(|e| {
+        //         ActorError::new(
+        //             ExitCode::ErrIllegalState,
+        //             format!("failed to add claimed power for sector: {}", e),
+        //         )
+        //     })?;
+        //     Ok(new_initial_pledge)
+        // })?
     }
 
     pub fn enroll_cron_event<BS, RT>(
@@ -387,35 +394,36 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().caller();
-        let st: State = rt.state()?;
+        todo!()
+        // rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
+        // let miner_addr = *rt.message().caller();
+        // let st: State = rt.state()?;
 
-        let claim = st
-            .get_claim(rt.store(), &miner_addr)
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to read claimed power for fault: {}", e),
-                )
-            })?
-            .ok_or_else(|| {
-                ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    format!("miner {} not registered (already slashed?)", miner_addr),
-                )
-            })?;
+        // let claim = st
+        //     .get_claim(rt.store(), &miner_addr)
+        //     .map_err(|e| {
+        //         ActorError::new(
+        //             ExitCode::ErrIllegalState,
+        //             format!("failed to read claimed power for fault: {}", e),
+        //         )
+        //     })?
+        //     .ok_or_else(|| {
+        //         ActorError::new(
+        //             ExitCode::ErrIllegalArgument,
+        //             format!("miner {} not registered (already slashed?)", miner_addr),
+        //         )
+        //     })?;
 
-        rt.transaction(|st: &mut State, _| {
-            st.total_quality_adj_power -= claim.quality_adj_power;
-            st.total_raw_byte_power -= claim.raw_byte_power;
+        // rt.transaction(|st: &mut State, _| {
+        //     st.total_quality_adj_power -= claim.quality_adj_power;
+        //     st.total_raw_byte_power -= claim.raw_byte_power;
 
-            st.add_pledge_total(pledge_amount);
-        })?;
+        //     st.add_pledge_total(pledge_amount);
+        // })?;
 
-        Self::delete_miner_actor(rt, &miner_addr)?;
+        // Self::delete_miner_actor(rt, &miner_addr)?;
 
-        Ok(())
+        // Ok(())
     }
 
     fn delete_miner_actor<BS, RT>(rt: &mut RT, miner: &Address) -> Result<(), ActorError>

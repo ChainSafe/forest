@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::CONSENSUS_MINER_MIN_POWER;
-use crate::{smooth::FilterEstimate, BytesKey, Multimap, HAMT_BIT_WIDTH};
+use crate::{smooth::FilterEstimate, BytesKey, Map, Multimap, HAMT_BIT_WIDTH};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
@@ -11,8 +11,9 @@ use fil_types::StoragePower;
 use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use num_bigint::{bigint_ser, BigInt};
-use vm::{Serialized, TokenAmount};
+use num_bigint::{bigint_ser, BigInt, Sign};
+use std::error::Error as StdError;
+use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 
 lazy_static! {
     /// genesis power in bytes = 750,000 GiB
@@ -79,63 +80,62 @@ impl State {
 
     // TODO minerNominalPowerMeetsConsensusMinimum
 
-    pub fn add_to_claim<BS: BlockStore>(
+    pub(super) fn add_to_claim<BS: BlockStore>(
         &mut self,
-        store: &BS,
+        claims: &mut Map<BS>,
         miner: &Address,
         power: &StoragePower,
         qa_power: &StoragePower,
-    ) -> Result<(), String> {
-        let mut claim = self
-            .get_claim(store, miner)?
-            .ok_or(format!("no claim for actor {}", miner))?;
+    ) -> Result<(), Box<dyn StdError>> {
+        let old_claim = get_claim(claims, miner)?
+            .ok_or(actor_error!(ErrNotFound; "no claim for actor {}", miner))?;
 
-        let old_nominal_power = claim.quality_adj_power.clone();
+        self.total_qa_bytes_committed += qa_power;
+        self.total_bytes_committed += power;
 
-        // update power
-        claim.raw_byte_power += power;
-        claim.quality_adj_power += qa_power;
-
-        let new_nominal_power = &claim.quality_adj_power;
+        let new_claim = Claim {
+            raw_byte_power: old_claim.raw_byte_power.clone() + power,
+            quality_adj_power: old_claim.quality_adj_power.clone() + qa_power,
+        };
 
         let min_power_ref: &StoragePower = &*CONSENSUS_MINER_MIN_POWER;
-        let prev_below: bool = &old_nominal_power < min_power_ref;
-        let still_below: bool = new_nominal_power < min_power_ref;
+        let prev_below: bool = &old_claim.quality_adj_power < min_power_ref;
+        let still_below: bool = &new_claim.quality_adj_power < min_power_ref;
 
         if prev_below && !still_below {
             // Just passed min miner size
             self.miner_above_min_power_count += 1;
-            self.total_quality_adj_power += new_nominal_power;
-            self.total_raw_byte_power += &claim.raw_byte_power;
+            self.total_quality_adj_power += &new_claim.quality_adj_power;
+            self.total_raw_byte_power += &new_claim.raw_byte_power;
         } else if !prev_below && still_below {
             // just went below min miner size
             self.miner_above_min_power_count -= 1;
             self.total_quality_adj_power = self
                 .total_quality_adj_power
-                .checked_sub(&old_nominal_power)
-                .ok_or("Negative nominal power")?;
+                .checked_sub(&old_claim.quality_adj_power)
+                .expect("Negative nominal power");
             self.total_raw_byte_power = self
                 .total_raw_byte_power
-                .checked_sub(&claim.raw_byte_power)
-                .ok_or("Negative raw byte power")?;
+                .checked_sub(&old_claim.raw_byte_power)
+                .expect("Negative raw byte power");
         } else if !prev_below && !still_below {
             // Was above the threshold, still above
             self.total_quality_adj_power += qa_power;
             self.total_raw_byte_power += power;
         }
 
-        if self.miner_above_min_power_count < 0 {
-            return Err(format!(
-                "negative number of miners: {}",
-                self.miner_above_min_power_count
-            ));
-        }
+        assert!(
+            self.miner_above_min_power_count >= 0,
+            "negative number of miners larger than min: {}",
+            self.miner_above_min_power_count
+        );
 
-        self.set_claim(store, miner, claim)
+        Ok(set_claim(claims, miner, new_claim)?)
     }
 
     pub(super) fn add_pledge_total(&mut self, amount: TokenAmount) {
         self.total_pledge_collateral += amount;
+        assert_ne!(self.total_pledge_collateral.sign(), Sign::Minus);
     }
 
     pub(super) fn append_cron_event<BS: BlockStore>(
@@ -155,24 +155,25 @@ impl State {
         s: &BS,
         epoch: ChainEpoch,
     ) -> Result<Vec<CronEvent>, String> {
-        let mut events = Vec::new();
+        todo!()
+        // let mut events = Vec::new();
 
-        let mmap = Multimap::from_root(s, &self.cron_event_queue)?;
-        mmap.for_each(&epoch_key(epoch), |_, v: &CronEvent| {
-            match self.get_claim(s, &v.miner_addr) {
-                Ok(Some(_)) => events.push(v.clone()),
-                Err(e) => {
-                    return Err(format!(
-                        "failed to find claimed power for {} for cron event: {}",
-                        v.miner_addr, e
-                    ))
-                }
-                _ => (), // ignore events for defunct miners.
-            }
-            Ok(())
-        })?;
+        // let mmap = Multimap::from_root(s, &self.cron_event_queue)?;
+        // mmap.for_each(&epoch_key(epoch), |_, v: &CronEvent| {
+        //     match self.get_claim(s, &v.miner_addr) {
+        //         Ok(Some(_)) => events.push(v.clone()),
+        //         Err(e) => {
+        //             return Err(format!(
+        //                 "failed to find claimed power for {} for cron event: {}",
+        //                 v.miner_addr, e
+        //             ))
+        //         }
+        //         _ => (), // ignore events for defunct miners.
+        //     }
+        //     Ok(())
+        // })?;
 
-        Ok(events)
+        // Ok(events)
     }
 
     pub(super) fn clear_cron_events<BS: BlockStore>(
@@ -184,18 +185,6 @@ impl State {
         mmap.remove_all(&epoch_key(epoch))?;
         self.cron_event_queue = mmap.root()?;
         Ok(())
-    }
-
-    /// Gets claim from claims map by address
-    pub fn get_claim<BS: BlockStore>(
-        &self,
-        store: &BS,
-        a: &Address,
-    ) -> Result<Option<Claim>, String> {
-        let map: Hamt<BytesKey, _> =
-            Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
-
-        Ok(map.get(&a.to_bytes())?)
     }
 
     pub(super) fn set_claim<BS: BlockStore>(
@@ -224,6 +213,26 @@ impl State {
         self.claims = map.flush()?;
         Ok(())
     }
+}
+
+/// Gets claim from claims map by address
+pub fn get_claim<BS: BlockStore>(claims: &Map<BS>, a: &Address) -> Result<Option<Claim>, String> {
+    Ok(claims
+        .get(&a.to_bytes())
+        .map_err(|e| format!("failed to get claim for address {}: {}", a, e))?)
+}
+
+pub fn set_claim<BS: BlockStore>(
+    claims: &mut Map<BS>,
+    a: &Address,
+    claim: Claim,
+) -> Result<(), String> {
+    assert_ne!(claim.raw_byte_power.sign(), Sign::Minus);
+    assert_ne!(claim.quality_adj_power.sign(), Sign::Minus);
+
+    Ok(claims
+        .set(a.to_bytes().into(), claim)
+        .map_err(|e| format!("failed to set claim for address {}: {}", a, e))?)
 }
 
 fn epoch_key(e: ChainEpoch) -> BytesKey {
