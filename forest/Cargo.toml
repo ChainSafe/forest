@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+address = { package = "forest_address", path = "../vm/address" }
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
 db = { path = "../node/db", features = ["rocksdb"] }
@@ -20,6 +21,7 @@ chain_sync = { path = "../blockchain/chain_sync" }
 state_manager = { path = "../blockchain/state_manager" }
 cid = { package = "forest_cid", path = "../ipld/cid", features = ["json"] }
 forest_car = { path = "../ipld/car" }
+num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore", features = ["rocksdb"] }
 chain = { path = "../blockchain/chain" }
