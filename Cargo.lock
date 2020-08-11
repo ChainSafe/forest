@@ -3506,8 +3506,10 @@ dependencies = [
  "forest_crypto",
  "forest_encoding",
  "libsecp256k1",
+ "log",
  "rand 0.7.3",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
