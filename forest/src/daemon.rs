@@ -16,7 +16,7 @@ use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::sync::Arc;
 use utils::write_to_file;
-use wallet::MemKeyStore;
+use wallet::PersistentKeyStore;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -38,11 +38,15 @@ pub(super) async fn start(config: Config) {
             Keypair::Ed25519(gen_keypair)
         });
 
+    // Initialize keystore
+    let keystore = Arc::new(RwLock::new(
+        PersistentKeyStore::new(config.data_dir.to_string()).unwrap(),
+    ));
+
     // Initialize database
     let mut db = RocksDb::new(config.data_dir + "/db");
     db.open().unwrap();
     let db = Arc::new(db);
-    let keystore = Arc::new(RwLock::new(MemKeyStore::new()));
     let mut chain_store = ChainStore::new(Arc::clone(&db));
 
     // Read Genesis file
