@@ -35,7 +35,7 @@ jsonrpsee::rpc_api! {
         fn status() -> RPCSyncState ;
 
         #[rpc(method = "Filecoin.SyncMarkBad", positional_params)]
-        fn mark_bad( params: CidJson)  -> ();
+        fn mark_bad( params: CidJson) -> Option<()> ;
 
         #[rpc(method = "Filecoin.SyncCheckBad", positional_params)]
         fn check_bad(params: CidJson)  -> String;
