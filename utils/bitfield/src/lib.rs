@@ -18,11 +18,11 @@ type Result<T> = std::result::Result<T, &'static str>;
 #[derive(Debug, Default, Clone)]
 pub struct BitField {
     /// The underlying ranges of 1s.
-    pub ranges: Vec<Range<usize>>,
+    ranges: Vec<Range<usize>>,
     /// Bits set to 1. Never overlaps with `unset`.
-    pub set: AHashSet<usize>,
+    set: AHashSet<usize>,
     /// Bits set to 0. Never overlaps with `set`.
-    pub unset: AHashSet<usize>,
+    unset: AHashSet<usize>,
 }
 
 impl PartialEq for BitField {

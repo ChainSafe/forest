@@ -117,7 +117,7 @@ pub mod json {
     /// Wrapper for serializing a SignedMessage reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
-    pub struct SignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a ChainMessage);
+    pub struct ChainMessageJsonRef<'a>(#[serde(with = "self")] pub &'a ChainMessage);
 
     impl From<ChainMessageJson> for ChainMessage {
         fn from(wrapper: ChainMessageJson) -> Self {
