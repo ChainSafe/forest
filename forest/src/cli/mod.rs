@@ -1,12 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod chain_cmd;
 mod config;
+mod fetch_params_cmd;
 mod genesis;
 
+pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
+pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis::initialize_genesis;
 
+use jsonrpc_v2::Error as JsonRpcError;
 use std::cell::RefCell;
 use std::io;
 use std::process;
@@ -32,21 +37,16 @@ pub struct CLI {
 
 /// Forest binary subcommands available.
 #[derive(StructOpt)]
+#[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 pub enum Subcommand {
     #[structopt(
         name = "fetch-params",
         about = "Download parameters for generating and verifying proofs for given size"
     )]
-    FetchParams {
-        #[structopt(short, long, help = "Download all proof parameters")]
-        all: bool,
-        #[structopt(short, long, help = "Download only verification keys")]
-        keys: bool,
-        #[structopt(required_ifs(&[("all", "false"), ("keys", "false")]), help = "Size in bytes")]
-        params_size: Option<String>,
-        #[structopt(short, long, help = "Show verbose logging")]
-        verbose: bool,
-    },
+    Fetch(FetchCommands),
+
+    #[structopt(name = "chain", about = "Interact with Filecoin blockchain")]
+    Chain(ChainCommands),
 }
 
 /// Daemon process command line options.
@@ -109,4 +109,20 @@ pub(super) async fn block_until_sigint() {
     .expect("Error setting Ctrl-C handler");
 
     ctrlc_oneshot.await.unwrap();
+}
+
+/// Returns a stringified JSON-RPC error
+pub(super) fn stringify_rpc_err(e: JsonRpcError) -> String {
+    match e {
+        JsonRpcError::Full {
+            code,
+            message,
+            data: _,
+        } => {
+            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
+        }
+        JsonRpcError::Provided { code, message } => {
+            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
+        }
+    }
 }

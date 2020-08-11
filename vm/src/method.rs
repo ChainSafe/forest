@@ -14,19 +14,11 @@ pub const METHOD_SEND: MethodNum = 0;
 pub const METHOD_CONSTRUCTOR: MethodNum = 1;
 
 /// Serialized bytes to be used as parameters into actor methods
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq, Default)]
 #[serde(transparent)]
 pub struct Serialized {
     #[serde(with = "serde_bytes")]
     bytes: Vec<u8>,
-}
-
-impl Default for Serialized {
-    /// Default serialized bytes is an empty array serialized
-    #[inline]
-    fn default() -> Self {
-        Self::serialize::<[u8; 0]>([]).unwrap()
-    }
 }
 
 impl Cbor for Serialized {}

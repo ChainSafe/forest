@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Enum to encpasulate signed and unsigned messages. Useful when working with both types
-#[derive(Clone, Debug,Serialize,Deserialize,Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash)]
 pub enum ChainMessage {
     Unsigned(UnsignedMessage),
     Signed(SignedMessage),
@@ -66,13 +66,13 @@ impl Message for ChainMessage {
             Self::Unsigned(t) => t.set_gas_price(token_amount),
         }
     }
-    fn gas_limit(&self) -> u64 {
+    fn gas_limit(&self) -> i64 {
         match self {
             Self::Signed(t) => t.gas_limit(),
             Self::Unsigned(t) => t.gas_limit(),
         }
     }
-    fn set_gas_limit(&mut self, token_amount: u64) {
+    fn set_gas_limit(&mut self, token_amount: i64) {
         match self {
             Self::Signed(t) => t.set_gas_limit(token_amount),
             Self::Unsigned(t) => t.set_gas_limit(token_amount),
@@ -103,51 +103,47 @@ impl Cbor for ChainMessage {
     }
 }
 
-
-
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use crate::{unsigned_message,signed_message};
+    use crate::{signed_message, unsigned_message};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-     #[derive(Deserialize, Serialize)]
-     #[serde(transparent)]
-     pub struct ChainMessageJson(#[serde(with = "self")] pub ChainMessage);
- 
-     /// Wrapper for serializing a SignedMessage reference to JSON.
-     #[derive(Serialize)]
-     #[serde(transparent)]
-     pub struct SignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a ChainMessage);
- 
-     impl From<ChainMessageJson> for ChainMessage {
-         fn from(wrapper: ChainMessageJson) -> Self {
-             wrapper.0
-         }
-     }
+    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct ChainMessageJson(#[serde(with = "self")] pub ChainMessage);
 
-     impl From<ChainMessage> for ChainMessageJson {
+    /// Wrapper for serializing a SignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct SignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a ChainMessage);
+
+    impl From<ChainMessageJson> for ChainMessage {
+        fn from(wrapper: ChainMessageJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    impl From<ChainMessage> for ChainMessageJson {
         fn from(msg: ChainMessage) -> Self {
             ChainMessageJson(msg)
         }
     }
- 
 
     pub fn serialize<S>(m: &ChainMessage, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         #[derive(Serialize)]
-        enum ChainMessageSer{
+        enum ChainMessageSer {
             #[serde(with = "unsigned_message::json")]
             Unsigned(UnsignedMessage),
             #[serde(with = "signed_message::json")]
-            Signed(SignedMessage)
+            Signed(SignedMessage),
         };
 
-        let chain_message_ser = match m 
-        {
+        let chain_message_ser = match m {
             ChainMessage::Unsigned(s) => ChainMessageSer::Unsigned(s.clone()),
             ChainMessage::Signed(s) => ChainMessageSer::Signed(s.clone()),
         };
@@ -159,18 +155,16 @@ pub mod json {
         D: Deserializer<'de>,
     {
         #[derive(Serialize, Deserialize)]
-        enum ChainMessageDe{
+        enum ChainMessageDe {
             #[serde(with = "unsigned_message::json")]
             Unsigned(UnsignedMessage),
             #[serde(with = "signed_message::json")]
-            Signed(SignedMessage)
+            Signed(SignedMessage),
         };
-        let chain_message : ChainMessageDe = Deserialize::deserialize(deserializer)?;
-        Ok(match chain_message
-        {
+        let chain_message: ChainMessageDe = Deserialize::deserialize(deserializer)?;
+        Ok(match chain_message {
             ChainMessageDe::Unsigned(s) => ChainMessage::Unsigned(s.to_owned()),
-            ChainMessageDe::Signed(s) => ChainMessage::Signed(s.to_owned())
+            ChainMessageDe::Signed(s) => ChainMessage::Signed(s.to_owned()),
         })
     }
-
 }

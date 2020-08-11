@@ -11,7 +11,6 @@ use std::{
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Range, Sub, SubAssign},
 };
 
-
 type Result<T> = std::result::Result<T, &'static str>;
 
 /// An bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
@@ -320,23 +319,21 @@ macro_rules! bitfield {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::{Deserialize, Deserializer,  Serializer};
+    use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(m: &BitField, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let mut vec = Vec::new();
-        if !m.is_empty()
-        {
+        if !m.is_empty() {
             m.ranges().for_each(|s| {
                 vec.push(s.start as u8);
                 vec.push(s.end as u8);
             });
-   
-        
-        }
-        else { vec.push(0);};
+        } else {
+            vec.push(0);
+        };
         serializer.serialize_bytes(vec.as_slice())
     }
 

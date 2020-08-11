@@ -302,7 +302,7 @@ pub fn state_lookup_id<DB>(
     state_manager: &StateManager<DB>,
     address: &Address,
     key: &TipsetKeys,
-) -> Result<Address, BoxError>
+) -> Result<Option<Address>, BoxError>
 where
     DB: BlockStore,
 {

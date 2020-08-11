@@ -16,7 +16,7 @@ use async_std::sync::{Receiver, RwLock, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use chain::ChainStore;
+use chain::{persist_objects, ChainStore};
 use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
 use core::time::Duration;
@@ -224,9 +224,10 @@ where
 
         // Persist header chain pulled from network
         self.set_stage(SyncStage::PersistHeaders).await;
-        if let Err(e) = self.persist_headers(&tipsets).await {
+        let headers: Vec<&BlockHeader> = tipsets.iter().map(|t| t.blocks()).flatten().collect();
+        if let Err(e) = persist_objects(self.chain_store.blockstore(), &headers) {
             self.state.write().await.error(e.to_string());
-            return Err(e);
+            return Err(e.into());
         }
 
         // Sync and validate messages from fetched tipsets
@@ -236,6 +237,9 @@ where
             return Err(e);
         }
         self.set_stage(SyncStage::Complete).await;
+
+        // At this point the head is synced and the head can be set as the heaviest.
+        self.chain_store.put_tipset(head.as_ref()).await?;
 
         Ok(())
     }
@@ -932,14 +936,6 @@ where
         ))
     }
 
-    /// Persists headers from tipset slice to chain store
-    async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
-        for tipset in tipsets.iter() {
-            self.chain_store.put_tipsets(tipset).await?
-        }
-        Ok(())
-    }
-
     /// Sets the managed sync status
     pub async fn set_stage(&mut self, new_stage: SyncStage) {
         debug!("Sync stage set to: {}", new_stage);
@@ -1100,7 +1096,7 @@ mod tests {
         let (bls, secp) = construct_messages();
 
         let expected_root =
-            Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
+            Cid::from_raw_cid("bafy2bzacebx7t56l6urh4os4kzar5asc5hmbhl7so6sfkzcgpjforkwylmqxa")
                 .unwrap();
 
         let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();

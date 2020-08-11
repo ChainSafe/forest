@@ -13,7 +13,7 @@ pub use self::protocol::Protocol;
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, serde_bytes, Cbor};
-use serde::{de,Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -45,6 +45,7 @@ const NETWORK_DEFAULT: Network = Network::Testnet;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
+/// TODO add Address JSON implementation
 #[derive(PartialEq, Eq, Clone, Debug, Hash, Copy)]
 pub struct Address {
     network: Network,
@@ -162,7 +163,7 @@ impl FromStr for Address {
             return Err(Error::InvalidLength);
         }
         // ensure the network character is valid before converting
-        let network: Network = match &addr[0..1] {
+        let network: Network = match addr.get(0..1).ok_or(Error::UnknownNetwork)? {
             TESTNET_PREFIX => Network::Testnet,
             MAINNET_PREFIX => Network::Mainnet,
             _ => {
@@ -171,7 +172,7 @@ impl FromStr for Address {
         };
 
         // get protocol from second character
-        let protocol: Protocol = match &addr[1..2] {
+        let protocol: Protocol = match addr.get(1..2).ok_or(Error::UnknownProtocol)? {
             "0" => Protocol::ID,
             "1" => Protocol::Secp256k1,
             "2" => Protocol::Actor,
@@ -182,14 +183,17 @@ impl FromStr for Address {
         };
 
         // bytes after the protocol character is the data payload of the address
-        let raw = &addr[2..];
+        let raw = addr.get(2..).ok_or(Error::InvalidPayload)?;
         if protocol == Protocol::ID {
             if raw.len() > 20 {
                 // 20 is max u64 as string
                 return Err(Error::InvalidLength);
             }
             let id = raw.parse::<u64>()?;
-            return Ok(Address::new_id(id));
+            return Ok(Address {
+                network,
+                payload: Payload::ID(id),
+            });
         }
 
         // decode using byte32 encoding

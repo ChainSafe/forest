@@ -35,11 +35,11 @@ pub trait Message {
     /// sets the gas price
     fn set_gas_price(&mut self, amount: TokenAmount);
     /// sets the gas limit for the message
-    fn set_gas_limit(&mut self, _: u64);
+    fn set_gas_limit(&mut self, amount: i64);
     /// sets a new sequence to the message
-    fn set_sequence(&mut self, _: u64);
+    fn set_sequence(&mut self, sequence: u64);
     /// Returns the gas limit for the message
-    fn gas_limit(&self) -> u64;
+    fn gas_limit(&self) -> i64;
     /// Returns the required funds for the message
     fn required_funds(&self) -> TokenAmount;
 }

@@ -1,9 +1,7 @@
 use crate::RpcState;
-use actor::{
-    miner::{
-        compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault,
-        MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
-    }
+use actor::miner::{
+    compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault, MinerInfo,
+    SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
 };
 use address::Address;
 use async_std::task;
@@ -16,12 +14,11 @@ use clock::ChainEpoch;
 use fil_types::SectorNumber;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
+    chain_message::{json::ChainMessageJson, ChainMessage},
     json::MessageReceiptJson,
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
-    chain_message::{json::ChainMessageJson,ChainMessage}
-  
 };
-use serde::{Deserialize,Serialize};
+use serde::{Deserialize, Serialize};
 use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
 use wallet::KeyStore;
@@ -32,7 +29,7 @@ pub struct MessageLookup {
     pub tipset: TipsetJson,
 }
 
-#[derive(Serialize,Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct InvocResultJson {
     pub msg: ChainMessageJson,
     pub msg_rct: Option<MessageReceiptJson>,
@@ -41,11 +38,10 @@ pub struct InvocResultJson {
 
 impl From<InvocResult> for InvocResultJson {
     fn from(invoc: InvocResult) -> Self {
-        InvocResultJson
-        {
-            msg : invoc.msg.into(),
-            msg_rct : invoc.msg_rct.map(|s|s.into()),
-            actor_error : invoc.actor_error
+        InvocResultJson {
+            msg: invoc.msg.into(),
+            msg_rct: invoc.msg_rct.map(|s| s.into()),
+            actor_error: invoc.actor_error,
         }
     }
 }
@@ -148,8 +144,7 @@ pub async fn state_miner_info<
     let state_manager = &data.store;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(state_manager.get_block_store_ref(), &key)?;
-    state_manager::utils::get_miner_info(&state_manager, &tipset, &actor)
-        .map_err(|e| e.into())
+    state_manager::utils::get_miner_info(&state_manager, &tipset, &actor).map_err(|e| e.into())
 }
 
 /// returns the on-chain info for the specified miner's sector
@@ -181,10 +176,10 @@ pub(crate) async fn state_miner_proving_deadline<
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let miner_actor_state: State =
         state_manager.load_actor_state(&actor, &tipset.parent_state())?;
-    Ok(
-        compute_proving_period_deadline(miner_actor_state.proving_period_start, tipset.epoch())
-            
-    )
+    Ok(compute_proving_period_deadline(
+        miner_actor_state.proving_period_start,
+        tipset.epoch(),
+    ))
 }
 
 /// returns a single non-expired Faults that occur within lookback epochs of the given tipset
@@ -198,8 +193,7 @@ pub(crate) async fn state_miner_faults<
     let state_manager = &data.store;
     let (actor, key) = params;
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
-    state_manager::utils::get_miner_faults(&state_manager, &tipset, &actor)
-        .map_err(|e| e.into())
+    state_manager::utils::get_miner_faults(&state_manager, &tipset, &actor).map_err(|e| e.into())
 }
 
 /// returns all non-expired Faults that occur within lookback epochs of the given tipset
@@ -255,7 +249,10 @@ pub(crate) async fn state_miner_recoveries<
 }
 
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
-pub(crate) async fn state_replay<DB: BlockStore + Send + Sync + 'static, KS: KeyStore + Send + Sync + 'static>(
+pub(crate) async fn state_replay<
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+>(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson, TipsetKeys)>,
 ) -> Result<InvocResultJson, JsonRpcError> {
@@ -267,9 +264,9 @@ pub(crate) async fn state_replay<DB: BlockStore + Send + Sync + 'static, KS: Key
 
     Ok(InvocResultJson {
         msg: ChainMessage::Unsigned(msg).into(),
-        msg_rct: ret.clone().map(|s| s.msg_receipt().clone().into()),
+        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone().into()),
         actor_error: ret
-            .map(|act| act.act_error().map(|e| e.to_string()))
+            .map(|act| act.act_error.map(|e| e.to_string()))
             .unwrap_or_default(),
     })
 }
@@ -286,9 +283,7 @@ pub(crate) async fn state_get_actor<
     let (actor, key) = params;
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
-    state
-        .get_actor(&actor)
-        .map_err(|e| e.into())
+    state.get_actor(&actor).map_err(|e| e.into())
 }
 
 /// returns the public key address of the given ID address
@@ -314,14 +309,12 @@ pub(crate) async fn state_lookup_id<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(Address, TipsetKeys)>,
-) -> Result<Address, JsonRpcError> {
+) -> Result<Option<Address>, JsonRpcError> {
     let state_manager = &data.store;
     let (address, key) = params;
     let tipset = ChainStore::new(state_manager.get_block_store()).tipset_from_keys(&key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
-    state
-        .lookup_id(&address)
-        .map_err(|e| e.into())
+    state.lookup_id(&address).map_err(|e| e.into())
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
@@ -373,7 +366,8 @@ pub(crate) async fn state_wait_msg<
         state_manager.get_subscriber(),
         &cid,
         confidence,
-    ).await?;
+    )
+    .await?;
     let tipset = tipset.ok_or_else(|| "wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or_else(|| "wait for msg returned empty receipt")?;
     let tipset: &Tipset = &*tipset;

@@ -15,12 +15,10 @@ pub use self::types::*;
 use crate::account::Method as AccountMethod;
 use crate::market::{
     ComputeDataCommitmentParams, Method as MarketMethod, OnMinerSectorsTerminateParams,
-    VerifyDealsOnSectorProveCommitParams, VerifyDealsOnSectorProveCommitReturn,
+    VerifyDealsForActivationParams, VerifyDealsForActivationReturn,
 };
 use crate::power::{
-    EnrollCronEventParams, Method as PowerMethod, OnFaultBeginParams, OnFaultEndParams,
-    OnSectorModifyWeightDescParams, OnSectorProveCommitParams, OnSectorTerminateParams,
-    SectorStorageWeightDesc, SectorTermination, SECTOR_TERMINATION_EXPIRED,
+    EnrollCronEventParams, Method as PowerMethod, SectorTermination, SECTOR_TERMINATION_EXPIRED,
     SECTOR_TERMINATION_FAULTY, SECTOR_TERMINATION_MANUAL,
 };
 use crate::{
@@ -54,8 +52,8 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::ops::Neg;
 use vm::{
-    ActorError, DealID, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
-    METHOD_SEND,
+    actor_error, ActorError, DealID, ExitCode, MethodNum, Serialized, TokenAmount,
+    METHOD_CONSTRUCTOR, METHOD_SEND,
 };
 
 // * Updated to specs-actors commit: 9e8c0d1c40d8b41de5dc727b6791c89e14fea4a8
@@ -172,7 +170,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
         Ok(GetControlAddressesReturn {
             owner: st.info.owner,
@@ -402,7 +400,7 @@ impl Actor {
             })??;
         // Remove power for new faults, and burn penalties.
         request_begin_faults(rt, sec_size, &detected_faults_sector)?;
-        burn_funds_and_notify_pledge_change(rt, &penalty)?;
+        burn_funds_and_notify_pledge_change(rt, penalty)?;
 
         // restore power for recovered sectors
         if !recovered_sectors.is_empty() {
@@ -581,7 +579,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
 
         let sector_number = params.sector_number;
         let st: State = rt.state()?;
@@ -641,10 +639,10 @@ impl Actor {
         )?;
 
         rt.send(
-            &*STORAGE_POWER_ACTOR_ADDR,
+            *STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::SubmitPoRepForBulkVerify as u64,
-            &Serialized::serialize(&svi)?,
-            &BigInt::zero(),
+            Serialized::serialize(&svi)?,
+            BigInt::zero(),
         )?;
 
         Ok(())
@@ -680,36 +678,41 @@ impl Actor {
 
             // Check (and activate) storage deals associated to sector. Abort if checks failed.
             // return DealWeight for the deal set in the sector
-            let ser_params = Serialized::serialize(VerifyDealsOnSectorProveCommitParams {
+            let ser_params = Serialized::serialize(VerifyDealsForActivationParams {
                 deal_ids: precommit.info.deal_ids.clone(),
                 sector_expiry: precommit.info.expiration,
+                // TODO has been refactored and this is not correct
+                sector_start: 0,
             })?;
 
             // TODO revisit spec TODOs
             let mut ret = rt.send(
-                &*STORAGE_MARKET_ACTOR_ADDR,
-                MarketMethod::VerifyDealsOnSectorProveCommit as u64,
-                &ser_params,
-                &TokenAmount::zero(),
+                *STORAGE_MARKET_ACTOR_ADDR,
+                // TODO this is probably wrong method call but this has been refactored
+                MarketMethod::VerifyDealsForActivation as u64,
+                ser_params,
+                TokenAmount::zero(),
             )?;
-            let deal_weights: VerifyDealsOnSectorProveCommitReturn = ret.deserialize()?;
+            let deal_weights: VerifyDealsForActivationReturn = ret.deserialize()?;
 
             // Request power for activated sector.
             // Return initial pledge requirement.
-            let param = Serialized::serialize(OnSectorProveCommitParams {
-                weight: SectorStorageWeightDesc {
-                    sector_size: st.info.sector_size,
-                    deal_weight: deal_weights.deal_weight.clone(),
-                    verified_deal_weight: deal_weights.verified_deal_weight.clone(),
-                    duration: precommit.info.expiration - rt.curr_epoch(),
-                },
-            })?;
-            ret = rt.send(
-                &*STORAGE_POWER_ACTOR_ADDR,
-                PowerMethod::OnSectorProveCommit as u64,
-                &param,
-                &TokenAmount::zero(),
-            )?;
+            // TODO was refactored
+            // let param = Serialized::serialize(OnSectorProveCommitParams {
+            //     weight: SectorStorageWeightDesc {
+            //         sector_size: st.info.sector_size,
+            //         deal_weight: deal_weights.deal_weight.clone(),
+            //         verified_deal_weight: deal_weights.verified_deal_weight.clone(),
+            //         duration: precommit.info.expiration - rt.curr_epoch(),
+            //     },
+            // })?;
+            ret = Default::default();
+            // rt.send(
+            //     *STORAGE_POWER_ACTOR_ADDR,
+            //     PowerMethod::OnSectorProveCommit as u64,
+            //     param,
+            //     TokenAmount::zero(),
+            // )?;
             let BigIntDe(initial_pledge) = ret.deserialize()?;
 
             // Add sector and pledge lock-up to miner state
@@ -782,7 +785,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
 
         let sec = st.get_sector(rt.store(), params.sector_number);
@@ -839,17 +842,17 @@ impl Actor {
         let mut storage_weight_desc_new = storage_weight_desc_prev.clone();
         storage_weight_desc_new.duration = storage_weight_desc_prev.duration + extension_len;
 
-        let ser_params = Serialized::serialize(OnSectorModifyWeightDescParams {
-            prev_weight: storage_weight_desc_prev,
-            new_weight: storage_weight_desc_new,
-        })?;
-
-        rt.send(
-            &*STORAGE_POWER_ACTOR_ADDR,
-            PowerMethod::OnSectorModifyWeightDesc as u64,
-            &ser_params,
-            &BigInt::zero(),
-        )?;
+        // TODO was refactored
+        // let ser_params = Serialized::serialize(OnSectorModifyWeightDescParams {
+        //     prev_weight: storage_weight_desc_prev,
+        //     new_weight: storage_weight_desc_new,
+        // })?;
+        // rt.send(
+        //     *STORAGE_POWER_ACTOR_ADDR,
+        //     PowerMethod::OnSectorModifyWeightDesc as u64,
+        //     ser_params,
+        //     BigInt::zero(),
+        // )?;
 
         // store new sector expiry
         rt.transaction(|st: &mut State, rt| {
@@ -1051,7 +1054,7 @@ impl Actor {
         // remove power for new faulty sectors
         detected_fault_sectors.append(&mut declared_fault_sectors);
         request_begin_faults(rt, sector_size, &detected_fault_sectors)?;
-        burn_funds_and_notify_pledge_change(rt, &penalty)?;
+        burn_funds_and_notify_pledge_change(rt, penalty)?;
 
         Ok(())
     }
@@ -1150,7 +1153,7 @@ impl Actor {
 
         // remove power for new faulty sectors
         request_begin_faults(rt, sector_size, &detected_fault_sectors)?;
-        burn_funds_and_notify_pledge_change(rt, &penalty)?;
+        burn_funds_and_notify_pledge_change(rt, penalty)?;
 
         // Power is not restored yet, but when the recovered sectors are successfully PoSted.
         Ok(())
@@ -1240,22 +1243,17 @@ impl Actor {
         let st: State = rt.state()?;
 
         rt.send(
-            &*STORAGE_POWER_ACTOR_ADDR,
+            *STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::OnConsensusFault as u64,
-            &Serialized::serialize(BigIntSer(&st.locked_funds))?,
-            &BigInt::zero(),
+            Serialized::serialize(BigIntSer(&st.locked_funds))?,
+            BigInt::zero(),
         )?;
 
         // TODO: terminate deals with market actor, https://github.com/filecoin-project/specs-actors/issues/279
 
         // Reward reporter with a share of the miner's current balance.
         let slasher_reward = reward_for_consensus_slash_report(fault_age, rt.current_balance()?);
-        rt.send(
-            &reporter,
-            METHOD_SEND,
-            &Serialized::default(),
-            &slasher_reward,
-        )?;
+        rt.send(reporter, METHOD_SEND, Serialized::default(), slasher_reward)?;
 
         // Delete the actor and burn all remaining funds
         rt.delete_actor(&*BURNT_FUNDS_ACTOR_ADDR)?;
@@ -1297,10 +1295,10 @@ impl Actor {
         assert!(amount_withdrawn <= curr_balance);
 
         rt.send(
-            &st.info.owner,
+            st.info.owner,
             METHOD_SEND,
-            &Serialized::default(),
-            &amount_withdrawn,
+            Serialized::default(),
+            amount_withdrawn,
         )?;
 
         notify_pledge_change(rt, &vested_amount.neg())?;
@@ -1391,7 +1389,7 @@ where
 
         // Remove power for new faults, and burn penalties.
         request_begin_faults(rt, sector_size, &detected_fault_sectors)?;
-        burn_funds_and_notify_pledge_change(rt, &penalty)?;
+        burn_funds_and_notify_pledge_change(rt, penalty)?;
         deadline
     };
 
@@ -1454,7 +1452,7 @@ where
             })??;
 
         terminate_sectors(rt, &expired_faults, SECTOR_TERMINATION_FAULTY)?;
-        burn_funds_and_notify_pledge_change(rt, &ongoing_fault_penalty)?;
+        burn_funds_and_notify_pledge_change(rt, ongoing_fault_penalty)?;
     }
 
     let proving_period_start = {
@@ -1838,7 +1836,7 @@ where
         Ok(())
     })??;
     // This deposit was locked separately to pledge collateral so there's no pledge change here.
-    burn_funds(rt, &deposit_burn)?;
+    burn_funds(rt, deposit_burn)?;
     Ok(())
 }
 
@@ -1940,7 +1938,7 @@ where
     request_terminate_deals(rt, deal_ids)?;
     request_terminate_power(rt, termination_type, state.info.sector_size, &all_sectors)?;
 
-    burn_funds_and_notify_pledge_change(rt, &penalty)?;
+    burn_funds_and_notify_pledge_change(rt, penalty)?;
 
     Ok(())
 }
@@ -1984,18 +1982,18 @@ where
         payload,
     })?;
     rt.send(
-        &*STORAGE_POWER_ACTOR_ADDR,
+        *STORAGE_POWER_ACTOR_ADDR,
         PowerMethod::EnrollCronEvent as u64,
-        &ser_params,
-        &TokenAmount::zero(),
+        ser_params,
+        TokenAmount::zero(),
     )?;
 
     Ok(())
 }
 
 fn request_begin_faults<BS, RT>(
-    rt: &mut RT,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2006,24 +2004,24 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnFaultBeginParams { weights })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
-    rt.send(
-        &*STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnFaultBegin as u64,
-        &ser_params,
-        &TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnFaultBegin as u64,
+    //     Serialized::serialize(OnFaultBeginParams { weights })?,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
 fn request_end_faults<BS, RT>(
-    rt: &mut RT,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2034,18 +2032,18 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnFaultEndParams { weights })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
-    rt.send(
-        &*STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnFaultEnd as u64,
-        &ser_params,
-        &TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnFaultEnd as u64,
+    //     Serialized::serialize(OnFaultEndParams { weights })?,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
@@ -2059,17 +2057,21 @@ where
     }
 
     rt.send(
-        &*STORAGE_MARKET_ACTOR_ADDR,
+        *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::OnMinerSectorsTerminate as u64,
-        &Serialized::serialize(OnMinerSectorsTerminateParams { deal_ids })?,
-        &TokenAmount::zero(),
+        Serialized::serialize(OnMinerSectorsTerminateParams {
+            deal_ids,
+            // TODO this may not be correct (refactored)
+            epoch: rt.curr_epoch(),
+        })?,
+        TokenAmount::zero(),
     )?;
     Ok(())
 }
 fn request_terminate_power<BS, RT>(
-    rt: &mut RT,
-    termination_type: SectorTermination,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _termination_type: SectorTermination,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2080,21 +2082,21 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnSectorTerminateParams {
-        termination_type,
-        weights,
-    })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
-    rt.send(
-        &*STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnSectorTerminate as u64,
-        &ser_params,
-        &TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnSectorTerminate as u64,
+    //     Serialized::serialize(OnSectorTerminateParams {
+    //         termination_type,
+    //         weights,
+    //     })?,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
@@ -2206,13 +2208,13 @@ where
     RT: Runtime<BS>,
 {
     let ret = rt.send(
-        &*STORAGE_MARKET_ACTOR_ADDR,
+        *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::ComputeDataCommitment as u64,
-        &Serialized::serialize(ComputeDataCommitmentParams {
+        Serialized::serialize(ComputeDataCommitmentParams {
             sector_type,
             deal_ids,
         })?,
-        &TokenAmount::zero(),
+        TokenAmount::zero(),
     )?;
     let unsealed_cid: Cid = ret.deserialize()?;
     Ok(unsealed_cid)
@@ -2265,24 +2267,17 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let resolved = rt.resolve_address(&raw).map_err(|_| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("unable to resolve address {}", raw),
-        )
-    })?;
+    let resolved = rt
+        .resolve_address(&raw)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "unable to resolve address: {}", raw))?;
     assert!(resolved.protocol() == Protocol::ID);
 
-    let owner_code = rt.get_actor_code_cid(&resolved).map_err(|_| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("no code for address: {}", resolved),
-        )
-    })?;
+    let owner_code = rt
+        .get_actor_code_cid(&resolved)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "no code for address: {}", resolved))?;
     if !is_principal(&owner_code) {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("owner actor type must be a principal, was {}", owner_code),
+        return Err(actor_error!(ErrIllegalArgument;
+            "owner actor type must be a principal, was {}", owner_code
         ));
     }
 
@@ -2296,48 +2291,34 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let resolved = rt.resolve_address(&raw).map_err(|e| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("unable to resolve address: {},{}", raw, e),
-        )
-    })?;
+    let resolved = rt
+        .resolve_address(&raw)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "unable to resolve address: {}", raw))?;
     assert!(resolved.protocol() == Protocol::ID);
 
-    let owner_code = rt.get_actor_code_cid(&resolved).map_err(|e| {
-        ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("no code for address: {}, {}", resolved, e),
-        )
-    })?;
+    let owner_code = rt
+        .get_actor_code_cid(&resolved)?
+        .ok_or_else(|| actor_error!(ErrIllegalArgument; "no code for address: {}", resolved))?;
     if owner_code != *ACCOUNT_ACTOR_CODE_ID {
-        return Err(ActorError::new(
-            ExitCode::ErrIllegalArgument,
-            format!("worker actor type must be an account, was {}", owner_code),
-        ));
+        return Err(actor_error!(ErrIllegalArgument;
+                "worker actor type must be an account, was {}", owner_code));
     }
 
     if raw.protocol() != Protocol::BLS {
         let ret = rt.send(
-            &resolved,
+            resolved,
             AccountMethod::PubkeyAddress as u64,
-            &Serialized::default(),
-            &TokenAmount::zero(),
+            Serialized::default(),
+            TokenAmount::zero(),
         )?;
         let pub_key: Address = ret.deserialize().map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrSerialization,
-                format!("failed to deserialize address result: {:?}, {}", ret, e),
-            )
+            actor_error!(ErrSerialization; "failed to deserialize address result: {:?}, {}", ret, e)
         })?;
         if pub_key.protocol() != Protocol::BLS {
-            return Err(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                format!(
+            return Err(actor_error!(ErrIllegalArgument;
                     "worker account {} must have BLS pubkey, was {}",
                     resolved,
                     pub_key.protocol()
-                ),
             ));
         }
     }
@@ -2346,26 +2327,26 @@ where
 
 fn burn_funds_and_notify_pledge_change<BS, RT>(
     rt: &mut RT,
-    amount: &TokenAmount,
+    amount: TokenAmount,
 ) -> Result<(), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    burn_funds(rt, amount)?;
-    notify_pledge_change(rt, &amount.clone().neg())
+    burn_funds(rt, amount.clone())?;
+    notify_pledge_change(rt, &amount.neg())
 }
 
-fn burn_funds<BS, RT>(rt: &mut RT, amount: &TokenAmount) -> Result<(), ActorError>
+fn burn_funds<BS, RT>(rt: &mut RT, amount: TokenAmount) -> Result<(), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if amount > &BigInt::zero() {
+    if amount > BigInt::zero() {
         rt.send(
-            &*BURNT_FUNDS_ACTOR_ADDR,
+            *BURNT_FUNDS_ACTOR_ADDR,
             METHOD_SEND,
-            &Serialized::default(),
+            Serialized::default(),
             amount,
         )?;
     }
@@ -2378,10 +2359,10 @@ where
 {
     if !pledge_delta.is_zero() {
         rt.send(
-            &*STORAGE_POWER_ACTOR_ADDR,
+            *STORAGE_POWER_ACTOR_ADDR,
             PowerMethod::UpdatePledgeTotal as u64,
-            &Serialized::serialize(BigIntSer(pledge_delta))?,
-            &TokenAmount::zero(),
+            Serialized::serialize(BigIntSer(pledge_delta))?,
+            TokenAmount::zero(),
         )?;
     }
     Ok(())

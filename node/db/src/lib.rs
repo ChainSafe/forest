@@ -9,7 +9,7 @@ pub use errors::Error;
 pub use memory::MemoryDB;
 
 #[cfg(feature = "rocksdb")]
-pub use rocks::RocksDb;
+pub use rocks::{RocksDb, WriteBatch};
 
 pub trait DatabaseService {
     fn open(&mut self) -> Result<(), Error> {

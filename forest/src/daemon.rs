@@ -11,6 +11,7 @@ use db::RocksDb;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
+use message_pool::{MessagePool, MpoolRpcProvider};
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::sync::Arc;
@@ -54,8 +55,17 @@ pub(super) async fn start(config: Config) {
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
+    // Initialize mpool
+    let subscriber = chain_store.subscribe();
+    let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&db));
+    let mpool = Arc::new(
+        MessagePool::new(provider, network_name.clone())
+            .await
+            .unwrap(),
+    );
+
     // Get Drand Coefficients
-    let coeff = config.drand_dist_public;
+    let coeff = config.drand_public;
 
     // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
     let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
@@ -92,6 +102,7 @@ pub(super) async fn start(config: Config) {
                 RpcState {
                     store: db_rpc,
                     keystore: keystore_rpc,
+                    mpool,
                     bad_blocks,
                     sync_state,
                     network_send,
