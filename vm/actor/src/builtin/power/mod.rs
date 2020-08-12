@@ -6,11 +6,11 @@ mod state;
 mod types;
 
 pub use self::policy::*;
-pub use self::state::{Claim, CronEvent, State};
+pub use self::state::*;
 pub use self::types::*;
 use crate::reward::Method as RewardMethod;
 use crate::{
-    check_empty_params, init, make_map, request_miner_control_addrs, Multimap,
+    check_empty_params, init, make_map, make_map_with_root, request_miner_control_addrs, Multimap,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
@@ -25,6 +25,8 @@ use runtime::{ActorCode, Runtime};
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
+
+// * Updated to specs-actors commit: c0868603e90795bdc748610de5dc8fb118458085 (v0.9.0)
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
@@ -76,8 +78,11 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let value = rt.message().value_received().clone();
-        // TODO update this send, is now outdated
-        let addresses: init::ExecReturn = rt
+
+        let init::ExecReturn {
+            id_address,
+            robust_address,
+        } = rt
             .send(
                 *INIT_ACTOR_ADDR,
                 init::Method::Exec as u64,
@@ -86,25 +91,24 @@ impl Actor {
             )?
             .deserialize()?;
 
-        todo!()
-        // rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
-        //     st.set_claim(rt.store(), &addresses.id_address, Claim::default())
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalState,
-        //                 format!(
-        //                     "failed to put power in claimed table while creating miner: {}",
-        //                     e
-        //                 ),
-        //             )
-        //         })?;
-        //     st.miner_count += 1;
-        //     Ok(())
-        // })??;
-        // Ok(CreateMinerReturn {
-        //     id_address: addresses.id_address,
-        //     robust_address: addresses.robust_address,
-        // })
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+            let mut claims = make_map_with_root(&st.claims, rt.store())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load claims: {}", e))?;
+            set_claim(&mut claims, &id_address, Claim::default()).map_err(|e| {
+                actor_error!(ErrIllegalState;
+                            "failed to put power in claimed table while creating miner: {}", e)
+            })?;
+            st.miner_count += 1;
+
+            st.claims = claims
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush claims: {}", e))?;
+            Ok(())
+        })??;
+        Ok(CreateMinerReturn {
+            id_address,
+            robust_address,
+        })
     }
 
     pub fn enroll_cron_event<BS, RT>(
