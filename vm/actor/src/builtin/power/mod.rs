@@ -106,204 +106,6 @@ impl Actor {
         //     robust_address: addresses.robust_address,
         // })
     }
-    pub fn delete_miner<BS, RT>(rt: &mut RT, params: DeleteMinerParams) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        // TODO this function does not exist anymore, make sure it is removed/replaced later
-        let nominal = rt.resolve_address(&params.miner)?.unwrap();
-
-        let st: State = rt.state()?;
-
-        let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
-        rt.validate_immediate_caller_is(&[owner_addr, worker_addr])?;
-
-        todo!();
-        // let claim =
-        // st
-        //     .get_claim(rt.store(), &nominal)
-        //     .map_err(|e| {
-        //         ActorError::new(
-        //             ExitCode::ErrIllegalState,
-        //             format!("failed to load miner claim for deletion: {}", e),
-        //         )
-        //     })?
-        //     .ok_or_else(|| {
-        //         ActorError::new(
-        //             ExitCode::ErrIllegalState,
-        //             format!("failed to find miner {} claim for deletion", nominal),
-        //         )
-        //     })?;
-
-        // rt.transaction(|st: &mut State, rt| {
-        //     if claim.raw_byte_power > Zero::zero() {
-        //         return Err(rt.abort(
-        //             ExitCode::ErrIllegalState,
-        //             format!(
-        //                 "deletion requested for miner {} with power {}",
-        //                 nominal, claim.raw_byte_power
-        //             ),
-        //         ));
-        //     }
-
-        //     if claim.quality_adj_power > Zero::zero() {
-        //         return Err(rt.abort(
-        //             ExitCode::ErrIllegalState,
-        //             format!(
-        //                 "deletion requested for miner {} with quality adjusted power {}",
-        //                 nominal, claim.quality_adj_power
-        //             ),
-        //         ));
-        //     }
-
-        //     st.total_quality_adj_power -= claim.quality_adj_power;
-        //     st.total_raw_byte_power -= claim.raw_byte_power;
-        //     Ok(())
-        // })??;
-
-        // Self::delete_miner_actor(rt, &nominal)?;
-        // Ok(())
-    }
-    pub fn on_sector_prove_commit<BS, RT>(
-        rt: &mut RT,
-        params: OnSectorProveCommitParams,
-    ) -> Result<TokenAmount, ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        todo!()
-        // rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        // let initial_pledge = compute_initial_pledge(rt, &params.weight)?;
-
-        // rt.transaction(|st: &mut State, rt| {
-        //     let rb_power = BigInt::from(params.weight.sector_size as u64);
-        //     let qa_power = qa_power_for_weight(&params.weight);
-        //     st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalState,
-        //                 format!("Failed to add power for sector: {}", e),
-        //             )
-        //         })?;
-        //     Ok(initial_pledge)
-        // })?
-    }
-    pub fn on_sector_terminate<BS, RT>(
-        rt: &mut RT,
-        params: OnSectorTerminateParams,
-    ) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-
-        todo!()
-        // rt.transaction(|st: &mut State, rt| {
-        //     let (rb_power, qa_power) = powers_for_weights(params.weights);
-        //     st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalState,
-        //                 format!("failed to deduct claimed power for sector: {}", e),
-        //             )
-        //         })
-        // })??;
-
-        // Ok(())
-    }
-
-    fn _on_fault_begin<BS, RT>(rt: &mut RT, params: OnFaultBeginParams) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-
-        todo!()
-        // rt.transaction(|st: &mut State, rt| {
-        //     let (rb_power, qa_power) = powers_for_weights(params.weights);
-        //     st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalState,
-        //                 format!("failed to deduct claimed power for sector: {}", e),
-        //             )
-        //         })?;
-        //     Ok(())
-        // })?
-    }
-
-    fn _on_fault_end<BS, RT>(rt: &mut RT, params: OnFaultEndParams) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-
-        todo!()
-        // rt.transaction(|st: &mut State, rt| {
-        //     let (rb_power, qa_power) = powers_for_weights(params.weights);
-        //     st.add_to_claim(rt.store(), rt.message().caller(), &rb_power, &qa_power)
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalState,
-        //                 format!("failed to deduct claimed power for sector: {}", e),
-        //             )
-        //         })?;
-        //     Ok(())
-        // })?
-    }
-
-    /// Returns new initial pledge, now committed in place of the old.
-    pub fn on_sector_modify_weight_desc<BS, RT>(
-        rt: &mut RT,
-        params: OnSectorModifyWeightDescParams,
-    ) -> Result<TokenAmount, ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        todo!()
-        // rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        // let new_initial_pledge = compute_initial_pledge(rt, &params.new_weight)?;
-        // let prev_weight = params.prev_weight;
-        // let new_weight = params.new_weight;
-
-        // rt.transaction(|st: &mut State, rt| {
-        //     let prev_power = qa_power_for_weight(&prev_weight);
-
-        //     st.add_to_claim(
-        //         rt.store(),
-        //         rt.message().caller(),
-        //         &BigInt::from(prev_weight.sector_size as u64),
-        //         &prev_power,
-        //     )
-        //     .map_err(|e| {
-        //         ActorError::new(
-        //             ExitCode::ErrIllegalState,
-        //             format!("failed to deduct claimed power for sector: {}", e),
-        //         )
-        //     })?;
-
-        //     let new_power = qa_power_for_weight(&new_weight);
-        //     st.add_to_claim(
-        //         rt.store(),
-        //         rt.message().caller(),
-        //         &BigInt::from(new_weight.sector_size as u64),
-        //         &new_power,
-        //     )
-        //     .map_err(|e| {
-        //         ActorError::new(
-        //             ExitCode::ErrIllegalState,
-        //             format!("failed to add claimed power for sector: {}", e),
-        //         )
-        //     })?;
-        //     Ok(new_initial_pledge)
-        // })?
-    }
 
     pub fn enroll_cron_event<BS, RT>(
         rt: &mut RT,
@@ -428,24 +230,6 @@ impl Actor {
         // Ok(())
     }
 
-    fn delete_miner_actor<BS, RT>(rt: &mut RT, miner: &Address) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        todo!()
-        // rt.transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
-        //     st.delete_claim(rt.store(), miner)?;
-
-        //     st.miner_count -= 1;
-
-        //     Ok(())
-        // })?
-        // .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, e))?;
-
-        // Ok(())
-    }
-
     fn submit_porep_for_bulk_verify<BS, RT>(
         rt: &mut RT,
         seal_info: SealVerifyInfo,
@@ -487,50 +271,6 @@ impl Actor {
             Ok(())
         })?
     }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Method utility functions
-////////////////////////////////////////////////////////////////////////////////
-
-fn compute_initial_pledge<BS, RT>(
-    rt: &mut RT,
-    desc: &SectorStorageWeightDesc,
-) -> Result<TokenAmount, ActorError>
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
-    let st: State = rt.state()?;
-    let ret = rt.send(
-        *REWARD_ACTOR_ADDR,
-        RewardMethod::ThisEpochReward as u64,
-        Serialized::default(),
-        TokenAmount::zero(),
-    )?;
-    let BigIntDe(epoch_reward) = ret.deserialize()?;
-
-    let qa_power = qa_power_for_weight(&desc);
-    Ok(initial_pledge_for_weight(
-        &qa_power,
-        &st.total_quality_adj_power,
-        &rt.total_fil_circ_supply()?,
-        &st.total_pledge_collateral,
-        &epoch_reward,
-    ))
-}
-
-fn powers_for_weights(weights: Vec<SectorStorageWeightDesc>) -> (StoragePower, StoragePower) {
-    // returns (rbpower, qapower)
-    let mut rb_power = BigInt::zero();
-    let mut qa_power = BigInt::zero();
-
-    for w in &weights {
-        rb_power += BigInt::from(w.sector_size as u64);
-        qa_power += qa_power_for_weight(&w);
-    }
-
-    (rb_power, qa_power)
 }
 
 impl ActorCode for Actor {
@@ -578,7 +318,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             // TODO update with new/updated methods
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            _ => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
