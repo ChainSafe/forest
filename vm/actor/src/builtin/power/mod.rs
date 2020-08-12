@@ -10,9 +10,9 @@ pub use self::state::{Claim, CronEvent, State};
 pub use self::types::*;
 use crate::reward::Method as RewardMethod;
 use crate::{
-    check_empty_params, init, make_map, request_miner_control_addrs, Multimap, SetMultimap,
+    check_empty_params, init, make_map, request_miner_control_addrs, Multimap,
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
-    REWARD_ACTOR_ADDR,
+    REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use fil_types::{SealVerifyInfo, StoragePower};
@@ -22,7 +22,9 @@ use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
+use vm::{
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+};
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
@@ -49,24 +51,21 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let empty_map = make_map(rt.store()).flush().map_err(|err| {
-            rt.abort(
-                ExitCode::ErrIllegalState,
-                format!("Failed to create storage power state: {}", err),
-            )
-        })?;
+        rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        let empty_m_set = SetMultimap::new(rt.store()).root().map_err(|e| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!("Failed to get empty multimap cid: {}", e),
-            )
-        })?;
+        let empty_map = make_map(rt.store()).flush().map_err(
+            |err| actor_error!(ErrIllegalState; "Failed to create storage power state: {}", err),
+        )?;
 
-        let st = State::new(empty_map, empty_m_set);
+        let empty_mmap = Multimap::new(rt.store()).root().map_err(
+            |e| actor_error!(ErrIllegalState; "Failed to get empty multimap cid: {}", e),
+        )?;
+
+        let st = State::new(empty_map, empty_mmap);
         rt.create(&st)?;
         Ok(())
     }
+
     pub fn create_miner<BS, RT>(
         rt: &mut RT,
         params: &Serialized,
