@@ -36,11 +36,7 @@ impl ActorError {
     }
 
     /// Downcast a dynamic std Error into an ActorError
-    pub fn downcast(
-        error: Box<dyn StdError>,
-        default_exit_code: ExitCode,
-        msg: &str,
-    ) -> Self {
+    pub fn downcast(error: Box<dyn StdError>, default_exit_code: ExitCode, msg: &str) -> Self {
         match error.downcast::<ActorError>() {
             Ok(actor_err) => actor_err.wrap(msg),
             Err(other) => ActorError::new(default_exit_code, format!("{}: {}", msg, other)),

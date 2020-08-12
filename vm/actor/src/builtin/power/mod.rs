@@ -10,9 +10,8 @@ pub use self::state::*;
 pub use self::types::*;
 use crate::reward::Method as RewardMethod;
 use crate::{
-    check_empty_params, init, make_map, make_map_with_root, miner,
-    Multimap, CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
-    REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    check_empty_params, init, make_map, make_map_with_root, miner, Multimap, CALLER_TYPES_SIGNABLE,
+    CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use ahash::AHashSet;

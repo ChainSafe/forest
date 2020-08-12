@@ -90,7 +90,7 @@ impl State {
         qa_power: &StoragePower,
     ) -> Result<(), Box<dyn StdError>> {
         let old_claim = get_claim(claims, miner)?
-            .ok_or(actor_error!(ErrNotFound; "no claim for actor {}", miner))?;
+            .ok_or_else(|| actor_error!(ErrNotFound; "no claim for actor {}", miner))?;
 
         self.total_qa_bytes_committed += qa_power;
         self.total_bytes_committed += power;

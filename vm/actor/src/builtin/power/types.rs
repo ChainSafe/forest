@@ -47,7 +47,6 @@ pub struct UpdateClaimedPowerParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct EnrollCronEventParams {
     pub event_epoch: ChainEpoch,
-    // TODO double check type
     pub payload: Serialized,
 }
 
