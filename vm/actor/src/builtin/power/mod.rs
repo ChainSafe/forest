@@ -162,16 +162,25 @@ impl Actor {
             callback_payload: params.payload.clone(),
         };
 
-        todo!()
-        // rt.transaction(|st: &mut State, rt| {
-        //     st.append_cron_event(rt.store(), params.event_epoch, miner_event)
-        //         .map_err(|e| {
-        //             ActorError::new(
-        //                 ExitCode::ErrIllegalState,
-        //                 format!("failed to enroll cron event: {}", e),
-        //             )
-        //         })
-        // })?
+        // Ensure it is not possible to enter a large negative number which would cause
+        // problems in cron processing.
+        if params.event_epoch < 0 {
+            return Err(actor_error!(ErrIllegalArgument;
+                "cron event epoch {} cannot be less than zero", params.event_epoch));
+        }
+
+        rt.transaction(|st: &mut State, rt| {
+            let mut events = Multimap::from_root(rt.store(), &st.cron_event_queue)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load cron events {}", e))?;
+
+            st.append_cron_event(&mut events, params.event_epoch, miner_event)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to enroll cron event: {}", e))?;
+
+            st.cron_event_queue = events
+                .root()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush cron events: {}", e))?;
+            Ok(())
+        })?
     }
 
     fn on_epoch_tick_end<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
