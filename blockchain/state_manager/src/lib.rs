@@ -28,9 +28,8 @@ use ipld_amt::Amt;
 use log::{trace, warn};
 use message::ChainMessage;
 use message::{Message, MessageReceipt, UnsignedMessage};
-use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use num_bigint::BigInt;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use num_bigint::{bigint_ser, BigInt};
+use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -50,30 +49,12 @@ pub struct InvocResult {
 // An alias Result that represents an InvocResult and an Error
 pub type StateCallResult = Result<InvocResult, Error>;
 
-#[allow(dead_code)]
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct MarketBalance {
+    #[serde(with = "bigint_ser")]
     escrow: BigInt,
+    #[serde(with = "bigint_ser")]
     locked: BigInt,
-}
-
-impl Serialize for MarketBalance {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (BigIntSer(&self.escrow), BigIntSer(&self.locked)).serialize(s)
-    }
-}
-
-impl<'de> Deserialize<'de> for MarketBalance {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (BigIntDe(escrow), BigIntDe(locked)) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { escrow, locked })
-    }
 }
 
 pub struct StateManager<DB> {

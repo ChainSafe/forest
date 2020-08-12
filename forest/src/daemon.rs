@@ -104,7 +104,7 @@ pub(super) async fn start(config: Config) {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(
                 RpcState {
-                    store: db_rpc,
+                    state_manager: db_rpc,
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,
