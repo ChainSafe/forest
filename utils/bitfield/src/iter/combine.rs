@@ -351,7 +351,7 @@ where
         let (range, advance_lhs) = match (self.lhs.peek(), self.rhs.peek()) {
             (Some(lhs), Some(rhs)) => {
                 // if both iterators are non-empty, we advance the one whichever's
-                // corresponding range ends first
+                // corresponding range has a smaller upper bound
                 if lhs.end <= rhs.end {
                     (Some(self.combinator.advance_lhs(lhs.clone(), rhs)), true)
                 } else {
@@ -386,14 +386,6 @@ where
         // TODO: use `!range.is_empty()` once it stabilizes in Rust 1.47
         iter::from_fn(|| self.next_range()).find(|range| range.start < range.end)
     }
-}
-
-impl<A, B, C> RangeIterator for _Combine<A, B, C>
-where
-    A: RangeIterator,
-    B: RangeIterator,
-    C: Combinator,
-{
 }
 
 /// A range iterator that wraps an iterator of ranges and merges the overlapping
