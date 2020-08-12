@@ -18,10 +18,11 @@ use address::Address;
 use fil_types::{SealVerifyInfo, StoragePower};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use num_bigint::BigInt;
+use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
+use std::ops::Neg;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
@@ -193,7 +194,6 @@ impl Actor {
         Self::process_deferred_cron_events(rt)?;
         Self::process_batch_proof_verifies(rt)?;
 
-        let rt_epoch = rt.curr_epoch();
         let this_epoch_raw_byte_power = rt.transaction(|st: &mut State, rt| {
             let (raw_byte_power, qa_power) = st.current_total_power();
             st.this_epoch_pledge_collateral = st.total_pledge_collateral.clone();
@@ -229,41 +229,62 @@ impl Actor {
         })
     }
 
-    fn on_consensus_fault<BS, RT>(rt: &mut RT, pledge_amount: TokenAmount) -> Result<(), ActorError>
+    fn on_consensus_fault<BS, RT>(rt: &mut RT, pledge_delta: TokenAmount) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
-        // rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        // let miner_addr = *rt.message().caller();
-        // let st: State = rt.state()?;
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
+        let miner_addr = *rt.message().caller();
 
-        // let claim = st
-        //     .get_claim(rt.store(), &miner_addr)
-        //     .map_err(|e| {
-        //         ActorError::new(
-        //             ExitCode::ErrIllegalState,
-        //             format!("failed to read claimed power for fault: {}", e),
-        //         )
-        //     })?
-        //     .ok_or_else(|| {
-        //         ActorError::new(
-        //             ExitCode::ErrIllegalArgument,
-        //             format!("miner {} not registered (already slashed?)", miner_addr),
-        //         )
-        //     })?;
+        rt.transaction(|st: &mut State, rt| {
+            let mut claims = make_map_with_root(&st.claims, rt.store())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load claims: {}", e))?;
 
-        // rt.transaction(|st: &mut State, _| {
-        //     st.total_quality_adj_power -= claim.quality_adj_power;
-        //     st.total_raw_byte_power -= claim.raw_byte_power;
+            let claim = get_claim(&claims, &miner_addr)
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState; "failed to read claimed power for fault: {}", e)
+                })?
+                .ok_or_else(|| {
+                    actor_error!(ErrNotFound;
+                        "miner {} not registered (already slashed?)", miner_addr)
+                })?;
+            assert_ne!(claim.raw_byte_power.sign(), Sign::Minus);
+            assert_ne!(claim.quality_adj_power.sign(), Sign::Minus);
 
-        //     st.add_pledge_total(pledge_amount);
-        // })?;
+            st.add_to_claim(
+                &mut claims,
+                &miner_addr,
+                &claim.raw_byte_power.neg(),
+                &claim.quality_adj_power.neg(),
+            )
+            .map_err(|e| match e.downcast::<ActorError>() {
+                Ok(actor_err) => *actor_err,
+                Err(other) => actor_error!(ErrIllegalState;
+                    "could not add to claim for {} after loading existing claim \
+                    for this address: {}", miner_addr, other),
+            })?;
 
-        // Self::delete_miner_actor(rt, &miner_addr)?;
+            st.add_pledge_total(pledge_delta.neg());
 
-        // Ok(())
+            // delete miner actor claims
+            let deleted = claims.delete(&miner_addr.to_bytes()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to remove miner {}: {}",miner_addr,  e),
+            )?;
+            if !deleted {
+                return Err(actor_error!(ErrIllegalState;
+                    "failed to remove miner {}: does not exist", miner_addr));
+            }
+
+            st.miner_count -= 1;
+
+            st.claims = claims
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush claims: {}", e))?;
+            Ok(())
+        })??;
+
+        Ok(())
     }
 
     fn submit_porep_for_bulk_verify<BS, RT>(
