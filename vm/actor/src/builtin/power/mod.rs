@@ -382,8 +382,19 @@ impl Actor {
             mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
                 let addr = Address::from_bytes(&k.0).map_err(
                     |e| actor_error!(ErrIllegalState; "failed to parse address key: {}", e),
-                );
+                )?;
                 miners.push(addr);
+                let mut infos = Vec::new();
+                arr.for_each(|i, svi| {
+                    infos.push(svi.clone());
+                    Ok(())
+                })
+                .map_err(|e| match e.downcast::<ActorError>() {
+                    Ok(actor_err) => *actor_err,
+                    Err(other) => actor_error!(ErrIllegalState;
+                        "failed to iterate over proof verify array for miner {}: {}",
+                         addr, other),
+                })?;
 
                 todo!()
             })

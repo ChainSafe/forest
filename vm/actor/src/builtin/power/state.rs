@@ -4,7 +4,7 @@
 use super::{CONSENSUS_MINER_MIN_MINERS, CONSENSUS_MINER_MIN_POWER};
 use crate::{
     smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA},
-    BytesKey, Map, Multimap, HAMT_BIT_WIDTH,
+    BytesKey, Map, Multimap,
 };
 use address::Address;
 use cid::Cid;
@@ -159,7 +159,7 @@ impl State {
     pub(super) fn load_cron_events<BS: BlockStore>(
         mmap: &Multimap<BS>,
         epoch: ChainEpoch,
-    ) -> Result<Vec<CronEvent>, String> {
+    ) -> Result<Vec<CronEvent>, Box<dyn StdError>> {
         let mut events = Vec::new();
 
         mmap.for_each(&epoch_key(epoch), |_, v: &CronEvent| {

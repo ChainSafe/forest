@@ -147,7 +147,7 @@ where
     let amt = Amt::load(ssc, block_store).map_err(|err| Error::Other(err.to_string()))?;
 
     let mut sset: Vec<ChainSectorInfo> = Vec::new();
-    let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| -> Result<(), String> {
+    let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| {
         if let Some(ref mut s) = filter {
             let i = i
                 .try_into()

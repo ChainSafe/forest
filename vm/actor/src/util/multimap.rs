@@ -74,10 +74,10 @@ where
     }
 
     /// Iterates through all values in the array at a given key.
-    pub fn for_each<F, V>(&self, key: &[u8], f: F) -> Result<(), String>
+    pub fn for_each<F, V>(&self, key: &[u8], f: F) -> Result<(), Box<dyn StdError>>
     where
         V: Serialize + DeserializeOwned + Clone,
-        F: FnMut(u64, &V) -> Result<(), String>,
+        F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
         if let Some(amt) = self.get::<V>(key)? {
             amt.for_each(f)?;
