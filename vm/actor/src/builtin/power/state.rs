@@ -156,20 +156,6 @@ impl State {
         Ok(())
     }
 
-    pub(super) fn load_cron_events<BS: BlockStore>(
-        mmap: &Multimap<BS>,
-        epoch: ChainEpoch,
-    ) -> Result<Vec<CronEvent>, Box<dyn StdError>> {
-        let mut events = Vec::new();
-
-        mmap.for_each(&epoch_key(epoch), |_, v: &CronEvent| {
-            events.push(v.clone());
-            Ok(())
-        })?;
-
-        Ok(events)
-    }
-
     pub(super) fn current_total_power(&self) -> (StoragePower, StoragePower) {
         if self.miner_above_min_power_count < CONSENSUS_MINER_MIN_MINERS {
             (
@@ -195,6 +181,20 @@ impl State {
     }
 }
 
+pub(super) fn load_cron_events<BS: BlockStore>(
+    mmap: &Multimap<BS>,
+    epoch: ChainEpoch,
+) -> Result<Vec<CronEvent>, Box<dyn StdError>> {
+    let mut events = Vec::new();
+
+    mmap.for_each(&epoch_key(epoch), |_, v: &CronEvent| {
+        events.push(v.clone());
+        Ok(())
+    })?;
+
+    Ok(events)
+}
+
 /// Gets claim from claims map by address
 pub fn get_claim<BS: BlockStore>(claims: &Map<BS>, a: &Address) -> Result<Option<Claim>, String> {
     Ok(claims
@@ -215,7 +215,7 @@ pub fn set_claim<BS: BlockStore>(
         .map_err(|e| format!("failed to set claim for address {}: {}", a, e))?)
 }
 
-fn epoch_key(e: ChainEpoch) -> BytesKey {
+pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
     let bz = e.encode_var_vec();
     bz.into()
 }

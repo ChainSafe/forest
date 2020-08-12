@@ -10,13 +10,13 @@ pub use self::state::*;
 pub use self::types::*;
 use crate::reward::Method as RewardMethod;
 use crate::{
-    check_empty_params, init, make_map, make_map_with_root, miner, request_miner_control_addrs,
+    check_empty_params, init, make_map, make_map_with_root, miner,
     Multimap, CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use ahash::AHashSet;
-use fil_types::{SealVerifyInfo, StoragePower};
+use fil_types::SealVerifyInfo;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::Sign;
@@ -375,7 +375,7 @@ impl Actor {
     {
         // let mut miners = Vec::new();
         let mut verifies = HashMap::new();
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
             if st.proof_validation_batch.is_none() {
                 return Ok(());
             }
@@ -470,7 +470,110 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
+        let rt_epoch = rt.curr_epoch();
+        let mut cron_events = Vec::new();
+        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+            let mut events = Multimap::from_root(rt.store(), &st.cron_event_queue)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load cron events: {}", e))?;
+
+            for epoch in st.first_cron_epoch..rt_epoch {
+                let mut epoch_events = load_cron_events(&events, epoch).map_err(|e| {
+                    ActorError::downcast(
+                        e,
+                        ExitCode::ErrIllegalState,
+                        &format!("failed to load cron events at {}", epoch),
+                    )
+                })?;
+
+                if epoch_events.is_empty() {
+                    continue;
+                }
+
+                cron_events.append(&mut epoch_events);
+
+                events.remove_all(&epoch_key(epoch)).map_err(|e| {
+                    actor_error!(ErrIllegalState; "failed to clear cron events at {}: {}", epoch, e)
+                })?;
+            }
+
+            st.first_cron_epoch = rt_epoch + 1;
+            st.cron_event_queue = events
+                .root()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush events: {}", e))?;
+
+            Ok(())
+        })??;
+
+        let mut failed_miner_crons = Vec::new();
+        for event in cron_events {
+            let res = rt.send(
+                event.miner_addr,
+                miner::Method::OnDeferredCronEvent as MethodNum,
+                event.callback_payload,
+                Default::default(),
+            );
+            // If a callback fails, this actor continues to invoke other callbacks
+            // and persists state removing the failed event from the event queue. It won't be tried again.
+            // Failures are unexpected here but will result in removal of miner power
+            // A log message would really help here.
+            if let Err(e) = res {
+                log::warn!(
+                    "OnDeferredCronEvent failed for miner {}: res {}",
+                    event.miner_addr,
+                    e
+                );
+                failed_miner_crons.push(event.miner_addr)
+            }
+        }
+        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+            let mut claims = make_map_with_root(&st.claims, rt.store())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load claims: {}", e))?;
+
+            // Remove power and leave miner frozen
+            for miner_addr in failed_miner_crons {
+                let claim = match get_claim(&claims, &miner_addr) {
+                    Err(e) => {
+                        log::error!(
+                            "failed to get claim for miner {} after \
+                            failing OnDeferredCronEvent: {}",
+                            miner_addr,
+                            e
+                        );
+                        continue;
+                    }
+                    Ok(None) => {
+                        log::warn!(
+                            "miner OnDeferredCronEvent failed for miner {} with no power",
+                            miner_addr
+                        );
+                        continue;
+                    }
+                    Ok(Some(claim)) => claim,
+                };
+
+                // zero out miner power
+                let res = st.add_to_claim(
+                    &mut claims,
+                    &miner_addr,
+                    &claim.raw_byte_power.neg(),
+                    &claim.quality_adj_power.neg(),
+                );
+                if let Err(e) = res {
+                    log::warn!(
+                        "failed to remove power for miner {} after to failed cron: {}",
+                        miner_addr,
+                        e
+                    );
+                    continue;
+                }
+            }
+
+            st.claims = claims
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush claims: {}", e))?;
+            Ok(())
+        })??;
+        Ok(())
     }
 }
 
