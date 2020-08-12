@@ -104,7 +104,7 @@ where
         .with_method("Filecoin.WalletSign", wallet_sign::<DB, KS>)
         .with_method("Filecoin.WalletSignMessage", wallet_sign_message::<DB, KS>)
         .with_method("Filecoin.WalletVerify", wallet_verify::<DB, KS>)
-        //State API
+        // State API
         .with_method("Filecoin.StateMinerSector", state_miner_sector::<DB, KS>)
         .with_method("Filecoin.StateCall", state_call::<DB, KS>)
         .with_method(
