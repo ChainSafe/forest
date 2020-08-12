@@ -295,7 +295,7 @@ pub trait Syscalls {
 
     fn batch_verify_seals(
         &self,
-        vis: &[(Address, Vec<SealVerifyInfo>)],
+        vis: &[(Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         let out = vis
             .par_iter()

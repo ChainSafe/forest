@@ -505,10 +505,10 @@ where
         proposal: &DealProposal,
     ) -> Result<(), ActorError> {
         self.maybe_lock_balance(&proposal.client, &proposal.client_balance_requirement())
-            .map_err(|e| e.wrap("failed to lock client funds: "))?;
+            .map_err(|e| e.wrap("failed to lock client funds"))?;
 
         self.maybe_lock_balance(&proposal.provider, &proposal.provider_collateral)
-            .map_err(|e| e.wrap("failed to lock provider funds: "))?;
+            .map_err(|e| e.wrap("failed to lock provider funds"))?;
 
         if let Some(v) = self.total_client_locked_colateral.as_mut() {
             *v += &proposal.client_collateral;

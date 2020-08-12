@@ -10,11 +10,12 @@ pub use self::state::*;
 pub use self::types::*;
 use crate::reward::Method as RewardMethod;
 use crate::{
-    check_empty_params, init, make_map, make_map_with_root, request_miner_control_addrs, Multimap,
-    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
+    check_empty_params, init, make_map, make_map_with_root, miner, request_miner_control_addrs,
+    Multimap, CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
+use ahash::AHashSet;
 use fil_types::{SealVerifyInfo, StoragePower};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
@@ -22,12 +23,13 @@ use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
+use std::collections::HashMap;
 use std::ops::Neg;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: c0868603e90795bdc748610de5dc8fb118458085 (v0.9.0)
+// * Updated to specs-actors commit: b8a3a6ff7b15ac01f0534c47059e1c81652a61f0 (v0.9.1)
 
 /// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
 /// This number is empirically determined
@@ -139,11 +141,15 @@ impl Actor {
                 &params.raw_byte_delta,
                 &params.quality_adjusted_delta,
             )
-            .map_err(|e| match e.downcast::<ActorError>() {
-                Ok(actor_err) => *actor_err,
-                Err(other) => actor_error!(ErrIllegalState;
-                    "failed to update power raw {}, qa {}: {}",
-                    params.raw_byte_delta, params.quality_adjusted_delta, other),
+            .map_err(|e| {
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    &format!(
+                        "failed to update power raw {}, qa {}",
+                        params.raw_byte_delta, params.quality_adjusted_delta,
+                    ),
+                )
             })?;
 
             st.claims = claims
@@ -218,7 +224,7 @@ impl Actor {
             this_epoch_raw_byte_power?,
             TokenAmount::from(0),
         )
-        .map_err(|e| e.wrap("failed to update network KPI with reward actor: "))?;
+        .map_err(|e| e.wrap("failed to update network KPI with reward actor"))?;
 
         Ok(())
     }
@@ -263,11 +269,12 @@ impl Actor {
                 &claim.raw_byte_power.neg(),
                 &claim.quality_adj_power.neg(),
             )
-            .map_err(|e| match e.downcast::<ActorError>() {
-                Ok(actor_err) => *actor_err,
-                Err(other) => actor_error!(ErrIllegalState;
-                    "could not add to claim for {} after loading existing claim \
-                    for this address: {}", miner_addr, other),
+            .map_err(|e| {
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    &format!("could not add to claim for {}", miner_addr),
+                )
             })?;
 
             st.add_pledge_total(pledge_delta.neg());
@@ -366,12 +373,13 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let mut miners = Vec::new();
+        // let mut miners = Vec::new();
+        let mut verifies = HashMap::new();
         rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
             if st.proof_validation_batch.is_none() {
                 return Ok(());
             }
-            let mut mmap = Multimap::from_root(
+            let mmap = Multimap::from_root(
                 rt.store(),
                 st.proof_validation_batch.as_ref().unwrap(),
             )
@@ -383,33 +391,78 @@ impl Actor {
                 let addr = Address::from_bytes(&k.0).map_err(
                     |e| actor_error!(ErrIllegalState; "failed to parse address key: {}", e),
                 )?;
-                miners.push(addr);
+
+                // miners.push(addr);
+
                 let mut infos = Vec::new();
-                arr.for_each(|i, svi| {
+                arr.for_each(|_, svi| {
                     infos.push(svi.clone());
                     Ok(())
                 })
-                .map_err(|e| match e.downcast::<ActorError>() {
-                    Ok(actor_err) => *actor_err,
-                    Err(other) => actor_error!(ErrIllegalState;
-                        "failed to iterate over proof verify array for miner {}: {}",
-                         addr, other),
+                .map_err(|e| {
+                    ActorError::downcast(
+                        e,
+                        ExitCode::ErrIllegalState,
+                        &format!(
+                            "failed to iterate over proof verify array for miner {}",
+                            addr
+                        ),
+                    )
                 })?;
 
-                todo!()
+                verifies.insert(addr, infos);
+                Ok(())
             })
-            .map_err(|e| match e.downcast::<ActorError>() {
-                Ok(actor_err) => *actor_err,
-                // TODO update
-                Err(other) => actor_error!(ErrIllegalState;
-                    "fixme: {}",
-                     other),
+            .map_err(|e| {
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to iterate proof batch",
+                )
             })?;
 
             st.proof_validation_batch = None;
             Ok(())
         })??;
-        todo!()
+
+        // TODO update this to not need to create vector to verify these things (ref batch_v_s)
+        let verif_arr: Vec<(Address, &Vec<SealVerifyInfo>)> =
+            verifies.iter().map(|(a, v)| (*a, v)).collect();
+        let res = rt
+            .syscalls()
+            .batch_verify_seals(verif_arr.as_slice())
+            .map_err(|e| {
+                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to batch verify")
+            })?;
+
+        for (m, verifs) in verifies.iter() {
+            let vres = res.get(m).ok_or_else(
+                || actor_error!(ErrNotFound; "batch verify seals syscall implemented incorrectly"),
+            )?;
+
+            let mut seen = AHashSet::<_>::new();
+            let mut successful = Vec::new();
+            for (i, &r) in vres.iter().enumerate() {
+                if r {
+                    let snum = verifs[i].sector_id.number;
+                    if seen.contains(&snum) {
+                        continue;
+                    }
+                    seen.insert(snum);
+                    successful.push(snum);
+                }
+            }
+            // Result intentionally ignored
+            let _ = rt.send(
+                *m,
+                miner::Method::ConfirmSectorProofsValid as MethodNum,
+                Serialized::serialize(&miner::ConfirmSectorProofsParams {
+                    sectors: successful,
+                })?,
+                Default::default(),
+            );
+        }
+        Ok(())
     }
 
     fn process_deferred_cron_events<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
