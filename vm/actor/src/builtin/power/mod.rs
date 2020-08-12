@@ -48,7 +48,7 @@ pub enum Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for StoragePower actor
-    pub fn constructor<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+    fn constructor<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -68,7 +68,7 @@ impl Actor {
         Ok(())
     }
 
-    pub fn create_miner<BS, RT>(
+    fn create_miner<BS, RT>(
         rt: &mut RT,
         params: &Serialized,
     ) -> Result<CreateMinerReturn, ActorError>
@@ -111,7 +111,44 @@ impl Actor {
         })
     }
 
-    pub fn enroll_cron_event<BS, RT>(
+    /// Adds or removes claimed power for the calling actor.
+    /// May only be invoked by a miner actor.
+    fn update_claimed_power<BS, RT>(
+        rt: &mut RT,
+        params: UpdateClaimedPowerParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
+        let miner_addr = *rt.message().caller();
+
+        rt.transaction(|st: &mut State, rt| {
+            let mut claims = make_map_with_root(&st.claims, rt.store())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load claims: {}", e))?;
+
+            st.add_to_claim(
+                &mut claims,
+                &miner_addr,
+                &params.raw_byte_delta,
+                &params.quality_adjusted_delta,
+            )
+            .map_err(|e| match e.downcast::<ActorError>() {
+                Ok(actor_err) => *actor_err,
+                Err(other) => actor_error!(ErrIllegalState;
+                    "failed to update power raw {}, qa {}: {}",
+                    params.raw_byte_delta, params.quality_adjusted_delta, other),
+            })?;
+
+            st.claims = claims
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush claims: {}", e))?;
+            Ok(())
+        })?
+    }
+
+    fn enroll_cron_event<BS, RT>(
         rt: &mut RT,
         params: EnrollCronEventParams,
     ) -> Result<(), ActorError>
@@ -137,7 +174,7 @@ impl Actor {
         // })?
     }
 
-    pub fn on_epoch_tick_end<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+    fn on_epoch_tick_end<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -297,6 +334,10 @@ impl ActorCode for Actor {
             Some(Method::CreateMiner) => {
                 let res = Self::create_miner(rt, params)?;
                 Ok(Serialized::serialize(res)?)
+            }
+            Some(Method::UpdateClaimedPower) => {
+                Self::update_claimed_power(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
             }
             Some(Method::EnrollCronEvent) => {
                 Self::enroll_cron_event(rt, params.deserialize()?)?;
