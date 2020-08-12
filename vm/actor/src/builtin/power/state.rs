@@ -170,11 +170,17 @@ impl State {
         Ok(events)
     }
 
-    pub(super) fn current_total_power(&self) -> (&StoragePower, &StoragePower) {
+    pub(super) fn current_total_power(&self) -> (StoragePower, StoragePower) {
         if self.miner_above_min_power_count < CONSENSUS_MINER_MIN_MINERS {
-            (&self.total_bytes_committed, &self.total_qa_bytes_committed)
+            (
+                self.total_bytes_committed.clone(),
+                self.total_qa_bytes_committed.clone(),
+            )
         } else {
-            (&self.total_raw_byte_power, &self.total_quality_adj_power)
+            (
+                self.total_raw_byte_power.clone(),
+                self.total_quality_adj_power.clone(),
+            )
         }
     }
 

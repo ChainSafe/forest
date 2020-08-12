@@ -17,7 +17,7 @@ use crate::{
 use address::Address;
 use fil_types::{SealVerifyInfo, StoragePower};
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser::BigIntDe;
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
@@ -190,47 +190,34 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR))?;
 
-        todo!()
-        // let rt_epoch = rt.curr_epoch();
-        // let cron_events = rt
-        //     .transaction::<_, Result<_, String>, _>(|st: &mut State, rt| {
-        //         let mut events = Vec::new();
-        //         for i in st.last_processed_cron_epoch..=rt_epoch {
-        //             // Load epoch cron events
-        //             let epoch_events = st.load_cron_events(rt.store(), i)?;
+        Self::process_deferred_cron_events(rt)?;
+        Self::process_batch_proof_verifies(rt)?;
 
-        //             // Add all events to vector
-        //             events.extend_from_slice(&epoch_events);
+        let rt_epoch = rt.curr_epoch();
+        let this_epoch_raw_byte_power = rt.transaction(|st: &mut State, rt| {
+            let (raw_byte_power, qa_power) = st.current_total_power();
+            st.this_epoch_pledge_collateral = st.total_pledge_collateral.clone();
+            st.this_epoch_quality_adj_power = qa_power;
+            st.this_epoch_raw_byte_power = raw_byte_power;
+            let delta = rt.curr_epoch() - st.last_processed_cron_epoch;
+            st.update_smoothed_estimate(delta);
 
-        //             // Clear loaded events
-        //             if !epoch_events.is_empty() {
-        //                 st.clear_cron_events(rt.store(), i)?;
-        //             }
-        //         }
-        //         st.last_processed_cron_epoch = rt_epoch;
-        //         Ok(events)
-        //     })?
-        //     .map_err(|e| {
-        //         ActorError::new(
-        //             ExitCode::ErrIllegalState,
-        //             format!("Failed to clear cron events: {}", e),
-        //         )
-        //     })?;
+            st.last_processed_cron_epoch = rt.curr_epoch();
+            Serialized::serialize(&BigIntSer(&st.this_epoch_raw_byte_power))
+        })?;
 
-        // for event in cron_events {
-        //     // TODO switch 12 to OnDeferredCronEvent on miner actor impl
-        //     rt.send(
-        //         event.miner_addr,
-        //         12,
-        //         event.callback_payload,
-        //         TokenAmount::from(0u8),
-        //     )?;
-        // }
+        // Update network KPA in reward actor
+        rt.send(
+            *REWARD_ACTOR_ADDR,
+            RewardMethod::UpdateNetworkKPI as MethodNum,
+            this_epoch_raw_byte_power?,
+            TokenAmount::from(0),
+        )
+        .map_err(|e| e.wrap("failed to update network KPI with reward actor: "))?;
 
-        // Ok(())
+        Ok(())
     }
 
-    // TODO update this function from using unsigned delta (can be negative)
     fn update_pledge_total<BS, RT>(rt: &mut RT, pledge_delta: TokenAmount) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -239,8 +226,7 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         rt.transaction(|st: &mut State, _| {
             st.add_pledge_total(pledge_delta);
-            Ok(())
-        })?
+        })
     }
 
     fn on_consensus_fault<BS, RT>(rt: &mut RT, pledge_amount: TokenAmount) -> Result<(), ActorError>
@@ -320,6 +306,22 @@ impl Actor {
             st.proof_validation_batch = Some(mmrc);
             Ok(())
         })?
+    }
+
+    fn process_batch_proof_verifies<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        todo!()
+    }
+
+    fn process_deferred_cron_events<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        todo!()
     }
 }
 
