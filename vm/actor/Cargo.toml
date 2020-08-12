@@ -30,6 +30,7 @@ derive_builder = "0.9"
 byteorder = "1.3.4"
 ahash = "0.4"
 base64 = "0.12.1"
+log = "0.4.8"
 
 [dev-dependencies]
 db = { path = "../../node/db" }

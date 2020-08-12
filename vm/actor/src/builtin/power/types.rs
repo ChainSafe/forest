@@ -5,9 +5,8 @@ use crate::DealWeight;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, Cbor};
-use fil_types::{RegisteredSealProof, SectorSize};
+use fil_types::{RegisteredSealProof, SectorSize, StoragePower};
 use num_bigint::bigint_ser;
-use num_bigint::biguint_ser;
 use vm::{Serialized, TokenAmount};
 
 pub type SectorTermination = i64;
@@ -32,9 +31,9 @@ pub struct CreateMinerParams {
 pub struct SectorStorageWeightDesc {
     pub sector_size: SectorSize,
     pub duration: ChainEpoch,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub deal_weight: DealWeight,
-    #[serde(with = "biguint_ser")]
+    #[serde(with = "bigint_ser")]
     pub verified_deal_weight: DealWeight,
 }
 
@@ -112,4 +111,16 @@ pub struct OnFaultBeginParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct OnFaultEndParams {
     pub weights: Vec<SectorStorageWeightDesc>, // TODO: replace with power if it can be computed by miner
+}
+
+// TODO use and update this, was just needed to reference
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct CurrentTotalPowerReturn {
+    #[serde(with = "bigint_ser")]
+    pub raw_byte_power: StoragePower,
+    #[serde(with = "bigint_ser")]
+    pub quality_adj_power: StoragePower,
+    #[serde(with = "bigint_ser")]
+    pub pledge_collateral: TokenAmount,
+    pub quality_adj_power_smoothed: (),
 }

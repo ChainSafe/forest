@@ -52,5 +52,7 @@ build_codec_enum! {
     0xb1 => BitcoinTx,
     0xc0 => ZcashBlock,
     0xc1 => ZcashTx,
+    0x101 => FilCommitmentUnsealed,
+    0x102 => FilCommitmentSealed,
     0x0129 => DagJSON,
 }

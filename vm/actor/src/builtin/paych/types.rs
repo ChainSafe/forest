@@ -2,18 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Merge;
+use crate::network::EPOCHS_IN_HOUR;
 use address::Address;
 use clock::ChainEpoch;
 use crypto::Signature;
-use encoding::{serde_bytes, tuple::*};
+use encoding::{error::Error, serde_bytes, to_vec, tuple::*};
 use num_bigint::{bigint_ser, BigInt};
 use vm::{MethodNum, Serialized};
 
 /// Maximum number of lanes in a channel
 pub const LANE_LIMIT: usize = 256;
 
-// TODO replace placeholder when params finished
-pub const SETTLE_DELAY: ChainEpoch = 1;
+pub const SETTLE_DELAY: ChainEpoch = EPOCHS_IN_HOUR * 12;
 
 /// Constructor parameters for payment channel actor
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -24,15 +24,16 @@ pub struct ConstructorParams {
 
 /// A voucher is sent by `from` to `to` off-chain in order to enable
 /// `to` to redeem payments on-chain in the future
-#[derive(Default, Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct SignedVoucher {
+    /// ChannelAddr is the address of the payment channel this signed voucher is valid for
+    pub channel_addr: Address,
     /// Min epoch before which the voucher cannot be redeemed
     pub time_lock_min: ChainEpoch,
     /// Max epoch beyond which the voucher cannot be redeemed
     /// set to 0 means no timeout
     pub time_lock_max: ChainEpoch,
     /// (optional) Used by `to` to validate
-    // TODO revisit this type, can probably be a 32 byte array
     #[serde(with = "serde_bytes")]
     pub secret_pre_image: Vec<u8>,
     /// (optional) Specified by `from` to add a verification method to the voucher
@@ -54,6 +55,43 @@ pub struct SignedVoucher {
     pub signature: Option<Signature>,
 }
 
+impl SignedVoucher {
+    pub fn signing_bytes(&self) -> Result<Vec<u8>, Error> {
+        /// Helper struct to avoid cloning for serializing structure.
+        #[derive(Serialize_tuple)]
+        struct SignedVoucherSer<'a> {
+            pub channel_addr: &'a Address,
+            pub time_lock_min: ChainEpoch,
+            pub time_lock_max: ChainEpoch,
+            #[serde(with = "serde_bytes")]
+            pub secret_pre_image: &'a [u8],
+            pub extra: &'a Option<ModVerifyParams>,
+            pub lane: u64,
+            pub nonce: u64,
+            #[serde(with = "bigint_ser")]
+            pub amount: &'a BigInt,
+            pub min_settle_height: ChainEpoch,
+            pub merges: &'a [Merge],
+            pub signature: (),
+        }
+        let osv = SignedVoucherSer {
+            channel_addr: &self.channel_addr,
+            time_lock_min: self.time_lock_min,
+            time_lock_max: self.time_lock_max,
+            secret_pre_image: &self.secret_pre_image,
+            extra: &self.extra,
+            lane: self.lane,
+            nonce: self.nonce,
+            amount: &self.amount,
+            min_settle_height: self.min_settle_height,
+            merges: &self.merges,
+            signature: (),
+        };
+        // Cbor serialize struct
+        to_vec(&osv)
+    }
+}
+
 /// Modular Verification method
 #[derive(Debug, Clone, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ModVerifyParams {
@@ -66,7 +104,6 @@ pub struct ModVerifyParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PaymentVerifyParams {
     pub extra: Serialized,
-    // TODO revisit these to see if they should be arrays or optional
     #[serde(with = "serde_bytes")]
     pub proof: Vec<u8>,
 }
@@ -87,32 +124,5 @@ impl From<SignedVoucher> for UpdateChannelStateParams {
             secret: vec![],
             sv,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use encoding::{from_slice, to_vec};
-
-    #[test]
-    fn signed_voucher_serialize_optional_unset() {
-        let v = SignedVoucher {
-            time_lock_min: 1,
-            time_lock_max: 2,
-            lane: 3,
-            nonce: 4,
-            amount: BigInt::from(5),
-            signature: Some(Signature::new_bls(b"doesn't matter".to_vec())),
-            ..Default::default()
-        };
-        let bz = to_vec(&v).unwrap();
-        assert_eq!(
-            hex::encode(&bz),
-            hex::encode(
-                &hex::decode("8a010240f6030442000500804f02646f65736e2774206d6174746572").unwrap()
-            )
-        );
-        assert_eq!(from_slice::<SignedVoucher>(&bz).unwrap(), v);
     }
 }
