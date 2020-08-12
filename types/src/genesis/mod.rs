@@ -8,37 +8,39 @@ use serde::Serialize;
 use vm::TokenAmount;
 
 #[derive(Serialize)]
-enum ActorType {
-    // Account,
-// MultiSig,
+pub enum ActorType {
+    Account,
+    MultiSig,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Actor {
-    actor_type: ActorType,
+    pub actor_type: ActorType,
     #[serde(with = "bigint_ser")]
-    token_amount: TokenAmount,
+    pub token_amount: TokenAmount,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Miner {
-    owner: Address,
-    worker: Address,
-    peer_id: Vec<u8>,
+    pub owner: Address,
+    pub worker: Address,
+    pub peer_id: Vec<u8>,
 
     #[serde(with = "bigint_ser")]
-    market_balance: TokenAmount,
+    pub market_balance: TokenAmount,
     #[serde(with = "bigint_ser")]
-    power_balance: TokenAmount,
-    sector_size: SectorSize,
+    pub power_balance: TokenAmount,
+    pub sector_size: SectorSize,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Template {
-    accounts: Vec<Actor>,
-    miners: Vec<Miner>,
-    network_name: String,
+    pub accounts: Vec<Actor>,
+    pub miners: Vec<Miner>,
+    pub network_name: String,
     // timestamp: SystemTime,
 }
 
