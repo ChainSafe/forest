@@ -340,6 +340,26 @@ impl Actor {
         Ok(())
     }
 
+    /// Returns the total power and pledge recorded by the power actor.
+    /// The returned values are frozen during the cron tick before this epoch
+    /// so that this method returns consistent values while processing all messages
+    /// of an epoch.
+    fn current_total_power<BS, RT>(rt: &mut RT) -> Result<CurrentTotalPowerReturn, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_accept_any()?;
+        let st: State = rt.state()?;
+
+        Ok(CurrentTotalPowerReturn {
+            raw_byte_power: st.this_epoch_raw_byte_power,
+            quality_adj_power: st.this_epoch_quality_adj_power,
+            pledge_collateral: st.this_epoch_pledge_collateral,
+            quality_adj_power_smoothed: st.this_epoch_qa_power_smoothed,
+        })
+    }
+
     fn process_batch_proof_verifies<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -405,8 +425,12 @@ impl ActorCode for Actor {
                 Self::submit_porep_for_bulk_verify(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            // TODO update with new/updated methods
-            _ => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
+            Some(Method::CurrentTotalPower) => {
+                check_empty_params(params)?;
+                let res = Self::current_total_power(rt)?;
+                Ok(Serialized::serialize(res)?)
+            }
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
