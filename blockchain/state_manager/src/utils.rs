@@ -320,11 +320,11 @@ where
     let block_store = &*state_manager.get_block_store();
     let map = Hamt::load(&power_actor_state.claims, block_store)
         .map_err(|err| Error::Other(err.to_string()))?;
-    map.for_each(|_: &String, k: String| -> Result<(), String> {
-        let address = Address::from_bytes(k.as_bytes()).map_err(|e| e.to_string())?;
+    map.for_each(|_: &String, k: String| {
+        let address = Address::from_bytes(k.as_bytes())?;
         miners.push(address);
         Ok(())
     })
-    .map_err(Error::Other)?;
+    .map_err(|e| Error::Other(e.to_string()))?;
     Ok(miners)
 }

@@ -174,7 +174,7 @@ impl Actor {
                 "cron event epoch {} cannot be less than zero", params.event_epoch));
         }
 
-        rt.transaction(|st: &mut State, rt| {
+        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
             let mut events = Multimap::from_root(rt.store(), &st.cron_event_queue)
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to load cron events {}", e))?;
 
@@ -185,7 +185,8 @@ impl Actor {
                 .root()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush cron events: {}", e))?;
             Ok(())
-        })?
+        })??;
+        Ok(())
     }
 
     fn on_epoch_tick_end<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -365,6 +366,38 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        let mut miners = Vec::new();
+        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+            if st.proof_validation_batch.is_none() {
+                return Ok(());
+            }
+            let mut mmap = Multimap::from_root(
+                rt.store(),
+                st.proof_validation_batch.as_ref().unwrap(),
+            )
+            .map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load proofs validation batch: {}", e),
+            )?;
+
+            mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
+                let addr = Address::from_bytes(&k.0).map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to parse address key: {}", e),
+                );
+                miners.push(addr);
+
+                todo!()
+            })
+            .map_err(|e| match e.downcast::<ActorError>() {
+                Ok(actor_err) => *actor_err,
+                // TODO update
+                Err(other) => actor_error!(ErrIllegalState;
+                    "fixme: {}",
+                     other),
+            })?;
+
+            st.proof_validation_batch = None;
+            Ok(())
+        })??;
         todo!()
     }
 
