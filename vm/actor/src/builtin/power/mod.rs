@@ -20,7 +20,7 @@ use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use std::ops::Neg;
 use vm::{
@@ -28,6 +28,10 @@ use vm::{
 };
 
 // * Updated to specs-actors commit: c0868603e90795bdc748610de5dc8fb118458085 (v0.9.0)
+
+/// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
+/// This number is empirically determined
+const GAS_ON_SUBMIT_VERIFY_SEAL: i64 = 34721049;
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
@@ -297,36 +301,43 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        rt.transaction::<State, _, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let mut mmap = if let Some(ref batch) = st.proof_validation_batch {
-                Multimap::from_root(rt.store(), batch).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to load proof batching set: {}", e),
-                    )
-                })?
+                Multimap::from_root(rt.store(), batch).map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load proof batching set: {}", e),
+                )?
             } else {
                 Multimap::new(rt.store())
             };
-
             let miner_addr = rt.message().caller();
-            mmap.add(miner_addr.to_bytes().into(), seal_info)
+            let arr = mmap
+                .get::<SealVerifyInfo>(&miner_addr.to_bytes())
                 .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to insert proof into set: {}", e),
-                    )
+                    actor_error!(ErrIllegalState;
+                    "failed to get seal verify infos at addr {}: {}", miner_addr, e)
                 })?;
+            if let Some(arr) = arr {
+                if arr.count() >= MAX_MINER_PROVE_COMMITS_PER_EPOCH {
+                    return Err(actor_error!(ErrTooManyProveCommits;
+                        "miner {} attempting to prove commit over {} sectors in epoch",
+                        miner_addr, MAX_MINER_PROVE_COMMITS_PER_EPOCH));
+                }
+            }
 
-            let mmrc = mmap.root().map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to flush proofs batch map: {}", e),
-                )
-            })?;
+            mmap.add(miner_addr.to_bytes().into(), seal_info).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to insert proof into set: {}", e),
+            )?;
+
+            let mmrc = mmap.root().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush proofs batch map: {}", e),
+            )?;
+
+            rt.charge_gas("OnSubmitVerifySeal".to_string(), GAS_ON_SUBMIT_VERIFY_SEAL)?;
             st.proof_validation_batch = Some(mmrc);
             Ok(())
-        })?
+        })??;
+
+        Ok(())
     }
 
     fn process_batch_proof_verifies<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
