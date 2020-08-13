@@ -49,7 +49,7 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
+        let s: &str = Deserialize::deserialize(deserializer)?;
         Ok(VRFProof::new(base64::decode(s).map_err(de::Error::custom)?))
     }
 }
