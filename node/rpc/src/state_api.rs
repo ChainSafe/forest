@@ -8,7 +8,7 @@ use actor::miner::{
 };
 use address::Address;
 use async_std::task;
-use bitfield::BitField;
+use bitfield::json::BitFieldJson;
 use blocks::{tipset_json::TipsetJson, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
@@ -56,12 +56,13 @@ pub(crate) async fn state_miner_sector<
     KS: KeyStore + Send + Sync + 'static,
 >(
     data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(Address, BitField, bool, TipsetKeys)>,
+    Params(params): Params<(Address, BitFieldJson, bool, TipsetKeys)>,
 ) -> Result<Vec<ChainSectorInfo>, JsonRpcError> {
-    let (address, mut filter, filter_out, key) = params;
+    let (address, filter, filter_out, key) = params;
+    let mut bitfield_filter = filter.into();
     let state_manager = &data.state_manager;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
-    let mut filter = Some(&mut filter);
+    let mut filter = Some(&mut bitfield_filter);
     state_manager::utils::get_miner_sector_set(
         &state_manager,
         &tipset,
@@ -191,11 +192,13 @@ pub(crate) async fn state_miner_faults<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(Address, TipsetKeys)>,
-) -> Result<BitField, JsonRpcError> {
+) -> Result<BitFieldJson, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
-    state_manager::utils::get_miner_faults(&state_manager, &tipset, &actor).map_err(|e| e.into())
+    state_manager::utils::get_miner_faults(&state_manager, &tipset, &actor)
+        .map(|s| s.into())
+        .map_err(|e| e.into())
 }
 
 /// returns all non-expired Faults that occur within lookback epochs of the given tipset
@@ -242,11 +245,12 @@ pub(crate) async fn state_miner_recoveries<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(Address, TipsetKeys)>,
-) -> Result<BitField, JsonRpcError> {
+) -> Result<BitFieldJson, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     state_manager::utils::get_miner_recoveries(&state_manager, &tipset, &actor)
+        .map(|s| s.into())
         .map_err(|e| e.into())
 }
 
