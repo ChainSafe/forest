@@ -8,9 +8,8 @@ use crypto::SignatureType;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
-use std::fs::OpenOptions;
-use std::io::{BufReader, ErrorKind};
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufReader, BufWriter, ErrorKind};
 
 const KEYSTORE_NAME: &str = "/keystore.json";
 
@@ -148,9 +147,8 @@ pub struct PersistentKeyStore {
 }
 
 impl PersistentKeyStore {
-    pub fn new(mut location: String) -> Result<Self, Error> {
-        location.push_str(KEYSTORE_NAME);
-        let file_op = File::open(&location);
+    pub fn new(location: String) -> Result<Self, Error> {
+        let file_op = File::open(&format!("{}{}", location, KEYSTORE_NAME));
         match file_op {
             Ok(file) => {
                 let reader = BufReader::new(file);
@@ -162,8 +160,7 @@ impl PersistentKeyStore {
             }
             Err(e) => {
                 if e.kind() == ErrorKind::NotFound {
-                    warn!("keystore.json does not exist creating keystore.json in given directory");
-                    File::create(&location).map_err(|err| Error::Other(err.to_string()))?;
+                    warn!("keystore.json does not exist, initializing new keystore");
                     Ok(Self {
                         key_info: HashMap::new(),
                         location,
@@ -173,6 +170,16 @@ impl PersistentKeyStore {
                 }
             }
         }
+    }
+
+    pub fn flush(&self) -> Result<(), Error> {
+        fs::create_dir_all(&self.location)?;
+
+        let file = File::create(&format!("{}{}", &self.location, KEYSTORE_NAME))?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer(writer, &self.key_info)
+            .map_err(|e| Error::Other(format!("failed to serialize and write key info: {}", e)))?;
+        Ok(())
     }
 }
 
