@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 ///
 /// let store = db::MemoryDB::default();
 ///
-/// let mut map: Hamt<usize, _> = Hamt::new(&store);
+/// let mut map: Hamt<_, usize> = Hamt::new(&store);
 /// map.set(1, "a".to_string()).unwrap();
 /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
 /// assert_eq!(map.delete(&1).unwrap(), true);
@@ -29,7 +29,7 @@ use std::marker::PhantomData;
 /// ```
 #[derive(Debug)]
 pub struct Hamt<'a, BS, K = BytesKey, H = Sha256> {
-    root: Node<K>,
+    root: Node<K, H>,
     store: &'a BS,
 
     bit_width: u32,
@@ -122,7 +122,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(37, "a".to_string()).unwrap();
     /// assert_eq!(map.is_empty(), false);
     ///
@@ -150,7 +150,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
     /// assert_eq!(map.get::<usize, String>(&2).unwrap(), None);
@@ -181,7 +181,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.contains_key(&1).unwrap(), true);
     /// assert_eq!(map.contains_key(&2).unwrap(), false);
@@ -209,7 +209,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.delete(&1).unwrap(), true);
     /// assert_eq!(map.delete(&1).unwrap(), false);
@@ -247,7 +247,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(1, 1).unwrap();
     /// map.set(4, 2).unwrap();
     ///

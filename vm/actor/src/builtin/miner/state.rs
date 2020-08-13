@@ -168,7 +168,7 @@ impl State {
         info: SectorPreCommitOnChainInfo,
     ) -> Result<(), HamtError> {
         let mut precommitted =
-            Hamt::<_, _>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+            Hamt::<_>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
         precommitted.set(u64_key(info.info.sector_number), info)?;
 
         self.pre_committed_sectors = precommitted.flush()?;

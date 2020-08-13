@@ -84,7 +84,7 @@ fn delete() {
         "0171a0e402204c4cec750f4e5fc0df61e5a6b6f430d45e6d42108824492658ccd480a4f86aef"
     );
 
-    let mut h2 = Hamt::<BytesKey, _>::load(&c, &store).unwrap();
+    let mut h2 = Hamt::<_, BytesKey, Murmur3>::load(&c, &store).unwrap();
     assert_eq!(h2.delete(&b"foo".to_vec()).unwrap(), true);
     assert_eq!(h2.get::<_, ByteBuf>(&b"foo".to_vec()).unwrap(), None);
 
@@ -103,13 +103,13 @@ fn delete() {
 fn reload_empty() {
     let store = db::MemoryDB::default();
 
-    let hamt: Hamt<BytesKey, _, Murmur3> = Hamt::new(&store);
+    let hamt: Hamt<_, BytesKey, Murmur3> = Hamt::new(&store);
     let c = store.put(&hamt, Blake2b256).unwrap();
     assert_eq!(
         hex::encode(c.to_bytes()),
         "0171a0e4022018fe6acc61a3a36b0c373c4a3a8ea64b812bf2ca9b528050909c78d408558a0c"
     );
-    let h2 = Hamt::<BytesKey, _>::load(&c, &store).unwrap();
+    let h2 = Hamt::<_, BytesKey, Murmur3>::load(&c, &store).unwrap();
     let c2 = store.put(&h2, Blake2b256).unwrap();
     assert_eq!(c, c2);
 }
@@ -120,7 +120,7 @@ fn set_delete_many() {
     let store = db::MemoryDB::default();
 
     // Test vectors setup specifically for bit width of 5
-    let mut hamt: Hamt<BytesKey, _, Murmur3> = Hamt::new_with_bit_width(&store, 5);
+    let mut hamt: Hamt<_, BytesKey, Murmur3> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 0..200 {
         hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
