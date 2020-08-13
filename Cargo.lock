@@ -3330,6 +3330,7 @@ dependencies = [
  "murmur3",
  "serde",
  "serde_bytes",
+ "sha2 0.9.1",
  "thiserror",
 ]
 

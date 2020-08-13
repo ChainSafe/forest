@@ -3,20 +3,22 @@
 
 use ipld_hamt::{BytesKey, Hamt};
 
-#[cfg(not(feature = "identity-hash"))]
+#[cfg(feature = "murmur")]
 use cid::multihash::Blake2b256;
-#[cfg(not(feature = "identity-hash"))]
+#[cfg(feature = "murmur")]
 use ipld_blockstore::BlockStore;
-#[cfg(not(feature = "identity-hash"))]
+#[cfg(feature = "murmur")]
+use ipld_hamt::Murmur3;
+#[cfg(feature = "murmur")]
 use serde_bytes::ByteBuf;
 
-#[cfg(feature = "identity-hash")]
-use ipld_hamt::DEFAULT_BIT_WIDTH;
+#[cfg(feature = "identity")]
+use ipld_hamt::{Identity, DEFAULT_BIT_WIDTH};
 
 #[test]
 fn test_basics() {
     let store = db::MemoryDB::default();
-    let mut hamt = Hamt::new(&store);
+    let mut hamt = Hamt::<_, _>::new(&store);
     hamt.set(1, "world".to_string()).unwrap();
 
     assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
@@ -61,12 +63,12 @@ fn test_load() {
 }
 
 #[test]
-#[cfg(not(feature = "identity-hash"))]
+#[cfg(feature = "murmur")]
 fn delete() {
     let store = db::MemoryDB::default();
 
     // ! Note that bytes must be specifically indicated serde_bytes type
-    let mut hamt: Hamt<BytesKey, _> = Hamt::new(&store);
+    let mut hamt: Hamt<BytesKey, _, Murmur3> = Hamt::new(&store);
     let (v1, v2, v3): (&[u8], &[u8], &[u8]) = (
         b"cat dog bear".as_ref(),
         b"cat dog".as_ref(),
@@ -97,11 +99,11 @@ fn delete() {
 }
 
 #[test]
-#[cfg(not(feature = "identity-hash"))]
+#[cfg(feature = "murmur")]
 fn reload_empty() {
     let store = db::MemoryDB::default();
 
-    let hamt: Hamt<BytesKey, _> = Hamt::new(&store);
+    let hamt: Hamt<BytesKey, _, Murmur3> = Hamt::new(&store);
     let c = store.put(&hamt, Blake2b256).unwrap();
     assert_eq!(
         hex::encode(c.to_bytes()),
@@ -113,12 +115,12 @@ fn reload_empty() {
 }
 
 #[test]
-#[cfg(not(feature = "identity-hash"))]
+#[cfg(feature = "murmur")]
 fn set_delete_many() {
     let store = db::MemoryDB::default();
 
     // Test vectors setup specifically for bit width of 5
-    let mut hamt: Hamt<BytesKey, _> = Hamt::new_with_bit_width(&store, 5);
+    let mut hamt: Hamt<BytesKey, _, Murmur3> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 0..200 {
         hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
@@ -155,9 +157,9 @@ fn set_delete_many() {
     );
 }
 
-#[cfg(feature = "identity-hash")]
+#[cfg(feature = "identity")]
 fn add_and_remove_keys(
-    bit_width: u8,
+    bit_width: u32,
     keys: &[&[u8]],
     extra_keys: &[&[u8]],
     expected: &'static str,
@@ -171,14 +173,15 @@ fn add_and_remove_keys(
 
     let store = db::MemoryDB::default();
 
-    let mut hamt: Hamt<BytesKey, _> = Hamt::new_with_bit_width(&store, bit_width);
+    let mut hamt: Hamt<BytesKey, _, Identity> = Hamt::new_with_bit_width(&store, bit_width);
 
     for (k, v) in all.iter() {
         hamt.set(k.clone(), *v).unwrap();
     }
     let cid = hamt.flush().unwrap();
 
-    let mut h1: Hamt<BytesKey, _> = Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
+    let mut h1: Hamt<BytesKey, _, Identity> =
+        Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
 
     for (k, v) in all {
         assert_eq!(Some(v), h1.get(&k).unwrap());
@@ -201,7 +204,7 @@ fn add_and_remove_keys(
 }
 
 #[test]
-#[cfg(feature = "identity-hash")]
+#[cfg(feature = "identity")]
 fn canonical_structure() {
     // Champ mutation semantics test
     add_and_remove_keys(
@@ -219,7 +222,7 @@ fn canonical_structure() {
 }
 
 #[test]
-#[cfg(feature = "identity-hash")]
+#[cfg(feature = "identity")]
 fn canonical_structure_alt_bit_width() {
     let kb_cases = [
         "0171a0e402209a00d457b7d5d398a225fa837125db401a5eabdf4833352aed48dd28dc6eca56",

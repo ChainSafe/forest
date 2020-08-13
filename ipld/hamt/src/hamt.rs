@@ -1,13 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![feature(default_type_params)]
+
 use crate::node::Node;
-use crate::{Error, Hash, DEFAULT_BIT_WIDTH};
+use crate::{Error, Hash, HashAlgorithm, Sha256, DEFAULT_BIT_WIDTH};
 use cid::{multihash::Blake2b256, Cid};
 use forest_ipld::{from_ipld, to_ipld, Ipld};
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
+use std::marker::PhantomData;
 
 /// Implementation of the HAMT data structure for IPLD.
 ///
@@ -26,16 +29,18 @@ use std::borrow::Borrow;
 /// let cid = map.flush().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct Hamt<'a, K, BS> {
+pub struct Hamt<'a, K, BS, H = Sha256> {
     root: Node<K>,
     store: &'a BS,
 
-    bit_width: u8,
+    bit_width: u32,
+    hash: PhantomData<H>,
 }
 
-impl<K, BS> Serialize for Hamt<'_, K, BS>
+impl<K, BS, H> Serialize for Hamt<'_, K, BS, H>
 where
     K: Serialize,
+    H: HashAlgorithm,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -45,27 +50,29 @@ where
     }
 }
 
-impl<'a, K: PartialEq, S: BlockStore> PartialEq for Hamt<'a, K, S> {
+impl<'a, K: PartialEq, S: BlockStore, H: HashAlgorithm> PartialEq for Hamt<'a, K, S, H> {
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root
     }
 }
 
-impl<'a, K, BS> Hamt<'a, K, BS>
+impl<'a, K, BS, H> Hamt<'a, K, BS, H>
 where
     K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
     BS: BlockStore,
+    H: HashAlgorithm,
 {
     pub fn new(store: &'a BS) -> Self {
         Self::new_with_bit_width(store, DEFAULT_BIT_WIDTH)
     }
 
     /// Construct hamt with a bit width
-    pub fn new_with_bit_width(store: &'a BS, bit_width: u8) -> Self {
+    pub fn new_with_bit_width(store: &'a BS, bit_width: u32) -> Self {
         Self {
             root: Node::default(),
             store,
             bit_width,
+            hash: Default::default(),
         }
     }
 
@@ -75,12 +82,13 @@ where
     }
 
     /// Lazily instantiate a hamt from this root Cid with a specified bit width.
-    pub fn load_with_bit_width(cid: &Cid, store: &'a BS, bit_width: u8) -> Result<Self, Error> {
+    pub fn load_with_bit_width(cid: &Cid, store: &'a BS, bit_width: u32) -> Result<Self, Error> {
         match store.get(cid)? {
             Some(root) => Ok(Self {
                 root,
                 store,
                 bit_width,
+                hash: Default::default(),
             }),
             None => Err(Error::CidNotFound(cid.to_string())),
         }

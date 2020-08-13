@@ -13,7 +13,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
 use std::fmt::Debug;
 
-#[cfg(not(feature = "identity-hash"))]
+#[cfg(feature = "murmur")]
 use murmur3::murmur3_x64_128::MurmurHasher;
 
 #[cfg(feature = "identity-hash")]
@@ -88,9 +88,9 @@ where
         key: K,
         value: Ipld,
         store: &S,
-        bit_width: u8,
+        bit_width: u32,
     ) -> Result<(), Error> {
-        let hash = Self::hash(&key);
+        let hash = hash(&key);
         self.modify_value(&mut HashBits::new(&hash), bit_width, 0, key, value, store)
     }
 
@@ -99,7 +99,7 @@ where
         &self,
         k: &Q,
         store: &S,
-        bit_width: u8,
+        bit_width: u32,
     ) -> Result<Option<Ipld>, Error>
     where
         K: Borrow<Q>,
@@ -113,14 +113,14 @@ where
         &mut self,
         k: &Q,
         store: &S,
-        bit_width: u8,
+        bit_width: u32,
     ) -> Result<Option<(K, Ipld)>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
         S: BlockStore,
     {
-        let hash = Self::hash(k);
+        let hash = hash(k);
         self.rm_value(&mut HashBits::new(&hash), bit_width, 0, k, store)
     }
 
@@ -156,20 +156,20 @@ where
         &self,
         q: &Q,
         store: &S,
-        bit_width: u8,
+        bit_width: u32,
     ) -> Result<Option<KeyValuePair<K>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
     {
-        let hash = Self::hash(q);
+        let hash = hash(q);
         self.get_value(&mut HashBits::new(&hash), bit_width, 0, q, store)
     }
 
     fn get_value<Q: ?Sized, S: BlockStore>(
         &self,
         hashed_key: &mut HashBits,
-        bit_width: u8,
+        bit_width: u32,
         depth: usize,
         key: &Q,
         store: &S,
@@ -196,33 +196,11 @@ where
         }
     }
 
-    /// The hash function used to hash keys.
-    #[cfg(not(feature = "identity-hash"))]
-    fn hash<X: ?Sized>(key: &X) -> HashedKey
-    where
-        X: Hash,
-    {
-        let mut hasher = MurmurHasher::default();
-        key.hash(&mut hasher);
-        hasher.finalize().into()
-    }
-
-    /// Replace hash with an identity hash for testing canonical structure.
-    #[cfg(feature = "identity-hash")]
-    fn hash<X: ?Sized>(key: &X) -> HashedKey
-    where
-        X: Hash,
-    {
-        let mut ident_hasher = IdentityHasher::default();
-        key.hash(&mut ident_hasher);
-        ident_hasher.bz
-    }
-
     /// Internal method to modify values.
     fn modify_value<S: BlockStore>(
         &mut self,
         hashed_key: &mut HashBits,
-        bit_width: u8,
+        bit_width: u32,
         depth: usize,
         key: K,
         value: Ipld,
@@ -266,7 +244,7 @@ where
                     sub.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
                     let kvs = std::mem::replace(vals, Vec::new());
                     for p in kvs.into_iter() {
-                        let hash = Self::hash(p.key());
+                        let hash = hash(p.key());
                         sub.modify_value(
                             &mut HashBits::new_at_index(&hash, consumed),
                             bit_width,
@@ -300,7 +278,7 @@ where
     fn rm_value<Q: ?Sized, S: BlockStore>(
         &mut self,
         hashed_key: &mut HashBits,
-        bit_width: u8,
+        bit_width: u32,
         depth: usize,
         key: &Q,
         store: &S,
@@ -379,19 +357,19 @@ where
         Ok(())
     }
 
-    fn rm_child(&mut self, i: usize, idx: u8) -> Pointer<K> {
+    fn rm_child(&mut self, i: usize, idx: u32) -> Pointer<K> {
         self.bitfield.clear_bit(idx);
         self.pointers.remove(i)
     }
 
-    fn insert_child(&mut self, idx: u8, key: K, value: Ipld) {
+    fn insert_child(&mut self, idx: u32, key: K, value: Ipld) {
         let i = self.index_for_bit_pos(idx);
         self.bitfield.set_bit(idx);
         self.pointers
             .insert(i as usize, Pointer::from_key_value(key, value))
     }
 
-    fn index_for_bit_pos(&self, bp: u8) -> usize {
+    fn index_for_bit_pos(&self, bp: u32) -> usize {
         let mask = Bitfield::zero().set_bits_le(bp);
         assert_eq!(mask.count_ones(), bp as usize);
         mask.and(&self.bitfield).count_ones()
@@ -404,4 +382,24 @@ where
     fn get_child(&self, i: usize) -> &Pointer<K> {
         &self.pointers[i]
     }
+}
+
+/// The hash function used to hash keys.
+#[cfg(not(feature = "identity-hash"))]
+fn hash<X: ?Sized>(key: &X) -> HashedKey
+where
+    X: Hash,
+{
+    todo!()
+}
+
+/// Replace hash with an identity hash for testing canonical structure.
+#[cfg(feature = "identity-hash")]
+fn hash<X: ?Sized>(key: &X) -> HashedKey
+where
+    X: Hash,
+{
+    let mut ident_hasher = IdentityHasher::default();
+    key.hash(&mut ident_hasher);
+    ident_hasher.bz
 }
