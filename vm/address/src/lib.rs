@@ -313,6 +313,7 @@ fn address_hash(ingest: &[u8]) -> [u8; 20] {
 pub mod json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serializer};
+    use std::borrow::Cow;
 
     pub fn serialize<S>(m: &Address, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -325,7 +326,7 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let address_as_string: &str = Deserialize::deserialize(deserializer)?;
-        Ok(Address::from_str(address_as_string).map_err(de::Error::custom)?)
+        let address_as_string: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        Ok(Address::from_str(&address_as_string).map_err(de::Error::custom)?)
     }
 }

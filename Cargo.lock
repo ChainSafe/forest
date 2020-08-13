@@ -861,6 +861,7 @@ dependencies = [
  "rand_xorshift",
  "serde",
  "serde_bytes",
+ "serde_json",
  "unsigned-varint 0.4.0",
 ]
 

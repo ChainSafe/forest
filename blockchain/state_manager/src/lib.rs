@@ -26,7 +26,6 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
-use message::ChainMessage;
 use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
@@ -40,8 +39,9 @@ pub type CidPair = (Cid, Cid);
 
 /// Type to represent invocation of state call results
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    pub msg: ChainMessage,
+    pub msg: UnsignedMessage,
     pub msg_rct: Option<MessageReceipt>,
     pub actor_error: Option<String>,
 }
@@ -50,6 +50,7 @@ pub struct InvocResult {
 pub type StateCallResult = Result<InvocResult, Error>;
 
 #[derive(Default, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
     #[serde(with = "bigint_ser")]
     escrow: BigInt,
@@ -269,7 +270,7 @@ where
             }
 
             Ok(InvocResult {
-                msg: ChainMessage::Unsigned(msg.clone()),
+                msg: msg.clone(),
                 msg_rct: Some(apply_ret.msg_receipt.clone()),
                 actor_error: apply_ret.act_error.map(|e| e.to_string()),
             })

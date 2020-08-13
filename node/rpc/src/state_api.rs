@@ -16,7 +16,6 @@ use clock::ChainEpoch;
 use fil_types::SectorNumber;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
-    chain_message::{json::ChainMessageJson, ChainMessage},
     json::MessageReceiptJson,
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
@@ -33,7 +32,7 @@ pub struct MessageLookup {
 
 #[derive(Serialize, Deserialize)]
 pub struct InvocResultJson {
-    pub msg: ChainMessageJson,
+    pub msg: UnsignedMessageJson,
     pub msg_rct: Option<MessageReceiptJson>,
     pub actor_error: Option<String>,
 }
@@ -269,7 +268,7 @@ pub(crate) async fn state_replay<
     let (msg, ret) = state_manager.replay(&tipset, &cid)?;
 
     Ok(InvocResultJson {
-        msg: ChainMessage::Unsigned(msg).into(),
+        msg: msg.into(),
         msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone().into()),
         actor_error: ret
             .map(|act| act.act_error.map(|e| e.to_string()))
