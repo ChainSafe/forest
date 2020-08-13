@@ -101,7 +101,7 @@ impl Actor {
 
         let total_reward = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
             let mut block_reward =
-                (st.this_epoch_reward.clone() * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
+                (&st.this_epoch_reward * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
             let mut total_reward = params.gas_reward.clone() + &block_reward;
             // TODO revisit this, I removed duplicate calls to current balance, but should be
             // matched once fully iteroping (if not fixed)

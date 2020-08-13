@@ -69,8 +69,8 @@ pub(crate) fn compute_reward(
     prev_theta: BigInt,
     curr_theta: BigInt,
 ) -> TokenAmount {
-    let mut simple_reward = SIMPLE_TOTAL.clone() * &*EXP_LAM_SUB_ONE;
-    let epoch_lam = LAMBDA.clone() * epoch;
+    let mut simple_reward = &*SIMPLE_TOTAL * &*EXP_LAM_SUB_ONE;
+    let epoch_lam = &*LAMBDA * epoch;
 
     simple_reward *= expneg(&epoch_lam);
     simple_reward >>= PRECISION;
