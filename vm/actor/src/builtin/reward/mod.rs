@@ -1,29 +1,30 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub(crate) mod expneg;
+mod logic;
 mod state;
 mod types;
 
+pub use self::logic::*;
 pub use self::state::{Reward, State, VestingFunction};
 pub use self::types::*;
 use crate::network::EXPECTED_LEADERS_PER_EPOCH;
 use crate::{
     check_empty_params, miner, BURNT_FUNDS_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
-use clock::ChainEpoch;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use num_bigint::BigInt;
+use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{
-    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
-    METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: 52599b21919df07f44d7e61cc028e265ec18f700
+// * Updated to specs-actors commit: 9d42fb163883f31325b08752c9f4e85d0b3ef22f (> v0.8.6)
 
 /// Reward actor methods available
 #[derive(FromPrimitive)]
@@ -39,17 +40,22 @@ pub enum Method {
 pub struct Actor;
 impl Actor {
     /// Constructor for Reward actor
-    fn constructor<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+    fn constructor<BS, RT>(
+        rt: &mut RT,
+        curr_realized_power: Option<StoragePower>,
+    ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        // TODO revisit based on issue: https://github.com/filecoin-project/specs-actors/issues/317
-
-        rt.create(&State::new())?;
-        Ok(())
+        if let Some(power) = curr_realized_power {
+            rt.create(&State::new(power))?;
+            Ok(())
+        } else {
+            Err(actor_error!(ErrIllegalArgument; "argument should not be nil"))
+        }
     }
 
     /// Awards a reward to a block producer.
@@ -71,28 +77,54 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
-        let balance = rt.current_balance()?;
-        assert!(
-            balance >= params.gas_reward,
-            "actor current balance {} insufficient to pay gas reward {}",
-            balance,
-            params.gas_reward
-        );
-
-        assert!(
-            params.ticket_count > 0,
-            "cannot give block reward for zero tickets"
-        );
-
-        let miner_addr = rt.resolve_address(&params.miner)?.ok_or_else(
-            || actor_error!(ErrIllegalState; "failed to resolve given owner address"),
-        )?;
-
         let prior_balance = rt.current_balance()?;
+        if params.penalty.sign() == Sign::Minus {
+            return Err(actor_error!(ErrIllegalArgument; "negative penalty {}", params.penalty));
+        }
+        if params.gas_reward.sign() == Sign::Minus {
+            return Err(
+                actor_error!(ErrIllegalArgument; "negative gas reward {}", params.gas_reward),
+            );
+        }
+        if prior_balance < params.gas_reward {
+            return Err(actor_error!(ErrIllegalState;
+                "actor current balance {} insufficient to pay gas reward {}",
+                prior_balance, params.gas_reward));
+        }
+        if params.win_count <= 0 {
+            return Err(actor_error!(ErrIllegalArgument; "invalid win count {}", params.win_count));
+        }
 
-        let state: State = rt.state()?;
-        let block_reward = state.last_per_epoch_reward / EXPECTED_LEADERS_PER_EPOCH;
-        let total_reward = block_reward + params.gas_reward;
+        let miner_addr = rt
+            .resolve_address(&params.miner)?
+            .ok_or_else(|| actor_error!(ErrNotFound; "failed to resolve given owner address"))?;
+
+        let total_reward = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+            let mut block_reward =
+                (&st.this_epoch_reward * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
+            let mut total_reward = params.gas_reward.clone() + &block_reward;
+            // TODO revisit this, I removed duplicate calls to current balance, but should be
+            // matched once fully iteroping (if not fixed)
+            let curr_balance = rt.current_balance()?;
+            if total_reward > curr_balance {
+                log::warn!(
+                    "reward actor balance {} below totalReward expected {},\
+                    paying out rest of balance",
+                    curr_balance,
+                    total_reward
+                );
+                total_reward = curr_balance;
+                block_reward -= &params.gas_reward;
+                assert_ne!(
+                    block_reward.sign(),
+                    Sign::Minus,
+                    "block reward {} below zero",
+                    block_reward
+                );
+            }
+            st.total_mined += block_reward;
+            Ok(total_reward)
+        })??;
 
         // Cap the penalty at the total reward value.
         let penalty = std::cmp::min(&params.penalty, &total_reward);
@@ -101,97 +133,98 @@ impl Actor {
         let reward_payable = total_reward.clone() - penalty;
 
         assert!(
-            reward_payable <= prior_balance - penalty,
-            "Total reward exceeds balance of actor"
+            reward_payable.clone() + penalty <= prior_balance,
+            "reward payable {} + penalty {} exceeds balance {}",
+            reward_payable,
+            penalty,
+            prior_balance
         );
 
-        rt.send(
+        // if this fails, we can assume the miner is responsible and avoid failing here.
+        let res = rt.send(
             miner_addr,
             miner::Method::AddLockedFund as u64,
             Serialized::serialize(&BigIntSer(&reward_payable))?,
-            reward_payable,
-        )?;
+            reward_payable.clone(),
+        );
+        if let Err(e) = res {
+            log::error!(
+                "failed to send AddLockedFund call to the miner actor with funds {}, code: {:?}",
+                reward_payable,
+                e.exit_code()
+            );
+            let res = rt.send(
+                *BURNT_FUNDS_ACTOR_ADDR,
+                METHOD_SEND,
+                Serialized::default(),
+                reward_payable,
+            );
+            if let Err(e) = res {
+                log::error!(
+                    "failed to send unsent reward to the burnt funds actor, code: {:?}",
+                    e.exit_code()
+                );
+            }
+        }
 
-        // Burn the penalty
-        rt.send(
-            *BURNT_FUNDS_ACTOR_ADDR,
-            METHOD_SEND,
-            Serialized::default(),
-            penalty.clone(),
-        )?;
+        // Burn the penalty amount.
+        if penalty.sign() == Sign::Plus {
+            rt.send(
+                *BURNT_FUNDS_ACTOR_ADDR,
+                METHOD_SEND,
+                Serialized::default(),
+                penalty.clone(),
+            )
+            .map_err(|e| e.wrap("failed to send penalty to burnt funds actor: "))?;
+        }
 
         Ok(())
     }
 
-    fn last_per_epoch_reward<BS, RT>(rt: &mut RT) -> Result<TokenAmount, ActorError>
+    /// The award value used for the current epoch, updated at the end of an epoch
+    /// through cron tick.  In the case previous epochs were null blocks this
+    /// is the reward value as calculated at the last non-null epoch.
+    fn this_epoch_reward<BS, RT>(rt: &mut RT) -> Result<ThisEpochRewardReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any()?;
         let st: State = rt.state()?;
-        Ok(st.last_per_epoch_reward)
+        Ok(ThisEpochRewardReturn {
+            this_epoch_reward: st.this_epoch_reward,
+            this_epoch_baseline_power: st.this_epoch_baseline_power,
+            this_epoch_reward_smoothed: st.this_epoch_reward_smoothed,
+        })
     }
 
-    /// Withdraw available funds from reward map
-    fn compute_per_epoch_reward(st: &mut State, _ticket_count: u64) -> TokenAmount {
-        // TODO update when finished in specs
-        let new_simple_supply = minting_function(
-            &SIMPLE_TOTAL,
-            &(BigInt::from(st.reward_epochs_paid) << MINTING_INPUT_FIXED_POINT),
-        );
-        let new_baseline_supply = minting_function(&*BASELINE_TOTAL, &st.effective_network_time);
-
-        let new_simple_minted = new_simple_supply
-            .checked_sub(&st.simple_supply)
-            .unwrap_or_default();
-        let new_baseline_minted = new_baseline_supply
-            .checked_sub(&st.baseline_supply)
-            .unwrap_or_default();
-
-        st.simple_supply = new_simple_supply;
-        st.baseline_supply = new_baseline_supply;
-
-        let per_epoch_reward = new_simple_minted + new_baseline_minted;
-        st.last_per_epoch_reward = per_epoch_reward.clone();
-        per_epoch_reward
-    }
-
-    fn new_baseline_power(_st: &State, _reward_epochs_paid: ChainEpoch) -> StoragePower {
-        // TODO: this is not the final baseline function or value, PARAM_FINISH
-        BigInt::from(BASELINE_POWER)
-    }
-
-    // Called at the end of each epoch by the power actor (in turn by its cron hook).
-    // This is only invoked for non-empty tipsets. The impact of this is that block rewards are paid out over
-    // a schedule defined by non-empty tipsets, not by elapsed time/epochs.
-    // This is not necessarily what we want, and may change.
+    /// Called at the end of each epoch by the power actor (in turn by its cron hook).
+    /// This is only invoked for non-empty tipsets, but catches up any number of null
+    /// epochs to compute the next epoch reward.
     fn update_network_kpi<BS, RT>(
         rt: &mut RT,
-        curr_realized_power: StoragePower,
+        curr_realized_power: Option<StoragePower>,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
+        let curr_realized_power = curr_realized_power
+            .ok_or_else(|| actor_error!(ErrIllegalArgument; "argument cannot be None"))?;
 
-        rt.transaction::<State, Result<(), ActorError>, _>(|st: &mut State, _| {
-            // By the time this is called, the rewards for this epoch have been paid to miners.
-            st.reward_epochs_paid += 1;
-            st.realized_power = curr_realized_power;
+        rt.transaction(|st: &mut State, rt| {
+            let prev = st.epoch;
+            // if there were null runs catch up the computation until
+            // st.Epoch == rt.CurrEpoch()
+            while st.epoch < rt.curr_epoch() {
+                // Update to next epoch to process null rounds
+                st.update_to_next_epoch(&curr_realized_power);
+            }
 
-            st.baseline_power = Self::new_baseline_power(st, st.reward_epochs_paid);
-            st.cumsum_baseline += &st.baseline_power;
-
-            // Cap realized power in computing CumsumRealized so that progress is only relative to the current epoch.
-            let capped_realized_power = std::cmp::min(&st.baseline_power, &st.realized_power);
-            st.cumsum_realized += capped_realized_power;
-            st.effective_network_time =
-                st.get_effective_network_time(&st.cumsum_baseline, &st.cumsum_realized);
-            Self::compute_per_epoch_reward(st, 1);
-            Ok(())
-        })??;
+            st.update_to_next_epoch_with_reward(&curr_realized_power);
+            st.update_smoothed_estimates(st.epoch - prev);
+        })?;
         Ok(())
     }
 }
@@ -209,8 +242,8 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                check_empty_params(params)?;
-                Self::constructor(rt)?;
+                let param: Option<BigIntDe> = params.deserialize()?;
+                Self::constructor(rt, param.map(|v| v.0))?;
                 Ok(Serialized::default())
             }
             Some(Method::AwardBlockReward) => {
@@ -218,15 +251,16 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::ThisEpochReward) => {
-                let res = Self::last_per_epoch_reward(rt)?;
-                Ok(Serialized::serialize(BigIntSer(&res))?)
+                check_empty_params(params)?;
+                let res = Self::this_epoch_reward(rt)?;
+                Ok(Serialized::serialize(&res)?)
             }
             Some(Method::UpdateNetworkKPI) => {
-                let BigIntDe(param) = params.deserialize()?;
-                Self::update_network_kpi(rt, param)?;
+                let param: Option<BigIntDe> = params.deserialize()?;
+                Self::update_network_kpi(rt, param.map(|v| v.0))?;
                 Ok(Serialized::default())
             }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }

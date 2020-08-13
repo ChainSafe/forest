@@ -7,7 +7,7 @@ use encoding::tuple::*;
 use encoding::Cbor;
 use num_bigint::{bigint_ser, BigInt};
 
-#[derive(Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Serialize_tuple, Deserialize_tuple, Clone, Debug, PartialEq)]
 pub struct FilterEstimate {
     #[serde(with = "bigint_ser")]
     pub position: BigInt,
@@ -39,33 +39,32 @@ impl FilterEstimate {
 
 impl Cbor for FilterEstimate {}
 
-#[derive(Default)]
-pub struct AlphaBetaFilter {
-    alpha: BigInt,
-    beta: BigInt,
-    prev_est: FilterEstimate,
+pub struct AlphaBetaFilter<'a, 'b, 'f> {
+    alpha: &'a BigInt,
+    beta: &'b BigInt,
+    prev_est: &'f FilterEstimate,
 }
 
-impl AlphaBetaFilter {
-    pub fn load_filter(prev_est: FilterEstimate, alpha: BigInt, beta: BigInt) -> Self {
-        AlphaBetaFilter {
+impl<'a, 'b, 'f> AlphaBetaFilter<'a, 'b, 'f> {
+    pub fn load(prev_est: &'f FilterEstimate, alpha: &'a BigInt, beta: &'b BigInt) -> Self {
+        Self {
             alpha,
             beta,
             prev_est,
         }
     }
 
-    pub fn next_estimate(&self, obs: BigInt, epoch_delta: ChainEpoch) -> FilterEstimate {
+    pub fn next_estimate(&self, obs: &BigInt, epoch_delta: ChainEpoch) -> FilterEstimate {
         let delta_t = BigInt::from(epoch_delta) << PRECISION;
         let delta_x = (&delta_t * &self.prev_est.velocity) >> PRECISION;
         let mut position = delta_x + &self.prev_est.position;
 
         let obs = obs << PRECISION;
         let residual = obs - &position;
-        let revision_x = (&self.alpha * &residual) >> PRECISION;
+        let revision_x = (self.alpha * &residual) >> PRECISION;
         position += &revision_x;
 
-        let revision_v = (residual * &self.beta) / delta_t;
+        let revision_v = (residual * self.beta) / delta_t;
         let velocity = revision_v + &self.prev_est.velocity;
         FilterEstimate { position, velocity }
     }
