@@ -90,7 +90,7 @@ fn deal_get_payment_remaining(deal: &DealProposal, mut slash_epoch: ChainEpoch) 
     let duration_remaining = deal.end_epoch - slash_epoch;
     assert!(duration_remaining >= 0);
 
-    deal.storage_price_per_epoch.clone() * duration_remaining as u64
+    &deal.storage_price_per_epoch * duration_remaining as u64
 }
 
 impl Cbor for State {}
@@ -343,7 +343,7 @@ where
         self.transfer_balance(
             &deal.client,
             &deal.provider,
-            &(deal.storage_price_per_epoch.clone() * num_epochs_elapsed as u64),
+            &(&deal.storage_price_per_epoch * num_epochs_elapsed as u64),
         )?;
 
         if ever_slashed {
