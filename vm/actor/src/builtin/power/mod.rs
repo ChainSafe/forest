@@ -16,13 +16,13 @@ use crate::{
 use address::Address;
 use ahash::AHashSet;
 use fil_types::SealVerifyInfo;
+use indexmap::IndexMap;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use std::collections::HashMap;
 use std::ops::Neg;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
@@ -372,8 +372,9 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // let mut miners = Vec::new();
-        let mut verifies = HashMap::new();
+        // Index map is needed here to preserve insertion order, miners must be iterated based
+        // on order iterated through multimap.
+        let mut verifies = IndexMap::new();
         rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
             if st.proof_validation_batch.is_none() {
                 return Ok(());
@@ -390,8 +391,6 @@ impl Actor {
                 let addr = Address::from_bytes(&k.0).map_err(
                     |e| actor_error!(ErrIllegalState; "failed to parse address key: {}", e),
                 )?;
-
-                // miners.push(addr);
 
                 let mut infos = Vec::new();
                 arr.for_each(|_, svi| {
