@@ -13,7 +13,10 @@ use ipld_hamt::Murmur3;
 use serde_bytes::ByteBuf;
 
 #[cfg(feature = "identity")]
-use ipld_hamt::{Identity, DEFAULT_BIT_WIDTH};
+use ipld_hamt::Identity;
+
+// Duplicate kept here to not have to expose the default.
+const DEFAULT_BIT_WIDTH: u32 = 8;
 
 #[test]
 fn test_basics() {
@@ -235,7 +238,7 @@ fn canonical_structure_alt_bit_width() {
         "0171a0e40220c84814bb7fdbb71a17ac24b0eb110a38e4e79c93fccaa6d87fa9e5aa771bb453",
         "0171a0e4022094833c20da84ad6e18a603a47aa143e3393171d45786eddc5b182ae647dafd64",
     ];
-    for i in 5..DEFAULT_BIT_WIDTH {
+    for i in 5..8 {
         add_and_remove_keys(i, &[b"K"], &[b"B"], kb_cases[(i - 5) as usize]);
         add_and_remove_keys(
             i,

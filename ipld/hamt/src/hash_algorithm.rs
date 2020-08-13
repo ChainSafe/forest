@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::{Hash, HashedKey};
 use sha2::{Digest, Sha256 as Sha256Hasher};
 
@@ -55,7 +58,7 @@ impl HashAlgorithm for Murmur3 {
         let mut bz: [u8; 32] = Default::default();
         let hash: [u8; 16] = hasher.finalize().into();
         bz[0..16].copy_from_slice(&hash);
-        bz.into()
+        bz
     }
 }
 
