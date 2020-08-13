@@ -1,65 +1,133 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::types::*;
-use clock::ChainEpoch;
+use super::logic::*;
+use crate::smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA};
+use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{repr::*, tuple::*, Cbor};
 use fil_types::{Spacetime, StoragePower};
 use num_bigint::bigint_ser;
 use num_derive::FromPrimitive;
 use vm::TokenAmount;
 
+lazy_static! {
+    /// 36.266260308195979333 FIL
+    pub static ref INITIAL_REWARD_POSITION_ESTIMATE: TokenAmount = TokenAmount::from(36266260308195979333u128);
+    /// -1.0982489*10^-7 FIL per epoch.  Change of simple minted tokens between epochs 0 and 1.
+    pub static ref INITIAL_REWARD_VELOCITY_ESTIMATE: TokenAmount = TokenAmount::from(-109897758509i64);
+}
+
 /// Reward actor state
 #[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct State {
-    #[serde(with = "bigint_ser")]
-    pub baseline_power: StoragePower,
-    #[serde(with = "bigint_ser")]
-    pub realized_power: StoragePower,
+    /// Target CumsumRealized needs to reach for EffectiveNetworkTime to increase
+    /// Expressed in byte-epochs.
     #[serde(with = "bigint_ser")]
     pub cumsum_baseline: Spacetime,
+
+    /// CumsumRealized is cumulative sum of network power capped by BalinePower(epoch).
+    /// Expressed in byte-epochs.
     #[serde(with = "bigint_ser")]
     pub cumsum_realized: Spacetime,
-    #[serde(with = "bigint_ser")]
-    pub effective_network_time: NetworkTime,
 
-    #[serde(with = "bigint_ser")]
-    pub simple_supply: TokenAmount,
-    #[serde(with = "bigint_ser")]
-    pub baseline_supply: TokenAmount,
+    /// Ceiling of real effective network time `theta` based on
+    /// CumsumBaselinePower(theta) == CumsumRealizedPower
+    /// Theta captures the notion of how much the network has progressed in its baseline
+    /// and in advancing network time.
+    pub effective_network_time: ChainEpoch,
 
-    /// The reward to be paid in total to block producers, if exactly the expected number of them produce a block.
+    /// EffectiveBaselinePower is the baseline power at the EffectiveNetworkTime epoch.
+    #[serde(with = "bigint_ser")]
+    pub effective_baseline_power: StoragePower,
+
+    /// The reward to be paid in per WinCount to block producers.
     /// The actual reward total paid out depends on the number of winners in any round.
-    /// This is computed at the end of the previous epoch, and should really be called ThisEpochReward.
+    /// This value is recomputed every non-null epoch and used in the next non-null epoch.
     #[serde(with = "bigint_ser")]
-    pub last_per_epoch_reward: TokenAmount,
+    pub this_epoch_reward: TokenAmount,
+    /// Smoothed `this_epoch_reward`.
+    pub this_epoch_reward_smoothed: FilterEstimate,
 
-    /// The count of epochs for which a reward has been paid.
-    /// This should equal the number of non-empty tipsets after the genesis, aka "chain height".
-    pub reward_epochs_paid: ChainEpoch,
+    /// The baseline power the network is targeting at st.Epoch.
+    #[serde(with = "bigint_ser")]
+    pub this_epoch_baseline_power: StoragePower,
+
+    /// Epoch tracks for which epoch the Reward was computed.
+    pub epoch: ChainEpoch,
+
+    /// TotalMined tracks the total FIL awared to block miners.
+    #[serde(with = "bigint_ser")]
+    pub total_mined: TokenAmount,
 }
 
 impl State {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(curr_realized_power: StoragePower) -> Self {
+        let mut st = Self {
+            effective_baseline_power: BASELINE_INITIAL_VALUE.clone(),
+            this_epoch_baseline_power: INIT_BASELINE_POWER.clone(),
+            epoch: EPOCH_UNDEFINED,
+            this_epoch_reward_smoothed: FilterEstimate::new(
+                INITIAL_REWARD_POSITION_ESTIMATE.clone(),
+                INITIAL_REWARD_VELOCITY_ESTIMATE.clone(),
+            ),
+            ..Default::default()
+        };
+        st.update_to_next_epoch_with_reward(&curr_realized_power);
+
+        st
     }
 
-    pub(super) fn get_effective_network_time(
-        &self,
-        _cumsum_baseline: &Spacetime,
-        cumsum_realized: &Spacetime,
-    ) -> NetworkTime {
-        // TODO: this function depends on the final baseline
-        // EffectiveNetworkTime is a fractional input with an implicit denominator of (2^MintingInputFixedPoint).
-        // realizedCumsum is thus left shifted by MintingInputFixedPoint before converted into a FixedPoint fraction
-        // through division (which is an inverse function for the integral of the baseline).
-        (cumsum_realized << MINTING_INPUT_FIXED_POINT) / BASELINE_POWER
+    /// Takes in current realized power and updates internal state
+    /// Used for update of internal state during null rounds
+    pub(super) fn update_to_next_epoch(&mut self, curr_realized_power: &StoragePower) {
+        self.epoch += 1;
+        self.this_epoch_baseline_power = baseline_power_from_prev(&self.this_epoch_baseline_power);
+        let capped_realized_power =
+            std::cmp::min(&self.this_epoch_baseline_power, curr_realized_power);
+        self.cumsum_realized += capped_realized_power;
+
+        while self.cumsum_realized > self.cumsum_baseline {
+            self.effective_network_time += 1;
+            self.effective_baseline_power =
+                baseline_power_from_prev(&self.effective_baseline_power);
+            self.cumsum_baseline += &self.effective_baseline_power;
+        }
+    }
+
+    /// Takes in a current realized power for a reward epoch and computes
+    /// and updates reward state to track reward for the next epoch
+    pub(super) fn update_to_next_epoch_with_reward(&mut self, curr_realized_power: &StoragePower) {
+        let prev_reward_theta = compute_r_theta(
+            self.effective_network_time,
+            &self.effective_baseline_power,
+            &self.cumsum_realized,
+            &self.cumsum_baseline,
+        );
+        self.update_to_next_epoch(curr_realized_power);
+        let curr_reward_theta = compute_r_theta(
+            self.effective_network_time,
+            &self.effective_baseline_power,
+            &self.cumsum_realized,
+            &self.cumsum_baseline,
+        );
+
+        self.this_epoch_reward = compute_reward(self.epoch, prev_reward_theta, curr_reward_theta);
+    }
+
+    pub(super) fn update_smoothed_estimates(&mut self, delta: ChainEpoch) {
+        let filter_reward = AlphaBetaFilter::load(
+            &self.this_epoch_reward_smoothed,
+            &DEFAULT_ALPHA,
+            &DEFAULT_BETA,
+        );
+        self.this_epoch_reward_smoothed =
+            filter_reward.next_estimate(&self.this_epoch_reward, delta);
     }
 }
 
 impl Cbor for State {}
 
-/// Defines vestion function type for reward actor
+/// Defines vestion function type for reward actor.
 #[derive(Clone, Debug, PartialEq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum VestingFunction {
