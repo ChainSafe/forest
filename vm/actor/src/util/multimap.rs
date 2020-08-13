@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, HAMT_BIT_WIDTH};
+use crate::{BytesKey, Map, HAMT_BIT_WIDTH};
 use cid::Cid;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -10,7 +10,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 /// Multimap stores multiple values per key in a Hamt of Amts.
 /// The order of insertion of values for each key is retained.
-pub struct Multimap<'a, BS>(Hamt<'a, BytesKey, BS>);
+pub struct Multimap<'a, BS>(Map<'a, BS>);
 impl<'a, BS> Multimap<'a, BS>
 where
     BS: BlockStore,

@@ -30,7 +30,7 @@ fn test_basics() {
 fn test_load() {
     let store = db::MemoryDB::default();
 
-    let mut hamt: Hamt<usize, _> = Hamt::new(&store);
+    let mut hamt: Hamt<_, usize> = Hamt::new(&store);
     hamt.set(1, "world".to_string()).unwrap();
 
     assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
@@ -55,7 +55,7 @@ fn test_load() {
 
     // loading from an empty store does not work
     let empty_store = db::MemoryDB::default();
-    assert!(Hamt::<usize, _>::load(&c2, &empty_store).is_err());
+    assert!(Hamt::<_, usize>::load(&c2, &empty_store).is_err());
 
     // storing the hamt should produce the same cid as storing the root
     let c3 = hamt.flush().unwrap();
@@ -68,7 +68,7 @@ fn delete() {
     let store = db::MemoryDB::default();
 
     // ! Note that bytes must be specifically indicated serde_bytes type
-    let mut hamt: Hamt<BytesKey, _, Murmur3> = Hamt::new(&store);
+    let mut hamt: Hamt<_, BytesKey, Murmur3> = Hamt::new(&store);
     let (v1, v2, v3): (&[u8], &[u8], &[u8]) = (
         b"cat dog bear".as_ref(),
         b"cat dog".as_ref(),
@@ -173,14 +173,14 @@ fn add_and_remove_keys(
 
     let store = db::MemoryDB::default();
 
-    let mut hamt: Hamt<BytesKey, _, Identity> = Hamt::new_with_bit_width(&store, bit_width);
+    let mut hamt: Hamt<_, _, Identity> = Hamt::new_with_bit_width(&store, bit_width);
 
     for (k, v) in all.iter() {
         hamt.set(k.clone(), *v).unwrap();
     }
     let cid = hamt.flush().unwrap();
 
-    let mut h1: Hamt<BytesKey, _, Identity> =
+    let mut h1: Hamt<_, BytesKey, Identity> =
         Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
 
     for (k, v) in all {
@@ -195,7 +195,8 @@ fn add_and_remove_keys(
         hamt.delete(*k).unwrap();
     }
     let cid2 = hamt.flush().unwrap();
-    let mut h2: Hamt<BytesKey, _> = Hamt::load(&cid2, &store).unwrap();
+    let mut h2: Hamt<_, BytesKey, Identity> =
+        Hamt::load_with_bit_width(&cid2, &store, bit_width).unwrap();
 
     let cid1 = h1.flush().unwrap();
     let cid2 = h2.flush().unwrap();

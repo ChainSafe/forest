@@ -1,8 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![feature(default_type_params)]
-
+use super::BytesKey;
 use crate::node::Node;
 use crate::{Error, Hash, HashAlgorithm, Sha256, DEFAULT_BIT_WIDTH};
 use cid::{multihash::Blake2b256, Cid};
@@ -29,7 +28,7 @@ use std::marker::PhantomData;
 /// let cid = map.flush().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct Hamt<'a, K, BS, H = Sha256> {
+pub struct Hamt<'a, BS, K = BytesKey, H = Sha256> {
     root: Node<K>,
     store: &'a BS,
 
@@ -37,7 +36,7 @@ pub struct Hamt<'a, K, BS, H = Sha256> {
     hash: PhantomData<H>,
 }
 
-impl<K, BS, H> Serialize for Hamt<'_, K, BS, H>
+impl<BS, K, H> Serialize for Hamt<'_, BS, K, H>
 where
     K: Serialize,
     H: HashAlgorithm,
@@ -50,13 +49,13 @@ where
     }
 }
 
-impl<'a, K: PartialEq, S: BlockStore, H: HashAlgorithm> PartialEq for Hamt<'a, K, S, H> {
+impl<'a, K: PartialEq, S: BlockStore, H: HashAlgorithm> PartialEq for Hamt<'a, S, K, H> {
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root
     }
 }
 
-impl<'a, K, BS, H> Hamt<'a, K, BS, H>
+impl<'a, BS, K, H> Hamt<'a, BS, K, H>
 where
     K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
     BS: BlockStore,

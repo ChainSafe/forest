@@ -15,12 +15,11 @@ pub use self::util::*;
 pub use vm::{actor_error, ActorError, ActorState, DealID, ExitCode, Serialized, TokenAmount};
 
 use cid::Cid;
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Error as HamtError, Hamt};
 use num_bigint::BigInt;
 use unsigned_varint::decode::Error as UVarintError;
-
-const HAMT_BIT_WIDTH: u8 = 5;
 
 lazy_static! {
     /// The maximum supply of Filecoin that will ever exist (in token units)
@@ -33,7 +32,7 @@ lazy_static! {
 const TOKEN_PRECISION: u64 = 1_000_000_000_000_000_000;
 
 /// Map type to be used within actors. The underlying type is a hamt.
-pub type Map<'bs, BS> = Hamt<'bs, BytesKey, BS>;
+pub type Map<'bs, BS> = Hamt<'bs, BS, BytesKey>;
 
 /// Deal weight
 type DealWeight = BigInt;
@@ -50,8 +49,8 @@ fn check_empty_params(params: &Serialized) -> Result<(), ActorError> {
 
 /// Create a hamt configured with constant bit width.
 #[inline]
-fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, BytesKey, BS> {
-    Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH)
+fn make_map<BS: BlockStore>(store: &'_ BS) -> Map<'_, BS> {
+    Hamt::<_>::new_with_bit_width(store, HAMT_BIT_WIDTH)
 }
 
 /// Create a map with a root cid.
@@ -59,8 +58,8 @@ fn make_map<BS: BlockStore>(store: &'_ BS) -> Hamt<'_, BytesKey, BS> {
 fn make_map_with_root<'bs, BS: BlockStore>(
     root: &Cid,
     store: &'bs BS,
-) -> Result<Hamt<'bs, BytesKey, BS>, HamtError> {
-    Hamt::load_with_bit_width(root, store, HAMT_BIT_WIDTH)
+) -> Result<Map<'bs, BS>, HamtError> {
+    Hamt::<_>::load_with_bit_width(root, store, HAMT_BIT_WIDTH)
 }
 
 pub fn u64_key(k: u64) -> BytesKey {
