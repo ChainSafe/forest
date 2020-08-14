@@ -569,46 +569,6 @@ where
     Ok(out)
 }
 
-const BlockMessageLimit: usize = 10000;
-const BlockGasLimit: i64 = 10_000_000_000;
-const BlockGasTarget: i64 = (BlockGasLimit / 2) as i64;
-const BaseFeeMaxChangeDenom: i64 = 8; // 12.5%;
-const InitialBaseFee: i64 = 100000000;
-const MinimumBaseFee: i64 = 100;
-
-fn compute_next_base_fee(base_fee: &BigInt, gas_limit_used: i64, no_of_blocks: usize) -> BigInt {
-    let delta = gas_limit_used / no_of_blocks as i64 - BlockGasTarget;
-    let mut change = base_fee * BigInt::from(delta);
-    change = change / BaseFeeMaxChangeDenom;
-    let mut next_base_fee = base_fee + change;
-    if next_base_fee < BigInt::from(MinimumBaseFee) {
-        next_base_fee = BigInt::from(MinimumBaseFee);
-    }
-    next_base_fee
-}
-
-pub fn compute_base_fee<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, Error>
-where
-    DB: BlockStore,
-{
-    let mut total_limit = 0;
-    for b in ts.blocks() {
-        let (msg1, msg2) = block_messages(db, &b)?;
-        for m in msg1 {
-            total_limit += m.gas_limit();
-        }
-        for m in msg2 {
-            total_limit += m.gas_limit();
-        }
-    }
-    let parent_base_fee = ts.blocks()[0].parent_base_fee();
-    Ok(compute_next_base_fee(
-        parent_base_fee,
-        total_limit,
-        ts.blocks().len(),
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
