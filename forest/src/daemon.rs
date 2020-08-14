@@ -123,12 +123,17 @@ pub(super) async fn start(config: Config) {
     // Block until ctrl-c is hit
     block_until_sigint().await;
 
+    let keystore_write = task::spawn(async move {
+        keystore.read().await.flush().unwrap();
+    });
+
     // Cancel all async services
     p2p_task.cancel().await;
     sync_task.cancel().await;
     if let Some(task) = rpc_task {
         task.cancel().await;
     }
+    keystore_write.await;
 
     info!("Forest finish shutdown");
 }
