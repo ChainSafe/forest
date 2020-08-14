@@ -60,7 +60,6 @@ impl Actor {
     {
         rt.validate_immediate_caller_accept_any()?;
 
-        // TODO revisit based on issue: https://github.com/filecoin-project/specs-actors/issues/317
         rt.create(&State::default())?;
         Ok(())
     }
