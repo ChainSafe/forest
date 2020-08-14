@@ -152,7 +152,12 @@ impl PersistentKeyStore {
         match file_op {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                let data: HashMap<String, KeyInfo> = serde_json::from_reader(reader).unwrap();
+                let data: HashMap<String, KeyInfo> = serde_json::from_reader(reader)
+                    .map_err(|e| {
+                        log::error!("failed to deserialize keyfile, initializing new");
+                        e
+                    })
+                    .unwrap_or_default();
                 Ok(Self {
                     key_info: data,
                     location,
