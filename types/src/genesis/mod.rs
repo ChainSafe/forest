@@ -8,6 +8,7 @@ use serde::Serialize;
 use vm::TokenAmount;
 
 #[derive(Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ActorType {
     Account,
     MultiSig,
