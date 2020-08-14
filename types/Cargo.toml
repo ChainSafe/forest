@@ -8,6 +8,7 @@ edition = "2018"
 features = ["json"]
 
 [dependencies]
+address = { package = "forest_address", path = "../vm/address" }
 serde = { version = "1.0", features = ["derive"] }
 commcid = { path = "../utils/commcid" }
 filecoin-proofs-api = "4.0.1"
