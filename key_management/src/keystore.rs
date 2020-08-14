@@ -5,7 +5,7 @@ extern crate serde_json;
 
 use super::errors::Error;
 use crypto::SignatureType;
-use log::warn;
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
@@ -154,7 +154,7 @@ impl PersistentKeyStore {
                 let reader = BufReader::new(file);
                 let data: HashMap<String, KeyInfo> = serde_json::from_reader(reader)
                     .map_err(|e| {
-                        log::error!("failed to deserialize keyfile, initializing new");
+                        error!("failed to deserialize keyfile, initializing new");
                         e
                     })
                     .unwrap_or_default();
