@@ -78,7 +78,7 @@ impl Hasher for IdentityHasher {
     }
 
     fn write(&mut self, bytes: &[u8]) {
-        for (i, byte) in bytes.iter().take(16).enumerate() {
+        for (i, byte) in bytes.iter().take(self.bz.len()).enumerate() {
             self.bz[i] = *byte;
         }
     }
