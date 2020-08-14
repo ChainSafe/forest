@@ -2365,7 +2365,7 @@ dependencies = [
 
 [[package]]
 name = "forest_address"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "data-encoding",
  "data-encoding-macro",
@@ -3504,8 +3504,10 @@ dependencies = [
  "forest_crypto",
  "forest_encoding",
  "libsecp256k1",
+ "log",
  "rand 0.7.3",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
