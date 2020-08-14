@@ -75,7 +75,7 @@ where
         // Message Pool API
         .with_method(
             "Filecoin.MpoolEstimateGasPrice",
-            mpool_estimate_gas_price::<DB, KS>,
+            estimate_gas_premium::<DB, KS>,
         )
         .with_method("Filecoin.MpoolGetNonce", mpool_get_sequence::<DB, KS>)
         .with_method("Filecoin.MpoolPending", mpool_pending::<DB, KS>)

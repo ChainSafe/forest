@@ -54,18 +54,6 @@ impl Message for ChainMessage {
             Self::Unsigned(t) => t.params(),
         }
     }
-    fn gas_price(&self) -> &TokenAmount {
-        match self {
-            Self::Signed(t) => t.gas_price(),
-            Self::Unsigned(t) => t.gas_price(),
-        }
-    }
-    fn set_gas_price(&mut self, token_amount: TokenAmount) {
-        match self {
-            Self::Signed(t) => t.set_gas_price(token_amount),
-            Self::Unsigned(t) => t.set_gas_price(token_amount),
-        }
-    }
     fn gas_limit(&self) -> i64 {
         match self {
             Self::Signed(t) => t.gas_limit(),
@@ -88,6 +76,18 @@ impl Message for ChainMessage {
         match self {
             Self::Signed(t) => t.required_funds(),
             Self::Unsigned(t) => t.required_funds(),
+        }
+    }
+    fn gas_fee_cap(&self) -> &TokenAmount {
+        match self {
+            Self::Signed(t) => t.gas_fee_cap(),
+            Self::Unsigned(t) => t.gas_fee_cap(),
+        }
+    }
+    fn gas_premium(&self) -> &TokenAmount {
+        match self {
+            Self::Signed(t) => t.gas_premium(),
+            Self::Unsigned(t) => t.gas_premium(),
         }
     }
 }

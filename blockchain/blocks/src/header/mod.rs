@@ -11,6 +11,7 @@ use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
 use num_bigint::{
+    bigint_ser::{BigIntDe, BigIntSer},
     biguint_ser::{BigUintDe, BigUintSer},
     BigInt, BigUint,
 };
@@ -20,6 +21,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use vm::TokenAmount;
 
 #[cfg(feature = "json")]
 pub mod json;
@@ -37,6 +39,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 /// use cid::{Cid, multihash::Identity};
 /// use num_bigint::BigUint;
 /// use crypto::Signature;
+/// use vm::TokenAmount;
 ///
 /// BlockHeader::builder()
 ///     .messages(Cid::new_from_cbor(&[], Identity)) // required
@@ -48,6 +51,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .election_proof(None) // optional
 ///     .bls_aggregate(None) // optional
 ///     .signature(None) // optional
+///     .parent_base_fee(0.into)
 ///     .parents(TipsetKeys::default()) // optional
 ///     .weight(BigUint::from(0u8)) // optional
 ///     .epoch(0) // optional
@@ -111,6 +115,9 @@ pub struct BlockHeader {
     #[builder(default)]
     election_proof: Option<ElectionProof>,
 
+    #[builder(default)]
+    parent_base_fee: TokenAmount,
+
     // CONSENSUS
     /// timestamp, in seconds since the Unix epoch, at which this block was created
     #[builder(default)]
@@ -159,6 +166,7 @@ impl Serialize for BlockHeader {
             &self.timestamp,
             &self.signature,
             &self.fork_signal,
+            BigIntSer(&self.parent_base_fee),
         )
             .serialize(serializer)
     }
@@ -185,6 +193,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             timestamp,
             signature,
             fork_signal,
+            BigIntDe(parent_base_fee),
         ) = Deserialize::deserialize(deserializer)?;
 
         let header = BlockHeader::builder()
@@ -203,6 +212,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             .timestamp(timestamp)
             .ticket(ticket)
             .bls_aggregate(bls_aggregate)
+            .parent_base_fee(parent_base_fee)
             .build_and_validate()
             .unwrap();
 
@@ -277,6 +287,9 @@ impl BlockHeader {
     /// Getter for BlockHeader bls_aggregate
     pub fn bls_aggregate(&self) -> &Option<Signature> {
         &self.bls_aggregate
+    }
+    pub fn parent_base_fee(&self) -> &TokenAmount {
+        &self.parent_base_fee
     }
     /// Getter for BlockHeader cid
     pub fn cid(&self) -> &Cid {

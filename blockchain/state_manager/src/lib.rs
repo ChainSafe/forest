@@ -160,6 +160,7 @@ where
         &self,
         ts: &FullTipset,
         rand: &ChainRand,
+        base_fee: &BigInt,
         callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
@@ -171,6 +172,7 @@ where
             ts.epoch(),
             DefaultSyscalls::new(&buf_store),
             rand,
+            base_fee.clone(),
         )?;
 
         // Apply tipset messages
@@ -246,6 +248,7 @@ where
                 *bheight,
                 DefaultSyscalls::new(&buf_store),
                 rand,
+                0.into(),
             )?;
 
             if msg.gas_limit() == 0 {
@@ -258,9 +261,9 @@ where
             msg.set_sequence(actor.sequence);
             let apply_ret = vm.apply_implicit_message(msg);
             trace!(
-                "gas limit {:},gas price {:?},value {:?}",
+                "gas limit {:},gas premium{:?},value {:?}",
                 msg.gas_limit(),
-                msg.gas_price(),
+                msg.gas_premium(),
                 msg.value()
             );
             if let Some(err) = &apply_ret.act_error {
@@ -356,6 +359,7 @@ where
             let tipset_keys =
                 TipsetKeys::new(blocks_headers.iter().map(|s| s.cid()).cloned().collect());
             let chain_rand = ChainRand::new(tipset_keys);
+            let base_fee = blocks_headers[0].parent_base_fee();
 
             let blocks = blocks_headers
                 .iter()
@@ -369,9 +373,10 @@ where
                     })
                 })
                 .collect::<Result<Vec<Block>, _>>()?;
+
             // convert tipset to fulltipset
             let full_tipset = FullTipset::new(blocks)?;
-            self.apply_blocks(&full_tipset, &chain_rand, callback)
+            self.apply_blocks(&full_tipset, &chain_rand, base_fee, callback)
         })
     }
 
