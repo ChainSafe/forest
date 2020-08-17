@@ -75,7 +75,7 @@ impl Actor {
             return Err(actor_error!(ErrIllegalArgument; "negative unlock duration disallowed"));
         }
 
-        let empty_root = make_map(rt.store())
+        let empty_root = make_map::<_, ()>(rt.store())
             .flush()
             .map_err(|err| actor_error!(ErrIllegalState; "Failed to create empty map: {}", err))?;
 
@@ -449,9 +449,10 @@ where
         applied = true;
 
         rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
-            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
-            )?;
+            let mut ptx = make_map_with_root::<_, Transaction>(&st.pending_txs, rt.store())
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
+                )?;
 
             let deleted = ptx.delete(&txn_id.key()).map_err(|e| {
                 actor_error!(ErrIllegalState; "failed to delete transaction for cleanup: {}", e)
@@ -472,7 +473,7 @@ where
 }
 
 fn get_pending_transaction<'bs, BS: BlockStore>(
-    ptx: &Map<'bs, BS>,
+    ptx: &Map<'bs, BS, Transaction>,
     txn_id: TxnID,
 ) -> Result<Transaction, String> {
     match ptx.get(&txn_id.key()) {
@@ -484,7 +485,7 @@ fn get_pending_transaction<'bs, BS: BlockStore>(
 
 fn get_transaction<'bs, BS, RT>(
     rt: &RT,
-    ptx: &Map<'bs, BS>,
+    ptx: &Map<'bs, BS, Transaction>,
     txn_id: TxnID,
     proposal_hash: Vec<u8>,
     check_hash: bool,

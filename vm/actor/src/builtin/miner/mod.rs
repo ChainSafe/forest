@@ -109,7 +109,7 @@ impl Actor {
         let owner = resolve_owner_address(rt, params.owner)?;
         let worker = resolve_worker_address(rt, params.worker)?;
 
-        let empty_map = make_map(rt.store()).flush().map_err(|e| {
+        let empty_map = make_map::<_, ()>(rt.store()).flush().map_err(|e| {
             ActorError::new(
                 ExitCode::ErrIllegalState,
                 format!("failed to construct miner state: {}", e),

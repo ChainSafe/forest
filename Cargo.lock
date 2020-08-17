@@ -6259,6 +6259,7 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_cid",
+ "forest_ipld",
  "forest_vm",
  "ipld_blockstore",
  "ipld_hamt",

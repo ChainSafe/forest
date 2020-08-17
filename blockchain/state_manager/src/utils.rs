@@ -320,9 +320,9 @@ where
     let mut miners: Vec<Address> = Vec::new();
     let block_store = &*state_manager.get_block_store();
     let map =
-        Hamt::<_>::load_with_bit_width(&power_actor_state.claims, block_store, HAMT_BIT_WIDTH)
+        Hamt::<_, _>::load_with_bit_width(&power_actor_state.claims, block_store, HAMT_BIT_WIDTH)
             .map_err(|err| Error::Other(err.to_string()))?;
-    map.for_each(|_: &BytesKey, k: ByteBuf| {
+    map.for_each(|_, k: ByteBuf| {
         let address = Address::from_bytes(k.as_ref())?;
         miners.push(address);
         Ok(())

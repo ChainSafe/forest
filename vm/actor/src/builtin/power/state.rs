@@ -234,7 +234,7 @@ pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
 
 impl Cbor for State {}
 
-#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct Claim {
     /// Sum of raw byte power for a miner's sectors.
     #[serde(with = "bigint_ser")]

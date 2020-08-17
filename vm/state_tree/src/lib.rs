@@ -6,6 +6,7 @@ use address::{Address, Protocol};
 use cid::{multihash::Blake2b256, Cid};
 use fil_types::HAMT_BIT_WIDTH;
 use fnv::FnvHashMap;
+use forest_ipld::{from_ipld, to_ipld, Ipld};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use parking_lot::RwLock;
@@ -13,7 +14,7 @@ use vm::ActorState;
 
 /// State tree implementation using hamt
 pub struct StateTree<'db, S> {
-    hamt: Hamt<'db, S>,
+    hamt: Hamt<'db, S, Ipld>,
 
     // TODO switch to using state change cache: https://github.com/ChainSafe/forest/issues/373
     actor_cache: RwLock<FnvHashMap<Address, ActorState>>,
@@ -58,7 +59,11 @@ where
         }
 
         // if state doesn't exist, find using hamt
-        let act: Option<ActorState> = self.hamt.get(&addr.to_bytes()).map_err(|e| e.to_string())?;
+        let act = self.hamt.get(&addr.to_bytes()).map_err(|e| e.to_string())?;
+        let act: Option<ActorState> = match act {
+            Some(v) => Some(from_ipld(&v).map_err(|e| e.to_string())?),
+            None => None,
+        };
 
         // Update cache if state was found
         if let Some(act_s) = &act {
@@ -84,7 +89,10 @@ where
 
         // Set actor state in hamt
         self.hamt
-            .set(addr.to_bytes().into(), actor)
+            .set(
+                addr.to_bytes().into(),
+                to_ipld(actor).map_err(|e| e.to_string())?,
+            )
             .map_err(|e| e.to_string())?;
 
         Ok(())
@@ -192,7 +200,10 @@ where
         for (addr, act) in self.actor_cache.read().iter() {
             // Set each value from cache into hamt
             self.hamt
-                .set(addr.to_bytes().into(), act.clone())
+                .set(
+                    addr.to_bytes().into(),
+                    to_ipld(act).map_err(|e| e.to_string())?,
+                )
                 .map_err(|e| e.to_string())?;
         }
 

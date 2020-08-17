@@ -39,7 +39,7 @@ impl Actor {
     {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
         rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
-        let mut empty_map = make_map(rt.store());
+        let mut empty_map = make_map::<_, ()>(rt.store());
         let root = empty_map
             .flush()
             .map_err(|err| actor_error!(ErrIllegalState; "failed to construct state: {}", err))?;

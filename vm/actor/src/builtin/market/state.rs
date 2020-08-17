@@ -122,7 +122,7 @@ pub(super) struct MarketStateMutation<'bs, 's, BS> {
     pub(super) escrow_table: Option<BalanceTable<'bs, BS>>,
 
     pub(super) pending_permit: Permission,
-    pub(super) pending_deals: Option<Map<'bs, BS>>,
+    pub(super) pending_deals: Option<Map<'bs, BS, DealProposal>>,
 
     pub(super) dpe_permit: Permission,
     pub(super) deals_by_epoch: Option<SetMultimap<'bs, BS>>,

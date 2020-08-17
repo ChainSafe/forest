@@ -10,7 +10,7 @@ use crate::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
 use crate::{make_map, make_map_with_root, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::bigint_ser::BigIntDe;
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -46,7 +46,7 @@ impl Actor {
             .resolve_address(&root_key)?
             .ok_or_else(|| actor_error!(ErrIllegalArgument; "root should be an ID address"))?;
 
-        let empty_root = make_map(rt.store())
+        let empty_root = make_map::<_, ()>(rt.store())
             .flush()
             .map_err(|e| actor_error!(ErrIllegalState; "Failed to create registry state {}", e))?;
 
@@ -77,9 +77,10 @@ impl Actor {
             let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
                 |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
             )?;
-            let verified_clients = make_map_with_root(&st.verified_clients, rt.store()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
-            )?;
+            let verified_clients =
+                make_map_with_root::<_, BigIntDe>(&st.verified_clients, rt.store()).map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+                )?;
 
             let found = verified_clients
                 .contains_key(&params.address.to_bytes())
@@ -95,7 +96,7 @@ impl Actor {
             verifiers
                 .set(
                     params.address.to_bytes().into(),
-                    BigIntSer(&params.allowance),
+                    BigIntDe(params.allowance.clone()),
                 )
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to add verifier: {}", e))?;
             st.verifiers = verifiers
@@ -117,9 +118,10 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
 
         rt.transaction(|st: &mut State, rt| {
-            let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
-            )?;
+            let mut verifiers = make_map_with_root::<_, BigIntDe>(&st.verifiers, rt.store())
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+                )?;
             let deleted = verifiers
                 .delete(&verifier_addr.to_bytes())
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to remove verifier: {}", e))?;
@@ -201,14 +203,11 @@ impl Actor {
             let new_verifier_cap = verifier_cap - &params.allowance;
 
             verifiers
-                .set(
-                    verifier_addr.to_bytes().into(),
-                    BigIntSer(&new_verifier_cap),
-                )
+                .set(verifier_addr.to_bytes().into(), BigIntDe(new_verifier_cap))
                 .map_err(|e| {
                     actor_error!(ErrIllegalState;
-                        "Failed to update new verifier cap {} for {}: {}",
-                        new_verifier_cap, params.allowance, e
+                        "Failed to update new verifier cap for {}: {}",
+                        params.allowance, e
                     )
                 })?;
 
@@ -231,7 +230,7 @@ impl Actor {
             verified_clients
                 .set(
                     params.address.to_bytes().into(),
-                    BigIntSer(&params.allowance),
+                    BigIntDe(params.allowance.clone()),
                 )
                 .map_err(|e| {
                     actor_error!(ErrIllegalState;
@@ -312,11 +311,11 @@ impl Actor {
                 }
             } else {
                 verified_clients
-                    .set(params.address.to_bytes().into(), BigIntSer(&new_vc_cap))
+                    .set(params.address.to_bytes().into(), BigIntDe(new_vc_cap))
                     .map_err(|e| {
                         actor_error!(ErrIllegalState;
-                            "Failed to update verified client {} with {}: {}",
-                            params.address, new_vc_cap, e
+                            "Failed to update verified client {}: {}",
+                            params.address, e
                         )
                     })?;
             }
@@ -352,7 +351,7 @@ impl Actor {
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
+            let verifiers = make_map_with_root::<_, BigIntDe>(&st.verifiers, rt.store()).map_err(
                 |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
             )?;
             let mut verified_clients = make_map_with_root(&st.verified_clients, rt.store())
@@ -381,11 +380,11 @@ impl Actor {
             // Update to new cap
             let new_vc_cap = vc_cap + &params.deal_size;
             verified_clients
-                .set(params.address.to_bytes().into(), BigIntSer(&new_vc_cap))
+                .set(params.address.to_bytes().into(), BigIntDe(new_vc_cap))
                 .map_err(|e| {
                     actor_error!(ErrIllegalState;
-                        "Failed to put verified client {} with {}: {}",
-                        params.address, new_vc_cap, e
+                        "Failed to put verified client {}: {}",
+                        params.address, e
                     )
                 })?;
 
