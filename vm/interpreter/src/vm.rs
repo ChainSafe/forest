@@ -114,7 +114,7 @@ where
                 penalty,
                 gas_reward,
                 // TODO revisit this if/when removed from go clients
-                ticket_count: 1,
+                win_count: 1,
             })?;
 
             // TODO change this just just one get and update sequence in memory after interop

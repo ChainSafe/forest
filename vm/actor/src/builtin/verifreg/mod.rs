@@ -3,18 +3,21 @@
 
 mod state;
 mod types;
+
 pub use self::state::State;
 pub use self::types::*;
 use crate::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
-use crate::{HAMT_BIT_WIDTH, SYSTEM_ACTOR_ADDR};
+use crate::{make_map, make_map_with_root, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::BytesKey;
-use ipld_hamt::Hamt;
+use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::Sign;
 use num_derive::FromPrimitive;
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+
+// * Updated to specs-actors commit: 9d42fb163883f31325b08752c9f4e85d0b3ef22f (> 0.8.6)
 
 /// Account actor methods available
 #[derive(FromPrimitive)]
@@ -37,15 +40,17 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
-        let empty_root = Hamt::<BytesKey, _>::new_with_bit_width(rt.store(), HAMT_BIT_WIDTH)
+
+        // root should be an ID address
+        let id_addr = rt
+            .resolve_address(&root_key)?
+            .ok_or_else(|| actor_error!(ErrIllegalArgument; "root should be an ID address"))?;
+
+        let empty_root = make_map(rt.store())
             .flush()
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!("Failed to create registry state {:}", e),
-                )
-            })?;
-        let st = State::new(empty_root, root_key);
+            .map_err(|e| actor_error!(ErrIllegalState; "Failed to create registry state {}", e))?;
+
+        let st = State::new(empty_root, id_addr);
         rt.create(&st)?;
         Ok(())
     }
@@ -55,24 +60,55 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let state: State = rt.state()?;
-        rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
+        if &params.allowance < &MINIMUM_VERIFIED_DEAL_SIZE {
+            return Err(actor_error!(ErrIllegalArgument;
+                    "Allowance {} below minimum deal size for add verifier {}",
+                    params.allowance, params.address));
+        }
+        let st: State = rt.state()?;
+        rt.validate_immediate_caller_is(std::iter::once(&st.root_key))?;
 
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
-            st.put_verifier(rt.store(), &params.address, &params.allowance)
+        // TODO track issue https://github.com/filecoin-project/specs-actors/issues/556
+        if params.address == st.root_key {
+            return Err(actor_error!(ErrIllegalArgument; "Rootkey cannot be added as verifier"));
+        }
+
+        rt.transaction(|st: &mut State, rt| {
+            let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+            )?;
+            let verified_clients = make_map_with_root(&st.verified_clients, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+            )?;
+
+            let found = verified_clients
+                .contains_key(&params.address.to_bytes())
                 .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to add verifier: {:}", e),
-                    )
+                    actor_error!(ErrIllegalState;
+                "failed to get client state for {}: {}", params.address, e)
                 })?;
+            if found {
+                return Err(actor_error!(ErrIllegalArgument;
+                        "verified client {} cannot become a verifier", params.address));
+            }
+
+            verifiers
+                .set(
+                    params.address.to_bytes().into(),
+                    BigIntSer(&params.allowance),
+                )
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to add verifier: {}", e))?;
+            st.verifiers = verifiers
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush verifiers: {}", e))?;
+
             Ok(())
         })??;
 
         Ok(())
     }
 
-    pub fn remove_verifier<BS, RT>(rt: &mut RT, params: AddVerifierParams) -> Result<(), ActorError>
+    pub fn remove_verifier<BS, RT>(rt: &mut RT, verifier_addr: Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -80,14 +116,20 @@ impl Actor {
         let state: State = rt.state()?;
         rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
 
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
-            st.delete_verifier(rt.store(), &params.address)
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to add verifier: {:}", e),
-                    )
-                })?;
+        rt.transaction(|st: &mut State, rt| {
+            let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+            )?;
+            let deleted = verifiers
+                .delete(&verifier_addr.to_bytes())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to remove verifier: {}", e))?;
+            if !deleted {
+                return Err(actor_error!(ErrIllegalState; "failed to remove verifier: not found"));
+            }
+
+            st.verifiers = verifiers
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush verifiers: {}", e))?;
             Ok(())
         })??;
 
@@ -102,85 +144,108 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        if params.allowance <= *MINIMUM_VERIFIED_SIZE {
-            return Err(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                format!(
-                    "Allowance {:} below MinVerifiedDealSize for add verified client {:}",
+        if params.allowance < *MINIMUM_VERIFIED_DEAL_SIZE {
+            return Err(actor_error!(ErrIllegalArgument;
+                    "Allowance {} below MinVerifiedDealSize for add verified client {}",
                     params.allowance, params.address
-                ),
             ));
         }
 
         rt.validate_immediate_caller_accept_any()?;
-        rt.transaction(|st: &mut State, rt| {
-            // Validate caller is one of the verifiers.
-            let verify_addr = rt.message().caller();
 
-            let verifier_cap = st
-                .get_verifier(rt.store(), &verify_addr)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("Failed to get Verifier {:?}", verify_addr),
-                    )
+        let st: State = rt.state()?;
+        // TODO track issue https://github.com/filecoin-project/specs-actors/issues/556
+        if params.address == st.root_key {
+            return Err(actor_error!(ErrIllegalArgument; "Rootkey cannot be added as verifier"));
+        }
+
+        rt.transaction(|st: &mut State, rt| {
+            let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+            )?;
+            let mut verified_clients = make_map_with_root(&st.verified_clients, rt.store())
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+                )?;
+
+            // Validate caller is one of the verifiers.
+            let verifier_addr = rt.message().caller();
+            let BigIntDe(verifier_cap) = verifiers
+                .get(&verifier_addr.to_bytes())
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                        "failed to get Verifier {}: {}", verifier_addr, e)
                 })?
                 .ok_or_else(|| {
-                    ActorError::new(
-                        ExitCode::ErrNotFound,
-                        format!("Invalid Verifier {:}", verify_addr),
+                    actor_error!(ErrNotFound;
+                        format!("no such Verifier {}", verifier_addr)
                     )
                 })?;
+
+            // Validate client to be added isn't a verifier
+            let found = verifiers
+                .contains_key(&params.address.to_bytes())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to get verifier: {}", e))?;
+            if found {
+                return Err(actor_error!(ErrIllegalArgument;
+                    "verifier {} cannot be added as a verified client", params.address));
+            }
 
             // Compute new verifier cap and update.
             if verifier_cap < params.allowance {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    format!(
-                        "Add more DataCap {:} for VerifiedClient than allocated {:}",
+                return Err(actor_error!(ErrIllegalArgument;
+                        "Add more DataCap {} for VerifiedClient than allocated {}",
                         params.allowance, verifier_cap
-                    ),
                 ));
             }
             let new_verifier_cap = verifier_cap - &params.allowance;
-            st.put_verifier(rt.store(), &verify_addr, &new_verifier_cap)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!(
-                            "Failed to update new verifier cap {:?} for {:?}",
-                            new_verifier_cap, params.allowance
-                        ),
+
+            verifiers
+                .set(
+                    verifier_addr.to_bytes().into(),
+                    BigIntSer(&new_verifier_cap),
+                )
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                        "Failed to update new verifier cap {} for {}: {}",
+                        new_verifier_cap, params.allowance, e
                     )
                 })?;
 
-            // Write-once entry and does not get changed for simplicity.
-            // If parties neeed more allowance, they can get another VerifiedClient account.
             // This is a one-time, upfront allocation.
-            // Returns error if VerifiedClient already exists
-            st.get_verified_client(rt.store(), &params.address)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("Failed to get verified client{:}", params.address),
-                    )
-                })?
-                .ok_or_else(|| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("Illegal Argument{:}", params.address),
+            // This allowance cannot be changed by calls to AddVerifiedClient as long as the
+            // client has not been removed. If parties need more allowance, they need to create a
+            // new verified client or use up the the current allowance and then create a new
+            // verified client.
+            let found = verified_clients
+                .contains_key(&params.address.to_bytes())
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                        "Failed to get verified client {}: {}", params.address, e)
+                })?;
+            if found {
+                return Err(actor_error!(ErrIllegalArgument;
+                    "verified client already exists: {}", params.address));
+            }
+
+            verified_clients
+                .set(
+                    params.address.to_bytes().into(),
+                    BigIntSer(&params.allowance),
+                )
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                            "Failed to add verified client {} with cap {}: {}",
+                            params.address, params.allowance, e
                     )
                 })?;
-            st.put_verified_client(rt.store(), &params.address, &params.allowance)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!(
-                            "Failed to add verified client {:?} with cap {:?}",
-                            params.address, params.allowance
-                        ),
-                    )
-                })?;
+
+            st.verifiers = verifiers
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush verifiers: {}", e))?;
+            st.verified_clients = verified_clients.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush verified clients: {}", e),
+            )?;
 
             Ok(())
         })??;
@@ -188,118 +253,146 @@ impl Actor {
         Ok(())
     }
 
+    /// Called by StorageMarketActor during PublishStorageDeals.
+    /// Do not allow partially verified deals (DealSize must be greater than equal to allowed cap).
+    /// Delete VerifiedClient if remaining DataCap is smaller than minimum VerifiedDealSize.
     pub fn use_bytes<BS, RT>(rt: &mut RT, params: UseBytesParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
-        if params.deal_size < *MINIMUM_VERIFIED_SIZE {
-            return Err(ActorError::new(
-                ExitCode::ErrIllegalState,
-                format!(
-                    "Verified Dealsize {:} is below minimum in usedbytes",
-                    params.deal_size
-                ),
+        if params.deal_size < *MINIMUM_VERIFIED_DEAL_SIZE {
+            return Err(actor_error!(ErrIllegalArgument;
+                "Verified Dealsize {} is below minimum in usedbytes", params.deal_size
             ));
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let verifier_cap = st
-                .get_verifier(rt.store(), &params.address)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("Failed to get Verifier {:?}", &params.address),
-                    )
-                })?
-                .ok_or_else(|| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("Invalid Verifier {:}", params.address),
-                    )
-                })?;
+            let mut verified_clients = make_map_with_root(&st.verified_clients, rt.store())
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+                )?;
 
-            if params.deal_size <= verifier_cap {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    format!(
-                        "Deal size of {:} is greater than verifier_cap {:}",
-                        params.deal_size, verifier_cap
-                    ),
+            let BigIntDe(vc_cap) = verified_clients
+                .get(&params.address.to_bytes())
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                        "failed to get verified client {}: {}", &params.address, e)
+                })?
+                .ok_or_else(
+                    || actor_error!(ErrNotFound; "no such verified client {}", params.address),
+                )?;
+            assert_ne!(vc_cap.sign(), Sign::Minus);
+
+            if params.deal_size > vc_cap {
+                return Err(actor_error!(ErrIllegalArgument;
+                        "Deal size of {} is greater than verifier_cap {} for verified client {}",
+                        params.deal_size, vc_cap, params.address
                 ));
             };
-            let new_verifier_cap = &verifier_cap - &params.deal_size;
-            if new_verifier_cap < *MINIMUM_VERIFIED_SIZE {
+
+            let new_vc_cap = vc_cap - &params.deal_size;
+            if new_vc_cap < *MINIMUM_VERIFIED_DEAL_SIZE {
                 // Delete entry if remaining DataCap is less than MinVerifiedDealSize.
                 // Will be restored later if the deal did not get activated with a ProvenSector.
-                st.delete_verified_client(rt.store(), &params.address)
-                    .map_err(|_| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!(
-                                "Failed to delete verified client{:} with bytes {:?}",
-                                params.address, params.deal_size
-                            ),
+                let deleted = verified_clients
+                    .delete(&params.address.to_bytes())
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                            "Failed to delete verified client {}: {}",
+                            params.address, e
                         )
-                    })
+                    })?;
+                if !deleted {
+                    return Err(actor_error!(ErrIllegalState;
+                        "Failed to delete verified client {}: not found",
+                        params.address
+                    ));
+                }
             } else {
-                st.put_verified_client(rt.store(), &params.address, &new_verifier_cap)
-                    .map_err(|_| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!(
-                                "Failed to put verified client{:} with bytes {:}",
-                                params.address, params.deal_size
-                            ),
+                verified_clients
+                    .set(params.address.to_bytes().into(), BigIntSer(&new_vc_cap))
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalState;
+                            "Failed to update verified client {} with {}: {}",
+                            params.address, new_vc_cap, e
                         )
-                    })
+                    })?;
             }
+
+            st.verified_clients = verified_clients.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush verified clients: {}", e),
+            )?;
+            Ok(())
         })??;
 
         Ok(())
     }
 
-    // Called by HandleInitTimeoutDeals from StorageMarketActor when a VerifiedDeal fails to init.
-    // Restore allowable cap for the client, creating new entry if the client has been deleted.
+    /// Called by HandleInitTimeoutDeals from StorageMarketActor when a VerifiedDeal fails to init.
+    /// Restore allowable cap for the client, creating new entry if the client has been deleted.
     pub fn restore_bytes<BS, RT>(rt: &mut RT, params: RestoreBytesParams) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_MARKET_ACTOR_ADDR))?;
-        if params.deal_size < *MINIMUM_VERIFIED_SIZE {
-            return Err(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                format!(
-                    "Verified Dealsize {:} is below minimum in usedbytes",
-                    params.deal_size
-                ),
+        if params.deal_size < *MINIMUM_VERIFIED_DEAL_SIZE {
+            return Err(actor_error!(ErrIllegalArgument;
+                "Below minimum VerifiedDealSize requested in RestoreBytes: {}",
+                params.deal_size
             ));
         }
 
-        rt.transaction(|st: &mut State, rt| {
-            let verifier_cap = st
-                .get_verified_client(rt.store(), &params.address)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("Failed to get Verifier {:?}", params.address.clone()),
-                    )
-                })?
-                .unwrap_or_else(Zero::zero);
+        let st: State = rt.state()?;
+        // TODO track issue https://github.com/filecoin-project/specs-actors/issues/556
+        if params.address == st.root_key {
+            return Err(actor_error!(ErrIllegalArgument; "Cannot restore allowance for Rootkey"));
+        }
 
-            let new_verifier_cap = verifier_cap + &params.deal_size;
-            st.put_verified_client(rt.store(), &params.address, &new_verifier_cap)
-                .map_err(|_| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!(
-                            "Failed to put verified client{:} with bytes {:}",
-                            params.address, params.deal_size
-                        ),
+        rt.transaction(|st: &mut State, rt| {
+            let verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+            )?;
+            let mut verified_clients = make_map_with_root(&st.verified_clients, rt.store())
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load verified clients: {}", e),
+                )?;
+
+            // validate we are NOT attempting to do this for a verifier
+            let found = verifiers
+                .contains_key(&params.address.to_bytes())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to get verifier: {}", e))?;
+            if found {
+                return Err(actor_error!(ErrIllegalArgument;
+                    "cannot restore allowance for a verifier {}", params.address));
+            }
+
+            // Get existing cap
+            let BigIntDe(vc_cap) = verified_clients
+                .get(&params.address.to_bytes())
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                    "failed to get verified client {}: {}", &params.address, e)
+                })?
+                .unwrap_or_default();
+
+            // Update to new cap
+            let new_vc_cap = vc_cap + &params.deal_size;
+            verified_clients
+                .set(params.address.to_bytes().into(), BigIntSer(&new_vc_cap))
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
+                        "Failed to put verified client {} with {}: {}",
+                        params.address, new_vc_cap, e
                     )
-                })
+                })?;
+
+            st.verified_clients = verified_clients.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to flush verified clients: {}", e),
+            )?;
+            Ok(())
         })??;
 
         Ok(())
@@ -342,7 +435,7 @@ impl ActorCode for Actor {
                 Self::restore_bytes(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            None => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned())),
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
