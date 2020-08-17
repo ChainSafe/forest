@@ -18,7 +18,7 @@ use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, Sign};
+use num_bigint::BigInt;
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
@@ -562,7 +562,7 @@ where
     };
 
     let out_add: BigInt = &log2_p << 8;
-    let mut out = BigInt::from_biguint(Sign::Plus, ts.weight().to_owned()) + out_add;
+    let mut out = ts.weight().to_owned() + out_add;
     let e_weight = ((log2_p * BigInt::from(ts.blocks().len())) * BigInt::from(W_RATIO_NUM)) << 8;
     let value: BigInt = e_weight / (BigInt::from(BLOCKS_PER_EPOCH) * BigInt::from(W_RATIO_DEN));
     out += &value;
