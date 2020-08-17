@@ -76,7 +76,7 @@ pub mod json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
-        #[serde(rename="PoStProof")]
+        #[serde(rename = "PoStProof")]
         post_proof: i64,
         proof_bytes: String,
     }
