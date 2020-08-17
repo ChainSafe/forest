@@ -15,6 +15,9 @@ const KEYSTORE_NAME: &str = "/keystore.json";
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
+///
+/// TODO need to update keyinfo to not use SignatureType, use string instead to save keys like
+/// jwt secret
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct KeyInfo {
     key_type: SignatureType,
@@ -148,7 +151,8 @@ pub struct PersistentKeyStore {
 
 impl PersistentKeyStore {
     pub fn new(location: String) -> Result<Self, Error> {
-        let file_op = File::open(&format!("{}{}", location, KEYSTORE_NAME));
+        let loc = format!("{}{}", location, KEYSTORE_NAME);
+        let file_op = File::open(&loc);
         match file_op {
             Ok(file) => {
                 let reader = BufReader::new(file);
@@ -160,7 +164,7 @@ impl PersistentKeyStore {
                     .unwrap_or_default();
                 Ok(Self {
                     key_info: data,
-                    location,
+                    location: loc,
                 })
             }
             Err(e) => {
@@ -168,7 +172,7 @@ impl PersistentKeyStore {
                     warn!("keystore.json does not exist, initializing new keystore");
                     Ok(Self {
                         key_info: HashMap::new(),
-                        location,
+                        location: loc,
                     })
                 } else {
                     Err(Error::Other(e.to_string()))

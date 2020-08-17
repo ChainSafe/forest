@@ -57,7 +57,6 @@ pub enum Subcommand {
 
     #[structopt(name = "genesis", about = "Work with blockchain genesis")]
     Genesis(GenesisCommands),
-
 }
 
 /// Daemon process command line options.

@@ -688,9 +688,12 @@ dependencies = [
 name = "auth"
 version = "0.1.0"
 dependencies = [
+ "forest_crypto",
  "jsonrpc-v2",
  "jsonwebtoken",
+ "key_management",
  "lazy_static",
+ "rand 0.7.3",
  "serde",
  "thiserror",
 ]
@@ -2361,6 +2364,7 @@ version = "0.1.0"
 dependencies = [
  "async-log",
  "async-std",
+ "auth",
  "beacon",
  "blake2b_simd",
  "chain",
@@ -5600,6 +5604,7 @@ dependencies = [
  "test_utils",
  "thiserror",
  "tide",
+ "utils",
 ]
 
 [[package]]

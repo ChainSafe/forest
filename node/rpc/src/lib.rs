@@ -19,7 +19,9 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, ErrorLike, MapRouter, RequestObjec
 use message_pool::{MessagePool, MpoolRpcProvider};
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
+use utils::get_home_dir;
 use wallet::KeyStore;
+use wallet::PersistentKeyStore;
 
 lazy_static! {
     pub static ref WRITE_ACCESS: Vec<String> = vec![
@@ -49,6 +51,7 @@ where
 
 async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
     let call: RequestObject = req.body_json().await?;
+    // TODO find a cleaner way *if possibe* to parse the RequestObject to get the method name in RPC call
     let call_str = format!("{:?}", call);
     let start = call_str
         .find("method: \"")
@@ -58,10 +61,16 @@ async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
         .find("\", params")
         .ok_or_else(|| Error::MethodParam)?;
     let method_name = &call_str[start..end];
+    // check for write access
     if WRITE_ACCESS.contains(&method_name.to_string()) {
         if let Some(header) = req.header("Authorization") {
             let header_raw = header.get(0).unwrap().message();
-            let perm = has_perms(header_raw, "write");
+            let keystore = PersistentKeyStore::new(get_home_dir() + "/.forest")?;
+            let ki = keystore
+                .get("auth-jwt-private")
+                .map_err(|_| Error::Other("No JWT private key found".to_owned()))?;
+            let key = ki.private_key();
+            let perm = has_perms(header_raw, "write", key);
             if perm.is_err() {
                 return Ok(Response::new(StatusCode::Ok).body_json(&perm.unwrap_err())?);
             }
@@ -89,8 +98,8 @@ where
     let rpc = Server::new()
         .with_data(Data::new(state))
         // Auth API
-        .with_method("Filecoin.AuthNew", auth_new)
-        .with_method("Filecoin.AuthVerify", auth_verify)
+        .with_method("Filecoin.AuthNew", auth_new::<DB, KS>)
+        .with_method("Filecoin.AuthVerify", auth_verify::<DB, KS>)
         // Chain API
         .with_method(
             "Filecoin.ChainGetMessage",

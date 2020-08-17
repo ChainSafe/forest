@@ -4,6 +4,7 @@
 use super::cli::{block_until_sigint, initialize_genesis, Config};
 use async_std::sync::RwLock;
 use async_std::task;
+use auth::generate_priv_key;
 use beacon::DrandBeacon;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
@@ -15,7 +16,7 @@ use message_pool::{MessagePool, MpoolRpcProvider};
 use rpc::{start_rpc, RpcState};
 use std::sync::Arc;
 use utils::write_to_file;
-use wallet::PersistentKeyStore;
+use wallet::{KeyStore, PersistentKeyStore};
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -38,9 +39,12 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize keystore
-    let keystore = Arc::new(RwLock::new(
-        PersistentKeyStore::new(config.data_dir.to_string()).unwrap(),
-    ));
+    let mut ks = PersistentKeyStore::new(config.data_dir.to_string()).unwrap();
+    if ks.get("auth-jwt-private").is_err() {
+        ks.put("auth-jwt-private".to_owned(), generate_priv_key())
+            .unwrap();
+    }
+    let keystore = Arc::new(RwLock::new(ks));
 
     // Initialize database
     let mut db = RocksDb::new(config.data_dir + "/db");
