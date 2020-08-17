@@ -25,12 +25,14 @@ use state_tree::StateTree;
 use wallet::KeyStore;
 
 #[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
     pub receipt: MessageReceiptJson,
     pub tipset: TipsetJson,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct InvocResultJson {
     pub msg: UnsignedMessageJson,
     pub msg_rct: Option<MessageReceiptJson>,
