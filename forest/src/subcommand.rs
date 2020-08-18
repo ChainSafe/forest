@@ -13,7 +13,12 @@ pub(super) async fn process(command: Subcommand) {
         Subcommand::Chain(cmd) => {
             cmd.run().await;
         }
+
         Subcommand::SyncCommand(cmd) => {
+            cmd.run().await;
+        }
+      
+        Subcommand::Genesis(cmd) => {
             cmd.run().await;
         }
     }
