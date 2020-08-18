@@ -127,36 +127,26 @@ impl SyncCommand {
             }
 
             SyncCommand::MarkBad { block_cid } => {
-                let response = mark_bad(&mut client, block_cid.clone()).await;
-                if response.is_ok() {
-                    println!("Successfully marked block {} as bad", block_cid);
-                } else {
-                    println!(
-                        "Failed to mark block {} as bad, error is {} ",
-                        block_cid,
-                        stringify_rpc_err(response.unwrap_err())
-                    );
-                }
+                mark_bad(&mut client, block_cid)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("Successfully marked block as bad");
             }
 
             SyncCommand::CheckBad { block_cid } => {
-                let response = check_bad(&mut client, block_cid.clone()).await;
-                if let Ok(reason) = response {
-                    println!("Block {} is \"{}\"", block_cid, reason);
-                } else {
-                    println!("Failed to check if block {} is bad", block_cid);
-                }
+                let statement = check_bad(&mut client, block_cid.clone())
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("Block {} is \"{}\"", block_cid, statement);
             }
             SyncCommand::Submit { gossip_block } => {
-                let response = submit_block(&mut client, gossip_block).await;
-                if response.is_ok() {
-                    println!("Successfully submitted block");
-                } else {
-                    println!(
-                        "Did not submit block because {:#?}",
-                        stringify_rpc_err(response.unwrap_err())
-                    );
-                }
+                submit_block(&mut client, gossip_block)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("Successfully submitted block");
             }
         }
     }

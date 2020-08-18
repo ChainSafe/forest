@@ -5,8 +5,8 @@ mod chain_cmd;
 mod config;
 mod fetch_params_cmd;
 mod genesis;
-mod sync_cmd;
 mod genesis_cmd;
+mod sync_cmd;
 
 pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
@@ -56,7 +56,6 @@ pub enum Subcommand {
 
     #[structopt(name = "genesis", about = "Work with blockchain genesis")]
     Genesis(GenesisCommands),
-
 }
 
 /// Daemon process command line options.

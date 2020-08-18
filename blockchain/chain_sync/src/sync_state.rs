@@ -141,8 +141,8 @@ impl Serialize for SyncState {
             stage: u64,
             height: ChainEpoch,
 
-            start: &'a Option<String>,
-            end: &'a Option<String>,
+            start: Option<String>,
+            end: Option<String>,
             message: &'a str,
         }
 
@@ -151,8 +151,8 @@ impl Serialize for SyncState {
             target: self.target.as_ref().map(|ts| TipsetJsonRef(ts.as_ref())),
             stage: self.stage as u64,
             height: self.epoch,
-            start: &format_se_date_time(self.start),
-            end: &format_se_date_time(self.end),
+            start: format_se_date_time(self.start),
+            end: format_se_date_time(self.end),
             message: &self.message,
         }
         .serialize(serializer)
