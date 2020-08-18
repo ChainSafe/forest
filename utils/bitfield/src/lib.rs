@@ -392,7 +392,7 @@ pub mod json {
 
     #[test]
     fn serialization_starts_with_zeros() {
-        let mut bf = BitFieldJson(bitfield![0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]);
+        let bf = BitFieldJson(bitfield![0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]);
         let j = serde_json::to_string(&bf).unwrap();
         assert_eq!(j, "[2,4,3,2]");
         let bitfield: BitFieldJson = serde_json::from_str(&j).unwrap();
