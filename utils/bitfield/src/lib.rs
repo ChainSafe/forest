@@ -410,7 +410,7 @@ pub mod json {
 
     #[test]
     fn serialization_with_single_unut() {
-        let mut bf = BitFieldJson(bitfield![]);
+        let bf = BitFieldJson(bitfield![]);
         let j = serde_json::to_string(&bf).unwrap();
         assert_eq!(j, "[0]");
         let bitfield: BitFieldJson = serde_json::from_str(&j).unwrap();
