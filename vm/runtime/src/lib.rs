@@ -61,9 +61,20 @@ pub trait Runtime<BS: BlockStore> {
     /// Look up the code ID at an actor address.
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError>;
 
-    /// Randomness returns a (pseudo)random byte array drawing from a
-    /// random beacon at a given epoch and incorporating reequisite entropy
-    fn get_randomness(
+    /// Randomness returns a (pseudo)random byte array drawing from the latest
+    /// ticket chain from a given epoch and incorporating requisite entropy.
+    /// This randomness is fork dependant but also biasable because of this.
+    fn get_randomness_from_tickets(
+        &self,
+        personalization: DomainSeparationTag,
+        rand_epoch: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<Randomness, ActorError>;
+
+    /// Randomness returns a (pseudo)random byte array drawing from the latest
+    /// beacon from a given epoch and incorporating requisite entropy.
+    /// This randomness is not tied to any fork of the chain, and is unbiasable.
+    fn get_randomness_from_beacon(
         &self,
         personalization: DomainSeparationTag,
         rand_epoch: ChainEpoch,

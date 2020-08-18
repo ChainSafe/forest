@@ -653,9 +653,11 @@ where
             error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
 
-        let prev_beacon = self
-            .chain_store
-            .latest_beacon_entry(&self.chain_store.tipset_from_keys(header.parents())?)?;
+        let prev_beacon = chain::latest_beacon_entry(
+            self.chain_store.blockstore(),
+            &self.chain_store.tipset_from_keys(header.parents())?,
+        )?;
+
         header
             .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
             .await?;
