@@ -285,16 +285,26 @@ pub fn latest_beacon_entry<DB>(db: &DB, ts: &Tipset) -> Result<BeaconEntry, Erro
 where
     DB: BlockStore,
 {
-    let mut cur = ts.clone();
-    for _ in 0..20 {
+    let check_for_beacon_entry = |ts: &Tipset| {
         let cbe = ts.blocks()[0].beacon_entries();
         if let Some(entry) = cbe.last() {
-            return Ok(entry.clone());
+            return Ok(Some(entry.clone()));
         }
-        if cur.epoch() == 0 {
+        if ts.epoch() == 0 {
             return Err(Error::Other(
                 "made it back to genesis block without finding beacon entry".to_owned(),
             ));
+        }
+        Ok(None)
+    };
+
+    if let Some(entry) = check_for_beacon_entry(ts)? {
+        return Ok(entry);
+    }
+    let mut cur = tipset_from_keys(db, ts.parents())?;
+    for _ in 1..20 {
+        if let Some(entry) = check_for_beacon_entry(&cur)? {
+            return Ok(entry);
         }
         cur = tipset_from_keys(db, cur.parents())?;
     }
