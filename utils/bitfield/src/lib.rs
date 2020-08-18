@@ -8,7 +8,7 @@ use ahash::AHashSet;
 use iter::{ranges_from_bits, RangeIterator};
 use std::{
     iter::FromIterator,
-    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Range, Sub, SubAssign},
+    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Range, Sub, SubAssign},
 };
 
 type Result<T> = std::result::Result<T, &'static str>;
@@ -119,7 +119,7 @@ impl BitField {
         let min_range_iterator = iter::Ranges::new(min_range);
 
         self.inner_ranges()
-            .merge(min_range_iterator)
+            .union(min_range_iterator)
             .flatten()
             .find(|i| !self.unset.contains(i))
     }
@@ -135,15 +135,15 @@ impl BitField {
         // front and checking `self.unset` containment for the candidate bits on the fly
         // because we're visiting all bits either way
         //
-        // consequently, `self.first()` is only linear in the length of `self.set`, not
-        // in the length of `self.unset` (as opposed to getting the first range with
-        // `self.ranges().next()` which is linear in both)
+        // consequently, the time complexity of `self.first()` is only linear in the length of
+        // `self.set`, not in the length of `self.unset` (as opposed to getting the first range
+        // with `self.ranges().next()` which is linear in both)
 
         let mut set_bits: Vec<_> = self.set.iter().copied().collect();
         set_bits.sort_unstable();
 
         self.inner_ranges()
-            .merge(ranges_from_bits(set_bits))
+            .union(ranges_from_bits(set_bits))
             .flatten()
             .filter(move |i| !self.unset.contains(i))
     }
@@ -173,7 +173,7 @@ impl BitField {
         };
 
         self.inner_ranges()
-            .merge(ranges(&self.set))
+            .union(ranges(&self.set))
             .difference(ranges(&self.unset))
     }
 
@@ -204,25 +204,19 @@ impl BitField {
         self.ranges().map(|range| range.len()).sum()
     }
 
-    /// Returns a new `RangeIterator` over the bits that are in `self`, in `other`, or in both.
+    /// Returns a new bit field containing the bits in `self` that remain
+    /// after "cutting" out the bits in `other`, and shifting remaining
+    /// bits to the left if necessary. For example:
     ///
-    /// The `|` operator is the eager version of this.
-    pub fn merge<'a>(&'a self, other: &'a Self) -> impl RangeIterator + 'a {
-        self.ranges().merge(other.ranges())
-    }
-
-    /// Returns a new `RangeIterator` over the bits that are in both `self` and `other`.
+    /// ```ignore
+    /// lhs:     xx-xxx--x
+    /// rhs:     -xx-x----
     ///
-    /// The `&` operator is the eager version of this.
-    pub fn intersection<'a>(&'a self, other: &'a Self) -> impl RangeIterator + 'a {
-        self.ranges().intersection(other.ranges())
-    }
-
-    /// Returns a new `RangeIterator` over the bits that are in `self` but not in `other`.
-    ///
-    /// The `-` operator is the eager version of this.
-    pub fn difference<'a>(&'a self, other: &'a Self) -> impl RangeIterator + 'a {
-        self.ranges().difference(other.ranges())
+    /// cut:     x  x x--x
+    /// output:  xxx--x
+    /// ```
+    pub fn cut(&self, other: &Self) -> Self {
+        Self::from_ranges(self.ranges().cut(other.ranges()))
     }
 
     /// Returns the union of the given bit fields as a new bit field.
@@ -232,12 +226,12 @@ impl BitField {
 
     /// Returns true if `self` overlaps with `other`.
     pub fn contains_any(&self, other: &BitField) -> bool {
-        self.intersection(other).next().is_some()
+        self.ranges().intersection(other.ranges()).next().is_some()
     }
 
     /// Returns true if the `self` is a superset of `other`.
     pub fn contains_all(&self, other: &BitField) -> bool {
-        other.difference(self).next().is_none()
+        other.ranges().difference(self.ranges()).next().is_none()
     }
 }
 
@@ -246,7 +240,7 @@ impl BitOr<&BitField> for &BitField {
 
     #[inline]
     fn bitor(self, rhs: &BitField) -> Self::Output {
-        BitField::from_ranges(self.merge(rhs))
+        BitField::from_ranges(self.ranges().union(rhs.ranges()))
     }
 }
 
@@ -262,7 +256,7 @@ impl BitAnd<&BitField> for &BitField {
 
     #[inline]
     fn bitand(self, rhs: &BitField) -> Self::Output {
-        BitField::from_ranges(self.intersection(rhs))
+        BitField::from_ranges(self.ranges().intersection(rhs.ranges()))
     }
 }
 
@@ -278,7 +272,7 @@ impl Sub<&BitField> for &BitField {
 
     #[inline]
     fn sub(self, rhs: &BitField) -> Self::Output {
-        BitField::from_ranges(self.difference(rhs))
+        BitField::from_ranges(self.ranges().difference(rhs.ranges()))
     }
 }
 
@@ -286,6 +280,20 @@ impl SubAssign<&BitField> for BitField {
     #[inline]
     fn sub_assign(&mut self, rhs: &BitField) {
         *self = &*self - rhs;
+    }
+}
+
+impl BitXor<&BitField> for &BitField {
+    type Output = BitField;
+
+    fn bitxor(self, rhs: &BitField) -> Self::Output {
+        BitField::from_ranges(self.ranges().symmetric_difference(rhs.ranges()))
+    }
+}
+
+impl BitXorAssign<&BitField> for BitField {
+    fn bitxor_assign(&mut self, rhs: &BitField) {
+        *self = &*self ^ rhs;
     }
 }
 
