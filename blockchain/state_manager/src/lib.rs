@@ -43,7 +43,7 @@ pub type CidPair = (Cid, Cid);
 pub struct InvocResult {
     pub msg: UnsignedMessage,
     pub msg_rct: Option<MessageReceipt>,
-    pub actor_error: Option<String>,
+    pub error: Option<String>,
 }
 
 // An alias Result that represents an InvocResult and an Error
@@ -272,7 +272,7 @@ where
             Ok(InvocResult {
                 msg: msg.clone(),
                 msg_rct: Some(apply_ret.msg_receipt.clone()),
-                actor_error: apply_ret.act_error.map(|e| e.to_string()),
+                error: apply_ret.act_error.map(|e| e.to_string()),
             })
         })
     }

@@ -36,7 +36,7 @@ pub struct MessageLookup {
 pub struct InvocResultJson {
     pub msg: UnsignedMessageJson,
     pub msg_rct: Option<MessageReceiptJson>,
-    pub actor_error: Option<String>,
+    pub error: Option<String>,
 }
 
 impl From<InvocResult> for InvocResultJson {
@@ -44,7 +44,7 @@ impl From<InvocResult> for InvocResultJson {
         InvocResultJson {
             msg: invoc.msg.into(),
             msg_rct: invoc.msg_rct.map(|s| s.into()),
-            actor_error: invoc.actor_error,
+            error: invoc.error,
         }
     }
 }
@@ -272,7 +272,7 @@ pub(crate) async fn state_replay<
     Ok(InvocResultJson {
         msg: msg.into(),
         msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone().into()),
-        actor_error: ret
+        error: ret
             .map(|act| act.act_error.map(|e| e.to_string()))
             .unwrap_or_default(),
     })
