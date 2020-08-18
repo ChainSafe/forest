@@ -1366,6 +1366,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "conformance_tests"
+version = "0.1.0"
+dependencies = [
+ "base64 0.12.3",
+ "clock",
+ "forest_cid",
+ "forest_message",
+ "forest_vm",
+ "serde",
+ "serde_json",
+ "walkdir",
+]
+
+[[package]]
 name = "console"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
