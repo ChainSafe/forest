@@ -73,6 +73,7 @@ pub fn load_car<R: Read, B: BlockStore>(
 
     // Batch write key value pairs from car file
     let mut buf: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(100);
+    // TODO revisit, seems possible buffer could be empty when underlying reader isn't
     while !car_reader.buf_reader.buffer().is_empty() {
         let block = car_reader.next_block()?;
         buf.push((block.cid.to_bytes(), block.data));

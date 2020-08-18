@@ -18,3 +18,11 @@ clock = { path = "../../node/clock" }
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor", "json"] }
 forest_message = { path = "../../vm/message", features = ["json"] }
 vm = { package = "forest_vm", path = "../../vm" }
+db = { path = "../../node/db/" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
+forest_car = { path = "../../ipld/car" }
+flate2 = "1.0"
+
+# TODO remove
+unsigned-varint = "0.4"
+integer-encoding = "1"

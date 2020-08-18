@@ -1372,12 +1372,16 @@ dependencies = [
  "base64 0.12.3",
  "clock",
  "db",
+ "flate2",
+ "forest_car",
  "forest_cid",
  "forest_message",
  "forest_vm",
+ "integer-encoding",
  "ipld_blockstore",
  "serde",
  "serde_json",
+ "unsigned-varint 0.4.0",
  "walkdir",
 ]
 

@@ -5,10 +5,12 @@
 
 use cid::Cid;
 use clock::ChainEpoch;
-use forest_message::{message_receipt, MessageReceipt};
+use flate2::read::GzDecoder;
+use forest_message::MessageReceipt;
 use serde::{Deserialize, Deserializer};
 use std::fs::File;
-use std::io::BufReader;
+use std::io::prelude::*;
+use std::io::{BufReader, Read};
 use vm::{ExitCode, Serialized};
 use walkdir::{DirEntry, WalkDir};
 
@@ -28,8 +30,6 @@ mod base64_bytes {
 
 mod message_receipt_vec {
     use super::*;
-    use serde::de;
-    use std::borrow::Cow;
 
     #[derive(Deserialize)]
     struct MessageReceiptVector {
@@ -143,6 +143,29 @@ fn is_test_file(entry: &DirEntry) -> bool {
         .map(|s| s.ends_with(".json"))
         .unwrap_or(false)
 }
+use integer_encoding::{VarIntReader, VarIntWriter};
+
+fn execute_message_vector(
+    _selector: Option<String>,
+    car: Vec<u8>,
+    preconditions: PreConditions,
+    apply_messages: Vec<MessageVector>,
+    postconditions: PostConditions,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let bs = db::MemoryDB::default();
+
+    // Decode gzip bytes
+    let mut d = GzDecoder::new(car.as_slice());
+    let mut decoded = Vec::new();
+    d.read_to_end(&mut decoded)?;
+
+    // Load car file with bytes
+    let reader = BufReader::new(decoded.as_slice());
+    forest_car::load_car(&bs, reader)?;
+
+    // TODO validations
+    Ok(())
+}
 
 #[test]
 fn conformance_test_runner() {
@@ -152,7 +175,29 @@ fn conformance_test_runner() {
         let file = File::open(entry.path()).unwrap();
         let reader = BufReader::new(file);
         let vector: TestVector = serde_json::from_reader(reader).unwrap();
-        println!("{:?}", vector);
+        match vector {
+            TestVector::Message {
+                selector,
+                meta,
+                car,
+                preconditions,
+                apply_messages,
+                postconditions,
+            } => {
+                if let Err(e) = execute_message_vector(
+                    selector,
+                    car,
+                    preconditions,
+                    apply_messages,
+                    postconditions,
+                ) {
+                    panic!(
+                        "Message vector failed:\n\tMeta: {:?}\n\tError: {}\n",
+                        meta, e
+                    );
+                }
+            }
+            _ => panic!("Unsupported test vector class"),
+        }
     }
-    panic!("here");
 }
