@@ -6,7 +6,7 @@ use num_traits::FromPrimitive;
 
 use crate::check_empty_params;
 use address::Address;
-use encoding::{tuple::*, Cbor};
+use encoding::{tuple::*, Cbor, CodecProtocol, Error};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
 use runtime::{ActorCode, Runtime};
@@ -41,7 +41,21 @@ pub struct SendReturn {
 #[derive(Default, Serialize, Deserialize)]
 pub struct FailToMarshalCBOR {}
 
-impl Cbor for FailToMarshalCBOR {}
+impl Cbor for FailToMarshalCBOR {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, Error> {
+        Err(Error::Marshalling {
+            description: "Automatic fail to Marshall".to_string(),
+            protocol: CodecProtocol::Cbor,
+        })
+    }
+
+    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, Error> {
+        Err(Error::Unmarshalling {
+            description: "Automatic fail to Unmarshal".to_string(),
+            protocol: CodecProtocol::Cbor,
+        })
+    }
+}
 
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
