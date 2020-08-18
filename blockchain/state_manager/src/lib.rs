@@ -118,9 +118,6 @@ where
     }
     /// Returns true if miner has been slashed or is considered invalid
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
-        // TODO seems unnecessary, follow up with lotus
-        let _mas: miner::State = self.load_actor_state(addr, state_cid)?;
-
         let spas: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
         let claims = make_map_with_root(&spas.claims, self.bs.as_ref())
