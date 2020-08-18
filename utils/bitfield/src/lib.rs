@@ -401,7 +401,7 @@ pub mod json {
 
     #[test]
     fn serialization_starts_with_ones() {
-        let mut bf = BitFieldJson(bitfield![1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1]);
+        let bf = BitFieldJson(bitfield![1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1]);
         let j = serde_json::to_string(&bf).unwrap();
         assert_eq!(j, "[0,6,3,2]");
         let bitfield: BitFieldJson = serde_json::from_str(&j).unwrap();
