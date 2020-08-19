@@ -96,6 +96,7 @@ mod tests {
     use futures::StreamExt;
     use message_pool::{MessagePool, MpoolRpcProvider};
     use serde_json::from_str;
+    use state_manager::StateManager;
     use std::sync::Arc;
     use wallet::MemKeyStore;
 
@@ -128,7 +129,7 @@ mod tests {
         });
 
         let state = Arc::new(RpcState {
-            store: Arc::new(MemoryDB::default()),
+            state_manager: StateManager::new(Arc::new(MemoryDB::default())),
             keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),

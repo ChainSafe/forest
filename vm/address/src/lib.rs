@@ -12,7 +12,8 @@ pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{blake2b_variable, de, ser, serde_bytes, Cbor};
+use encoding::{blake2b_variable, serde_bytes, Cbor};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -223,20 +224,20 @@ impl FromStr for Address {
     }
 }
 
-impl ser::Serialize for Address {
+impl Serialize for Address {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
-        S: ser::Serializer,
+        S: Serializer,
     {
         let address_bytes = self.to_bytes();
         serde_bytes::Serialize::serialize(&address_bytes, s)
     }
 }
 
-impl<'de> de::Deserialize<'de> for Address {
+impl<'de> Deserialize<'de> for Address {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: de::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
 
@@ -306,4 +307,26 @@ fn address_hash(ingest: &[u8]) -> [u8; 20] {
     let mut hash = [0u8; 20];
     hash.clone_from_slice(&digest);
     hash
+}
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use serde::{Deserialize, Deserializer, Serializer};
+    use std::borrow::Cow;
+
+    pub fn serialize<S>(m: &Address, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&encode(m))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Address, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let address_as_string: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        Ok(Address::from_str(&address_as_string).map_err(de::Error::custom)?)
+    }
 }

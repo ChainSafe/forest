@@ -27,7 +27,8 @@ use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM}
 use ipld_amt::Amt;
 use log::{trace, warn};
 use message::{Message, MessageReceipt, UnsignedMessage};
-use num_bigint::BigInt;
+use num_bigint::{bigint_ser, BigInt};
+use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -37,22 +38,23 @@ use std::sync::Arc;
 pub type CidPair = (Cid, Cid);
 
 /// Type to represent invocation of state call results
-pub struct InvocResult<Msg>
-where
-    Msg: Message,
-{
-    pub msg: Msg,
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct InvocResult {
+    pub msg: UnsignedMessage,
     pub msg_rct: Option<MessageReceipt>,
-    pub actor_error: Option<String>,
+    pub error: Option<String>,
 }
 
 // An alias Result that represents an InvocResult and an Error
-pub type StateCallResult<T> = Result<InvocResult<T>, Error>;
+pub type StateCallResult = Result<InvocResult, Error>;
 
-#[allow(dead_code)]
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
+    #[serde(with = "bigint_ser")]
     escrow: BigInt,
+    #[serde(with = "bigint_ser")]
     locked: BigInt,
 }
 
@@ -233,7 +235,7 @@ where
         bstate: &Cid,
         rand: &ChainRand,
         bheight: &ChainEpoch,
-    ) -> StateCallResult<UnsignedMessage>
+    ) -> StateCallResult
     where
         DB: BlockStore,
     {
@@ -270,17 +272,13 @@ where
             Ok(InvocResult {
                 msg: msg.clone(),
                 msg_rct: Some(apply_ret.msg_receipt.clone()),
-                actor_error: apply_ret.act_error.map(|e| e.to_string()),
+                error: apply_ret.act_error.map(|e| e.to_string()),
             })
         })
     }
 
     /// runs the given message and returns its result without any persisted changes.
-    pub fn call(
-        &self,
-        message: &mut UnsignedMessage,
-        tipset: Option<Tipset>,
-    ) -> StateCallResult<UnsignedMessage>
+    pub fn call(&self, message: &mut UnsignedMessage, tipset: Option<Tipset>) -> StateCallResult
     where
         DB: BlockStore,
     {
@@ -375,6 +373,53 @@ where
         })
     }
 
+    fn tipset_executed_message(
+        block_store: &DB,
+        tipset: &Tipset,
+        cid: &Cid,
+        (message_from_address, message_sequence): (&Address, &u64),
+    ) -> Result<Option<MessageReceipt>, Error>
+    where
+        DB: BlockStore,
+    {
+        if tipset.epoch() == 0 {
+            return Ok(None);
+        }
+        let tipset = chain::tipset_from_keys(block_store, tipset.parents())
+            .map_err(|err| Error::Other(err.to_string()))?;
+        let messages = chain::messages_for_tipset(block_store, &tipset)
+            .map_err(|err| Error::Other(err.to_string()))?;
+        messages
+            .iter()
+            .enumerate()
+            .rev()
+            .filter(|(_, s)| s.from() == message_from_address)
+            .filter_map(|(index,s)| {
+                if s.sequence() == *message_sequence {
+                    if s.cid().map(|s| &s == cid).unwrap_or_default() {
+                        return Some(
+                            chain::get_parent_reciept(
+                                block_store,
+                                tipset.blocks().first().unwrap(),
+                                index as u64,
+                            )
+                            .map_err(|err| {
+                                Error::Other(err.to_string())
+                            }),
+                        );
+                    }
+                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message_sequence, s.sequence());
+                    return Some(Err(Error::Other(error_msg)))
+                }
+                if s.sequence() < *message_sequence {
+                    return Some(Ok(None));
+                }
+
+                None
+            })
+            .next()
+            .unwrap_or_else(|| Ok(None))
+    }
     fn search_back_for_message(
         block_store: Arc<DB>,
         current: &Tipset,
@@ -443,54 +488,6 @@ where
             })?
             .1;
         Ok(message_receipt)
-    }
-
-    fn tipset_executed_message(
-        block_store: &DB,
-        tipset: &Tipset,
-        cid: &Cid,
-        (message_from_address, message_sequence): (&Address, &u64),
-    ) -> Result<Option<MessageReceipt>, Error>
-    where
-        DB: BlockStore,
-    {
-        if tipset.epoch() == 0 {
-            return Ok(None);
-        }
-        let tipset = chain::tipset_from_keys(block_store, tipset.parents())
-            .map_err(|err| Error::Other(err.to_string()))?;
-        let messages = chain::messages_for_tipset(block_store, &tipset)
-            .map_err(|err| Error::Other(err.to_string()))?;
-        messages
-            .iter()
-            .enumerate()
-            .rev()
-            .filter(|(_, s)| s.from() == message_from_address)
-            .filter_map(|(index,s)| {
-                if s.sequence() == *message_sequence {
-                    if s.cid().map(|s| &s == cid).unwrap_or_default() {
-                        return Some(
-                            chain::get_parent_reciept(
-                                block_store,
-                                tipset.blocks().first().unwrap(),
-                                index as u64,
-                            )
-                            .map_err(|err| {
-                                Error::Other(err.to_string())
-                            }),
-                        );
-                    }
-                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message_sequence, s.sequence());
-                    return Some(Err(Error::Other(error_msg)))
-                }
-                if s.sequence() < *message_sequence {
-                    return Some(Ok(None));
-                }
-
-                None
-            })
-            .next()
-            .unwrap_or_else(|| Ok(None))
     }
 
     /// WaitForMessage blocks until a message appears on chain. It looks backwards in the chain to see if this has already
@@ -679,7 +676,7 @@ where
         state_tree.lookup_id(addr).map_err(Error::State)
     }
 
-    pub fn market_balance(&mut self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
+    pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
         let market_state: market::State =
             self.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
 

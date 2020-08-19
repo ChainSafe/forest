@@ -2,7 +2,7 @@
 name = "forest_address"
 description = "Filecoin addresses for use in Forest"
 license = "MIT OR Apache-2.0"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
@@ -15,3 +15,6 @@ data-encoding-macro = "0.1.7"
 leb128 = "0.2.1"
 encoding = { package = "forest_encoding", path = "../../encoding", version = "0.1" }
 thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"]}
+[features]
+json = []
