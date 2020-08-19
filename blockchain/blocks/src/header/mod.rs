@@ -11,8 +11,8 @@ use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
 use num_bigint::{
-    biguint_ser::{BigUintDe, BigUintSer},
-    BigInt, BigUint,
+    bigint_ser::{BigIntDe, BigIntSer},
+    BigInt,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
@@ -20,6 +20,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use vm::TokenAmount;
 
 #[cfg(feature = "json")]
 pub mod json;
@@ -35,7 +36,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
 /// use address::Address;
 /// use cid::{Cid, multihash::Identity};
-/// use num_bigint::BigUint;
+/// use num_bigint::BigInt;
 /// use crypto::Signature;
 ///
 /// BlockHeader::builder()
@@ -49,7 +50,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .bls_aggregate(None) // optional
 ///     .signature(None) // optional
 ///     .parents(TipsetKeys::default()) // optional
-///     .weight(BigUint::from(0u8)) // optional
+///     .weight(BigInt::from(0u8)) // optional
 ///     .epoch(0) // optional
 ///     .timestamp(0) // optional
 ///     .ticket(Ticket::default()) // optional
@@ -69,7 +70,7 @@ pub struct BlockHeader {
 
     /// weight is the aggregate chain weight of the parent set
     #[builder(default)]
-    weight: BigUint,
+    weight: BigInt,
 
     /// epoch is the period in which a new block is generated.
     /// There may be multiple rounds in an epoch.
@@ -122,6 +123,9 @@ pub struct BlockHeader {
     /// aggregate signature of miner in block
     #[builder(default)]
     bls_aggregate: Option<Signature>,
+    /// aggregate signature of miner in block
+    #[builder(default)]
+    parent_base_fee: TokenAmount,
     // CACHE
     /// stores the cid for the block after the first call to `cid()`
     #[builder(default)]
@@ -150,7 +154,7 @@ impl Serialize for BlockHeader {
             &self.beacon_entries,
             &self.win_post_proof,
             &self.parents,
-            BigUintSer(&self.weight),
+            BigIntSer(&self.weight),
             &self.epoch,
             &self.state_root,
             &self.message_receipts,
@@ -159,6 +163,7 @@ impl Serialize for BlockHeader {
             &self.timestamp,
             &self.signature,
             &self.fork_signal,
+            BigIntSer(&self.parent_base_fee),
         )
             .serialize(serializer)
     }
@@ -176,7 +181,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             beacon_entries,
             win_post_proof,
             parents,
-            BigUintDe(weight),
+            BigIntDe(weight),
             epoch,
             state_root,
             message_receipts,
@@ -185,6 +190,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             timestamp,
             signature,
             fork_signal,
+            BigIntDe(parent_base_fee),
         ) = Deserialize::deserialize(deserializer)?;
 
         let header = BlockHeader::builder()
@@ -203,6 +209,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             .timestamp(timestamp)
             .ticket(ticket)
             .bls_aggregate(bls_aggregate)
+            .parent_base_fee(parent_base_fee)
             .build_and_validate()
             .unwrap();
 
@@ -235,7 +242,7 @@ impl BlockHeader {
         &self.parents
     }
     /// Getter for BlockHeader weight
-    pub fn weight(&self) -> &BigUint {
+    pub fn weight(&self) -> &BigInt {
         &self.weight
     }
     /// Getter for BlockHeader epoch
@@ -438,7 +445,7 @@ mod tests {
     #[test]
     fn symmetric_header_encoding() {
         // This test vector is the genesis header for interopnet config
-        let bz = hex::decode("8f4200008158207672662070726f6f66303030303030307672662070726f6f663030303030303081408182005820000000000000000000000000000000000000000000000000000000000000000080804000d82a5827000171a0e402206b5f2a7a2c2be076e0635b908016ddca0de082e14d9c8d776a017660628b5bfdd82a5827000171a0e4022001cd927fdccd7938faba323e32e70c44541b8a83f5dc941d90866565ef5af14ad82a5827000171a0e402208d6f0e09e0453685b8816895cd56a7ee2fce600026ee23ac445d78f020c1ca40f61a5ebdc1b8f600").unwrap();
+        let bz = hex::decode("904300e80781586082cb7477a801f55c1f2ea5e5d1167661feea60a39f697e1099af132682b81cc5047beacf5b6e80d5f52b9fd90323fb8510a5396416dd076c13c85619e176558582744053a3faef6764829aa02132a1571a76aabdc498a638ea0054d3bb57f41d82015860812d2396cc4592cdf7f829374b01ffd03c5469a4b0a9acc5ccc642797aa0a5498b97b28d90820fedc6f79ff0a6005f5c15dbaca3b8a45720af7ed53000555667207a0ccb50073cd24510995abd4c4e45c1e9e114905018b2da9454190499941e818201582012dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a608182004b76616c69642070726f6f6681d82a5827000171a0e4022030f89a8b0373ad69079dbcbc5addfe9b34dce932189786e50d3eb432ede3ba9c43000f0001d82a5827000171a0e4022052238c7d15c100c1b9ebf849541810c9e3c2d86e826512c6c416d2318fcd496dd82a5827000171a0e40220e5658b3d18cd06e1db9015b4b0ec55c123a24d5be1ea24d83938c5b8397b4f2fd82a5827000171a0e4022018d351341c302a21786b585708c9873565a0d07c42521d4aaf52da3ff6f2e461586102c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001a5f2c5439586102b5cd48724dce0fec8799d77fd6c5113276e7f470c8391faa0b5a6033a3eaf357d635705c36abe10309d73592727289680515afd9d424793ba4796b052682d21b03c5c8a37d94827fecc59cdc5750e198fdf20dee012f4d627c6665132298ab95004500053724e0").unwrap();
         let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
         assert_eq!(hex::encode(header.marshal_cbor().unwrap()), hex::encode(bz));
     }
