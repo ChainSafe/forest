@@ -16,7 +16,7 @@ use clock::ChainEpoch;
 use fil_types::SectorNumber;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
-    json::MessageReceiptJson,
+    message_receipt::json::MessageReceiptJson,
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
 use serde::{Deserialize, Serialize};
