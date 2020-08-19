@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod base_fee;
+pub mod base_fee;
 mod chain_store;
 mod errors;
 mod tip_index;
