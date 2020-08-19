@@ -47,6 +47,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     use chain_api::*;
+    use gas_api::*;
     use mpool_api::*;
     use sync_api::*;
     use wallet_api::*;
@@ -145,6 +146,16 @@ where
         )
         .with_method("Filecoin.StateGetReceipt", state_get_receipt::<DB, KS>)
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS>)
+        // Gas API
+        .with_method(
+            "Filecoin.GasEstimateGasLimit",
+            gas_estimate_gas_limit::<DB, KS>,
+        )
+        .with_method(
+            "Filecoin.GasEstimateGasPremium",
+            gas_estimate_gas_premium::<DB, KS>,
+        )
+        .with_method("Filecoin.GasEstimateFeeCap", gas_estimate_fee_cap::<DB, KS>)
         .finish_unwrapped();
 
     let mut app = tide::Server::with_state(rpc);

@@ -838,7 +838,7 @@ pub mod test_provider {
             Err(Errors::InvalidToAddr)
         }
 
-        fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
+        fn chain_compute_base_fee(&self, _ts: &Tipset) -> Result<BigInt, Error> {
             Ok(100.into())
         }
     }
