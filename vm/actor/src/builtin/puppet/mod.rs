@@ -6,11 +6,14 @@ use num_traits::FromPrimitive;
 
 use crate::check_empty_params;
 use address::Address;
-use encoding::{tuple::*, Cbor, CodecProtocol, Error};
+use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
 use runtime::{ActorCode, Runtime};
+use serde::de::{self, Deserializer};
+use serde::ser::{self, Serializer};
 use serde::{Deserialize, Serialize};
+
 use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 // * Updated to specs-actors commit: e3ae346e69f7ad353b4eab6c20d8c6a5f497a039
@@ -40,24 +43,32 @@ pub struct SendReturn {
     pub code: ExitCode,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct FailToMarshalCBOR {}
 
-impl Cbor for FailToMarshalCBOR {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, Error> {
-        Err(Error::Marshalling {
-            description: "Automatic fail to Marshall".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
-    }
-
-    fn unmarshal_cbor(_bz: &[u8]) -> Result<Self, Error> {
-        Err(Error::Unmarshalling {
-            description: "Automatic fail to Unmarshal".to_string(),
-            protocol: CodecProtocol::Cbor,
-        })
+impl Serialize for FailToMarshalCBOR {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Err(ser::Error::custom(
+            "Automatic fail when serializing FailToMarshalCBOR",
+        ))
     }
 }
+
+impl<'de> Deserialize<'de> for FailToMarshalCBOR {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Err(de::Error::custom(
+            "Automatic fail when deserializing FailToMarshalCBOR",
+        ))
+    }
+}
+
+impl Cbor for FailToMarshalCBOR {}
 
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
