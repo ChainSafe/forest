@@ -56,8 +56,8 @@ mod path_json {
     where
         D: Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(Path::from(s.as_str()))
+        let s: std::borrow::Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        Ok(Path::from(s.as_ref()))
     }
 }
 
