@@ -120,6 +120,11 @@ fn contains_any() {
         BitField::from_iter(vec![0, 2, 5, 6]).contains_any(&BitField::from_iter(vec![1, 3, 5])),
         true
     );
+
+    assert_eq!(
+        BitField::from_iter(vec![1, 2, 3]).contains_any(&BitField::from_iter(vec![1, 2, 3])),
+        true
+    );
 }
 
 #[test]
@@ -135,7 +140,7 @@ fn contains_all() {
     );
 
     assert_eq!(
-        BitField::from_iter(vec![1, 2, 3]).contains_any(&BitField::from_iter(vec![1, 2, 3])),
+        BitField::from_iter(vec![1, 2, 3]).contains_all(&BitField::from_iter(vec![1, 2, 3])),
         true
     );
 }

@@ -285,6 +285,12 @@ pub mod tipset_json {
         }
     }
 
+    impl From<Tipset> for TipsetJson {
+        fn from(wrapper: Tipset) -> Self {
+            TipsetJson(wrapper)
+        }
+    }
+
     pub fn serialize<S>(m: &Tipset, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

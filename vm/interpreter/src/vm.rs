@@ -114,7 +114,7 @@ where
                 penalty,
                 gas_reward,
                 // TODO revisit this if/when removed from go clients
-                ticket_count: 1,
+                win_count: 1,
             })?;
 
             // TODO change this just just one get and update sequence in memory after interop
@@ -412,12 +412,6 @@ fn check_message(msg: &UnsignedMessage) -> Result<(), &'static str> {
     }
     if msg.gas_limit() < 0 {
         return Err("Message has negative gas limit");
-    }
-    if msg.value() == &BigInt::zero() {
-        return Err("Message has no value set");
-    }
-    if msg.gas_price() == &BigInt::zero() {
-        return Err("Message has no gas price set");
     }
 
     Ok(())

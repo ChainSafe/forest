@@ -11,3 +11,15 @@ pub const EPOCHS_IN_YEAR: i64 = SECONDS_IN_YEAR / EPOCH_DURATION_SECONDS;
 
 /// The expected number of block producers in each epoch.
 pub const EXPECTED_LEADERS_PER_EPOCH: u64 = 5;
+
+/// Quality multiplier for committed capacity (no deals) in a sector
+pub const QUALITY_BASE_MULTIPLIER: i64 = 10;
+
+/// Quality multiplier for unverified deals in a sector
+pub const DEAL_WEIGHT_MULTIPLIER: i64 = 10;
+
+/// Quality multiplier for verified deals in a sector
+pub const VERIFIED_DEAL_WEIGHT_MULTIPLIER: i64 = 100;
+
+/// Precision used for making QA power calculations
+pub const SECTOR_QUALITY_PRECISION: i64 = 20;
