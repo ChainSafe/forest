@@ -12,7 +12,9 @@ use runtime::{ActorCode, Runtime};
 use serde::de::{self, Deserializer};
 use serde::ser::{self, Serializer};
 use serde::{Deserialize, Serialize};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, actor_error};
+use vm::{
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+};
 
 // * Updated to specs-actors commit: e3ae346e69f7ad353b4eab6c20d8c6a5f497a039
 
@@ -202,8 +204,7 @@ impl ActorCode for Actor {
                 Self::runtime_transaction_marshal_cbor_failure(rt)?;
                 Ok(Serialized::default())
             }
-            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method"))
-
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
