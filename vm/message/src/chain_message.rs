@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Enum to encpasulate signed and unsigned messages. Useful when working with both types
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash)]
 pub enum ChainMessage {
     Unsigned(UnsignedMessage),
     Signed(SignedMessage),
