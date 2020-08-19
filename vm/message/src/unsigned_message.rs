@@ -6,7 +6,7 @@ use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
@@ -160,7 +160,6 @@ impl Cbor for UnsignedMessage {}
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::de;
 
     /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
     #[derive(Deserialize, Serialize, Debug)]
@@ -175,6 +174,12 @@ pub mod json {
     impl From<UnsignedMessageJson> for UnsignedMessage {
         fn from(wrapper: UnsignedMessageJson) -> Self {
             wrapper.0
+        }
+    }
+
+    impl From<UnsignedMessage> for UnsignedMessageJson {
+        fn from(wrapper: UnsignedMessage) -> Self {
+            UnsignedMessageJson(wrapper)
         }
     }
 

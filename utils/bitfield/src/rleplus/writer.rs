@@ -72,7 +72,8 @@ mod tests {
     #[test]
     fn write() {
         let mut writer = BitWriter::new();
-        assert_eq!(writer.clone().finish(), &[]);
+        let empty_vec: Vec<u8> = Vec::new();
+        assert_eq!(writer.clone().finish(), empty_vec);
 
         writer.write(0b0000_0000, 4);
         assert_eq!(writer.clone().finish(), &[0b0000_0000]);
