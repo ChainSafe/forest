@@ -1,14 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{gas_tracker::price_list_by_epoch, vm_send, ChainRand, DefaultRuntime};
+use super::{gas_tracker::price_list_by_epoch, vm_send, DefaultRuntime, Rand};
 use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use blocks::FullTipset;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::NetworkParams;
+use fil_types::{DevnetParams, NetworkParams};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
@@ -24,27 +24,28 @@ use vm::{actor_error, ActorError, ExitCode, Serialized};
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, SYS, P> {
+pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
-    rand: &'r ChainRand,
+    rand: &'r R,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, SYS, P> VM<'db, 'r, DB, SYS, P>
+impl<'db, 'r, DB, SYS, R, P> VM<'db, 'r, DB, SYS, R, P>
 where
     DB: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
+    R: Rand,
 {
     pub fn new(
         root: &Cid,
         store: &'db DB,
         epoch: ChainEpoch,
         syscalls: SYS,
-        rand: &'r ChainRand,
+        rand: &'r R,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
         Ok(VM {
@@ -198,7 +199,7 @@ where
 
     /// Applies the state transition for a single message
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
-    fn apply_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
+    pub fn apply_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
         check_message(msg)?;
 
         let pl = price_list_by_epoch(self.epoch());
@@ -371,7 +372,7 @@ where
         gas_cost: Option<i64>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, P>>,
+        Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, R, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(

@@ -22,7 +22,9 @@ db = { path = "../../node/db/" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
 forest_car = { path = "../../ipld/car" }
 flate2 = "1.0"
-
-# TODO remove
-unsigned-varint = "0.4"
-integer-encoding = "1"
+encoding = { package = "forest_encoding", path = "../../encoding" }
+interpreter = { path = "../../vm/interpreter/" }
+runtime = { path = "../../vm/runtime/" }
+fil_types = { path = "../../types" }
+crypto = { package = "forest_crypto", path = "../../crypto" }
+address = { package = "forest_address", path = "../../vm/address" }

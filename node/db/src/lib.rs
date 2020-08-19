@@ -54,7 +54,8 @@ pub trait Store {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        values.iter()
+        values
+            .iter()
             .map(|(key, value)| self.write(key, value))
             .collect()
     }

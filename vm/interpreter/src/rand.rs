@@ -7,6 +7,18 @@ use crypto::DomainSeparationTag;
 use ipld_blockstore::BlockStore;
 use std::error::Error;
 
+/// Randomness provider trait
+pub trait Rand {
+    /// Gets 32 bytes of randomness  paramaterized by the DomainSeparationTag, ChainEpoch, Entropy, and Tipset
+    fn get_randomness<DB: BlockStore>(
+        &self,
+        db: &DB,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>>;
+}
+
 /// Allows for deriving the randomness from a particular tipset
 #[derive(Debug, Clone)]
 pub struct ChainRand {
@@ -18,9 +30,10 @@ impl ChainRand {
     pub fn new(blks: TipsetKeys) -> Self {
         Self { blks }
     }
+}
 
-    /// Gets 32 bytes of randomness  paramaterized by the DomainSeparationTag, ChainEpoch, Entropy, and Tipset
-    pub fn get_randomness<DB: BlockStore>(
+impl Rand for ChainRand {
+    fn get_randomness<DB: BlockStore>(
         &self,
         db: &DB,
         pers: DomainSeparationTag,

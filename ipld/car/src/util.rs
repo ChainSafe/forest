@@ -6,8 +6,7 @@ use cid::Cid;
 use std::io::Read;
 
 pub(crate) fn ld_read<R: Read>(mut reader: &mut R) -> Result<Vec<u8>, Error> {
-    let l =
-        unsigned_varint::io::read_u64(&mut reader).map_err(|e| Error::Other(e.to_string()))?;
+    let l = unsigned_varint::io::read_u64(&mut reader).map_err(|e| Error::Other(e.to_string()))?;
     let mut buf = Vec::with_capacity(l as usize);
     reader
         .take(l)

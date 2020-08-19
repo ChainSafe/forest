@@ -3,13 +3,19 @@
 
 #![cfg(feature = "submodule_tests")]
 
+use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
+use crypto::{DomainSeparationTag, Signature};
+use encoding::Cbor;
+use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
 use flate2::read::GzDecoder;
-use forest_message::MessageReceipt;
+use forest_message::{MessageReceipt, UnsignedMessage};
+use interpreter::{ApplyRet, Rand, VM};
+use runtime::{ConsensusFault, Syscalls};
 use serde::{Deserialize, Deserializer};
+use std::error::Error as StdError;
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::{BufReader, Read};
 use vm::{ExitCode, Serialized};
 use walkdir::{DirEntry, WalkDir};
@@ -143,7 +149,63 @@ fn is_test_file(entry: &DirEntry) -> bool {
         .map(|s| s.ends_with(".json"))
         .unwrap_or(false)
 }
-use integer_encoding::{VarIntReader, VarIntWriter};
+
+struct TestRand;
+impl Rand for TestRand {
+    fn get_randomness<DB: blockstore::BlockStore>(
+        &self,
+        _: &DB,
+        _: DomainSeparationTag,
+        _: ChainEpoch,
+        _: &[u8],
+    ) -> Result<[u8; 32], Box<dyn StdError>> {
+        Ok(*b"i_am_random_____i_am_random_____")
+    }
+}
+
+struct TestSyscalls;
+impl Syscalls for TestSyscalls {
+    fn verify_signature(
+        &self,
+        _: &Signature,
+        _: &Address,
+        _: &[u8],
+    ) -> Result<(), Box<dyn StdError>> {
+        Ok(())
+    }
+    fn verify_seal(&self, _: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        Ok(())
+    }
+    fn verify_post(&self, _: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        Ok(())
+    }
+
+    // TODO check if this should be defaulted as well
+    fn verify_consensus_fault(
+        &self,
+        _: &[u8],
+        _: &[u8],
+        _: &[u8],
+    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
+        Ok(None)
+    }
+}
+
+fn execute_message(
+    msg: &UnsignedMessage,
+    pre_root: &Cid,
+    bs: &db::MemoryDB,
+    epoch: ChainEpoch,
+) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
+    let mut vm = VM::<_, _, _>::new(pre_root, bs, epoch, TestSyscalls, &TestRand)?;
+
+    // TODO register puppet actor (and conditionally chaos actor)
+
+    let ret = vm.apply_message(msg)?;
+
+    let root = vm.flush()?;
+    Ok((ret, root))
+}
 
 fn execute_message_vector(
     _selector: Option<String>,
@@ -151,8 +213,11 @@ fn execute_message_vector(
     preconditions: PreConditions,
     apply_messages: Vec<MessageVector>,
     postconditions: PostConditions,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn StdError>> {
     let bs = db::MemoryDB::default();
+
+    let mut epoch = preconditions.epoch;
+    let mut root = preconditions.state_tree.root_cid;
 
     // Decode gzip bytes
     let mut d = GzDecoder::new(car.as_slice());
@@ -163,11 +228,50 @@ fn execute_message_vector(
     let reader = BufReader::new(decoded.as_slice());
     forest_car::load_car(&bs, reader)?;
 
-    // TODO validations
+    for (i, m) in apply_messages.iter().enumerate() {
+        let msg = UnsignedMessage::unmarshal_cbor(&m.bytes)?;
+
+        if let Some(ep) = m.epoch {
+            epoch = ep;
+        }
+
+        let (ret, post_root) = execute_message(&msg, &root, &bs, epoch)?;
+        root = post_root;
+
+        let receipt = &postconditions.receipts[i];
+        let (expected, actual) = (receipt.exit_code, ret.msg_receipt.exit_code);
+        if expected != actual {
+            return Err(format!(
+                "exit code of msg {} did not match; expected: {:?}, got {:?}",
+                i, expected, actual
+            )
+            .into());
+        }
+
+        let (expected, actual) = (receipt.gas_used, ret.msg_receipt.gas_used);
+        if expected != actual {
+            return Err(format!(
+                "gas used of msg {} did not match; expected: {}, got {}",
+                i, expected, actual
+            )
+            .into());
+        }
+    }
+
+    if root != postconditions.state_tree.root_cid {
+        return Err(format!(
+            "wrong post root cid; expected {}, but got {}",
+            postconditions.state_tree.root_cid, root
+        )
+        .into());
+    }
+
     Ok(())
 }
 
 #[test]
+// TODO remove ignore when blocking changes come in
+#[ignore]
 fn conformance_test_runner() {
     let walker = WalkDir::new("test-vectors/corpus").into_iter();
     for entry in walker.filter_map(|e| e.ok()).filter(is_test_file) {
