@@ -33,7 +33,7 @@ pub async fn status(client: &mut RawClient<HTC>) -> Result<RPCSyncState, JsonRpc
 pub async fn submit_block(
     client: &mut RawClient<HTC>,
     gossip_block: String,
-) -> Result<(), JsonRpcError> {
+) -> Result<Option<()>, JsonRpcError> {
     let block_json: GossipBlockJson = from_str(&gossip_block)?;
     Ok(Filecoin::submit_block(client, block_json).await?)
 }

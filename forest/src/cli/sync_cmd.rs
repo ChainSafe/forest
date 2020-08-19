@@ -61,56 +61,58 @@ impl SyncCommand {
 
         match self {
             SyncCommand::Status {} => {
-                let response = status(&mut client).await;
-                if let Ok(r) = response {
-                    println!("sync status:");
-                    for (i, active_sync) in r.active_syncs.iter().enumerate() {
-                        println!("Worker {}:", i);
-                        let mut height_diff = 0;
-                        let height = 0;
+                let response = status(&mut client)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
 
-                        let mut base: Option<Vec<Cid>> = None;
-                        let mut target: Option<Vec<Cid>> = None;
+                println!("sync status:");
+                for (i, active_sync) in response.active_syncs.iter().enumerate() {
+                    println!("Worker {}:", i);
+                    let mut height_diff = 0;
+                    let height = 0;
 
-                        if let Some(b) = &active_sync.base {
-                            base = Some(b.cids().to_vec());
-                            height_diff = b.epoch();
-                        }
+                    let mut base: Option<Vec<Cid>> = None;
+                    let mut target: Option<Vec<Cid>> = None;
 
-                        if let Some(b) = &active_sync.target {
-                            target = Some(b.cids().to_vec());
-                            height_diff = b.epoch() - height_diff;
-                        } else {
-                            height_diff = 0;
-                        }
+                    if let Some(b) = &active_sync.base {
+                        base = Some(b.cids().to_vec());
+                        height_diff = b.epoch();
+                    }
 
-                        println!("\tBase:\t{:?}", base.unwrap_or_default());
-                        println!(
-                            "\tTarget:\t{:?} Height:\t({})",
-                            target.unwrap_or_default(),
-                            height
-                        );
-                        println!("\tHeight diff:\t{}", height_diff);
-                        println!("\tStage: {}", active_sync.stage());
-                        println!("\tHeight: {}", active_sync.epoch);
-                        if let Some(end_time) = active_sync.end {
-                            if let Some(start_time) = active_sync.start {
-                                let zero_time = get_naive_time_zero();
+                    if let Some(b) = &active_sync.target {
+                        target = Some(b.cids().to_vec());
+                        height_diff = b.epoch() - height_diff;
+                    } else {
+                        height_diff = 0;
+                    }
 
-                                if end_time == zero_time {
-                                    if start_time != zero_time {
-                                        let time_now = get_naive_time_now();
-                                        println!(
-                                            "\tElapsed: {:?}\n",
-                                            time_now.signed_duration_since(start_time)
-                                        );
-                                    }
-                                } else {
+                    println!("\tBase:\t{:?}", base.unwrap_or_default());
+                    println!(
+                        "\tTarget:\t{:?} Height:\t({})",
+                        target.unwrap_or_default(),
+                        height
+                    );
+                    println!("\tHeight diff:\t{}", height_diff);
+                    println!("\tStage: {}", active_sync.stage());
+                    println!("\tHeight: {}", active_sync.epoch);
+                    if let Some(end_time) = active_sync.end {
+                        if let Some(start_time) = active_sync.start {
+                            let zero_time = get_naive_time_zero();
+
+                            if end_time == zero_time {
+                                if start_time != zero_time {
+                                    let time_now = get_naive_time_now();
                                     println!(
                                         "\tElapsed: {:?}\n",
-                                        end_time.signed_duration_since(start_time)
+                                        time_now.signed_duration_since(start_time)
                                     );
                                 }
+                            } else {
+                                println!(
+                                    "\tElapsed: {:?}\n",
+                                    end_time.signed_duration_since(start_time)
+                                );
                             }
                         }
                     }
