@@ -17,7 +17,6 @@ members = [
     "vm/interpreter",
     "node/clock",
     "node/rpc",
-    "node/state_api",
     "crypto",
     "encoding",
     "ipld/cid",

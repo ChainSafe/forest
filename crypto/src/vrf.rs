@@ -37,6 +37,7 @@ impl VRFProof {
 pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use std::borrow::Cow;
 
     pub fn serialize<S>(m: &VRFProof, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -49,7 +50,9 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(VRFProof::new(base64::decode(s).map_err(de::Error::custom)?))
+        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        Ok(VRFProof::new(
+            base64::decode(s.as_ref()).map_err(de::Error::custom)?,
+        ))
     }
 }
