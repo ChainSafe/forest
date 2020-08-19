@@ -17,6 +17,15 @@ pub enum ChainMessage {
     Signed(SignedMessage),
 }
 
+impl ChainMessage {
+    pub fn message(&self) -> &UnsignedMessage {
+        match self {
+            Self::Unsigned(m) => &m,
+            Self::Signed(sm) => &sm.message(),
+        }
+    }
+}
+
 impl Message for ChainMessage {
     fn from(&self) -> &Address {
         match self {
@@ -88,6 +97,20 @@ impl Message for ChainMessage {
         match self {
             Self::Signed(t) => t.gas_premium(),
             Self::Unsigned(t) => t.gas_premium(),
+        }
+    }
+
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
+        match self {
+            Self::Signed(t) => t.set_gas_fee_cap(cap),
+            Self::Unsigned(t) => t.set_gas_fee_cap(cap),
+        }
+    }
+
+    fn set_gas_premium(&mut self, prem: TokenAmount) {
+        match self {
+            Self::Signed(t) => t.set_gas_premium(prem),
+            Self::Unsigned(t) => t.set_gas_premium(prem),
         }
     }
 }

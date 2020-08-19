@@ -72,6 +72,10 @@ where
         self.epoch
     }
 
+    pub fn state(&self) -> &StateTree<'_, DB> {
+        &self.state
+    }
+
     /// Apply all messages from a tipset
     /// Returns the receipts from the transactions.
     pub fn apply_tipset_messages(
@@ -206,7 +210,7 @@ where
 
     /// Applies the state transition for a single message
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
-    fn apply_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
+    pub fn apply_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
         check_message(msg)?;
 
         let pl = price_list_by_epoch(self.epoch());

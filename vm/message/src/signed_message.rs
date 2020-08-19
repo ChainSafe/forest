@@ -100,6 +100,14 @@ impl Message for SignedMessage {
     fn gas_premium(&self) -> &TokenAmount {
         &self.message.gas_premium()
     }
+
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
+        self.message.set_gas_fee_cap(cap);
+    }
+
+    fn set_gas_premium(&mut self, prem: TokenAmount) {
+        self.message.set_gas_premium(prem);
+    }
 }
 
 impl Cbor for SignedMessage {

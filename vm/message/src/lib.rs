@@ -42,4 +42,8 @@ pub trait Message {
     fn gas_fee_cap(&self) -> &TokenAmount;
     /// gets gas premium for the message
     fn gas_premium(&self) -> &TokenAmount;
+    /// sets the gas fee cap
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount);
+    /// sets the gas premium
+    fn set_gas_premium(&mut self, prem: TokenAmount);
 }

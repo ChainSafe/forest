@@ -8,7 +8,7 @@ use actor::{
     init, market, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
     STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
 };
-use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
+use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
@@ -26,7 +26,7 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
-use message::{Message, MessageReceipt, UnsignedMessage};
+use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
@@ -100,7 +100,7 @@ where
             .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }
-    fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
+    pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
         let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
         state.get_actor(addr).map_err(Error::State)
     }
@@ -295,6 +295,56 @@ where
         let state = ts.parent_state();
         let chain_rand = ChainRand::new(ts.key().to_owned());
         self.call_raw(message, state, &chain_rand, &ts.epoch())
+    }
+
+    pub async fn call_with_gas(
+        &self,
+        message: &mut UnsignedMessage,
+        prior_messages: &[ChainMessage],
+        tipset: Option<Tipset>,
+    ) -> StateCallResult
+    where
+        DB: BlockStore,
+    {
+        let ts = if let Some(t_set) = tipset {
+            t_set
+        } else {
+            chain::get_heaviest_tipset(self.get_block_store_ref())
+                .map_err(|_| Error::Other("Could not get heaviest tipset".to_string()))?
+                .ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?
+        };
+        let (st, _) = self
+            .tipset_state(&ts)
+            .await
+            .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
+        let chain_rand = ChainRand::new(ts.key().to_owned());
+
+        let mut vm = VM::<_, _, DevnetParams>::new(
+            &st,
+            self.bs.as_ref(),
+            ts.epoch() + 1,
+            DefaultSyscalls::new(self.bs.as_ref()),
+            &chain_rand,
+            ts.blocks()[0].parent_base_fee().clone(),
+        )?;
+
+        for msg in prior_messages {
+            vm.apply_message(&msg.message())?;
+        }
+        let from_actor = vm
+            .state()
+            .get_actor(message.from())
+            .map_err(|e| Error::Other(format!("Could not get actor from state: {}", e)))?
+            .ok_or(Error::Other("cant find actor in state tree".to_string()))?;
+        message.set_sequence(from_actor.sequence);
+
+        let ret = vm.apply_message(&message)?;
+
+        Ok(InvocResult {
+            msg: message.clone(),
+            msg_rct: Some(ret.msg_receipt.clone()),
+            error: ret.act_error.map(|e| e.to_string()),
+        })
     }
 
     /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
@@ -703,5 +753,29 @@ where
         };
 
         Ok(out)
+    }
+
+    pub async fn resolve_to_key_addr(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> Result<Address, Box<dyn StdError>> {
+        match addr.protocol() {
+            Protocol::BLS | Protocol::Secp256k1 => return Ok(addr.clone()),
+            Protocol::Actor => {
+                return Err(
+                    Error::Other("cannot resolve actor address to key address".to_string()).into(),
+                )
+            }
+            _ => {}
+        };
+        let (st, _) = self.tipset_state(&ts).await?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), &st).map_err(Error::State)?;
+
+        Ok(interpreter::resolve_to_key_addr(
+            &state,
+            self.bs.as_ref(),
+            &addr,
+        )?)
     }
 }

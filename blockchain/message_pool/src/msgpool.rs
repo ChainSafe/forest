@@ -476,7 +476,7 @@ where
 
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
     /// each messsage's sequence. If no corresponding messages found, return None result type
-    async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
+    pub async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let pending = self.pending.read().await;
         let mset = pending.get(a)?;
         if mset.msgs.is_empty() {

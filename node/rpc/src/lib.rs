@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod chain_api;
+mod gas_api;
 mod mpool_api;
 mod state_api;
 mod sync_api;
 mod wallet_api;
-mod gas_api;
 
 use crate::state_api::*;
 use async_std::sync::{RwLock, Sender};
