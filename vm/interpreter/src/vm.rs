@@ -366,6 +366,7 @@ where
         })
     }
     /// Instantiates a new Runtime, and calls internal_send to do the execution.
+    #[allow(clippy::type_complexity)]
     fn send<'m>(
         &mut self,
         msg: &'m UnsignedMessage,

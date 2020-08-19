@@ -6,7 +6,6 @@ use address::Address;
 use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
-use fil_types::DevnetParams;
 use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
@@ -94,7 +93,7 @@ fn transfer_test() {
     let default_syscalls = DefaultSyscalls::new(&store);
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
-    let mut runtime = DefaultRuntime::<_, _, DevnetParams>::new(
+    let mut runtime = DefaultRuntime::<_, _, _>::new(
         &mut state,
         &store,
         &default_syscalls,

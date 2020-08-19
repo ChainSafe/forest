@@ -11,7 +11,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
-use fil_types::NetworkParams;
+use fil_types::{DevnetParams, NetworkParams};
 use forest_encoding::Cbor;
 use forest_encoding::{error::Error as EncodingError, to_vec};
 use ipld_blockstore::BlockStore;
@@ -50,7 +50,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P> {
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P = DevnetParams> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
