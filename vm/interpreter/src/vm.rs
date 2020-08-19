@@ -480,7 +480,7 @@ fn compute_gas_outputs(
     refund -= &out.over_estimation_burn;
     out.refund = refund;
 
-    return out;
+    out
 }
 
 pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {

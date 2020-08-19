@@ -1109,7 +1109,7 @@ mod tests {
         let (bls, secp) = construct_messages();
 
         let expected_root =
-            Cid::from_raw_cid("bafy2bzacebx7t56l6urh4os4kzar5asc5hmbhl7so6sfkzcgpjforkwylmqxa")
+            Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
         let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
