@@ -642,6 +642,19 @@ where
             Err(err) => error_vec.push(err.to_string()),
         }
 
+        // base fee check
+        let base_fee = chain::compute_base_fee(self.chain_store.db.as_ref(), &parent_tipset)
+            .map_err(|e| {
+                Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
+            })?;
+        if &base_fee != block.header().parent_base_fee() {
+            error_vec.push(format!(
+                "base fee doesnt match: {} (header), {} (computed)",
+                block.header().parent_base_fee(),
+                base_fee
+            ));
+        }
+
         let slash = self
             .state_manager
             .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
