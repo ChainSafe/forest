@@ -173,6 +173,7 @@ impl MockRuntime {
         self.state()
     }
 
+    #[allow(dead_code)]
     pub fn expect_validate_caller_addr(&mut self, addr: Vec<Address>) {
         assert!(addr.len() > 0, "addrs must be non-empty");
         self.expect_validate_caller_addr = Some(addr);

@@ -13,11 +13,13 @@ use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Serialize};
 use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
+// * Updated to specs-actors commit: e3ae346e69f7ad353b4eab6c20d8c6a5f497a039
+
 #[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
-    SendMethod = 2,
+    Send = 2,
     SendMarshalCBORFailure = 3,
     ReturnMarshalCBORFailure = 4,
     RuntimeTransactionMarshalCBORFailure = 5,
@@ -105,7 +107,10 @@ impl Actor {
         })
     }
 
-    fn send_failure<BS, RT>(rt: &mut RT, params: SendParams) -> Result<SendReturn, ActorError>
+    fn send_marshal_cbor_failure<BS, RT>(
+        rt: &mut RT,
+        params: SendParams,
+    ) -> Result<SendReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -132,7 +137,7 @@ impl Actor {
         })
     }
 
-    fn return_failure<BS, RT>(rt: &mut RT) -> Result<FailToMarshalCBOR, ActorError>
+    fn return_marshal_cbor_failure<BS, RT>(rt: &mut RT) -> Result<FailToMarshalCBOR, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -141,7 +146,7 @@ impl Actor {
         Ok(FailToMarshalCBOR::default())
     }
 
-    fn runtime_transaction_failure<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+    fn runtime_transaction_marshal_cbor_failure<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -175,23 +180,23 @@ impl ActorCode for Actor {
                 Self::constructor(rt)?;
                 Ok(Serialized::default())
             }
-            Some(Method::SendMethod) => {
+            Some(Method::Send) => {
                 let res = Self::send(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::SendMarshalCBORFailure) => {
-                let res = Self::send_failure(rt, params.deserialize()?)?;
+                let res = Self::send_marshal_cbor_failure(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::ReturnMarshalCBORFailure) => {
                 check_empty_params(params)?;
-                let res = Self::return_failure(rt)?;
+                let res = Self::return_marshal_cbor_failure(rt)?;
                 Ok(Serialized::serialize(res)?)
             }
 
             Some(Method::RuntimeTransactionMarshalCBORFailure) => {
                 check_empty_params(params)?;
-                let _ = Self::runtime_transaction_failure(rt)?;
+                Self::runtime_transaction_marshal_cbor_failure(rt)?;
                 Ok(Serialized::default())
             }
 

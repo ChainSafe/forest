@@ -3,12 +3,10 @@
 
 mod common;
 
-use actor::{puppet::*, PUPPET_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID};
+use actor::{puppet::*, PUPPET_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use common::*;
-use vm::{
-    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
-};
+use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn setup() -> MockRuntime {
     let receiver = Address::new_id(100);
@@ -38,7 +36,7 @@ fn puppet_send(rt: &mut MockRuntime, params: SendParams) -> Result<SendReturn, A
     rt.expect_validate_caller_any();
     let serialized = rt.call(
         &*PUPPET_ACTOR_CODE_ID,
-        Method::SendMethod as u64,
+        Method::Send as u64,
         &Serialized::serialize(params).unwrap(),
     )?;
 
