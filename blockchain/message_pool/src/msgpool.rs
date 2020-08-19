@@ -723,7 +723,6 @@ pub mod test_provider {
     use cid::Cid;
     use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use message::{SignedMessage, UnsignedMessage};
-    use num_bigint::BigUint;
 
     /// Struct used for creating a provider when writing tests involving message pool
     pub struct TestApi {
@@ -832,7 +831,7 @@ pub mod test_provider {
 
     pub fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         BlockHeader::builder()
-            .weight(BigUint::from(weight))
+            .weight(BigInt::from(weight))
             .cached_bytes(cached_bytes.to_vec())
             .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
@@ -853,7 +852,7 @@ pub mod tests {
     use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
     use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
-    use num_bigint::BigUint;
+    use num_bigint::BigInt;
     use std::borrow::BorrowMut;
     use std::convert::TryFrom;
     use std::thread::sleep;
@@ -884,9 +883,10 @@ pub mod tests {
         let fmt_str = format!("===={}=====", ticket_sequence);
         let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
         let election_proof = ElectionProof {
+            win_count: 0,
             vrfproof: VRFProof::new(fmt_str.into_bytes()),
         };
-        let weight_inc = BigUint::from(weight);
+        let weight_inc = BigInt::from(weight);
         BlockHeader::builder()
             .miner_address(addr)
             .election_proof(Some(election_proof))
@@ -906,11 +906,12 @@ pub mod tests {
 
         let height = parents.epoch() + 1;
 
-        let mut weight_inc = BigUint::from(weight);
+        let mut weight_inc = BigInt::from(weight);
         weight_inc = parents.blocks()[0].weight() + weight_inc;
         let fmt_str = format!("===={}=====", ticket_sequence);
         let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
         let election_proof = ElectionProof {
+            win_count: 0,
             vrfproof: VRFProof::new(fmt_str.into_bytes()),
         };
         BlockHeader::builder()

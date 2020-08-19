@@ -37,3 +37,4 @@ pin-project-lite = "0.1"
 message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
 wallet = {package = "key_management", path = "../key_management"}
 jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
+uuid = { version = "0.8.1", features = ["v4"] }
