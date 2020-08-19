@@ -35,16 +35,16 @@ pub fn deserialize<'de, D>(deserializer: D) -> Result<BigUint, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let mut bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+    let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
     if bz.is_empty() {
         return Ok(BigUint::default());
     }
 
-    if bz.remove(0) != 0 {
+    if bz.get(0) != Some(&0) {
         return Err(serde::de::Error::custom(
             "First byte must be 0 to decode as BigUint",
         ));
     }
 
-    Ok(BigUint::from_bytes_be(&bz))
+    Ok(BigUint::from_bytes_be(&bz[1..]))
 }

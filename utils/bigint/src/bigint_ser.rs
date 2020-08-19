@@ -37,11 +37,11 @@ pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let mut bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+    let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
     if bz.is_empty() {
         return Ok(BigInt::default());
     }
-    let sign_byte = bz.remove(0);
+    let sign_byte = bz[0];
     let sign: Sign = match sign_byte {
         1 => Sign::Minus,
         0 => Sign::Plus,
@@ -51,5 +51,5 @@ where
             ));
         }
     };
-    Ok(BigInt::from_bytes_be(sign, &bz))
+    Ok(BigInt::from_bytes_be(sign, &bz[1..]))
 }

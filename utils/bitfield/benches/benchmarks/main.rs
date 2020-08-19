@@ -62,6 +62,18 @@ fn difference(c: &mut Criterion) {
     c.bench_function("difference", |b| b.iter(|| &bf1 - &bf2));
 }
 
+fn symmetric_difference(c: &mut Criterion) {
+    let bf1 = example1();
+    let bf2 = example2();
+    c.bench_function("symmetric_difference", |b| b.iter(|| &bf1 ^ &bf2));
+}
+
+fn cut(c: &mut Criterion) {
+    let bf1 = example1();
+    let bf2 = example2();
+    c.bench_function("cut", |b| b.iter(|| bf1.cut(&bf2)));
+}
+
 fn contains_all(c: &mut Criterion) {
     let bf1 = example1();
     let bf2 = example2();
@@ -94,6 +106,8 @@ criterion_group!(
     intersection,
     union,
     difference,
+    symmetric_difference,
+    cut,
     contains_all,
     contains_any,
     get,
