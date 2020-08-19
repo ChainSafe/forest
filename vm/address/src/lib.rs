@@ -239,7 +239,7 @@ impl<'de> Deserialize<'de> for Address {
     where
         D: Deserializer<'de>,
     {
-        let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
 
         // Create and return created address of unmarshalled bytes
         Address::from_bytes(&bz).map_err(de::Error::custom)
