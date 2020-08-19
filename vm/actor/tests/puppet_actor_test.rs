@@ -49,7 +49,7 @@ fn simple_send() {
     let mut rt = setup();
     let to = Address::new_id(101);
     let amount = TokenAmount::from(100);
-    let params = vec![1, 2, 3, 4, 5];
+    let params = Serialized::serialize(vec![1, 2, 3, 4, 5]).unwrap();
     let send_params = SendParams {
         to: to,
         value: amount.clone(),
@@ -62,7 +62,7 @@ fn simple_send() {
     rt.expect_send(
         to,
         METHOD_CONSTRUCTOR,
-        Serialized::serialize(params).unwrap(),
+        params,
         amount,
         exp_ret.clone(),
         ExitCode::Ok,
@@ -72,5 +72,18 @@ fn simple_send() {
 
     assert!(ret.is_ok());
 
-    assert_eq!(exp_ret, ret.unwrap().return_bytes);
+    assert_eq!(Some(exp_ret), ret.unwrap().return_bytes);
+}
+
+#[test]
+fn serialize_test() {
+    let mut v: Vec<FailToMarshalCBOR> = vec![];
+
+    // Should pass becuase vec is empty
+    assert!(Serialized::serialize(&v).is_ok());
+
+    v.push(FailToMarshalCBOR::default());
+
+    // Should fail becuase vec is no longer empty
+    assert!(Serialized::serialize(v).is_err());
 }

@@ -1,19 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
-
 use crate::check_empty_params;
 use address::Address;
 use encoding::{tuple::*, Cbor};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use serde::de::{self, Deserializer};
 use serde::ser::{self, Serializer};
 use serde::{Deserialize, Serialize};
-
 use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 // * Updated to specs-actors commit: e3ae346e69f7ad353b4eab6c20d8c6a5f497a039
@@ -33,13 +31,13 @@ pub struct SendParams {
     pub to: Address,
     #[serde(with = "bigint_ser")]
     pub value: TokenAmount,
-    pub method: u64,
-    pub params: Vec<u8>,
+    pub method: MethodNum,
+    pub params: Serialized,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SendReturn {
-    pub return_bytes: Serialized,
+    pub return_bytes: Option<Serialized>,
     pub code: ExitCode,
 }
 
@@ -72,6 +70,10 @@ impl Cbor for FailToMarshalCBOR {}
 
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
+    // OptFailToMarshalCBOR is to be used as an Option<T>, with T
+    // specialized to FailToMarshalCBOR. If the slice contains no values, the
+    // State struct will serialize/deserialize without issue. If the slice contains
+    // more than zero values, serialization/deserialization will fail.
     opt_fail: Vec<Option<FailToMarshalCBOR>>,
 }
 
@@ -98,24 +100,18 @@ impl Actor {
     {
         rt.validate_immediate_caller_accept_any()?;
 
-        let res = rt.send(
-            params.to,
-            params.method,
-            Serialized::serialize(params.params).unwrap(),
-            params.value,
-        );
+        let res = rt.send(params.to, params.method, params.params, params.value);
 
-        let return_bytes = res.map_err(|_| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                "failed to get return bytes".to_string(),
-            )
-        })?;
-
-        Ok(SendReturn {
-            return_bytes,
-            code: ExitCode::Ok,
-        })
+        match res {
+            Ok(return_bytes) => Ok(SendReturn {
+                return_bytes: Some(return_bytes),
+                code: ExitCode::Ok,
+            }),
+            Err(e) => Ok(SendReturn {
+                return_bytes: None,
+                code: e.exit_code(),
+            }),
+        }
     }
 
     fn send_marshal_cbor_failure<BS, RT>(
@@ -131,21 +127,20 @@ impl Actor {
         let res = rt.send(
             params.to,
             params.method,
-            Serialized::serialize(FailToMarshalCBOR::default()).unwrap(),
+            Serialized::serialize(FailToMarshalCBOR::default())?,
             params.value,
         );
 
-        let return_bytes = res.map_err(|_| {
-            ActorError::new(
-                ExitCode::ErrIllegalState,
-                "failed to get return bytes".to_string(),
-            )
-        })?;
-
-        Ok(SendReturn {
-            return_bytes,
-            code: ExitCode::Ok,
-        })
+        match res {
+            Ok(return_bytes) => Ok(SendReturn {
+                return_bytes: Some(return_bytes),
+                code: ExitCode::Ok,
+            }),
+            Err(e) => Ok(SendReturn {
+                return_bytes: None,
+                code: e.exit_code(),
+            }),
+        }
     }
 
     fn return_marshal_cbor_failure<BS, RT>(rt: &mut RT) -> Result<FailToMarshalCBOR, ActorError>
@@ -173,8 +168,6 @@ impl Actor {
 }
 
 impl ActorCode for Actor {
-    /// Invokes method with runtime on the actor's code. Method number will match one
-    /// defined by the Actor, and parameters will be serialized and used in execution
     fn invoke_method<BS, RT>(
         &self,
         rt: &mut RT,
@@ -204,14 +197,12 @@ impl ActorCode for Actor {
                 let res = Self::return_marshal_cbor_failure(rt)?;
                 Ok(Serialized::serialize(res)?)
             }
-
             Some(Method::RuntimeTransactionMarshalCBORFailure) => {
                 check_empty_params(params)?;
                 Self::runtime_transaction_marshal_cbor_failure(rt)?;
                 Ok(Serialized::default())
             }
-
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            None => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
         }
     }
 }

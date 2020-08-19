@@ -2369,7 +2369,7 @@ dependencies = [
 
 [[package]]
 name = "forest_address"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "data-encoding",
  "data-encoding-macro",
