@@ -20,7 +20,7 @@ pub struct SectorInfo {
 // TODO docs
 #[derive(Debug, PartialEq, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct PoStProof {
-    pub registered_proof: RegisteredPoStProof,
+    pub post_proof: RegisteredPoStProof,
     // TODO revisit if can be array in future
     #[serde(with = "serde_bytes")]
     pub proof_bytes: Vec<u8>,
@@ -76,7 +76,8 @@ pub mod json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
-        registered_proof: i64,
+        #[serde(rename = "PoStProof")]
+        post_proof: i64,
         proof_bytes: String,
     }
 
@@ -85,7 +86,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            registered_proof: i64::from(m.registered_proof),
+            post_proof: i64::from(m.post_proof),
             proof_bytes: base64::encode(&m.proof_bytes),
         }
         .serialize(serializer)
@@ -97,7 +98,7 @@ pub mod json {
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(PoStProof {
-            registered_proof: RegisteredPoStProof::from(m.registered_proof),
+            post_proof: RegisteredPoStProof::from(m.post_proof),
             proof_bytes: base64::decode(m.proof_bytes).map_err(de::Error::custom)?,
         })
     }

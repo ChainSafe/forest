@@ -10,6 +10,7 @@ use encoding::tuple::*;
     Clone, Debug, PartialEq, PartialOrd, Eq, Default, Ord, Serialize_tuple, Deserialize_tuple,
 )]
 pub struct ElectionProof {
+    pub win_count: i64,
     pub vrfproof: VRFProof,
 }
 
@@ -34,12 +35,15 @@ pub mod json {
         S: Serializer,
     {
         #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
         struct ElectionProofSer<'a> {
             #[serde(rename = "VRFProof", with = "vrf::json")]
             vrfproof: &'a VRFProof,
+            win_count: i64,
         }
         ElectionProofSer {
             vrfproof: &m.vrfproof,
+            win_count: m.win_count,
         }
         .serialize(serializer)
     }
@@ -49,12 +53,20 @@ pub mod json {
         D: Deserializer<'de>,
     {
         #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "PascalCase")]
         struct ElectionProofDe {
             #[serde(rename = "VRFProof", with = "vrf::json")]
             vrfproof: VRFProof,
+            win_count: i64,
         }
-        let ElectionProofDe { vrfproof } = Deserialize::deserialize(deserializer)?;
-        Ok(ElectionProof { vrfproof })
+        let ElectionProofDe {
+            vrfproof,
+            win_count,
+        } = Deserialize::deserialize(deserializer)?;
+        Ok(ElectionProof {
+            vrfproof,
+            win_count,
+        })
     }
 
     pub mod opt {
