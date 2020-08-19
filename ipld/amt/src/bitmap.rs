@@ -15,12 +15,7 @@ impl ser::Serialize for BitMap {
     where
         S: ser::Serializer,
     {
-        if self.b == 0 {
-            <[u8] as serde_bytes::Serialize>::serialize(&[], s)
-        } else {
-            let bitmap_bz = self.to_byte_array();
-            <[u8] as serde_bytes::Serialize>::serialize(&bitmap_bz, s)
-        }
+        <[u8] as serde_bytes::Serialize>::serialize(&[self.b], s)
     }
 }
 
@@ -29,17 +24,17 @@ impl<'de> de::Deserialize<'de> for BitMap {
     where
         D: de::Deserializer<'de>,
     {
-        let bz: Vec<u8> = serde_bytes::Deserialize::deserialize(deserializer)?;
+        let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
 
-        if bz.is_empty() {
-            return Ok(BitMap::default());
+        if bz.len() != 1 {
+            return Err(de::Error::custom(&format!(
+                "Expected 1 bitmap byte, was {}",
+                bz.len()
+            )));
         }
 
         // Get bitmap byte from serialized bytes
-        let bmap: BitMap = bz
-            .get(0)
-            .map(|b| BitMap::new(*b))
-            .ok_or_else(|| de::Error::custom("Expected bitmap byte"))?;
+        let bmap = BitMap::new(bz[0]);
 
         Ok(bmap)
     }

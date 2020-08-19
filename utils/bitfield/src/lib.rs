@@ -323,3 +323,105 @@ macro_rules! bitfield {
         bitfield!(@iter $($val),*).collect::<$crate::BitField>()
     };
 }
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use crate::iter::Ranges;
+    use serde::ser::SerializeSeq;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Deserialize, Serialize, Debug, PartialEq)]
+    #[serde(transparent)]
+    pub struct BitFieldJson(#[serde(with = "self")] pub BitField);
+
+    /// Wrapper for serializing a UnsignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct BitFieldJsonRef<'a>(#[serde(with = "self")] pub &'a BitField);
+
+    impl From<BitFieldJson> for BitField {
+        fn from(wrapper: BitFieldJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    impl From<BitField> for BitFieldJson {
+        fn from(wrapper: BitField) -> Self {
+            BitFieldJson(wrapper)
+        }
+    }
+
+    fn serialize<S>(m: &BitField, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let total: usize = m.len();
+
+        if !m.is_empty() {
+            let mut seq = serializer.serialize_seq(Some(total))?;
+            m.ranges().fold(Ok(0), |last_index, range| {
+                let last_index = last_index?;
+                let zero_index = (range.start - last_index) as u8;
+                let nonzero_index = (range.end - range.start) as u8;
+                seq.serialize_element(&zero_index)?;
+                seq.serialize_element(&nonzero_index)?;
+                Ok(range.end)
+            })?;
+            seq.end()
+        } else {
+            let mut seq = serializer.serialize_seq(Some(1))?;
+            seq.serialize_element(&0)?;
+            seq.end()
+        }
+    }
+
+    fn deserialize<'de, D>(deserializer: D) -> std::result::Result<BitField, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bitfield_bytes: Vec<usize> = Deserialize::deserialize(deserializer)?;
+        let mut ranges: Vec<Range<usize>> = Vec::new();
+        bitfield_bytes.iter().fold((false, 0), |last, index| {
+            let (should_set, last_index) = last;
+            let ending_index = index + last_index;
+            if should_set {
+                ranges.push(Range {
+                    start: last_index,
+                    end: ending_index,
+                })
+            }
+
+            (!should_set, ending_index)
+        });
+        let ranges = Ranges::new(ranges.iter().cloned());
+        Ok(BitField::from_ranges(ranges))
+    }
+
+    #[test]
+    fn serialization_starts_with_zeros() {
+        let bf = BitFieldJson(bitfield![0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]);
+        let j = serde_json::to_string(&bf).unwrap();
+        assert_eq!(j, "[2,4,3,2]");
+        let bitfield: BitFieldJson = serde_json::from_str(&j).unwrap();
+        assert_eq!(bf, bitfield);
+    }
+
+    #[test]
+    fn serialization_starts_with_ones() {
+        let bf = BitFieldJson(bitfield![1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1]);
+        let j = serde_json::to_string(&bf).unwrap();
+        assert_eq!(j, "[0,6,3,2]");
+        let bitfield: BitFieldJson = serde_json::from_str(&j).unwrap();
+        assert_eq!(bf, bitfield);
+    }
+
+    #[test]
+    fn serialization_with_single_unut() {
+        let bf = BitFieldJson(bitfield![]);
+        let j = serde_json::to_string(&bf).unwrap();
+        assert_eq!(j, "[0]");
+        let bitfield: BitFieldJson = serde_json::from_str(&j).unwrap();
+        assert_eq!(bf, bitfield);
+    }
+}
