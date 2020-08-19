@@ -359,7 +359,7 @@ where
             msg.gas_limit(),
             &self.base_fee,
             msg.gas_fee_cap(),
-            msg.gas_premium(),
+            msg.gas_premium().clone(),
         );
         self.state.mutate_actor(&*BURNT_FUNDS_ACTOR_ADDR, |act| {
             act.deposit_funds(&gas_outputs.base_fee_burn);
@@ -451,19 +451,19 @@ fn compute_gas_outputs(
     gas_limit: i64,
     base_fee: &TokenAmount,
     fee_cap: &TokenAmount,
-    gas_premium: &TokenAmount,
+    gas_premium: TokenAmount,
 ) -> GasOutputs {
     let gas_used_big: BigInt = 0.into();
-    let mut base_fee_to_pay = base_fee.clone();
+    let mut base_fee_to_pay = base_fee;
     let mut out = GasOutputs::default();
 
     if base_fee > fee_cap {
-        base_fee_to_pay = fee_cap.clone();
+        base_fee_to_pay = fee_cap;
         out.miner_penalty = (base_fee - fee_cap) * gas_used_big
     }
-    let mut miner_tip = gas_premium.clone();
-    if &base_fee_to_pay + &miner_tip > fee_cap.clone() {
-        miner_tip = fee_cap - &base_fee_to_pay;
+    let mut miner_tip = gas_premium;
+    if &(base_fee_to_pay + &miner_tip) > fee_cap {
+        miner_tip = fee_cap - base_fee_to_pay;
     }
     out.miner_tip = &miner_tip * gas_limit;
     let (out_gas_refund, out_gas_burned) = compute_gas_overestimation_burn(gas_used, gas_limit);
@@ -471,8 +471,8 @@ fn compute_gas_outputs(
     out.gas_burned = out_gas_burned;
 
     if out.gas_burned == 0 {
-        out.over_estimation_burn = &base_fee_to_pay * out.gas_burned;
-        out.miner_penalty += (base_fee - &base_fee_to_pay) * out.gas_burned;
+        out.over_estimation_burn = base_fee_to_pay * out.gas_burned;
+        out.miner_penalty += (base_fee - base_fee_to_pay) * out.gas_burned;
     }
     let required_funds = fee_cap * gas_limit;
     let mut refund = required_funds - &out.base_fee_burn;
