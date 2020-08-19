@@ -86,4 +86,19 @@ fn serialize_test() {
 
     // Should fail becuase vec is no longer empty
     assert!(Serialized::serialize(v).is_err());
+
+
+    let mut v : Vec<Option<FailToMarshalCBOR>> = vec![];
+
+    assert!(Serialized::serialize(&v).is_ok());
+
+    v.push(None);
+
+    assert!(Serialized::serialize(&v).is_ok());
+
+    v.push(Some(FailToMarshalCBOR::default()));
+
+    // SHould only fail if a actual instance of FailToMarshalCBOR is used
+    assert!(Serialized::serialize(v).is_err());
+
 }
