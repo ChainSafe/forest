@@ -6,7 +6,7 @@ use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_LIMIT, BLOCK_GAS_TARGET, MINIMU
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::unsigned_message::json::UnsignedMessageJson;
 use message::{ChainMessage, Message};
-use num_bigint::{BigInt, ToBigInt};
+use num_bigint::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
 use wallet::KeyStore;
@@ -22,7 +22,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let (UnsignedMessageJson(msg), max_queue_blks, tsk) = params;
+    let (UnsignedMessageJson(msg), max_queue_blks, _tsk) = params;
 
     let ts = chain::get_heaviest_tipset(data.state_manager.get_block_store_ref())?
         .ok_or("can't find heaviest tipset")?;
@@ -33,7 +33,8 @@ where
         .ok_or("could not load actor")?;
 
     let parent_base_fee = ts.blocks()[0].parent_base_fee();
-    let increase_factor = (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(20.0);
+    let increase_factor =
+        (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(max_queue_blks as f64);
 
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
@@ -44,11 +45,11 @@ where
     let max_accepted = act.balance / MAX_SPEND_ON_FEE_DENOM;
     let expected_fee = &fee_in_future * &gas_limit_big;
 
-    let mut out = fee_in_future;
-
-    if expected_fee > max_accepted {
-        out = max_accepted / gas_limit_big;
-    }
+    let out = if expected_fee > max_accepted {
+        max_accepted / gas_limit_big
+    } else {
+        fee_in_future
+    };
     Ok(out.to_string())
 }
 
@@ -61,7 +62,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let (mut nblocksincl, sender, gas_limit, _) = params;
+    let (mut nblocksincl, _sender, _gas_limit, _) = params;
 
     if nblocksincl == 0 {
         nblocksincl = 1;
@@ -78,7 +79,7 @@ where
     let mut ts = chain::get_heaviest_tipset(data.state_manager.get_block_store_ref())?
         .ok_or("cant get heaviest tipset")?;
 
-    for i in 0..(nblocksincl * 2) {
+    for _ in 0..(nblocksincl * 2) {
         if ts.parents().cids().is_empty() {
             break;
         }
@@ -110,11 +111,11 @@ where
             prev = price.price;
             continue;
         }
-        if &prev == &0.into() {
+        if prev == 0.into() {
             let ret: BigInt = price.price + 1;
             return Ok(ret.to_string());
         }
-        premium = ((&price.price + &prev) / 2 + 1)
+        premium = (&price.price + &prev) / 2 + 1
     }
 
     if premium == 0.into() {
@@ -134,7 +135,7 @@ where
         .sample(&mut rand::thread_rng());
     premium *= BigInt::from_f64(noise * (1 << precision) as f64)
         .ok_or("failed to converrt gas premium f64 to bigint")?;
-    premium /= (1 << precision);
+    premium /= 1 << precision;
 
     Ok(premium.to_string())
 }
@@ -162,10 +163,7 @@ where
 
     let pending = data.mpool.pending_for(&from_a).await;
     let prior_messages: Vec<ChainMessage> = match pending {
-        Some(messages) => messages
-            .into_iter()
-            .map(|m| ChainMessage::Signed(m))
-            .collect(),
+        Some(messages) => messages.into_iter().map(ChainMessage::Signed).collect(),
         None => vec![],
     };
     let res = data
