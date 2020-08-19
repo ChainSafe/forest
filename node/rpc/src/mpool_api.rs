@@ -61,7 +61,7 @@ where
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
-    let mut ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
+    let mut ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending().await?;
 
@@ -103,7 +103,7 @@ where
             return Ok(pending);
         }
 
-        ts = chain::tipset_from_keys(data.store.as_ref(), ts.parents())?;
+        ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), ts.parents())?;
     }
 }
 

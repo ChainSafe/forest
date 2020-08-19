@@ -31,10 +31,11 @@ where
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
 
-    let heaviest_ts = get_heaviest_tipset(data.store.as_ref())?.ok_or("No heaviest tipset")?;
+    let heaviest_ts = get_heaviest_tipset(data.state_manager.get_block_store_ref())?
+        .ok_or("No heaviest tipset")?;
     let cid = heaviest_ts.parent_state();
 
-    let state = StateTree::new_from_root(data.store.as_ref(), &cid)?;
+    let state = StateTree::new_from_root(data.state_manager.get_block_store_ref(), &cid)?;
     match state.get_actor(&address) {
         Ok(act) => {
             let actor = act.ok_or("Could not find actor")?;
