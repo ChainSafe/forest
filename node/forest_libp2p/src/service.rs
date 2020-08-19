@@ -301,7 +301,7 @@ pub fn get_keypair(path: &str) -> Option<Keypair> {
         }
         Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
             Ok(kp) => {
-                info!("Recovered keystore from {:?}", &path);
+                info!("Recovered libp2p keypair from {:?}", &path);
                 Some(Keypair::Ed25519(kp))
             }
             Err(e) => {

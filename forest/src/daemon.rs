@@ -13,6 +13,7 @@ use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use rpc::{start_rpc, RpcState};
+use state_manager::StateManager;
 use std::sync::Arc;
 use utils::write_to_file;
 use wallet::PersistentKeyStore;
@@ -96,14 +97,14 @@ pub(super) async fn start(config: Config) {
     });
 
     let rpc_task = if config.enable_rpc {
-        let db_rpc = Arc::clone(&db);
+        let db_rpc = StateManager::new(Arc::clone(&db));
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(
                 RpcState {
-                    store: db_rpc,
+                    state_manager: db_rpc,
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,
@@ -123,12 +124,17 @@ pub(super) async fn start(config: Config) {
     // Block until ctrl-c is hit
     block_until_sigint().await;
 
+    let keystore_write = task::spawn(async move {
+        keystore.read().await.flush().unwrap();
+    });
+
     // Cancel all async services
     p2p_task.cancel().await;
     sync_task.cancel().await;
     if let Some(task) = rpc_task {
         task.cancel().await;
     }
+    keystore_write.await;
 
     info!("Forest finish shutdown");
 }
