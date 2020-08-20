@@ -302,11 +302,13 @@ where
         return Ok(entry);
     }
     let mut cur = tipset_from_keys(db, ts.parents())?;
-    for _ in 1..20 {
+    for i in 1..20 {
+        if i != 1 {
+            cur = tipset_from_keys(db, cur.parents())?;
+        }
         if let Some(entry) = check_for_beacon_entry(&cur)? {
             return Ok(entry);
         }
-        cur = tipset_from_keys(db, cur.parents())?;
     }
     Err(Error::Other(
         "Found no beacon entries in the 20 blocks prior to the given tipset".to_owned(),
