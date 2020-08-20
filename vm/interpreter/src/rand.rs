@@ -19,14 +19,27 @@ impl ChainRand {
         Self { blks }
     }
 
-    /// Gets 32 bytes of randomness  paramaterized by the DomainSeparationTag, ChainEpoch, Entropy, and Tipset
-    pub fn get_randomness<DB: BlockStore>(
+    /// Gets 32 bytes of randomness paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Entropy, and Tipset. The randomness is gathered from the ticket chain.
+    pub fn get_chain_randomness<DB: BlockStore>(
         &self,
         db: &DB,
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>> {
-        chain::get_randomness(db, &self.blks, pers, round, entropy)
+        chain::get_chain_randomness(db, &self.blks, pers, round, entropy)
+    }
+
+    /// Gets 32 bytes of randomness paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Entropy, and Tipset. This randomness is drawn from the latest beacon entry.
+    pub fn get_beacon_randomness<DB: BlockStore>(
+        &self,
+        db: &DB,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>> {
+        chain::get_beacon_randomness(db, &self.blks, pers, round, entropy)
     }
 }
