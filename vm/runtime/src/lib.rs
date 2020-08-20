@@ -211,7 +211,7 @@ pub trait Syscalls {
         let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)
             .map_err(|e| actor_error!(ErrPlaceholder; e))?;
 
-        Ok(data_commitment_v1_to_cid(&comm_d))
+        Ok(data_commitment_v1_to_cid(&comm_d)?)
     }
     /// Verifies a sector seal proof.
     // TODO needs to be updated to reflect changes
