@@ -9,8 +9,18 @@ use std::error::Error;
 
 /// Randomness provider trait
 pub trait Rand {
-    /// Gets 32 bytes of randomness  paramaterized by the DomainSeparationTag, ChainEpoch, Entropy, and Tipset
-    fn get_randomness<DB: BlockStore>(
+    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag,
+    /// ChainEpoch, Entropy from the ticket chain.
+    fn get_chain_randomness<DB: BlockStore>(
+        &self,
+        db: &DB,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>>;
+    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag,
+    /// ChainEpoch, Entropy from the latest beacon entry.
+    fn get_beacon_randomness<DB: BlockStore>(
         &self,
         db: &DB,
         pers: DomainSeparationTag,
@@ -33,13 +43,23 @@ impl ChainRand {
 }
 
 impl Rand for ChainRand {
-    fn get_randomness<DB: BlockStore>(
+    fn get_chain_randomness<DB: BlockStore>(
         &self,
         db: &DB,
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>> {
-        chain::get_randomness(db, &self.blks, pers, round, entropy)
+        chain::get_chain_randomness(db, &self.blks, pers, round, entropy)
+    }
+
+    fn get_beacon_randomness<DB: BlockStore>(
+        &self,
+        db: &DB,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>> {
+        chain::get_beacon_randomness(db, &self.blks, pers, round, entropy)
     }
 }

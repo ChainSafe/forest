@@ -165,7 +165,7 @@ impl State {
         store: &BS,
         a: &Address,
     ) -> Result<Option<Claim>, String> {
-        let map: Hamt<BytesKey, _> =
+        let map: Hamt<_, BytesKey> =
             Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
         Ok(map.get(&a.to_bytes())?)
@@ -177,7 +177,7 @@ impl State {
         addr: &Address,
         claim: Claim,
     ) -> Result<(), String> {
-        let mut map: Hamt<BytesKey, _> =
+        let mut map: Hamt<_, BytesKey> =
             Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
         map.set(addr.to_bytes().into(), claim)?;
@@ -190,7 +190,7 @@ impl State {
         store: &BS,
         addr: &Address,
     ) -> Result<(), String> {
-        let mut map: Hamt<BytesKey, _> =
+        let mut map: Hamt<_, BytesKey> =
             Hamt::load_with_bit_width(&self.claims, store, HAMT_BIT_WIDTH)?;
 
         map.delete(&addr.to_bytes())?;

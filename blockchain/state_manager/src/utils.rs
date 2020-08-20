@@ -12,7 +12,7 @@ use address::{Address, Protocol};
 use bitfield::BitField;
 use blockstore::BlockStore;
 use cid::Cid;
-use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize};
+use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize, HAMT_BIT_WIDTH};
 use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
 use forest_blocks::Tipset;
 use ipld_amt::Amt;
@@ -318,9 +318,10 @@ where
         })?;
     let mut miners: Vec<Address> = Vec::new();
     let block_store = &*state_manager.get_block_store();
-    let map = Hamt::load(&power_actor_state.claims, block_store)
-        .map_err(|err| Error::Other(err.to_string()))?;
-    map.for_each(|_: &String, k: String| -> Result<(), String> {
+    let map =
+        Hamt::<_>::load_with_bit_width(&power_actor_state.claims, block_store, HAMT_BIT_WIDTH)
+            .map_err(|err| Error::Other(err.to_string()))?;
+    map.for_each(|_, k: String| -> Result<(), String> {
         let address = Address::from_bytes(k.as_bytes()).map_err(|e| e.to_string())?;
         miners.push(address);
         Ok(())

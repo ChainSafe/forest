@@ -10,6 +10,9 @@ pub use self::sector::*;
 
 use num_bigint::BigInt;
 
+/// Default bit width for the hamt in the filecoin protocol.
+pub const HAMT_BIT_WIDTH: u32 = 5;
+
 /// Config trait which handles different network configurations.
 pub trait NetworkParams {
     /// Total filecoin available to network.
