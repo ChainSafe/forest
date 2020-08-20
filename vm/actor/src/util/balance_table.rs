@@ -1,28 +1,28 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, HAMT_BIT_WIDTH};
+use crate::{make_map, make_map_with_root, Map};
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error, Hamt};
+use ipld_hamt::Error;
 use num_bigint::bigint_ser::BigIntDe;
 use vm::TokenAmount;
 
 /// Balance table which handles getting and updating token balances specifically
-pub struct BalanceTable<'a, BS>(Hamt<'a, BytesKey, BS>);
+pub struct BalanceTable<'a, BS>(Map<'a, BS>);
 impl<'a, BS> BalanceTable<'a, BS>
 where
     BS: BlockStore,
 {
     /// Initializes a new empty balance table
     pub fn new(bs: &'a BS) -> Self {
-        Self(Hamt::new_with_bit_width(bs, HAMT_BIT_WIDTH))
+        Self(make_map(bs))
     }
 
     /// Initializes a balance table from a root Cid
     pub fn from_root(bs: &'a BS, cid: &Cid) -> Result<Self, Error> {
-        Ok(Self(Hamt::load_with_bit_width(cid, bs, HAMT_BIT_WIDTH)?))
+        Ok(Self(make_map_with_root(cid, bs)?))
     }
 
     /// Retrieve root from balance table

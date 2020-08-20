@@ -228,7 +228,7 @@ pub trait Syscalls {
             .iter()
             .map(|post| {
                 Ok((
-                    proofs::RegisteredPoStProof::try_from(post.registered_proof)?,
+                    proofs::RegisteredPoStProof::try_from(post.post_proof)?,
                     post.proof_bytes.as_slice(),
                 ))
             })

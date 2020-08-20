@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::Tipset;
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use std::sync::Arc;
 
 /// SyncBucket defines a bucket of tipsets to sync
@@ -17,7 +17,7 @@ impl SyncBucket {
         Self { tips }
     }
     /// Returns the weight of the heaviest tipset
-    fn max_weight(&self) -> Option<&BigUint> {
+    fn max_weight(&self) -> Option<&BigInt> {
         self.tips.iter().map(|ts| ts.weight()).max()
     }
     /// Returns the tipset with the max weight
@@ -94,11 +94,11 @@ mod tests {
     use address::Address;
     use blocks::BlockHeader;
     use cid::{multihash::Blake2b256, Cid};
-    use num_bigint::BigUint;
+    use num_bigint::BigInt;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         let header = BlockHeader::builder()
-            .weight(BigUint::from(weight))
+            .weight(BigInt::from(weight))
             .cached_bytes(cached_bytes.to_vec())
             .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
@@ -121,7 +121,7 @@ mod tests {
         let bucket = SyncBucket::new(vec![l_tip.clone(), h_tip]);
         assert_eq!(
             bucket.heaviest_tipset().unwrap().weight(),
-            &BigUint::from(3u8)
+            &BigInt::from(3u8)
         );
         assert_eq!(bucket.tips.len(), 2);
 
@@ -129,7 +129,7 @@ mod tests {
         let bucket = SyncBucket::new(vec![l_tip]);
         assert_eq!(
             bucket.heaviest_tipset().unwrap().weight(),
-            &BigUint::from(1u8)
+            &BigInt::from(1u8)
         );
     }
 
