@@ -1,9 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[macro_use]
-extern crate lazy_static;
-
 use crypto::SignatureType;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonwebtoken::errors::Result as JWTResult;
@@ -12,6 +9,26 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wallet::KeyInfo;
+
+/// constant string that is used to identify the JWT secret key in KeyStore
+pub const JWT_IDENTIFIER: &str = "auth-jwt-private";
+/// Admin permissions
+pub const ADMIN: [&str; 4] = ["read", "write", "sign", "admin"];
+/// Signing permissions
+pub const SIGN: [&str; 3] = ["read", "write", "sign"];
+/// Writing permissions
+pub const WRITE: [&str; 2] = ["read", "write"];
+/// Reading permissions
+pub const READ: [&str; 1] = ["read"];
+/// All methods that require write permission
+pub const WRITE_ACCESS: [&str; 6] = [
+    "Filecoin.MpoolPush",
+    "Filecoin.WalletNew",
+    "Filecoin.WalletHas",
+    "Filecoin.WalletList",
+    "Filecoin.WalletDefaultAddress",
+    "Filecoin.WalletList",
+];
 
 /// Error Enum for Authentification
 #[derive(Debug, Error, Serialize, Deserialize)]
@@ -29,20 +46,6 @@ pub enum Error {
     Other(String),
 }
 
-lazy_static! {
-    /// Constants of all Levels of permissions
-    pub static ref ADMIN: Vec<String> = vec![
-        "read".to_string(),
-        "write".to_string(),
-        "sign".to_string(),
-        "admin".to_string()
-    ];
-    pub static ref SIGN: Vec<String> =
-        vec!["read".to_string(), "write".to_string(), "sign".to_string()];
-    pub static ref WRITE: Vec<String> = vec!["read".to_string(), "write".to_string()];
-    pub static ref READ: Vec<String> = vec!["read".to_string()];
-}
-
 /// Claim struct for JWT Tokens
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
@@ -52,9 +55,7 @@ struct Claims {
 
 /// Create a new JWT Token
 pub fn create_token(perms: Vec<String>, key: &[u8]) -> JWTResult<String> {
-    let payload = Claims {
-        allow: perms,
-    };
+    let payload = Claims { allow: perms };
     encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
 }
 
@@ -62,11 +63,7 @@ pub fn create_token(perms: Vec<String>, key: &[u8]) -> JWTResult<String> {
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
     let mut validation = Validation::default();
     validation.validate_exp = false;
-    let token = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(key),
-        &validation,
-    )?;
+    let token = decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
     Ok(token.claims.allow)
 }
 

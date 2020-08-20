@@ -29,7 +29,6 @@ thiserror = "1.0"
 state_tree = { path = "../../vm/state_tree" }
 forest_libp2p = { path = "../forest_libp2p" }
 jsonwebtoken = "7.2.0"
-lazy_static = "1.4.0"
 auth = { path = "../../utils/auth"}
 utils = { path = "../../node/utils" }
 

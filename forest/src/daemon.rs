@@ -4,7 +4,7 @@
 use super::cli::{block_until_sigint, initialize_genesis, Config};
 use async_std::sync::RwLock;
 use async_std::task;
-use auth::generate_priv_key;
+use auth::{generate_priv_key, JWT_IDENTIFIER};
 use beacon::DrandBeacon;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
@@ -40,8 +40,8 @@ pub(super) async fn start(config: Config) {
 
     // Initialize keystore
     let mut ks = PersistentKeyStore::new(config.data_dir.to_string()).unwrap();
-    if ks.get("auth-jwt-private").is_err() {
-        ks.put("auth-jwt-private".to_owned(), generate_priv_key())
+    if ks.get(JWT_IDENTIFIER).is_err() {
+        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
             .unwrap();
     }
     let keystore = Arc::new(RwLock::new(ks));

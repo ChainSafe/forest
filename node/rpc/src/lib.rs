@@ -1,9 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[macro_use]
-extern crate lazy_static;
-
 mod auth_api;
 mod chain_api;
 mod mpool_api;
@@ -11,7 +8,7 @@ mod sync_api;
 mod wallet_api;
 
 use async_std::sync::{RwLock, Sender};
-use auth::{has_perms, Error};
+use auth::{has_perms, Error, JWT_IDENTIFIER, WRITE_ACCESS};
 use blockstore::BlockStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
@@ -22,17 +19,6 @@ use tide::{Request, Response, StatusCode};
 use utils::get_home_dir;
 use wallet::KeyStore;
 use wallet::PersistentKeyStore;
-
-lazy_static! {
-    pub static ref WRITE_ACCESS: Vec<String> = vec![
-        "Filecoin.MpoolPush".to_string(),
-        "Filecoin.WalletNew".to_string(),
-        "Filecoin.WalletHas".to_string(),
-        "Filecoin.WalletList".to_string(),
-        "Filecoin.WalletDefaultAddress".to_string(),
-        "Filecoin.WalletList".to_string(),
-    ];
-}
 
 /// This is where you store persistant data, or at least access to stateful data.
 pub struct RpcState<DB, KS>
@@ -62,12 +48,12 @@ async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
         .ok_or_else(|| Error::MethodParam)?;
     let method_name = &call_str[start..end];
     // check for write access
-    if WRITE_ACCESS.contains(&method_name.to_string()) {
+    if WRITE_ACCESS.contains(&method_name) {
         if let Some(header) = req.header("Authorization") {
             let header_raw = header.get(0).unwrap().message();
             let keystore = PersistentKeyStore::new(get_home_dir() + "/.forest")?;
             let ki = keystore
-                .get("auth-jwt-private")
+                .get(JWT_IDENTIFIER)
                 .map_err(|_| Error::Other("No JWT private key found".to_owned()))?;
             let key = ki.private_key();
             let perm = has_perms(header_raw, "write", key);

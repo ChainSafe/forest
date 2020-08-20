@@ -5594,7 +5594,6 @@ dependencies = [
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
- "lazy_static",
  "message_pool",
  "num-traits 0.2.12",
  "serde",
@@ -5619,7 +5618,6 @@ dependencies = [
  "jsonrpc-v2",
  "jsonrpsee",
  "key_management",
- "lazy_static",
  "log",
  "serde_json",
 ]

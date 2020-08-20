@@ -18,7 +18,7 @@ where
 {
     let (perms,) = params;
     let ks = data.keystore.read().await;
-    let ki = ks.get("auth-jwt-private")?;
+    let ki = ks.get(JWT_IDENTIFIER)?;
     let token = create_token(perms, ki.private_key())?;
     Ok(token)
 }
@@ -34,7 +34,7 @@ where
 {
     let ks = data.keystore.read().await;
     let (token,) = params;
-    let ki = ks.get("auth-jwt-private")?;
+    let ki = ks.get(JWT_IDENTIFIER)?;
     let perms = verify_token(&token, ki.private_key())?;
     Ok(perms)
 }
