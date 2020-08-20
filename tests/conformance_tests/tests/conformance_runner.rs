@@ -3,7 +3,11 @@
 
 #![cfg(feature = "submodule_tests")]
 
+#[macro_use]
+extern crate lazy_static;
+
 use address::Address;
+use blockstore::BlockStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
@@ -12,6 +16,7 @@ use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use interpreter::{ApplyRet, Rand, VM};
+use regex::Regex;
 use runtime::{ConsensusFault, Syscalls};
 use serde::{Deserialize, Deserializer};
 use std::error::Error as StdError;
@@ -19,6 +24,24 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use vm::{ExitCode, Serialized};
 use walkdir::{DirEntry, WalkDir};
+
+lazy_static! {
+    static ref SKIP_TESTS: [Regex; 13] = [
+        Regex::new(r"addresses.*").unwrap(),
+        Regex::new(r"basic.*").unwrap(),
+        Regex::new(r"unknown_accounts.*").unwrap(),
+        Regex::new(r"on_transfer.*").unwrap(),
+        Regex::new(r"actor_exec.*").unwrap(),
+        Regex::new(r"gas_cost.*").unwrap(),
+        Regex::new(r"invalid_msgs.*").unwrap(),
+        Regex::new(r"unknown_actor.*").unwrap(),
+        Regex::new(r"nested_sends.*").unwrap(),
+        Regex::new(r"paych.*").unwrap(),
+        Regex::new(r"self_transfer.*").unwrap(),
+        Regex::new(r"unknown_account.*").unwrap(),
+        Regex::new(r"caller_validation.*").unwrap(),
+    ];
+}
 
 mod base64_bytes {
     use super::*;
@@ -142,17 +165,22 @@ enum TestVector {
     },
 }
 
-fn is_test_file(entry: &DirEntry) -> bool {
-    entry
-        .file_name()
-        .to_str()
-        .map(|s| s.ends_with(".json"))
-        .unwrap_or(false)
+fn is_valid_file(entry: &DirEntry) -> bool {
+    let file_name = match entry.file_name().to_str() {
+        Some(file) => file,
+        None => return false,
+    };
+    for rx in SKIP_TESTS.iter() {
+        if rx.is_match(file_name) {
+            return false;
+        }
+    }
+    file_name.ends_with(".json")
 }
 
 struct TestRand;
 impl Rand for TestRand {
-    fn get_chain_randomness<DB: blockstore::BlockStore>(
+    fn get_chain_randomness<DB: BlockStore>(
         &self,
         _: &DB,
         _: DomainSeparationTag,
@@ -161,7 +189,7 @@ impl Rand for TestRand {
     ) -> Result<[u8; 32], Box<dyn StdError>> {
         Ok(*b"i_am_random_____i_am_random_____")
     }
-    fn get_beacon_randomness<DB: blockstore::BlockStore>(
+    fn get_beacon_randomness<DB: BlockStore>(
         &self,
         _: &DB,
         _: DomainSeparationTag,
@@ -279,11 +307,9 @@ fn execute_message_vector(
 }
 
 #[test]
-// TODO remove ignore when blocking changes come in
-#[ignore]
 fn conformance_test_runner() {
     let walker = WalkDir::new("test-vectors/corpus").into_iter();
-    for entry in walker.filter_map(|e| e.ok()).filter(is_test_file) {
+    for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
         println!("{}", entry.path().display());
         let file = File::open(entry.path()).unwrap();
         let reader = BufReader::new(file);
