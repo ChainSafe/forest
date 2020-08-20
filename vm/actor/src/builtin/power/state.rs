@@ -126,6 +126,18 @@ impl State {
             self.total_raw_byte_power += power;
         }
 
+        assert_ne!(
+            new_claim.raw_byte_power.sign(),
+            Sign::Minus,
+            "negative claimed raw byte power: {}",
+            new_claim.raw_byte_power
+        );
+        assert_ne!(
+            new_claim.quality_adj_power.sign(),
+            Sign::Minus,
+            "negative claimed quality adjusted power: {}",
+            new_claim.quality_adj_power
+        );
         assert!(
             self.miner_above_min_power_count >= 0,
             "negative number of miners larger than min: {}",
