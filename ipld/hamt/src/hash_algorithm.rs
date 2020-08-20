@@ -1,0 +1,101 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+use crate::{Hash, HashedKey};
+use sha2::{Digest, Sha256 as Sha256Hasher};
+
+#[cfg(feature = "murmur")]
+use murmur3::murmur3_x64_128::MurmurHasher;
+
+/// Algorithm used as the hasher for the Hamt.
+pub trait HashAlgorithm {
+    fn hash<X: ?Sized>(key: &X) -> HashedKey
+    where
+        X: Hash;
+}
+
+/// Type is needed because the Sha256 hasher does not implement `std::hash::Hasher`
+#[derive(Default)]
+struct Sha2HasherWrapper(Sha256Hasher);
+
+impl Hasher for Sha2HasherWrapper {
+    fn finish(&self) -> u64 {
+        // u64 hash not used in hamt
+        0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+}
+
+#[derive(Debug)]
+pub enum Sha256 {}
+
+impl HashAlgorithm for Sha256 {
+    fn hash<X: ?Sized>(key: &X) -> HashedKey
+    where
+        X: Hash,
+    {
+        let mut hasher = Sha2HasherWrapper::default();
+        key.hash(&mut hasher);
+        hasher.0.finalize().into()
+    }
+}
+
+#[cfg(feature = "murmur")]
+#[derive(Debug)]
+pub enum Murmur3 {}
+
+#[cfg(feature = "murmur")]
+impl HashAlgorithm for Murmur3 {
+    fn hash<X: ?Sized>(key: &X) -> HashedKey
+    where
+        X: Hash,
+    {
+        let mut hasher = MurmurHasher::default();
+        key.hash(&mut hasher);
+        let mut bz: [u8; 32] = Default::default();
+        let hash: [u8; 16] = hasher.finalize().into();
+        bz[0..16].copy_from_slice(&hash);
+        bz
+    }
+}
+
+#[cfg(feature = "identity")]
+use std::hash::Hasher;
+
+#[cfg(feature = "identity")]
+#[derive(Default)]
+struct IdentityHasher {
+    bz: HashedKey,
+}
+#[cfg(feature = "identity")]
+impl Hasher for IdentityHasher {
+    fn finish(&self) -> u64 {
+        // u64 hash not used in hamt
+        0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        for (i, byte) in bytes.iter().take(self.bz.len()).enumerate() {
+            self.bz[i] = *byte;
+        }
+    }
+}
+
+#[cfg(feature = "identity")]
+#[derive(Debug)]
+pub enum Identity {}
+
+#[cfg(feature = "identity")]
+impl HashAlgorithm for Identity {
+    fn hash<X: ?Sized>(key: &X) -> HashedKey
+    where
+        X: Hash,
+    {
+        let mut ident_hasher = IdentityHasher::default();
+        key.hash(&mut ident_hasher);
+        ident_hasher.bz
+    }
+}

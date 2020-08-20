@@ -14,14 +14,18 @@ ipld_blockstore = { path = "../blockstore" }
 forest_ipld = { path = "../" }
 serde_bytes = "0.11.3"
 thiserror = "1.0"
+sha2 = "0.9.1"
 
-# TODO replace fork with updated fork or make PR into https://github.com/stusmall/murmur3
+# TODO remove murmur3 support when finalized in Filecoin
 [dependencies.murmur3]
 git = "https://github.com/dignifiedquire/murmur3"
 branch = "nicer-hashing"
+optional = true
 
 [features]
-identity-hash = []
+default = ["identity", "murmur3"]
+identity = []
+murmur = ["murmur3"]
 
 [dev-dependencies]
 hex = "0.4.2"
