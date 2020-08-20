@@ -280,7 +280,7 @@ where
     Ok(())
 }
 
-/// Finds the latest beacon entry given a tipset up to 20 blocks behind
+/// Finds the latest beacon entry given a tipset up to 20 tipsets behind
 pub fn latest_beacon_entry<DB>(db: &DB, ts: &Tipset) -> Result<BeaconEntry, Error>
 where
     DB: BlockStore,
@@ -311,7 +311,7 @@ where
         }
     }
     Err(Error::Other(
-        "Found no beacon entries in the 20 blocks prior to the given tipset".to_owned(),
+        "Found no beacon entries in the 20 latest tipsets".to_owned(),
     ))
 }
 
