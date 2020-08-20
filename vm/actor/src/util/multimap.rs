@@ -1,28 +1,28 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, HAMT_BIT_WIDTH};
+use crate::{make_map, make_map_with_root, BytesKey, Map};
 use cid::Cid;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error, Hamt};
+use ipld_hamt::Error;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Multimap stores multiple values per key in a Hamt of Amts.
 /// The order of insertion of values for each key is retained.
-pub struct Multimap<'a, BS>(Hamt<'a, BytesKey, BS>);
+pub struct Multimap<'a, BS>(Map<'a, BS>);
 impl<'a, BS> Multimap<'a, BS>
 where
     BS: BlockStore,
 {
     /// Initializes a new empty multimap.
     pub fn new(bs: &'a BS) -> Self {
-        Self(Hamt::new_with_bit_width(bs, HAMT_BIT_WIDTH))
+        Self(make_map(bs))
     }
 
     /// Initializes a multimap from a root Cid
     pub fn from_root(bs: &'a BS, cid: &Cid) -> Result<Self, Error> {
-        Ok(Self(Hamt::load_with_bit_width(cid, bs, HAMT_BIT_WIDTH)?))
+        Ok(Self(make_map_with_root(cid, bs)?))
     }
 
     /// Retrieve root from the multimap.

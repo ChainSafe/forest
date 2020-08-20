@@ -10,14 +10,25 @@ use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Pointer to index values or a link to another child node.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Pointer<K> {
+#[derive(Debug, Clone)]
+pub(crate) enum Pointer<K, H> {
     Values(Vec<KeyValuePair<K>>),
     Link(Cid),
-    Cache(Box<Node<K>>),
+    Cache(Box<Node<K, H>>),
 }
 
-impl<K> Serialize for Pointer<K>
+impl<K: PartialEq, H> PartialEq for Pointer<K, H> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (&Pointer::Values(ref a), &Pointer::Values(ref b)) => a == b,
+            (&Pointer::Link(ref a), &Pointer::Link(ref b)) => a == b,
+            (&Pointer::Cache(ref a), &Pointer::Cache(ref b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl<K, H> Serialize for Pointer<K, H>
 where
     K: Serialize,
 {
@@ -47,7 +58,7 @@ where
     }
 }
 
-impl<'de, K> Deserialize<'de> for Pointer<K>
+impl<'de, K, H> Deserialize<'de> for Pointer<K, H>
 where
     K: DeserializeOwned,
 {
@@ -72,13 +83,13 @@ where
     }
 }
 
-impl<K> Default for Pointer<K> {
+impl<K, H> Default for Pointer<K, H> {
     fn default() -> Self {
         Pointer::Values(Vec::new())
     }
 }
 
-impl<K> Pointer<K>
+impl<K, H> Pointer<K, H>
 where
     K: Serialize + DeserializeOwned + Clone,
 {

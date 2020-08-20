@@ -51,7 +51,7 @@ fn get_set_non_id() {
     let mut tree = StateTree::new(&store);
 
     // Empty hamt Cid used for testing
-    let e_cid = Hamt::<String, _>::new_with_bit_width(&store, 5)
+    let e_cid = Hamt::<_, String>::new_with_bit_width(&store, 5)
         .flush()
         .unwrap();
 
