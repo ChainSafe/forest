@@ -875,6 +875,7 @@ dependencies = [
  "rand_xorshift",
  "serde",
  "serde_bytes",
+ "serde_json",
  "unsigned-varint 0.4.0",
 ]
 
@@ -2214,6 +2215,7 @@ dependencies = [
  "num-derive",
  "num-traits 0.2.12",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2408,6 +2410,7 @@ dependencies = [
  "leb128",
  "num-derive",
  "num-traits 0.2.12",
+ "serde",
  "thiserror",
 ]
 
@@ -5574,12 +5577,15 @@ checksum = "ea509065eb0b3c446acdd0102f0d46567dc30902dc0be91d6552035d92b0f4f8"
 name = "rpc"
 version = "0.1.0"
 dependencies = [
+ "actor",
  "async-std",
  "auth",
+ "bitfield",
  "chain",
  "chain_sync",
  "clock",
  "db",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -5590,6 +5596,7 @@ dependencies = [
  "forest_message",
  "futures 0.3.5",
  "hex",
+ "interpreter",
  "ipld_blockstore",
  "jsonrpc-v2",
  "jsonwebtoken",
@@ -6262,28 +6269,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0437cfb83762844799a60e1e3b489d5ceb6a650fbacb86437badc1b6d87b246"
 dependencies = [
  "version_check",
-]
-
-[[package]]
-name = "state_api"
-version = "0.1.0"
-dependencies = [
- "actor",
- "async-std",
- "bitfield",
- "chain",
- "clock",
- "fil_types",
- "forest_address",
- "forest_blocks",
- "forest_cid",
- "forest_message",
- "interpreter",
- "ipld_blockstore",
- "num-bigint 0.2.6",
- "num-traits 0.2.12",
- "state_manager",
- "state_tree",
 ]
 
 [[package]]
