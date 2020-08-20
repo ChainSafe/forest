@@ -13,7 +13,7 @@ use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
 use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
 use message::{SignedMessage, UnsignedMessage};
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use std::error::Error;
 
 /// Defines a TipsetKey used in testing
@@ -43,7 +43,7 @@ fn template_header(
         .messages(msg_root)
         .signature(Some(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2])))
         .epoch(epoch)
-        .weight(BigUint::from(weight))
+        .weight(BigInt::from(weight))
         .cached_cid(cid)
         .build()
         .unwrap()
