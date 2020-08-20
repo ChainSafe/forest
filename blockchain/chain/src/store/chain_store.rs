@@ -286,7 +286,7 @@ where
     DB: BlockStore,
 {
     let check_for_beacon_entry = |ts: &Tipset| {
-        let cbe = ts.blocks()[0].beacon_entries();
+        let cbe = ts.min_ticket_block().beacon_entries();
         if let Some(entry) = cbe.last() {
             return Ok(Some(entry.clone()));
         }
