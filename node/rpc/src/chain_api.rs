@@ -215,7 +215,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (tsk, pers, epoch, entropy) = params;
-    Ok(chain::get_randomness(
+    Ok(chain::get_chain_randomness(
         data.state_manager.get_block_store_ref(),
         &tsk,
         DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,

@@ -19,7 +19,7 @@ fn transfer_test() {
     let store = MemoryDB::default();
     let mut state = StateTree::new(&store);
 
-    let e_cid = Hamt::<String, _>::new_with_bit_width(&store, 5)
+    let e_cid = Hamt::<_, String>::new_with_bit_width(&store, 5)
         .flush()
         .unwrap();
 

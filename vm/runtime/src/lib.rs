@@ -61,9 +61,20 @@ pub trait Runtime<BS: BlockStore> {
     /// Look up the code ID at an actor address.
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError>;
 
-    /// Randomness returns a (pseudo)random byte array drawing from a
-    /// random beacon at a given epoch and incorporating reequisite entropy
-    fn get_randomness(
+    /// Randomness returns a (pseudo)random byte array drawing from the latest
+    /// ticket chain from a given epoch and incorporating requisite entropy.
+    /// This randomness is fork dependant but also biasable because of this.
+    fn get_randomness_from_tickets(
+        &self,
+        personalization: DomainSeparationTag,
+        rand_epoch: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<Randomness, ActorError>;
+
+    /// Randomness returns a (pseudo)random byte array drawing from the latest
+    /// beacon from a given epoch and incorporating requisite entropy.
+    /// This randomness is not tied to any fork of the chain, and is unbiasable.
+    fn get_randomness_from_beacon(
         &self,
         personalization: DomainSeparationTag,
         rand_epoch: ChainEpoch,
@@ -130,7 +141,19 @@ pub trait Runtime<BS: BlockStore> {
     /// Provides the system call interface.
     fn syscalls(&self) -> &dyn Syscalls;
 
+    /// Returns the total token supply in circulation at the beginning of the current epoch.
+    /// The circulating supply is the sum of:
+    /// - rewards emitted by the reward actor,
+    /// - funds vested from lock-ups in the genesis state,
+    /// less the sum of:
+    /// - funds burnt,
+    /// - pledge collateral locked in storage miner actors (recorded in the storage power actor)
+    /// - deal collateral locked by the storage market actor
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError>;
+
+    /// ChargeGas charges specified amount of `gas` for execution.
+    /// `name` provides information about gas charging point
+    fn charge_gas(&mut self, name: String, gas: i64) -> Result<(), ActorError>;
 }
 
 /// Message information available to the actor about executing message.
@@ -211,7 +234,7 @@ pub trait Syscalls {
         let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)
             .map_err(|e| actor_error!(ErrPlaceholder; e))?;
 
-        Ok(data_commitment_v1_to_cid(&comm_d))
+        Ok(data_commitment_v1_to_cid(&comm_d)?)
     }
     /// Verifies a sector seal proof.
     // TODO needs to be updated to reflect changes
@@ -283,7 +306,7 @@ pub trait Syscalls {
 
     fn batch_verify_seals(
         &self,
-        vis: &[(Address, Vec<SealVerifyInfo>)],
+        vis: &[(Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         let out = vis
             .par_iter()

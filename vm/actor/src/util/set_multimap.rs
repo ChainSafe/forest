@@ -2,29 +2,29 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{parse_uint_key, u64_key, BytesKey, DealID, HAMT_BIT_WIDTH};
+use crate::{make_map, make_map_with_root, parse_uint_key, u64_key, DealID, Map};
 use cid::Cid;
 use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error, Hamt};
+use ipld_hamt::Error;
 use std::borrow::Borrow;
 use std::error::Error as StdError;
 
 /// SetMultimap is a hamt with values that are also a hamt but are of the set variant.
 /// This allows hash sets to be indexable by an address.
-pub struct SetMultimap<'a, BS>(Hamt<'a, BytesKey, BS>);
+pub struct SetMultimap<'a, BS>(Map<'a, BS>);
 impl<'a, BS> SetMultimap<'a, BS>
 where
     BS: BlockStore,
 {
     /// Initializes a new empty SetMultimap.
     pub fn new(bs: &'a BS) -> Self {
-        Self(Hamt::new_with_bit_width(bs, HAMT_BIT_WIDTH))
+        Self(make_map(bs))
     }
 
     /// Initializes a SetMultimap from a root Cid.
     pub fn from_root(bs: &'a BS, cid: &Cid) -> Result<Self, Error> {
-        Ok(Self(Hamt::load_with_bit_width(cid, bs, HAMT_BIT_WIDTH)?))
+        Ok(Self(make_map_with_root(cid, bs)?))
     }
 
     /// Retrieve root from the SetMultimap.
