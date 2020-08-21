@@ -1296,17 +1296,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cid"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8709d481fb78b9808f34a1b4b4fadd08a15a0971052c18bc2b751faefaed595e"
-dependencies = [
- "multibase",
- "multihash 0.11.2",
- "unsigned-varint 0.3.3",
-]
-
-[[package]]
 name = "cl-sys"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2580,7 +2569,6 @@ dependencies = [
  "futures-util",
  "futures_codec",
  "ipld_blockstore",
- "libipld-core",
  "libp2p",
  "libp2p-bitswap",
  "libp2p-request-response 0.2.0 (git+https://github.com/ChainSafe/rust-libp2p?rev=7ba76ccc03569a02a924d08ff9b6f62504e8bc51)",
@@ -3628,18 +3616,6 @@ name = "libc"
 version = "0.2.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "755456fae044e6fa1ebbbd1b3e902ae19e73097ed4ed87bb79934a867c007bc3"
-
-[[package]]
-name = "libipld-core"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1644ab401cd98c4804d66b36a085c0ddc0841e93e0090d64b91c3663471c586c"
-dependencies = [
- "cid",
- "multibase",
- "multihash 0.11.2",
- "thiserror",
-]
 
 [[package]]
 name = "libloading"
