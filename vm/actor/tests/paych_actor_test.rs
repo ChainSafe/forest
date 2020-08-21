@@ -5,7 +5,7 @@ mod common;
 use actor::{
     paych::{
         ConstructorParams, LaneState, Merge, Method, ModVerifyParams, PaymentVerifyParams,
-        SignedVoucher, State as PState, UpdateChannelStateParams, LANE_LIMIT, SETTLE_DELAY,
+        SignedVoucher, State as PState, UpdateChannelStateParams, MAX_LANE, SETTLE_DELAY,
     },
     ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
     PAYCH_ACTOR_CODE_ID,
@@ -16,6 +16,7 @@ use clock::ChainEpoch;
 use common::*;
 use crypto::Signature;
 use derive_builder::Builder;
+use ipld_amt::Amt;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -41,6 +42,20 @@ fn call(rt: &mut MockRuntime, method_num: u64, ser: &Serialized) -> Serialized {
 fn expect_error(rt: &mut MockRuntime, method_num: u64, ser: &Serialized, exp: ExitCode) {
     let err = rt.call(&*PAYCH_ACTOR_CODE_ID, method_num, ser).unwrap_err();
     assert_eq!(exp, err.exit_code());
+}
+
+fn construct_lane_state_amt(rt: &MockRuntime, lss: Vec<LaneState>) -> Cid {
+    let mut arr = Amt::new(&rt.store);
+    for (i, ls) in (0..).zip(lss.into_iter()) {
+        arr.set(i, ls).unwrap();
+    }
+    arr.flush().unwrap()
+}
+
+fn get_lane_state(rt: &MockRuntime, cid: &Cid, lane: u64) -> LaneState {
+    let arr = Amt::load(cid, &rt.store).unwrap();
+
+    arr.get(lane).unwrap().unwrap()
 }
 
 mod paych_constructor {
@@ -87,7 +102,7 @@ mod paych_constructor {
             &mut rt,
             METHOD_CONSTRUCTOR,
             &Serialized::serialize(params).unwrap(),
-            ExitCode::ErrIllegalArgument,
+            ExitCode::ErrForbidden,
         );
     }
 
@@ -111,14 +126,14 @@ mod paych_constructor {
                 caller_code: INIT_ACTOR_CODE_ID.clone(),
                 new_actor_code: MULTISIG_ACTOR_CODE_ID.clone(),
                 payer_code: ACCOUNT_ACTOR_CODE_ID.clone(),
-                expected_exit_code: ExitCode::ErrIllegalArgument,
+                expected_exit_code: ExitCode::ErrForbidden,
             },
             TestCase {
                 paych_addr: Address::new_secp256k1(&vec![b'A'; 65][..]).unwrap(),
                 caller_code: INIT_ACTOR_CODE_ID.clone(),
                 new_actor_code: ACCOUNT_ACTOR_CODE_ID.clone(),
                 payer_code: ACCOUNT_ACTOR_CODE_ID.clone(),
-                expected_exit_code: ExitCode::ErrIllegalArgument,
+                expected_exit_code: ExitCode::ErrNotFound,
             },
         ];
 
@@ -317,11 +332,12 @@ mod create_lane_tests {
                 );
 
                 let st: PState = rt.get_state().unwrap();
-                assert_eq!(st.lane_states.len(), 1);
-                let ls = st.lane_states.first().unwrap();
+                let l_states = Amt::<LaneState, _>::load(&st.lane_states, &rt.store).unwrap();
+                assert_eq!(l_states.count(), 1);
+
+                let ls = l_states.get(sv.lane).unwrap().unwrap();
                 assert_eq!(sv.amount, ls.redeemed);
                 assert_eq!(sv.nonce, ls.nonce);
-                assert_eq!(sv.lane, ls.id);
             } else {
                 expect_error(
                     &mut rt,
@@ -367,7 +383,6 @@ mod update_channel_state_redeem {
 
         rt.verify();
         let exp_ls = LaneState {
-            id: 0,
             redeemed: BigInt::from(9),
             nonce: 2,
         };
@@ -377,9 +392,9 @@ mod update_channel_state_redeem {
             to_send: TokenAmount::from(9),
             settling_at: state.settling_at,
             min_settle_height: state.min_settle_height,
-            lane_states: vec![exp_ls],
+            lane_states: construct_lane_state_amt(&rt, vec![exp_ls]),
         };
-        verify_state(&mut rt, 1, exp_state);
+        verify_state(&mut rt, Some(1), exp_state);
     }
 
     #[test]
@@ -394,7 +409,8 @@ mod update_channel_state_redeem {
         let initial_amount = state.to_send;
         sv.amount = BigInt::from(9);
         sv.lane = 1;
-        let ls_to_update: &LaneState = &state.lane_states[1];
+
+        let ls_to_update: LaneState = get_lane_state(&rt, &state.lane_states, sv.lane);
         sv.nonce = ls_to_update.nonce + 1;
         let payer_addr = Address::new_id(PAYER_ID);
 
@@ -414,7 +430,7 @@ mod update_channel_state_redeem {
         rt.verify();
 
         let state: PState = rt.get_state().unwrap();
-        let ls_updated: &LaneState = &state.lane_states[1];
+        let ls_updated: LaneState = get_lane_state(&rt, &state.lane_states, sv.lane);
         let big_delta = &sv.amount - &ls_to_update.redeemed;
 
         let exp_send = big_delta + &initial_amount;
@@ -457,13 +473,14 @@ mod merge_tests {
         let num_lanes = 3;
         let (mut rt, mut sv, mut state) = construct_runtime(num_lanes);
 
-        let merge_to: &LaneState = &state.lane_states[0];
-        let merge_from: &LaneState = &state.lane_states[1];
-        sv.lane = merge_to.id;
+        let merge_to: LaneState = get_lane_state(&rt, &state.lane_states, 0);
+        let merge_from: LaneState = get_lane_state(&rt, &state.lane_states, 1);
+
+        sv.lane = 0;
         let merge_nonce = merge_to.nonce + 10;
 
         sv.merges = vec![Merge {
-            lane: merge_from.id,
+            lane: 1,
             nonce: merge_nonce,
         }];
         let payee_addr = Address::new_id(PAYEE_ID);
@@ -481,12 +498,10 @@ mod merge_tests {
         );
         rt.verify();
         let exp_merge_to = LaneState {
-            id: merge_to.id,
             redeemed: sv.amount.clone(),
             nonce: sv.nonce,
         };
         let exp_merge_from = LaneState {
-            id: merge_from.id,
             redeemed: merge_from.redeemed.clone(),
             nonce: merge_nonce,
         };
@@ -494,18 +509,22 @@ mod merge_tests {
         let exp_delta = &sv.amount - &redeemed;
         state.to_send = exp_delta + &state.to_send;
 
-        state.lane_states = vec![
-            exp_merge_to,
-            exp_merge_from,
-            state.lane_states.pop().unwrap(),
-        ];
-        verify_state(&mut rt, num_lanes as i64, state);
+        state.lane_states = construct_lane_state_amt(
+            &rt,
+            vec![
+                exp_merge_to,
+                exp_merge_from,
+                get_lane_state(&rt, &state.lane_states, 2),
+            ],
+        );
+
+        verify_state(&mut rt, Some(num_lanes), state);
     }
 
     #[test]
     fn merge_failure() {
         struct TestCase {
-            lane: i32,
+            lane: u64,
             voucher: u64,
             balance: i32,
             merge: u64,
@@ -548,14 +567,13 @@ mod merge_tests {
 
             rt.balance = TokenAmount::from(tc.balance as u64);
 
-            let merge_to: &LaneState = &state.lane_states[0];
-            let merge_from: &LaneState = &state.lane_states[tc.lane as usize];
-            sv.lane = merge_to.id;
+            sv.lane = 0;
             sv.nonce = tc.voucher;
             sv.merges = vec![Merge {
-                lane: merge_from.id,
+                lane: tc.lane,
                 nonce: tc.merge,
             }];
+            rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
             failure_end(&mut rt, sv, tc.exit);
         }
     }
@@ -563,30 +581,31 @@ mod merge_tests {
     #[test]
     fn invalid_merge_lane_999() {
         let num_lanes = 2;
-        let (mut rt, mut sv, state) = construct_runtime(num_lanes);
+        let (mut rt, mut sv) = require_create_cannel_with_lanes(num_lanes);
+        let state: PState = rt.get_state().unwrap();
 
-        let merge_to: &LaneState = &state.lane_states[0];
-        let merge_from = LaneState {
-            id: 999,
-            nonce: sv.nonce,
-            redeemed: BigInt::from(0),
-        };
-
-        sv.lane = merge_to.id;
+        sv.lane = 0;
         sv.nonce = 10;
         sv.merges = vec![Merge {
-            lane: merge_from.id,
+            lane: 999,
             nonce: sv.nonce,
         }];
+        rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), state.from);
+        rt.expect_validate_caller_addr(vec![state.from, state.to]);
+        rt.expect_verify_signature(ExpectedVerifySig {
+            plaintext: sv.signing_bytes().unwrap(),
+            sig: sv.signature.clone().unwrap(),
+            signer: Address::new_id(PAYEE_ID),
+            result: Ok(()),
+        });
         failure_end(&mut rt, sv, ExitCode::ErrIllegalArgument);
     }
 
     #[test]
     fn lane_limit_exceeded() {
-        let num_lanes = LANE_LIMIT as u64;
-        let (mut rt, mut sv, _) = construct_runtime(num_lanes);
+        let (mut rt, mut sv, _) = construct_runtime(1);
 
-        sv.lane += 1;
+        sv.lane = MAX_LANE as u64 + 1;
         sv.nonce += 1;
         sv.amount = BigInt::from(100);
         failure_end(&mut rt, sv, ExitCode::ErrIllegalArgument);
@@ -1043,21 +1062,27 @@ fn construct_and_verify(rt: &mut MockRuntime, sender: Address, receiver: Address
 
 fn verify_initial_state(rt: &mut MockRuntime, sender: Address, receiver: Address) {
     let _state: PState = rt.get_state().unwrap();
-    let expected_state = PState::new(sender, receiver);
-    verify_state(rt, -1, expected_state)
+    let empt_arr_cid = Amt::<(), _>::new(&rt.store).flush().unwrap();
+    let expected_state = PState::new(sender, receiver, empt_arr_cid);
+    verify_state(rt, None, expected_state)
 }
 
-fn verify_state(rt: &mut MockRuntime, exp_lanes: i64, expected_state: PState) {
+fn verify_state(rt: &mut MockRuntime, exp_lanes: Option<u64>, expected_state: PState) {
     let state: PState = rt.get_state().unwrap();
     assert_eq!(expected_state.to, state.to);
     assert_eq!(expected_state.from, state.from);
     assert_eq!(expected_state.min_settle_height, state.min_settle_height);
     assert_eq!(expected_state.settling_at, state.settling_at);
     assert_eq!(expected_state.to_send, state.to_send);
-    if exp_lanes > 0 {
-        assert_eq!(exp_lanes as u64, state.lane_states.len() as u64);
+    if let Some(exp_lanes) = exp_lanes {
+        assert_lane_states_length(rt, &state.lane_states, exp_lanes);
         assert_eq!(expected_state.lane_states, state.lane_states);
     } else {
-        assert_eq!(state.lane_states.len(), 0);
+        assert_lane_states_length(rt, &state.lane_states, 0);
     }
+}
+
+fn assert_lane_states_length(rt: &MockRuntime, cid: &Cid, l: u64) {
+    let arr = Amt::<LaneState, _>::load(cid, &rt.store).unwrap();
+    assert_eq!(arr.count(), l);
 }
