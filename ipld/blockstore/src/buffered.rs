@@ -6,7 +6,7 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use commcid::FilecoinMultihashCode;
+use commcid::{POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
 use db::{Error, Store};
 use encoding::{from_slice, ser::Serialize, to_vec};
 use forest_ipld::Ipld;
@@ -54,22 +54,20 @@ where
 {
     // Skip identity and Filecoin commitment Cids
     let ch = cid.hash.algorithm();
-    if ch == Code::Identity
-        || ch == Code::Custom(FilecoinMultihashCode::SealedV1 as u64)
-        || ch == Code::Custom(FilecoinMultihashCode::UnsealedV1 as u64)
-    {
+    if ch == Code::Identity || ch == SHA2_256_TRUNC254_PADDED || ch == POSEIDON_BLS12_381_A1_FC1 {
         return Ok(());
     }
 
     let raw_cid_bz = cid.to_bytes();
-    let raw_bz = cache
-        .get(cid)
-        .ok_or_else(|| "Invalid link in flushing buffered store".to_owned())?;
 
     // If root exists in base store already, can skip
     if base.exists(&raw_cid_bz)? {
         return Ok(());
     }
+
+    let raw_bz = cache
+        .get(cid)
+        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", cid))?;
 
     // Deserialize the bytes to Ipld to traverse links.
     // This is safer than finding links in place,
@@ -184,7 +182,8 @@ where
 mod tests {
     use super::*;
     use cid::multihash::{Blake2b256, Identity};
-    use commcid::{commitment_to_cid, FilecoinMultihashCode};
+    use cid::Codec;
+    use commcid::commitment_to_cid;
     use forest_ipld::{ipld, Ipld};
 
     #[test]
@@ -211,8 +210,18 @@ mod tests {
         let identity_cid = buf_store.put(&0u8, Identity).unwrap();
 
         // Create map to insert into store
-        let sealed_comm_cid = commitment_to_cid(&[7u8; 32], FilecoinMultihashCode::SealedV1);
-        let unsealed_comm_cid = commitment_to_cid(&[5u8; 32], FilecoinMultihashCode::UnsealedV1);
+        let sealed_comm_cid = commitment_to_cid(
+            Codec::FilCommitmentSealed,
+            POSEIDON_BLS12_381_A1_FC1,
+            &[7u8; 32],
+        )
+        .unwrap();
+        let unsealed_comm_cid = commitment_to_cid(
+            Codec::FilCommitmentUnsealed,
+            SHA2_256_TRUNC254_PADDED,
+            &[5u8; 32],
+        )
+        .unwrap();
         let map = ipld!({
             "array": Link(arr_cid.clone()),
             "sealed": Link(sealed_comm_cid.clone()),

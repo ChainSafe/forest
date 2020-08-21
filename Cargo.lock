@@ -290,6 +290,7 @@ dependencies = [
  "forest_message",
  "forest_vm",
  "hex",
+ "indexmap",
  "integer-encoding",
  "ipld_amt",
  "ipld_blockstore",
@@ -3335,6 +3336,7 @@ dependencies = [
  "murmur3",
  "serde",
  "serde_bytes",
+ "sha2 0.9.1",
  "thiserror",
 ]
 
@@ -6250,6 +6252,7 @@ version = "0.1.0"
 dependencies = [
  "actor",
  "db",
+ "fil_types",
  "fnv",
  "forest_address",
  "forest_bigint",
