@@ -284,7 +284,7 @@ impl Actor {
 
         // send ToSend to `to`
         rt.send(st.to, METHOD_SEND, Serialized::default(), st.to_send)
-            .map_err(|e| e.wrap("Failed to send funds to `to` address: "))?;
+            .map_err(|e| e.wrap("Failed to send funds to `to` address"))?;
 
         // the remaining balance will be returned to "From" upon deletion.
         rt.delete_actor(&st.from)?;

@@ -869,7 +869,7 @@ where
             .ok_or_else(|| actor_error!(ErrNotFound; "no such deal {}", deal_id))?;
 
         validate_deal_can_activate(&proposal, miner_addr, sector_expiry, curr_epoch)
-            .map_err(|e| e.wrap(&format!("cannot activate deal {}: ", deal_id)))?;
+            .map_err(|e| e.wrap(&format!("cannot activate deal {}", deal_id)))?;
 
         let deal_space_time = deal_weight(&proposal);
         if proposal.verified_deal {

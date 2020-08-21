@@ -8,6 +8,7 @@ use encoding::{
     ser::{self, Serialize},
 };
 use ipld_blockstore::BlockStore;
+use std::error::Error as StdError;
 
 /// This represents a link to another Node
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -323,9 +324,9 @@ where
         height: u32,
         offset: u64,
         f: &mut F,
-    ) -> Result<(), String>
+    ) -> Result<(), Box<dyn StdError>>
     where
-        F: FnMut(u64, &V) -> Result<(), String>,
+        F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
         S: BlockStore,
     {
         match self {
