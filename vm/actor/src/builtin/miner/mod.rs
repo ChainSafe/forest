@@ -2119,7 +2119,7 @@ where
     // Regenerate challenge randomness, which must match that generated for the proof.
     let entropy = rt.message().receiver().marshal_cbor().unwrap();
     let randomness: PoStRandomness =
-        rt.get_randomness(WindowedPoStChallengeSeed, challenge_epoch, &entropy)?;
+        rt.get_randomness_from_tickets(WindowedPoStChallengeSeed, challenge_epoch, &entropy)?;
 
     let challenged_sectors = sectors.iter().map(|s| s.to_sector_info()).collect();
 
@@ -2176,8 +2176,8 @@ where
     };
     let entropy = rt.message().receiver().marshal_cbor().unwrap();
     let randomness: SealRandom =
-        rt.get_randomness(SealRandomness, params.seal_rand_epoch, &entropy)?;
-    let interactive_randomness: InteractiveSealRandomness = rt.get_randomness(
+        rt.get_randomness_from_tickets(SealRandomness, params.seal_rand_epoch, &entropy)?;
+    let interactive_randomness: InteractiveSealRandomness = rt.get_randomness_from_tickets(
         InteractiveSealChallengeSeed,
         params.interactive_epoch,
         &entropy,

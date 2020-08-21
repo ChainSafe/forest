@@ -506,7 +506,16 @@ impl Runtime<MemoryDB> for MockRuntime {
         Ok(self.actor_code_cids.get(&addr).cloned())
     }
 
-    fn get_randomness(
+    fn get_randomness_from_tickets(
+        &self,
+        _personalization: DomainSeparationTag,
+        _rand_epoch: ChainEpoch,
+        _entropy: &[u8],
+    ) -> Result<Randomness, ActorError> {
+        unimplemented!()
+    }
+
+    fn get_randomness_from_beacon(
         &self,
         _personalization: DomainSeparationTag,
         _rand_epoch: ChainEpoch,
