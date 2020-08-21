@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::Tipset;
+use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
 use std::collections::HashSet;
-use encoding::Cbor;
-
 
 pub const BLOCK_GAS_LIMIT: i64 = 10_000_000_000;
 pub const BLOCK_GAS_TARGET: i64 = (BLOCK_GAS_LIMIT / 2) as i64;

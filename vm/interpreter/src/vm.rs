@@ -27,7 +27,6 @@ use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
 
-
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'db, 'r, DB, SYS, P> {
