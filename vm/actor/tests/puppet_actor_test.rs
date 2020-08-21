@@ -89,12 +89,6 @@ fn serialize_test() {
 
     let mut v: Vec<Option<FailToMarshalCBOR>> = vec![];
 
-    assert!(Serialized::serialize(&v).is_ok());
-
-    v.push(None);
-
-    assert!(Serialized::serialize(&v).is_ok());
-
     v.push(Some(FailToMarshalCBOR::default()));
 
     // SHould only fail if a actual instance of FailToMarshalCBOR is used
