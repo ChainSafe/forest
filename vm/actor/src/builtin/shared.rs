@@ -7,7 +7,8 @@ use encoding::tuple::*;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;
 use runtime::Runtime;
-use vm::{ActorError, Serialized, TokenAmount};
+use std::error::Error as StdError;
+use vm::{ActorError, Serialized, TokenAmount, METHOD_SEND};
 
 pub(crate) fn request_miner_control_addrs<BS, RT>(
     rt: &mut RT,
@@ -35,6 +36,35 @@ struct MinerAddrs {
     control_addrs: Vec<Address>,
 }
 
-// ResolveToIDAddr resolves the given address to it's ID address form.
-// If an ID address for the given address dosen't exist yet, it tries to create one by sending a zero balance to the given address.
-// TODO ResolveToIDAddr
+/// ResolveToIDAddr resolves the given address to it's ID address form.
+/// If an ID address for the given address dosen't exist yet, it tries to create one by sending
+/// a zero balance to the given address.
+pub(crate) fn resolve_to_id_addr<BS, RT>(
+    rt: &mut RT,
+    address: &Address,
+) -> Result<Address, Box<dyn StdError>>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    // if we are able to resolve it to an ID address, return the resolved address
+    if let Some(addr) = rt.resolve_address(address)? {
+        return Ok(addr);
+    }
+
+    // send 0 balance to the account so an ID address for it is created and then try to resolve
+    rt.send(*address, METHOD_SEND, Default::default(), Default::default())
+        .map_err(|e| {
+            e.wrap(&format!(
+                "failed to send zero balance to address {}",
+                address
+            ))
+        })?;
+
+    match rt.resolve_address(address)? {
+        Some(addr) => Ok(addr),
+        None => {
+            Err("failed to resolve address {} to ID address even after sending zero balance".into())
+        }
+    }
+}
