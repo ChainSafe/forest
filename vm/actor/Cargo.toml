@@ -21,7 +21,7 @@ ipld_hamt = { path = "../../ipld/hamt" }
 ipld_amt = { path = "../../ipld/amt" }
 forest_ipld = { path = "../../ipld" }
 message = { package = "forest_message", path = "../message" }
-unsigned-varint = "0.4"
+unsigned-varint = "0.5"
 integer-encoding = "1.1.5"
 crypto = { package = "forest_crypto", path = "../../crypto" }
 bitfield = { path = "../../utils/bitfield" }
