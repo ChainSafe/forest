@@ -5,17 +5,21 @@ use blocks::Tipset;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
-use std::convert::From;
 use std::collections::HashSet;
 use encoding::Cbor;
+
 
 pub const BLOCK_GAS_LIMIT: i64 = 10_000_000_000;
 pub const BLOCK_GAS_TARGET: i64 = (BLOCK_GAS_LIMIT / 2) as i64;
 pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8; // 12.5%;
 pub const INITIAL_BASE_FEE: i64 = 100000000; // Genesis base fee
-pub const MINIMUM_BASE_FEE: i64 = 100;
 pub const PACKING_EFFICIENCY_DENOM: i64 = 5;
 pub const PACKING_EFFICIENCY_NUM: i64 = 4;
+lazy_static! {
+    /// Cbor bytes of an empty array serialized.
+    pub static ref MINIMUM_BASE_FEE: BigInt = 100.into();
+
+}
 
 fn compute_next_base_fee(base_fee: &BigInt, gas_limit_used: i64, no_of_blocks: usize) -> BigInt {
     let mut delta = (PACKING_EFFICIENCY_DENOM * gas_limit_used
@@ -29,12 +33,10 @@ fn compute_next_base_fee(base_fee: &BigInt, gas_limit_used: i64, no_of_blocks: u
         delta = -BLOCK_GAS_TARGET
     }
 
-    let mut change = base_fee * BigInt::from(delta);
-    change /= BLOCK_GAS_TARGET;
-    change /= BASE_FEE_MAX_CHANGE_DENOM;
+    let change: BigInt = ((base_fee * delta) / BLOCK_GAS_TARGET) / BASE_FEE_MAX_CHANGE_DENOM;
     let mut next_base_fee = base_fee + change;
-    if next_base_fee < BigInt::from(MINIMUM_BASE_FEE) {
-        next_base_fee = BigInt::from(MINIMUM_BASE_FEE);
+    if next_base_fee < *MINIMUM_BASE_FEE {
+        next_base_fee = MINIMUM_BASE_FEE.clone();
     }
     next_base_fee
 }

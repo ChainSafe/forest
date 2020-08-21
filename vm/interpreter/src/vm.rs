@@ -24,6 +24,10 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 
+const GAS_OVERUSE_NUM: i64 = 11;
+const GAS_OVERUSE_DENOM: i64 = 10;
+
+
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'db, 'r, DB, SYS, P> {
@@ -475,9 +479,7 @@ fn compute_gas_outputs(
         out.miner_penalty += (base_fee - base_fee_to_pay) * out.gas_burned;
     }
     let required_funds = fee_cap * gas_limit;
-    let mut refund = required_funds - &out.base_fee_burn;
-    refund -= &out.miner_tip;
-    refund -= &out.over_estimation_burn;
+    let refund = required_funds - &out.base_fee_burn - &out.miner_tip - &out.over_estimation_burn;
     out.refund = refund;
 
     out
@@ -487,10 +489,8 @@ pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i
     if gas_used == 0 {
         return (0, gas_limit);
     }
-    let gas_overuse_num = 11;
-    let gas_overuse_denom = 10;
 
-    let mut over = gas_limit - (gas_overuse_num * gas_used) / gas_overuse_denom;
+    let mut over = gas_limit - (GAS_OVERUSE_NUM * gas_used) / GAS_OVERUSE_DENOM;
     if over < 0 {
         return (gas_limit - gas_used, 0);
     }

@@ -767,6 +767,8 @@ where
         Ok(out)
     }
 
+    /// Similar to `resolve_to_key_addr` in the vm crate but does not allow `Actor` type of addresses.
+    /// Uses `ts` to generate the VM state.
     pub async fn resolve_to_key_addr(
         &self,
         addr: &Address,

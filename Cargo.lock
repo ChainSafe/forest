@@ -1196,6 +1196,7 @@ dependencies = [
  "forest_message",
  "ipld_amt",
  "ipld_blockstore",
+ "lazy_static",
  "log",
  "multihash 0.10.1",
  "num-traits 0.2.12",

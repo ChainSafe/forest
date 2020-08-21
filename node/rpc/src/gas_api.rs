@@ -154,7 +154,7 @@ where
 {
     let (UnsignedMessageJson(mut msg), _) = params;
     msg.set_gas_limit(BLOCK_GAS_LIMIT);
-    msg.set_gas_fee_cap((MINIMUM_BASE_FEE + 1).into());
+    msg.set_gas_fee_cap(MINIMUM_BASE_FEE.clone() + 1);
     msg.set_gas_premium(1.into());
 
     let curr_ts = chain::get_heaviest_tipset(data.state_manager.get_block_store_ref())?
