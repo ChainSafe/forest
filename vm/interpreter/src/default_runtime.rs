@@ -364,7 +364,7 @@ where
             .map(|act| act.code))
     }
 
-    fn get_randomness(
+    fn get_randomness_from_tickets(
         &self,
         personalization: DomainSeparationTag,
         rand_epoch: ChainEpoch,
@@ -372,7 +372,21 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = self
             .rand
-            .get_randomness(&self.store, personalization, rand_epoch, entropy)
+            .get_chain_randomness(&self.store, personalization, rand_epoch, entropy)
+            .map_err(|e| actor_error!(fatal("could not get randomness: {}", e.to_string())))?;
+
+        Ok(Randomness(r))
+    }
+
+    fn get_randomness_from_beacon(
+        &self,
+        personalization: DomainSeparationTag,
+        rand_epoch: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<Randomness, ActorError> {
+        let r = self
+            .rand
+            .get_chain_randomness(&self.store, personalization, rand_epoch, entropy)
             .map_err(|e| actor_error!(fatal("could not get randomness: {}", e.to_string())))?;
 
         Ok(Randomness(r))
