@@ -5,6 +5,7 @@ use crate::{node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_INDEX, 
 use cid::{multihash::Blake2b256, Cid};
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
+use std::error::Error as StdError;
 
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID
 ///
@@ -216,10 +217,10 @@ where
     /// assert_eq!(&values, &[(1, "One".to_owned()), (4, "Four".to_owned())]);
     /// ```
     #[inline]
-    pub fn for_each<F>(&self, mut f: F) -> Result<(), String>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(u64, &V) -> Result<(), String>,
+        F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
         self.root
             .node

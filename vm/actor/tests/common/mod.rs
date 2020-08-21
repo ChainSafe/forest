@@ -655,6 +655,11 @@ impl Runtime<MemoryDB> for MockRuntime {
     fn syscalls(&self) -> &dyn Syscalls {
         self
     }
+
+    fn charge_gas(&mut self, _name: String, _gas: i64) -> Result<(), ActorError> {
+        // TODO implement functionality if needed for testing
+        Ok(())
+    }
 }
 
 impl Syscalls for MockRuntime {

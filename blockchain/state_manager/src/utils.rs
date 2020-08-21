@@ -12,11 +12,12 @@ use address::{Address, Protocol};
 use bitfield::BitField;
 use blockstore::BlockStore;
 use cid::Cid;
+use encoding::serde_bytes::ByteBuf;
 use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize, HAMT_BIT_WIDTH};
 use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
 use forest_blocks::Tipset;
 use ipld_amt::Amt;
-use ipld_hamt::Hamt;
+use ipld_hamt::{BytesKey, Hamt};
 use std::convert::TryInto;
 
 pub fn get_sectors_for_winning_post<DB>(
@@ -147,7 +148,7 @@ where
     let amt = Amt::load(ssc, block_store).map_err(|err| Error::Other(err.to_string()))?;
 
     let mut sset: Vec<ChainSectorInfo> = Vec::new();
-    let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| -> Result<(), String> {
+    let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| {
         if let Some(ref mut s) = filter {
             let i = i
                 .try_into()
@@ -321,11 +322,11 @@ where
     let map =
         Hamt::<_>::load_with_bit_width(&power_actor_state.claims, block_store, HAMT_BIT_WIDTH)
             .map_err(|err| Error::Other(err.to_string()))?;
-    map.for_each(|_, k: String| -> Result<(), String> {
-        let address = Address::from_bytes(k.as_bytes()).map_err(|e| e.to_string())?;
+    map.for_each(|_: &BytesKey, k: ByteBuf| {
+        let address = Address::from_bytes(k.as_ref())?;
         miners.push(address);
         Ok(())
     })
-    .map_err(Error::Other)?;
+    .map_err(|e| Error::Other(e.to_string()))?;
     Ok(miners)
 }
