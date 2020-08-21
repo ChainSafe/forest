@@ -15,6 +15,8 @@ pub enum DomainSeparationTag {
     SealRandomness = 5,
     InteractiveSealChallengeSeed = 6,
     WindowPoStDeadlineAssignment = 7,
+    MarketDealCronSeed = 8,
+    PoStChainCommit = 9,
 }
 
 impl DomainSeparationTag {

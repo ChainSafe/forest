@@ -12,7 +12,7 @@ use vm::{ActorError, Serialized, TokenAmount};
 pub(crate) fn request_miner_control_addrs<BS, RT>(
     rt: &mut RT,
     miner_addr: Address,
-) -> Result<(Address, Address), ActorError>
+) -> Result<(Address, Address, Vec<Address>), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
@@ -25,11 +25,16 @@ where
     )?;
     let addrs: MinerAddrs = ret.deserialize()?;
 
-    Ok((addrs.owner, addrs.worker))
+    Ok((addrs.owner, addrs.worker, addrs.control_addrs))
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 struct MinerAddrs {
     owner: Address,
     worker: Address,
+    control_addrs: Vec<Address>,
 }
+
+// ResolveToIDAddr resolves the given address to it's ID address form.
+// If an ID address for the given address dosen't exist yet, it tries to create one by sending a zero balance to the given address.
+// TODO ResolveToIDAddr
