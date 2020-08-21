@@ -82,12 +82,6 @@ impl Message for SignedMessage {
     fn params(&self) -> &Serialized {
         self.message.params()
     }
-    fn gas_price(&self) -> &TokenAmount {
-        self.message.gas_price()
-    }
-    fn set_gas_price(&mut self, token_amount: TokenAmount) {
-        self.message.set_gas_price(token_amount)
-    }
     fn gas_limit(&self) -> i64 {
         self.message.gas_limit()
     }
@@ -99,6 +93,20 @@ impl Message for SignedMessage {
     }
     fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()
+    }
+    fn gas_fee_cap(&self) -> &TokenAmount {
+        &self.message.gas_fee_cap()
+    }
+    fn gas_premium(&self) -> &TokenAmount {
+        &self.message.gas_premium()
+    }
+
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
+        self.message.set_gas_fee_cap(cap);
+    }
+
+    fn set_gas_premium(&mut self, prem: TokenAmount) {
+        self.message.set_gas_premium(prem);
     }
 }
 
