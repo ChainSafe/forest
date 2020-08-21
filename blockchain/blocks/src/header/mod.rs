@@ -123,7 +123,7 @@ pub struct BlockHeader {
     /// aggregate signature of miner in block
     #[builder(default)]
     bls_aggregate: Option<Signature>,
-    /// aggregate signature of miner in block
+    /// the base fee of the parent block
     #[builder(default)]
     parent_base_fee: TokenAmount,
     // CACHE
@@ -289,6 +289,10 @@ impl BlockHeader {
     pub fn cid(&self) -> &Cid {
         // Cache should be initialized, otherwise will return default Cid
         &self.cached_cid
+    }
+    /// Getter for BlockHeader parent_base_fee
+    pub fn parent_base_fee(&self) -> &BigInt {
+        &self.parent_base_fee
     }
     /// Getter for BlockHeader fork_signal
     pub fn fork_signal(&self) -> u64 {
