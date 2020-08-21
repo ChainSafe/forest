@@ -6,6 +6,8 @@ use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
 use std::convert::From;
+use std::collections::HashSet;
+use encoding::Cbor;
 
 pub const BLOCK_GAS_LIMIT: i64 = 10_000_000_000;
 pub const BLOCK_GAS_TARGET: i64 = (BLOCK_GAS_LIMIT / 2) as i64;
@@ -42,13 +44,23 @@ where
     DB: BlockStore,
 {
     let mut total_limit = 0;
+    let mut seen = HashSet::new();
+
     for b in ts.blocks() {
         let (msg1, msg2) = crate::block_messages(db, &b)?;
         for m in msg1 {
-            total_limit += m.gas_limit();
+            let m_cid = m.cid()?;
+            if !seen.contains(&m_cid) {
+                total_limit += m.gas_limit();
+                seen.insert(m_cid);
+            }
         }
         for m in msg2 {
-            total_limit += m.gas_limit();
+            let m_cid = m.cid()?;
+            if !seen.contains(&m_cid) {
+                total_limit += m.gas_limit();
+                seen.insert(m_cid);
+            }
         }
     }
     let parent_base_fee = ts.blocks()[0].parent_base_fee();
