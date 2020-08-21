@@ -5,7 +5,7 @@ mod errors;
 pub mod utils;
 pub use self::errors::*;
 use actor::{
-    init, market, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
+    init, make_map_with_root, market, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
     STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
 };
 use address::{Address, BLSPublicKey, Payload, BLS_PUB_LEN};
@@ -119,15 +119,15 @@ where
         Ok(state.network_name)
     }
     /// Returns true if miner has been slashed or is considered invalid
-    // TODO update
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
-        let _ms: miner::State = self.load_actor_state(addr, state_cid)?;
+        let spas: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
-        match ps.get_claim(self.bs.as_ref(), addr)? {
-            Some(_) => Ok(false),
-            None => Ok(true),
-        }
+        let claims = make_map_with_root(&spas.claims, self.bs.as_ref())
+            .map_err(|e| Error::State(e.to_string()))?;
+
+        Ok(!claims
+            .contains_key(&addr.to_bytes())
+            .map_err(|e| Error::State(e.to_string()))?)
     }
     /// Returns raw work address of a miner
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
@@ -140,16 +140,28 @@ where
         Ok(addr)
     }
     /// Returns specified actor's claimed power and total network power as a tuple
-    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<(BigInt, BigInt), Error> {
+    pub fn get_power(
+        &self,
+        state_cid: &Cid,
+        addr: &Address,
+    ) -> Result<(power::Claim, power::Claim), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        if let Some(claim) = ps.get_claim(self.bs.as_ref(), addr)? {
-            Ok((claim.raw_byte_power, claim.quality_adj_power))
-        } else {
-            Err(Error::State(
-                "Failed to retrieve claimed power from actor state".to_owned(),
-            ))
-        }
+        let cm = make_map_with_root(&ps.claims, self.bs.as_ref())
+            .map_err(|e| Error::State(e.to_string()))?;
+        let claim: power::Claim = cm
+            .get(&addr.to_bytes())
+            .map_err(|e| Error::State(e.to_string()))?
+            .ok_or_else(|| {
+                Error::State("Failed to retrieve claimed power from actor state".to_owned())
+            })?;
+        Ok((
+            claim,
+            power::Claim {
+                raw_byte_power: ps.total_raw_byte_power,
+                quality_adj_power: ps.total_quality_adj_power,
+            },
+        ))
     }
 
     pub fn get_subscriber(&self) -> Option<Subscriber<HeadChange>> {

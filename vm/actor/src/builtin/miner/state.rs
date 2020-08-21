@@ -19,6 +19,7 @@ use num_bigint::bigint_ser::{self, BigIntDe};
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 use num_traits::Zero;
+use std::error::Error as StdError;
 use vm::TokenAmount;
 
 // Balance of Miner Actor should be greater than or equal to
@@ -238,9 +239,13 @@ impl State {
         self.sectors = sectors.flush()?;
         Ok(())
     }
-    pub fn for_each_sector<BS: BlockStore, F>(&self, store: &BS, mut f: F) -> Result<(), String>
+    pub fn for_each_sector<BS: BlockStore, F>(
+        &self,
+        store: &BS,
+        mut f: F,
+    ) -> Result<(), Box<dyn StdError>>
     where
-        F: FnMut(&SectorOnChainInfo) -> Result<(), String>,
+        F: FnMut(&SectorOnChainInfo) -> Result<(), Box<dyn StdError>>,
     {
         let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
         sectors.for_each(|_, v| f(&v))
@@ -282,9 +287,9 @@ impl State {
         &self,
         store: &BS,
         mut f: F,
-    ) -> Result<(), String>
+    ) -> Result<(), Box<dyn StdError>>
     where
-        F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
+        F: FnMut(ChainEpoch, &BitField) -> Result<(), Box<dyn StdError>>,
     {
         let sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
         sector_arr.for_each(|i, v| f(i as i64, v))
@@ -391,9 +396,9 @@ impl State {
         &mut self,
         store: &BS,
         sector_nos: &BitField,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         if sector_nos.is_empty() {
-            return Err(format!("sectors are empty: {:?}", sector_nos));
+            return Err(format!("sectors are empty: {:?}", sector_nos).into());
         }
 
         self.faults -= sector_nos;
@@ -427,9 +432,9 @@ impl State {
         &self,
         store: &BS,
         mut f: F,
-    ) -> Result<(), String>
+    ) -> Result<(), Box<dyn StdError>>
     where
-        F: FnMut(ChainEpoch, &BitField) -> Result<(), String>,
+        F: FnMut(ChainEpoch, &BitField) -> Result<(), Box<dyn StdError>>,
     {
         let sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
         sector_arr.for_each(|i, v| f(i as i64, v))
@@ -651,7 +656,7 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
         target: TokenAmount,
-    ) -> Result<TokenAmount, String> {
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
         let mut vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
 
         let mut amount_unlocked = TokenAmount::default();
@@ -675,7 +680,7 @@ impl State {
                 }
             } else {
                 // stop iterating
-                return Err("finished".to_string());
+                return Err("finished".into());
             }
             Ok(())
         })?;
@@ -698,7 +703,7 @@ impl State {
         &mut self,
         store: &BS,
         current_epoch: ChainEpoch,
-    ) -> Result<TokenAmount, String> {
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
         let mut vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
 
         let mut amount_unlocked = TokenAmount::default();
@@ -711,7 +716,7 @@ impl State {
                 to_del.push(k);
             } else {
                 // stop iterating
-                return Err("finished".to_string());
+                return Err("finished".into());
             }
             Ok(())
         })?;
@@ -729,7 +734,7 @@ impl State {
         &self,
         store: &BS,
         current_epoch: ChainEpoch,
-    ) -> Result<TokenAmount, String> {
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
         let vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
 
         let mut amount_unlocked = TokenAmount::default();
@@ -739,7 +744,7 @@ impl State {
                 amount_unlocked += locked_entry;
             } else {
                 // stop iterating
-                return Err("finished".to_string());
+                return Err("finished".into());
             }
             Ok(())
         })?;

@@ -9,6 +9,7 @@ use forest_ipld::{from_ipld, to_ipld, Ipld};
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
+use std::error::Error as StdError;
 use std::marker::PhantomData;
 
 /// Implementation of the HAMT data structure for IPLD.
@@ -259,10 +260,10 @@ where
     /// assert_eq!(total, 3);
     /// ```
     #[inline]
-    pub fn for_each<F, V>(&self, mut f: F) -> Result<(), String>
+    pub fn for_each<F, V>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(&K, V) -> Result<(), String>,
+        F: FnMut(&K, V) -> Result<(), Box<dyn StdError>>,
     {
         self.root.for_each(self.store, &mut f)
     }

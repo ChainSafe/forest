@@ -1742,7 +1742,7 @@ fn pop_sector_expirations<BS>(
     st: &mut State,
     store: &BS,
     epoch: ChainEpoch,
-) -> Result<BitField, String>
+) -> Result<BitField, Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -1751,7 +1751,7 @@ where
 
     st.for_each_sector_expiration(store, |expiry: ChainEpoch, sectors: &BitField| {
         if expiry > epoch {
-            return Err("done".to_string());
+            return Err("done".into());
         }
         expired_epochs.push(expiry);
         expired_sectors.push(sectors.clone());
@@ -1771,7 +1771,7 @@ fn pop_expired_faults<BS>(
     st: &mut State,
     store: &BS,
     latest_termination: ChainEpoch,
-) -> Result<(BitField, BitField), String>
+) -> Result<(BitField, BitField), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -1949,7 +1949,7 @@ fn remove_terminated_sectors<BS>(
     store: &BS,
     deadlines: &mut Deadlines,
     sectors: &BitField,
-) -> Result<(), String>
+) -> Result<(), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -2458,7 +2458,7 @@ fn unlock_penalty<BS>(
     current_epoch: ChainEpoch,
     sectors: &[SectorOnChainInfo],
     f: &impl Fn(&SectorOnChainInfo) -> TokenAmount,
-) -> Result<TokenAmount, String>
+) -> Result<TokenAmount, Box<dyn StdError>>
 where
     BS: BlockStore,
 {

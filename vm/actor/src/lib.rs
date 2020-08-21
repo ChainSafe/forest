@@ -55,7 +55,7 @@ fn make_map<BS: BlockStore>(store: &'_ BS) -> Map<'_, BS> {
 
 /// Create a map with a root cid.
 #[inline]
-fn make_map_with_root<'bs, BS: BlockStore>(
+pub fn make_map_with_root<'bs, BS: BlockStore>(
     root: &Cid,
     store: &'bs BS,
 ) -> Result<Map<'bs, BS>, HamtError> {

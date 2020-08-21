@@ -290,6 +290,7 @@ dependencies = [
  "forest_message",
  "forest_vm",
  "hex",
+ "indexmap",
  "integer-encoding",
  "ipld_amt",
  "ipld_blockstore",
