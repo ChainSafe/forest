@@ -1,0 +1,8 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+pub struct UnmarshallableCBOR {}
+
+pub struct State {
+    pub unmarshallable: Vec<Option<UnmarshallableCBOR>>,
+}
