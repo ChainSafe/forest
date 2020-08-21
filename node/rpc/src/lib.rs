@@ -18,7 +18,14 @@ use state_manager::StateManager;
 use std::sync::Arc;
 use tide::{Request, Response, StatusCode};
 use wallet::KeyStore;
-
+use async_std::net::{TcpListener, TcpStream};
+use async_std::task;
+use futures::stream::futures_unordered::FuturesUnordered;
+use futures::stream::{StreamExt,TryStreamExt};
+use futures::sink::SinkExt;
+use futures::future;
+use async_tungstenite::tungstenite::{Message,error::Error};
+use std::borrow::Cow;
 /// This is where you store persistant data, or at least access to stateful data.
 pub struct RpcState<DB, KS>
 where
@@ -32,12 +39,6 @@ where
     pub sync_state: Arc<RwLock<SyncState>>,
     pub network_send: Sender<NetworkMessage>,
     pub network_name: String,
-}
-
-async fn handle_json_rpc(mut req: Request<Server<MapRouter>>) -> tide::Result {
-    let call: RequestObject = req.body_json().await?;
-    let res = req.state().handle(call).await;
-    Ok(Response::new(StatusCode::Ok).body_json(&res)?)
 }
 
 pub async fn start_rpc<DB, KS>(state: RpcState<DB, KS>, rpc_endpoint: &str)
@@ -146,7 +147,38 @@ where
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS>)
         .finish_unwrapped();
 
-    let mut app = tide::Server::with_state(rpc);
-    app.at("/rpc/v0").post(handle_json_rpc);
-    app.listen(rpc_endpoint).await.unwrap();
+    let try_socket = TcpListener::bind("127.0.0.1").await;
+    let listener = try_socket.expect("Failed to bind to addr");
+    let state = Arc::new(rpc);
+    let futures_unordered = FuturesUnordered::new();
+    while let Ok((stream, addr)) = listener.accept().await {
+        futures_unordered.push(task::spawn(handle_connection(state.clone(), stream)));
+    }
+}
+
+async fn handle_connection(state: Arc<Server<MapRouter>>,tcp_stream: TcpStream) -> Result<(),Error>
+{
+    let ws_stream = async_tungstenite::accept_async(tcp_stream)
+        .await
+        .expect("Error during the websocket handshake occurred");
+    let (mut ws_sender, ws_receiver) = ws_stream.split();
+    let responses = ws_receiver
+    .try_filter(|s|future::ready(!s.is_text()))
+    .try_fold(Vec::new(),|mut responses,s|async {
+        let request_text = s.into_text()?;
+        let call: RequestObject = serde_json::from_str(&request_text).map_err(|s|Error::Protocol(Cow::from(s.to_string())))?;
+        let response = state.handle(call).await;
+        let response_text = serde_json::to_string(&response).map_err(|s|Error::Protocol(Cow::from(s.to_string())))?;
+        responses.push(response_text);
+        Ok(responses)
+        
+    }).await?;
+
+    //send back responses
+    for response_text in responses
+    {
+       ws_sender.send(Message::text(response_text)).await?
+    }
+    Ok(())
+
 }
