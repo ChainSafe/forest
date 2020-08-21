@@ -12,9 +12,21 @@ pub const BLOCK_GAS_TARGET: i64 = (BLOCK_GAS_LIMIT / 2) as i64;
 pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8; // 12.5%;
 pub const INITIAL_BASE_FEE: i64 = 100000000; // Genesis base fee
 pub const MINIMUM_BASE_FEE: i64 = 100;
+pub const PACKING_EFFICIENCY_DENOM: i64 = 5;
+pub const PACKING_EFFICIENCY_NUM: i64 = 4;
 
 fn compute_next_base_fee(base_fee: &BigInt, gas_limit_used: i64, no_of_blocks: usize) -> BigInt {
-    let delta = gas_limit_used / no_of_blocks as i64 - BLOCK_GAS_TARGET;
+    let mut delta = (PACKING_EFFICIENCY_DENOM * gas_limit_used
+        / (no_of_blocks as i64 * PACKING_EFFICIENCY_NUM))
+        - BLOCK_GAS_TARGET;
+    // cap change at 12.5% (BaseFeeMaxChangeDenom) by capping delta
+    if delta > BLOCK_GAS_TARGET {
+        delta = BLOCK_GAS_TARGET
+    }
+    if delta < -BLOCK_GAS_TARGET {
+        delta = -BLOCK_GAS_TARGET
+    }
+
     let mut change = base_fee * BigInt::from(delta);
     change /= BLOCK_GAS_TARGET;
     change /= BASE_FEE_MAX_CHANGE_DENOM;
@@ -56,10 +68,10 @@ mod tests {
         let mut cases = Vec::new();
         cases.push((100_000_000, 0, 1, 87_500_000));
         cases.push((100_000_000, 0, 5, 87_500_000));
-        cases.push((100_000_000, BLOCK_GAS_TARGET, 1, 100_000_000));
-        cases.push((100_000_000, BLOCK_GAS_TARGET * 2, 2, 100_000_000));
+        cases.push((100_000_000, BLOCK_GAS_TARGET, 1, 103_125_000));
+        cases.push((100_000_000, BLOCK_GAS_TARGET * 2, 2, 103_125_000));
         cases.push((100_000_000, BLOCK_GAS_LIMIT * 2, 2, 112_500_000));
-        cases.push((100_000_000, BLOCK_GAS_LIMIT * 15 / 10, 2, 106_250_000));
+        cases.push((100_000_000, BLOCK_GAS_LIMIT * 15 / 10, 2, 110_937_500));
         cases
     }
 

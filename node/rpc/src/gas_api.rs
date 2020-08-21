@@ -181,8 +181,8 @@ where
             if rct.exit_code as u64 != 0 {
                 return Ok(-1);
             }
-            return Ok(rct.gas_used);
+            Ok(rct.gas_used)
         }
-        None => return Ok(-1),
+        None => Ok(-1),
     }
 }
