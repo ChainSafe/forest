@@ -165,10 +165,9 @@ where
         .await?;
 
     let pending = data.mpool.pending_for(&from_a).await;
-    let prior_messages: Vec<ChainMessage> = match pending {
-        Some(messages) => messages.into_iter().map(ChainMessage::Signed).collect(),
-        None => vec![],
-    };
+    let prior_messages: Vec<ChainMessage> = pending
+        .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
+        .unwrap_or_default();
     let res = data
         .state_manager
         .call_with_gas(
@@ -177,13 +176,13 @@ where
             Some(data.mpool.cur_tipset.as_ref().read().await.clone()),
         )
         .await?;
-    match res.msg_rct.clone() {
+    match res.msg_rct {
         Some(rct) => {
             if rct.exit_code as u64 != 0 {
                 return Ok(-1);
             }
+            return Ok(rct.gas_used);
         }
         None => return Ok(-1),
     }
-    Ok(res.msg_rct.unwrap().gas_used)
 }

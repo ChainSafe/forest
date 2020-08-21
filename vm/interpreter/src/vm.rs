@@ -470,7 +470,7 @@ fn compute_gas_outputs(
     out.gas_refund = out_gas_refund;
     out.gas_burned = out_gas_burned;
 
-    if out.gas_burned == 0 {
+    if out.gas_burned != 0 {
         out.over_estimation_burn = base_fee_to_pay * out.gas_burned;
         out.miner_penalty += (base_fee - base_fee_to_pay) * out.gas_burned;
     }
@@ -504,7 +504,7 @@ pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i
     gas_to_burn /= gas_used;
 
     (
-        i64::try_from(gas_limit - gas_used - gas_to_burn.clone()).unwrap(),
+        i64::try_from(gas_limit - gas_used - &gas_to_burn).unwrap(),
         i64::try_from(gas_to_burn).unwrap(),
     )
 }

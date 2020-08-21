@@ -162,7 +162,7 @@ where
         &self,
         ts: &FullTipset,
         rand: &ChainRand,
-        base_fee: &BigInt,
+        base_fee: BigInt,
         callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
@@ -174,7 +174,7 @@ where
             ts.epoch(),
             DefaultSyscalls::new(&buf_store),
             rand,
-            base_fee.clone(),
+            base_fee,
         )?;
 
         // Apply tipset messages
@@ -424,7 +424,7 @@ where
 
             // convert tipset to fulltipset
             let full_tipset = FullTipset::new(blocks)?;
-            self.apply_blocks(&full_tipset, &chain_rand, base_fee, callback)
+            self.apply_blocks(&full_tipset, &chain_rand, base_fee.clone(), callback)
         })
     }
 
