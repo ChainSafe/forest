@@ -582,6 +582,10 @@ where
             - st.total_pledge_collateral;
         Ok(total)
     }
+    fn charge_gas(&mut self, _name: String, gas: i64) -> Result<(), ActorError> {
+        // TODO use name for better gas usage tracking if needed
+        self.charge_gas(gas)
+    }
 }
 
 /// Shared logic between the DefaultRuntime and the Interpreter.

@@ -64,11 +64,7 @@ where
         F: FnMut(&BytesKey) -> Result<(), Box<dyn StdError>>,
     {
         // Calls the for each function on the hamt with ignoring the value
-        // TODO there are no actor errors used in the generic function yet, but the HAMT for_each
-        // iterator should be Box<dyn Error> to not convert to String and lose exit code
-        Ok(self
-            .0
-            .for_each(|s, _: ()| f(s).map_err(|e| e.to_string()))?)
+        Ok(self.0.for_each(|s, _: ()| f(s))?)
     }
 
     /// Collects all keys from the set into a vector.
