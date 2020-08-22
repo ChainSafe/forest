@@ -189,8 +189,11 @@ impl State {
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<(), HamtError> {
-        let mut precommitted =
-            Hamt::<_, SectorPreCommitOnChainInfo>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        let mut precommitted = Hamt::<_, SectorPreCommitOnChainInfo>::load_with_bit_width(
+            &self.pre_committed_sectors,
+            store,
+            HAMT_BIT_WIDTH,
+        )?;
         precommitted.delete(&u64_key(sector_num))?;
 
         self.pre_committed_sectors = precommitted.flush()?;

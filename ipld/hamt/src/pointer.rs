@@ -118,7 +118,8 @@ where
                 2..=MAX_ARRAY_WIDTH => {
                     // Iterate over all pointers in cached node to see if it can fit all within
                     // one values node
-                    let mut child_vals: Vec<KeyValuePair<K, V>> = Vec::with_capacity(MAX_ARRAY_WIDTH);
+                    let mut child_vals: Vec<KeyValuePair<K, V>> =
+                        Vec::with_capacity(MAX_ARRAY_WIDTH);
                     for pointer in n.pointers.iter() {
                         if let Pointer::Values(kvs) = pointer {
                             for kv in kvs.iter() {

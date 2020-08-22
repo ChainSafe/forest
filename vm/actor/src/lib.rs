@@ -50,7 +50,7 @@ fn check_empty_params(params: &Serialized) -> Result<(), ActorError> {
 
 /// Create a hamt configured with constant bit width.
 #[inline]
-fn make_map<BS, V>(store: &'_ BS) -> Map<'_, BS, V>
+pub fn make_map<BS, V>(store: &'_ BS) -> Map<'_, BS, V>
 where
     BS: BlockStore,
     V: DeserializeOwned + Serialize + Clone,
@@ -60,7 +60,7 @@ where
 
 /// Create a map with a root cid.
 #[inline]
-fn make_map_with_root<'bs, BS, V>(root: &Cid, store: &'bs BS) -> Result<Map<'bs, BS, V>, HamtError>
+pub fn make_map_with_root<'bs, BS, V>(root: &Cid, store: &'bs BS) -> Result<Map<'bs, BS, V>, HamtError>
 where
     BS: BlockStore,
     V: DeserializeOwned + Serialize + Clone,

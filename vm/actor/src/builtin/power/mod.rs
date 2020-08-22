@@ -61,7 +61,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        let empty_map = make_map(rt.store()).flush().map_err(
+        let empty_map = make_map::<_, ()>(rt.store()).flush().map_err(
             |err| actor_error!(ErrIllegalState; "Failed to create storage power state: {}", err),
         )?;
 

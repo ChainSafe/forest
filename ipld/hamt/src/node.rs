@@ -122,7 +122,7 @@ where
 
     pub(crate) fn for_each<S, F>(&self, store: &S, f: &mut F) -> Result<(), Box<dyn StdError>>
     where
-        F: FnMut(&K, V) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(&K, &V) -> Result<(), Box<dyn StdError>>,
         S: BlockStore,
     {
         for p in &self.pointers {

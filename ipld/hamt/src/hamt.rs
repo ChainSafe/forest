@@ -262,7 +262,7 @@ where
     pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(&K, V) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(&K, &V) -> Result<(), Box<dyn StdError>>,
     {
         self.root.for_each(self.store, &mut f)
     }

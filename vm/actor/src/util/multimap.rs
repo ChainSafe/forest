@@ -92,7 +92,7 @@ where
         V: Serialize + DeserializeOwned + Clone,
         F: FnMut(&BytesKey, &Amt<V, BS>) -> Result<(), Box<dyn StdError>>,
     {
-        self.0.for_each::<_, Cid>(|key, arr_root| {
+        self.0.for_each::<_>(|key, arr_root| {
             let arr = Amt::load(&arr_root, self.0.store())?;
             f(key, &arr)
         })?;
