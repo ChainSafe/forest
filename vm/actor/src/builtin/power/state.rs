@@ -208,7 +208,10 @@ pub(super) fn load_cron_events<BS: BlockStore>(
 }
 
 /// Gets claim from claims map by address
-pub fn get_claim<BS: BlockStore>(claims: &Map<BS, Claim>, a: &Address) -> Result<Option<Claim>, String> {
+pub fn get_claim<BS: BlockStore>(
+    claims: &Map<BS, Claim>,
+    a: &Address,
+) -> Result<Option<Claim>, String> {
     Ok(claims
         .get(&a.to_bytes())
         .map_err(|e| format!("failed to get claim for address {}: {}", a, e))?)

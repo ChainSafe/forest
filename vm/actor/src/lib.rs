@@ -60,7 +60,10 @@ where
 
 /// Create a map with a root cid.
 #[inline]
-pub fn make_map_with_root<'bs, BS, V>(root: &Cid, store: &'bs BS) -> Result<Map<'bs, BS, V>, HamtError>
+pub fn make_map_with_root<'bs, BS, V>(
+    root: &Cid,
+    store: &'bs BS,
+) -> Result<Map<'bs, BS, V>, HamtError>
 where
     BS: BlockStore,
     V: DeserializeOwned + Serialize + Clone,
