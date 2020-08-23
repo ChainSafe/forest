@@ -16,3 +16,8 @@ blockstore = { package = "ipld_blockstore", path = "../ipld/blockstore/" }
 cid = { package = "forest_cid", path = "../ipld/cid" }
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 uuid = {version = "0.8", features = ["serde", "v4"]}
+log = "0.4.8"
+derive_builder = "0.9"
+
+[dev-dependencies]
+crypto = { package = "forest_crypto", path = "../crypto" }

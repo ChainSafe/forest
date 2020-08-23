@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use thiserror::Error;
 use encoding::Error as CborError;
+use thiserror::Error;
 
 // Payment Channel Errors
 #[derive(Debug, PartialEq, Error)]
