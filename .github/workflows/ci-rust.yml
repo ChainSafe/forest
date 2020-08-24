@@ -33,11 +33,11 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Cargo Build Tests
-        run: make test-all-no-run
+      - name: Run all unit tests
+        run: make test
 
-      - name: Cargo test all
-        run: make test-all
+      - name: Run test vectors
+        run: make run-vectors
 
   fmt:
     name: rustfmt

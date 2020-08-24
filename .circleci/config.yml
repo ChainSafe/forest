@@ -137,7 +137,7 @@ jobs:
       - restore_cargo_package_cache
       - run:
           name: Run test vectors
-          command: make test-vectors
+          command: make run-vectors
   install:
     executor: test-executor
     description: Install forest binary
