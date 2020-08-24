@@ -34,7 +34,7 @@ pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
-rand: &'r R,
+    rand: &'r R,
     base_fee: BigInt,
     params: PhantomData<P>,
 }
@@ -51,7 +51,7 @@ where
         store: &'db DB,
         epoch: ChainEpoch,
         syscalls: SYS,
-rand: &'r R,
+        rand: &'r R,
         base_fee: BigInt,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;

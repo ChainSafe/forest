@@ -1,4 +1,5 @@
 SER_TESTS = "tests/serialization_tests"
+CONF_TESTS = "tests/conformance_tests"
 
 install:
 	cargo install --path forest --force
@@ -53,8 +54,13 @@ release:
 pull-serialization-tests:
 	git submodule update --init
 
-run-vectors:
+run-serialization-vectors:
 	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
+
+run-conformance-vectors:
+	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests"
+
+run-vectors: run-serialization_vectors run-conformance-vectors
 
 test-vectors: pull-serialization-tests run-vectors
 
