@@ -26,20 +26,14 @@ use vm::{ExitCode, Serialized, TokenAmount};
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 13] = [
-        Regex::new(r"addresses.*").unwrap(),
-        Regex::new(r"basic.*").unwrap(),
-        Regex::new(r"unknown_accounts.*").unwrap(),
-        Regex::new(r"on_transfer.*").unwrap(),
-        Regex::new(r"actor_exec.*").unwrap(),
-        Regex::new(r"gas_cost.*").unwrap(),
-        Regex::new(r"invalid_msgs.*").unwrap(),
-        Regex::new(r"unknown_actor.*").unwrap(),
-        Regex::new(r"nested_sends.*").unwrap(),
-        Regex::new(r"paych.*").unwrap(),
-        Regex::new(r"self_transfer.*").unwrap(),
-        Regex::new(r"unknown_account.*").unwrap(),
-        Regex::new(r"caller_validation.*").unwrap(),
+    static ref SKIP_TESTS: [Regex; 7] = [
+        Regex::new(r"actor_creation/.*").unwrap(),
+        Regex::new(r"msg_application/.*").unwrap(),
+        Regex::new(r"multisig/.*").unwrap(),
+        Regex::new(r"nested/.*").unwrap(),
+        Regex::new(r"paych/.*").unwrap(),
+        Regex::new(r"transfer/.*").unwrap(),
+        Regex::new(r"vm_violations/.*").unwrap(),
     ];
     static ref BASE_FEE: TokenAmount = TokenAmount::from(100);
 }
@@ -167,7 +161,7 @@ enum TestVector {
 }
 
 fn is_valid_file(entry: &DirEntry) -> bool {
-    let file_name = match entry.file_name().to_str() {
+    let file_name = match entry.path().to_str() {
         Some(file) => file,
         None => return false,
     };
