@@ -66,7 +66,7 @@ test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo test --all --exclude serialization_tests
+	cargo test --all --all-features --exclude serialization_tests --exclude conformance_tests
 
 # This will run all tests will all features enabled, which will exclude some tests with
 # specific features disabled

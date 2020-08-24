@@ -22,7 +22,7 @@ use serde::{Deserialize, Deserializer};
 use std::error::Error as StdError;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use vm::{ExitCode, Serialized};
+use vm::{ExitCode, Serialized, TokenAmount};
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
@@ -41,6 +41,7 @@ lazy_static! {
         Regex::new(r"unknown_account.*").unwrap(),
         Regex::new(r"caller_validation.*").unwrap(),
     ];
+    static ref BASE_FEE: TokenAmount = TokenAmount::from(100);
 }
 
 mod base64_bytes {
@@ -234,7 +235,14 @@ fn execute_message(
     bs: &db::MemoryDB,
     epoch: ChainEpoch,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let mut vm = VM::<_, _, _>::new(pre_root, bs, epoch, TestSyscalls, &TestRand)?;
+    let mut vm = VM::<_, _, _>::new(
+        pre_root,
+        bs,
+        epoch,
+        TestSyscalls,
+        &TestRand,
+        BASE_FEE.clone(),
+    )?;
 
     // TODO register puppet actor (and conditionally chaos actor)
 
