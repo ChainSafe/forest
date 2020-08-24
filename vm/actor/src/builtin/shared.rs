@@ -66,10 +66,11 @@ where
         ))
     })?;
 
-    match rt.resolve_address(address)? {
-        Some(addr) => Ok(addr),
-        None => {
-            Err("failed to resolve address {} to ID address even after sending zero balance".into())
-        }
-    }
+    rt.resolve_address(address)?.ok_or_else(|| {
+        format!(
+            "failed to resolve address {} to ID address even after sending zero balance",
+            address,
+        )
+        .into()
+    })
 }
