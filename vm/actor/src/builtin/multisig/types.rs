@@ -86,6 +86,8 @@ pub struct ProposeReturn {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TxnIDParams {
     pub id: TxnID,
+    /// Optional hash of proposal to ensure an operation can only apply to a
+    /// specific proposal.
     pub proposal_hash: Vec<u8>,
 }
 
