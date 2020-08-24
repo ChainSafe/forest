@@ -11,7 +11,7 @@ use num_bigint::{bigint_ser, BigInt};
 use vm::{MethodNum, Serialized};
 
 /// Maximum number of lanes in a channel
-pub const LANE_LIMIT: usize = 256;
+pub const MAX_LANE: i64 = std::i64::MAX;
 
 pub const SETTLE_DELAY: ChainEpoch = EPOCHS_IN_HOUR * 12;
 

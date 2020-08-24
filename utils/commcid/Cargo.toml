@@ -6,9 +6,8 @@ edition = "2018"
 
 [dependencies]
 num-traits = "0.2"
-num-derive = "0.3"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-filecoin-proofs-api = "4.0.1"
+filecoin-proofs-api = "5.1"
 
 [dev-dependencies]
 rand = "0.7.3"
