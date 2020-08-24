@@ -52,16 +52,16 @@ impl MsgSet {
         }
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
-                let gas_price = exms.message().gas_price();
+                let premium = exms.message().gas_premium();
                 let rbf_num = BigInt::from(RBF_NUM);
                 let rbf_denom = BigInt::from(RBF_DENOM);
-                let min_price = gas_price.clone() + ((gas_price * &rbf_num) / rbf_denom) + 1u8;
-                if m.message().gas_price() <= &min_price {
-                    warn!("mesage gas price is below min gas price");
+                let min_price = premium + ((premium * &rbf_num) / rbf_denom) + 1u8;
+                if m.message().gas_premium() <= &min_price {
+                    warn!("message gas price is below min gas price");
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
-                warn!("try to add message with duplicate sequence");
+                warn!("try to add message with duplicate sequence increase gas premium");
                 return Err(Error::DuplicateSequence);
             }
         }
@@ -91,6 +91,8 @@ pub trait Provider {
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>;
     /// Return a tipset given the tipset keys from the ChainStore
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>;
+    /// Computes the base fee
+    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
 }
 
 /// This is the mpool provider struct that will let us access and add messages to messagepool.
@@ -153,6 +155,9 @@ where
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
         self.cs.tipset_from_keys(tsk).map_err(|err| err.into())
+    }
+    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
+        chain::compute_base_fee(self.cs.blockstore(), ts).map_err(|err| err.into())
     }
 }
 
@@ -218,6 +223,9 @@ where
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
         let ts = chain::tipset_from_keys(self.db.as_ref(), tsk)?;
         Ok(ts)
+    }
+    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
+        chain::compute_base_fee(self.db.as_ref(), ts).map_err(|err| err.into())
     }
 }
 
@@ -468,7 +476,7 @@ where
 
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
     /// each messsage's sequence. If no corresponding messages found, return None result type
-    async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
+    pub async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let pending = self.pending.read().await;
         let mset = pending.get(a)?;
         if mset.msgs.is_empty() {
@@ -504,7 +512,7 @@ where
 
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
     /// most likely need to be implemented
-    pub fn estimate_gas_price(
+    pub fn estimate_gas_premium(
         &self,
         nblocksincl: u64,
         _sender: Address,
@@ -512,6 +520,7 @@ where
         _tsk: TipsetKeys,
     ) -> Result<BigInt, Error> {
         // TODO possibly come up with a smarter way to estimate the gas price
+        // TODO a smarter way exists now
         let min_gas_price = 0;
         match nblocksincl {
             0 => Ok(BigInt::from(min_gas_price + 2)),
@@ -826,6 +835,10 @@ pub mod test_provider {
                 }
             }
             Err(Errors::InvalidToAddr)
+        }
+
+        fn chain_compute_base_fee(&self, _ts: &Tipset) -> Result<BigInt, Error> {
+            Ok(100.into())
         }
     }
 

@@ -1,10 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::Error as EncodingError;
-use thiserror::Error;
-
 use crate::ExitCode;
+use encoding::Error as EncodingError;
+use std::error::Error as StdError;
+use thiserror::Error;
 
 /// The error type that gets returned by actor method calls.
 #[derive(Error, Debug, Clone, PartialEq)]
@@ -32,6 +32,14 @@ impl ActorError {
             fatal: true,
             exit_code: ExitCode::ErrPlaceholder,
             msg,
+        }
+    }
+
+    /// Downcast a dynamic std Error into an ActorError
+    pub fn downcast(error: Box<dyn StdError>, default_exit_code: ExitCode, msg: &str) -> Self {
+        match error.downcast::<ActorError>() {
+            Ok(actor_err) => actor_err.wrap(msg),
+            Err(other) => ActorError::new(default_exit_code, format!("{}: {}", msg, other)),
         }
     }
 

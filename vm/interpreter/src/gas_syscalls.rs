@@ -77,7 +77,7 @@ where
 
     fn batch_verify_seals(
         &self,
-        vis: &[(Address, Vec<SealVerifyInfo>)],
+        vis: &[(Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // TODO revisit if gas ends up being charged (only used by cron actor)
         self.syscalls.batch_verify_seals(vis)
@@ -130,7 +130,7 @@ mod tests {
         }
         fn batch_verify_seals(
             &self,
-            _vis: &[(Address, Vec<SealVerifyInfo>)],
+            _vis: &[(Address, &Vec<SealVerifyInfo>)],
         ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
             Ok(Default::default())
         }

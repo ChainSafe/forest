@@ -7,6 +7,7 @@ use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
 use serde::{de::DeserializeOwned, Serialize};
+use std::error::Error as StdError;
 
 /// Multimap stores multiple values per key in a Hamt of Amts.
 /// The order of insertion of values for each key is retained.
@@ -73,14 +74,28 @@ where
     }
 
     /// Iterates through all values in the array at a given key.
-    pub fn for_each<F, V>(&self, key: &[u8], f: F) -> Result<(), String>
+    pub fn for_each<F, V>(&self, key: &[u8], f: F) -> Result<(), Box<dyn StdError>>
     where
         V: Serialize + DeserializeOwned + Clone,
-        F: FnMut(u64, &V) -> Result<(), String>,
+        F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
         if let Some(amt) = self.get::<V>(key)? {
             amt.for_each(f)?;
         }
+
+        Ok(())
+    }
+
+    /// Iterates through all arrays in the multimap
+    pub fn for_all<F, V>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: Serialize + DeserializeOwned + Clone,
+        F: FnMut(&BytesKey, &Amt<V, BS>) -> Result<(), Box<dyn StdError>>,
+    {
+        self.0.for_each::<_, Cid>(|key, arr_root| {
+            let arr = Amt::load(&arr_root, self.0.store())?;
+            f(key, &arr)
+        })?;
 
         Ok(())
     }

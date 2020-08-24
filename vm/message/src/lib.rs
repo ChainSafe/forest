@@ -30,10 +30,6 @@ pub trait Message {
     fn method_num(&self) -> MethodNum;
     /// Returns the encoded parameters for the method call
     fn params(&self) -> &Serialized;
-    /// gas_price returns gas price for the message
-    fn gas_price(&self) -> &TokenAmount;
-    /// sets the gas price
-    fn set_gas_price(&mut self, amount: TokenAmount);
     /// sets the gas limit for the message
     fn set_gas_limit(&mut self, amount: i64);
     /// sets a new sequence to the message
@@ -42,4 +38,12 @@ pub trait Message {
     fn gas_limit(&self) -> i64;
     /// Returns the required funds for the message
     fn required_funds(&self) -> TokenAmount;
+    /// gets gas fee cap for the message
+    fn gas_fee_cap(&self) -> &TokenAmount;
+    /// gets gas premium for the message
+    fn gas_premium(&self) -> &TokenAmount;
+    /// sets the gas fee cap
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount);
+    /// sets the gas premium
+    fn set_gas_premium(&mut self, prem: TokenAmount);
 }

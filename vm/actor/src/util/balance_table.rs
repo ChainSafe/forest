@@ -7,6 +7,7 @@ use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
 use num_bigint::bigint_ser::BigIntDe;
+use std::error::Error as StdError;
 use vm::TokenAmount;
 
 /// Balance table which handles getting and updating token balances specifically
@@ -123,7 +124,7 @@ where
     }
 
     /// Returns total balance held by this balance table
-    pub fn total(&self) -> Result<TokenAmount, String> {
+    pub fn total(&self) -> Result<TokenAmount, Box<dyn StdError>> {
         let mut total = TokenAmount::default();
 
         self.0.for_each(|_, v: BigIntDe| {
