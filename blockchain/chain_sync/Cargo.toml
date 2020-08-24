@@ -12,7 +12,7 @@ blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 beacon = { path = "../beacon" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-libp2p = "0.21.1"
+libp2p = "0.24"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 chain = { path = "../chain" }
@@ -25,10 +25,10 @@ log = "0.4.8"
 async-std = { version = "1.6.0", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 futures = "0.3.5"
-lru = "0.5.1"
+lru = "0.6"
 thiserror = "1.0"
 num-traits = "0.2"
-filecoin-proofs-api = "4.0.1"
+filecoin-proofs-api = "5.1"
 fil_types = { path = "../../types" }
 commcid = { path = "../../utils/commcid" }
 clock = { path = "../../node/clock" }
