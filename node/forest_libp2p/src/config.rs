@@ -24,8 +24,8 @@ const DEFAULT_BOOTSTRAP: &[&str] = &[
 pub struct Libp2pConfig {
     pub listening_multiaddr: Multiaddr,
     pub bootstrap_peers: Vec<Multiaddr>,
-    pub mdns : bool,
-    pub kad : bool,
+    pub mdns: bool,
+    pub kad: bool,
 }
 
 impl Default for Libp2pConfig {
@@ -37,10 +37,8 @@ impl Default for Libp2pConfig {
         Self {
             listening_multiaddr: "/ip4/0.0.0.0/tcp/0".parse().unwrap(),
             bootstrap_peers,
-            mdns : true,
-            kad : true,
+            mdns: true,
+            kad: true,
         }
     }
 }
-
-

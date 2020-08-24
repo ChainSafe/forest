@@ -141,26 +141,6 @@ where
         genesis(self.blockstore())
     }
 
-    /// Finds the latest beacon entry given a tipset up to 20 blocks behind
-    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
-        let mut cur = ts.clone();
-        for _ in 1..20 {
-            let cbe = ts.blocks()[0].beacon_entries();
-            if let Some(entry) = cbe.last() {
-                return Ok(entry.clone());
-            }
-            if cur.epoch() == 0 {
-                return Err(Error::Other(
-                    "made it back to genesis block without finding beacon entry".to_owned(),
-                ));
-            }
-            cur = self.tipset_from_keys(cur.parents())?;
-        }
-        Err(Error::Other(
-            "Found no beacon entries in the 20 blocks prior to the given tipset".to_owned(),
-        ))
-    }
-
     /// Returns heaviest tipset from blockstore
     pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         self.heaviest.clone()
@@ -300,23 +280,87 @@ where
     Ok(())
 }
 
-/// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch, Entropy
-pub fn get_randomness<DB: BlockStore>(
+/// Finds the latest beacon entry given a tipset up to 20 tipsets behind
+pub fn latest_beacon_entry<DB>(db: &DB, ts: &Tipset) -> Result<BeaconEntry, Error>
+where
+    DB: BlockStore,
+{
+    let check_for_beacon_entry = |ts: &Tipset| {
+        let cbe = ts.min_ticket_block().beacon_entries();
+        if let Some(entry) = cbe.last() {
+            return Ok(Some(entry.clone()));
+        }
+        if ts.epoch() == 0 {
+            return Err(Error::Other(
+                "made it back to genesis block without finding beacon entry".to_owned(),
+            ));
+        }
+        Ok(None)
+    };
+
+    if let Some(entry) = check_for_beacon_entry(ts)? {
+        return Ok(entry);
+    }
+    let mut cur = tipset_from_keys(db, ts.parents())?;
+    for i in 1..20 {
+        if i != 1 {
+            cur = tipset_from_keys(db, cur.parents())?;
+        }
+        if let Some(entry) = check_for_beacon_entry(&cur)? {
+            return Ok(entry);
+        }
+    }
+    Err(Error::Other(
+        "Found no beacon entries in the 20 latest tipsets".to_owned(),
+    ))
+}
+
+/// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+/// Entropy from the ticket chain.
+pub fn get_chain_randomness<DB: BlockStore>(
     db: &DB,
     blocks: &TipsetKeys,
     pers: DomainSeparationTag,
     round: ChainEpoch,
     entropy: &[u8],
 ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-    let mut blks = blocks.clone();
-    loop {
-        let nts = tipset_from_keys(db, &blks)?;
-        let mtb = nts.min_ticket_block();
-        if nts.epoch() <= round || mtb.epoch() == 0 {
-            return draw_randomness(mtb.ticket().vrfproof.as_bytes(), pers, round, entropy);
-        }
-        blks = mtb.parents().clone();
+    let ts = tipset_from_keys(db, blocks)?;
+
+    if round > ts.epoch() {
+        return Err("cannot draw randomness from the future".into());
     }
+
+    let search_height = if round < 0 { 0 } else { round };
+
+    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+
+    let mtb = rand_ts.min_ticket_block();
+
+    draw_randomness(mtb.ticket().vrfproof.as_bytes(), pers, round, entropy)
+}
+
+/// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+/// Entropy from the latest beacon entry.
+pub fn get_beacon_randomness<DB: BlockStore>(
+    db: &DB,
+    blocks: &TipsetKeys,
+    pers: DomainSeparationTag,
+    round: ChainEpoch,
+    entropy: &[u8],
+) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    let ts = tipset_from_keys(db, blocks)?;
+
+    if round > ts.epoch() {
+        return Err("cannot draw randomness from the future".into());
+    }
+
+    let search_height = if round < 0 { 0 } else { round };
+
+    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+
+    let be = latest_beacon_entry(db, &rand_ts)?;
+
+    draw_randomness(be.data(), pers, round, entropy)
 }
 
 /// Computes a pseudorandom 32 byte Vec
