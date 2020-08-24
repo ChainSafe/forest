@@ -317,11 +317,13 @@ fn execute_message_vector(
 #[test]
 fn conformance_test_runner() {
     let walker = WalkDir::new("test-vectors/corpus").into_iter();
+    let mut failed = Vec::new();
+    let mut succeeded = 0;
     for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
-        println!("{}", entry.path().display());
         let file = File::open(entry.path()).unwrap();
         let reader = BufReader::new(file);
         let vector: TestVector = serde_json::from_reader(reader).unwrap();
+
         match vector {
             TestVector::Message {
                 selector,
@@ -338,13 +340,28 @@ fn conformance_test_runner() {
                     apply_messages,
                     postconditions,
                 ) {
-                    panic!(
-                        "Message vector failed:\n\tMeta: {:?}\n\tError: {}\n",
-                        meta, e
-                    );
+                    failed.push((entry.path().display().to_string(), meta, e));
+                } else {
+                    println!("{} succeeded", entry.path().display());
+                    succeeded += 1;
                 }
             }
             _ => panic!("Unsupported test vector class"),
         }
+    }
+
+    if !failed.is_empty() {
+        eprintln!(
+            "{}/{} tests failed:",
+            failed.len(),
+            failed.len() + succeeded
+        );
+        for (path, meta, e) in failed {
+            eprintln!(
+                "file {} failed:\n\tMeta: {:?}\n\tError: {}\n",
+                path, meta, e
+            );
+        }
+        panic!()
     }
 }
