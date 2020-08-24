@@ -158,3 +158,6 @@ workflows:
       - test:
           requires:
             - prefetch-crates
+      - test-vectors:
+          requires:
+            - prefetch-crates
