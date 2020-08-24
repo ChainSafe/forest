@@ -29,6 +29,8 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 thiserror = "1.0"
 state_tree = { path = "../../vm/state_tree" }
 forest_libp2p = { path = "../forest_libp2p" }
+rand_distr = "0.2.2"
+rand = "0.7"
 interpreter = { path = "../../vm/interpreter/" }
 fil_types = { path = "../../types" }
 bitfield = { path = "../../utils/bitfield",features = ["json"] }

@@ -22,7 +22,7 @@ use vm::Serialized;
 
 #[test]
 fn unsigned_symmetric_json() {
-    let message_json = r#"{"Version":9,"To":"t01234","From":"t01234","Nonce":42,"Value":"0","GasPrice":"0","GasLimit":9,"Method":1,"Params":"Ynl0ZSBhcnJheQ=="}"#;
+    let message_json = r#"{"Version":9,"To":"t01234","From":"t01234","Nonce":42,"Value":"0","GasLimit":1,"GasFeeCap":"2","GasPremium":"9","Method":1,"Params":"Ynl0ZSBhcnJheQ=="}"#;
 
     // Deserialize
     let UnsignedMessageJson(cid_d) = from_str(message_json).unwrap();
@@ -34,7 +34,7 @@ fn unsigned_symmetric_json() {
 
 #[test]
 fn signed_symmetric_json() {
-    let message_json = r#"{"Message":{"Version":9,"To":"t01234","From":"t01234","Nonce":42,"Value":"0","GasPrice":"0","GasLimit":9,"Method":1,"Params":"Ynl0ZSBhcnJheQ=="},"Signature":{"Type":2,"Data":"Ynl0ZSBhcnJheQ=="}}"#;
+    let message_json = r#"{"Message":{"Version":9,"To":"t01234","From":"t01234","Nonce":42,"Value":"0","GasLimit":1,"GasFeeCap":"2","GasPremium":"9","Method":1,"Params":"Ynl0ZSBhcnJheQ=="},"Signature":{"Type":2,"Data":"Ynl0ZSBhcnJheQ=="}}"#;
 
     // Deserialize
     let SignedMessageJson(cid_d) = from_str(message_json).unwrap();
@@ -50,11 +50,12 @@ fn message_json_annotations() {
         .to(Address::new_id(12))
         .from(Address::new_id(34))
         .sequence(5)
-        .value(6u8.into())
+        .value(6.into())
         .method_num(7)
         .params(Serialized::default())
         .gas_limit(8)
-        .gas_price(9u8.into())
+        .gas_premium(9.into())
+        .gas_fee_cap(10.into())
         .version(10)
         .build()
         .unwrap();
@@ -82,7 +83,8 @@ fn message_json_annotations() {
                 "From": "t034",
                 "Nonce": 5,
                 "Value": "6",
-                "GasPrice": "9",
+                "GasPremium": "9",
+                "GasFeeCap": "10",
                 "GasLimit": 8,
                 "Method": 7,
                 "Params": ""
@@ -94,7 +96,8 @@ fn message_json_annotations() {
                     "From": "t034",
                     "Nonce": 5,
                     "Value": "6",
-                    "GasPrice": "9",
+                    "GasPremium": "9",
+                    "GasFeeCap": "10",
                     "GasLimit": 8,
                     "Method": 7,
                     "Params": ""

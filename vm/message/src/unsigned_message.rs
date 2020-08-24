@@ -25,7 +25,6 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///     .method_num(MethodNum::default()) // optional
 ///     .params(Serialized::default()) // optional
 ///     .gas_limit(0) // optional
-///     .gas_price(TokenAmount::from(0u8)) // optional
 ///     .version(0) // optional
 ///     .build()
 ///     .unwrap();
@@ -54,9 +53,11 @@ pub struct UnsignedMessage {
     #[builder(default)]
     params: Serialized,
     #[builder(default)]
-    gas_price: TokenAmount,
-    #[builder(default)]
     gas_limit: i64,
+    #[builder(default)]
+    gas_fee_cap: TokenAmount,
+    #[builder(default)]
+    gas_premium: TokenAmount,
 }
 
 impl UnsignedMessage {
@@ -76,8 +77,9 @@ impl Serialize for UnsignedMessage {
             &self.from,
             &self.sequence,
             BigIntSer(&self.value),
-            BigIntSer(&self.gas_price),
             &self.gas_limit,
+            BigIntSer(&self.gas_fee_cap),
+            BigIntSer(&self.gas_premium),
             &self.method_num,
             &self.params,
         )
@@ -96,8 +98,9 @@ impl<'de> Deserialize<'de> for UnsignedMessage {
             from,
             sequence,
             BigIntDe(value),
-            BigIntDe(gas_price),
             gas_limit,
+            BigIntDe(gas_fee_cap),
+            BigIntDe(gas_premium),
             method_num,
             params,
         ) = Deserialize::deserialize(deserializer)?;
@@ -107,8 +110,9 @@ impl<'de> Deserialize<'de> for UnsignedMessage {
             from,
             sequence,
             value,
-            gas_price,
             gas_limit,
+            gas_fee_cap,
+            gas_premium,
             method_num,
             params,
         })
@@ -134,23 +138,29 @@ impl Message for UnsignedMessage {
     fn params(&self) -> &Serialized {
         &self.params
     }
-    fn gas_price(&self) -> &TokenAmount {
-        &self.gas_price
-    }
-    fn set_gas_price(&mut self, token_amount: TokenAmount) {
-        self.gas_price = token_amount
-    }
     fn set_sequence(&mut self, new_sequence: u64) {
         self.sequence = new_sequence
     }
     fn gas_limit(&self) -> i64 {
         self.gas_limit
     }
+    fn gas_fee_cap(&self) -> &TokenAmount {
+        &self.gas_fee_cap
+    }
+    fn gas_premium(&self) -> &TokenAmount {
+        &self.gas_premium
+    }
     fn set_gas_limit(&mut self, token_amount: i64) {
         self.gas_limit = token_amount
     }
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
+        self.gas_fee_cap = cap;
+    }
+    fn set_gas_premium(&mut self, prem: TokenAmount) {
+        self.gas_premium = prem;
+    }
     fn required_funds(&self) -> TokenAmount {
-        let total: TokenAmount = self.gas_price() * self.gas_limit();
+        let total: TokenAmount = self.gas_fee_cap() * self.gas_limit();
         total + self.value()
     }
 }
@@ -192,8 +202,9 @@ pub mod json {
         #[serde(rename = "Nonce")]
         sequence: u64,
         value: String,
-        gas_price: String,
         gas_limit: i64,
+        gas_fee_cap: String,
+        gas_premium: String,
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
@@ -209,8 +220,9 @@ pub mod json {
             from: m.from.to_string(),
             sequence: m.sequence,
             value: m.value.to_string(),
-            gas_price: m.gas_price.to_string(),
             gas_limit: m.gas_limit,
+            gas_fee_cap: m.gas_fee_cap.to_string(),
+            gas_premium: m.gas_premium.to_string(),
             method_num: m.method_num,
             params: Some(base64::encode(m.params.bytes())),
         }
@@ -228,8 +240,9 @@ pub mod json {
             from: m.from.parse().map_err(de::Error::custom)?,
             sequence: m.sequence,
             value: m.value.parse().map_err(de::Error::custom)?,
-            gas_price: m.gas_price.parse().map_err(de::Error::custom)?,
             gas_limit: m.gas_limit,
+            gas_fee_cap: m.gas_fee_cap.parse().map_err(de::Error::custom)?,
+            gas_premium: m.gas_premium.parse().map_err(de::Error::custom)?,
             method_num: m.method_num,
             params: Serialized::new(
                 base64::decode(&m.params.unwrap_or_else(|| "".to_string()))
