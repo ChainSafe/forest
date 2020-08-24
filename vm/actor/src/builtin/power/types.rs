@@ -18,13 +18,24 @@ pub const SECTOR_TERMINATION_MANUAL: SectorTermination = 1;
 /// Implicit termination due to unrecovered fault
 pub const SECTOR_TERMINATION_FAULTY: SectorTermination = 3;
 
+// TODO revisit on miner actor completion if duplicate type
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct MinerConstructorParams {
+    pub owner: Address,
+    pub worker: Address,
+    pub control_addrs: Vec<Address>,
+    pub seal_proof_type: RegisteredSealProof,
+    pub peer: BytesDe,
+    pub multiaddrs: Vec<BytesDe>,
+}
+
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CreateMinerParams {
-    owner: Address,
-    worker: Address,
-    seal_proof_type: RegisteredSealProof,
-    peer: BytesDe,
-    multiaddrs: Vec<BytesDe>,
+    pub owner: Address,
+    pub worker: Address,
+    pub seal_proof_type: RegisteredSealProof,
+    pub peer: BytesDe,
+    pub multiaddrs: Vec<BytesDe>,
 }
 impl Cbor for CreateMinerParams {}
 
