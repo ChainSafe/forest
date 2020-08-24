@@ -8,10 +8,12 @@ use crate::config::Libp2pConfig;
 use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
 use crate::rpc::RPCRequest;
 use forest_cid::Cid;
-use libipld_core::cid::Cid as Cid2;
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
-use libp2p::gossipsub::{Gossipsub, GossipsubConfig, GossipsubEvent, Topic, TopicHash};
+use libp2p::gossipsub::{
+    error::PublishError, Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, Topic,
+    TopicHash,
+};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{Kademlia, KademliaConfig, KademliaEvent, QueryId};
@@ -33,6 +35,7 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::{task::Context, task::Poll};
+use tiny_cid::Cid as Cid2;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
@@ -57,7 +60,7 @@ pub enum ForestBehaviourEvent {
     PeerDialed(PeerId),
     PeerDisconnected(PeerId),
     GossipMessage {
-        source: PeerId,
+        source: Option<PeerId>,
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
@@ -320,7 +323,7 @@ impl ForestBehaviour {
         let bp = std::iter::once((BlockSyncProtocolName, ProtocolSupport::Full));
 
         ForestBehaviour {
-            gossipsub: Gossipsub::new(local_peer_id, gossipsub_config),
+            gossipsub: Gossipsub::new(MessageAuthenticity::Author(local_peer_id), gossipsub_config),
             mdns: Mdns::new().expect("Could not start mDNS"),
             ping: Ping::default(),
             identify: Identify::new(
@@ -344,8 +347,8 @@ impl ForestBehaviour {
     }
 
     /// Publish data over the gossip network.
-    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) {
-        self.gossipsub.publish(topic, data);
+    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) -> Result<(), PublishError> {
+        self.gossipsub.publish(topic, data)
     }
 
     /// Subscribe to a gossip topic.
