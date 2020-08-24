@@ -330,7 +330,7 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned());
 
-        let mut vm = VM::<_, _, DevnetParams>::new(
+        let mut vm = VM::<_, _, _>::new(
             &st,
             self.bs.as_ref(),
             ts.epoch() + 1,
