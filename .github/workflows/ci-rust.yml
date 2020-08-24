@@ -32,6 +32,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      
+      - name: Pull submodules
+        run: git submodule update --init
 
       - name: Run all unit tests
         run: make test
