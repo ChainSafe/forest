@@ -46,11 +46,14 @@ impl State {
 
     /// ResolveAddress resolves an address to an ID-address, if possible.
     /// If the provided address is an ID address, it is returned as-is.
-    /// This means that ID-addresses (which should only appear as values, not keys)
-    /// and singleton actor addresses pass through unchanged.
+    /// This means that mapped ID-addresses (which should only appear as values, not keys) and
+    /// singleton actor addresses (which are not in the map) pass through unchanged.
     ///
-    /// Post-condition: all addresses succesfully returned by this method satisfy
-    /// `addr.protocol() == Protocol::ID`.
+    /// Returns an ID-address and `true` if the address was already an ID-address or was resolved
+    /// in the mapping.
+    /// Returns an undefined address and `false` if the address was not an ID-address and not found
+    /// in the mapping.
+    /// Returns an error only if state was inconsistent.
     pub fn resolve_address<BS: BlockStore>(
         &self,
         store: &BS,

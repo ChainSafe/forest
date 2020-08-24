@@ -28,7 +28,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: b8a3a6ff7b15ac01f0534c47059e1c81652a61f0 (v0.9.1)
+// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
 
 /// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
 /// This number is empirically determined
@@ -76,7 +76,7 @@ impl Actor {
 
     fn create_miner<BS, RT>(
         rt: &mut RT,
-        params: &Serialized,
+        params: CreateMinerParams,
     ) -> Result<CreateMinerReturn, ActorError>
     where
         BS: BlockStore,
@@ -92,7 +92,14 @@ impl Actor {
             .send(
                 *INIT_ACTOR_ADDR,
                 init::Method::Exec as u64,
-                params.clone(),
+                Serialized::serialize(MinerConstructorParams {
+                    owner: params.owner,
+                    worker: params.worker,
+                    seal_proof_type: params.seal_proof_type,
+                    peer: params.peer,
+                    multiaddrs: params.multiaddrs,
+                    control_addrs: Default::default(),
+                })?,
                 value,
             )?
             .deserialize()?;
@@ -593,7 +600,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CreateMiner) => {
-                let res = Self::create_miner(rt, params)?;
+                let res = Self::create_miner(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::UpdateClaimedPower) => {
