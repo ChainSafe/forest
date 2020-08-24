@@ -13,4 +13,3 @@ serde_json = "1.0"
 jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
 log = "0.4.8"
 crypto = { package = "forest_crypto", path = "../../crypto", features = ["json"] }
-wallet = {package = "key_management", path = "../../key_management", features = ["json"] }
