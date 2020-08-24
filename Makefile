@@ -60,7 +60,7 @@ run-serialization-vectors:
 run-conformance-vectors:
 	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests"
 
-run-vectors: run-serialization_vectors run-conformance-vectors
+run-vectors: run-serialization-vectors run-conformance-vectors
 
 test-vectors: pull-serialization-tests run-vectors
 
