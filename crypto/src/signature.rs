@@ -163,7 +163,7 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
     if data.len() != pub_keys.len() {
         return false;
     }
-    if data.len() == 0 {
+    if data.is_empty() {
         return true;
     }
 

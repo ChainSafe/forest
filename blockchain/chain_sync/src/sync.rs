@@ -325,7 +325,7 @@ where
                             "BlockSync message sync got messages for {} tipsets",
                             ts_bundle.len()
                         );
-                        for mut b in ts_bundle {
+                        for b in ts_bundle {
                             info!(
                                 "Messages bls: {:?}, includes: {:?}",
                                 b.bls_msgs
@@ -727,7 +727,6 @@ where
         if slash {
             error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
-
 
         let prev_beacon = chain::latest_beacon_entry(
             self.chain_store.blockstore(),
