@@ -1,7 +1,37 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use encoding::{Cbor};
+use serde::de::{self, Deserializer};
+use serde::ser::{self, Serializer};
+use serde::{Deserialize, Serialize};
+
+#[derive(Default)]
 pub struct UnmarshallableCBOR {}
+
+impl Serialize for UnmarshallableCBOR {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Err(ser::Error::custom(
+            "Automatic fail when serializing UnmarshallableCBOR",
+        ))
+    }
+}
+
+impl<'de> Deserialize<'de> for UnmarshallableCBOR {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Err(de::Error::custom(
+            "Automatic fail when deserializing UnmarshallableCBOR",
+        ))
+    }
+}
+
+impl Cbor for UnmarshallableCBOR {}
 
 pub struct State {
     pub unmarshallable: Vec<UnmarshallableCBOR>,

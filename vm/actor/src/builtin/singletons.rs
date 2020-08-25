@@ -15,6 +15,7 @@ lazy_static! {
 
     // Distinguished AccountActor that is the destination of all burnt funds.
     pub static ref CHAOS_ACTOR_ADDR: Address    = Address::new_id(97);
+    pub static ref PUPPET_ACTOR_ADDR: Address    = Address::new_id(98);
     pub static ref BURNT_FUNDS_ACTOR_ADDR: Address    = Address::new_id(99);
 }
 
