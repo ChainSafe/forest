@@ -246,12 +246,6 @@ where
 
     /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
     async fn sync_messages_check_state(&mut self, ts: &[Tipset]) -> Result<(), Error> {
-        info!(
-            "Syncing messages of {} many tipsets: {} to {}",
-            ts.len(),
-            ts[0].epoch(),
-            ts[ts.len() - 1].epoch()
-        );
         // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for request window size
         const REQUEST_WINDOW: i64 = 1;
         // TODO refactor type handling
@@ -276,8 +270,7 @@ where
                         let idx = i - batch_size;
                         let next = &ts[idx as usize];
                         let req_len = batch_size + 1;
-                        info!("IDX: {}, req_len: {}", idx, req_len);
-                        info!(
+                        debug!(
                             "BlockSync message sync tipsets: epoch: {}, len: {}",
                             next.epoch(),
                             req_len
@@ -302,43 +295,13 @@ where
                             }
                         }
                         .chain;
-                        // ts_bundle.reverse();
                         let mut ts_r = ts[(idx) as usize..(idx + 1 + req_len) as usize].to_vec();
                         // since the bundle only has messages, we have to put the headers in them
                         for b in ts_bundle.iter_mut() {
-                            let ttt = ts_r.pop().unwrap();
-                            info!(
-                                "Putting tipset into tipset bundle at epoch: {} with block cid: {}",
-                                ttt.epoch(),
-                                ttt.blocks()[0].cid()
-                            );
-                            info!(
-                                "Number of blocks: {}, number of messages: bls {}, secp {}",
-                                ttt.blocks().len(),
-                                b.bls_msg_includes.len(),
-                                b.secp_msg_includes.len()
-                            );
-                            b.blocks = ttt.blocks().to_vec();
+                            let t = ts_r.pop().unwrap();
+                            b.blocks = t.blocks().to_vec();
                         }
-                        // ts_bundle.iter_mut().map(|b| b.blocks = ts_r.pop().unwrap().blocks().to_vec()).collect();
-                        info!(
-                            "BlockSync message sync got messages for {} tipsets",
-                            ts_bundle.len()
-                        );
                         for b in ts_bundle {
-                            info!(
-                                "Messages bls: {:?}, includes: {:?}",
-                                b.bls_msgs
-                                    .clone()
-                                    .iter()
-                                    .map(|m| m.cid())
-                                    .collect::<Vec<_>>(),
-                                b.bls_msg_includes
-                            );
-                            info!(
-                                "Messages secp: {:?},  inclues: {:?}",
-                                b.secp_msgs, b.secp_msg_includes
-                            );
                             // construct full tipsets from fetched messages
                             let fts: FullTipset = (&b).try_into().map_err(Error::Other)?;
 
