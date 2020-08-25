@@ -4,21 +4,36 @@
 use super::error::Error;
 use cid::Cid;
 use std::io::Read;
+use unsigned_varint::io::ReadError;
 
-pub(crate) fn ld_read<R: Read>(mut reader: &mut R) -> Result<Vec<u8>, Error> {
-    let l = unsigned_varint::io::read_u64(&mut reader).map_err(|e| Error::Other(e.to_string()))?;
+pub(crate) fn ld_read<R: Read>(mut reader: &mut R) -> Result<Option<Vec<u8>>, Error> {
+    let l = match unsigned_varint::io::read_u64(&mut reader) {
+        Ok(len) => len,
+        Err(e) => {
+            if let ReadError::Io(ioe) = &e {
+                if ioe.kind() == std::io::ErrorKind::UnexpectedEof {
+                    return Ok(None);
+                }
+            }
+            return Err(Error::Other(e.to_string()));
+        }
+    };
     let mut buf = Vec::with_capacity(l as usize);
     reader
         .take(l)
         .read_to_end(&mut buf)
         .map_err(|e| Error::Other(e.to_string()))?;
-    Ok(buf)
+    Ok(Some(buf))
 }
 
-pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<(Cid, Vec<u8>), Error> {
-    let buf = ld_read(buf_reader)?;
-    let (c, n) = read_cid(&buf)?;
-    Ok((c, buf[(n as usize)..].to_owned()))
+pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<u8>)>, Error> {
+    match ld_read(buf_reader)? {
+        Some(buf) => {
+            let (c, n) = read_cid(&buf)?;
+            Ok(Some((c, buf[(n as usize)..].to_owned())))
+        }
+        None => Ok(None),
+    }
 }
 
 pub(crate) fn read_cid(buf: &[u8]) -> Result<(Cid, u64), Error> {
