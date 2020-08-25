@@ -39,7 +39,7 @@ pub struct State {
     // specialized to FailToMarshalCBOR. If the slice contains no values, the
     // State struct will serialize/deserialize without issue. If the slice contains
     // more than zero values, serialization/deserialization will fail.
-    pub opt_fail: Vec<Option<FailToMarshalCBOR>>,
+    pub opt_fail: Vec<FailToMarshalCBOR>,
 }
 
 impl Cbor for State {}

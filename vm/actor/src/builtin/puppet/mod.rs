@@ -124,7 +124,7 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
 
         rt.transaction(|st: &mut State, _| {
-            st.opt_fail = vec![];
+            st.opt_fail = vec![FailToMarshalCBOR::default()];
         })?;
 
         Ok(())
