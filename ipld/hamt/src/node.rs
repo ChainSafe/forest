@@ -11,6 +11,7 @@ use ipld_blockstore::BlockStore;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
+use std::error::Error as StdError;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -117,10 +118,10 @@ where
         self.pointers.is_empty()
     }
 
-    pub(crate) fn for_each<V, S, F>(&self, store: &S, f: &mut F) -> Result<(), String>
+    pub(crate) fn for_each<V, S, F>(&self, store: &S, f: &mut F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(&K, V) -> Result<(), String>,
+        F: FnMut(&K, V) -> Result<(), Box<dyn StdError>>,
         S: BlockStore,
     {
         for p in &self.pointers {
@@ -128,7 +129,7 @@ where
                 Pointer::Link(cid) => {
                     match store.get::<Node<K, H>>(cid).map_err(|e| e.to_string())? {
                         Some(node) => node.for_each(store, f)?,
-                        None => return Err(format!("Node with cid {} not found", cid)),
+                        None => return Err(format!("Node with cid {} not found", cid).into()),
                     }
                 }
                 Pointer::Cache(n) => n.for_each(store, f)?,

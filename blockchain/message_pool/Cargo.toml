@@ -14,7 +14,7 @@ cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.1" }
 encoding = { package = "forest_encoding", path = "../../encoding", version = "0.1" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-lru = "0.5.1"
+lru = "0.6"
 crypto = { package = "forest_crypto", path = "../../crypto", version = "0.2" }
 chain = { path = "../chain"}
 state_tree = { path = "../../vm/state_tree/" }
@@ -26,7 +26,6 @@ libsecp256k1 = "0.3.4"
 blake2b_simd = "0.5.10"
 log = "0.4.8"
 async-std = "1.6.0"
-key_management = { path = "../../key_management"}
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }
