@@ -31,7 +31,7 @@ where
     ) -> Result<(), Box<dyn StdError>> {
         self.gas.borrow_mut().charge_gas(
             self.price_list
-                .on_verify_signature(signature.signature_type(), plaintext.len()),
+                .on_verify_signature(signature.signature_type()),
         )?;
         self.syscalls.verify_signature(signature, signer, plaintext)
     }
@@ -140,14 +140,13 @@ mod tests {
     fn gas_syscalls() {
         let gsys = GasSyscalls {
             price_list: PriceList {
-                on_chain_message_base: 1,
-                on_chain_message_per_byte: 1,
+                on_chain_message_compute_base: 1,
+                on_chain_message_storage_per_byte: 1,
                 on_chain_return_value_per_byte: 1,
-                hashing_base: 1,
-                hashing_per_byte: 1,
+                hashing_base: 2,
                 compute_unsealed_sector_cid_base: 1,
+                bls_sig_cost: 5,
                 verify_seal_base: 1,
-                verify_post_base: 1,
                 verify_consensus_fault: 1,
                 ..Default::default()
             },
@@ -180,10 +179,7 @@ mod tests {
         .unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 9);
 
-        gsys.verify_post(&Default::default()).unwrap();
-        assert_eq!(gsys.gas.borrow().gas_used(), 10);
-
         gsys.verify_consensus_fault(&[], &[], &[]).unwrap();
-        assert_eq!(gsys.gas.borrow().gas_used(), 11);
+        assert_eq!(gsys.gas.borrow().gas_used(), 10);
     }
 }

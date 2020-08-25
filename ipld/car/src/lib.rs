@@ -71,10 +71,19 @@ pub fn load_car<R: Read, B: BlockStore>(
 ) -> Result<Vec<Cid>, Error> {
     let mut car_reader = CarReader::new(buf_reader)?;
 
+    // Batch write key value pairs from car file
+    let mut buf: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(100);
+    // TODO revisit, seems possible buffer could be empty when underlying reader isn't
     while !car_reader.buf_reader.buffer().is_empty() {
         let block = car_reader.next_block()?;
-        s.write(block.cid.to_bytes(), block.data)
-            .map_err(|e| Error::Other(e.to_string()))?;
+        buf.push((block.cid.to_bytes(), block.data));
+        if buf.len() > 1000 {
+            s.bulk_write(&buf)
+                .map_err(|e| Error::Other(e.to_string()))?;
+            buf.clear();
+        }
     }
+    s.bulk_write(&buf)
+        .map_err(|e| Error::Other(e.to_string()))?;
     Ok(car_reader.header.roots)
 }

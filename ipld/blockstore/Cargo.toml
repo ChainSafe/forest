@@ -9,7 +9,8 @@ cid = { package = "forest_cid", path = "../cid" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 forest_ipld = { path = "../" }
-commcid = { path = "../../utils/commcid" }
+commcid = { path = "../../utils/commcid", optional = true }
 
 [features]
 rocksdb = ["db/rocksdb"]
+buffered = ["commcid"]
