@@ -11,7 +11,9 @@ async fn new_beacon() -> DrandBeacon {
     let dist_pub = DrandPublic {
         coefficient: coeffs,
     };
-    DrandBeacon::new(dist_pub, 15904451751, 25).await.unwrap()
+    DrandBeacon::new("https://api.drand.sh", dist_pub, 15904451751, 25)
+        .await
+        .unwrap()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

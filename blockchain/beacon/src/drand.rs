@@ -10,6 +10,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use clock::ChainEpoch;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
+use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::error;
 
@@ -64,6 +65,8 @@ pub struct BeaconEntryJson {
 }
 
 pub struct DrandBeacon {
+    url: Cow<'static, str>,
+
     pub_key: DrandPublic,
     interval: u64,
     drand_gen_time: u64,
@@ -77,6 +80,7 @@ pub struct DrandBeacon {
 impl DrandBeacon {
     /// Construct a new DrandBeacon.
     pub async fn new(
+        url: impl Into<Cow<'static, str>>,
         pub_key: DrandPublic,
         genesis_ts: u64,
         interval: u64,
@@ -84,8 +88,8 @@ impl DrandBeacon {
         if genesis_ts == 0 {
             panic!("Genesis timestamp cannot be 0")
         }
-        let url = "https://pl-eu.testnet.drand.sh/info";
-        let chain_info: ChainInfo = surf::get(&url).recv_json().await?;
+        let url = url.into();
+        let chain_info: ChainInfo = surf::get(&format!("{}/info", &url)).recv_json().await?;
         let remote_pub_key = hex::decode(chain_info.public_key)?;
         if remote_pub_key != pub_key.coefficient {
             return Err(Box::try_from(
@@ -94,6 +98,7 @@ impl DrandBeacon {
         }
 
         Ok(Self {
+            url,
             pub_key,
             interval: chain_info.period as u64,
             drand_gen_time: chain_info.genesis_time as u64,
@@ -143,7 +148,7 @@ impl Beacon for DrandBeacon {
         match self.local_cache.read().await.get(&round) {
             Some(cached_entry) => Ok(cached_entry.clone()),
             None => {
-                let url = format!("https://pl-eu.testnet.drand.sh/public/{}", round);
+                let url = format!("{}/public/{}", self.url, round);
                 let resp: BeaconEntryJson = surf::get(&url).recv_json().await?;
                 Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
             }
