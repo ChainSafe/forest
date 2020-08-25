@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{gas_tracker::price_list_by_epoch, vm_send, ChainRand, DefaultRuntime};
+use super::{gas_tracker::price_list_by_epoch, vm_send, DefaultRuntime, Rand};
 use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, BURNT_FUNDS_ACTOR_ADDR, CRON_ACTOR_ADDR,
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
@@ -9,7 +9,7 @@ use actor::{
 use blocks::FullTipset;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::NetworkParams;
+use fil_types::{DevnetParams, NetworkParams};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
@@ -29,28 +29,29 @@ const GAS_OVERUSE_DENOM: i64 = 10;
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, SYS, P> {
+pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
-    rand: &'r ChainRand,
+    rand: &'r R,
     base_fee: BigInt,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, SYS, P> VM<'db, 'r, DB, SYS, P>
+impl<'db, 'r, DB, SYS, R, P> VM<'db, 'r, DB, SYS, R, P>
 where
     DB: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
+    R: Rand,
 {
     pub fn new(
         root: &Cid,
         store: &'db DB,
         epoch: ChainEpoch,
         syscalls: SYS,
-        rand: &'r ChainRand,
+        rand: &'r R,
         base_fee: BigInt,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
@@ -405,13 +406,14 @@ where
         })
     }
     /// Instantiates a new Runtime, and calls internal_send to do the execution.
+    #[allow(clippy::type_complexity)]
     fn send<'m>(
         &mut self,
         msg: &'m UnsignedMessage,
         gas_cost: Option<i64>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, P>>,
+        Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, R, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(

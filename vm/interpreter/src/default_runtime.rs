@@ -4,14 +4,14 @@
 use super::gas_block_store::GasBlockStore;
 use super::gas_syscalls::GasSyscalls;
 use super::gas_tracker::{price_list_by_epoch, GasTracker, PriceList};
-use super::ChainRand;
+use super::Rand;
 use actor::*;
 use address::{Address, Protocol};
 use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
-use fil_types::NetworkParams;
+use fil_types::{DevnetParams, NetworkParams};
 use forest_encoding::Cbor;
 use forest_encoding::{error::Error as EncodingError, to_vec};
 use ipld_blockstore::BlockStore;
@@ -50,7 +50,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P = DevnetParams> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
@@ -62,17 +62,19 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> {
     origin_nonce: u64,
     num_actors_created: u64,
     price_list: PriceList,
-    rand: &'r ChainRand,
+    rand: &'r R,
     caller_validated: bool,
     allow_internal: bool,
     params: PhantomData<P>,
 }
 
-impl<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P> DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>
+impl<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>
+    DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
+    R: Rand,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
@@ -86,7 +88,7 @@ where
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
-        rand: &'r ChainRand,
+        rand: &'r R,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -248,7 +250,7 @@ where
             .snapshot()
             .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
 
-        let send_res = vm_send::<BS, SYS, P>(self, &msg, None);
+        let send_res = vm_send::<BS, SYS, R, P>(self, &msg, None);
         send_res.map_err(|e| {
             if let Err(e) = self.state.revert_to_snapshot(&snapshot) {
                 actor_error!(fatal("failed to revert snapshot: {}", e))
@@ -298,11 +300,12 @@ where
     }
 }
 
-impl<BS, SYS, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, P>
+impl<BS, SYS, R, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
+    R: Rand,
 {
     fn message(&self) -> &dyn MessageInfo {
         &self.vm_msg
@@ -419,10 +422,10 @@ where
         })
     }
 
-    fn transaction<C, R, F>(&mut self, f: F) -> Result<R, ActorError>
+    fn transaction<C, RT, F>(&mut self, f: F) -> Result<RT, ActorError>
     where
         C: Cbor,
-        F: FnOnce(&mut C, &mut Self) -> R,
+        F: FnOnce(&mut C, &mut Self) -> RT,
     {
         // get actor
         let act = self.state.get_actor(self.message().receiver())
@@ -590,8 +593,8 @@ where
 
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>(
-    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>,
+pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<i64>,
 ) -> Result<Serialized, ActorError>
@@ -599,6 +602,7 @@ where
     BS: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
+    R: Rand,
 {
     if let Some(cost) = gas_cost {
         rt.charge_gas(cost)?;
@@ -707,8 +711,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>(
-    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, P>,
+fn invoke<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
@@ -718,6 +722,7 @@ where
     BS: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
+    R: Rand,
 {
     match code {
         x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params),

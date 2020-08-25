@@ -99,12 +99,12 @@ where
     {
         self.store.bulk_read(keys)
     }
-    fn bulk_write<K, V>(&self, keys: &[K], values: &[V]) -> Result<(), Error>
+    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        self.store.bulk_write(keys, values)
+        self.store.bulk_write(values)
     }
     fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
     where
