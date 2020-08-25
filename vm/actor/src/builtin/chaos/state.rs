@@ -4,5 +4,5 @@
 pub struct UnmarshallableCBOR {}
 
 pub struct State {
-    pub unmarshallable: Vec<Option<UnmarshallableCBOR>>,
+    pub unmarshallable: Vec<UnmarshallableCBOR>,
 }

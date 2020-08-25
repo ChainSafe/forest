@@ -4578,6 +4578,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits 0.2.12",
+ "serde",
 ]
 
 [[package]]
