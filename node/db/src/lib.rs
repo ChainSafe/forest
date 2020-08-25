@@ -49,16 +49,13 @@ pub trait Store {
     }
 
     /// Write slice of KV pairs.
-    fn bulk_write<K, V>(&self, keys: &[K], values: &[V]) -> Result<(), Error>
+    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        if keys.len() != values.len() {
-            return Err(Error::InvalidBulkLen);
-        }
-        keys.iter()
-            .zip(values)
+        values
+            .iter()
             .map(|(key, value)| self.write(key, value))
             .collect()
     }
