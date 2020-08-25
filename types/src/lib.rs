@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod genesis;
 mod piece;
 pub mod sector;
 
@@ -8,6 +9,9 @@ pub use self::piece::*;
 pub use self::sector::*;
 
 use num_bigint::BigInt;
+
+/// Default bit width for the hamt in the filecoin protocol.
+pub const HAMT_BIT_WIDTH: u32 = 5;
 
 /// Config trait which handles different network configurations.
 pub trait NetworkParams {

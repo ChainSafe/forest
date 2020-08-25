@@ -67,7 +67,7 @@ where
 
     let raw_bz = cache
         .get(cid)
-        .ok_or_else(|| "Invalid link in flushing buffered store".to_owned())?;
+        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", cid))?;
 
     // Deserialize the bytes to Ipld to traverse links.
     // This is safer than finding links in place,

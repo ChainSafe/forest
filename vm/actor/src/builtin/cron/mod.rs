@@ -14,7 +14,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: 4784ddb8e54d53c118e63763e4efbcf0a419da28
+// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
 
 /// Cron actor methods available
 #[derive(FromPrimitive)]

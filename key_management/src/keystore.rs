@@ -1,10 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+extern crate serde_json;
+
 use super::errors::Error;
 use crypto::SignatureType;
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufReader, BufWriter, ErrorKind};
+
+const KEYSTORE_NAME: &str = "/keystore.json";
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
@@ -93,7 +100,7 @@ pub trait KeyStore {
     /// Save a key key_info pair to the KeyStore
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
-    fn remove(&mut self, key: String) -> Option<KeyInfo>;
+    fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
 }
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
@@ -127,7 +134,92 @@ impl KeyStore for MemKeyStore {
         Ok(())
     }
 
-    fn remove(&mut self, key: String) -> Option<KeyInfo> {
-        self.key_info.remove(&key)
+    fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
+        self.key_info.remove(&key).ok_or(Error::KeyInfo)
+    }
+}
+
+/// KeyStore that persists data in KEYSTORE_LOCATION
+#[derive(Default, Clone, PartialEq, Debug, Eq)]
+pub struct PersistentKeyStore {
+    pub key_info: HashMap<String, KeyInfo>,
+    location: String,
+}
+
+impl PersistentKeyStore {
+    pub fn new(location: String) -> Result<Self, Error> {
+        let file_op = File::open(&format!("{}{}", location, KEYSTORE_NAME));
+        match file_op {
+            Ok(file) => {
+                let reader = BufReader::new(file);
+                let data: HashMap<String, KeyInfo> = serde_json::from_reader(reader)
+                    .map_err(|e| {
+                        error!("failed to deserialize keyfile, initializing new");
+                        e
+                    })
+                    .unwrap_or_default();
+                Ok(Self {
+                    key_info: data,
+                    location,
+                })
+            }
+            Err(e) => {
+                if e.kind() == ErrorKind::NotFound {
+                    warn!("keystore.json does not exist, initializing new keystore");
+                    Ok(Self {
+                        key_info: HashMap::new(),
+                        location,
+                    })
+                } else {
+                    Err(Error::Other(e.to_string()))
+                }
+            }
+        }
+    }
+
+    pub fn flush(&self) -> Result<(), Error> {
+        fs::create_dir_all(&self.location)?;
+
+        let file = File::create(&format!("{}{}", &self.location, KEYSTORE_NAME))?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer(writer, &self.key_info)
+            .map_err(|e| Error::Other(format!("failed to serialize and write key info: {}", e)))?;
+        Ok(())
+    }
+}
+
+impl KeyStore for PersistentKeyStore {
+    fn list(&self) -> Vec<String> {
+        self.key_info.iter().map(|(key, _)| key.clone()).collect()
+    }
+
+    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
+        self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
+    }
+
+    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
+        if self.key_info.contains_key(&key) {
+            return Err(Error::KeyExists);
+        }
+        self.key_info.insert(key, key_info);
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&self.location)
+            .map_err(|err| Error::Other(err.to_string()))?;
+        serde_json::to_writer(&file, &self.key_info)
+            .map_err(|err| Error::Other(err.to_string()))?;
+        Ok(())
+    }
+
+    fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
+        let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&self.location)
+            .map_err(|err| Error::Other(err.to_string()))?;
+        serde_json::to_writer(file, &self.key_info).map_err(|err| Error::Other(err.to_string()))?;
+        Ok(key_out)
     }
 }

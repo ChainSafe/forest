@@ -4,17 +4,16 @@
 use actor::{init, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
 use cid::{multihash::Blake2b256, Cid};
+use fil_types::HAMT_BIT_WIDTH;
 use fnv::FnvHashMap;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{BytesKey, Hamt};
+use ipld_hamt::Hamt;
 use parking_lot::RwLock;
 use vm::ActorState;
 
-const TREE_BIT_WIDTH: u8 = 5;
-
 /// State tree implementation using hamt
 pub struct StateTree<'db, S> {
-    hamt: Hamt<'db, BytesKey, S>,
+    hamt: Hamt<'db, S>,
 
     // TODO switch to using state change cache: https://github.com/ChainSafe/forest/issues/373
     actor_cache: RwLock<FnvHashMap<Address, ActorState>>,
@@ -25,7 +24,7 @@ where
     S: BlockStore,
 {
     pub fn new(store: &'db S) -> Self {
-        let hamt = Hamt::new_with_bit_width(store, TREE_BIT_WIDTH);
+        let hamt = Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH);
         Self {
             hamt,
             actor_cache: RwLock::new(FnvHashMap::default()),
@@ -35,7 +34,7 @@ where
     /// Constructor for a hamt state tree given an IPLD store
     pub fn new_from_root(store: &'db S, root: &Cid) -> Result<Self, String> {
         let hamt =
-            Hamt::load_with_bit_width(root, store, TREE_BIT_WIDTH).map_err(|e| e.to_string())?;
+            Hamt::load_with_bit_width(root, store, HAMT_BIT_WIDTH).map_err(|e| e.to_string())?;
         Ok(Self {
             hamt,
             actor_cache: RwLock::new(FnvHashMap::default()),

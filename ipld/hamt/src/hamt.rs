@@ -1,13 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::BytesKey;
 use crate::node::Node;
-use crate::{Error, Hash, DEFAULT_BIT_WIDTH};
+use crate::{Error, Hash, HashAlgorithm, Sha256, DEFAULT_BIT_WIDTH};
 use cid::{multihash::Blake2b256, Cid};
 use forest_ipld::{from_ipld, to_ipld, Ipld};
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
+use std::error::Error as StdError;
+use std::marker::PhantomData;
 
 /// Implementation of the HAMT data structure for IPLD.
 ///
@@ -18,7 +21,7 @@ use std::borrow::Borrow;
 ///
 /// let store = db::MemoryDB::default();
 ///
-/// let mut map: Hamt<usize, _> = Hamt::new(&store);
+/// let mut map: Hamt<_, usize> = Hamt::new(&store);
 /// map.set(1, "a".to_string()).unwrap();
 /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
 /// assert_eq!(map.delete(&1).unwrap(), true);
@@ -26,16 +29,18 @@ use std::borrow::Borrow;
 /// let cid = map.flush().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct Hamt<'a, K, BS> {
-    root: Node<K>,
+pub struct Hamt<'a, BS, K = BytesKey, H = Sha256> {
+    root: Node<K, H>,
     store: &'a BS,
 
-    bit_width: u8,
+    bit_width: u32,
+    hash: PhantomData<H>,
 }
 
-impl<K, BS> Serialize for Hamt<'_, K, BS>
+impl<BS, K, H> Serialize for Hamt<'_, BS, K, H>
 where
     K: Serialize,
+    H: HashAlgorithm,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -45,27 +50,29 @@ where
     }
 }
 
-impl<'a, K: PartialEq, S: BlockStore> PartialEq for Hamt<'a, K, S> {
+impl<'a, K: PartialEq, S: BlockStore, H: HashAlgorithm> PartialEq for Hamt<'a, S, K, H> {
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root
     }
 }
 
-impl<'a, K, BS> Hamt<'a, K, BS>
+impl<'a, BS, K, H> Hamt<'a, BS, K, H>
 where
     K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
     BS: BlockStore,
+    H: HashAlgorithm,
 {
     pub fn new(store: &'a BS) -> Self {
         Self::new_with_bit_width(store, DEFAULT_BIT_WIDTH)
     }
 
     /// Construct hamt with a bit width
-    pub fn new_with_bit_width(store: &'a BS, bit_width: u8) -> Self {
+    pub fn new_with_bit_width(store: &'a BS, bit_width: u32) -> Self {
         Self {
             root: Node::default(),
             store,
             bit_width,
+            hash: Default::default(),
         }
     }
 
@@ -75,12 +82,13 @@ where
     }
 
     /// Lazily instantiate a hamt from this root Cid with a specified bit width.
-    pub fn load_with_bit_width(cid: &Cid, store: &'a BS, bit_width: u8) -> Result<Self, Error> {
+    pub fn load_with_bit_width(cid: &Cid, store: &'a BS, bit_width: u32) -> Result<Self, Error> {
         match store.get(cid)? {
             Some(root) => Ok(Self {
                 root,
                 store,
                 bit_width,
+                hash: Default::default(),
             }),
             None => Err(Error::CidNotFound(cid.to_string())),
         }
@@ -115,7 +123,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(37, "a".to_string()).unwrap();
     /// assert_eq!(map.is_empty(), false);
     ///
@@ -143,7 +151,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
     /// assert_eq!(map.get::<usize, String>(&2).unwrap(), None);
@@ -161,6 +169,33 @@ where
         }
     }
 
+    /// Returns `true` if a value exists for the given key in the HAMT.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// `Hash` and `Eq` on the borrowed form *must* match those for
+    /// the key type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ipld_hamt::Hamt;
+    ///
+    /// let store = db::MemoryDB::default();
+    ///
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
+    /// map.set(1, "a".to_string()).unwrap();
+    /// assert_eq!(map.contains_key(&1).unwrap(), true);
+    /// assert_eq!(map.contains_key(&2).unwrap(), false);
+    /// ```
+    #[inline]
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, Error>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        Ok(self.root.get(k, self.store, self.bit_width)?.is_some())
+    }
+
     /// Removes a key from the HAMT, returning the value at the key if the key
     /// was previously in the HAMT.
     ///
@@ -175,7 +210,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.delete(&1).unwrap(), true);
     /// assert_eq!(map.delete(&1).unwrap(), false);
@@ -213,7 +248,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<usize, _> = Hamt::new(&store);
+    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
     /// map.set(1, 1).unwrap();
     /// map.set(4, 2).unwrap();
     ///
@@ -225,10 +260,10 @@ where
     /// assert_eq!(total, 3);
     /// ```
     #[inline]
-    pub fn for_each<F, V>(&self, mut f: F) -> Result<(), String>
+    pub fn for_each<F, V>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(&K, V) -> Result<(), String>,
+        F: FnMut(&K, V) -> Result<(), Box<dyn StdError>>,
     {
         self.root.for_each(self.store, &mut f)
     }

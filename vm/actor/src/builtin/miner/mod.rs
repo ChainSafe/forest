@@ -15,12 +15,10 @@ pub use self::types::*;
 use crate::account::Method as AccountMethod;
 use crate::market::{
     ComputeDataCommitmentParams, Method as MarketMethod, OnMinerSectorsTerminateParams,
-    VerifyDealsOnSectorProveCommitParams, VerifyDealsOnSectorProveCommitReturn,
+    VerifyDealsForActivationParams, VerifyDealsForActivationReturn,
 };
 use crate::power::{
-    EnrollCronEventParams, Method as PowerMethod, OnFaultBeginParams, OnFaultEndParams,
-    OnSectorModifyWeightDescParams, OnSectorProveCommitParams, OnSectorTerminateParams,
-    SectorStorageWeightDesc, SectorTermination, SECTOR_TERMINATION_EXPIRED,
+    EnrollCronEventParams, Method as PowerMethod, SectorTermination, SECTOR_TERMINATION_EXPIRED,
     SECTOR_TERMINATION_FAULTY, SECTOR_TERMINATION_MANUAL,
 };
 use crate::{
@@ -680,36 +678,41 @@ impl Actor {
 
             // Check (and activate) storage deals associated to sector. Abort if checks failed.
             // return DealWeight for the deal set in the sector
-            let ser_params = Serialized::serialize(VerifyDealsOnSectorProveCommitParams {
+            let ser_params = Serialized::serialize(VerifyDealsForActivationParams {
                 deal_ids: precommit.info.deal_ids.clone(),
                 sector_expiry: precommit.info.expiration,
+                // TODO has been refactored and this is not correct
+                sector_start: 0,
             })?;
 
             // TODO revisit spec TODOs
             let mut ret = rt.send(
                 *STORAGE_MARKET_ACTOR_ADDR,
-                MarketMethod::VerifyDealsOnSectorProveCommit as u64,
+                // TODO this is probably wrong method call but this has been refactored
+                MarketMethod::VerifyDealsForActivation as u64,
                 ser_params,
                 TokenAmount::zero(),
             )?;
-            let deal_weights: VerifyDealsOnSectorProveCommitReturn = ret.deserialize()?;
+            let deal_weights: VerifyDealsForActivationReturn = ret.deserialize()?;
 
             // Request power for activated sector.
             // Return initial pledge requirement.
-            let param = Serialized::serialize(OnSectorProveCommitParams {
-                weight: SectorStorageWeightDesc {
-                    sector_size: st.info.sector_size,
-                    deal_weight: deal_weights.deal_weight.clone(),
-                    verified_deal_weight: deal_weights.verified_deal_weight.clone(),
-                    duration: precommit.info.expiration - rt.curr_epoch(),
-                },
-            })?;
-            ret = rt.send(
-                *STORAGE_POWER_ACTOR_ADDR,
-                PowerMethod::OnSectorProveCommit as u64,
-                param,
-                TokenAmount::zero(),
-            )?;
+            // TODO was refactored
+            // let param = Serialized::serialize(OnSectorProveCommitParams {
+            //     weight: SectorStorageWeightDesc {
+            //         sector_size: st.info.sector_size,
+            //         deal_weight: deal_weights.deal_weight.clone(),
+            //         verified_deal_weight: deal_weights.verified_deal_weight.clone(),
+            //         duration: precommit.info.expiration - rt.curr_epoch(),
+            //     },
+            // })?;
+            ret = Default::default();
+            // rt.send(
+            //     *STORAGE_POWER_ACTOR_ADDR,
+            //     PowerMethod::OnSectorProveCommit as u64,
+            //     param,
+            //     TokenAmount::zero(),
+            // )?;
             let BigIntDe(initial_pledge) = ret.deserialize()?;
 
             // Add sector and pledge lock-up to miner state
@@ -839,17 +842,17 @@ impl Actor {
         let mut storage_weight_desc_new = storage_weight_desc_prev.clone();
         storage_weight_desc_new.duration = storage_weight_desc_prev.duration + extension_len;
 
-        let ser_params = Serialized::serialize(OnSectorModifyWeightDescParams {
-            prev_weight: storage_weight_desc_prev,
-            new_weight: storage_weight_desc_new,
-        })?;
-
-        rt.send(
-            *STORAGE_POWER_ACTOR_ADDR,
-            PowerMethod::OnSectorModifyWeightDesc as u64,
-            ser_params,
-            BigInt::zero(),
-        )?;
+        // TODO was refactored
+        // let ser_params = Serialized::serialize(OnSectorModifyWeightDescParams {
+        //     prev_weight: storage_weight_desc_prev,
+        //     new_weight: storage_weight_desc_new,
+        // })?;
+        // rt.send(
+        //     *STORAGE_POWER_ACTOR_ADDR,
+        //     PowerMethod::OnSectorModifyWeightDesc as u64,
+        //     ser_params,
+        //     BigInt::zero(),
+        // )?;
 
         // store new sector expiry
         rt.transaction(|st: &mut State, rt| {
@@ -1739,7 +1742,7 @@ fn pop_sector_expirations<BS>(
     st: &mut State,
     store: &BS,
     epoch: ChainEpoch,
-) -> Result<BitField, String>
+) -> Result<BitField, Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -1748,7 +1751,7 @@ where
 
     st.for_each_sector_expiration(store, |expiry: ChainEpoch, sectors: &BitField| {
         if expiry > epoch {
-            return Err("done".to_string());
+            return Err("done".into());
         }
         expired_epochs.push(expiry);
         expired_sectors.push(sectors.clone());
@@ -1768,7 +1771,7 @@ fn pop_expired_faults<BS>(
     st: &mut State,
     store: &BS,
     latest_termination: ChainEpoch,
-) -> Result<(BitField, BitField), String>
+) -> Result<(BitField, BitField), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -1946,7 +1949,7 @@ fn remove_terminated_sectors<BS>(
     store: &BS,
     deadlines: &mut Deadlines,
     sectors: &BitField,
-) -> Result<(), String>
+) -> Result<(), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -1989,8 +1992,8 @@ where
 }
 
 fn request_begin_faults<BS, RT>(
-    rt: &mut RT,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2001,24 +2004,24 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnFaultBeginParams { weights })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
-    rt.send(
-        *STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnFaultBegin as u64,
-        ser_params,
-        TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnFaultBegin as u64,
+    //     Serialized::serialize(OnFaultBeginParams { weights })?,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
 fn request_end_faults<BS, RT>(
-    rt: &mut RT,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2029,18 +2032,18 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnFaultEndParams { weights })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
-    rt.send(
-        *STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnFaultEnd as u64,
-        ser_params,
-        TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnFaultEnd as u64,
+    //     Serialized::serialize(OnFaultEndParams { weights })?,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
@@ -2056,15 +2059,19 @@ where
     rt.send(
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::OnMinerSectorsTerminate as u64,
-        Serialized::serialize(OnMinerSectorsTerminateParams { deal_ids })?,
+        Serialized::serialize(OnMinerSectorsTerminateParams {
+            deal_ids,
+            // TODO this may not be correct (refactored)
+            epoch: rt.curr_epoch(),
+        })?,
         TokenAmount::zero(),
     )?;
     Ok(())
 }
 fn request_terminate_power<BS, RT>(
-    rt: &mut RT,
-    termination_type: SectorTermination,
-    sector_size: SectorSize,
+    _rt: &mut RT,
+    _termination_type: SectorTermination,
+    _sector_size: SectorSize,
     sectors: &[SectorOnChainInfo],
 ) -> Result<(), ActorError>
 where
@@ -2075,21 +2082,21 @@ where
         return Ok(());
     }
 
-    let weights = sectors
-        .iter()
-        .map(|s| to_storage_weight_desc(sector_size, s))
-        .collect();
-    let ser_params = Serialized::serialize(OnSectorTerminateParams {
-        termination_type,
-        weights,
-    })?;
+    // let weights = sectors
+    //     .iter()
+    //     .map(|s| to_storage_weight_desc(sector_size, s))
+    //     .collect();
 
-    rt.send(
-        *STORAGE_POWER_ACTOR_ADDR,
-        PowerMethod::OnSectorTerminate as u64,
-        ser_params,
-        TokenAmount::zero(),
-    )?;
+    // TODO was refactored
+    // rt.send(
+    //     *STORAGE_POWER_ACTOR_ADDR,
+    //     PowerMethod::OnSectorTerminate as u64,
+    //     Serialized::serialize(OnSectorTerminateParams {
+    //         termination_type,
+    //         weights,
+    //     })?,
+    //     TokenAmount::zero(),
+    // )?;
     Ok(())
 }
 
@@ -2112,7 +2119,7 @@ where
     // Regenerate challenge randomness, which must match that generated for the proof.
     let entropy = rt.message().receiver().marshal_cbor().unwrap();
     let randomness: PoStRandomness =
-        rt.get_randomness(WindowedPoStChallengeSeed, challenge_epoch, &entropy)?;
+        rt.get_randomness_from_tickets(WindowedPoStChallengeSeed, challenge_epoch, &entropy)?;
 
     let challenged_sectors = sectors.iter().map(|s| s.to_sector_info()).collect();
 
@@ -2169,8 +2176,8 @@ where
     };
     let entropy = rt.message().receiver().marshal_cbor().unwrap();
     let randomness: SealRandom =
-        rt.get_randomness(SealRandomness, params.seal_rand_epoch, &entropy)?;
-    let interactive_randomness: InteractiveSealRandomness = rt.get_randomness(
+        rt.get_randomness_from_tickets(SealRandomness, params.seal_rand_epoch, &entropy)?;
+    let interactive_randomness: InteractiveSealRandomness = rt.get_randomness_from_tickets(
         InteractiveSealChallengeSeed,
         params.interactive_epoch,
         &entropy,
@@ -2451,7 +2458,7 @@ fn unlock_penalty<BS>(
     current_epoch: ChainEpoch,
     sectors: &[SectorOnChainInfo],
     f: &impl Fn(&SectorOnChainInfo) -> TokenAmount,
-) -> Result<TokenAmount, String>
+) -> Result<TokenAmount, Box<dyn StdError>>
 where
     BS: BlockStore,
 {

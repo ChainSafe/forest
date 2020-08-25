@@ -6,7 +6,7 @@ use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
 use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
 use forest_message::{SignedMessage, UnsignedMessage};
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use std::convert::TryFrom;
 use std::error::Error;
 
@@ -52,12 +52,12 @@ fn convert_single_tipset_bundle() {
 #[test]
 fn tipset_bundle_to_full_tipset() {
     let h0 = BlockHeader::builder()
-        .weight(BigUint::from(1u32))
+        .weight(BigInt::from(1u32))
         .miner_address(Address::new_id(0))
         .build()
         .unwrap();
     let h1 = BlockHeader::builder()
-        .weight(BigUint::from(1u32))
+        .weight(BigInt::from(1u32))
         .miner_address(Address::new_id(1))
         .build()
         .unwrap();
