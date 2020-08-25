@@ -24,6 +24,8 @@ log = "0.4.8"
 db = { path = "../../node/db" }
 chain = { path = "../../blockchain/chain" }
 fil_types = { path = "../../types" }
+ahash = "0.4"
+lazy_static = "1.4"
 
 [dev-dependencies]
 ipld_hamt = { path = "../../ipld/hamt" }

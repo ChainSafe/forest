@@ -1,7 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{gas_tracker::price_list_by_epoch, vm_send, DefaultRuntime, Rand};
+use super::{
+    gas_tracker::{price_list_by_epoch, GasCharge},
+    vm_send, DefaultRuntime, Rand,
+};
 use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, BURNT_FUNDS_ACTOR_ADDR, CRON_ACTOR_ADDR,
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
@@ -220,8 +223,9 @@ where
         let pl = price_list_by_epoch(self.epoch());
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
         let msg_gas_cost = pl.on_chain_message(ser_msg.len());
+        let cost_total = msg_gas_cost.total();
 
-        if msg_gas_cost > msg.gas_limit() {
+        if cost_total > msg.gas_limit() {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
                     return_data: Serialized::default(),
@@ -229,8 +233,8 @@ where
                     gas_used: 0,
                 },
                 act_error: Some(actor_error!(SysErrOutOfGas;
-                    "Out of gas ({} > {})", msg_gas_cost, msg.gas_limit())),
-                penalty: &self.base_fee * msg_gas_cost,
+                    "Out of gas ({} > {})", cost_total, msg.gas_limit())),
+                penalty: &self.base_fee * cost_total,
                 miner_tip: BigInt::zero(),
             });
         }
@@ -410,7 +414,7 @@ where
     fn send<'m>(
         &mut self,
         msg: &'m UnsignedMessage,
-        gas_cost: Option<i64>,
+        gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
         Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, R, P>>,
@@ -420,7 +424,7 @@ where
             &mut self.state,
             self.store,
             &self.syscalls,
-            gas_cost.unwrap_or_default(),
+            0,
             &msg,
             self.epoch,
             *msg.from(),

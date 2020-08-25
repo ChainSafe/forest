@@ -1,14 +1,82 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::GasCharge;
+use ahash::AHashMap;
 use clock::ChainEpoch;
 use crypto::SignatureType;
-use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{
+    PieceInfo, RegisteredPoStProof, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo,
+};
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
+lazy_static! {
+    static ref BASE_PRICES: PriceList = PriceList {
+        on_chain_message_compute_base: 38863,
+        on_chain_message_storage_base: 36,
+        on_chain_message_storage_per_byte: 1,
+
+        on_chain_return_value_per_byte: 1,
+
+        send_base: 29233,
+        send_transfer_funds: 27500,
+        send_transfer_only_premium: 159672,
+        send_invoke_method: -5377,
+
+        ipld_get_base: 75242,
+        ipld_put_base: 84070,
+        ipld_put_per_byte: 1,
+
+        create_actor_compute: 1108454,
+        create_actor_storage: 36 + 40,
+        delete_actor: -(36 + 40),
+
+        bls_sig_cost: 16598605,
+        secp256k1_sig_cost: 1637292,
+
+        hashing_base: 31355,
+        compute_unsealed_sector_cid_base: 98647,
+        verify_seal_base: 2000, // TODO revisit potential removal of this
+        verify_consensus_fault: 495422,
+
+        verify_post_lookup: [
+            (
+                RegisteredPoStProof::StackedDRGWindow512MiBV1,
+                ScalingCost {
+                    flat: 123861062,
+                    scale: 9226981,
+                },
+            ),
+            (
+                RegisteredPoStProof::StackedDRGWindow32GiBV1,
+                ScalingCost {
+                    flat: 748593537,
+                    scale: 85639,
+                },
+            ),
+            (
+                RegisteredPoStProof::StackedDRGWindow64GiBV1,
+                ScalingCost {
+                    flat: 748593537,
+                    scale: 85639,
+                },
+            ),
+        ]
+        .iter()
+        .copied()
+        .collect(),
+    };
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct ScalingCost {
+    flat: i64,
+    scale: i64,
+}
+
 /// Provides prices for operations in the VM
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct PriceList {
     /// Gas cost charged to the originator of an on-chain message (regardless of
     /// whether it succeeds or fails in application) is given by:
@@ -16,8 +84,9 @@ pub struct PriceList {
     /// Together, these account for the cost of message propagation and validation,
     /// up to but excluding any actual processing by the VM.
     /// This is the cost a block producer burns when including an invalid message.
-    pub on_chain_message_base: i64,
-    pub on_chain_message_per_byte: i64,
+    pub on_chain_message_compute_base: i64,
+    pub on_chain_message_storage_base: i64,
+    pub on_chain_message_storage_per_byte: i64,
 
     /// Gas cost charged to the originator of a non-nil return value produced
     /// by an on-chain message is given by:
@@ -37,6 +106,9 @@ pub struct PriceList {
     /// already accounted for).
     pub send_transfer_funds: i64,
 
+    /// Gas cost charged, in addition to SendBase, if message only transfers funds.
+    pub send_transfer_only_premium: i64,
+
     /// Gas cost charged, in addition to SendBase, if a message invokes
     /// a method on the receiver.
     /// Accounts for the cost of loading receiver code and method dispatch.
@@ -45,7 +117,6 @@ pub struct PriceList {
     /// Gas cost (Base + len*PerByte) for any Get operation to the IPLD store
     /// in the runtime VM context.
     pub ipld_get_base: i64,
-    pub ipld_get_per_byte: i64,
 
     /// Gas cost (Base + len*PerByte) for any Put operation to the IPLD store
     /// in the runtime VM context.
@@ -58,77 +129,102 @@ pub struct PriceList {
     /// Gas cost for creating a new actor (via InitActor's Exec method).
     /// Note: this costs assume that the extra will be partially or totally refunded while
     /// the base is covering for the put.
-    pub create_actor_base: i64,
-    pub create_actor_extra: i64,
+    pub create_actor_compute: i64,
+    pub create_actor_storage: i64,
 
     /// Gas cost for deleting an actor.
     /// Note: this partially refunds the create cost to incentivise the deletion of the actors.
     pub delete_actor: i64,
 
+    /// Gas cost for verifying bls signature
+    pub bls_sig_cost: i64,
+    /// Gas cost for verifying secp256k1 signature
+    pub secp256k1_sig_cost: i64,
+
     pub hashing_base: i64,
-    pub hashing_per_byte: i64,
 
     pub compute_unsealed_sector_cid_base: i64,
     pub verify_seal_base: i64,
-    pub verify_post_base: i64,
+    pub verify_post_lookup: AHashMap<RegisteredPoStProof, ScalingCost>,
     pub verify_consensus_fault: i64,
 }
 
 impl PriceList {
     /// Returns the gas required for storing a message of a given size in the chain.
     #[inline]
-    pub fn on_chain_message(&self, msg_size: usize) -> i64 {
-        self.on_chain_message_base + self.on_chain_message_per_byte * msg_size as i64
+    pub fn on_chain_message(&self, msg_size: usize) -> GasCharge {
+        GasCharge::new(
+            "on_chain_message",
+            self.on_chain_message_compute_base,
+            self.on_chain_message_storage_base
+                + self.on_chain_message_storage_per_byte * msg_size as i64,
+        )
     }
     /// Returns the gas required for storing the response of a message in the chain.
     #[inline]
-    pub fn on_chain_return_value(&self, data_size: usize) -> i64 {
-        data_size as i64 * self.on_chain_return_value_per_byte
+    pub fn on_chain_return_value(&self, data_size: usize) -> GasCharge {
+        GasCharge::new(
+            "on_chain_return_value",
+            0,
+            data_size as i64 * self.on_chain_return_value_per_byte,
+        )
     }
     /// Returns the gas required when invoking a method.
     #[inline]
-    pub fn on_method_invocation(&self, value: &TokenAmount, method_num: MethodNum) -> i64 {
+    pub fn on_method_invocation(&self, value: &TokenAmount, method_num: MethodNum) -> GasCharge {
         let mut ret = self.send_base;
         if value != &TokenAmount::zero() {
             ret += self.send_transfer_funds;
+            if method_num == METHOD_SEND {
+                ret += self.send_transfer_only_premium;
+            }
         }
         if method_num != METHOD_SEND {
             ret += self.send_invoke_method;
         }
-        ret
+        GasCharge::new("on_method_invocation", ret, 0)
     }
     /// Returns the gas required for storing an object
     #[inline]
-    pub fn on_ipld_get(&self, data_size: usize) -> i64 {
-        self.ipld_get_base + data_size as i64 * self.ipld_get_per_byte
+    pub fn on_ipld_get(&self, _: usize) -> GasCharge {
+        GasCharge::new("on_ipld_get", self.ipld_get_base, 0)
     }
     /// Returns the gas required for storing an object
     #[inline]
-    pub fn on_ipld_put(&self, data_size: usize) -> i64 {
-        self.ipld_put_base + data_size as i64 * self.ipld_put_per_byte
+    pub fn on_ipld_put(&self, data_size: usize) -> GasCharge {
+        GasCharge::new(
+            "on_ipld_put",
+            self.ipld_put_base,
+            data_size as i64 * self.ipld_put_per_byte,
+        )
     }
     /// Returns the gas required for creating an actor
     #[inline]
-    pub fn on_create_actor(&self) -> i64 {
-        self.create_actor_base + self.create_actor_extra
+    pub fn on_create_actor(&self) -> GasCharge {
+        GasCharge::new(
+            "on_create_actor",
+            self.create_actor_compute,
+            self.create_actor_storage,
+        )
     }
     /// Returns the gas required for deleting an actor
     #[inline]
-    pub fn on_delete_actor(&self) -> i64 {
-        self.delete_actor
+    pub fn on_delete_actor(&self) -> GasCharge {
+        GasCharge::new("on_delete_actor", 0, self.delete_actor)
     }
     /// Returns gas required for signature verification
     #[inline]
-    pub fn on_verify_signature(&self, sig_type: SignatureType, plain_text_size: usize) -> i64 {
-        match sig_type {
-            SignatureType::BLS => (3 * plain_text_size + 2) as i64,
-            SignatureType::Secp256k1 => (3 * plain_text_size + 2) as i64,
-        }
+    pub fn on_verify_signature(&self, sig_type: SignatureType) -> GasCharge {
+        let val = match sig_type {
+            SignatureType::BLS => self.bls_sig_cost,
+            SignatureType::Secp256k1 => self.secp256k1_sig_cost,
+        };
+        GasCharge::new("on_verify_signature", val, 0)
     }
     /// Returns gas required for hashing data
     #[inline]
-    pub fn on_hashing(&self, data_size: usize) -> i64 {
-        self.hashing_base + data_size as i64 * self.hashing_per_byte
+    pub fn on_hashing(&self, _: usize) -> GasCharge {
+        GasCharge::new("on_hashing", self.hashing_base, 0)
     }
     /// Returns gas required for computing unsealed sector Cid
     #[inline]
@@ -136,56 +232,52 @@ impl PriceList {
         &self,
         _proof: RegisteredSealProof,
         _pieces: &[PieceInfo],
-    ) -> i64 {
-        self.compute_unsealed_sector_cid_base
+    ) -> GasCharge {
+        GasCharge::new(
+            "on_compute_unsealed_sector_cid",
+            self.compute_unsealed_sector_cid_base,
+            0,
+        )
     }
     /// Returns gas required for seal verification
     #[inline]
-    pub fn on_verify_seal(&self, _info: &SealVerifyInfo) -> i64 {
-        self.verify_seal_base
+    pub fn on_verify_seal(&self, _info: &SealVerifyInfo) -> GasCharge {
+        GasCharge::new("on_verify_seal", self.verify_seal_base, 0)
     }
     /// Returns gas required for PoSt verification
     #[inline]
-    pub fn on_verify_post(&self, _info: &WindowPoStVerifyInfo) -> i64 {
-        self.verify_post_base
+    pub fn on_verify_post(&self, info: &WindowPoStVerifyInfo) -> GasCharge {
+        let p_proof = info
+            .proofs
+            .first()
+            .map(|p| p.post_proof)
+            .unwrap_or(RegisteredPoStProof::StackedDRGWindow512MiBV1);
+        let cost = self.verify_post_lookup.get(&p_proof).unwrap_or_else(|| {
+            self.verify_post_lookup
+                .get(&RegisteredPoStProof::StackedDRGWindow512MiBV1)
+                .expect("512MiB lookup must exist in price table")
+        });
+
+        let mut gas_used = cost.flat + info.challenged_sectors.len() as i64 * cost.scale;
+        gas_used /= 2;
+
+        GasCharge::new("on_verify_post", gas_used, 0)
     }
     /// Returns gas required for verifying consensus fault
     #[inline]
-    pub fn on_verify_consensus_fault(&self) -> i64 {
-        self.verify_consensus_fault
+    pub fn on_verify_consensus_fault(&self) -> GasCharge {
+        GasCharge::new("on_verify_consensus_fault", self.verify_consensus_fault, 0)
     }
 }
 
 impl Default for PriceList {
     fn default() -> Self {
-        BASE_PRICES
+        BASE_PRICES.clone()
     }
 }
-
-const BASE_PRICES: PriceList = PriceList {
-    on_chain_message_base: 0,
-    on_chain_message_per_byte: 2,
-    on_chain_return_value_per_byte: 8,
-    send_base: 5,
-    send_transfer_funds: 5,
-    send_invoke_method: 10,
-    ipld_get_base: 10,
-    ipld_get_per_byte: 1,
-    ipld_put_base: 20,
-    ipld_put_per_byte: 2,
-    create_actor_base: 40,
-    create_actor_extra: 500,
-    delete_actor: -500,
-    hashing_base: 5,
-    hashing_per_byte: 2,
-    compute_unsealed_sector_cid_base: 100,
-    verify_seal_base: 2000,
-    verify_post_base: 700,
-    verify_consensus_fault: 10,
-};
 
 /// Returns gas price list by Epoch for gas consumption
 pub fn price_list_by_epoch(_epoch: ChainEpoch) -> PriceList {
     // In future will match on epoch and select matching price lists when config options allowed
-    BASE_PRICES
+    BASE_PRICES.clone()
 }
