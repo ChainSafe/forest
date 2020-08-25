@@ -661,7 +661,7 @@ impl Runtime<MemoryDB> for MockRuntime {
         self
     }
 
-    fn charge_gas(&mut self, _name: String, _gas: i64) -> Result<(), ActorError> {
+    fn charge_gas(&mut self, _: &'static str, _: i64) -> Result<(), ActorError> {
         // TODO implement functionality if needed for testing
         Ok(())
     }

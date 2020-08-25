@@ -85,7 +85,7 @@ fn transfer_test() {
         .from(actor_addr_2.clone())
         .method_num(2)
         .value(1u8.into())
-        .gas_limit(1000)
+        .gas_limit(10000000)
         .params(Serialized::default())
         .build()
         .unwrap();
