@@ -36,7 +36,7 @@ pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
     syscalls: SYS,
     rand: &'r R,
     base_fee: BigInt,
-    registered_actors: HashMap<Cid, Box<dyn ActorCode>>,
+    registered_actors: HashSet<Cid>,
     params: PhantomData<P>,
 }
 
@@ -56,7 +56,7 @@ where
         base_fee: BigInt,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
-        let registered_actors = HashMap::new();
+        let registered_actors = HashSet::new();
         Ok(VM {
             state,
             store,
@@ -70,12 +70,12 @@ where
     }
 
     /// Registers an actor that is not part of the set of default builtin actors by providing the code cid
-    pub fn register_actor(&mut self, code_cid: Cid, actor: Box<dyn ActorCode>) -> Option<Box<dyn ActorCode>> {
-        self.registered_actors.insert(code_cid, actor)
+    pub fn register_actor(&mut self, code_cid: Cid) -> bool {
+        self.registered_actors.insert(code_cid)
     }
 
     /// Gets registered actors that are not part of the set of default builtin actors
-    pub fn registered_actors(&self) -> &HashMap<Cid, Box<dyn ActorCode>> {
+    pub fn registered_actors(&self) -> &HashSet<Cid> {
         &self.registered_actors
     }
 

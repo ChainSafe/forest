@@ -66,7 +66,7 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P = Devnet
     rand: &'r R,
     caller_validated: bool,
     allow_internal: bool,
-    registered_actors: &'act HashMap<Cid, Box<ActorCode>>,
+    registered_actors: &'act HashSet<Cid>,
     params: PhantomData<P>,
 }
 
@@ -741,7 +741,12 @@ where
         x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params),
         x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
         x => {
-            // let found = rt.registered_actors.
+            if rt.registered_actors.contains(&x) {
+               return match x {
+                   x if x == *PUPPET_ACTOR_CODE_ID => puppet::Actor.invoke_method(rt, method_num, params),
+                   _ => Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to)),
+               };
+            }
             Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
         },
     }
