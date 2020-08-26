@@ -9,7 +9,7 @@ use cid::Cid;
 use error::*;
 use forest_encoding::from_slice;
 use serde::{Deserialize, Serialize};
-use std::io::{BufReader, Read};
+use std::io::Read;
 use util::{ld_read, read_node};
 
 /// CAR file header
@@ -28,7 +28,7 @@ impl CarHeader {
 
 /// Reads CAR files that are in a BufReader
 pub struct CarReader<R> {
-    pub buf_reader: BufReader<R>,
+    pub reader: R,
     pub header: CarHeader,
 }
 
@@ -37,8 +37,9 @@ where
     R: Read,
 {
     /// Creates a new CarReader and parses the CarHeader
-    pub fn new(mut buf_reader: BufReader<R>) -> Result<Self, Error> {
-        let buf = ld_read(&mut buf_reader)?;
+    pub fn new(mut reader: R) -> Result<Self, Error> {
+        let buf = ld_read(&mut reader)?
+            .ok_or_else(|| Error::ParsingError("failed to parse uvarint for header".to_string()))?;
         let header: CarHeader = from_slice(&buf).map_err(|e| Error::ParsingError(e.to_string()))?;
         if header.roots.is_empty() {
             return Err(Error::ParsingError("empty CAR file".to_owned()));
@@ -46,14 +47,14 @@ where
         if header.version != 1 {
             return Err(Error::InvalidFile("CAR file version must be 1".to_owned()));
         }
-        Ok(CarReader { buf_reader, header })
+        Ok(CarReader { reader, header })
     }
 
     /// Returns the next IPLD Block in the buffer
-    pub fn next_block(&mut self) -> Result<Block, Error> {
+    pub fn next_block(&mut self) -> Result<Option<Block>, Error> {
         // Read node -> cid, bytes
-        let (cid, data) = read_node(&mut self.buf_reader)?;
-        Ok(Block { cid, data })
+        let block = read_node(&mut self.reader)?.map(|(cid, data)| Block { cid, data });
+        Ok(block)
     }
 }
 
@@ -65,17 +66,12 @@ pub struct Block {
 }
 
 /// Loads a CAR buffer into a BlockStore
-pub fn load_car<R: Read, B: BlockStore>(
-    s: &B,
-    buf_reader: BufReader<R>,
-) -> Result<Vec<Cid>, Error> {
-    let mut car_reader = CarReader::new(buf_reader)?;
+pub fn load_car<R: Read, B: BlockStore>(s: &B, reader: R) -> Result<Vec<Cid>, Error> {
+    let mut car_reader = CarReader::new(reader)?;
 
     // Batch write key value pairs from car file
     let mut buf: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(100);
-    // TODO revisit, seems possible buffer could be empty when underlying reader isn't
-    while !car_reader.buf_reader.buffer().is_empty() {
-        let block = car_reader.next_block()?;
+    while let Some(block) = car_reader.next_block()? {
         buf.push((block.cid.to_bytes(), block.data));
         if buf.len() > 1000 {
             s.bulk_write(&buf)
