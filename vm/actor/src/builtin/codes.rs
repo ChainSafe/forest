@@ -23,7 +23,7 @@ lazy_static! {
         [ACCOUNT_ACTOR_CODE_ID.clone(), MULTISIG_ACTOR_CODE_ID.clone()];
 }
 
-pub fn make_builtin(bz: &[u8]) -> Cid {
+fn make_builtin(bz: &[u8]) -> Cid {
     Cid::new_v1(Codec::Raw, Identity::digest(bz))
 }
 
