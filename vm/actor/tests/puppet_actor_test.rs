@@ -3,9 +3,7 @@
 
 mod common;
 
-use actor::{
-    puppet::*, unmarshallable::UnmarshallableCBOR, PUPPET_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
-};
+use actor::{puppet::*, UnmarshallableCBOR, PUPPET_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use common::*;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};

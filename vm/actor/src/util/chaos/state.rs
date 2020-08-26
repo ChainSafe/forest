@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::unmarshallable::UnmarshallableCBOR;
+use crate::UnmarshallableCBOR;
 
 pub struct State {
     pub unmarshallable: Vec<UnmarshallableCBOR>,

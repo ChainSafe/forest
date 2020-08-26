@@ -4,7 +4,7 @@
 mod state;
 
 use crate::check_empty_params;
-use crate::unmarshallable::UnmarshallableCBOR;
+use crate::UnmarshallableCBOR;
 use address::Address;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;

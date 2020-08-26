@@ -9,9 +9,10 @@ pub mod puppet;
 mod set;
 mod set_multimap;
 pub mod smooth;
-pub mod unmarshallable;
+mod unmarshallable;
 
 pub use self::balance_table::BalanceTable;
 pub use self::multimap::*;
 pub use self::set::Set;
 pub use self::set_multimap::SetMultimap;
+pub use unmarshallable::*;
