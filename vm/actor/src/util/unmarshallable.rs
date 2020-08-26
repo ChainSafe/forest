@@ -6,8 +6,7 @@ use serde::de::{self, Deserializer};
 use serde::ser::{self, Serializer};
 use serde::{Deserialize, Serialize};
 
-#[derive(Default)]
-pub struct UnmarshallableCBOR {}
+pub struct UnmarshallableCBOR;
 
 impl Serialize for UnmarshallableCBOR {
     fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
@@ -45,14 +44,14 @@ mod tests {
         // Should pass becuase vec is empty
         assert!(Serialized::serialize(&v).is_ok());
 
-        v.push(UnmarshallableCBOR::default());
+        v.push(UnmarshallableCBOR);
 
         // Should fail becuase vec is no longer empty
         assert!(Serialized::serialize(v).is_err());
 
         let mut v: Vec<Option<UnmarshallableCBOR>> = vec![];
 
-        v.push(Some(UnmarshallableCBOR::default()));
+        v.push(Some(UnmarshallableCBOR));
 
         // SHould only fail if a actual instance of UnmarshallableCBOR is used
         assert!(Serialized::serialize(v).is_err());

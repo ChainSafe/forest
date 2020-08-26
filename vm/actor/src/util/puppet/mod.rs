@@ -93,7 +93,7 @@ impl Actor {
         let res = rt.send(
             params.to,
             params.method,
-            Serialized::serialize(UnmarshallableCBOR::default())?,
+            Serialized::serialize(UnmarshallableCBOR)?,
             params.value,
         );
 
@@ -115,7 +115,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any()?;
-        Ok(UnmarshallableCBOR::default())
+        Ok(UnmarshallableCBOR)
     }
 
     fn runtime_transaction_marshal_cbor_failure<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -126,7 +126,7 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
 
         rt.transaction(|st: &mut State, _| {
-            st.opt_fail = vec![UnmarshallableCBOR::default()];
+            st.opt_fail = vec![UnmarshallableCBOR];
         })?;
 
         Ok(())
