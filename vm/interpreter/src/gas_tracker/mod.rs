@@ -1,12 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod gas_charge;
 mod price_list;
 
+pub use self::gas_charge::GasCharge;
 pub use self::price_list::{price_list_by_epoch, PriceList};
 use vm::{actor_error, ActorError, ExitCode};
 
-pub struct GasTracker {
+pub(crate) struct GasTracker {
     gas_available: i64,
     gas_used: i64,
 }
@@ -20,7 +22,8 @@ impl GasTracker {
     }
 
     /// Safely consumes gas
-    pub fn charge_gas(&mut self, to_use: i64) -> Result<(), ActorError> {
+    pub fn charge_gas(&mut self, charge: GasCharge) -> Result<(), ActorError> {
+        let to_use = charge.total();
         if self.gas_used + to_use > self.gas_available {
             self.gas_used = self.gas_available;
             Err(actor_error!(SysErrOutOfGas;
@@ -51,10 +54,10 @@ mod tests {
     #[test]
     fn basic_gas_tracker() {
         let mut t = GasTracker::new(20, 10);
-        t.charge_gas(5).unwrap();
+        t.charge_gas(GasCharge::new("", 5, 0)).unwrap();
         assert_eq!(t.gas_used(), 15);
-        t.charge_gas(5).unwrap();
+        t.charge_gas(GasCharge::new("", 5, 0)).unwrap();
         assert_eq!(t.gas_used(), 20);
-        assert!(t.charge_gas(1).is_err())
+        assert!(t.charge_gas(GasCharge::new("", 1, 0)).is_err())
     }
 }
