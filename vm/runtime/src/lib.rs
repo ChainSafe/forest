@@ -117,12 +117,6 @@ pub trait Runtime<BS: BlockStore> {
         value: TokenAmount,
     ) -> Result<Serialized, ActorError>;
 
-    /// Halts execution upon an error from which the receiver cannot recover.
-    /// The caller will receive the exitcode and an empty return value.
-    /// State changes made within this call will be rolled back. This method does not return.
-    /// The message and args are for diagnostic purposes and do not persist on chain.
-    fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError;
-
     /// Computes an address for a new actor. The returned address is intended to uniquely refer to
     /// the actor even in the event of a chain re-org (whereas an ID-address might refer to a
     /// different actor after messages are re-ordered).
@@ -131,7 +125,7 @@ pub trait Runtime<BS: BlockStore> {
 
     /// Creates an actor with code `codeID` and address `address`, with empty state.
     /// May only be called by Init actor.
-    fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError>;
+    fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError>;
 
     /// Deletes the executing actor from the state tree, transferring any balance to beneficiary.
     /// Aborts if the beneficiary does not exist.
