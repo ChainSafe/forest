@@ -2407,6 +2407,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 name = "forest"
 version = "0.1.0"
 dependencies = [
+ "actor",
  "async-log",
  "async-std",
  "beacon",
@@ -2458,7 +2459,7 @@ dependencies = [
 
 [[package]]
 name = "forest_bigint"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "num-bigint 0.3.0",
  "serde",
@@ -2506,7 +2507,7 @@ dependencies = [
 
 [[package]]
 name = "forest_cid"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "forest_json_utils",
  "integer-encoding",
@@ -2521,7 +2522,7 @@ dependencies = [
 
 [[package]]
 name = "forest_crypto"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "base64 0.12.3",
  "bls-signatures",
@@ -2538,7 +2539,7 @@ dependencies = [
 
 [[package]]
 name = "forest_encoding"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "blake2b_simd",
  "forest_cid",
@@ -2608,7 +2609,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64 0.12.3",
  "derive_builder",
@@ -2626,7 +2627,7 @@ dependencies = [
 
 [[package]]
 name = "forest_vm"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "forest_address",
  "forest_bigint",
