@@ -46,11 +46,11 @@ impl Actor {
 
     // CallerValidation violates VM call validation constraints.
     //
-    //  CallerValidationBranchNone performs no validation.
-    //  CallerValidationBranchTwice validates twice.
-    //  CallerValidationBranchAddrNilSet validates against an empty caller
+    //  CALLER_VALIDATION_BRANCH_NONE performs no validation.
+    //  CALLER_VALIDATION_BRANCH_TWICE validates twice.
+    //  CALLER_VALIDATION_BRANCH_ADDR_NIL_SET validates against an empty caller
     //  address set.
-    //  CallerValidationBranchTypeNilSet validates against an empty caller type set.
+    //  CALLER_VALIDATION_BRANCH_TYPE_NIL_SET validates against an empty caller type set.
     pub fn caller_validation<BS, RT>(rt: &mut RT, branch: BigInt) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -79,6 +79,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        // TODO Chnage the actor's cid and address based on Slack discussion
         let actor_cid = if arg.undef_cid {
             &*ACCOUNT_ACTOR_CODE_ID
         } else {
