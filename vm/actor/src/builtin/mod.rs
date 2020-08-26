@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod account;
-pub mod chaos;
 mod codes;
 pub mod cron;
 pub mod init;
@@ -12,7 +11,6 @@ pub mod multisig;
 pub mod network;
 pub mod paych;
 pub mod power;
-pub mod puppet;
 pub mod reward;
 mod shared;
 mod singletons;

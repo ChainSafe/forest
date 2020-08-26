@@ -4,8 +4,9 @@
 mod state;
 mod types;
 
-use super::{ACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR};
+use cid::Cid;
 use ipld_blockstore::BlockStore;
+use num_bigint::bigint_ser::BigIntDe;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -13,7 +14,8 @@ use runtime::{ActorCode, Runtime};
 pub use state::*;
 pub use types::*;
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
-// * Updated to specs-actors commit: 4784ddb8e54d53c118e63763e4efbcf0a419da28
+
+// * Updated to test-vectors commit: a5d1c62f093bd44e487a35211031a5e5a0824936
 
 lazy_static! {
     pub static ref CALLER_VALIDATION_BRANCH_NONE: BigInt = BigInt::from(0);
@@ -44,13 +46,13 @@ impl Actor {
         panic!("Constructor should not be called");
     }
 
-    // CallerValidation violates VM call validation constraints.
-    //
-    //  CALLER_VALIDATION_BRANCH_NONE performs no validation.
-    //  CALLER_VALIDATION_BRANCH_TWICE validates twice.
-    //  CALLER_VALIDATION_BRANCH_ADDR_NIL_SET validates against an empty caller
-    //  address set.
-    //  CALLER_VALIDATION_BRANCH_TYPE_NIL_SET validates against an empty caller type set.
+    /// CallerValidation violates VM call validation constraints.
+    ///
+    ///  CALLER_VALIDATION_BRANCH_NONE performs no validation.
+    ///  CALLER_VALIDATION_BRANCH_TWICE validates twice.
+    ///  CALLER_VALIDATION_BRANCH_ADDR_NIL_SET validates against an empty caller
+    ///  address set.
+    ///  CALLER_VALIDATION_BRANCH_TYPE_NIL_SET validates against an empty caller type set.
     pub fn caller_validation<BS, RT>(rt: &mut RT, branch: BigInt) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -63,10 +65,10 @@ impl Actor {
                 rt.validate_immediate_caller_accept_any()?;
             }
             x if x == *CALLER_VALIDATION_BRANCH_ADDR_NIL_SET => {
-                rt.validate_immediate_caller_is(vec![])?;
+                rt.validate_immediate_caller_is(&[])?;
             }
             x if x == *CALLER_VALIDATION_BRANCH_TYPE_NIL_SET => {
-                rt.validate_immediate_caller_type(vec![])?;
+                rt.validate_immediate_caller_type(&[])?;
             }
             _ => panic!("invalid branch passed to CallerValidation"),
         }
@@ -79,17 +81,16 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // TODO Chnage the actor's cid and address based on Slack discussion
+        // TODO Temporarily fine to use default as Undefined Cid, but may need to change in the future
         let actor_cid = if arg.undef_cid {
-            &*ACCOUNT_ACTOR_CODE_ID
+            Cid::default()
         } else {
-            &arg.cid
+            arg.cid
         };
-        let actor_address = if arg.undef_address {
-            *SYSTEM_ACTOR_ADDR
-        } else {
-            arg.address
-        };
+
+        //TODO This may need to change to match address.Undef in Spec-actors
+        let actor_address = arg.address;
+
         rt.create_actor(&actor_cid, &actor_address)
     }
 }
@@ -111,7 +112,8 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CallerValidation) => {
-                Self::caller_validation(rt, Serialized::deserialize(&params)?)?;
+                let BigIntDe(branch) = Serialized::deserialize(&params)?;
+                Self::caller_validation(rt, branch)?;
                 Ok(Serialized::default())
             }
 
