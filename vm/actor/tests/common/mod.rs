@@ -4,7 +4,7 @@
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
-    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFREG_ACTOR_CODE_ID,
+    PUPPET_ACTOR_CODE_ID, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFREG_ACTOR_CODE_ID,
 };
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
@@ -173,6 +173,7 @@ impl MockRuntime {
         self.state()
     }
 
+    #[allow(dead_code)]
     pub fn expect_validate_caller_addr(&mut self, addr: Vec<Address>) {
         assert!(addr.len() > 0, "addrs must be non-empty");
         self.expect_validate_caller_addr = Some(addr);
@@ -265,6 +266,10 @@ impl MockRuntime {
             }
             x if x == &*VERIFREG_ACTOR_CODE_ID => {
                 actor::verifreg::Actor.invoke_method(self, method_num, params)
+            }
+
+            x if x == &*PUPPET_ACTOR_CODE_ID => {
+                actor::puppet::Actor.invoke_method(self, method_num, params)
             }
             _ => Err(actor_error!(SysErrForbidden; "invalid method id")),
         };
@@ -506,7 +511,16 @@ impl Runtime<MemoryDB> for MockRuntime {
         Ok(self.actor_code_cids.get(&addr).cloned())
     }
 
-    fn get_randomness(
+    fn get_randomness_from_tickets(
+        &self,
+        _personalization: DomainSeparationTag,
+        _rand_epoch: ChainEpoch,
+        _entropy: &[u8],
+    ) -> Result<Randomness, ActorError> {
+        unimplemented!()
+    }
+
+    fn get_randomness_from_beacon(
         &self,
         _personalization: DomainSeparationTag,
         _rand_epoch: ChainEpoch,
@@ -645,6 +659,11 @@ impl Runtime<MemoryDB> for MockRuntime {
 
     fn syscalls(&self) -> &dyn Syscalls {
         self
+    }
+
+    fn charge_gas(&mut self, _: &'static str, _: i64) -> Result<(), ActorError> {
+        // TODO implement functionality if needed for testing
+        Ok(())
     }
 }
 

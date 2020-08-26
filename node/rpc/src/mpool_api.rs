@@ -19,7 +19,7 @@ use std::str::FromStr;
 use wallet::KeyStore;
 
 /// Estimate the gas price for an Address
-pub(crate) async fn mpool_estimate_gas_price<DB, KS>(
+pub(crate) async fn estimate_gas_premium<DB, KS>(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(u64, String, u64, TipsetKeys)>,
 ) -> Result<String, JsonRpcError>
@@ -31,7 +31,7 @@ where
     let sender = Address::from_str(&sender_str)?;
     let price = data
         .mpool
-        .estimate_gas_price(nblocks, sender, gas_limit, tsk)?;
+        .estimate_gas_premium(nblocks, sender, gas_limit, tsk)?;
     Ok(price.to_string())
 }
 
@@ -61,7 +61,7 @@ where
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
-    let mut ts = chain::tipset_from_keys(data.store.as_ref(), &tsk)?;
+    let mut ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending().await?;
 
@@ -103,7 +103,7 @@ where
             return Ok(pending);
         }
 
-        ts = chain::tipset_from_keys(data.store.as_ref(), ts.parents())?;
+        ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), ts.parents())?;
     }
 }
 

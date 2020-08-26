@@ -89,18 +89,13 @@ impl Store for RocksDb {
         Ok(self.db()?.delete(key)?)
     }
 
-    fn bulk_write<K, V>(&self, keys: &[K], values: &[V]) -> Result<(), Error>
+    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        // Safety check to make sure kv lengths are the same
-        if keys.len() != values.len() {
-            return Err(Error::InvalidBulkLen);
-        }
-
         let mut batch = WriteBatch::default();
-        for (k, v) in keys.iter().zip(values.iter()) {
+        for (k, v) in values {
             batch.put(k, v);
         }
         Ok(self.db()?.write(batch)?)

@@ -63,20 +63,20 @@ impl Default for Bitfield {
 }
 
 impl Bitfield {
-    pub fn clear_bit(&mut self, idx: u8) {
+    pub fn clear_bit(&mut self, idx: u32) {
         let ai = idx / 64;
         let bi = idx % 64;
         self.0[ai as usize] &= u64::MAX - (1 << bi as u32);
     }
 
-    pub fn test_bit(&self, idx: u8) -> bool {
+    pub fn test_bit(&self, idx: u32) -> bool {
         let ai = idx / 64;
         let bi = idx % 64;
 
         self.0[ai as usize] & (1 << bi as u32) != 0
     }
 
-    pub fn set_bit(&mut self, idx: u8) {
+    pub fn set_bit(&mut self, idx: u32) {
         let ai = idx / 64;
         let bi = idx % 64;
 
@@ -100,28 +100,28 @@ impl Bitfield {
         Bitfield([0, 0, 0, 0])
     }
 
-    pub fn set_bits_le(self, bit: u8) -> Self {
+    pub fn set_bits_le(self, bit: u32) -> Self {
         if bit == 0 {
             return self;
         }
         self.set_bits_leq(bit - 1)
     }
 
-    pub fn set_bits_leq(mut self, bit: u8) -> Self {
+    pub fn set_bits_leq(mut self, bit: u32) -> Self {
         if bit < 64 {
-            self.0[0] = set_bits_leq(self.0[0], bit as u32);
+            self.0[0] = set_bits_leq(self.0[0], bit);
         } else if bit < 128 {
             self.0[0] = std::u64::MAX;
-            self.0[1] = set_bits_leq(self.0[1], bit as u32 - 64);
+            self.0[1] = set_bits_leq(self.0[1], bit - 64);
         } else if bit < 192 {
             self.0[0] = std::u64::MAX;
             self.0[1] = std::u64::MAX;
-            self.0[2] = set_bits_leq(self.0[2], bit as u32 - 128);
+            self.0[2] = set_bits_leq(self.0[2], bit - 128);
         } else {
             self.0[0] = std::u64::MAX;
             self.0[1] = std::u64::MAX;
             self.0[2] = std::u64::MAX;
-            self.0[3] = set_bits_leq(self.0[3], bit as u32 - 192);
+            self.0[3] = set_bits_leq(self.0[3], bit - 192);
         }
 
         self

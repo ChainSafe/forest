@@ -5,11 +5,10 @@ use super::error::Error;
 use cid::Cid;
 use std::io::Read;
 
-pub(crate) fn ld_read<R: Read>(mut buf_reader: &mut R) -> Result<Vec<u8>, Error> {
-    let l =
-        unsigned_varint::io::read_u64(&mut buf_reader).map_err(|e| Error::Other(e.to_string()))?;
+pub(crate) fn ld_read<R: Read>(mut reader: &mut R) -> Result<Vec<u8>, Error> {
+    let l = unsigned_varint::io::read_u64(&mut reader).map_err(|e| Error::Other(e.to_string()))?;
     let mut buf = Vec::with_capacity(l as usize);
-    buf_reader
+    reader
         .take(l)
         .read_to_end(&mut buf)
         .map_err(|e| Error::Other(e.to_string()))?;

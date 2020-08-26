@@ -85,7 +85,7 @@ impl<'de> Deserialize<'de> for BitField {
     where
         D: Deserializer<'de>,
     {
-        let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
+        let bytes: &[u8] = serde_bytes::deserialize(deserializer)?;
         Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }

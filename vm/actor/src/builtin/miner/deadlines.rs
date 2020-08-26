@@ -5,12 +5,13 @@ use super::policy::*;
 use super::state::Deadlines;
 use bitfield::BitField;
 use clock::ChainEpoch;
+use serde::{Deserialize, Serialize};
 
 /// Deadline calculations with respect to a current epoch.
 /// "Deadline" refers to the window during which proofs may be submitted.
 /// Windows are non-overlapping ranges [Open, Close), but the challenge epoch for a window occurs before
 /// the window opens.
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, Serialize, Deserialize, PartialEq)]
 pub struct DeadlineInfo {
     /// Epoch at which this info was calculated.
     pub current_epoch: ChainEpoch,
