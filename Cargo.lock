@@ -1873,7 +1873,7 @@ checksum = "cb582b60359da160a9477ee80f15c8d784c477e69c217ef2cdd4169c24ea380f"
 dependencies = [
  "proc-macro2 1.0.19",
  "quote 1.0.7",
- "syn 1.0.36",
+ "syn 1.0.38",
 ]
 
 [[package]]
@@ -4725,7 +4725,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2 1.0.19",
  "quote 1.0.7",
- "syn 1.0.36",
+ "syn 1.0.38",
 ]
 
 [[package]]
@@ -5678,6 +5678,7 @@ dependencies = [
  "forest_message",
  "jsonrpc-v2",
  "jsonrpsee",
+ "key_management",
  "log",
  "rpc",
  "serde_json",
