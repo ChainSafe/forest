@@ -153,7 +153,7 @@ pub trait Runtime<BS: BlockStore> {
 
     /// ChargeGas charges specified amount of `gas` for execution.
     /// `name` provides information about gas charging point
-    fn charge_gas(&mut self, name: String, gas: i64) -> Result<(), ActorError>;
+    fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError>;
 }
 
 /// Message information available to the actor about executing message.

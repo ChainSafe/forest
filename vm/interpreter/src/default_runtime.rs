@@ -3,7 +3,7 @@
 
 use super::gas_block_store::GasBlockStore;
 use super::gas_syscalls::GasSyscalls;
-use super::gas_tracker::{price_list_by_epoch, GasTracker, PriceList};
+use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
 use super::Rand;
 use actor::*;
 use address::{Address, Protocol};
@@ -29,7 +29,11 @@ use vm::{
 };
 
 // TODO this param isn't finalized
-const ACTOR_EXEC_GAS: i64 = 0;
+const ACTOR_EXEC_GAS: GasCharge = GasCharge {
+    name: "on_actor_exec",
+    compute_gas: 0,
+    storage_gas: 0,
+};
 
 struct VMMsg {
     caller: Address,
@@ -93,12 +97,12 @@ where
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
         let gas_block_store = GasBlockStore {
-            price_list,
+            price_list: price_list.clone(),
             gas: Rc::clone(&gas_tracker),
             store,
         };
         let gas_syscalls = GasSyscalls {
-            price_list,
+            price_list: price_list.clone(),
             gas: Rc::clone(&gas_tracker),
             syscalls,
         };
@@ -137,8 +141,8 @@ where
 
     /// Adds to amount of used
     /// * Will borrow gas tracker RefCell, do not call if any reference to this exists
-    pub fn charge_gas(&mut self, to_use: i64) -> Result<(), ActorError> {
-        self.gas_tracker.borrow_mut().charge_gas(to_use)
+    pub fn charge_gas(&mut self, gas: GasCharge) -> Result<(), ActorError> {
+        self.gas_tracker.borrow_mut().charge_gas(gas)
     }
 
     /// Returns gas used by runtime
@@ -152,8 +156,8 @@ where
     }
 
     /// Returns the price list for gas charges within the runtime
-    pub fn price_list(&self) -> PriceList {
-        self.price_list
+    pub fn price_list(&self) -> &PriceList {
+        &self.price_list
     }
 
     /// Get the balance of a particular Actor from their Address
@@ -475,7 +479,6 @@ where
                 );
                 e
             })?;
-        self.charge_gas(ACTOR_EXEC_GAS)?;
 
         Ok(ret)
     }
@@ -585,9 +588,8 @@ where
             - st.total_pledge_collateral;
         Ok(total)
     }
-    fn charge_gas(&mut self, _name: String, gas: i64) -> Result<(), ActorError> {
-        // TODO use name for better gas usage tracking if needed
-        self.charge_gas(gas)
+    fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
+        self.charge_gas(GasCharge::new(name, compute, 0))
     }
 }
 
@@ -596,7 +598,7 @@ where
 pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>(
     rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>,
     msg: &UnsignedMessage,
-    gas_cost: Option<i64>,
+    gas_cost: Option<GasCharge>,
 ) -> Result<Serialized, ActorError>
 where
     BS: BlockStore,
@@ -614,38 +616,26 @@ where
             .on_method_invocation(msg.value(), msg.method_num()),
     )?;
 
+    let to_actor = match rt
+        .state
+        .get_actor(msg.to())
+        .map_err(ActorError::new_fatal)?
     {
-        // On get actor gas charge
-        // TODO this value shouldn't be final
-        rt.charge_gas(0)?;
-
-        // TODO: we need to try to recover here and try to create account actor
-        // TODO: actually fix this and don't leave as unwrap for PR
-        let to_actor = match rt
-            .state
-            .get_actor(msg.to())
-            .map_err(ActorError::new_fatal)?
-        {
-            Some(act) => act,
-            None => {
-                // Try to create actor if not exist
-                rt.try_create_account_actor(msg.to())?
-            }
-        };
-
-        rt.charge_gas(
-            rt.price_list()
-                .on_method_invocation(msg.value(), msg.method_num()),
-        )?;
-
-        if msg.value() > &TokenAmount::from(0) {
-            transfer(rt.state, &msg.from(), &msg.to(), &msg.value())?;
+        Some(act) => act,
+        None => {
+            // Try to create actor if not exist
+            rt.try_create_account_actor(msg.to())?
         }
+    };
 
-        if msg.method_num() != METHOD_SEND {
-            rt.charge_gas(ACTOR_EXEC_GAS)?;
-            return invoke(rt, to_actor.code, msg.method_num(), msg.params(), msg.to());
-        }
+    if msg.value() > &TokenAmount::from(0) {
+        transfer(rt.state, &msg.from(), &msg.to(), &msg.value())
+            .map_err(|e| e.wrap("failed to transfer funds"))?;
+    }
+
+    if msg.method_num() != METHOD_SEND {
+        rt.charge_gas(ACTOR_EXEC_GAS)?;
+        return invoke(rt, to_actor.code, msg.method_num(), msg.params(), msg.to());
     }
 
     Ok(Serialized::default())
