@@ -42,7 +42,7 @@ pub fn is_builtin_actor(code: &Cid) -> bool {
         || code == &*PUPPET_ACTOR_CODE_ID
 }
 
-/// Teturns true if the code belongs to a singleton actor.
+/// Returns true if the code belongs to a singleton actor.
 pub fn is_singleton_actor(code: &Cid) -> bool {
     code == &*SYSTEM_ACTOR_CODE_ID
         || code == &*INIT_ACTOR_CODE_ID
