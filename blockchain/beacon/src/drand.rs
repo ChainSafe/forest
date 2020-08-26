@@ -14,6 +14,9 @@ use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::error;
 
+/// Default endpoint for the drand beacon node.
+pub const DEFAULT_DRAND_URL: &str = "https://api.drand.sh";
+
 /// Coeffiencients of the publicly available Drand keys.
 /// This is shared by all participants on the Drand network.
 #[derive(Clone, Debug, SerdeSerialize, SerdeDeserialize)]
