@@ -10,13 +10,13 @@ vm = { package = "forest_vm", path = "../../vm" }
 blocks = { package = "forest_blocks", path = "../blocks" }
 message = { package = "forest_message", path = "../../vm/message" }
 thiserror = "1.0"
-cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.1" }
-encoding = { package = "forest_encoding", path = "../../encoding", version = "0.1" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+encoding = { package = "forest_encoding", path = "../../encoding" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 lru = "0.6"
-crypto = { package = "forest_crypto", path = "../../crypto", version = "0.2" }
-chain = { path = "../chain"}
+crypto = { package = "forest_crypto", path = "../../crypto" }
+chain = { path = "../chain" }
 state_tree = { path = "../../vm/state_tree/" }
 serde = { version = "1.0", features = ["derive"] }
 db = { path = "../../node/db" }
@@ -29,4 +29,4 @@ async-std = "1.6.0"
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }
-key_management = { path = "../../key_management"}
+key_management = { path = "../../key_management" }
