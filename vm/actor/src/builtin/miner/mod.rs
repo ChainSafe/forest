@@ -2562,10 +2562,7 @@ impl ActorCode for Actor {
                 Self::change_multi_address(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            None => {
-                // Method number does not match available, abort in runtime
-                Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned()))
-            }
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }

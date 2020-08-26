@@ -482,53 +482,54 @@ where
 
         Ok(ret)
     }
-
-    fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
-        ActorError::new(exit_code, msg.as_ref().to_owned())
-    }
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
         let oa = resolve_to_key_addr(self.state, &self.store, &self.origin)?;
         let mut b = to_vec(&oa).map_err(|e| {
-            self.abort(
-                ExitCode::ErrSerialization,
-                format!("Could not serialize address in new_actor_address: {}", e),
-            )
+            actor_error!(fatal(
+                "Could not serialize address in new_actor_address: {}",
+                e
+            ))
         })?;
-        b.write_u64::<BigEndian>(self.origin_nonce).map_err(|e| {
-            self.abort(
-                ExitCode::ErrSerialization,
-                format!("Writing nonce address into a buffer: {}", e.to_string()),
-            )
-        })?;
+        b.write_u64::<BigEndian>(self.origin_nonce)
+            .map_err(|e| actor_error!(fatal("Writing nonce address into a buffer: {}", e)))?;
         b.write_u64::<BigEndian>(self.num_actors_created)
             .map_err(|e| {
-                self.abort(
-                    ExitCode::ErrSerialization,
-                    format!(
-                        "Writing number of actors created into a buffer: {}",
-                        e.to_string()
-                    ),
-                )
+                actor_error!(fatal(
+                    "Writing number of actors created into a buffer: {}",
+                    e
+                ))
             })?;
         let addr = Address::new_actor(&b);
         self.num_actors_created += 1;
         Ok(addr)
     }
-    fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
+    fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
+        if !is_builtin_actor(&code_id) {
+            return Err(actor_error!(SysErrorIllegalArgument; "Can only create built-in actors."));
+        }
+        if is_singleton_actor(&code_id) {
+            return Err(actor_error!(SysErrorIllegalArgument;
+                    "Can only have one instance of singleton actors."));
+        }
+
+        if let Ok(Some(_)) = self.state.get_actor(address) {
+            return Err(actor_error!(SysErrorIllegalArgument; "Actor address already exists"));
+        }
+
         self.charge_gas(self.price_list.on_create_actor())?;
         self.state
             .set_actor(
                 &address,
-                ActorState::new(code_id.clone(), Cid::default(), 0u64.into(), 0),
+                ActorState::new(code_id, EMPTY_ARR_CID.clone(), 0.into(), 0),
             )
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    format!("creating actor entry: {}", e),
-                )
-            })
+            .map_err(|e| actor_error!(fatal("creating actor entry: {}", e)))
     }
-    fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
+
+    /// DeleteActor deletes the executing actor from the state tree, transferring
+    /// any balance to beneficiary.
+    /// Aborts if the beneficiary does not exist.
+    /// May only be called by the actor itself.
+    fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError> {
         self.charge_gas(self.price_list.on_delete_actor())?;
         let balance = self
             .state
@@ -538,18 +539,21 @@ where
                 || actor_error!(SysErrorIllegalActor; "failed to load actor in delete actor"),
             )
             .map(|act| act.balance)?;
-        if !balance.eq(&0u64.into()) {
-            return Err(self.abort(
-                ExitCode::SysErrInternal,
-                "cannot delete actor with non-zero balance",
-            ));
+        let receiver = *self.message().receiver();
+        if balance != 0.into() {
+            // Transfer the executing actor's balance to the beneficiary
+            transfer(self.state, &receiver, beneficiary, &balance).map_err(|e| {
+                actor_error!(fatal(
+                    "failed to transfer balance to beneficiary actor: {}",
+                    e.msg()
+                ))
+            })?;
         }
-        self.state.delete_actor(self.message.to()).map_err(|e| {
-            self.abort(
-                ExitCode::SysErrInternal,
-                format!("failed to delete actor: {}", e),
-            )
-        })
+
+        // Delete the executing actor
+        self.state
+            .delete_actor(&receiver)
+            .map_err(|e| actor_error!(fatal("failed to delete actor: {}", e)))
     }
     fn syscalls(&self) -> &dyn Syscalls {
         &self.syscalls

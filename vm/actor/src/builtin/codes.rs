@@ -26,6 +26,32 @@ fn make_builtin(bz: &[u8]) -> Cid {
     Cid::new_v1(Codec::Raw, Identity::digest(bz))
 }
 
+/// Returns true if the code `Cid` belongs to a builtin actor.
+pub fn is_builtin_actor(code: &Cid) -> bool {
+    code == &*SYSTEM_ACTOR_CODE_ID
+        || code == &*INIT_ACTOR_CODE_ID
+        || code == &*CRON_ACTOR_CODE_ID
+        || code == &*ACCOUNT_ACTOR_CODE_ID
+        || code == &*POWER_ACTOR_CODE_ID
+        || code == &*MINER_ACTOR_CODE_ID
+        || code == &*MARKET_ACTOR_CODE_ID
+        || code == &*PAYCH_ACTOR_CODE_ID
+        || code == &*MULTISIG_ACTOR_CODE_ID
+        || code == &*REWARD_ACTOR_CODE_ID
+        || code == &*VERIFREG_ACTOR_CODE_ID
+}
+
+/// Returns true if the code belongs to a singleton actor.
+pub fn is_singleton_actor(code: &Cid) -> bool {
+    code == &*SYSTEM_ACTOR_CODE_ID
+        || code == &*INIT_ACTOR_CODE_ID
+        || code == &*REWARD_ACTOR_CODE_ID
+        || code == &*CRON_ACTOR_CODE_ID
+        || code == &*POWER_ACTOR_CODE_ID
+        || code == &*MARKET_ACTOR_CODE_ID
+        || code == &*VERIFREG_ACTOR_CODE_ID
+}
+
 // Tests whether a code CID represents an actor that can be an external principal: i.e. an account or multisig.
 // We could do something more sophisticated here: https://github.com/filecoin-project/specs-actors/issues/178
 pub fn is_principal(code: &Cid) -> bool {
