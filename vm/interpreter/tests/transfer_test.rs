@@ -12,6 +12,7 @@ use ipld_hamt::Hamt;
 use message::UnsignedMessage;
 use state_tree::StateTree;
 use vm::{ActorState, Serialized};
+use std::collections::HashSet;
 
 #[test]
 fn transfer_test() {
@@ -93,6 +94,7 @@ fn transfer_test() {
     let default_syscalls = DefaultSyscalls::new(&store);
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
+    let registered = HashSet::new();
     let mut runtime = DefaultRuntime::<_, _, _>::new(
         &mut state,
         &store,
@@ -104,6 +106,7 @@ fn transfer_test() {
         0,
         0,
         &dummy_rand,
+        &registered,
     )
     .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();
