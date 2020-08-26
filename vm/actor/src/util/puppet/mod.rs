@@ -4,6 +4,7 @@
 mod state;
 
 use crate::check_empty_params;
+use crate::util::unmarshallable::UnmarshallableCBOR;
 use address::Address;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
@@ -12,6 +13,7 @@ use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Serialize};
 pub use state::*;
+
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
@@ -91,7 +93,7 @@ impl Actor {
         let res = rt.send(
             params.to,
             params.method,
-            Serialized::serialize(FailToMarshalCBOR::default())?,
+            Serialized::serialize(UnmarshallableCBOR)?,
             params.value,
         );
 
@@ -107,13 +109,13 @@ impl Actor {
         }
     }
 
-    fn return_marshal_cbor_failure<BS, RT>(rt: &mut RT) -> Result<FailToMarshalCBOR, ActorError>
+    fn return_marshal_cbor_failure<BS, RT>(rt: &mut RT) -> Result<UnmarshallableCBOR, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any()?;
-        Ok(FailToMarshalCBOR::default())
+        Ok(UnmarshallableCBOR)
     }
 
     fn runtime_transaction_marshal_cbor_failure<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -124,7 +126,7 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
 
         rt.transaction(|st: &mut State, _| {
-            st.opt_fail = vec![FailToMarshalCBOR::default()];
+            st.opt_fail = vec![UnmarshallableCBOR];
         })?;
 
         Ok(())
