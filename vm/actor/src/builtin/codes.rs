@@ -39,7 +39,6 @@ pub fn is_builtin_actor(code: &Cid) -> bool {
         || code == &*MULTISIG_ACTOR_CODE_ID
         || code == &*REWARD_ACTOR_CODE_ID
         || code == &*VERIFREG_ACTOR_CODE_ID
-        || code == &*PUPPET_ACTOR_CODE_ID
 }
 
 /// Returns true if the code belongs to a singleton actor.
