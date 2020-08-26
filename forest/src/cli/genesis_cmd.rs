@@ -4,11 +4,11 @@
 use address::Address;
 use fil_types::genesis::{Actor, ActorType, Miner, Template as GenesisTemplate};
 use fil_types::FILECOIN_PRECISION;
+use log::{info, warn};
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::Read;
-use std::ops::Mul;
 use std::str::FromStr;
 use structopt::StructOpt;
 use uuid::Uuid;
@@ -59,7 +59,7 @@ impl GenesisCommands {
                         serde_json::to_writer_pretty(file, &template).unwrap();
                     }
                     Err(err) => {
-                        println!("Can not write to a file, error: {}", err);
+                        warn!("Can not write to a file, error: {}", err);
                     }
                 }
             }
@@ -68,7 +68,7 @@ impl GenesisCommands {
                 preseal_path,
             } => {
                 if let Err(err) = add_miner(genesis_path.to_string(), preseal_path.to_string()) {
-                    println!("Cannot add miner(s), error: {}", err)
+                    warn!("Cannot add miner(s), error: {}", err)
                 };
             }
         }
@@ -85,14 +85,14 @@ fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), Box<dyn s
     let miners: HashMap<String, Miner> = serde_json::from_str(&preseal_str)?;
 
     for (miner_address_str, miner) in miners.into_iter() {
-        println!("Adding miner {} to genesis template", miner_address_str);
+        info!("Adding miner {} to genesis template", miner_address_str);
 
         let id = ACCOUNT_START + template.miners.len() as u64;
 
         let maddress = match Address::from_str(&miner_address_str) {
             Ok(addr) => addr,
-            Err(_) => {
-                println!("Can not parse miner's address: {}", miner_address_str);
+            Err(e) => {
+                info!("Can not parse miner's address {}: {}", miner_address_str, e);
                 continue;
             }
         };
@@ -100,17 +100,17 @@ fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), Box<dyn s
         let mid = maddress.id()?;
 
         if mid != id {
-            println!("tried to set miner {} as {}", mid, id);
+            info!("Tried to set miner {} as {}", mid, id);
             continue;
         }
 
         let miner_owner = miner.owner;
         template.miners.push(miner);
 
-        println!("Giving {} some intial balance", miner_owner);
+        info!("Giving {} some intial balance", miner_owner);
         template.accounts.push(Actor {
             actor_type: ActorType::Account,
-            balance: BigInt::mul(BigInt::from(50_000_000), BigInt::from(FILECOIN_PRECISION)),
+            balance: BigInt::from(50_000_000) * FILECOIN_PRECISION,
             owner: miner_owner,
         })
     }
