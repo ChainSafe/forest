@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use beacon::{Beacon, DrandBeacon, DrandPublic};
+use beacon::{Beacon, DrandBeacon, DrandPublic, DEFAULT_DRAND_URL};
 use serde::{Deserialize, Serialize};
 
 async fn new_beacon() -> DrandBeacon {
@@ -11,7 +11,9 @@ async fn new_beacon() -> DrandBeacon {
     let dist_pub = DrandPublic {
         coefficient: coeffs,
     };
-    DrandBeacon::new(dist_pub, 15904451751, 25).await.unwrap()
+    DrandBeacon::new(DEFAULT_DRAND_URL, dist_pub, 15904451751, 25)
+        .await
+        .unwrap()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
