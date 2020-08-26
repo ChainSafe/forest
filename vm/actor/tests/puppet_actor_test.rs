@@ -3,7 +3,7 @@
 
 mod common;
 
-use actor::{puppet::*, UnmarshallableCBOR, PUPPET_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR};
+use actor::{puppet::*, PUPPET_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR};
 use address::Address;
 use common::*;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
@@ -73,24 +73,4 @@ fn simple_send() {
     assert!(ret.is_ok());
 
     assert_eq!(Some(exp_ret), ret.unwrap().return_bytes);
-}
-
-#[test]
-fn serialize_test() {
-    let mut v: Vec<UnmarshallableCBOR> = vec![];
-
-    // Should pass becuase vec is empty
-    assert!(Serialized::serialize(&v).is_ok());
-
-    v.push(UnmarshallableCBOR::default());
-
-    // Should fail becuase vec is no longer empty
-    assert!(Serialized::serialize(v).is_err());
-
-    let mut v: Vec<Option<UnmarshallableCBOR>> = vec![];
-
-    v.push(Some(UnmarshallableCBOR::default()));
-
-    // SHould only fail if a actual instance of UnmarshallableCBOR is used
-    assert!(Serialized::serialize(v).is_err());
 }

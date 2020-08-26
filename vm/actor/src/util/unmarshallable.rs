@@ -32,3 +32,29 @@ impl<'de> Deserialize<'de> for UnmarshallableCBOR {
 }
 
 impl Cbor for UnmarshallableCBOR {}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use vm::Serialized;
+    #[test]
+    fn serialize_test() {
+        let mut v: Vec<UnmarshallableCBOR> = vec![];
+
+        // Should pass becuase vec is empty
+        assert!(Serialized::serialize(&v).is_ok());
+
+        v.push(UnmarshallableCBOR::default());
+
+        // Should fail becuase vec is no longer empty
+        assert!(Serialized::serialize(v).is_err());
+
+        let mut v: Vec<Option<UnmarshallableCBOR>> = vec![];
+
+        v.push(Some(UnmarshallableCBOR::default()));
+
+        // SHould only fail if a actual instance of UnmarshallableCBOR is used
+        assert!(Serialized::serialize(v).is_err());
+    }
+}
