@@ -16,9 +16,9 @@ use log::warn;
 use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
-use runtime::Syscalls;
+use runtime::{ActorCode, Syscalls};
 use state_tree::StateTree;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
@@ -36,6 +36,7 @@ pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
     syscalls: SYS,
     rand: &'r R,
     base_fee: BigInt,
+    registered_actors: HashMap<Cid, Box<dyn ActorCode>>,
     params: PhantomData<P>,
 }
 
@@ -55,6 +56,7 @@ where
         base_fee: BigInt,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
+        let registered_actors = HashMap::new();
         Ok(VM {
             state,
             store,
@@ -62,8 +64,19 @@ where
             syscalls,
             rand,
             base_fee,
+            registered_actors,
             params: PhantomData,
         })
+    }
+
+    /// Registers an actor that is not part of the set of default builtin actors by providing the code cid
+    pub fn register_actor(&mut self, code_cid: Cid, actor: Box<dyn ActorCode>) -> Option<Box<dyn ActorCode>> {
+        self.registered_actors.insert(code_cid, actor)
+    }
+
+    /// Gets registered actors that are not part of the set of default builtin actors
+    pub fn registered_actors(&self) -> &HashMap<Cid, Box<dyn ActorCode>> {
+        &self.registered_actors
     }
 
     /// Flush stores in VM and return state root.
@@ -413,7 +426,7 @@ where
         gas_cost: Option<i64>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, R, P>>,
+        Option<DefaultRuntime<'db, 'm, '_, '_, '_, '_, DB, SYS, R, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
@@ -427,6 +440,7 @@ where
             msg.sequence(),
             0,
             self.rand,
+            &self.registered_actors
         );
 
         match res {

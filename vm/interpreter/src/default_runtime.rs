@@ -22,6 +22,7 @@ use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
 use std::marker::PhantomData;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use vm::{
     actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
@@ -50,7 +51,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
@@ -65,11 +66,12 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P = DevnetParams
     rand: &'r R,
     caller_validated: bool,
     allow_internal: bool,
+    registered_actors: &'act HashMap<Cid, Box<ActorCode>>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>
-    DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>
+impl<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P,>
+    DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P,>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -89,6 +91,7 @@ where
         origin_nonce: u64,
         num_actors_created: u64,
         rand: &'r R,
+        registered_actors: &'act HashSet<Cid>,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -129,6 +132,7 @@ where
             num_actors_created,
             price_list,
             rand,
+            registered_actors,
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
@@ -300,7 +304,7 @@ where
     }
 }
 
-impl<BS, SYS, R, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, R, P>
+impl<BS, SYS, R, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, '_, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -593,8 +597,8 @@ where
 
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>,
+pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<i64>,
 ) -> Result<Serialized, ActorError>
@@ -711,8 +715,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>,
+fn invoke<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
@@ -736,7 +740,10 @@ where
         x if x == *MULTISIG_ACTOR_CODE_ID => multisig::Actor.invoke_method(rt, method_num, params),
         x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params),
         x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
-        _ => Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to)),
+        x => {
+            // let found = rt.registered_actors.
+            Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
+        },
     }
 }
 
