@@ -21,8 +21,8 @@ use num_bigint::BigInt;
 use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::marker::PhantomData;
-use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use vm::{
     actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
@@ -74,8 +74,8 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P = Devnet
     params: PhantomData<P>,
 }
 
-impl<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P,>
-    DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P,>
+impl<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
+    DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -736,13 +736,17 @@ where
         x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
         x => {
             if rt.registered_actors.contains(&x) {
-               return match x {
-                   x if x == *PUPPET_ACTOR_CODE_ID => puppet::Actor.invoke_method(rt, method_num, params),
-                   _ => Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to)),
-               };
+                return match x {
+                    x if x == *PUPPET_ACTOR_CODE_ID => {
+                        puppet::Actor.invoke_method(rt, method_num, params)
+                    }
+                    _ => Err(
+                        actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to),
+                    ),
+                };
             }
             Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
-        },
+        }
     }
 }
 

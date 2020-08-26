@@ -6,8 +6,8 @@
 #[macro_use]
 extern crate lazy_static;
 
+use actor::PUPPET_ACTOR_CODE_ID;
 use address::Address;
-use actor::{PUPPET_ACTOR_CODE_ID};
 use blockstore::BlockStore;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -249,10 +249,18 @@ fn execute_message(
     )?;
 
     if let Some(s) = &selector {
-        if s.puppet_actor.as_ref().map(|s| s == "true").unwrap_or_default() {
-           vm.register_actor(PUPPET_ACTOR_CODE_ID.clone());
+        if s.puppet_actor
+            .as_ref()
+            .map(|s| s == "true")
+            .unwrap_or_default()
+        {
+            vm.register_actor(PUPPET_ACTOR_CODE_ID.clone());
         }
-        if s.chaos_actor.as_ref().map(|s| s == "true").unwrap_or_default() {
+        if s.chaos_actor
+            .as_ref()
+            .map(|s| s == "true")
+            .unwrap_or_default()
+        {
             // TODO
             // vm.register_actor(code_cid)
         }

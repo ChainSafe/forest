@@ -19,9 +19,9 @@ use log::warn;
 use message::{Message, MessageReceipt, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
-use runtime::{ActorCode, Syscalls};
+use runtime::Syscalls;
 use state_tree::StateTree;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
@@ -444,7 +444,7 @@ where
             msg.sequence(),
             0,
             self.rand,
-            &self.registered_actors
+            &self.registered_actors,
         );
 
         match res {
