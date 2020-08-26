@@ -6,7 +6,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-use actor::PUPPET_ACTOR_CODE_ID;
+use actor::{CHAOS_ACTOR_CODE_ID, PUPPET_ACTOR_CODE_ID};
 use address::Address;
 use blockstore::BlockStore;
 use cid::Cid;
@@ -28,13 +28,13 @@ use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
     static ref SKIP_TESTS: [Regex; 0] = [
-        Regex::new(r"actor_creation/.*").unwrap(),
-        Regex::new(r"msg_application/.*").unwrap(),
-        Regex::new(r"multisig/.*").unwrap(),
-        Regex::new(r"nested/.*").unwrap(),
-        Regex::new(r"paych/.*").unwrap(),
-        Regex::new(r"transfer/.*").unwrap(),
-        Regex::new(r"vm_violations/.*").unwrap(),
+        // Regex::new(r"actor_creation/.*").unwrap(),
+        // Regex::new(r"msg_application/.*").unwrap(),
+        // Regex::new(r"multisig/.*").unwrap(),
+        // Regex::new(r"nested/.*").unwrap(),
+        // Regex::new(r"paych/.*").unwrap(),
+        // Regex::new(r"transfer/.*").unwrap(),
+        // Regex::new(r"vm_violations/.*").unwrap(),
     ];
     static ref BASE_FEE: TokenAmount = TokenAmount::from(100);
 }
@@ -261,8 +261,7 @@ fn execute_message(
             .map(|s| s == "true")
             .unwrap_or_default()
         {
-            // TODO
-            // vm.register_actor(code_cid)
+            vm.register_actor(CHAOS_ACTOR_CODE_ID.clone());
         }
     }
 

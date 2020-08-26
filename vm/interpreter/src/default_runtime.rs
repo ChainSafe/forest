@@ -736,16 +736,20 @@ where
         x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
         x => {
             if rt.registered_actors.contains(&x) {
-                return match x {
+                match x {
                     x if x == *PUPPET_ACTOR_CODE_ID => {
                         puppet::Actor.invoke_method(rt, method_num, params)
+                    }
+                    x if x == *CHAOS_ACTOR_CODE_ID => {
+                        chaos::Actor.invoke_method(rt, method_num, params)
                     }
                     _ => Err(
                         actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to),
                     ),
-                };
+                }
+            } else {
+                Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
             }
-            Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
         }
     }
 }
