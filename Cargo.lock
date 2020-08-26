@@ -1124,6 +1124,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "byte-slice-cast"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0a5e3906bcbf133e33c1d4d95afc664ad37fbdb9f6568d8043e7ea8c27d93d3"
+
+[[package]]
 name = "byte-tools"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2618,7 +2624,7 @@ dependencies = [
  "log",
  "serde",
  "smallvec 1.4.2",
- "tiny-cid 0.1.0",
+ "tiny-cid",
  "utils",
 ]
 
@@ -3736,8 +3742,8 @@ dependencies = [
  "prost",
  "prost-build",
  "thiserror",
- "tiny-cid 0.2.0",
- "tiny-multihash 0.4.1",
+ "tiny-cid",
+ "tiny-multihash",
  "unsigned-varint 0.5.0",
 ]
 
@@ -4845,6 +4851,31 @@ dependencies = [
  "static_assertions",
  "unsigned-varint 0.4.0",
  "url",
+]
+
+[[package]]
+name = "parity-scale-codec"
+version = "1.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34d38aeaffc032ec69faa476b3caaca8d4dd7f3f798137ff30359e5c7869ceb6"
+dependencies = [
+ "arrayvec",
+ "bitvec",
+ "byte-slice-cast",
+ "parity-scale-codec-derive",
+ "serde",
+]
+
+[[package]]
+name = "parity-scale-codec-derive"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd20ff7e0399b274a5f5bb37b712fccb5b3a64b9128200d1c3cc40fe709cb073"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2 1.0.19",
+ "quote 1.0.7",
+ "syn 1.0.39",
 ]
 
 [[package]]
@@ -6854,23 +6885,12 @@ dependencies = [
 
 [[package]]
 name = "tiny-cid"
-version = "0.1.0"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31818c2b5d7a20fa9e05bdf1a414c24e969ce5f338cce3bed266f23d108ec40"
+checksum = "db638d9f528f75ed5a79b52cfbd60c4da079db92fba86f48da137460aec1e752"
 dependencies = [
  "multibase",
- "tiny-multihash 0.3.0",
- "unsigned-varint 0.5.0",
-]
-
-[[package]]
-name = "tiny-cid"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "723e2743581983ed9b7e5bda9a90908a892eb9e90504d04c996c850c81a375b2"
-dependencies = [
- "multibase",
- "tiny-multihash 0.4.1",
+ "tiny-multihash",
  "unsigned-varint 0.5.0",
 ]
 
@@ -6885,24 +6905,15 @@ dependencies = [
 
 [[package]]
 name = "tiny-multihash"
-version = "0.3.0"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6bfece37e24447c212bccb8583243e5010d3ddf65ab697281adf1536f759c12"
-dependencies = [
- "generic-array 0.14.4",
- "unsigned-varint 0.5.0",
-]
-
-[[package]]
-name = "tiny-multihash"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58c9a90fa339aef56eeb4ac401ceaa2228065d31786439614303e6c7fefe2e3f"
+checksum = "86e78785e9560a6de597367aa2e4534eb1141a7d3512cf53cbe68b8c4644d70a"
 dependencies = [
  "blake2b_simd",
  "blake2s_simd",
  "digest 0.9.0",
  "generic-array 0.14.4",
+ "parity-scale-codec",
  "sha-1 0.9.1",
  "sha2 0.9.1",
  "sha3 0.9.1",
@@ -7588,9 +7599,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd37e58a1256a0b328ce9c67d8b62ecdd02f4803ba443df478835cb1a41a637c"
+checksum = "aa58c859b0d604ec8b643e7297122669dfdf0788e24244afcc396936be088bb2"
 dependencies = [
  "futures 0.3.5",
  "log",
