@@ -27,14 +27,14 @@ use vm::{ExitCode, Serialized, TokenAmount};
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 0] = [
-        // Regex::new(r"actor_creation/.*").unwrap(),
-        // Regex::new(r"msg_application/.*").unwrap(),
-        // Regex::new(r"multisig/.*").unwrap(),
-        // Regex::new(r"nested/.*").unwrap(),
-        // Regex::new(r"paych/.*").unwrap(),
-        // Regex::new(r"transfer/.*").unwrap(),
-        // Regex::new(r"vm_violations/.*").unwrap(),
+    static ref SKIP_TESTS: [Regex; 7] = [
+        Regex::new(r"actor_creation/.*").unwrap(),
+        Regex::new(r"msg_application/.*").unwrap(),
+        Regex::new(r"multisig/.*").unwrap(),
+        Regex::new(r"nested/.*").unwrap(),
+        Regex::new(r"paych/.*").unwrap(),
+        Regex::new(r"transfer/.*").unwrap(),
+        Regex::new(r"vm_violations/.*").unwrap(),
     ];
     static ref BASE_FEE: TokenAmount = TokenAmount::from(100);
 }
