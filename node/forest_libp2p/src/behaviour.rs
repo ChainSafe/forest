@@ -12,7 +12,7 @@ use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{
     error::PublishError, Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, Topic,
-    TopicHash,
+    TopicHash, ValidationMode,
 };
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
@@ -295,7 +295,11 @@ impl ForestBehaviour {
 
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
-        let gossipsub_config = GossipsubConfig::default();
+        // TODO revisit gossipsub config (permissive validation allows unsigned messages)
+        let gossipsub_config = GossipsubConfig {
+            validation_mode: ValidationMode::Permissive,
+            ..Default::default()
+        };
 
         let mut bitswap = Bitswap::new();
 
