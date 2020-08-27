@@ -174,11 +174,11 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         Some(file) => file,
         None => return false,
     };
-    // for rx in SKIP_TESTS.iter() {
-    //     if rx.is_match(file_name) {
-    //         return false;
-    //     }
-    // }
+    for rx in SKIP_TESTS.iter() {
+        if rx.is_match(file_name) {
+            return false;
+        }
+    }
     file_name.ends_with(".json")
 }
 
