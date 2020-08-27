@@ -78,7 +78,7 @@ Will show all debug logs by default, but the `forest_libp2p::service` logs will 
 # To run base tests
 cargo test # add --release flag for longer compilation but faster execution
 
-# To pull serialization vectors submodule and run serialization tests
+# To pull serialization vectors submodule and run serialization and conformance tests
 make test-vectors
 
 # To run all tests and all features enabled

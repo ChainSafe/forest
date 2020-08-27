@@ -6,7 +6,6 @@ use address::Address;
 use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
-use fil_types::DevnetParams;
 use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
@@ -19,7 +18,7 @@ fn transfer_test() {
     let store = MemoryDB::default();
     let mut state = StateTree::new(&store);
 
-    let e_cid = Hamt::<String, _>::new_with_bit_width(&store, 5)
+    let e_cid = Hamt::<_, String>::new_with_bit_width(&store, 5)
         .flush()
         .unwrap();
 
@@ -86,7 +85,7 @@ fn transfer_test() {
         .from(actor_addr_2.clone())
         .method_num(2)
         .value(1u8.into())
-        .gas_limit(1000)
+        .gas_limit(10000000)
         .params(Serialized::default())
         .build()
         .unwrap();
@@ -94,7 +93,7 @@ fn transfer_test() {
     let default_syscalls = DefaultSyscalls::new(&store);
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
-    let mut runtime = DefaultRuntime::<_, _, DevnetParams>::new(
+    let mut runtime = DefaultRuntime::<_, _, _>::new(
         &mut state,
         &store,
         &default_syscalls,

@@ -1742,7 +1742,7 @@ fn pop_sector_expirations<BS>(
     st: &mut State,
     store: &BS,
     epoch: ChainEpoch,
-) -> Result<BitField, String>
+) -> Result<BitField, Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -1751,7 +1751,7 @@ where
 
     st.for_each_sector_expiration(store, |expiry: ChainEpoch, sectors: &BitField| {
         if expiry > epoch {
-            return Err("done".to_string());
+            return Err("done".into());
         }
         expired_epochs.push(expiry);
         expired_sectors.push(sectors.clone());
@@ -1771,7 +1771,7 @@ fn pop_expired_faults<BS>(
     st: &mut State,
     store: &BS,
     latest_termination: ChainEpoch,
-) -> Result<(BitField, BitField), String>
+) -> Result<(BitField, BitField), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -1949,7 +1949,7 @@ fn remove_terminated_sectors<BS>(
     store: &BS,
     deadlines: &mut Deadlines,
     sectors: &BitField,
-) -> Result<(), String>
+) -> Result<(), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -2119,7 +2119,7 @@ where
     // Regenerate challenge randomness, which must match that generated for the proof.
     let entropy = rt.message().receiver().marshal_cbor().unwrap();
     let randomness: PoStRandomness =
-        rt.get_randomness(WindowedPoStChallengeSeed, challenge_epoch, &entropy)?;
+        rt.get_randomness_from_tickets(WindowedPoStChallengeSeed, challenge_epoch, &entropy)?;
 
     let challenged_sectors = sectors.iter().map(|s| s.to_sector_info()).collect();
 
@@ -2176,8 +2176,8 @@ where
     };
     let entropy = rt.message().receiver().marshal_cbor().unwrap();
     let randomness: SealRandom =
-        rt.get_randomness(SealRandomness, params.seal_rand_epoch, &entropy)?;
-    let interactive_randomness: InteractiveSealRandomness = rt.get_randomness(
+        rt.get_randomness_from_tickets(SealRandomness, params.seal_rand_epoch, &entropy)?;
+    let interactive_randomness: InteractiveSealRandomness = rt.get_randomness_from_tickets(
         InteractiveSealChallengeSeed,
         params.interactive_epoch,
         &entropy,
@@ -2458,7 +2458,7 @@ fn unlock_penalty<BS>(
     current_epoch: ChainEpoch,
     sectors: &[SectorOnChainInfo],
     f: &impl Fn(&SectorOnChainInfo) -> TokenAmount,
-) -> Result<TokenAmount, String>
+) -> Result<TokenAmount, Box<dyn StdError>>
 where
     BS: BlockStore,
 {
@@ -2562,10 +2562,7 @@ impl ActorCode for Actor {
                 Self::change_multi_address(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
-            None => {
-                // Method number does not match available, abort in runtime
-                Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method".to_owned()))
-            }
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }

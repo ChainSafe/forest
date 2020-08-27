@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use cid::Cid;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use encoding::Cbor;
@@ -25,28 +26,26 @@ pub struct State {
     /// Height before which the channel `ToSend` cannot be collected.
     pub min_settle_height: ChainEpoch,
     /// Collections of lane states for the channel, maintained in ID order.
-    pub lane_states: Vec<LaneState>,
+    pub lane_states: Cid, // AMT<LaneState>
 }
 
 impl State {
-    pub fn new(from: Address, to: Address) -> Self {
+    pub fn new(from: Address, to: Address, empty_arr_cid: Cid) -> Self {
         Self {
             from,
             to,
             to_send: Default::default(),
             settling_at: 0,
             min_settle_height: 0,
-            lane_states: Vec::new(),
+            lane_states: empty_arr_cid,
         }
     }
 }
 
 /// The Lane state tracks the latest (highest) voucher nonce used to merge the lane
 /// as well as the amount it has already redeemed.
-#[derive(Default, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct LaneState {
-    /// Identifier unique to this channel
-    pub id: u64,
     #[serde(with = "bigint_ser")]
     pub redeemed: BigInt,
     pub nonce: u64,

@@ -16,7 +16,7 @@ use clock::ChainEpoch;
 use fil_types::SectorNumber;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
-    json::MessageReceiptJson,
+    message_receipt::json::MessageReceiptJson,
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
 use serde::{Deserialize, Serialize};
@@ -223,20 +223,17 @@ pub(crate) async fn state_all_miner_faults<
                 .load_actor_state(&m, &tipset.parent_state())
                 .map_err(|e| e.to_string())?;
             let block_store = state_manager.get_block_store_ref();
-            miner_actor_state.for_each_fault_epoch(
-                block_store,
-                |fault_start: i64, _| -> Result<(), String> {
-                    if fault_start >= cut_off {
-                        all_faults.push(Fault {
-                            miner: *m,
-                            fault: fault_start,
-                        })
-                    }
-                    Ok(())
-                },
-            )
+            miner_actor_state.for_each_fault_epoch(block_store, |fault_start: i64, _| {
+                if fault_start >= cut_off {
+                    all_faults.push(Fault {
+                        miner: *m,
+                        fault: fault_start,
+                    })
+                }
+                Ok(())
+            })
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(all_faults)
 }
 /// returns a bitfield indicating the recovering sectors of the given miner
