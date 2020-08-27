@@ -80,7 +80,7 @@ impl Actor {
         })??;
 
         // Create an empty actor
-        rt.create_actor(&params.code_cid, &id_address)?;
+        rt.create_actor(params.code_cid, &id_address)?;
 
         // Invoke constructor
         rt.send(

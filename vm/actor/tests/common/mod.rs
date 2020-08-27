@@ -550,7 +550,7 @@ impl Runtime<MemoryDB> for MockRuntime {
         F: FnOnce(&mut C, &mut Self) -> R,
     {
         if self.in_transaction {
-            return Err(self.abort(ExitCode::SysErrorIllegalActor, "nested transaction"));
+            return Err(actor_error!(SysErrorIllegalActor; "nested transaction"));
         }
         let mut read_only = self.state()?;
         self.in_transaction = true;
@@ -605,10 +605,6 @@ impl Runtime<MemoryDB> for MockRuntime {
         }
     }
 
-    fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
-        ActorError::new(exit_code, msg.as_ref().to_owned())
-    }
-
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
         self.require_in_call();
         let ret = self
@@ -620,7 +616,7 @@ impl Runtime<MemoryDB> for MockRuntime {
         return Ok(ret);
     }
 
-    fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
+    fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
             return Err(actor_error!(SysErrorIllegalActor; "side-effect within transaction"));
@@ -630,7 +626,7 @@ impl Runtime<MemoryDB> for MockRuntime {
             .take()
             .expect("unexpected call to create actor");
 
-        assert!(&expect_create_actor.code_id == code_id && &expect_create_actor.address == address, "unexpected actor being created, expected code: {:?} address: {:?}, actual code: {:?} address: {:?}", expect_create_actor.code_id, expect_create_actor.address, code_id, address);
+        assert!(&expect_create_actor.code_id == &code_id && &expect_create_actor.address == address, "unexpected actor being created, expected code: {:?} address: {:?}, actual code: {:?} address: {:?}", expect_create_actor.code_id, expect_create_actor.address, code_id, address);
         Ok(())
     }
 
