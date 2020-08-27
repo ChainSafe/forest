@@ -22,7 +22,7 @@ use runtime::{ConsensusFault, Syscalls};
 use serde::{Deserialize, Deserializer};
 use std::error::Error as StdError;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use vm::{ExitCode, Serialized, TokenAmount};
 use walkdir::{DirEntry, WalkDir};
 
@@ -286,13 +286,10 @@ fn execute_message_vector(
     let mut root = preconditions.state_tree.root_cid;
 
     // Decode gzip bytes
-    let mut d = GzDecoder::new(car.as_slice());
-    let mut decoded = Vec::new();
-    d.read_to_end(&mut decoded)?;
+    let d = GzDecoder::new(car.as_slice());
 
     // Load car file with bytes
-    let reader = BufReader::new(decoded.as_slice());
-    forest_car::load_car(&bs, reader)?;
+    forest_car::load_car(&bs, d)?;
 
     for (i, m) in apply_messages.iter().enumerate() {
         let msg = UnsignedMessage::unmarshal_cbor(&m.bytes)?;
@@ -319,6 +316,17 @@ fn execute_message_vector(
             return Err(format!(
                 "gas used of msg {} did not match; expected: {}, got {}",
                 i, expected, actual
+            )
+            .into());
+        }
+
+        let (expected, actual) = (&receipt.return_data, &ret.msg_receipt.return_data);
+        if expected != actual {
+            return Err(format!(
+                "return data of msg {} did not match; expected: {}, got {}",
+                i,
+                base64::encode(expected.as_slice()),
+                base64::encode(actual.as_slice())
             )
             .into());
         }
