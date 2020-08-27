@@ -747,7 +747,7 @@ where
                         chaos::Actor.invoke_method(rt, method_num, params)
                     }
                     _ => Err(
-                        actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to),
+                        actor_error!(SysErrorIllegalActor; "no code for registered actor at address {}", to),
                     ),
                 }
             } else {
