@@ -23,7 +23,6 @@ use filecoin_proofs_api::{
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use log::warn;
-use message::Message;
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -161,21 +160,6 @@ pub trait MessageInfo {
     /// The value attached to the message being processed, implicitly
     /// added to current_balance() before method invocation.
     fn value_received(&self) -> &TokenAmount;
-}
-
-impl<M> MessageInfo for M
-where
-    M: Message,
-{
-    fn caller(&self) -> &Address {
-        Message::from(self)
-    }
-    fn receiver(&self) -> &Address {
-        Message::to(self)
-    }
-    fn value_received(&self) -> &TokenAmount {
-        Message::value(self)
-    }
 }
 
 /// Pure functions implemented as primitives by the runtime.

@@ -119,8 +119,8 @@ where
 
         let vm_msg = VMMsg {
             caller: caller_id,
-            receiver: *message.receiver(),
-            value_received: message.value_received().clone(),
+            receiver: *message.to(),
+            value_received: message.value().clone(),
         };
 
         Ok(DefaultRuntime {
