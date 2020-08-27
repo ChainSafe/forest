@@ -139,17 +139,18 @@ where
                 .get_actor(&*SYSTEM_ACTOR_ADDR)?
                 .ok_or_else(|| "Failed to query system actor".to_string())?;
 
-            let rew_msg = UnsignedMessage::builder()
-                .from(*SYSTEM_ACTOR_ADDR)
-                .to(*REWARD_ACTOR_ADDR)
-                .sequence(sys_act.sequence)
-                .value(BigInt::zero())
-                .gas_premium(BigInt::zero())
-                .gas_fee_cap(BigInt::zero())
-                .gas_limit(1 << 30)
-                .params(params)
-                .method_num(reward::Method::AwardBlockReward as u64)
-                .build()?;
+            let rew_msg = UnsignedMessage {
+                from: *SYSTEM_ACTOR_ADDR,
+                to: *REWARD_ACTOR_ADDR,
+                method_num: reward::Method::AwardBlockReward as u64,
+                params,
+                sequence: sys_act.sequence,
+                gas_limit: 1 << 30,
+                value: Default::default(),
+                version: Default::default(),
+                gas_fee_cap: Default::default(),
+                gas_premium: Default::default(),
+            };
 
             // TODO revisit this ApplyRet structure, doesn't match go logic 1:1 and can be cleaner
             let ret = self.apply_implicit_message(&rew_msg);
@@ -173,17 +174,18 @@ where
             .get_actor(&*SYSTEM_ACTOR_ADDR)?
             .ok_or_else(|| "Failed to query system actor".to_string())?;
 
-        let cron_msg = UnsignedMessage::builder()
-            .from(*SYSTEM_ACTOR_ADDR)
-            .to(*CRON_ACTOR_ADDR)
-            .sequence(sys_act.sequence)
-            .value(BigInt::zero())
-            .gas_premium(BigInt::zero())
-            .gas_fee_cap(BigInt::zero())
-            .gas_limit(1 << 30)
-            .method_num(cron::Method::EpochTick as u64)
-            .params(Serialized::default())
-            .build()?;
+        let cron_msg = UnsignedMessage {
+            from: *SYSTEM_ACTOR_ADDR,
+            to: *CRON_ACTOR_ADDR,
+            sequence: sys_act.sequence,
+            gas_limit: 1 << 30,
+            method_num: cron::Method::EpochTick as u64,
+            params: Default::default(),
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
 
         let ret = self.apply_implicit_message(&cron_msg);
         if let Some(err) = ret.act_error {
