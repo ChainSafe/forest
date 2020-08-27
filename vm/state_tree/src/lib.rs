@@ -184,10 +184,11 @@ where
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, Box<dyn StdError>> {
-        let addr = self
-            .lookup_id(addr)?
-            .ok_or_else(|| format!("Resolution lookup failed for {}", addr))?;
+    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, String> {
+        let addr = match self.lookup_id(addr)? {
+            Some(addr) => addr,
+            None => return Ok(None),
+        };
 
         // Check cache for actor state
         if let Some(actor_state) = self.snaps.get_actor(&addr)? {
