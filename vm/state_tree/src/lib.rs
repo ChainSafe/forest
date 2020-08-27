@@ -34,10 +34,10 @@ struct StateSnapLayer {
 impl StateSnapLayer {
     /// Snapshot layer constructor
     fn new() -> Self {
-        return Self {
+        Self {
             actors: RwLock::new(FnvHashMap::default()),
             resolve_cache: RwLock::new(FnvHashMap::default()),
-        };
+        }
     }
 }
 
@@ -60,7 +60,9 @@ impl StateSnapshots {
     }
 
     fn merge_last_layer(&mut self) -> Result<(), Box<dyn StdError>> {
-        let last: StateSnapLayer = self.layers[&self.layers.len() - 1].ok_or_else(|| {
+        let idx = &self.layers.len() - 1;
+
+        let last: StateSnapLayer = self.layers[idx].ok_or_else(|| {
             format!(
                 "No snapshot layer found at index {}",
                 &self.layers.len() - 1
@@ -68,7 +70,8 @@ impl StateSnapshots {
             .to_owned()
         })?;
 
-        let next_last: StateSnapLayer = self.layers[&self.layers.len() - 2].ok_or_else(|| {
+        let idx_2 = &self.layers.len() - 2;
+        let next_last: StateSnapLayer = self.layers[idx_2].ok_or_else(|| {
             format!(
                 "No snapshot layer found at index {}",
                 &self.layers.len() - 2
@@ -99,34 +102,26 @@ impl StateSnapshots {
             }
             i -= 1;
         }
-        return Ok(None);
+        Ok(None)
     }
 
-    fn cache_resolve_address(
-        &mut self,
-        addr: Address,
-        resolve_addr: Address,
-    ) -> Result<(), Box<dyn StdError>> {
+    fn cache_resolve_address(&self, addr: Address, resolve_addr: Address) {
         if let Some(layer) = &self.layers[self.layers.len() - 1] {
             layer.resolve_cache.write().insert(addr, resolve_addr);
         } else {
-            return Err(format!(
-                "No snapshot layers at index {}",
-                &self.layers.len() - 1
-            ));
+            println!("Failed to cache resolve addresses");
         }
-        Ok(())
     }
 
     fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, Box<dyn StdError>> {
         let mut i = self.layers.len() - 1;
         while i >= 0 {
-            let layer: StateSnapLayer =
-                self.layers[i].ok_or_else(|| format!("No snapshot layer found at index {}", i))?;
-            let actor_state =
-                layer.actors.read().get(addr).ok_or_else(|| {
-                    format!("No snapshot layer found at address {}", addr).to_owned()
-                })?;
+            let layer: &StateSnapLayer = self.layers[i]
+                .as_ref()
+                .ok_or_else(|| format!("No snapshot layer found at index {}", i))?;
+            let actor_state = layer.actors.read().get(addr).ok_or_else(|| {
+                format!("No cached actor state found at address {}", addr).to_owned()
+            })?;
             i -= 1;
             return Ok(*actor_state);
         }
@@ -134,23 +129,27 @@ impl StateSnapshots {
     }
 
     fn set_actor(&self, addr: Address, actor: ActorState) -> Result<(), Box<dyn StdError>> {
-        let mut layer = self.layers[&self.layers.len() - 1].ok_or_else(|| {
-            format!(
-                "No snapshot layer found at index: {}",
-                &self.layers.len() - 1
-            )
-        })?;
+        let layer = self.layers[&self.layers.len() - 1]
+            .as_ref()
+            .ok_or_else(|| {
+                format!(
+                    "No snapshot layer found at index: {}",
+                    &self.layers.len() - 1
+                )
+            })?;
         layer.actors.write().insert(addr, Some(actor));
         Ok(())
     }
 
     fn delete_actor(&self, addr: Address) -> Result<(), Box<dyn StdError>> {
-        let mut layer = self.layers[&self.layers.len() - 1].ok_or_else(|| {
-            format!(
-                "No snapshot layer found at index: {}",
-                &self.layers.len() - 1
-            )
-        })?;
+        let layer = self.layers[&self.layers.len() - 1]
+            .as_ref()
+            .ok_or_else(|| {
+                format!(
+                    "No snapshot layer found at index: {}",
+                    &self.layers.len() - 1
+                )
+            })?;
         layer.actors.write().insert(addr, None);
 
         Ok(())
@@ -228,7 +227,7 @@ where
     }
 
     /// Get an ID address from any Address
-    pub fn lookup_id(&self, addr: &Address) -> Result<Option<Address>, Box<dyn StdError>> {
+    pub fn lookup_id(&mut self, addr: &Address) -> Result<Option<Address>, Box<dyn StdError>> {
         if addr.protocol() == Protocol::ID {
             return Ok(Some(*addr));
         }
@@ -332,7 +331,7 @@ where
     }
 
     /// Revert to Cid returned from `snapshot`
-    pub fn revert_to_snapshot(&mut self, cid: &Cid) -> Result<(), Box<dyn StdError>> {
+    pub fn revert_to_snapshot(&mut self) -> Result<(), Box<dyn StdError>> {
         self.snaps.drop_layer();
         self.snaps.add_layer();
         Ok(())
@@ -344,8 +343,9 @@ where
             return Err(format!("Tried to flush state tree with snapshots on the stack").into());
         }
 
-        let layers =
-            self.snaps.layers[0].ok_or_else(|| format!("No snapshot layer at index {}", 0))?;
+        let layers = self.snaps.layers[0]
+            .as_ref()
+            .ok_or_else(|| format!("No snapshot layer at index {}", 0))?;
         for (addr, sto) in layers.actors.read().iter() {
             match sto {
                 None => {
