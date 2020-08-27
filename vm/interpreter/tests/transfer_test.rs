@@ -6,12 +6,12 @@ use address::Address;
 use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
-use fil_types::DevnetParams;
 use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
 use state_tree::StateTree;
+use std::collections::HashSet;
 use vm::{ActorState, Serialized};
 
 #[test]
@@ -86,7 +86,7 @@ fn transfer_test() {
         .from(actor_addr_2.clone())
         .method_num(2)
         .value(1u8.into())
-        .gas_limit(1000)
+        .gas_limit(10000000)
         .params(Serialized::default())
         .build()
         .unwrap();
@@ -94,7 +94,8 @@ fn transfer_test() {
     let default_syscalls = DefaultSyscalls::new(&store);
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
-    let mut runtime = DefaultRuntime::<_, _, DevnetParams>::new(
+    let registered = HashSet::new();
+    let mut runtime = DefaultRuntime::<_, _, _>::new(
         &mut state,
         &store,
         &default_syscalls,
@@ -105,6 +106,7 @@ fn transfer_test() {
         0,
         0,
         &dummy_rand,
+        &registered,
     )
     .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();

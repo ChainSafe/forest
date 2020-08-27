@@ -127,11 +127,17 @@ jobs:
       - build_setup
       - restore_cargo_package_cache
       - run:
-          name: Build Unit Tests
-          command: make test-all-no-run
-      - run:
           name: Run Unit Tests
-          command: make test-all
+          command: make test
+  test-vectors:
+    executor: test-executor
+    description: Run serialization and conformance tests
+    steps:
+      - build_setup
+      - restore_cargo_package_cache
+      - run:
+          name: Run test vectors
+          command: make run-vectors
   install:
     executor: test-executor
     description: Install forest binary
@@ -150,5 +156,8 @@ workflows:
           requires:
             - prefetch-crates
       - test:
+          requires:
+            - prefetch-crates
+      - test-vectors:
           requires:
             - prefetch-crates

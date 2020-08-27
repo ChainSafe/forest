@@ -6,8 +6,9 @@ use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
+
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
 /// Usage:
@@ -41,23 +42,23 @@ use vm::{MethodNum, Serialized, TokenAmount};
 #[builder(name = "MessageBuilder")]
 pub struct UnsignedMessage {
     #[builder(default)]
-    version: i64,
-    from: Address,
-    to: Address,
+    pub version: i64,
+    pub from: Address,
+    pub to: Address,
     #[builder(default)]
-    sequence: u64,
+    pub sequence: u64,
     #[builder(default)]
-    value: TokenAmount,
+    pub value: TokenAmount,
     #[builder(default)]
-    method_num: MethodNum,
+    pub method_num: MethodNum,
     #[builder(default)]
-    params: Serialized,
+    pub params: Serialized,
     #[builder(default)]
-    gas_limit: i64,
+    pub gas_limit: i64,
     #[builder(default)]
-    gas_fee_cap: TokenAmount,
+    pub gas_fee_cap: TokenAmount,
     #[builder(default)]
-    gas_premium: TokenAmount,
+    pub gas_premium: TokenAmount,
 }
 
 impl UnsignedMessage {
@@ -170,6 +171,7 @@ impl Cbor for UnsignedMessage {}
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use serde::de;
 
     /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
     #[derive(Deserialize, Serialize, Debug)]

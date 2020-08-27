@@ -19,8 +19,10 @@ use crate::{
 };
 use address::Address;
 use ahash::AHashMap;
+use byteorder::{BigEndian, ByteOrder};
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
+use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
 use fil_types::{PieceInfo, StoragePower};
 use ipld_amt::Amt;
@@ -36,7 +38,7 @@ use vm::{
     METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: b7fa99207e344e2294bf27f15e5be5c76233d760 (0.8.5)
+// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
 
 /// Market actor methods available
 #[derive(FromPrimitive)]
@@ -155,7 +157,6 @@ impl Actor {
                 // The withdrawable amount might be slightly less than nominal
                 // depending on whether or not all relevant entries have been processed
                 // by cron
-
                 let min_balance = msm.locked_table.as_ref().unwrap().get(&nominal).map_err(
                     |e| actor_error!(ErrIllegalState; "failed to get locked balance: {}", e),
                 )?;
@@ -216,7 +217,7 @@ impl Actor {
             );
         }
 
-        let (_, worker) = request_miner_control_addrs(rt, provider)?;
+        let (_, worker, _) = request_miner_control_addrs(rt, provider)?;
         if &worker != rt.message().caller() {
             return Err(actor_error!(ErrForbidden; "Caller is not provider {}", worker));
         }
@@ -286,10 +287,22 @@ impl Actor {
                     .unwrap()
                     .set(id, deal.proposal.clone())
                     .map_err(|e| actor_error!(ErrIllegalState; "failed to set deal: {}", e))?;
+
+                // We should randomize the first epoch for when the deal will be processed so an attacker isn't able to
+                // schedule too many deals for the same tick.
+                let process_epoch = gen_rand_next_epoch(rt, rt.curr_epoch(), &deal.proposal)
+                    .map_err(|e| {
+                        ActorError::downcast(
+                            e,
+                            ExitCode::ErrIllegalState,
+                            "failed to generate random process epoch",
+                        )
+                    })?;
+
                 msm.deals_by_epoch
                     .as_mut()
                     .unwrap()
-                    .put(deal.proposal.start_epoch, id)
+                    .put(process_epoch, id)
                     .map_err(
                         |e| actor_error!(ErrIllegalState; "failed to set deal ops by epoch: {}", e),
                     )?;
@@ -477,7 +490,7 @@ impl Actor {
 
     /// Terminate a set of deals in response to their containing sector being terminated.
     /// Slash provider collateral, refund client collateral, and refund partial unpaid escrow
-    /// amount to client.    
+    /// amount to client.
     fn on_miner_sectors_terminate<BS, RT>(
         rt: &mut RT,
         params: OnMinerSectorsTerminateParams,
@@ -882,6 +895,30 @@ where
     Ok((total_deal_space_time, total_verified_space_time))
 }
 
+fn gen_rand_next_epoch<BS, RT>(
+    rt: &RT,
+    curr_epoch: ChainEpoch,
+    deal: &DealProposal,
+) -> Result<ChainEpoch, Box<dyn StdError>>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    let bytes = deal
+        .marshal_cbor()
+        .map_err(|e| format!("failed to marshal proposal: {}", e))?;
+
+    let rb = rt.get_randomness_from_beacon(
+        DomainSeparationTag::MarketDealCronSeed,
+        curr_epoch - 1,
+        &bytes,
+    )?;
+
+    // generate a random epoch in [baseEpoch, baseEpoch + DealUpdatesInterval)
+    let offset = BigEndian::read_u64(&rb.0);
+
+    Ok(deal.start_epoch + (offset % DEAL_UPDATES_INTERVAL as u64) as ChainEpoch)
+}
 ////////////////////////////////////////////////////////////////////////////////
 // Checks
 ////////////////////////////////////////////////////////////////////////////////
@@ -1035,7 +1072,7 @@ where
 
     if code_id == *MINER_ACTOR_CODE_ID {
         // Storage miner actor entry; implied funds recipient is the associated owner address.
-        let (owner_addr, worker_addr) = request_miner_control_addrs(rt, nominal)?;
+        let (owner_addr, worker_addr, _) = request_miner_control_addrs(rt, nominal)?;
         return Ok((nominal, owner_addr, vec![owner_addr, worker_addr]));
     }
 

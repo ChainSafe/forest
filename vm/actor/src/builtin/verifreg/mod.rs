@@ -17,7 +17,7 @@ use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
-// * Updated to specs-actors commit: 9d42fb163883f31325b08752c9f4e85d0b3ef22f (> 0.8.6)
+// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
 
 /// Account actor methods available
 #[derive(FromPrimitive)]
