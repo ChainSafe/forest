@@ -9,6 +9,7 @@ use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, BURNT_FUNDS_ACTOR_ADDR, CRON_ACTOR_ADDR,
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
+use address::Address;
 use blocks::FullTipset;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -17,7 +18,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, MessageReceipt, UnsignedMessage};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use runtime::Syscalls;
 use state_tree::StateTree;
@@ -271,7 +272,6 @@ where
             });
         };
 
-        // TODO revisit if this is removed in future
         if msg.sequence() != from_act.sequence {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
@@ -286,9 +286,8 @@ where
             });
         };
 
-        let gas_cost = msg.gas_fee_cap() * msg.gas_limit();
-        let total_cost = &gas_cost + msg.value();
-        if from_act.balance < total_cost {
+        let gas_cost: TokenAmount = msg.gas_fee_cap() * msg.gas_limit();
+        if from_act.balance < gas_cost {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
                     return_data: Serialized::default(),
@@ -297,7 +296,7 @@ where
                 },
                 penalty: miner_penalty_amount,
                 act_error: Some(actor_error!(SysErrSenderStateInvalid;
-                    "actor balance less than needed: {} < {}", from_act.balance, total_cost)),
+                    "actor balance less than needed: {} < {}", from_act.balance, gas_cost)),
                 miner_tip: 0.into(),
             });
         };
@@ -357,12 +356,15 @@ where
             return Err(format!("send returned None runtime: {:?}", act_err));
         };
 
-        if let Some(err) = &act_err {
+        let err_code = if let Some(err) = &act_err {
             if !err.is_ok() {
                 // Revert all state changes on error.
                 self.state.revert_to_snapshot(&snapshot)?;
             }
-        }
+            err.exit_code()
+        } else {
+            ExitCode::Ok
+        };
 
         let gas_outputs = compute_gas_outputs(
             gas_used,
@@ -371,25 +373,26 @@ where
             msg.gas_fee_cap(),
             msg.gas_premium().clone(),
         );
-        self.state.mutate_actor(&*BURNT_FUNDS_ACTOR_ADDR, |act| {
-            act.deposit_funds(&gas_outputs.base_fee_burn);
+
+        let mut transfer_to_actor = |addr: &Address, amt: &TokenAmount| -> Result<(), String> {
+            if amt.sign() == Sign::Minus {
+                return Err("attempted to transfer negative value into actor".into());
+            }
+            self.state.mutate_actor(addr, |act| {
+                act.deposit_funds(&gas_outputs.base_fee_burn);
+                Ok(())
+            })?;
             Ok(())
-        })?;
-        self.state.mutate_actor(&*BURNT_FUNDS_ACTOR_ADDR, |act| {
-            act.deposit_funds(&gas_outputs.over_estimation_burn);
-            Ok(())
-        })?;
+        };
+
+        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &gas_outputs.base_fee_burn)?;
+
+        transfer_to_actor(&*REWARD_ACTOR_ADDR, &gas_outputs.miner_tip)?;
+
+        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &gas_outputs.over_estimation_burn)?;
 
         // refund unused gas
-        self.state.mutate_actor(msg.from(), |act| {
-            act.deposit_funds(&gas_outputs.refund);
-            Ok(())
-        })?;
-
-        self.state.mutate_actor(&*REWARD_ACTOR_ADDR, |act| {
-            act.deposit_funds(&gas_outputs.miner_tip);
-            Ok(())
-        })?;
+        transfer_to_actor(msg.from(), &gas_outputs.refund)?;
 
         if &gas_outputs.base_fee_burn
             + gas_outputs.over_estimation_burn
@@ -403,11 +406,11 @@ where
         Ok(ApplyRet {
             msg_receipt: MessageReceipt {
                 return_data: ret_data,
-                exit_code: ExitCode::Ok,
+                exit_code: err_code,
                 gas_used,
             },
             penalty: gas_outputs.miner_penalty,
-            act_error: None,
+            act_error: act_err,
             miner_tip: gas_outputs.miner_tip,
         })
     }
