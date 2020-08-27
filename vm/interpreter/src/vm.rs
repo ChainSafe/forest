@@ -433,11 +433,11 @@ where
     #[allow(clippy::type_complexity)]
     fn send<'m>(
         &mut self,
-        msg: &'m UnsignedMessage,
+        msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, 'm, '_, '_, '_, '_, DB, SYS, R, P>>,
+        Option<DefaultRuntime<'db, '_, '_, '_, '_, DB, SYS, R, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
