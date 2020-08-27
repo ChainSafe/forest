@@ -6,6 +6,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+use actor::{CHAOS_ACTOR_CODE_ID, PUPPET_ACTOR_CODE_ID};
 use address::Address;
 use blockstore::BlockStore;
 use cid::Cid;
@@ -21,7 +22,7 @@ use runtime::{ConsensusFault, Syscalls};
 use serde::{Deserialize, Deserializer};
 use std::error::Error as StdError;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use vm::{ExitCode, Serialized, TokenAmount};
 use walkdir::{DirEntry, WalkDir};
 
@@ -126,11 +127,19 @@ struct MessageVector {
 }
 
 #[derive(Debug, Deserialize)]
+struct Selector {
+    #[serde(default)]
+    puppet_actor: Option<String>,
+    #[serde(default)]
+    chaos_actor: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "class")]
 enum TestVector {
     #[serde(rename = "message")]
     Message {
-        selector: Option<String>,
+        selector: Option<Selector>,
         #[serde(rename = "_meta")]
         meta: Option<MetaData>,
 
@@ -142,19 +151,19 @@ enum TestVector {
     },
     #[serde(rename = "block")]
     Block {
-        selector: Option<String>,
+        selector: Option<Selector>,
         #[serde(rename = "_meta")]
         meta: Option<MetaData>,
     },
     #[serde(rename = "tipset")]
     Tipset {
-        selector: Option<String>,
+        selector: Option<Selector>,
         #[serde(rename = "_meta")]
         meta: Option<MetaData>,
     },
     #[serde(rename = "chain")]
     Chain {
-        selector: Option<String>,
+        selector: Option<Selector>,
         #[serde(rename = "_meta")]
         meta: Option<MetaData>,
     },
@@ -228,6 +237,7 @@ fn execute_message(
     pre_root: &Cid,
     bs: &db::MemoryDB,
     epoch: ChainEpoch,
+    selector: &Option<Selector>,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let mut vm = VM::<_, _, _>::new(
         pre_root,
@@ -238,6 +248,23 @@ fn execute_message(
         BASE_FEE.clone(),
     )?;
 
+    if let Some(s) = &selector {
+        if s.puppet_actor
+            .as_ref()
+            .map(|s| s == "true")
+            .unwrap_or_default()
+        {
+            vm.register_actor(PUPPET_ACTOR_CODE_ID.clone());
+        }
+        if s.chaos_actor
+            .as_ref()
+            .map(|s| s == "true")
+            .unwrap_or_default()
+        {
+            vm.register_actor(CHAOS_ACTOR_CODE_ID.clone());
+        }
+    }
+
     // TODO register puppet actor (and conditionally chaos actor)
 
     let ret = vm.apply_message(msg)?;
@@ -247,7 +274,7 @@ fn execute_message(
 }
 
 fn execute_message_vector(
-    _selector: Option<String>,
+    selector: Option<Selector>,
     car: Vec<u8>,
     preconditions: PreConditions,
     apply_messages: Vec<MessageVector>,
@@ -259,13 +286,10 @@ fn execute_message_vector(
     let mut root = preconditions.state_tree.root_cid;
 
     // Decode gzip bytes
-    let mut d = GzDecoder::new(car.as_slice());
-    let mut decoded = Vec::new();
-    d.read_to_end(&mut decoded)?;
+    let d = GzDecoder::new(car.as_slice());
 
     // Load car file with bytes
-    let reader = BufReader::new(decoded.as_slice());
-    forest_car::load_car(&bs, reader)?;
+    forest_car::load_car(&bs, d)?;
 
     for (i, m) in apply_messages.iter().enumerate() {
         let msg = UnsignedMessage::unmarshal_cbor(&m.bytes)?;
@@ -274,7 +298,7 @@ fn execute_message_vector(
             epoch = ep;
         }
 
-        let (ret, post_root) = execute_message(&msg, &root, &bs, epoch)?;
+        let (ret, post_root) = execute_message(&msg, &root, &bs, epoch, &selector)?;
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
@@ -292,6 +316,17 @@ fn execute_message_vector(
             return Err(format!(
                 "gas used of msg {} did not match; expected: {}, got {}",
                 i, expected, actual
+            )
+            .into());
+        }
+
+        let (expected, actual) = (&receipt.return_data, &ret.msg_receipt.return_data);
+        if expected != actual {
+            return Err(format!(
+                "return data of msg {} did not match; expected: {}, got {}",
+                i,
+                base64::encode(expected.as_slice()),
+                base64::encode(actual.as_slice())
             )
             .into());
         }

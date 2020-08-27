@@ -21,6 +21,7 @@ use num_bigint::BigInt;
 use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use vm::{
@@ -54,7 +55,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
@@ -69,11 +70,12 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P = DevnetParams
     rand: &'r R,
     caller_validated: bool,
     allow_internal: bool,
+    registered_actors: &'act HashSet<Cid>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>
-    DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>
+impl<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
+    DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -93,6 +95,7 @@ where
         origin_nonce: u64,
         num_actors_created: u64,
         rand: &'r R,
+        registered_actors: &'act HashSet<Cid>,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -133,6 +136,7 @@ where
             num_actors_created,
             price_list,
             rand,
+            registered_actors,
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
@@ -238,15 +242,18 @@ where
         value: TokenAmount,
         params: Serialized,
     ) -> Result<Serialized, ActorError> {
-        let msg = UnsignedMessage::builder()
-            .from(from)
-            .to(to)
-            .method_num(method)
-            .value(value)
-            .params(params)
-            .gas_limit(self.gas_available())
-            .build()
-            .expect("Message creation fails");
+        let msg = UnsignedMessage {
+            from,
+            to,
+            method_num: method,
+            value,
+            params,
+            gas_limit: self.gas_available(),
+            version: Default::default(),
+            sequence: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
 
         // snapshot state tree
         let snapshot = self
@@ -304,7 +311,7 @@ where
     }
 }
 
-impl<BS, SYS, R, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, R, P>
+impl<BS, SYS, R, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, '_, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -482,53 +489,54 @@ where
 
         Ok(ret)
     }
-
-    fn abort<S: AsRef<str>>(&self, exit_code: ExitCode, msg: S) -> ActorError {
-        ActorError::new(exit_code, msg.as_ref().to_owned())
-    }
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
         let oa = resolve_to_key_addr(self.state, &self.store, &self.origin)?;
         let mut b = to_vec(&oa).map_err(|e| {
-            self.abort(
-                ExitCode::ErrSerialization,
-                format!("Could not serialize address in new_actor_address: {}", e),
-            )
+            actor_error!(fatal(
+                "Could not serialize address in new_actor_address: {}",
+                e
+            ))
         })?;
-        b.write_u64::<BigEndian>(self.origin_nonce).map_err(|e| {
-            self.abort(
-                ExitCode::ErrSerialization,
-                format!("Writing nonce address into a buffer: {}", e.to_string()),
-            )
-        })?;
+        b.write_u64::<BigEndian>(self.origin_nonce)
+            .map_err(|e| actor_error!(fatal("Writing nonce address into a buffer: {}", e)))?;
         b.write_u64::<BigEndian>(self.num_actors_created)
             .map_err(|e| {
-                self.abort(
-                    ExitCode::ErrSerialization,
-                    format!(
-                        "Writing number of actors created into a buffer: {}",
-                        e.to_string()
-                    ),
-                )
+                actor_error!(fatal(
+                    "Writing number of actors created into a buffer: {}",
+                    e
+                ))
             })?;
         let addr = Address::new_actor(&b);
         self.num_actors_created += 1;
         Ok(addr)
     }
-    fn create_actor(&mut self, code_id: &Cid, address: &Address) -> Result<(), ActorError> {
+    fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
+        if !is_builtin_actor(&code_id) {
+            return Err(actor_error!(SysErrorIllegalArgument; "Can only create built-in actors."));
+        }
+        if is_singleton_actor(&code_id) {
+            return Err(actor_error!(SysErrorIllegalArgument;
+                    "Can only have one instance of singleton actors."));
+        }
+
+        if let Ok(Some(_)) = self.state.get_actor(address) {
+            return Err(actor_error!(SysErrorIllegalArgument; "Actor address already exists"));
+        }
+
         self.charge_gas(self.price_list.on_create_actor())?;
         self.state
             .set_actor(
                 &address,
-                ActorState::new(code_id.clone(), Cid::default(), 0u64.into(), 0),
+                ActorState::new(code_id, EMPTY_ARR_CID.clone(), 0.into(), 0),
             )
-            .map_err(|e| {
-                self.abort(
-                    ExitCode::SysErrInternal,
-                    format!("creating actor entry: {}", e),
-                )
-            })
+            .map_err(|e| actor_error!(fatal("creating actor entry: {}", e)))
     }
-    fn delete_actor(&mut self, _beneficiary: &Address) -> Result<(), ActorError> {
+
+    /// DeleteActor deletes the executing actor from the state tree, transferring
+    /// any balance to beneficiary.
+    /// Aborts if the beneficiary does not exist.
+    /// May only be called by the actor itself.
+    fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError> {
         self.charge_gas(self.price_list.on_delete_actor())?;
         let balance = self
             .state
@@ -538,18 +546,21 @@ where
                 || actor_error!(SysErrorIllegalActor; "failed to load actor in delete actor"),
             )
             .map(|act| act.balance)?;
-        if !balance.eq(&0u64.into()) {
-            return Err(self.abort(
-                ExitCode::SysErrInternal,
-                "cannot delete actor with non-zero balance",
-            ));
+        let receiver = *self.message().receiver();
+        if balance != 0.into() {
+            // Transfer the executing actor's balance to the beneficiary
+            transfer(self.state, &receiver, beneficiary, &balance).map_err(|e| {
+                actor_error!(fatal(
+                    "failed to transfer balance to beneficiary actor: {}",
+                    e.msg()
+                ))
+            })?;
         }
-        self.state.delete_actor(self.message.to()).map_err(|e| {
-            self.abort(
-                ExitCode::SysErrInternal,
-                format!("failed to delete actor: {}", e),
-            )
-        })
+
+        // Delete the executing actor
+        self.state
+            .delete_actor(&receiver)
+            .map_err(|e| actor_error!(fatal("failed to delete actor: {}", e)))
     }
     fn syscalls(&self) -> &dyn Syscalls {
         &self.syscalls
@@ -595,8 +606,8 @@ where
 
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>,
+pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<GasCharge>,
 ) -> Result<Serialized, ActorError>
@@ -701,8 +712,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, BS, SYS, R, P>,
+fn invoke<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
@@ -726,7 +737,23 @@ where
         x if x == *MULTISIG_ACTOR_CODE_ID => multisig::Actor.invoke_method(rt, method_num, params),
         x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params),
         x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
-        _ => Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to)),
+        x => {
+            if rt.registered_actors.contains(&x) {
+                match x {
+                    x if x == *PUPPET_ACTOR_CODE_ID => {
+                        puppet::Actor.invoke_method(rt, method_num, params)
+                    }
+                    x if x == *CHAOS_ACTOR_CODE_ID => {
+                        chaos::Actor.invoke_method(rt, method_num, params)
+                    }
+                    _ => Err(
+                        actor_error!(SysErrorIllegalActor; "no code for registered actor at address {}", to),
+                    ),
+                }
+            } else {
+                Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
+            }
+        }
     }
 }
 
