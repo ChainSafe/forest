@@ -23,13 +23,12 @@ use filecoin_proofs_api::{
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
 use log::warn;
-use message::Message;
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error as StdError;
-use vm::{actor_error, ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
+use vm::{ActorError, MethodNum, Randomness, Serialized, TokenAmount};
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
@@ -163,21 +162,6 @@ pub trait MessageInfo {
     fn value_received(&self) -> &TokenAmount;
 }
 
-impl<M> MessageInfo for M
-where
-    M: Message,
-{
-    fn caller(&self) -> &Address {
-        Message::from(self)
-    }
-    fn receiver(&self) -> &Address {
-        Message::to(self)
-    }
-    fn value_received(&self) -> &TokenAmount {
-        Message::value(self)
-    }
-}
-
 /// Pure functions implemented as primitives by the runtime.
 pub trait Syscalls {
     /// Verifies that a signature is valid for an address and plaintext.
@@ -206,8 +190,7 @@ pub trait Syscalls {
         let mut fcp_pieces: Vec<proofs::PieceInfo> = pieces
             .iter()
             .map(proofs::PieceInfo::try_from)
-            .collect::<Result<_, &'static str>>()
-            .map_err(|e| actor_error!(ErrPlaceholder; e))?;
+            .collect::<Result<_, &'static str>>()?;
 
         // pad remaining space with 0 piece commitments
         {
@@ -225,8 +208,7 @@ pub trait Syscalls {
             }
         }
 
-        let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)
-            .map_err(|e| actor_error!(ErrPlaceholder; e))?;
+        let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)?;
 
         Ok(data_commitment_v1_to_cid(&comm_d)?)
     }
