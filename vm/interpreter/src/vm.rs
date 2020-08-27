@@ -40,6 +40,7 @@ pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
     syscalls: SYS,
     rand: &'r R,
     base_fee: BigInt,
+    registered_actors: HashSet<Cid>,
     params: PhantomData<P>,
 }
 
@@ -59,6 +60,7 @@ where
         base_fee: BigInt,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
+        let registered_actors = HashSet::new();
         Ok(VM {
             state,
             store,
@@ -66,8 +68,19 @@ where
             syscalls,
             rand,
             base_fee,
+            registered_actors,
             params: PhantomData,
         })
+    }
+
+    /// Registers an actor that is not part of the set of default builtin actors by providing the code cid
+    pub fn register_actor(&mut self, code_cid: Cid) -> bool {
+        self.registered_actors.insert(code_cid)
+    }
+
+    /// Gets registered actors that are not part of the set of default builtin actors
+    pub fn registered_actors(&self) -> &HashSet<Cid> {
+        &self.registered_actors
     }
 
     /// Flush stores in VM and return state root.
@@ -422,7 +435,7 @@ where
         gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, R, P>>,
+        Option<DefaultRuntime<'db, 'm, '_, '_, '_, '_, DB, SYS, R, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
@@ -436,6 +449,7 @@ where
             msg.sequence(),
             0,
             self.rand,
+            &self.registered_actors,
         );
 
         match res {
