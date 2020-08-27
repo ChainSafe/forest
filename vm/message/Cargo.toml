@@ -2,7 +2,7 @@
 name = "forest_message"
 description = "Filecoin message types"
 license = "MIT OR Apache-2.0"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
