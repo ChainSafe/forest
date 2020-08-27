@@ -238,15 +238,18 @@ where
         value: TokenAmount,
         params: Serialized,
     ) -> Result<Serialized, ActorError> {
-        let msg = UnsignedMessage::builder()
-            .from(from)
-            .to(to)
-            .method_num(method)
-            .value(value)
-            .params(params)
-            .gas_limit(self.gas_available())
-            .build()
-            .expect("Message creation fails");
+        let msg = UnsignedMessage {
+            from,
+            to,
+            method_num: method,
+            value,
+            params,
+            gas_limit: self.gas_available(),
+            version: Default::default(),
+            sequence: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
 
         // snapshot state tree
         let snapshot = self
