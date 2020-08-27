@@ -3376,6 +3376,7 @@ dependencies = [
 name = "ipld_amt"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "db",
  "forest_cid",
  "forest_encoding",
