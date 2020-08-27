@@ -4,9 +4,12 @@
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
+use async_std::sync::channel;
+use async_std::sync::Receiver;
+use async_std::task;
 use beacon::BeaconEntry;
 use blake2b_simd::Params;
-use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta,tipset_json::TipsetJson};
 use byteorder::{BigEndian, WriteBytesExt};
 use cid::multihash::Blake2b256;
 use cid::Cid;
@@ -14,17 +17,19 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
+use futures::StreamExt;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
-use serde::Serialize;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -45,6 +50,29 @@ pub enum HeadChange {
     Apply(Arc<Tipset>),
     Revert(Arc<Tipset>),
 }
+#[derive(Debug,Serialize,Deserialize)]
+pub enum HeadChangeJson{
+    Current(TipsetJson),
+    Apply(TipsetJson),
+    Revert(TipsetJson)
+}
+
+impl From<HeadChange> for HeadChangeJson {
+    fn from(wrapper: HeadChange) -> Self {
+        match wrapper
+        {
+            HeadChange::Current(tipset) =>
+                HeadChangeJson::Revert((*tipset).clone().into()),
+         
+            HeadChange::Apply(tipset) => 
+                HeadChangeJson::Revert((*tipset).clone().into()),
+            HeadChange::Revert(tipset) => 
+                HeadChangeJson::Revert((*tipset).clone().into()),
+            
+        }
+    }
+}
+
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
@@ -212,6 +240,27 @@ where
         }
         Ok(())
     }
+
+    pub async fn sub_head_changes(&mut self) -> Result<Receiver<HeadChange>, Error> {
+        let mut subscribed_head_change = self.subscribe();
+        let head = self
+            .heaviest_tipset()
+            .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
+        let (sender, reciever) = channel(16);
+        sender.send(HeadChange::Current(head)).await;
+        task::spawn(async move {
+            while let Some(val) = subscribed_head_change.next().await {
+                if !sender.is_empty() {
+                    warn!(
+                        "head change sub is slow, has {:} buffered entries",
+                        sender.len()
+                    )
+                }
+                sender.send(val).await
+            }
+        });
+        Ok(reciever)
+    }
 }
 
 /// Returns messages for a given tipset from db
@@ -243,6 +292,26 @@ where
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
 
     Ok((bls_msgs, secp_msgs))
+}
+
+/// Constructs and returns a full tipset if messages from storage exists - non self version
+pub fn fill_tipsets<DB>(db: &DB, ts: Tipset) -> Result<FullTipset, Error>
+where
+    DB: BlockStore,
+{
+    let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
+
+    for header in ts.into_blocks() {
+        let (bls_messages, secp_messages) = block_messages(db, &header)?;
+        blocks.push(Block {
+            header,
+            bls_messages,
+            secp_messages,
+        });
+    }
+
+    // the given tipset has already been verified, so this cannot fail
+    Ok(FullTipset::new(blocks).unwrap())
 }
 
 /// Returns a tuple of UnsignedMessage and SignedMessages from their Cid

@@ -10,6 +10,7 @@ use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 
+use async_std::prelude::*;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     signed_message,
@@ -54,6 +55,25 @@ where
         .get(&msg_cid)?
         .ok_or("can't find message with that cid")?;
     Ok(UnsignedMessageJson(ret))
+}
+
+pub(crate) async fn chain_notify<DB, KS>(
+    data: Data<RpcState<DB, KS>>
+) -> Result<Vec<chain::HeadChangeJson>, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
+
+    Ok(data
+        .chain_store
+        .write()
+        .await
+        .sub_head_changes()
+        .await?
+        .map(|s|s.into())
+        .collect()
+        .await)
 }
 
 pub(crate) async fn chain_read_obj<DB, KS>(

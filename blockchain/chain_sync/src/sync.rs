@@ -68,7 +68,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     next_sync_target: SyncBucket,
 
     /// access and store tipsets / blocks / messages
-    chain_store: ChainStore<DB>,
+    chain_store: Arc<RwLock<ChainStore<DB>>>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -98,14 +98,14 @@ where
     TBeacon: Beacon + Send,
     DB: BlockStore + Sync + Send + 'static,
 {
-    pub fn new(
-        chain_store: ChainStore<DB>,
+    pub async fn new(
+        chain_store: Arc<RwLock<ChainStore<DB>>>,
         beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
+        let state_manager = Arc::new(StateManager::new(chain_store.read().await.db.clone()));
 
         // Split incoming channel to handle blocksync requests
         let mut event_send = Publisher::new(30);
@@ -167,7 +167,7 @@ where
                     }
                 }
                 NetworkEvent::PeerDialed { peer_id } => {
-                    let heaviest = self.chain_store.heaviest_tipset().unwrap();
+                    let heaviest = self.chain_store.read().await.heaviest_tipset().unwrap();
                     self.network
                         .hello_request(
                             peer_id,
@@ -202,7 +202,7 @@ where
         }
 
         // Get heaviest tipset from storage to sync toward
-        let heaviest = self.chain_store.heaviest_tipset().unwrap();
+        let heaviest = self.chain_store.read().await.heaviest_tipset().unwrap();
 
         info!("Starting block sync...");
 
@@ -225,7 +225,7 @@ where
         // Persist header chain pulled from network
         self.set_stage(SyncStage::PersistHeaders).await;
         let headers: Vec<&BlockHeader> = tipsets.iter().map(|t| t.blocks()).flatten().collect();
-        if let Err(e) = persist_objects(self.chain_store.blockstore(), &headers) {
+        if let Err(e) = persist_objects(self.state_manager.get_block_store_ref(), &headers) {
             self.state.write().await.error(e.to_string());
             return Err(e.into());
         }
@@ -239,7 +239,11 @@ where
         self.set_stage(SyncStage::Complete).await;
 
         // At this point the head is synced and the head can be set as the heaviest.
-        self.chain_store.put_tipset(head.as_ref()).await?;
+        self.chain_store
+            .write()
+            .await
+            .put_tipset(head.as_ref())
+            .await?;
 
         Ok(())
     }
@@ -254,7 +258,10 @@ where
 
         while i >= 0 {
             // check storage first to see if we have full tipset
-            let fts = match self.chain_store.fill_tipsets(ts[i as usize].clone()) {
+            let fts = match chain::fill_tipsets(
+                self.state_manager.get_block_store_ref(),
+                ts[i as usize].clone(),
+            ) {
                 Ok(fts) => fts,
                 Err(_) => {
                     // no full tipset in storage; request messages via blocksync
@@ -294,8 +301,8 @@ where
                             self.state.write().await.set_epoch(curr_epoch);
 
                             // store messages
-                            self.chain_store.put_messages(&b.bls_msgs)?;
-                            self.chain_store.put_messages(&b.secp_msgs)?;
+                            self.chain_store.write().await.put_messages(&b.bls_msgs)?;
+                            self.chain_store.write().await.put_messages(&b.secp_msgs)?;
                         }
                     }
                     i -= REQUEST_WINDOW;
@@ -328,11 +335,11 @@ where
                 return Err(Error::Other("Block marked as bad".to_string()));
             }
             // validate message data
-            self.validate_msg_meta(block)?;
+            self.validate_msg_meta(block).await?;
         }
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let best_weight = match self.chain_store.heaviest_tipset() {
+        let best_weight = match self.chain_store.read().await.heaviest_tipset() {
             Some(ts) => ts.weight().clone(),
             None => Zero::zero(),
         };
@@ -417,9 +424,9 @@ where
     }
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
-    fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
+    async fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
         let sm_root = compute_msg_meta(
-            self.chain_store.blockstore(),
+            self.state_manager.get_block_store_ref(),
             block.bls_msgs(),
             block.secp_msgs(),
         )?;
@@ -427,8 +434,14 @@ where
             return Err(Error::InvalidRoots);
         }
 
-        self.chain_store.put_messages(block.bls_msgs())?;
-        self.chain_store.put_messages(block.secp_msgs())?;
+        self.chain_store
+            .write()
+            .await
+            .put_messages(block.bls_msgs())?;
+        self.chain_store
+            .write()
+            .await
+            .put_messages(block.secp_msgs())?;
 
         Ok(())
     }
@@ -451,11 +464,11 @@ where
     fn load_fts(&self, keys: &TipsetKeys) -> Result<FullTipset, Error> {
         let mut blocks = Vec::new();
         // retrieve tipset from store based on passed in TipsetKeys
-        let ts = self.chain_store.tipset_from_keys(keys)?;
+        let ts = chain::tipset_from_keys(self.state_manager.get_block_store_ref(), keys)?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =
-                chain::block_messages(self.chain_store.blockstore(), &header)?;
+                chain::block_messages(self.state_manager.get_block_store_ref(), &header)?;
 
             // construct a full block
             let full_block = Block {
@@ -600,7 +613,8 @@ where
             error_vec.push("Signature is nil in header".to_owned());
         }
 
-        let parent_tipset = self.chain_store.tipset_from_keys(header.parents())?;
+        let parent_tipset =
+            chain::tipset_from_keys(self.state_manager.get_block_store_ref(), header.parents())?;
 
         // time stamp checks
         if let Err(err) = header.validate_timestamps(&parent_tipset) {
@@ -653,9 +667,14 @@ where
             error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
 
-        let prev_beacon = self
-            .chain_store
-            .latest_beacon_entry(&self.chain_store.tipset_from_keys(header.parents())?)?;
+        let prev_beacon =
+            self.chain_store
+                .read()
+                .await
+                .latest_beacon_entry(&chain::tipset_from_keys(
+                    self.state_manager.get_block_store_ref(),
+                    header.parents(),
+                )?)?;
         header
             .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
             .await?;
@@ -701,7 +720,10 @@ where
                 self.bad_blocks.put(b.cid().clone(), e.to_string()).await;
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
-            self.chain_store.set_tipset_tracker(b.header())?;
+            self.chain_store
+                .write()
+                .await
+                .set_tipset_tracker(b.header())?;
         }
         Ok(())
     }
@@ -816,7 +838,9 @@ where
             }
 
             // Try to load parent tipset from local storage
-            if let Ok(ts) = self.chain_store.tipset_from_keys(cur_ts.parents()) {
+            if let Ok(ts) =
+                chain::tipset_from_keys(self.state_manager.get_block_store_ref(), cur_ts.parents())
+            {
                 // Add blocks in tipset to accepted chain and push the tipset to return set
                 accepted_blocks.extend_from_slice(ts.cids());
                 return_set.push(ts);
@@ -915,7 +939,8 @@ where
             .await
             .map_err(|_| Error::Other("Could not retrieve tipset".to_string()))?;
 
-        let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
+        let mut ts =
+            chain::tipset_from_keys(self.state_manager.get_block_store_ref(), to.parents())?;
 
         for i in 0..tips.len() {
             while ts.epoch() > tips[i].epoch() {
@@ -924,7 +949,11 @@ where
                         "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));
                 }
-                ts = self.chain_store.tipset_from_keys(ts.parents())?;
+                ts = self
+                    .chain_store
+                    .read()
+                    .await
+                    .tipset_from_keys(ts.parents())?;
             }
             if ts == tips[i] {
                 return Ok(tips[0..=i].to_vec());

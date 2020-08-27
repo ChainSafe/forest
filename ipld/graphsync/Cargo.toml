@@ -27,5 +27,5 @@ protoc-rust = "2.14.0"
 
 [dev-dependencies]
 multihash = "0.10"
-async-std = "1.5"
+async-std = "1.6.3"
 rand = "0.7"

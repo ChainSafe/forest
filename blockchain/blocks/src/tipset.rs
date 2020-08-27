@@ -291,6 +291,13 @@ pub mod tipset_json {
         }
     }
 
+
+    impl<'a> From<&'a Tipset> for TipsetJsonRef<'a> {
+        fn from(wrapper: &'a Tipset) -> Self {
+            TipsetJsonRef(wrapper)
+        }
+    }
+
     pub fn serialize<S>(m: &Tipset, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

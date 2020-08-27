@@ -77,13 +77,15 @@ pub(super) async fn start(config: Config) {
         .unwrap();
 
     // Initialize ChainSyncer
+    let chain_store = Arc::new(RwLock::new(chain_store));
     let chain_syncer = ChainSyncer::new(
-        chain_store,
+        chain_store.clone(),
         Arc::new(beacon),
         network_send.clone(),
         network_rx,
         genesis,
     )
+    .await
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
@@ -105,6 +107,7 @@ pub(super) async fn start(config: Config) {
             start_rpc(
                 RpcState {
                     state_manager: db_rpc,
+                    chain_store,
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,

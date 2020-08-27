@@ -8,24 +8,24 @@ mod sync_api;
 mod wallet_api;
 
 use crate::state_api::*;
+use async_std::net::{TcpListener, TcpStream};
 use async_std::sync::{RwLock, Sender};
+use async_std::task;
+use async_tungstenite::tungstenite::{error::Error, Message};
 use blockstore::BlockStore;
+use chain::ChainStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
+use futures::future;
+use futures::sink::SinkExt;
+use futures::stream::futures_unordered::FuturesUnordered;
+use futures::stream::{StreamExt, TryStreamExt};
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::StateManager;
-use std::sync::Arc;
-use tide::{Request, Response, StatusCode};
-use wallet::KeyStore;
-use async_std::net::{TcpListener, TcpStream};
-use async_std::task;
-use futures::stream::futures_unordered::FuturesUnordered;
-use futures::stream::{StreamExt,TryStreamExt};
-use futures::sink::SinkExt;
-use futures::future;
-use async_tungstenite::tungstenite::{Message,error::Error};
 use std::borrow::Cow;
+use std::sync::Arc;
+use wallet::KeyStore;
 /// This is where you store persistant data, or at least access to stateful data.
 pub struct RpcState<DB, KS>
 where
@@ -33,6 +33,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     pub state_manager: StateManager<DB>,
+    pub chain_store: Arc<RwLock<ChainStore<DB>>>,
     pub keystore: Arc<RwLock<KS>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
@@ -75,6 +76,7 @@ where
             "Filecoin.ChainGetBlock",
             chain_api::chain_get_block::<DB, KS>,
         )
+        .with_method("Filecoin.ChainNotify", chain_notify::<DB, KS>)
         .with_method("Filecoin.ChainHead", chain_head::<DB, KS>)
         // Message Pool API
         .with_method(
@@ -147,38 +149,40 @@ where
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS>)
         .finish_unwrapped();
 
-    let try_socket = TcpListener::bind("127.0.0.1").await;
+    let try_socket = TcpListener::bind(rpc_endpoint).await;
     let listener = try_socket.expect("Failed to bind to addr");
     let state = Arc::new(rpc);
     let futures_unordered = FuturesUnordered::new();
-    while let Ok((stream, addr)) = listener.accept().await {
+    while let Ok((stream, _addr)) = listener.accept().await {
         futures_unordered.push(task::spawn(handle_connection(state.clone(), stream)));
     }
 }
 
-async fn handle_connection(state: Arc<Server<MapRouter>>,tcp_stream: TcpStream) -> Result<(),Error>
-{
+async fn handle_connection(
+    state: Arc<Server<MapRouter>>,
+    tcp_stream: TcpStream,
+) -> Result<(), Error> {
     let ws_stream = async_tungstenite::accept_async(tcp_stream)
         .await
         .expect("Error during the websocket handshake occurred");
     let (mut ws_sender, ws_receiver) = ws_stream.split();
     let responses = ws_receiver
-    .try_filter(|s|future::ready(!s.is_text()))
-    .try_fold(Vec::new(),|mut responses,s|async {
-        let request_text = s.into_text()?;
-        let call: RequestObject = serde_json::from_str(&request_text).map_err(|s|Error::Protocol(Cow::from(s.to_string())))?;
-        let response = state.handle(call).await;
-        let response_text = serde_json::to_string(&response).map_err(|s|Error::Protocol(Cow::from(s.to_string())))?;
-        responses.push(response_text);
-        Ok(responses)
-        
-    }).await?;
+        .try_filter(|s| future::ready(!s.is_text()))
+        .try_fold(Vec::new(), |mut responses, s| async {
+            let request_text = s.into_text()?;
+            let call: RequestObject = serde_json::from_str(&request_text)
+                .map_err(|s| Error::Protocol(Cow::from(s.to_string())))?;
+            let response = state.handle(call).await;
+            let response_text = serde_json::to_string(&response)
+                .map_err(|s| Error::Protocol(Cow::from(s.to_string())))?;
+            responses.push(response_text);
+            Ok(responses)
+        })
+        .await?;
 
     //send back responses
-    for response_text in responses
-    {
-       ws_sender.send(Message::text(response_text)).await?
+    for response_text in responses {
+        ws_sender.send(Message::text(response_text)).await?
     }
     Ok(())
-
 }
