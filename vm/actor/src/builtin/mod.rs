@@ -11,7 +11,6 @@ pub mod multisig;
 pub mod network;
 pub mod paych;
 pub mod power;
-pub mod puppet;
 pub mod reward;
 mod shared;
 mod singletons;

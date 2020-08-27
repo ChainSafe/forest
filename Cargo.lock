@@ -1394,6 +1394,7 @@ dependencies = [
 name = "conformance_tests"
 version = "0.1.0"
 dependencies = [
+ "actor",
  "base64 0.12.3",
  "clock",
  "db",
@@ -2624,7 +2625,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "base64 0.12.3",
  "derive_builder",
@@ -3391,6 +3392,7 @@ dependencies = [
 name = "ipld_amt"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "db",
  "forest_cid",
  "forest_encoding",

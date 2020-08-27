@@ -74,23 +74,3 @@ fn simple_send() {
 
     assert_eq!(Some(exp_ret), ret.unwrap().return_bytes);
 }
-
-#[test]
-fn serialize_test() {
-    let mut v: Vec<FailToMarshalCBOR> = vec![];
-
-    // Should pass becuase vec is empty
-    assert!(Serialized::serialize(&v).is_ok());
-
-    v.push(FailToMarshalCBOR::default());
-
-    // Should fail becuase vec is no longer empty
-    assert!(Serialized::serialize(v).is_err());
-
-    let mut v: Vec<Option<FailToMarshalCBOR>> = vec![];
-
-    v.push(Some(FailToMarshalCBOR::default()));
-
-    // SHould only fail if a actual instance of FailToMarshalCBOR is used
-    assert!(Serialized::serialize(v).is_err());
-}

@@ -152,6 +152,7 @@ impl FullTipset {
 
         // sort blocks on creation to allow for more seamless conversions between FullTipset
         // and Tipset
+        #[allow(clippy::unnecessary_sort_by)]
         blocks.sort_by(|block1, block2| block1.header().cmp(block2.header()));
         Ok(Self { blocks })
     }
