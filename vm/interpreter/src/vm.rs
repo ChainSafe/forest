@@ -256,7 +256,7 @@ where
         }
 
         let miner_penalty_amount = &self.base_fee * msg.gas_limit();
-        let mut from_act = match self.state.get_actor(msg.from()) {
+        let from_act = match self.state.get_actor(msg.from()) {
             Ok(from_act) => from_act.ok_or("Failed to retrieve actor state")?,
             Err(_) => {
                 return Ok(ApplyRet {
@@ -315,7 +315,7 @@ where
         };
 
         self.state.mutate_actor(msg.from(), |act| {
-            from_act.deduct_funds(&gas_cost)?;
+            act.deduct_funds(&gas_cost)?;
             act.sequence += 1;
             Ok(())
         })?;
@@ -379,7 +379,14 @@ where
             ExitCode::Ok
         };
 
-        let gas_outputs = compute_gas_outputs(
+        let GasOutputs {
+            base_fee_burn,
+            miner_tip,
+            over_estimation_burn,
+            refund,
+            miner_penalty,
+            ..
+        } = compute_gas_outputs(
             gas_used,
             msg.gas_limit(),
             &self.base_fee,
@@ -392,27 +399,22 @@ where
                 return Err("attempted to transfer negative value into actor".into());
             }
             self.state.mutate_actor(addr, |act| {
-                act.deposit_funds(&gas_outputs.base_fee_burn);
+                act.deposit_funds(&amt);
                 Ok(())
             })?;
             Ok(())
         };
 
-        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &gas_outputs.base_fee_burn)?;
+        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
 
-        transfer_to_actor(&*REWARD_ACTOR_ADDR, &gas_outputs.miner_tip)?;
+        transfer_to_actor(&*REWARD_ACTOR_ADDR, &miner_tip)?;
 
-        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &gas_outputs.over_estimation_burn)?;
+        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
 
         // refund unused gas
-        transfer_to_actor(msg.from(), &gas_outputs.refund)?;
+        transfer_to_actor(msg.from(), &refund)?;
 
-        if &gas_outputs.base_fee_burn
-            + gas_outputs.over_estimation_burn
-            + &gas_outputs.refund
-            + &gas_outputs.miner_tip
-            != gas_cost
-        {
+        if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
             return Err("Gas handling math is wrong".to_owned());
         }
 
@@ -422,9 +424,9 @@ where
                 exit_code: err_code,
                 gas_used,
             },
-            penalty: gas_outputs.miner_penalty,
+            penalty: miner_penalty,
             act_error: act_err,
-            miner_tip: gas_outputs.miner_tip,
+            miner_tip,
         })
     }
     /// Instantiates a new Runtime, and calls internal_send to do the execution.
@@ -481,19 +483,21 @@ fn compute_gas_outputs(
     fee_cap: &TokenAmount,
     gas_premium: TokenAmount,
 ) -> GasOutputs {
-    let gas_used_big: BigInt = 0.into();
     let mut base_fee_to_pay = base_fee;
     let mut out = GasOutputs::default();
 
     if base_fee > fee_cap {
         base_fee_to_pay = fee_cap;
-        out.miner_penalty = (base_fee - fee_cap) * gas_used_big
+        out.miner_penalty = (base_fee - fee_cap) * gas_used
     }
+    out.base_fee_burn = base_fee_to_pay * gas_used;
+
     let mut miner_tip = gas_premium;
     if &(base_fee_to_pay + &miner_tip) > fee_cap {
         miner_tip = fee_cap - base_fee_to_pay;
     }
     out.miner_tip = &miner_tip * gas_limit;
+
     let (out_gas_refund, out_gas_burned) = compute_gas_overestimation_burn(gas_used, gas_limit);
     out.gas_refund = out_gas_refund;
     out.gas_burned = out_gas_burned;
