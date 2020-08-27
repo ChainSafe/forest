@@ -431,7 +431,7 @@ where
     }
     /// Instantiates a new Runtime, and calls internal_send to do the execution.
     #[allow(clippy::type_complexity)]
-    fn send<'m>(
+    fn send(
         &mut self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
