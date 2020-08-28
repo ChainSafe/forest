@@ -28,6 +28,7 @@ members = [
     "ipld/graphsync",
     "utils/bigint",
     "tests/serialization_tests",
+    "tests/conformance_tests",
     "utils/bitfield",
     "utils/test_utils",
     "utils/commcid",

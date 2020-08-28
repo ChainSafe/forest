@@ -2,7 +2,7 @@
 name = "forest_cid"
 description = "A Cid library used in Forest for the Filecoin protocol"
 license = "MIT OR Apache-2.0"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
@@ -18,7 +18,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 serde_cbor = { version = "0.11.0", features = ["tags"], optional = true }
 serde_bytes = { version = "0.11.3", optional = true }
 thiserror = "1.0"
-forest_json_utils = { path = "../../utils/json_utils", optional = true }
+forest_json_utils = { path = "../../utils/json_utils", optional = true, version = "0.1" }
 
 [dev-dependencies]
 serde_json = "1.0"

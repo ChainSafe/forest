@@ -8,15 +8,18 @@ pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
 use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
-use encoding::to_vec;
+use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Sign};
 use num_derive::FromPrimitive;
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{
-    ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
+
+// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
 
 /// Payment Channel actor methods available
 #[derive(FromPrimitive)]
@@ -46,7 +49,11 @@ impl Actor {
 
         let from = Self::resolve_account(rt, &params.from)?;
 
-        rt.create(&State::new(from, to))?;
+        let empty_arr_cid = Amt::<(), _>::new(rt.store())
+            .flush()
+            .map_err(|e| actor_error!(ErrIllegalState; "failed to create empty AMT: {}", e))?;
+
+        rt.create(&State::new(from, to, empty_arr_cid))?;
         Ok(())
     }
 
@@ -58,18 +65,20 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let resolved = rt.resolve_address(raw)?;
+        let resolved = rt
+            .resolve_address(raw)?
+            .ok_or_else(|| actor_error!(ErrNotFound; "failed to resolve address {}", raw))?;
 
-        let code_cid = rt.get_actor_code_cid(&resolved)?;
+        let code_cid = rt
+            .get_actor_code_cid(&resolved)?
+            .ok_or_else(|| actor_error!(ErrForbidden; "no code for address {}", raw))?;
 
         if code_cid != *ACCOUNT_ACTOR_CODE_ID {
-            Err(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                format!(
-                    "actor {} must be an account ({}), was {}",
-                    raw, &*ACCOUNT_ACTOR_CODE_ID, code_cid
+            Err(
+                actor_error!(ErrForbidden; "actor {} must be an account ({}), was {}",
+                    raw, *ACCOUNT_ACTOR_CODE_ID, code_cid
                 ),
-            ))
+            )
         } else {
             Ok(resolved)
         }
@@ -91,38 +100,47 @@ impl Actor {
         } else {
             st.from
         };
-
         let sv = params.sv;
+
         // Pull signature from signed voucher
         let sig = sv
             .signature
             .as_ref()
-            .ok_or_else(|| rt.abort(ExitCode::ErrIllegalArgument, "voucher has no signature"))?;
+            .ok_or_else(|| actor_error!(ErrIllegalArgument; "voucher has no signature"))?;
 
         // Generate unsigned bytes
-        let sv_bz = to_vec(&sv).map_err(|_| {
-            rt.abort(
-                ExitCode::ErrIllegalArgument,
-                "failed to serialize SignedVoucher",
-            )
-        })?;
+        let sv_bz = sv.signing_bytes().map_err(
+            |e| actor_error!(ErrIllegalArgument; "failed to serialized SignedVoucher: {}", e),
+        )?;
 
         // Validate signature
         rt.syscalls()
             .verify_signature(&sig, &signer, &sv_bz)
-            .map_err(|e| {
-                ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    format!("voucher signature invalid: {}", e),
-                )
+            .map_err(|e| match e.downcast::<ActorError>() {
+                Ok(actor_err) => *actor_err,
+                Err(other) => {
+                    actor_error!(ErrIllegalArgument; "voucher signature invalid: {}", other)
+                }
             })?;
 
+        let pch_addr = rt.message().receiver();
+        if pch_addr != &sv.channel_addr {
+            return Err(actor_error!(ErrIllegalArgument;
+                    "voucher payment channel address {} does not match receiver {}",
+                    sv.channel_addr, pch_addr));
+        }
+
         if rt.curr_epoch() < sv.time_lock_min {
-            return Err(rt.abort(ExitCode::ErrIllegalArgument, "cannot use this voucher yet"));
+            return Err(actor_error!(ErrIllegalArgument; "cannot use this voucher yet"));
         }
 
         if sv.time_lock_max != 0 && rt.curr_epoch() > sv.time_lock_max {
-            return Err(rt.abort(ExitCode::ErrIllegalArgument, "this voucher has expired"));
+            return Err(actor_error!(ErrIllegalArgument; "this voucher has expired"));
+        }
+
+        if sv.amount.sign() == Sign::Minus {
+            return Err(actor_error!(ErrIllegalArgument;
+                    "voucher amount must be non-negative, was {}", sv.amount));
         }
 
         if !sv.secret_pre_image.is_empty() {
@@ -131,104 +149,87 @@ impl Actor {
                 .hash_blake2b(&params.secret)
                 .map_err(|e| *e.downcast::<ActorError>().unwrap())?;
             if hashed_secret != sv.secret_pre_image.as_slice() {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    "incorrect secret".to_owned(),
-                ));
+                return Err(actor_error!(ErrIllegalArgument; "incorrect secret"));
             }
         }
 
         if let Some(extra) = &sv.extra {
             rt.send(
-                &extra.actor,
+                extra.actor,
                 extra.method,
-                &Serialized::serialize(PaymentVerifyParams {
+                Serialized::serialize(PaymentVerifyParams {
                     extra: extra.data.clone(),
                     proof: params.proof,
                 })?,
-                &TokenAmount::from(0u8),
-            )?;
+                TokenAmount::from(0u8),
+            )
+            .map_err(|e| e.wrap("spend voucher verification failed"))?;
         }
 
-        let curr_bal = rt.current_balance()?;
-        rt.transaction(|st: &mut State, _| {
+        rt.transaction(|st: &mut State, rt| {
+            let mut l_states = Amt::load(&st.lane_states, rt.store())
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load lane states {}", e))?;
+
             // Find the voucher lane, create and insert it in sorted order if necessary.
-            let (idx, exists) = find_lane(&st.lane_states, sv.lane);
-            if !exists {
-                if st.lane_states.len() >= LANE_LIMIT {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        "lane limit exceeded".to_owned(),
-                    ));
+            let lane_id = sv.lane;
+            let lane_state = find_lane(&l_states, lane_id)?;
+
+            let mut lane_state = if let Some(state) = lane_state {
+                if state.nonce >= sv.nonce {
+                    return Err(actor_error!(ErrIllegalArgument;
+                        "voucher has an outdated nonce, existing: {}, voucher: {}, cannot redeem",
+                        state.nonce, sv.nonce));
                 }
-                let tmp_ls = LaneState {
-                    id: sv.lane,
-                    redeemed: BigInt::zero(),
-                    nonce: 0,
-                };
-                st.lane_states.insert(idx, tmp_ls);
+                state
+            } else {
+                LaneState::default()
             };
-            // let mut ls = st.lane_states[idx].clone();
 
-            if st.lane_states[idx].nonce > sv.nonce {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalArgument,
-                    "voucher has an outdated nonce, cannot redeem".to_owned(),
-                ));
-            }
-
-            // The next section actually calculates the payment amounts to update the payment channel state
+            // The next section actually calculates the payment amounts to update
+            // the payment channel state
             // 1. (optional) sum already redeemed value of all merging lanes
-            let mut redeemed = BigInt::default();
+            let mut redeemed_from_others = BigInt::default();
             for merge in sv.merges {
                 if merge.lane == sv.lane {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        "voucher cannot merge lanes into it's own lane".to_owned(),
-                    ));
+                    return Err(actor_error!(ErrIllegalArgument;
+                        "voucher cannot merge lanes into it's own lane"));
                 }
-                let (idx, exists) = find_lane(&st.lane_states, merge.lane);
-                if exists {
-                    if st.lane_states[idx].nonce >= merge.nonce {
-                        return Err(ActorError::new(
-                            ExitCode::ErrIllegalArgument,
-                            "merged lane in voucher has outdated nonce, cannot redeem".to_owned(),
-                        ));
-                    }
+                let mut other_ls = find_lane(&l_states, merge.lane)?.ok_or_else(|| {
+                    actor_error!(ErrIllegalArgument;
+                        "voucher specifies invalid merge lane {}", merge.lane)
+                })?;
 
-                    redeemed += &st.lane_states[idx].redeemed;
-                    st.lane_states[idx].nonce = merge.nonce;
-                } else {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!("voucher specifies invalid merge lane {}", merge.lane),
-                    ));
+                if other_ls.nonce >= merge.nonce {
+                    return Err(actor_error!(ErrIllegalArgument;
+                            "merged lane in voucher has outdated nonce, cannot redeem"));
                 }
+
+                redeemed_from_others += &other_ls.redeemed;
+                other_ls.nonce = merge.nonce;
+                l_states.set(merge.lane, other_ls).map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to store lane {}: {}", merge.lane, e),
+                )?;
             }
 
             // 2. To prevent double counting, remove already redeemed amounts (from
             // voucher or other lanes) from the voucher amount
-            st.lane_states[idx].nonce = sv.nonce;
-            let balance_delta = &sv.amount - (redeemed + &st.lane_states[idx].redeemed);
+            lane_state.nonce = sv.nonce;
+            let balance_delta = &sv.amount - (redeemed_from_others + &lane_state.redeemed);
 
             // 3. set new redeemed value for merged-into lane
-            st.lane_states[idx].redeemed = sv.amount;
+            lane_state.redeemed = sv.amount;
 
             // 4. check operation validity
-            let new_send_balance = st.to_send.clone() + balance_delta;
+            let new_send_balance = balance_delta + &st.to_send;
 
-            if new_send_balance < TokenAmount::from(0u8) {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "voucher would leave channel balance negative".to_owned(),
-                ));
+            if new_send_balance < TokenAmount::from(0) {
+                return Err(actor_error!(ErrIllegalArgument;
+                    "voucher would leave channel balance negative"));
             }
 
-            if new_send_balance > curr_bal {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "not enough funds in channel to cover voucher".to_owned(),
-                ));
+            if new_send_balance > rt.current_balance()? {
+                return Err(actor_error!(ErrIllegalArgument;
+                    "not enough funds in channel to cover voucher"));
             }
 
             // 5. add new redemption ToSend
@@ -243,6 +244,14 @@ impl Actor {
                     st.min_settle_height = sv.min_settle_height;
                 }
             }
+
+            l_states.set(lane_id, lane_state).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to store lane {}: {}", lane_id, e),
+            )?;
+
+            st.lane_states = l_states
+                .flush()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to save lanes: {}", e))?;
             Ok(())
         })?
     }
@@ -252,19 +261,14 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let epoch = rt.curr_epoch();
-        let st: State = rt.state()?;
-        rt.validate_immediate_caller_is([st.from, st.to].iter())?;
+        rt.transaction(|st: &mut State, rt| {
+            rt.validate_immediate_caller_is([st.from, st.to].iter())?;
 
-        rt.transaction(|st: &mut State, _| {
             if st.settling_at != 0 {
-                return Err(ActorError::new(
-                    ExitCode::ErrIllegalState,
-                    "channel already settling".to_owned(),
-                ));
+                return Err(actor_error!(ErrIllegalState; "channel already settling"));
             }
 
-            st.settling_at = epoch + SETTLE_DELAY;
+            st.settling_at = rt.curr_epoch() + SETTLE_DELAY;
             if st.settling_at < st.min_settle_height {
                 st.settling_at = st.min_settle_height;
             }
@@ -282,43 +286,31 @@ impl Actor {
         rt.validate_immediate_caller_is(&[st.from, st.to])?;
 
         if st.settling_at == 0 || rt.curr_epoch() < st.settling_at {
-            return Err(rt.abort(
-                ExitCode::ErrForbidden,
-                "payment channel not settling or settled",
-            ));
+            return Err(actor_error!(ErrForbidden; "payment channel not settling or settled"));
         }
 
-        // TODO revisit: Spec doesn't check this, could be possible balance is below to_send?
-        let rem_bal = rt
-            .current_balance()?
-            .checked_sub(&st.to_send)
-            .ok_or_else(|| {
-                rt.abort(
-                    ExitCode::ErrInsufficientFunds,
-                    "Cannot send more than remaining balance",
-                )
-            })?;
-
-        // send remaining balance to `from`
-        rt.send(&st.from, METHOD_SEND, &Serialized::default(), &rem_bal)?;
-
         // send ToSend to `to`
-        rt.send(&st.to, METHOD_SEND, &Serialized::default(), &st.to_send)?;
+        rt.send(st.to, METHOD_SEND, Serialized::default(), st.to_send)
+            .map_err(|e| e.wrap("Failed to send funds to `to` address"))?;
 
-        rt.transaction(|st: &mut State, _| {
-            st.to_send = TokenAmount::from(0u8);
+        // the remaining balance will be returned to "From" upon deletion.
+        rt.delete_actor(&st.from)?;
 
-            Ok(())
-        })?
+        Ok(())
     }
 }
 
 #[inline]
-fn find_lane(lanes: &[LaneState], id: u64) -> (usize, bool) {
-    match lanes.binary_search_by(|lane| lane.id.cmp(&id)) {
-        Ok(idx) => (idx, true),
-        Err(idx) => (idx, false),
+fn find_lane<BS>(ls: &Amt<LaneState, BS>, id: u64) -> Result<Option<LaneState>, ActorError>
+where
+    BS: BlockStore,
+{
+    if id > MAX_LANE as u64 {
+        return Err(actor_error!(ErrIllegalArgument; "maximum lane ID is 2^63-1"));
     }
+
+    ls.get(id)
+        .map_err(|e| actor_error!(ErrIllegalState; "failed to load lane {}: {}", id, e))
 }
 
 impl ActorCode for Actor {
@@ -334,7 +326,11 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize().unwrap())?;
+                Self::constructor(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::UpdateChannelState) => {
+                Self::update_channel_state(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             Some(Method::Settle) => {
@@ -347,11 +343,7 @@ impl ActorCode for Actor {
                 Self::collect(rt)?;
                 Ok(Serialized::default())
             }
-            Some(Method::UpdateChannelState) => {
-                Self::update_channel_state(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
-            }
-            _ => Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method")),
+            _ => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }

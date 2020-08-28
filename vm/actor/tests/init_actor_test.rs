@@ -89,7 +89,8 @@ fn create_2_payment_channels() {
         let state: State = rt.get_state().unwrap();
         let returned_address = state
             .resolve_address(&rt.store, &unique_address)
-            .expect("Address should have been found");
+            .expect("Resolve should not error")
+            .expect("Address should be able to be resolved");
 
         assert_eq!(returned_address, expected_id_addr, "Wrong Address returned");
     }
@@ -135,14 +136,18 @@ fn create_storage_miner() {
     let state: State = rt.get_state().unwrap();
     let returned_address = state
         .resolve_address(&rt.store, &unique_address)
-        .expect("Address should have been found");
+        .expect("Resolve should not error")
+        .expect("Address should be able to be resolved");
     assert_eq!(expected_id_addr, returned_address);
 
     // Should return error since the address of flurbo is unknown
     let unknown_addr = Address::new_actor(b"flurbo");
-    state
-        .resolve_address(&rt.store, &unknown_addr)
-        .expect_err("Address should have not been found");
+
+    let returned_address = state.resolve_address(&rt.store, &unknown_addr).unwrap();
+    assert_eq!(
+        returned_address, None,
+        "Addresses should have not been found"
+    );
 }
 
 #[test]
@@ -154,7 +159,7 @@ fn create_multisig_actor() {
     let some_acc_actor = Address::new_id(1234);
     rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), some_acc_actor);
 
-    //Assign addresses
+    // Assign addresses
     let unique_address = Address::new_actor(b"multisig");
     rt.new_actor_addr = Some(unique_address.clone());
 
@@ -199,7 +204,7 @@ fn sending_constructor_failure() {
         STORAGE_POWER_ACTOR_ADDR.clone(),
     );
 
-    //Assign new address for the storage actor miner
+    // Assign new address for the storage actor miner
     let unique_address = Address::new_actor(b"miner");
     rt.new_actor_addr = Some(unique_address.clone());
 
@@ -232,18 +237,15 @@ fn sending_constructor_failure() {
 
     let state: State = rt.get_state().unwrap();
 
-    let returned_address = state
-        .resolve_address(&rt.store, &unique_address)
-        .expect_err("Address resolution should have failed");
-
+    let returned_address = state.resolve_address(&rt.store, &unique_address).unwrap();
     assert_eq!(
-        returned_address, "Address not found",
+        returned_address, None,
         "Addresses should have not been found"
     );
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(&[SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
     let params = ConstructorParams {
         network_name: "mock".to_string(),
     };

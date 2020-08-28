@@ -8,12 +8,12 @@ use std::cmp::Ordering;
 #[derive(Debug, Clone)]
 pub struct HashBits<'a> {
     b: &'a HashedKey,
-    pub consumed: u8,
+    pub consumed: u32,
 }
 
 #[inline]
-fn mkmask(n: u8) -> u8 {
-    ((1u64 << n) - 1) as u8
+fn mkmask(n: u32) -> u32 {
+    ((1u64 << n) - 1) as u32
 }
 
 impl<'a> HashBits<'a> {
@@ -22,7 +22,7 @@ impl<'a> HashBits<'a> {
     }
 
     /// Constructs hash bits with custom consumed index
-    pub fn new_at_index(hash_buffer: &'a HashedKey, consumed: u8) -> HashBits<'a> {
+    pub fn new_at_index(hash_buffer: &'a HashedKey, consumed: u32) -> HashBits<'a> {
         Self {
             b: hash_buffer,
             consumed,
@@ -31,7 +31,7 @@ impl<'a> HashBits<'a> {
 
     /// Returns next `i` bits of the hash and returns the value as an integer and returns
     /// Error when maximum depth is reached
-    pub fn next(&mut self, i: u8) -> Result<u8, Error> {
+    pub fn next(&mut self, i: u32) -> Result<u32, Error> {
         if i > 8 {
             return Err(Error::InvalidHashBitLen);
         }
@@ -41,11 +41,11 @@ impl<'a> HashBits<'a> {
         Ok(self.next_bits(i))
     }
 
-    fn next_bits(&mut self, i: u8) -> u8 {
+    fn next_bits(&mut self, i: u32) -> u32 {
         let curbi = self.consumed / 8;
         let leftb = 8 - (self.consumed % 8);
 
-        let curb = self.b[curbi as usize];
+        let curb = self.b[curbi as usize] as u32;
         match i.cmp(&leftb) {
             Ordering::Equal => {
                 // bits to consume is equal to the bits remaining in the currently indexed byte
@@ -67,7 +67,7 @@ impl<'a> HashBits<'a> {
                 out <<= i - leftb;
                 self.consumed += leftb;
                 out += self.next_bits(i - leftb) as u64;
-                out as u8
+                out as u32
             }
         }
     }
@@ -79,9 +79,11 @@ mod tests {
 
     #[test]
     fn test_bitfield() {
-        let key: HashedKey = [
-            0b10001000, 0b10101010, 0b10111111, 0b11111111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ];
+        let mut key: HashedKey = Default::default();
+        key[0] = 0b10001000;
+        key[1] = 0b10101010;
+        key[2] = 0b10111111;
+        key[3] = 0b11111111;
         let mut hb = HashBits::new(&key);
         // Test eq cmp
         assert_eq!(hb.next(8).unwrap(), 0b10001000);
@@ -92,7 +94,7 @@ mod tests {
         assert_eq!(hb.next(6).unwrap(), 0b111111);
         assert_eq!(hb.next(8).unwrap(), 0b11111111);
         assert_eq!(hb.next(9), Err(Error::InvalidHashBitLen));
-        for _ in 0..12 {
+        for _ in 0..28 {
             // Iterate through rest of key to test depth
             hb.next(8).unwrap();
         }

@@ -16,7 +16,7 @@ use async_std::sync::{Receiver, RwLock, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use chain::ChainStore;
+use chain::{persist_objects, ChainStore};
 use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
 use core::time::Duration;
@@ -224,9 +224,10 @@ where
 
         // Persist header chain pulled from network
         self.set_stage(SyncStage::PersistHeaders).await;
-        if let Err(e) = self.persist_headers(&tipsets).await {
+        let headers: Vec<&BlockHeader> = tipsets.iter().map(|t| t.blocks()).flatten().collect();
+        if let Err(e) = persist_objects(self.chain_store.blockstore(), &headers) {
             self.state.write().await.error(e.to_string());
-            return Err(e);
+            return Err(e.into());
         }
 
         // Sync and validate messages from fetched tipsets
@@ -236,6 +237,9 @@ where
             return Err(e);
         }
         self.set_stage(SyncStage::Complete).await;
+
+        // At this point the head is synced and the head can be set as the heaviest.
+        self.chain_store.put_tipset(head.as_ref()).await?;
 
         Ok(())
     }
@@ -472,7 +476,7 @@ where
         block: Block,
         tip: Tipset,
     ) -> Result<(), Error> {
-        //do the initial loop here
+        // do the initial loop here
         // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
@@ -638,6 +642,19 @@ where
             Err(err) => error_vec.push(err.to_string()),
         }
 
+        // base fee check
+        let base_fee = chain::compute_base_fee(self.chain_store.db.as_ref(), &parent_tipset)
+            .map_err(|e| {
+                Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
+            })?;
+        if &base_fee != block.header().parent_base_fee() {
+            error_vec.push(format!(
+                "base fee doesnt match: {} (header), {} (computed)",
+                block.header().parent_base_fee(),
+                base_fee
+            ));
+        }
+
         let slash = self
             .state_manager
             .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
@@ -649,9 +666,11 @@ where
             error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
 
-        let prev_beacon = self
-            .chain_store
-            .latest_beacon_entry(&self.chain_store.tipset_from_keys(header.parents())?)?;
+        let prev_beacon = chain::latest_beacon_entry(
+            self.chain_store.blockstore(),
+            &self.chain_store.tipset_from_keys(header.parents())?,
+        )?;
+
         header
             .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
             .await?;
@@ -661,11 +680,11 @@ where
             .get_power(&parent_tipset.parent_state(), header.miner_address());
         // ticket winner check
         match power_result {
-            Ok(pow_tuple) => {
-                let (c_pow, net_pow) = pow_tuple;
-                if !header.is_ticket_winner(c_pow, net_pow) {
-                    error_vec.push("Miner created a block but was not a winner".to_owned())
-                }
+            Ok((_c_pow, _net_pow)) => {
+                // TODO this doesn't seem to be checked currently
+                // if !header.is_ticket_winner(c_pow, net_pow) {
+                //     error_vec.push("Miner created a block but was not a winner".to_owned())
+                // }
             }
             Err(err) => error_vec.push(err.to_string()),
         }
@@ -932,14 +951,6 @@ where
         ))
     }
 
-    /// Persists headers from tipset slice to chain store
-    async fn persist_headers(&mut self, tipsets: &[Tipset]) -> Result<(), Error> {
-        for tipset in tipsets.iter() {
-            self.chain_store.put_tipsets(tipset).await?
-        }
-        Ok(())
-    }
-
     /// Sets the managed sync status
     pub async fn set_stage(&mut self, new_stage: SyncStage) {
         debug!("Sync stage set to: {}", new_stage);
@@ -1100,7 +1111,7 @@ mod tests {
         let (bls, secp) = construct_messages();
 
         let expected_root =
-            Cid::from_raw_cid("bafy2bzacecujyfvb74s7xxnlajidxpgcpk6abyatk62dlhgq6gcob3iixhgom")
+            Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
         let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
@@ -1119,7 +1130,7 @@ mod tests {
             compute_msg_meta(&blockstore, &usm, &sm)
                 .unwrap()
                 .to_string(),
-            "bafy2bzacecgw6dqj4bctnbnyqfujltkwu7xc7ttaaato4i5miroxr4bayhfea"
+            "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
         );
     }
 }

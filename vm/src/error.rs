@@ -1,13 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::ExitCode;
 use encoding::Error as EncodingError;
+use std::error::Error as StdError;
 use thiserror::Error;
 
-use crate::ExitCode;
-
 /// The error type that gets returned by actor method calls.
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, Clone, PartialEq)]
 #[error("ActorError(fatal: {fatal}, exit_code: {exit_code:?}, msg: {msg})")]
 pub struct ActorError {
     /// Is this a fatal error.
@@ -35,16 +35,38 @@ impl ActorError {
         }
     }
 
+    /// Downcast a dynamic std Error into an ActorError
+    pub fn downcast(error: Box<dyn StdError>, default_exit_code: ExitCode, msg: &str) -> Self {
+        match error.downcast::<ActorError>() {
+            Ok(actor_err) => actor_err.wrap(msg),
+            Err(other) => ActorError::new(default_exit_code, format!("{}: {}", msg, other)),
+        }
+    }
+
+    /// Returns true if error is fatal.
     pub fn is_fatal(&self) -> bool {
         self.fatal
     }
 
+    /// Returns the exit code of the error.
     pub fn exit_code(&self) -> ExitCode {
         self.exit_code
     }
 
+    /// Returns true when the exit code is `Ok`.
+    pub fn is_ok(&self) -> bool {
+        self.exit_code == ExitCode::Ok
+    }
+
+    /// Error message of the actor error.
     pub fn msg(&self) -> &str {
         &self.msg
+    }
+
+    /// Prefix error message with a string message.
+    pub fn wrap(mut self, msg: &str) -> Self {
+        self.msg = format!("{}: {}", msg, self.msg);
+        self
     }
 }
 

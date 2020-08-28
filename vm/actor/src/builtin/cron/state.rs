@@ -6,6 +6,8 @@ use encoding::{tuple::*, Cbor};
 use serde::{Deserialize, Serialize};
 use vm::MethodNum;
 
+// TODO setup builtin entries for genesis initialization
+
 /// Cron actor state which holds entries to call during epoch tick
 #[derive(Default, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -16,7 +18,9 @@ pub struct State {
 
 #[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Entry {
+    /// The actor to call (ID address)
     pub receiver: Address,
+    /// The method number to call (must accept empty parameters)
     pub method_num: MethodNum,
 }
 

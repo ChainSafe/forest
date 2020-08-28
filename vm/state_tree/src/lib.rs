@@ -4,17 +4,16 @@
 use actor::{init, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
 use cid::{multihash::Blake2b256, Cid};
+use fil_types::HAMT_BIT_WIDTH;
 use fnv::FnvHashMap;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{BytesKey, Hamt};
+use ipld_hamt::Hamt;
 use parking_lot::RwLock;
 use vm::ActorState;
 
-const TREE_BIT_WIDTH: u8 = 5;
-
 /// State tree implementation using hamt
 pub struct StateTree<'db, S> {
-    hamt: Hamt<'db, BytesKey, S>,
+    hamt: Hamt<'db, S>,
 
     // TODO switch to using state change cache: https://github.com/ChainSafe/forest/issues/373
     actor_cache: RwLock<FnvHashMap<Address, ActorState>>,
@@ -25,7 +24,7 @@ where
     S: BlockStore,
 {
     pub fn new(store: &'db S) -> Self {
-        let hamt = Hamt::new_with_bit_width(store, TREE_BIT_WIDTH);
+        let hamt = Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH);
         Self {
             hamt,
             actor_cache: RwLock::new(FnvHashMap::default()),
@@ -35,7 +34,7 @@ where
     /// Constructor for a hamt state tree given an IPLD store
     pub fn new_from_root(store: &'db S, root: &Cid) -> Result<Self, String> {
         let hamt =
-            Hamt::load_with_bit_width(root, store, TREE_BIT_WIDTH).map_err(|e| e.to_string())?;
+            Hamt::load_with_bit_width(root, store, HAMT_BIT_WIDTH).map_err(|e| e.to_string())?;
         Ok(Self {
             hamt,
             actor_cache: RwLock::new(FnvHashMap::default()),
@@ -49,7 +48,10 @@ where
 
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, String> {
-        let addr = self.lookup_id(addr)?;
+        let addr = match self.lookup_id(addr)? {
+            Some(addr) => addr,
+            None => return Ok(None),
+        };
 
         // Check cache for actor state
         if let Some(actor_state) = self.actor_cache.read().get(&addr) {
@@ -69,7 +71,9 @@ where
 
     /// Set actor state for an address. Will set state at ID address.
     pub fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), String> {
-        let addr = self.lookup_id(addr)?;
+        let addr = self
+            .lookup_id(addr)?
+            .ok_or_else(|| format!("Resolution lookup failed for {}", addr))?;
 
         // Set actor state in cache
         if let Some(act) = self.actor_cache.write().insert(addr, actor.clone()) {
@@ -88,9 +92,9 @@ where
     }
 
     /// Get an ID address from any Address
-    pub fn lookup_id(&self, addr: &Address) -> Result<Address, String> {
+    pub fn lookup_id(&self, addr: &Address) -> Result<Option<Address>, String> {
         if addr.protocol() == Protocol::ID {
-            return Ok(*addr);
+            return Ok(Some(*addr));
         }
 
         let init_act = self
@@ -104,12 +108,14 @@ where
             .map_err(|e| e.to_string())?
             .ok_or("Could not resolve init actor state")?;
 
-        Ok(state.resolve_address(self.store(), addr)?)
+        state.resolve_address(self.store(), addr)
     }
 
     /// Delete actor for an address. Will resolve to ID address to delete.
     pub fn delete_actor(&mut self, addr: &Address) -> Result<(), String> {
-        let addr = self.lookup_id(addr)?;
+        let addr = self
+            .lookup_id(addr)?
+            .ok_or_else(|| format!("Resolution lookup failed for {}", addr))?;
 
         // Remove value from cache
         self.actor_cache.write().remove(&addr);
@@ -138,11 +144,7 @@ where
     }
 
     /// Register a new address through the init actor.
-    pub fn register_new_address(
-        &mut self,
-        addr: &Address,
-        actor: ActorState,
-    ) -> Result<Address, String> {
+    pub fn register_new_address(&mut self, addr: &Address) -> Result<Address, String> {
         let mut init_act: ActorState = self
             .get_actor(&INIT_ACTOR_ADDR)?
             .ok_or("Could not retrieve init actor")?;
@@ -167,9 +169,6 @@ where
             .map_err(|e| e.to_string())?;
 
         self.set_actor(&INIT_ACTOR_ADDR, init_act)?;
-
-        // After mutating the init actor, set the state at the ID address created
-        self.set_actor(&new_addr, actor)?;
 
         Ok(new_addr)
     }

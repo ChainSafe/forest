@@ -14,7 +14,9 @@ lazy_static! {
     pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/paymentchannel");
     pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/multisig");
     pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/reward");
-    pub static ref VERIFIED_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/verifiedregistry");
+    pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/verifiedregistry");
+    pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/chaos");
+    pub static ref PUPPET_ACTOR_CODE_ID : Cid = make_builtin(b"fil/1/puppet");
 
     // Set of actor code types that can represent external signing parties.
     pub static ref CALLER_TYPES_SIGNABLE: [Cid; 2] =
@@ -23,6 +25,32 @@ lazy_static! {
 
 fn make_builtin(bz: &[u8]) -> Cid {
     Cid::new_v1(Codec::Raw, Identity::digest(bz))
+}
+
+/// Returns true if the code `Cid` belongs to a builtin actor.
+pub fn is_builtin_actor(code: &Cid) -> bool {
+    code == &*SYSTEM_ACTOR_CODE_ID
+        || code == &*INIT_ACTOR_CODE_ID
+        || code == &*CRON_ACTOR_CODE_ID
+        || code == &*ACCOUNT_ACTOR_CODE_ID
+        || code == &*POWER_ACTOR_CODE_ID
+        || code == &*MINER_ACTOR_CODE_ID
+        || code == &*MARKET_ACTOR_CODE_ID
+        || code == &*PAYCH_ACTOR_CODE_ID
+        || code == &*MULTISIG_ACTOR_CODE_ID
+        || code == &*REWARD_ACTOR_CODE_ID
+        || code == &*VERIFREG_ACTOR_CODE_ID
+}
+
+/// Returns true if the code belongs to a singleton actor.
+pub fn is_singleton_actor(code: &Cid) -> bool {
+    code == &*SYSTEM_ACTOR_CODE_ID
+        || code == &*INIT_ACTOR_CODE_ID
+        || code == &*REWARD_ACTOR_CODE_ID
+        || code == &*CRON_ACTOR_CODE_ID
+        || code == &*POWER_ACTOR_CODE_ID
+        || code == &*MARKET_ACTOR_CODE_ID
+        || code == &*VERIFREG_ACTOR_CODE_ID
 }
 
 // Tests whether a code CID represents an actor that can be an external principal: i.e. an account or multisig.

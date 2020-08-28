@@ -3,6 +3,7 @@
 
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
+use address::Address;
 use beacon::BeaconEntry;
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -16,10 +17,12 @@ use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
-use message::{SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, Sign};
+use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use num_bigint::BigInt;
 use num_traits::Zero;
+use serde::Serialize;
 use state_tree::StateTree;
+use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -35,9 +38,17 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
 
+/// Enum for pubsub channel that defines message type variant and data contained in message type.
+#[derive(Clone, Debug)]
+pub enum HeadChange {
+    Current(Arc<Tipset>),
+    Apply(Arc<Tipset>),
+    Revert(Arc<Tipset>),
+}
+
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
-    publisher: Publisher<Arc<Tipset>>,
+    publisher: Publisher<HeadChange>,
 
     // key-value datastore
     pub db: Arc<DB>,
@@ -70,12 +81,12 @@ where
     pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         self.heaviest = Some(ts.clone());
-        self.publisher.publish(ts).await;
+        self.publisher.publish(HeadChange::Current(ts)).await;
         Ok(())
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub fn subscribe(&mut self) -> Subscriber<Arc<Tipset>> {
+    pub fn subscribe(&mut self) -> Subscriber<HeadChange> {
         self.publisher.subscribe()
     }
 
@@ -92,13 +103,13 @@ where
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&self, header: BlockHeader) -> Result<(), Error> {
+    pub fn set_genesis(&self, header: BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
-    pub async fn put_tipsets(&mut self, ts: &Tipset) -> Result<(), Error> {
-        persist_headers(self.blockstore(), ts.blocks())?;
+    pub async fn put_tipset(&mut self, ts: &Tipset) -> Result<(), Error> {
+        persist_objects(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         self.update_heaviest(ts).await?;
         Ok(())
@@ -106,7 +117,7 @@ where
 
     /// Writes encoded message data to blockstore
     pub fn put_messages<T: Cbor>(&self, msgs: &[T]) -> Result<(), Error> {
-        put_messages(self.blockstore(), msgs)
+        persist_objects(self.blockstore(), msgs)
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
@@ -119,33 +130,15 @@ where
         // set as heaviest tipset
         let heaviest_ts = Arc::new(heaviest_ts);
         self.heaviest = Some(heaviest_ts.clone());
-        self.publisher.publish(heaviest_ts).await;
+        self.publisher
+            .publish(HeadChange::Current(heaviest_ts))
+            .await;
         Ok(())
     }
 
     /// Returns genesis blockheader from blockstore
     pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
         genesis(self.blockstore())
-    }
-
-    /// Finds the latest beacon entry given a tipset up to 20 blocks behind
-    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
-        let mut cur = ts.clone();
-        for _ in 1..20 {
-            let cbe = ts.blocks()[0].beacon_entries();
-            if let Some(entry) = cbe.last() {
-                return Ok(entry.clone());
-            }
-            if cur.epoch() == 0 {
-                return Err(Error::Other(
-                    "made it back to genesis block without finding beacon entry".to_owned(),
-                ));
-            }
-            cur = self.tipset_from_keys(cur.parents())?;
-        }
-        Err(Error::Other(
-            "Found no beacon entries in the 20 blocks prior to the given tipset".to_owned(),
-        ))
     }
 
     /// Returns heaviest tipset from blockstore
@@ -202,7 +195,7 @@ where
 }
 
 /// Returns messages for a given tipset from db
-pub fn messages_for_tipset<DB>(db: &DB, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>
+pub fn unsigned_messages_for_tipset<DB>(db: &DB, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>
 where
     DB: BlockStore,
 {
@@ -264,59 +257,110 @@ where
     }
 }
 
-fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<(), Error>
+fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<Cid, Error>
 where
     DB: BlockStore,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    Ok(persist_headers(db, &[header])?)
+    Ok(db
+        .put(&header, Blake2b256)
+        .map_err(|e| Error::Other(e.to_string()))?)
 }
 
-fn persist_headers<DB>(db: &DB, bh: &[BlockHeader]) -> Result<(), Error>
+/// Persists slice of serializable objects to blockstore.
+pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
     DB: BlockStore,
+    C: Serialize,
 {
-    let mut raw_header_data = Vec::new();
-    let mut keys = Vec::new();
-    // loop through block to push blockheader raw data and cid into vector to be stored
-    for header in bh {
-        if !db.exists(header.cid().key())? {
-            raw_header_data.push(header.marshal_cbor()?);
-            keys.push(header.cid().key());
-        }
-    }
-
-    Ok(db.bulk_write(&keys, &raw_header_data)?)
-}
-
-pub fn put_messages<DB, T: Cbor>(db: &DB, msgs: &[T]) -> Result<(), Error>
-where
-    DB: BlockStore,
-{
-    for m in msgs {
-        db.put(m, Blake2b256)
+    for chunk in headers.chunks(256) {
+        db.bulk_put(chunk, Blake2b256)
             .map_err(|e| Error::Other(e.to_string()))?;
     }
     Ok(())
 }
 
-/// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch, Entropy
-pub fn get_randomness<DB: BlockStore>(
+/// Finds the latest beacon entry given a tipset up to 20 tipsets behind
+pub fn latest_beacon_entry<DB>(db: &DB, ts: &Tipset) -> Result<BeaconEntry, Error>
+where
+    DB: BlockStore,
+{
+    let check_for_beacon_entry = |ts: &Tipset| {
+        let cbe = ts.min_ticket_block().beacon_entries();
+        if let Some(entry) = cbe.last() {
+            return Ok(Some(entry.clone()));
+        }
+        if ts.epoch() == 0 {
+            return Err(Error::Other(
+                "made it back to genesis block without finding beacon entry".to_owned(),
+            ));
+        }
+        Ok(None)
+    };
+
+    if let Some(entry) = check_for_beacon_entry(ts)? {
+        return Ok(entry);
+    }
+    let mut cur = tipset_from_keys(db, ts.parents())?;
+    for i in 1..20 {
+        if i != 1 {
+            cur = tipset_from_keys(db, cur.parents())?;
+        }
+        if let Some(entry) = check_for_beacon_entry(&cur)? {
+            return Ok(entry);
+        }
+    }
+    Err(Error::Other(
+        "Found no beacon entries in the 20 latest tipsets".to_owned(),
+    ))
+}
+
+/// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+/// Entropy from the ticket chain.
+pub fn get_chain_randomness<DB: BlockStore>(
     db: &DB,
     blocks: &TipsetKeys,
     pers: DomainSeparationTag,
     round: ChainEpoch,
     entropy: &[u8],
 ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-    let mut blks = blocks.clone();
-    loop {
-        let nts = tipset_from_keys(db, &blks)?;
-        let mtb = nts.min_ticket_block();
-        if nts.epoch() <= round || mtb.epoch() == 0 {
-            return draw_randomness(mtb.ticket().vrfproof.as_bytes(), pers, round, entropy);
-        }
-        blks = mtb.parents().clone();
+    let ts = tipset_from_keys(db, blocks)?;
+
+    if round > ts.epoch() {
+        return Err("cannot draw randomness from the future".into());
     }
+
+    let search_height = if round < 0 { 0 } else { round };
+
+    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+
+    let mtb = rand_ts.min_ticket_block();
+
+    draw_randomness(mtb.ticket().vrfproof.as_bytes(), pers, round, entropy)
+}
+
+/// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+/// Entropy from the latest beacon entry.
+pub fn get_beacon_randomness<DB: BlockStore>(
+    db: &DB,
+    blocks: &TipsetKeys,
+    pers: DomainSeparationTag,
+    round: ChainEpoch,
+    entropy: &[u8],
+) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    let ts = tipset_from_keys(db, blocks)?;
+
+    if round > ts.epoch() {
+        return Err("cannot draw randomness from the future".into());
+    }
+
+    let search_height = if round < 0 { 0 } else { round };
+
+    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+
+    let be = latest_beacon_entry(db, &rand_ts)?;
+
+    draw_randomness(be.data(), pers, round, entropy)
 }
 
 /// Computes a pseudorandom 32 byte Vec
@@ -356,17 +400,16 @@ pub fn tipset_from_keys<DB>(db: &DB, tsk: &TipsetKeys) -> Result<Tipset, Error>
 where
     DB: BlockStore,
 {
-    let mut block_headers = Vec::new();
-    for c in tsk.cids() {
-        let raw_header = db.read(c.key())?;
-        if let Some(x) = raw_header {
-            // decode raw header into BlockHeader
-            let bh = BlockHeader::unmarshal_cbor(&x)?;
-            block_headers.push(bh);
-        } else {
-            return Err(Error::NotFound("Key for header"));
-        }
-    }
+    let block_headers: Vec<BlockHeader> = tsk
+        .cids()
+        .iter()
+        .map(|c| {
+            db.get(c)
+                .map_err(|e| Error::Other(e.to_string()))?
+                .ok_or_else(|| Error::NotFound("Key for header"))
+        })
+        .collect::<Result<_, Error>>()?;
+
     // construct new Tipset to return
     let ts = Tipset::new(block_headers)?;
     Ok(ts)
@@ -437,6 +480,78 @@ where
     })
 }
 
+/// Attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
+pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
+where
+    DB: BlockStore,
+{
+    let value = db
+        .read(key.key())?
+        .ok_or_else(|| Error::UndefinedKey(key.to_string()))?;
+    if let Ok(message) = from_slice::<UnsignedMessage>(&value) {
+        Ok(ChainMessage::Unsigned(message))
+    } else {
+        let signed_message: SignedMessage = from_slice(&value)?;
+        Ok(ChainMessage::Signed(signed_message))
+    }
+}
+
+/// given a tipset this function will return all messages
+pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
+where
+    DB: BlockStore,
+{
+    let mut applied: HashMap<Address, u64> = HashMap::new();
+    let mut balances: HashMap<Address, BigInt> = HashMap::new();
+    let state = StateTree::new_from_root(db, ts.parent_state())?;
+
+    // message to get all messages for block_header into a single iterator
+    let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
+        let (unsigned, signed) = block_messages(db, b)?;
+        let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
+        let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
+        let signed_box = signed.into_iter().map(ChainMessage::Signed);
+
+        for message in unsigned_box.chain(signed_box) {
+            let from_address = message.from();
+            if applied.contains_key(&from_address) {
+                let actor_state = state
+                    .get_actor(from_address)?
+                    .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
+                applied.insert(*from_address, actor_state.sequence);
+                balances.insert(*from_address, actor_state.balance);
+            }
+            if let Some(seq) = applied.get_mut(from_address) {
+                if *seq != message.sequence() {
+                    continue;
+                }
+                *seq += 1;
+            } else {
+                continue;
+            }
+            if let Some(bal) = balances.get_mut(from_address) {
+                if *bal < message.required_funds() {
+                    continue;
+                }
+                *bal -= message.required_funds();
+            } else {
+                continue;
+            }
+
+            messages.push(message)
+        }
+
+        Ok(messages)
+    };
+
+    ts.blocks().iter().fold(Ok(Vec::new()), |vec, b| {
+        let mut message_vec = vec?;
+        let mut messages = get_message_for_block_header(b)?;
+        message_vec.append(&mut messages);
+        Ok(message_vec)
+    })
+}
+
 /// Returns messages from key-value store
 fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
@@ -445,14 +560,25 @@ where
 {
     keys.iter()
         .map(|k| {
-            let value = db.read(&k.key())?;
-            let bytes = value.ok_or_else(|| Error::UndefinedKey(k.to_string()))?;
-
-            // Decode bytes into type T
-            let t = from_slice(&bytes)?;
-            Ok(t)
+            db.get(k)
+                .map_err(|e| Error::Other(e.to_string()))?
+                .ok_or_else(|| Error::UndefinedKey(k.to_string()))
         })
         .collect()
+}
+
+/// returns message receipt given block_header
+pub fn get_parent_reciept<DB>(
+    db: &DB,
+    block_header: &BlockHeader,
+    i: u64,
+) -> Result<Option<MessageReceipt>, Error>
+where
+    DB: BlockStore,
+{
+    let amt = Amt::load(block_header.message_receipts(), db)?;
+    let receipts = amt.get(i)?;
+    Ok(receipts)
 }
 
 /// Returns the weight of provided tipset
@@ -480,7 +606,7 @@ where
     };
 
     let out_add: BigInt = &log2_p << 8;
-    let mut out = BigInt::from_biguint(Sign::Plus, ts.weight().to_owned()) + out_add;
+    let mut out = ts.weight().to_owned() + out_add;
     let e_weight = ((log2_p * BigInt::from(ts.blocks().len())) * BigInt::from(W_RATIO_NUM)) << 8;
     let value: BigInt = e_weight / (BigInt::from(BLOCKS_PER_EPOCH) * BigInt::from(W_RATIO_DEN));
     out += &value;

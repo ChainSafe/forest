@@ -12,7 +12,7 @@ db = { path = "../../node/db/" }
 encoding = { package = "forest_encoding", path = "../../encoding/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", features = ["buffered"] }
 forest_blocks = { path = "../../blockchain/blocks" }
 thiserror = "1.0"
 interpreter = { path = "../../vm/interpreter/" }
@@ -22,5 +22,14 @@ chain = { path = "../chain" }
 async-std = "1.5.0"
 async-log = "2.0.0"
 log = "0.4.8"
-filecoin-proofs-api = "4.0.1"
 fil_types = { path = "../../types" }
+message = { package = "forest_message", path = "../../vm/message" }
+vm = { package = "forest_vm", path = "../../vm" }
+bitfield = { path = "../../utils/bitfield" }
+serde = { version = "1.0", features = ["derive"] }
+ipld_hamt = { path = "../../ipld/hamt" }
+num-traits = "0.2.11"
+flo_stream = "0.4.0"
+filecoin-proofs-api = "5.1"
+futures = "0.3.5"
+

@@ -39,7 +39,7 @@ const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 #[derive(Debug, Clone)]
 pub enum NetworkEvent {
     PubsubMessage {
-        source: PeerId,
+        source: Option<PeerId>,
         topics: Vec<TopicHash>,
         message: Vec<u8>,
     },
@@ -244,7 +244,9 @@ where
                 rpc_message = network_stream.next() => match rpc_message {
                     Some(message) =>  match message {
                         NetworkMessage::PubsubMessage { topic, message } => {
-                            swarm_stream.get_mut().publish(&topic, message);
+                            if let Err(e) = swarm_stream.get_mut().publish(&topic, message) {
+                                warn!("Failed to send gossipsub message: {:?}", e);
+                            }
                         }
                         NetworkMessage::HelloRequest { peer_id, request } => {
                             let _ = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::Hello(request));
@@ -301,7 +303,7 @@ pub fn get_keypair(path: &str) -> Option<Keypair> {
         }
         Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
             Ok(kp) => {
-                info!("Recovered keystore from {:?}", &path);
+                info!("Recovered libp2p keypair from {:?}", &path);
                 Some(Keypair::Ed25519(kp))
             }
             Err(e) => {

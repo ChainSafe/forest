@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+actor = { path = "../../vm/actor/" }
 async-std = { version = "1.6.0", features = ["attributes"] }
 tide = "0.9.0"
 serde = { version = "1.0.101", default-features = false, features = ["derive"] }
@@ -17,17 +18,25 @@ blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features
 clock = { path = "../clock" }
 message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
 jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
+message_pool = { path = "../../blockchain/message_pool" }
 crypto = { package = "forest_crypto", path = "../../crypto", features = ["json"] }
 num-traits = "0.2.11"
 wallet = {package = "key_management", path = "../../key_management", features = ["json"] }
 state_manager = {package = "state_manager", path = "../../blockchain/state_manager" }
-address = { package = "forest_address", path = "../../vm/address" }
+address = { package = "forest_address", path = "../../vm/address", features = ["json"] }
 encoding = { package = "forest_encoding",  path = "../../encoding/"}
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 thiserror = "1.0"
 state_tree = { path = "../../vm/state_tree" }
 forest_libp2p = { path = "../forest_libp2p" }
+rand_distr = "0.2.2"
+rand = "0.7"
+interpreter = { path = "../../vm/interpreter/" }
+fil_types = { path = "../../types" }
+bitfield = { path = "../../utils/bitfield",features = ["json"] }
 
 [dev-dependencies]
 db = { path = "../db" }
 futures = "0.3.5"
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+hex = "0.4.2"

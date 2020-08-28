@@ -1,13 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod params;
 mod state;
+mod types;
 
-pub use self::params::*;
 pub use self::state::State;
+pub use self::types::*;
 use crate::{
-    make_map, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID,
+    make_map, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
     POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
@@ -16,7 +16,9 @@ use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use vm::{ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
+
+// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
 
 /// Init actor methods available
 #[derive(FromPrimitive)]
@@ -38,12 +40,9 @@ impl Actor {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
         rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
         let mut empty_map = make_map(rt.store());
-        let root = empty_map.flush().map_err(|err| {
-            rt.abort(
-                ExitCode::ErrIllegalState,
-                format!("failed to construct state: {}", err),
-            )
-        })?;
+        let root = empty_map
+            .flush()
+            .map_err(|err| actor_error!(ErrIllegalState; "failed to construct state: {}", err))?;
 
         rt.create(&State::new(root, params.network_name))?;
 
@@ -56,17 +55,14 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any();
+        rt.validate_immediate_caller_accept_any()?;
         let caller_code = rt
-            .get_actor_code_cid(rt.message().caller())
-            .expect("no code for actor");
+            .get_actor_code_cid(rt.message().caller())?
+            .ok_or_else(|| actor_error!(fatal("No code for actor at {}", rt.message().caller())))?;
         if !can_exec(&caller_code, &params.code_cid) {
-            return Err(rt.abort(
-                ExitCode::ErrForbidden,
-                format!(
+            return Err(actor_error!(ErrForbidden;
                     "called type {} cannot exec actor type {}",
                     &caller_code, &params.code_cid
-                ),
             ));
         }
 
@@ -78,24 +74,22 @@ impl Actor {
 
         // Allocate an ID for this actor.
         // Store mapping of pubkey or actor address to actor ID
-        let id_address: Address = rt.transaction::<State, _, _>(|s, rt| {
+        let id_address: Address = rt.transaction(|s: &mut State, rt| {
             s.map_address_to_new_id(rt.store(), &robust_address)
-                .map_err(|e| {
-                    ActorError::new(ExitCode::ErrIllegalState, format!("exec failed {}", e))
-                })
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to allocate ID address: {}", e))
         })??;
 
         // Create an empty actor
-        rt.create_actor(&params.code_cid, &id_address)?;
+        rt.create_actor(params.code_cid, &id_address)?;
 
         // Invoke constructor
         rt.send(
-            &id_address,
+            id_address,
             METHOD_CONSTRUCTOR,
-            &params.constructor_params,
-            &rt.message().value_received().clone(),
+            params.constructor_params,
+            rt.message().value_received().clone(),
         )
-        .map_err(|err| rt.abort(err.exit_code(), "constructor failed"))?;
+        .map_err(|err| err.wrap("constructor failed"))?;
 
         Ok(ExecReturn {
             id_address,
@@ -124,24 +118,13 @@ impl ActorCode for Actor {
                 let res = Self::exec(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
-            _ => {
-                // Method number does not match available, abort in runtime
-                Err(rt.abort(ExitCode::SysErrInvalidMethod, "Invalid method"))
-            }
+            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }
 }
 
 fn can_exec(caller: &Cid, exec: &Cid) -> bool {
-    // TODO spec also checks for an undefined Cid, see if this should be supported
-    if exec == &*ACCOUNT_ACTOR_CODE_ID
-        || exec == &*INIT_ACTOR_CODE_ID
-        || exec == &*POWER_ACTOR_CODE_ID
-        || exec == &*MARKET_ACTOR_CODE_ID
-        || exec == &*MINER_ACTOR_CODE_ID
-    {
-        exec == &*MINER_ACTOR_CODE_ID && caller == &*POWER_ACTOR_CODE_ID
-    } else {
-        true
-    }
+    (exec == &*MINER_ACTOR_CODE_ID && caller == &*POWER_ACTOR_CODE_ID)
+        || exec == &*MULTISIG_ACTOR_CODE_ID
+        || exec == &*PAYCH_ACTOR_CODE_ID
 }

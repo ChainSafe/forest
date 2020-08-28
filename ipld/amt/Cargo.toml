@@ -14,3 +14,9 @@ thiserror = "1.0"
 
 [dev-dependencies]
 hex = "0.4.2"
+criterion = "0.3.1"
+
+[[bench]]
+name = "amt_beckmark"
+path = "benches/amt_benchmark.rs"
+harness = false

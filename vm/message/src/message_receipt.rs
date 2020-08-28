@@ -5,11 +5,11 @@ use encoding::tuple::*;
 use vm::{ExitCode, Serialized};
 
 /// Result of a state transition from a message
-#[derive(PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct MessageReceipt {
     pub exit_code: ExitCode,
     pub return_data: Serialized,
-    pub gas_used: u64,
+    pub gas_used: i64,
 }
 
 #[cfg(feature = "json")]
@@ -34,6 +34,12 @@ pub mod json {
         }
     }
 
+    impl From<MessageReceipt> for MessageReceiptJson {
+        fn from(wrapper: MessageReceipt) -> Self {
+            MessageReceiptJson(wrapper)
+        }
+    }
+
     pub fn serialize<S>(m: &MessageReceipt, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -44,7 +50,7 @@ pub mod json {
             exit_code: u64,
             #[serde(rename = "Return")]
             return_data: &'a [u8],
-            gas_used: u64,
+            gas_used: i64,
         }
         MessageReceiptSer {
             exit_code: m.exit_code as u64,
@@ -64,7 +70,7 @@ pub mod json {
             exit_code: u64,
             #[serde(rename = "Return")]
             return_data: Vec<u8>,
-            gas_used: u64,
+            gas_used: i64,
         }
         let MessageReceiptDe {
             exit_code,
@@ -78,5 +84,28 @@ pub mod json {
             return_data: Serialized::new(return_data),
             gas_used,
         })
+    }
+    pub mod vec {
+        use super::*;
+        use forest_json_utils::GoVecVisitor;
+        use serde::ser::SerializeSeq;
+
+        pub fn serialize<S>(m: &[MessageReceipt], serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq = serializer.serialize_seq(Some(m.len()))?;
+            for e in m {
+                seq.serialize_element(&MessageReceiptJsonRef(e))?;
+            }
+            seq.end()
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<MessageReceipt>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_any(GoVecVisitor::<MessageReceipt, MessageReceiptJson>::new())
+        }
     }
 }

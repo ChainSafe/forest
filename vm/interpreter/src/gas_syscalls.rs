@@ -29,20 +29,16 @@ where
         signer: &Address,
         plaintext: &[u8],
     ) -> Result<(), Box<dyn StdError>> {
-        self.gas
-            .borrow_mut()
-            .charge_gas(
-                self.price_list
-                    .on_verify_signature(signature.signature_type(), plaintext.len()),
-            )
-            .unwrap();
+        self.gas.borrow_mut().charge_gas(
+            self.price_list
+                .on_verify_signature(signature.signature_type()),
+        )?;
         self.syscalls.verify_signature(signature, signer, plaintext)
     }
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_hashing(data.len()))
-            .unwrap();
+            .charge_gas(self.price_list.on_hashing(data.len()))?;
         self.syscalls.hash_blake2b(data)
     }
     fn compute_unsealed_sector_cid(
@@ -52,22 +48,19 @@ where
     ) -> Result<Cid, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_compute_unsealed_sector_cid(reg, pieces))
-            .unwrap();
+            .charge_gas(self.price_list.on_compute_unsealed_sector_cid(reg, pieces))?;
         self.syscalls.compute_unsealed_sector_cid(reg, pieces)
     }
     fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_verify_seal(vi))
-            .unwrap();
+            .charge_gas(self.price_list.on_verify_seal(vi))?;
         self.syscalls.verify_seal(vi)
     }
     fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_verify_post(vi))
-            .unwrap();
+            .charge_gas(self.price_list.on_verify_post(vi))?;
         self.syscalls.verify_post(vi)
     }
     fn verify_consensus_fault(
@@ -78,14 +71,13 @@ where
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_verify_consensus_fault())
-            .unwrap();
+            .charge_gas(self.price_list.on_verify_consensus_fault())?;
         self.syscalls.verify_consensus_fault(h1, h2, extra)
     }
 
     fn batch_verify_seals(
         &self,
-        vis: &[(Address, Vec<SealVerifyInfo>)],
+        vis: &[(Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // TODO revisit if gas ends up being charged (only used by cron actor)
         self.syscalls.batch_verify_seals(vis)
@@ -138,7 +130,7 @@ mod tests {
         }
         fn batch_verify_seals(
             &self,
-            _vis: &[(Address, Vec<SealVerifyInfo>)],
+            _vis: &[(Address, &Vec<SealVerifyInfo>)],
         ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
             Ok(Default::default())
         }
@@ -148,14 +140,13 @@ mod tests {
     fn gas_syscalls() {
         let gsys = GasSyscalls {
             price_list: PriceList {
-                on_chain_message_base: 1,
-                on_chain_message_per_byte: 1,
+                on_chain_message_compute_base: 1,
+                on_chain_message_storage_per_byte: 1,
                 on_chain_return_value_per_byte: 1,
-                hashing_base: 1,
-                hashing_per_byte: 1,
+                hashing_base: 2,
                 compute_unsealed_sector_cid_base: 1,
+                bls_sig_cost: 5,
                 verify_seal_base: 1,
-                verify_post_base: 1,
                 verify_consensus_fault: 1,
                 ..Default::default()
             },
@@ -188,10 +179,7 @@ mod tests {
         .unwrap();
         assert_eq!(gsys.gas.borrow().gas_used(), 9);
 
-        gsys.verify_post(&Default::default()).unwrap();
-        assert_eq!(gsys.gas.borrow().gas_used(), 10);
-
         gsys.verify_consensus_fault(&[], &[], &[]).unwrap();
-        assert_eq!(gsys.gas.borrow().gas_used(), 11);
+        assert_eq!(gsys.gas.borrow().gas_used(), 10);
     }
 }
