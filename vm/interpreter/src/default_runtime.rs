@@ -261,12 +261,16 @@ where
             gas_premium: Default::default(),
         };
 
+        // Since it is unsafe to share a mutable reference to the state tree by copying
+        // the runtime, all variables must be copied and reset at the end of the transition.
+        let prev_val = self.caller_validated;
         let prev_msg = self.vm_msg.clone();
         self.vm_msg = VMMsg {
             caller: from_id,
             receiver: to,
             value_received: value,
         };
+        self.caller_validated = false;
 
         // snapshot state tree
         let snapshot = self
@@ -275,7 +279,11 @@ where
             .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
 
         let send_res = vm_send::<BS, SYS, R, P>(self, &msg, None);
+
+        // Reset values back to their values before the call
         self.vm_msg = prev_msg;
+        self.caller_validated = prev_val;
+
         send_res.map_err(|e| {
             if let Err(e) = self.state.revert_to_snapshot(&snapshot) {
                 actor_error!(fatal("failed to revert snapshot: {}", e))
@@ -690,9 +698,8 @@ fn transfer<BS: BlockStore>(
     }
 
     if value < &0.into() {
-        return Err(
-            actor_error!(SysErrForbidden; "attempted to transfer negative transfer value {}", value),
-        );
+        return Err(actor_error!(SysErrForbidden;
+                "attempted to transfer negative transfer value {}", value));
     }
 
     let mut f = state
@@ -738,7 +745,7 @@ where
     P: NetworkParams,
     R: Rand,
 {
-    match code {
+    let ret = match code {
         x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params),
         x if x == *INIT_ACTOR_CODE_ID => init::Actor.invoke_method(rt, method_num, params),
         x if x == *CRON_ACTOR_CODE_ID => cron::Actor.invoke_method(rt, method_num, params),
@@ -759,14 +766,18 @@ where
                     x if x == *CHAOS_ACTOR_CODE_ID => {
                         chaos::Actor.invoke_method(rt, method_num, params)
                     }
-                    _ => Err(
-                        actor_error!(SysErrorIllegalActor; "no code for registered actor at address {}", to),
-                    ),
+                    _ => Err(actor_error!(SysErrorIllegalActor;
+                                "no code for registered actor at address {}", to)),
                 }
             } else {
                 Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
             }
         }
+    }?;
+    if !rt.caller_validated {
+        Err(actor_error!(SysErrorIllegalActor; "Caller must be validated during method execution"))
+    } else {
+        Ok(ret)
     }
 }
 
