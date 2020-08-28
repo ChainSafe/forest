@@ -429,7 +429,7 @@ where
             miner_tip,
         })
     }
-    /// Instantiates a new Runtime, and calls internal_send to do the execution.
+    /// Instantiates a new Runtime, and calls vm_send to do the execution.
     #[allow(clippy::type_complexity)]
     fn send(
         &mut self,
