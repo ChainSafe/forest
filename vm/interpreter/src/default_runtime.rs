@@ -660,7 +660,7 @@ where
             .on_method_invocation(msg.value(), msg.method_num()),
     )?;
 
-    if msg.value() > &TokenAmount::from(0) {
+    if msg.value() != &TokenAmount::from(0) {
         transfer(rt.state, &msg.from(), &msg.to(), &msg.value())
             .map_err(|e| e.wrap("failed to transfer funds"))?;
     }
