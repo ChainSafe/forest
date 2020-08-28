@@ -262,7 +262,7 @@ where
         };
 
         // Since it is unsafe to share a mutable reference to the state tree by copying
-        // the runtime, all variables must be copied/and reset at the end of the transition.
+        // the runtime, all variables must be copied and reset at the end of the transition.
         let prev_val = self.caller_validated;
         let prev_msg = self.vm_msg.clone();
         self.vm_msg = VMMsg {
@@ -698,9 +698,8 @@ fn transfer<BS: BlockStore>(
     }
 
     if value < &0.into() {
-        return Err(
-            actor_error!(SysErrForbidden; "attempted to transfer negative transfer value {}", value),
-        );
+        return Err(actor_error!(SysErrForbidden;
+                "attempted to transfer negative transfer value {}", value));
     }
 
     let mut f = state
@@ -746,35 +745,47 @@ where
     P: NetworkParams,
     R: Rand,
 {
-    match code {
-        x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params),
-        x if x == *INIT_ACTOR_CODE_ID => init::Actor.invoke_method(rt, method_num, params),
-        x if x == *CRON_ACTOR_CODE_ID => cron::Actor.invoke_method(rt, method_num, params),
-        x if x == *ACCOUNT_ACTOR_CODE_ID => account::Actor.invoke_method(rt, method_num, params),
-        x if x == *POWER_ACTOR_CODE_ID => power::Actor.invoke_method(rt, method_num, params),
-        x if x == *MINER_ACTOR_CODE_ID => miner::Actor.invoke_method(rt, method_num, params),
-        x if x == *MARKET_ACTOR_CODE_ID => market::Actor.invoke_method(rt, method_num, params),
-        x if x == *PAYCH_ACTOR_CODE_ID => paych::Actor.invoke_method(rt, method_num, params),
-        x if x == *MULTISIG_ACTOR_CODE_ID => multisig::Actor.invoke_method(rt, method_num, params),
-        x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params),
-        x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
+    let ret = match code {
+        x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *INIT_ACTOR_CODE_ID => init::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *CRON_ACTOR_CODE_ID => cron::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *ACCOUNT_ACTOR_CODE_ID => account::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *POWER_ACTOR_CODE_ID => power::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *MINER_ACTOR_CODE_ID => miner::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *MARKET_ACTOR_CODE_ID => market::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *PAYCH_ACTOR_CODE_ID => paych::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *MULTISIG_ACTOR_CODE_ID => {
+            multisig::Actor.invoke_method(rt, method_num, params)?
+        }
+        x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params)?,
+        x if x == *VERIFREG_ACTOR_CODE_ID => {
+            verifreg::Actor.invoke_method(rt, method_num, params)?
+        }
         x => {
             if rt.registered_actors.contains(&x) {
                 match x {
                     x if x == *PUPPET_ACTOR_CODE_ID => {
-                        puppet::Actor.invoke_method(rt, method_num, params)
+                        puppet::Actor.invoke_method(rt, method_num, params)?
                     }
                     x if x == *CHAOS_ACTOR_CODE_ID => {
-                        chaos::Actor.invoke_method(rt, method_num, params)
+                        chaos::Actor.invoke_method(rt, method_num, params)?
                     }
-                    _ => Err(
-                        actor_error!(SysErrorIllegalActor; "no code for registered actor at address {}", to),
-                    ),
+                    _ => {
+                        return Err(actor_error!(SysErrorIllegalActor;
+                                "no code for registered actor at address {}", to))
+                    }
                 }
             } else {
-                Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
+                return Err(
+                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to),
+                );
             }
         }
+    };
+    if !rt.caller_validated {
+        Err(actor_error!(SysErrorIllegalActor; "Caller must be validated during method execution"))
+    } else {
+        Ok(ret)
     }
 }
 
