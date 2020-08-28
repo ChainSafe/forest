@@ -257,8 +257,8 @@ where
 
         let miner_penalty_amount = &self.base_fee * msg.gas_limit();
         let from_act = match self.state.get_actor(msg.from()) {
-            Ok(from_act) => from_act.ok_or("Failed to retrieve actor state")?,
-            Err(_) => {
+            Ok(Some(from_act)) => from_act,
+            _ => {
                 return Ok(ApplyRet {
                     msg_receipt: MessageReceipt {
                         return_data: Serialized::default(),
