@@ -334,7 +334,8 @@ where
     }
 }
 
-impl<BS, SYS, R, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, BS, SYS, R, P>
+impl<'bs, BS, SYS, R, P> Runtime<GasBlockStore<'bs, BS>>
+    for DefaultRuntime<'bs, '_, '_, '_, '_, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -485,8 +486,8 @@ where
         Ok(r)
     }
 
-    fn store(&self) -> &BS {
-        self.store.store
+    fn store(&self) -> &GasBlockStore<'bs, BS> {
+        &self.store
     }
 
     fn send(
