@@ -28,6 +28,7 @@ use vm::{
     actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
     EMPTY_ARR_CID, METHOD_SEND,
 };
+use num_traits::Zero;
 
 // TODO this param isn't finalized
 const ACTOR_EXEC_GAS: GasCharge = GasCharge {
@@ -660,7 +661,7 @@ where
             .on_method_invocation(msg.value(), msg.method_num()),
     )?;
 
-    if msg.value() != &TokenAmount::from(0) {
+    if !msg.value().is_zero() {
         transfer(rt.state, &msg.from(), &msg.to(), &msg.value())
             .map_err(|e| e.wrap("failed to transfer funds"))?;
     }
