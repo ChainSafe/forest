@@ -18,6 +18,7 @@ use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
+use num_traits::Zero;
 use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
@@ -28,7 +29,6 @@ use vm::{
     actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
     EMPTY_ARR_CID, METHOD_SEND,
 };
-use num_traits::Zero;
 
 // TODO this param isn't finalized
 const ACTOR_EXEC_GAS: GasCharge = GasCharge {
