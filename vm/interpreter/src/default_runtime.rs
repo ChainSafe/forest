@@ -18,6 +18,7 @@ use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
+use num_traits::Zero;
 use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
@@ -660,7 +661,7 @@ where
             .on_method_invocation(msg.value(), msg.method_num()),
     )?;
 
-    if msg.value() > &TokenAmount::from(0) {
+    if !msg.value().is_zero() {
         transfer(rt.state, &msg.from(), &msg.to(), &msg.value())
             .map_err(|e| e.wrap("failed to transfer funds"))?;
     }
