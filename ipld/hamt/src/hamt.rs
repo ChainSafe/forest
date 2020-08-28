@@ -5,7 +5,6 @@ use super::BytesKey;
 use crate::node::Node;
 use crate::{Error, Hash, HashAlgorithm, Sha256, DEFAULT_BIT_WIDTH};
 use cid::{multihash::Blake2b256, Cid};
-use forest_ipld::{from_ipld, to_ipld, Ipld};
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
@@ -21,25 +20,26 @@ use std::marker::PhantomData;
 ///
 /// let store = db::MemoryDB::default();
 ///
-/// let mut map: Hamt<_, usize> = Hamt::new(&store);
+/// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
 /// map.set(1, "a".to_string()).unwrap();
 /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
 /// assert_eq!(map.delete(&1).unwrap(), true);
-/// assert_eq!(map.get::<_, String>(&1).unwrap(), None);
+/// assert_eq!(map.get::<_>(&1).unwrap(), None);
 /// let cid = map.flush().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct Hamt<'a, BS, K = BytesKey, H = Sha256> {
-    root: Node<K, H>,
+pub struct Hamt<'a, BS, V, K = BytesKey, H = Sha256> {
+    root: Node<K, V, H>,
     store: &'a BS,
 
     bit_width: u32,
     hash: PhantomData<H>,
 }
 
-impl<BS, K, H> Serialize for Hamt<'_, BS, K, H>
+impl<BS, V, K, H> Serialize for Hamt<'_, BS, V, K, H>
 where
     K: Serialize,
+    V: Serialize,
     H: HashAlgorithm,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -50,15 +50,18 @@ where
     }
 }
 
-impl<'a, K: PartialEq, S: BlockStore, H: HashAlgorithm> PartialEq for Hamt<'a, S, K, H> {
+impl<'a, K: PartialEq, V: PartialEq, S: BlockStore, H: HashAlgorithm> PartialEq
+    for Hamt<'a, S, V, K, H>
+{
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root
     }
 }
 
-impl<'a, BS, K, H> Hamt<'a, BS, K, H>
+impl<'a, BS, V, K, H> Hamt<'a, BS, V, K, H>
 where
     K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
+    V: Serialize + DeserializeOwned + Clone,
     BS: BlockStore,
     H: HashAlgorithm,
 {
@@ -123,19 +126,15 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
+    /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
     /// map.set(37, "a".to_string()).unwrap();
     /// assert_eq!(map.is_empty(), false);
     ///
     /// map.set(37, "b".to_string()).unwrap();
     /// map.set(37, "c".to_string()).unwrap();
     /// ```
-    pub fn set<S>(&mut self, key: K, value: S) -> Result<(), Error>
-    where
-        S: Serialize,
-    {
-        let val: Ipld = to_ipld(value)?;
-        self.root.set(key, val, self.store, self.bit_width)
+    pub fn set(&mut self, key: K, value: V) -> Result<(), Error> {
+        self.root.set(key, value, self.store, self.bit_width)
     }
 
     /// Returns a reference to the value corresponding to the key.
@@ -151,20 +150,20 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
+    /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
-    /// assert_eq!(map.get::<usize, String>(&2).unwrap(), None);
+    /// assert_eq!(map.get(&2).unwrap(), None);
     /// ```
     #[inline]
-    pub fn get<Q: ?Sized, V>(&self, k: &Q) -> Result<Option<V>, Error>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<V>, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
         V: DeserializeOwned,
     {
         match self.root.get(k, self.store, self.bit_width)? {
-            Some(v) => Ok(Some(from_ipld(&v).map_err(Error::Encoding)?)),
+            Some(v) => Ok(Some(v)),
             None => Ok(None),
         }
     }
@@ -182,7 +181,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
+    /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.contains_key(&1).unwrap(), true);
     /// assert_eq!(map.contains_key(&2).unwrap(), false);
@@ -210,7 +209,7 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
+    /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
     /// assert_eq!(map.delete(&1).unwrap(), true);
     /// assert_eq!(map.delete(&1).unwrap(), false);
@@ -248,22 +247,22 @@ where
     ///
     /// let store = db::MemoryDB::default();
     ///
-    /// let mut map: Hamt<_, usize> = Hamt::new(&store);
+    /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
     /// map.set(1, 1).unwrap();
     /// map.set(4, 2).unwrap();
     ///
     /// let mut total = 0;
-    /// map.for_each(|_, v: u64| {
+    /// map.for_each(|_, v: &u64| {
     ///    total += v;
     ///    Ok(())
     /// }).unwrap();
     /// assert_eq!(total, 3);
     /// ```
     #[inline]
-    pub fn for_each<F, V>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(&K, V) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(&K, &V) -> Result<(), Box<dyn StdError>>,
     {
         self.root.for_each(self.store, &mut f)
     }

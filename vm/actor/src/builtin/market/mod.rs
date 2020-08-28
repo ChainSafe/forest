@@ -69,7 +69,7 @@ impl Actor {
             .flush()
             .map_err(|e| actor_error!(ErrIllegalState; "Failed to create market state: {}", e))?;
 
-        let empty_map = make_map(rt.store())
+        let empty_map = make_map::<_, ()>(rt.store())
             .flush()
             .map_err(|e| actor_error!(ErrIllegalState; "Failed to create market state: {}", e))?;
 

@@ -13,7 +13,7 @@ use vm::ActorState;
 
 /// State tree implementation using hamt
 pub struct StateTree<'db, S> {
-    hamt: Hamt<'db, S>,
+    hamt: Hamt<'db, S, ActorState>,
 
     // TODO switch to using state change cache: https://github.com/ChainSafe/forest/issues/373
     actor_cache: RwLock<FnvHashMap<Address, ActorState>>,
@@ -59,7 +59,7 @@ where
         }
 
         // if state doesn't exist, find using hamt
-        let act: Option<ActorState> = self.hamt.get(&addr.to_bytes()).map_err(|e| e.to_string())?;
+        let act = self.hamt.get(&addr.to_bytes()).map_err(|e| e.to_string())?;
 
         // Update cache if state was found
         if let Some(act_s) = &act {
