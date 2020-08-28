@@ -253,7 +253,7 @@ impl Actor {
                 .flush()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to save lanes: {}", e))?;
             Ok(())
-        })?
+        })
     }
 
     pub fn settle<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -274,7 +274,7 @@ impl Actor {
             }
 
             Ok(())
-        })?
+        })
     }
 
     pub fn collect<BS, RT>(rt: &mut RT) -> Result<(), ActorError>

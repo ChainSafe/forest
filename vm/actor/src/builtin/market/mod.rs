@@ -100,7 +100,7 @@ impl Actor {
 
         let (nominal, _, _) = escrow_address(rt, &provider_or_client)?;
 
-        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let mut msm = st.mutator(rt.store());
             msm.with_escrow_table(Permission::Write)
                 .with_locked_table(Permission::Write)
@@ -120,7 +120,7 @@ impl Actor {
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
 
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -146,36 +146,35 @@ impl Actor {
         // for clients -> only the client i.e the recipient can withdraw
         rt.validate_immediate_caller_is(&approved)?;
 
-        let amount_extracted =
-            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
-                let mut msm = st.mutator(rt.store());
-                msm.with_escrow_table(Permission::Write)
-                    .with_locked_table(Permission::Write)
-                    .build()
-                    .map_err(|e| actor_error!(ErrIllegalState; "failed to load state: {}", e))?;
+        let amount_extracted = rt.transaction(|st: &mut State, rt| {
+            let mut msm = st.mutator(rt.store());
+            msm.with_escrow_table(Permission::Write)
+                .with_locked_table(Permission::Write)
+                .build()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load state: {}", e))?;
 
-                // The withdrawable amount might be slightly less than nominal
-                // depending on whether or not all relevant entries have been processed
-                // by cron
-                let min_balance = msm.locked_table.as_ref().unwrap().get(&nominal).map_err(
-                    |e| actor_error!(ErrIllegalState; "failed to get locked balance: {}", e),
-                )?;
+            // The withdrawable amount might be slightly less than nominal
+            // depending on whether or not all relevant entries have been processed
+            // by cron
+            let min_balance = msm.locked_table.as_ref().unwrap().get(&nominal).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to get locked balance: {}", e),
+            )?;
 
-                let ex = msm
-                    .escrow_table
-                    .as_mut()
-                    .unwrap()
-                    .subtract_with_minimum(&nominal, &params.amount, &min_balance)
-                    .map_err(|e| {
-                        actor_error!(ErrIllegalState;
+            let ex = msm
+                .escrow_table
+                .as_mut()
+                .unwrap()
+                .subtract_with_minimum(&nominal, &params.amount, &min_balance)
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState;
                             "failed to subtract from escrow table: {}", e)
-                    })?;
+                })?;
 
-                msm.commit_state()
-                    .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
+            msm.commit_state()
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
 
-                Ok(ex)
-            })??;
+            Ok(ex)
+        })?;
 
         rt.send(
             recipient,
@@ -313,7 +312,7 @@ impl Actor {
             msm.commit_state()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
             Ok(())
-        })??;
+        })?;
 
         for deal in &params.deals {
             // Check VerifiedClient allowed cap and deduct PieceSize from cap.
@@ -483,7 +482,7 @@ impl Actor {
             msm.commit_state()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -502,7 +501,7 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().caller();
 
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let mut msm = st.mutator(rt.store());
             msm.with_deal_states(Permission::Write)
                 .with_deal_proposals(Permission::ReadOnly)
@@ -555,7 +554,7 @@ impl Actor {
             msm.commit_state()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
             Ok(())
-        })??;
+        })?;
         Ok(())
     }
 
@@ -611,7 +610,7 @@ impl Actor {
         let curr_epoch = rt.curr_epoch();
         let mut timed_out_verified_deals: Vec<DealProposal> = Vec::new();
 
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let last_cron = st.last_cron;
             let mut updates_needed: AHashMap<ChainEpoch, Vec<DealID>> = AHashMap::new();
             let mut msm = st.mutator(rt.store());
@@ -822,7 +821,7 @@ impl Actor {
             msm.commit_state()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush state: {}", e))?;
             Ok(())
-        })??;
+        })?;
 
         for d in timed_out_verified_deals {
             let res = rt.send(

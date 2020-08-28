@@ -77,7 +77,7 @@ impl Actor {
         let id_address: Address = rt.transaction(|s: &mut State, rt| {
             s.map_address_to_new_id(rt.store(), &robust_address)
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to allocate ID address: {}", e))
-        })??;
+        })?;
 
         // Create an empty actor
         rt.create_actor(params.code_cid, &id_address)?;
