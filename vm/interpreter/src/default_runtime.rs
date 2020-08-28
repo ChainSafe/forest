@@ -746,42 +746,34 @@ where
     R: Rand,
 {
     let ret = match code {
-        x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *INIT_ACTOR_CODE_ID => init::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *CRON_ACTOR_CODE_ID => cron::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *ACCOUNT_ACTOR_CODE_ID => account::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *POWER_ACTOR_CODE_ID => power::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *MINER_ACTOR_CODE_ID => miner::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *MARKET_ACTOR_CODE_ID => market::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *PAYCH_ACTOR_CODE_ID => paych::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *MULTISIG_ACTOR_CODE_ID => {
-            multisig::Actor.invoke_method(rt, method_num, params)?
-        }
-        x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params)?,
-        x if x == *VERIFREG_ACTOR_CODE_ID => {
-            verifreg::Actor.invoke_method(rt, method_num, params)?
-        }
+        x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params),
+        x if x == *INIT_ACTOR_CODE_ID => init::Actor.invoke_method(rt, method_num, params),
+        x if x == *CRON_ACTOR_CODE_ID => cron::Actor.invoke_method(rt, method_num, params),
+        x if x == *ACCOUNT_ACTOR_CODE_ID => account::Actor.invoke_method(rt, method_num, params),
+        x if x == *POWER_ACTOR_CODE_ID => power::Actor.invoke_method(rt, method_num, params),
+        x if x == *MINER_ACTOR_CODE_ID => miner::Actor.invoke_method(rt, method_num, params),
+        x if x == *MARKET_ACTOR_CODE_ID => market::Actor.invoke_method(rt, method_num, params),
+        x if x == *PAYCH_ACTOR_CODE_ID => paych::Actor.invoke_method(rt, method_num, params),
+        x if x == *MULTISIG_ACTOR_CODE_ID => multisig::Actor.invoke_method(rt, method_num, params),
+        x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params),
+        x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
         x => {
             if rt.registered_actors.contains(&x) {
                 match x {
                     x if x == *PUPPET_ACTOR_CODE_ID => {
-                        puppet::Actor.invoke_method(rt, method_num, params)?
+                        puppet::Actor.invoke_method(rt, method_num, params)
                     }
                     x if x == *CHAOS_ACTOR_CODE_ID => {
-                        chaos::Actor.invoke_method(rt, method_num, params)?
+                        chaos::Actor.invoke_method(rt, method_num, params)
                     }
-                    _ => {
-                        return Err(actor_error!(SysErrorIllegalActor;
-                                "no code for registered actor at address {}", to))
-                    }
+                    _ => Err(actor_error!(SysErrorIllegalActor;
+                                "no code for registered actor at address {}", to)),
                 }
             } else {
-                return Err(
-                    actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to),
-                );
+                Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
             }
         }
-    };
+    }?;
     if !rt.caller_validated {
         Err(actor_error!(SysErrorIllegalActor; "Caller must be validated during method execution"))
     } else {
