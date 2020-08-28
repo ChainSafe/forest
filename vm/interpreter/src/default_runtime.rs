@@ -514,7 +514,7 @@ where
         Ok(ret)
     }
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
-        let oa = resolve_to_key_addr(self.state, &self.store, &self.origin)?;
+        let oa = resolve_to_key_addr(self.state, self.store.store, &self.origin)?;
         let mut b = to_vec(&oa).map_err(|e| {
             actor_error!(fatal(
                 "Could not serialize address in new_actor_address: {}",
