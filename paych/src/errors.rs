@@ -15,6 +15,8 @@ pub enum Error {
     NoAddress,
     #[error("No value in PayChannel Store for given key")]
     NoVal,
+    #[error("Error getting heaviest Tipset")]
+    HeaviestTipset,
     #[error("{0}")]
     Encoding(String),
     #[error("{0}")]

@@ -25,8 +25,8 @@ const DS_KEY_MSG_CID: &str = "MsgCid";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VoucherInfo {
-    voucher: SignedVoucher,
-    proof: Vec<u8>,
+    pub voucher: SignedVoucher,
+    pub proof: Vec<u8>,
 }
 
 // TODO handle serializing channelinfo default cid by adding logic where if the cid is default then return
@@ -43,19 +43,19 @@ pub struct ChannelInfo {
     #[builder(default)]
     channel: Option<Address>,
     /// Address of the account that created the channel
-    control: Address,
+    pub control: Address,
     /// Address of the account on the other side of the channel
-    target: Address,
+    pub target: Address,
     /// Direction indicates if the channel is inbound (this node is the target)
     /// or outbound (this node is the control)
     ///
     direction: u8,
     /// The list of all vouchers sent on the channel
     #[builder(default)]
-    vouchers: Vec<VoucherInfo>,
+    pub vouchers: Vec<VoucherInfo>,
     /// Number of the next lane that should be used when the client requests a new lane
     /// (ie makes a new voucher for a new deal)
-    next_lane: u64,
+    pub next_lane: u64,
     /// Amount to be added to the channel
     /// This amount is only used by get_paych to keep track of how much
     /// has locally been added to the channel. It should reflect the channel's
@@ -73,8 +73,9 @@ pub struct ChannelInfo {
     add_funds_msg: Option<Cid>,
     /// indicates whether or not the channel has entered into the settling state
     #[builder(default)]
-    settling: bool,
+    pub settling: bool,
 }
+
 
 impl Serialize for ChannelInfo {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -144,6 +145,7 @@ impl ChannelInfo {
     }
 }
 
+#[derive(Clone)]
 pub struct PaychStore {
     // use blockstore instead?
     ds: Arc<RwLock<HashMap<String, Vec<u8>>>>,
@@ -265,7 +267,7 @@ impl PaychStore {
     }
 
     /// Return Vec of all voucher infos for given ChannelInfo Address
-    pub async fn vouchers_for_paych(&mut self, ch: &Address) -> Result<Vec<VoucherInfo>, Error> {
+    pub async fn vouchers_for_paych(&self, ch: &Address) -> Result<Vec<VoucherInfo>, Error> {
         let ci = self.get_channel_info(ch).await?;
         Ok(ci.vouchers)
     }
@@ -439,7 +441,7 @@ fn key_for_msg(mcid: &Cid) -> String {
 }
 
 /// MsgInfo stores information about a create channel / add funds message that has been sent
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct MsgInfo {
     channel_id: String,
     msg_cid: Cid,
