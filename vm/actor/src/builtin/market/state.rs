@@ -122,7 +122,7 @@ pub(super) struct MarketStateMutation<'bs, 's, BS> {
     pub(super) escrow_table: Option<BalanceTable<'bs, BS>>,
 
     pub(super) pending_permit: Permission,
-    pub(super) pending_deals: Option<Map<'bs, BS>>,
+    pub(super) pending_deals: Option<Map<'bs, BS, DealProposal>>,
 
     pub(super) dpe_permit: Permission,
     pub(super) deals_by_epoch: Option<SetMultimap<'bs, BS>>,
@@ -381,7 +381,10 @@ where
             return Ok((TokenAmount::zero(), EPOCH_UNDEFINED, true));
         }
 
-        let next: ChainEpoch = std::cmp::min(epoch + DEAL_UPDATES_INTERVAL, deal.end_epoch);
+        // We're explicitly not inspecting the end epoch and may process a deal's expiration late,
+        // in order to prevent an outsider from loading a cron tick by activating too many deals
+        // with the same end epoch.
+        let next = epoch + DEAL_UPDATES_INTERVAL;
 
         Ok((TokenAmount::zero(), next, false))
     }
@@ -486,9 +489,10 @@ where
                 |e| actor_error!(ErrIllegalState; "failed to get escrow balance: {}", e),
             )?;
 
-        if prev_locked.clone() + amount > escrow_balance {
+        if &prev_locked + amount > escrow_balance {
             return Err(actor_error!(ErrInsufficientFunds;
-                    "not enough balance to lock for addr {}: {} < {} + {}", 
+                    "not enough balance to lock for addr{}: \
+                    escrow balance {} < prev locked {} + amount {}", 
                     addr, escrow_balance, prev_locked, amount));
         }
 
@@ -505,10 +509,10 @@ where
         proposal: &DealProposal,
     ) -> Result<(), ActorError> {
         self.maybe_lock_balance(&proposal.client, &proposal.client_balance_requirement())
-            .map_err(|e| e.wrap("failed to lock client funds: "))?;
+            .map_err(|e| e.wrap("failed to lock client funds"))?;
 
         self.maybe_lock_balance(&proposal.provider, &proposal.provider_collateral)
-            .map_err(|e| e.wrap("failed to lock provider funds: "))?;
+            .map_err(|e| e.wrap("failed to lock provider funds"))?;
 
         if let Some(v) = self.total_client_locked_colateral.as_mut() {
             *v += &proposal.client_collateral;

@@ -1,28 +1,29 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, HAMT_BIT_WIDTH};
+use crate::{make_map, make_map_with_root, Map};
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error, Hamt};
+use ipld_hamt::Error;
 use num_bigint::bigint_ser::BigIntDe;
+use std::error::Error as StdError;
 use vm::TokenAmount;
 
 /// Balance table which handles getting and updating token balances specifically
-pub struct BalanceTable<'a, BS>(Hamt<'a, BytesKey, BS>);
+pub struct BalanceTable<'a, BS>(Map<'a, BS, BigIntDe>);
 impl<'a, BS> BalanceTable<'a, BS>
 where
     BS: BlockStore,
 {
     /// Initializes a new empty balance table
     pub fn new(bs: &'a BS) -> Self {
-        Self(Hamt::new_with_bit_width(bs, HAMT_BIT_WIDTH))
+        Self(make_map(bs))
     }
 
     /// Initializes a balance table from a root Cid
     pub fn from_root(bs: &'a BS, cid: &Cid) -> Result<Self, Error> {
-        Ok(Self(Hamt::load_with_bit_width(cid, bs, HAMT_BIT_WIDTH)?))
+        Ok(Self(make_map_with_root(cid, bs)?))
     }
 
     /// Retrieve root from balance table
@@ -36,7 +37,7 @@ where
     pub fn get(&self, key: &Address) -> Result<TokenAmount, String> {
         Ok(self
             .0
-            .get::<_, BigIntDe>(&key.to_bytes())?
+            .get(&key.to_bytes())?
             // TODO investigate whether it's worth it to cache root to give better error details
             .ok_or("no key {} in map root")?
             .0)
@@ -45,7 +46,7 @@ where
     /// Checks if a balance for an address exists
     #[inline]
     pub fn has(&self, key: &Address) -> Result<bool, Error> {
-        match self.0.get::<_, BigIntDe>(&key.to_bytes())? {
+        match self.0.get(&key.to_bytes())? {
             Some(_) => Ok(true),
             None => Ok(false),
         }
@@ -65,7 +66,7 @@ where
 
     /// Adds an amount to a balance. Creates entry if not exists
     pub fn add_create(&mut self, key: &Address, value: TokenAmount) -> Result<(), String> {
-        let new_val = match self.0.get::<_, BigIntDe>(&key.to_bytes())? {
+        let new_val = match self.0.get(&key.to_bytes())? {
             Some(v) => v.0 + value,
             None => value,
         };
@@ -123,11 +124,11 @@ where
     }
 
     /// Returns total balance held by this balance table
-    pub fn total(&self) -> Result<TokenAmount, String> {
+    pub fn total(&self) -> Result<TokenAmount, Box<dyn StdError>> {
         let mut total = TokenAmount::default();
 
-        self.0.for_each(|_, v: BigIntDe| {
-            total += v.0;
+        self.0.for_each(|_, v: &BigIntDe| {
+            total += &v.0;
             Ok(())
         })?;
 

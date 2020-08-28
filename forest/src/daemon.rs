@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, initialize_genesis, Config};
+use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::RwLock;
 use async_std::task;
 use auth::{generate_priv_key, JWT_IDENTIFIER};
-use beacon::DrandBeacon;
+use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
@@ -76,9 +77,14 @@ pub(super) async fn start(config: Config) {
     let coeff = config.drand_public;
 
     // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
-    let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
-        .await
-        .unwrap();
+    let beacon = DrandBeacon::new(
+        DEFAULT_DRAND_URL,
+        coeff,
+        genesis.blocks()[0].timestamp(),
+        EPOCH_DURATION_SECONDS as u64,
+    )
+    .await
+    .unwrap();
 
     // Initialize ChainSyncer
     let chain_syncer = ChainSyncer::new(

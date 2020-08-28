@@ -1,15 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, HAMT_BIT_WIDTH};
+use crate::{make_map, make_map_with_root, BytesKey, Map};
 use cid::Cid;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error, Hamt};
+use ipld_hamt::Error;
 use std::error::Error as StdError;
 
 /// Set is a Hamt with empty values for the purpose of acting as a hash set.
 #[derive(Debug)]
-pub struct Set<'a, BS>(Hamt<'a, BytesKey, BS>);
+pub struct Set<'a, BS>(Map<'a, BS, ()>);
 
 impl<'a, BS: BlockStore> PartialEq for Set<'a, BS> {
     fn eq(&self, other: &Self) -> bool {
@@ -23,12 +23,12 @@ where
 {
     /// Initializes a new empty Set.
     pub fn new(bs: &'a BS) -> Self {
-        Self(Hamt::new_with_bit_width(bs, HAMT_BIT_WIDTH))
+        Self(make_map(bs))
     }
 
     /// Initializes a Set from a root Cid.
     pub fn from_root(bs: &'a BS, cid: &Cid) -> Result<Self, Error> {
-        Ok(Self(Hamt::load_with_bit_width(cid, bs, HAMT_BIT_WIDTH)?))
+        Ok(Self(make_map_with_root(cid, bs)?))
     }
 
     /// Retrieve root from the Set.
@@ -47,7 +47,7 @@ where
     /// Checks if key exists in the set.
     #[inline]
     pub fn has(&self, key: &[u8]) -> Result<bool, String> {
-        Ok(self.0.get::<_, ()>(key)?.is_some())
+        Ok(self.0.get(key)?.is_some())
     }
 
     /// Deletes key from set.
@@ -64,11 +64,7 @@ where
         F: FnMut(&BytesKey) -> Result<(), Box<dyn StdError>>,
     {
         // Calls the for each function on the hamt with ignoring the value
-        // TODO there are no actor errors used in the generic function yet, but the HAMT for_each
-        // iterator should be Box<dyn Error> to not convert to String and lose exit code
-        Ok(self
-            .0
-            .for_each(|s, _: ()| f(s).map_err(|e| e.to_string()))?)
+        Ok(self.0.for_each(|s, _: &()| f(s))?)
     }
 
     /// Collects all keys from the set into a vector.

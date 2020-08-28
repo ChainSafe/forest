@@ -13,6 +13,7 @@ mod bitfield;
 mod error;
 mod hamt;
 mod hash;
+mod hash_algorithm;
 mod hash_bits;
 mod node;
 mod pointer;
@@ -20,8 +21,8 @@ mod pointer;
 pub use self::error::Error;
 pub use self::hamt::Hamt;
 pub use self::hash::*;
+pub use self::hash_algorithm::*;
 
-use forest_ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::hash::Hasher;
@@ -30,21 +31,21 @@ use std::ops::Deref;
 const MAX_ARRAY_WIDTH: usize = 3;
 
 /// Default bit width for indexing a hash at each depth level
-pub const DEFAULT_BIT_WIDTH: u8 = 8;
+const DEFAULT_BIT_WIDTH: u32 = 8;
 
-type HashedKey = [u8; 16];
+type HashedKey = [u8; 32];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-struct KeyValuePair<K>(K, Ipld);
+struct KeyValuePair<K, V>(K, V);
 
-impl<K> KeyValuePair<K> {
+impl<K, V> KeyValuePair<K, V> {
     pub fn key(&self) -> &K {
         &self.0
     }
 }
 
-impl<K> KeyValuePair<K> {
-    pub fn new(key: K, value: Ipld) -> Self {
+impl<K, V> KeyValuePair<K, V> {
+    pub fn new(key: K, value: V) -> Self {
         KeyValuePair(key, value)
     }
 }
