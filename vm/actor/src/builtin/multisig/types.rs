@@ -4,7 +4,7 @@
 use crate::BytesKey;
 use address::Address;
 use clock::ChainEpoch;
-use encoding::tuple::*;
+use encoding::{serde_bytes, tuple::*};
 use integer_encoding::VarInt;
 use num_bigint::bigint_ser;
 use serde::{Deserialize, Serialize};
@@ -88,6 +88,7 @@ pub struct TxnIDParams {
     pub id: TxnID,
     /// Optional hash of proposal to ensure an operation can only apply to a
     /// specific proposal.
+    #[serde(with = "serde_bytes")]
     pub proposal_hash: Vec<u8>,
 }
 
