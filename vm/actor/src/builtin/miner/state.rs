@@ -169,7 +169,7 @@ impl State {
         info: SectorPreCommitOnChainInfo,
     ) -> Result<(), HamtError> {
         let mut precommitted =
-            Hamt::<_>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+            Hamt::<_, _>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
         precommitted.set(u64_key(info.info.sector_number), info)?;
 
         self.pre_committed_sectors = precommitted.flush()?;
@@ -181,7 +181,7 @@ impl State {
         sector_num: SectorNumber,
     ) -> Result<Option<SectorPreCommitOnChainInfo>, HamtError> {
         let precommitted =
-            Hamt::<_>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+            Hamt::<_, _>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
         precommitted.get(&u64_key(sector_num))
     }
     pub fn delete_precommitted_sector<BS: BlockStore>(
@@ -189,8 +189,11 @@ impl State {
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<(), HamtError> {
-        let mut precommitted =
-            Hamt::<_>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        let mut precommitted = Hamt::<_, SectorPreCommitOnChainInfo>::load_with_bit_width(
+            &self.pre_committed_sectors,
+            store,
+            HAMT_BIT_WIDTH,
+        )?;
         precommitted.delete(&u64_key(sector_num))?;
 
         self.pre_committed_sectors = precommitted.flush()?;

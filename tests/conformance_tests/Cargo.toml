@@ -30,3 +30,4 @@ crypto = { package = "forest_crypto", path = "../../crypto" }
 address = { package = "forest_address", path = "../../vm/address" }
 regex = "1.0"
 lazy_static = "1.4"
+actor = { path = "../../vm/actor" }
