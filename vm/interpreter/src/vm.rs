@@ -59,7 +59,7 @@ where
         rand: &'r R,
         base_fee: BigInt,
     ) -> Result<Self, String> {
-        let state = StateTree::new_from_root(store, root)?;
+        let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         Ok(VM {
             state,
@@ -85,7 +85,7 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> Result<Cid, String> {
-        self.state.flush()
+        self.state.flush().map_err(|e| e.to_string())
     }
 
     /// Returns ChainEpoch
@@ -314,13 +314,15 @@ where
             });
         };
 
-        self.state.mutate_actor(msg.from(), |act| {
-            act.deduct_funds(&gas_cost)?;
-            act.sequence += 1;
-            Ok(())
-        })?;
+        self.state
+            .mutate_actor(msg.from(), |act| {
+                act.deduct_funds(&gas_cost)?;
+                act.sequence += 1;
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
 
-        let snapshot = self.state.snapshot()?;
+        self.state.snapshot().map_err(|e| e.to_string())?;
 
         let (mut ret_data, rt, mut act_err) = self.send(msg, Some(msg_gas_cost));
         if let Some(err) = &act_err {
@@ -372,7 +374,7 @@ where
         let err_code = if let Some(err) = &act_err {
             if !err.is_ok() {
                 // Revert all state changes on error.
-                self.state.revert_to_snapshot(&snapshot)?;
+                self.state.revert_to_snapshot().map_err(|e| e.to_string())?;
             }
             err.exit_code()
         } else {
@@ -398,10 +400,12 @@ where
             if amt.sign() == Sign::Minus {
                 return Err("attempted to transfer negative value into actor".into());
             }
-            self.state.mutate_actor(addr, |act| {
-                act.deposit_funds(&amt);
-                Ok(())
-            })?;
+            self.state
+                .mutate_actor(addr, |act| {
+                    act.deposit_funds(&amt);
+                    Ok(())
+                })
+                .map_err(|e| e.to_string())?;
             Ok(())
         };
 

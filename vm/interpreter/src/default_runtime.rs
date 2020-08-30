@@ -169,7 +169,7 @@ where
         Ok(self
             .state
             .get_actor(&addr)
-            .map_err(ActorError::new_fatal)?
+            .map_err(|e| actor_error!(fatal("failed to get actor in get balance: {}", e)))?
             .map(|act| act.balance)
             .unwrap_or_default())
     }
@@ -180,7 +180,7 @@ where
         let mut actor = self
             .state
             .get_actor(&to_addr)
-            .map_err(ActorError::new_fatal)?
+            .map_err(|e| actor_error!(fatal("failed to get actor to commit state: {}", e)))?
             .ok_or_else(|| actor_error!(fatal("failed to get actor to commit state")))?;
 
         if &actor.state != old_h {
@@ -256,14 +256,13 @@ where
         };
 
         // snapshot state tree
-        let snapshot = self
-            .state
+        self.state
             .snapshot()
             .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
 
         let send_res = vm_send::<BS, SYS, R, P>(self, &msg, None);
         send_res.map_err(|e| {
-            if let Err(e) = self.state.revert_to_snapshot(&snapshot) {
+            if let Err(e) = self.state.revert_to_snapshot() {
                 actor_error!(fatal("failed to revert snapshot: {}", e))
             } else {
                 e
@@ -278,13 +277,13 @@ where
         let addr_id = self
             .state
             .register_new_address(addr)
-            .map_err(ActorError::new_fatal)?;
+            .map_err(|e| actor_error!(fatal("failed to register new address: {}", e)))?;
 
         let act = make_actor(addr)?;
 
         self.state
             .set_actor(&addr_id, act)
-            .map_err(ActorError::new_fatal)?;
+            .map_err(|e| actor_error!(fatal("failed to set actor: {}", e)))?;
 
         let p = Serialized::serialize(&addr).map_err(|e| {
             actor_error!(fatal(
@@ -304,7 +303,7 @@ where
         let act = self
             .state
             .get_actor(&addr_id)
-            .map_err(ActorError::new_fatal)?
+            .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
             .ok_or_else(|| actor_error!(fatal("failed to retrieve created actor state")))?;
 
         Ok(act)
@@ -367,14 +366,14 @@ where
     fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
         self.state
             .lookup_id(&address)
-            .map_err(ActorError::new_fatal)
+            .map_err(|e| actor_error!(fatal("failed to look up id: {}", e)))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {
         Ok(self
             .state
             .get_actor(&addr)
-            .map_err(ActorError::new_fatal)?
+            .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
             .map(|act| act.code))
     }
 
@@ -630,7 +629,7 @@ where
     let to_actor = match rt
         .state
         .get_actor(msg.to())
-        .map_err(ActorError::new_fatal)?
+        .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
     {
         Some(act) => act,
         None => {
@@ -665,11 +664,11 @@ fn transfer<BS: BlockStore>(
 
     let from_id = state
         .lookup_id(from)
-        .map_err(ActorError::new_fatal)?
+        .map_err(|e| actor_error!(fatal("failed to lookup from id for address: {}", e)))?
         .ok_or_else(|| actor_error!(fatal("Failed to lookup from id for address {}", from)))?;
     let to_id = state
         .lookup_id(to)
-        .map_err(ActorError::new_fatal)?
+        .map_err(|e| actor_error!(fatal("failed to lookup to id for address: {}", e)))?
         .ok_or_else(|| actor_error!(fatal("Failed to lookup to id for address {}", to)))?;
 
     if from_id == to_id {
@@ -684,7 +683,7 @@ fn transfer<BS: BlockStore>(
 
     let mut f = state
         .get_actor(&from_id)
-        .map_err(ActorError::new_fatal)?
+        .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
         .ok_or_else(|| {
             actor_error!(fatal(
                 "sender actor does not exist in state during transfer"
@@ -692,7 +691,7 @@ fn transfer<BS: BlockStore>(
         })?;
     let mut t = state
         .get_actor(&to_id)
-        .map_err(ActorError::new_fatal)?
+        .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
         .ok_or_else(|| {
             actor_error!(fatal(
                 "receiver actor does not exist in state during transfer"
@@ -705,8 +704,12 @@ fn transfer<BS: BlockStore>(
     })?;
     t.deposit_funds(&value);
 
-    state.set_actor(from, f).map_err(ActorError::new_fatal)?;
-    state.set_actor(to, t).map_err(ActorError::new_fatal)?;
+    state
+        .set_actor(from, f)
+        .map_err(|e| actor_error!(fatal("failed to set actor: {}", e)))?;
+    state
+        .set_actor(to, t)
+        .map_err(|e| actor_error!(fatal("failed to set actor: {}", e)))?;
 
     Ok(())
 }

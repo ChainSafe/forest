@@ -9,6 +9,7 @@ use chain::get_heaviest_tipset;
 use crypto::{signature::json::SignatureJson, SignatureType};
 use encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use log::warn;
 use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
@@ -43,10 +44,8 @@ where
             Ok(actor_balance.to_string())
         }
         Err(e) => {
-            if e == "Address not found" {
-                return Ok(BigUint::default().to_string());
-            }
-            Err(e.into())
+            warn!("Error retrieving actor state: {}", e);
+            Ok(BigUint::default().to_string())
         }
     }
 }

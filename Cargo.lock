@@ -5620,6 +5620,7 @@ dependencies = [
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",
+ "log",
  "message_pool",
  "num-traits 0.2.12",
  "rand 0.7.3",
@@ -6339,6 +6340,7 @@ dependencies = [
  "forest_vm",
  "ipld_blockstore",
  "ipld_hamt",
+ "log",
  "parking_lot 0.11.0",
 ]
 
