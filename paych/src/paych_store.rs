@@ -475,7 +475,19 @@ mod tests {
                 id: "".to_string(),
                 channel: Some(chan1.clone()),
                 vouchers: vec![VoucherInfo {
-                    voucher: SignedVoucher::default(),
+                    voucher: SignedVoucher {
+                        channel_addr: Address::new_id(1),
+                        time_lock_min: 0,
+                        time_lock_max: 0,
+                        secret_pre_image: vec![],
+                        extra: None,
+                        lane: 0,
+                        nonce: 0,
+                        amount: Default::default(),
+                        min_settle_height: 0,
+                        merges: vec![],
+                        signature: None
+                    },
                     proof: Vec::new(),
                 }],
                 direction: DIR_OUTBOUND,
@@ -493,7 +505,19 @@ mod tests {
                 id: "".to_string(),
                 channel: Some(chan2.clone()),
                 vouchers: vec![VoucherInfo {
-                    voucher: SignedVoucher::default(),
+                    voucher: SignedVoucher {
+                        channel_addr: Address::new_id(1),
+                        time_lock_min: 0,
+                        time_lock_max: 0,
+                        secret_pre_image: vec![],
+                        extra: None,
+                        lane: 0,
+                        nonce: 0,
+                        amount: Default::default(),
+                        min_settle_height: 0,
+                        merges: vec![],
+                        signature: None
+                    },
                     proof: Vec::new(),
                 }],
                 direction: DIR_OUTBOUND,

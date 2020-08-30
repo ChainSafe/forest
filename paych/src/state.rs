@@ -32,16 +32,17 @@ DB: BlockStore
 
     // TODO make sure that this is correct
     pub async fn next_lane_from_state(&self, st: PaychState) -> Result<u64, Error> {
-        if st.lane_states.len() == 0 {
-            return Ok(0);
-        }
-        let mut max_id = 0;
-        for state in &st.lane_states {
-            if state.id > max_id {
-                max_id = state.id
-            }
-        }
-        return Ok(max_id + 1);
+        unimplemented!();
+        // if st.lane_states.len() == 0 {
+        //     return Ok(0);
+        // }
+        // let mut max_id = 0;
+        // for state in &st.lane_states {
+        //     if state.id > max_id {
+        //         max_id = state.id
+        //     }
+        // }
+        // return Ok(max_id + 1);
     }
 
     pub async fn load_state_channel_info(

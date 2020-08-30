@@ -6,19 +6,22 @@ use flo_stream::Subscriber;
 use num_bigint::BigInt;
 use blockstore::BlockStore;
 use async_std::sync::{RwLock, Arc};
-use actor::paych::{SignedVoucher, LaneState, State as PaychState};
+use actor::paych::{SignedVoucher, LaneState, State as PaychState, UpdateChannelStateParams};
 use actor::account::State as AccountState;
 use std::collections::HashMap;
 use chain::get_heaviest_tipset;
 use std::ops::{Add, Sub};
 use message::{SignedMessage, UnsignedMessage};
 extern crate log;
+use crypto::Signature;
+use actor::paych::Method::UpdateChannelState;
 
 // TODO need to add paychapi
 pub struct ChannelAccessor<DB> {
     store: Arc<RwLock<PaychStore>>,
     msg_listeners: MsgListeners,
-    sa: Arc<StateAccessor<DB>>
+    sa: Arc<StateAccessor<DB>>,
+    funds_req_queue: Arc<RwLock<Vec<FundsReq>>>
 }
 
 impl<DB> ChannelAccessor<DB>
@@ -28,7 +31,8 @@ DB: BlockStore {
         ChannelAccessor {
             store: pm.store.clone(),
             msg_listeners: MsgListeners::new(),
-            sa: pm.sa.clone()
+            sa: pm.sa.clone(),
+            funds_req_queue: Arc::new(RwLock::new(Vec::new()))
         }
     }
 
@@ -48,9 +52,50 @@ DB: BlockStore {
         let act_state: AccountState = sm.load_actor_state(&pch_state.from, cid).map_err(|err| Error::Other(err.to_string()))?;
         let from = act_state.address;
 
-        unimplemented!();
-        // let vb = sv
+        let vb = sv.signing_bytes().map_err(|err| Error::Other(err.to_string()))?;
 
+        let sig = sv.signature.clone();
+        sig.ok_or_else(|| Error::Other("no sig".to_owned()))?.verify(&vb, &from).map_err(|err| Error::Other(err))?;
+
+        let lane_states = self.lane_state(&pch_state, ch).await?;
+        let ls = lane_states.get(&sv.lane).ok_or_else(|| Error::Other("No lane state for given nonce".to_owned()))?;
+        if ls.nonce >= sv.nonce {
+            return Err(Error::Other("nonce too low".to_owned()))
+        }
+        if ls.redeemed >= sv.amount {
+            return Err(Error::Other("Voucher amount is lower than amount for voucher amount for voucher with lower nonce".to_owned()))
+        }
+
+        // Total redeemed is the total redeemed amount for all lanes, including
+        // the new voucher
+        // eg
+        //
+        // lane 1 redeemed:            3
+        // lane 2 redeemed:            2
+        // voucher for lane 1:         5
+        //
+        // Voucher supersedes lane 1 redeemed, therefore
+        // effective lane 1 redeemed:  5
+        //
+        // lane 1:  5
+        // lane 2:  2
+        //          -
+        // total:   7
+        let merge_len = sv.merges.len();
+        let total_redeemed = self.total_redeemed_with_voucher(&lane_states, sv).await?;
+
+        // Total required balance = total redeemed + to send
+        // must not exceed actor balance
+        let new_total = total_redeemed + BigInt::from(pch_state.to_send);
+        if BigInt::from(act.balance) < new_total {
+            return Err(Error::Other("Not enough funds in channel to cover voucher".to_owned()))
+        }
+
+        if merge_len != 0 {
+            return Err(Error::Other("don't currently support paych lane merges".to_owned()))
+        }
+
+        return Ok(lane_states)
     }
 
     pub async fn check_voucher_spendable(&self, ch: Address, sv: SignedVoucher, secret: Vec<u8>, mut proof: Vec<u8>) -> Result<bool, Error> {
@@ -70,7 +115,15 @@ DB: BlockStore {
             }
         }
         // TODO need to do this
-        unimplemented!()
+
+
+        let enc: UpdateChannelStateParams = UpdateChannelStateParams {
+            sv,
+            secret,
+            proof
+        };
+
+        unimplemented!();
     }
 
     pub async fn get_paych_recipient(&self, ch: &Address) -> Result<Address, Error> {
@@ -163,12 +216,12 @@ DB: BlockStore {
     }
 
     // get the lanestates from chain, then apply all vouchers in the data store over the chain state
-    pub async fn lane_state(&self, state: PaychState, ch: Address) -> Result<HashMap<u64, LaneState>, Error> {
+    pub async fn lane_state(&self, state: &PaychState, ch: Address) -> Result<HashMap<u64, LaneState>, Error> {
         // TODO should call update channel state with all vouchers to be fully correct (note taken from lotus)
         unimplemented!()
     }
 
-    pub async fn total_redeemed_with_voucher(&self, lane_states: HashMap<u64, LaneState>, sv: SignedVoucher) -> Result<BigInt, Error> {
+    pub async fn total_redeemed_with_voucher(&self, lane_states: &HashMap<u64, LaneState>, sv: SignedVoucher) -> Result<BigInt, Error> {
         // implement call with merges
         if sv.merges.len() != 0 {
             return Err(Error::Other("merges not supported yet".to_string()))
@@ -201,10 +254,14 @@ DB: BlockStore {
         let mut ci = store.by_address(ch.clone()).await?;
         // TODO update method_num and add method_num to this message
         let umsg: UnsignedMessage = UnsignedMessage::builder().to(ch).from(ci.control).value(BigInt::default()).build().map_err(|err| Error::Other(err.to_string()))?;
-        // TODO need to push message to messagepool
         ci.settling = true;
         store.put_channel_info(ci).await?;
+        // TODO need to push message to messagepool
         // need to return signed message cid
+        unimplemented!();
+        ci.settling = true;
+        store.put_channel_info(ci)?;
+        // TODO return msg cid
         unimplemented!()
     }
 
@@ -215,6 +272,27 @@ DB: BlockStore {
         let umsg: UnsignedMessage = UnsignedMessage::builder().to(ch).from(ci.control).value(BigInt::default()).build().map_err(|err| Error::Other(err.to_string()))?;
         // TODO sign message with message pool and return signed message cid
         unimplemented!()
+    }
+
+    pub async fn get_paych(&self, from: Address, to: Address, amt: BigInt) -> Result<Address, Error> {
+        // add the request to add funds to a queue and wait for the result
+        let freq = FundsReq::new(from, to, amt);
+
+        unimplemented!()
+    }
+
+    // Run operations in the queue
+    pub async fn process_queue(&self) {
+        // Remove cancelled requests
+        self.filter_queue().await;
+
+        unimplemented!()
+    }
+
+    pub async fn filter_queue(&self) {
+        let mut queue = self.funds_req_queue.write().await;
+        // Remove cancelled requests
+        queue.retain(|val| val.active);
     }
 }
 
@@ -255,6 +333,22 @@ impl FundsReq {
     pub fn on_complete(&self, res: PaychFundsRes) {
         unimplemented!()
     }
+
+    pub fn cancel(&mut self) {
+        self.active = false;
+        let m = self.merge.clone();
+        if m.is_some() {
+            m.unwrap().check_active();
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.active
+    }
+
+    pub fn set_merge_parent(&mut self, m: MergeFundsReq) {
+        self.merge = Some(m);
+    }
 }
 
 // mergedFundsReq merges together multiple add funds requests that are queued
@@ -262,7 +356,52 @@ impl FundsReq {
 // message for each request)
 #[derive(Clone)]
 pub struct MergeFundsReq {
-    reqs: Vec<FundsReq>
+    reqs: Vec<FundsReq>,
+    any_active: bool,
+}
+
+impl MergeFundsReq {
+    pub fn new(reqs: Vec<FundsReq>) -> Option<Self> {
+        let mut any_active = false;
+        for i in reqs.iter() {
+            if i.active {
+                any_active = true
+            }
+        }
+        if any_active {
+            return Some(MergeFundsReq { reqs, any_active })
+        }
+        None
+    }
+
+    pub fn check_active(&self) -> bool {
+        for val in self.reqs.iter() {
+            if val.active {
+                return true
+            }
+        }
+        // TODO cancell all active requests
+        return false
+    }
+
+    pub fn on_complete(&self, res: PaychFundsRes) {
+        for r in self.reqs.iter() {
+            if r.active {
+                r.on_complete(res.clone())
+            }
+        }
+    }
+
+    /// Return sum of the amounts in all active funds requests
+    pub fn sum(&self) -> BigInt {
+        let mut sum = BigInt::default();
+        for r in self.reqs.iter() {
+            if r.active {
+                sum = sum.add(&r.amt)
+            }
+        }
+        sum
+    }
 }
 
 // pub async fn lane_state(&self, ch: Address, lane: u64) -> Result<LaneState, Error> {

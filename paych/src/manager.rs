@@ -89,8 +89,10 @@ DB: BlockStore
     }
 
     // TODO implement when channel accessors are implemented
-    pub async fn get_paych(&self, _from: Address, _to: Address, _amt: BigInt) -> Result<(Address, Cid), Error> {
+    pub async fn get_paych(&self, from: Address, to: Address, amt: BigInt) -> Result<(Address, Cid), Error> {
+        let chan_accesor = self.accessor_by_from_to(from.clone(), to.clone()).await?;
         unimplemented!()
+        // return chan_accesor.get_paych(from, to, amt)
     }
 
     // GetPaychWaitReady waits until the create channel / add funds message with the
@@ -151,21 +153,21 @@ fn accessor_cache_key(from: &Address, to: &Address) -> String {
     from.to_string() + "->" + &to.to_string()
 }
 
-fn find_lane(states: Vec<LaneState>, lane: u64) -> Option<LaneState> {
-    for lane_state in states.iter() {
-        if lane_state.id == lane {
-            return Some(lane_state.clone());
-        }
-    }
-    None
-}
+// fn find_lane(states: Vec<LaneState>, lane: u64) -> Option<LaneState> {
+//     for lane_state in states.iter() {
+//         if lane_state.id == lane {
+//             return Some(lane_state.clone());
+//         }
+//     }
+//     None
+// }
 
-pub fn max_lane_from_state(st: &PaychState) -> u64 {
-    let mut max_lane = 0;
-    for lane in st.lane_states.iter() {
-        if max_lane < lane.id {
-            max_lane = lane.id;
-        }
-    }
-    max_lane
-}
+// pub fn max_lane_from_state(st: &PaychState) -> u64 {
+//     let mut max_lane = 0;
+//     for lane in st.lane_states.iter() {
+//         if max_lane < lane.id {
+//             max_lane = lane.id;
+//         }
+//     }
+//     max_lane
+// }

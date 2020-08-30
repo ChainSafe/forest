@@ -47,11 +47,11 @@ mod tests {
             let mut ml = MsgListeners::new();
 
             let done = false;
-            let mut cids = test_cids();
+            let cid = Cid::from_raw_cid("QmdmGQmRgRjazArukTbsXuuxmSHsMCcRYPAZoGhd6e3MuS").unwrap();
             let mut sub = ml.subscribe().await;
-            ml.fire_msg_complete(cids[0].clone(), Error::Other("this should not be an error".to_string())).await;
+            ml.fire_msg_complete(cid.clone(), Error::Other("this should not be an error".to_string())).await;
 
-            assert_eq!(sub.next().await.unwrap().mcid, cids.pop().unwrap())
+            assert_eq!(sub.next().await.unwrap().mcid, cid)
         })
 
     }
