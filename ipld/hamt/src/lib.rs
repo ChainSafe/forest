@@ -23,7 +23,6 @@ pub use self::hamt::Hamt;
 pub use self::hash::*;
 pub use self::hash_algorithm::*;
 
-use forest_ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::hash::Hasher;
@@ -37,16 +36,16 @@ const DEFAULT_BIT_WIDTH: u32 = 8;
 type HashedKey = [u8; 32];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-struct KeyValuePair<K>(K, Ipld);
+struct KeyValuePair<K, V>(K, V);
 
-impl<K> KeyValuePair<K> {
+impl<K, V> KeyValuePair<K, V> {
     pub fn key(&self) -> &K {
         &self.0
     }
 }
 
-impl<K> KeyValuePair<K> {
-    pub fn new(key: K, value: Ipld) -> Self {
+impl<K, V> KeyValuePair<K, V> {
+    pub fn new(key: K, value: V) -> Self {
         KeyValuePair(key, value)
     }
 }

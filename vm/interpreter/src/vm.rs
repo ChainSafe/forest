@@ -257,8 +257,8 @@ where
 
         let miner_penalty_amount = &self.base_fee * msg.gas_limit();
         let from_act = match self.state.get_actor(msg.from()) {
-            Ok(from_act) => from_act.ok_or("Failed to retrieve actor state")?,
-            Err(_) => {
+            Ok(Some(from_act)) => from_act,
+            _ => {
                 return Ok(ApplyRet {
                     msg_receipt: MessageReceipt {
                         return_data: Serialized::default(),
@@ -433,15 +433,15 @@ where
             miner_tip,
         })
     }
-    /// Instantiates a new Runtime, and calls internal_send to do the execution.
+    /// Instantiates a new Runtime, and calls vm_send to do the execution.
     #[allow(clippy::type_complexity)]
-    fn send<'m>(
+    fn send(
         &mut self,
-        msg: &'m UnsignedMessage,
+        msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, 'm, '_, '_, '_, '_, DB, SYS, R, P>>,
+        Option<DefaultRuntime<'db, '_, '_, '_, '_, DB, SYS, R, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(

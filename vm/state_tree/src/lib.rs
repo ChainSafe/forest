@@ -15,7 +15,7 @@ use vm::ActorState;
 
 /// State tree implementation using hamt
 pub struct StateTree<'db, S> {
-    hamt: Hamt<'db, S>,
+    hamt: Hamt<'db, S, ActorState>,
 
     /// State cache
     snaps: StateSnapshots,
@@ -223,7 +223,7 @@ where
         }
 
         // if state doesn't exist, find using hamt
-        let act: Option<ActorState> = self.hamt.get(&addr.to_bytes())?;
+        let act = self.hamt.get(&addr.to_bytes()).map_err(|e| e.to_string())?;
 
         // Update cache if state was found
         if let Some(act_s) = &act {
@@ -379,9 +379,9 @@ where
                         .delete(&addr.to_bytes())
                         .map_err(|e| e.to_string())?;
                 }
-                Some(state) => {
+                Some(ref state) => {
                     self.hamt
-                        .set(addr.to_bytes().into(), &state)
+                        .set(addr.to_bytes().into(), state.clone())
                         .map_err(|e| e.to_string())?;
                 }
             }

@@ -10,6 +10,7 @@ address = { package = "forest_address", path = "../address" }
 vm = { package = "forest_vm", path = "../../vm" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_hamt = { path = "../../ipld/hamt" }
+forest_ipld = { path = "../../ipld" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 db = { path = "../../node/db" }
 parking_lot = "0.11"

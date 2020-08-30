@@ -81,6 +81,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        rt.validate_immediate_caller_accept_any()?;
         // TODO Temporarily fine to use default as Undefined Cid, but may need to change in the future
         let actor_cid = if arg.undef_cid {
             Cid::default()
