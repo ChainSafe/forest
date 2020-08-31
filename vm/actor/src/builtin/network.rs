@@ -1,7 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub const EPOCH_DURATION_SECONDS: i64 = 25;
+pub use clock::EPOCH_DURATION_SECONDS;
+
 pub const SECONDS_IN_HOUR: i64 = 3600;
 pub const SECONDS_IN_DAY: i64 = 86400;
 pub const SECONDS_IN_YEAR: i64 = 31556925;

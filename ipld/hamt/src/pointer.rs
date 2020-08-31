@@ -4,20 +4,19 @@
 use super::node::Node;
 use super::{Error, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
-use forest_ipld::Ipld;
 use serde::de::{self, DeserializeOwned};
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Pointer to index values or a link to another child node.
 #[derive(Debug, Clone)]
-pub(crate) enum Pointer<K, H> {
-    Values(Vec<KeyValuePair<K>>),
+pub(crate) enum Pointer<K, V, H> {
+    Values(Vec<KeyValuePair<K, V>>),
     Link(Cid),
-    Cache(Box<Node<K, H>>),
+    Cache(Box<Node<K, V, H>>),
 }
 
-impl<K: PartialEq, H> PartialEq for Pointer<K, H> {
+impl<K: PartialEq, V: PartialEq, H> PartialEq for Pointer<K, V, H> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (&Pointer::Values(ref a), &Pointer::Values(ref b)) => a == b,
@@ -28,9 +27,10 @@ impl<K: PartialEq, H> PartialEq for Pointer<K, H> {
     }
 }
 
-impl<K, H> Serialize for Pointer<K, H>
+impl<K, V, H> Serialize for Pointer<K, V, H>
 where
     K: Serialize,
+    V: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -39,9 +39,9 @@ where
         match self {
             Pointer::Values(vals) => {
                 #[derive(Serialize)]
-                struct ValsSer<'a, A> {
+                struct ValsSer<'a, A, B> {
                     #[serde(rename = "1")]
-                    vals: &'a [KeyValuePair<A>],
+                    vals: &'a [KeyValuePair<A, B>],
                 };
                 ValsSer { vals }.serialize(serializer)
             }
@@ -58,18 +58,19 @@ where
     }
 }
 
-impl<'de, K, H> Deserialize<'de> for Pointer<K, H>
+impl<'de, K, V, H> Deserialize<'de> for Pointer<K, V, H>
 where
     K: DeserializeOwned,
+    V: DeserializeOwned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        struct PointerDeser<A> {
+        struct PointerDeser<A, B> {
             #[serde(rename = "1")]
-            vals: Option<Vec<KeyValuePair<A>>>,
+            vals: Option<Vec<KeyValuePair<A, B>>>,
 
             #[serde(rename = "0")]
             cid: Option<Cid>,
@@ -83,17 +84,18 @@ where
     }
 }
 
-impl<K, H> Default for Pointer<K, H> {
+impl<K, V, H> Default for Pointer<K, V, H> {
     fn default() -> Self {
         Pointer::Values(Vec::new())
     }
 }
 
-impl<K, H> Pointer<K, H>
+impl<K, V, H> Pointer<K, V, H>
 where
     K: Serialize + DeserializeOwned + Clone,
+    V: Serialize + DeserializeOwned + Clone,
 {
-    pub(crate) fn from_key_value(key: K, value: Ipld) -> Self {
+    pub(crate) fn from_key_value(key: K, value: V) -> Self {
         Pointer::Values(vec![KeyValuePair::new(key, value)])
     }
 
@@ -116,7 +118,8 @@ where
                 2..=MAX_ARRAY_WIDTH => {
                     // Iterate over all pointers in cached node to see if it can fit all within
                     // one values node
-                    let mut child_vals: Vec<KeyValuePair<K>> = Vec::with_capacity(MAX_ARRAY_WIDTH);
+                    let mut child_vals: Vec<KeyValuePair<K, V>> =
+                        Vec::with_capacity(MAX_ARRAY_WIDTH);
                     for pointer in n.pointers.iter() {
                         if let Pointer::Values(kvs) = pointer {
                             for kv in kvs.iter() {

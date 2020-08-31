@@ -21,7 +21,7 @@ const DEFAULT_BIT_WIDTH: u32 = 8;
 #[test]
 fn test_basics() {
     let store = db::MemoryDB::default();
-    let mut hamt = Hamt::<_, _>::new(&store);
+    let mut hamt = Hamt::<_, String, _>::new(&store);
     hamt.set(1, "world".to_string()).unwrap();
 
     assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
@@ -33,7 +33,7 @@ fn test_basics() {
 fn test_load() {
     let store = db::MemoryDB::default();
 
-    let mut hamt: Hamt<_, usize> = Hamt::new(&store);
+    let mut hamt: Hamt<_, _, usize> = Hamt::new(&store);
     hamt.set(1, "world".to_string()).unwrap();
 
     assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
@@ -71,7 +71,7 @@ fn delete() {
     let store = db::MemoryDB::default();
 
     // ! Note that bytes must be specifically indicated serde_bytes type
-    let mut hamt: Hamt<_, BytesKey, Murmur3> = Hamt::new(&store);
+    let mut hamt: Hamt<_, _, BytesKey, Murmur3> = Hamt::new(&store);
     let (v1, v2, v3): (&[u8], &[u8], &[u8]) = (
         b"cat dog bear".as_ref(),
         b"cat dog".as_ref(),
@@ -87,9 +87,9 @@ fn delete() {
         "0171a0e402204c4cec750f4e5fc0df61e5a6b6f430d45e6d42108824492658ccd480a4f86aef"
     );
 
-    let mut h2 = Hamt::<_, BytesKey, Murmur3>::load(&c, &store).unwrap();
+    let mut h2 = Hamt::<_, ByteBuf, BytesKey, Murmur3>::load(&c, &store).unwrap();
     assert_eq!(h2.delete(&b"foo".to_vec()).unwrap(), true);
-    assert_eq!(h2.get::<_, ByteBuf>(&b"foo".to_vec()).unwrap(), None);
+    assert_eq!(h2.get(&b"foo".to_vec()).unwrap(), None);
 
     // Assert previous hamt still has access
     assert_eq!(hamt.get(&b"foo".to_vec()).unwrap(), Some(ByteBuf::from(v1)));
@@ -106,13 +106,13 @@ fn delete() {
 fn reload_empty() {
     let store = db::MemoryDB::default();
 
-    let hamt: Hamt<_, BytesKey, Murmur3> = Hamt::new(&store);
+    let hamt: Hamt<_, (), BytesKey, Murmur3> = Hamt::new(&store);
     let c = store.put(&hamt, Blake2b256).unwrap();
     assert_eq!(
         hex::encode(c.to_bytes()),
         "0171a0e4022018fe6acc61a3a36b0c373c4a3a8ea64b812bf2ca9b528050909c78d408558a0c"
     );
-    let h2 = Hamt::<_, BytesKey, Murmur3>::load(&c, &store).unwrap();
+    let h2 = Hamt::<_, (), BytesKey, Murmur3>::load(&c, &store).unwrap();
     let c2 = store.put(&h2, Blake2b256).unwrap();
     assert_eq!(c, c2);
 }
@@ -123,7 +123,7 @@ fn set_delete_many() {
     let store = db::MemoryDB::default();
 
     // Test vectors setup specifically for bit width of 5
-    let mut hamt: Hamt<_, BytesKey, Murmur3> = Hamt::new_with_bit_width(&store, 5);
+    let mut hamt: Hamt<_, _, BytesKey, Murmur3> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 0..200 {
         hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
@@ -176,14 +176,14 @@ fn add_and_remove_keys(
 
     let store = db::MemoryDB::default();
 
-    let mut hamt: Hamt<_, _, Identity> = Hamt::new_with_bit_width(&store, bit_width);
+    let mut hamt: Hamt<_, _, _, Identity> = Hamt::new_with_bit_width(&store, bit_width);
 
     for (k, v) in all.iter() {
         hamt.set(k.clone(), *v).unwrap();
     }
     let cid = hamt.flush().unwrap();
 
-    let mut h1: Hamt<_, BytesKey, Identity> =
+    let mut h1: Hamt<_, _, BytesKey, Identity> =
         Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
 
     for (k, v) in all {
@@ -198,7 +198,7 @@ fn add_and_remove_keys(
         hamt.delete(*k).unwrap();
     }
     let cid2 = hamt.flush().unwrap();
-    let mut h2: Hamt<_, BytesKey, Identity> =
+    let mut h2: Hamt<_, u8, BytesKey, Identity> =
         Hamt::load_with_bit_width(&cid2, &store, bit_width).unwrap();
 
     let cid1 = h1.flush().unwrap();
