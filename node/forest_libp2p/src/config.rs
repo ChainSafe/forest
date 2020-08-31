@@ -32,7 +32,7 @@ impl Default for Libp2pConfig {
             listening_multiaddr: "/ip4/0.0.0.0/tcp/0".parse().unwrap(),
             bootstrap_peers,
             mdns: true,
-            kad: true,
+            kademlia: true,
         }
     }
 }

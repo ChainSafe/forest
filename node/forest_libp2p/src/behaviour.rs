@@ -312,7 +312,7 @@ impl ForestBehaviour {
         let mut kad_config = KademliaConfig::default();
         let network = format!("/fil/kad/{}/kad/1.0.0", network_name);
         kad_config.set_protocol_name(network.as_bytes().to_vec());
-        let kademlia_opt = if config.kad {
+        let kademlia_opt = if config.kademlia {
             let mut kademlia = Kademlia::with_config(local_peer_id.to_owned(), store, kad_config);
             for multiaddr in config.bootstrap_peers.iter() {
                 let mut addr = multiaddr.to_owned();

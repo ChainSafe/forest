@@ -92,7 +92,7 @@ impl DaemonOpts {
             cfg.enable_rpc = false;
         }
 
-        cfg.network.kad = self.kademlia.unwrap_or(cfg.network.kad);
+        cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
 
         // (where to find these flags, should be easy to do with structops)
