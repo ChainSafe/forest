@@ -64,7 +64,6 @@ fn get_set_non_id() {
 
     let act_s = ActorState::new(empty_cid(), state_cid.clone(), Default::default(), 1);
 
-    // Test snapshot
     tree.snapshot().unwrap();
     tree.set_actor(&INIT_ACTOR_ADDR, act_s.clone()).unwrap();
 
@@ -115,6 +114,7 @@ fn test_snapshots() {
         ),
     )
     .unwrap();
+
     tree.set_actor(
         &addresses[1],
         ActorState::new(
@@ -126,7 +126,6 @@ fn test_snapshots() {
     )
     .unwrap();
 
-    tree.snapshot().unwrap();
     tree.set_actor(
         &addresses[2],
         ActorState::new(
@@ -137,7 +136,6 @@ fn test_snapshots() {
         ),
     )
     .unwrap();
-    tree.clear_snapshot().unwrap();
 
     tree.clear_snapshot().unwrap();
     tree.flush().unwrap();
@@ -192,7 +190,7 @@ fn revert_snapshot() {
     )
     .unwrap();
     tree.revert_to_snapshot().unwrap();
-    tree.clear_snapshot().unwrap();
+    tree.flush().unwrap();
 
-    assert!(tree.get_actor(&addr).is_err());
+    assert_eq!(tree.get_actor(&addr).unwrap(), None);
 }
