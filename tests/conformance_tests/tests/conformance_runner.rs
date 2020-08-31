@@ -265,8 +265,6 @@ fn execute_message(
         }
     }
 
-    // TODO register puppet actor (and conditionally chaos actor)
-
     let ret = vm.apply_message(msg)?;
 
     let root = vm.flush()?;
@@ -379,8 +377,8 @@ fn conformance_test_runner() {
         }
     }
 
+    println!("{}/{} tests passed:", succeeded, failed.len() + succeeded);
     if !failed.is_empty() {
-        eprintln!("{}/{} tests passed:", succeeded, failed.len() + succeeded);
         for (path, meta, e) in failed {
             eprintln!(
                 "file {} failed:\n\tMeta: {:?}\n\tError: {}\n",
