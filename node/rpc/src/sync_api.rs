@@ -129,6 +129,7 @@ mod tests {
         });
 
         let state = Arc::new(RpcState {
+            chain_store : Arc::new(RwLock::new(ChainStore::new(Arc::new(MemoryDB::default())))),
             state_manager: StateManager::new(Arc::new(MemoryDB::default())),
             keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
             mpool: Arc::new(pool),

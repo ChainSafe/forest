@@ -1057,14 +1057,13 @@ mod tests {
 
         let genesis_ts = Tipset::new(vec![gen]).unwrap();
         (
-            ChainSyncer::new(
-                chain_store,
+            task::block_on(ChainSyncer::new(
+                Arc::new(RwLock::new(chain_store)),
                 beacon,
                 local_sender,
                 event_receiver,
                 genesis_ts,
-            )
-            .unwrap(),
+            )).unwrap(),
             event_sender,
             test_receiver,
         )
@@ -1139,7 +1138,7 @@ mod tests {
             Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
-        let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
+        let root = compute_msg_meta(cs.state_manager.get_block_store_ref(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
     }
 

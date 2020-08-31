@@ -31,13 +31,13 @@ fn peer_manager_update() {
 
     let genesis_ts = Tipset::new(vec![dummy_header]).unwrap();
     let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
-    let cs = ChainSyncer::new(
-        chain_store,
+    let cs = task::block_on(ChainSyncer::new(
+        Arc::new(RwLock::new(chain_store)),
         beacon,
         local_sender,
         event_receiver,
         genesis_ts,
-    )
+    ))
     .unwrap();
 
     let peer_manager = Arc::clone(&cs.peer_manager);
@@ -64,7 +64,7 @@ fn peer_manager_update() {
         // Would be ideal to not have to sleep here and have it deterministic
         task::sleep(Duration::from_millis(50)).await;
 
-        assert_eq!(peer_manager.len().await, 1);
-        assert_eq!(peer_manager.get_peer().await, Some(source_clone));
+        assert_eq!((*peer_manager).len().await, 1);
+        assert_eq!((*peer_manager).get_peer().await, Some(source_clone));
     });
 }
