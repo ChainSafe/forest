@@ -127,6 +127,7 @@ impl Actor {
 
         rt.transaction(|st: &mut State, _| {
             st.opt_fail = vec![UnmarshallableCBOR];
+            Ok(())
         })?;
 
         Ok(())

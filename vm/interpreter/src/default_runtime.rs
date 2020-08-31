@@ -460,7 +460,7 @@ where
     fn transaction<C, RT, F>(&mut self, f: F) -> Result<RT, ActorError>
     where
         C: Cbor,
-        F: FnOnce(&mut C, &mut Self) -> RT,
+        F: FnOnce(&mut C, &mut Self) -> Result<RT, ActorError>,
     {
         // get actor
         let act = self.state.get_actor(self.message().receiver())
@@ -476,7 +476,7 @@ where
 
         // Update the state
         self.allow_internal = false;
-        let r = f(&mut state, self);
+        let r = f(&mut state, self)?;
         self.allow_internal = true;
 
         let c = self.put(&state)?;
