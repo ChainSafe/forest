@@ -23,7 +23,9 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
+use libp2p::swarm::{
+    toggle::Toggle, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
+};
 use libp2p::NetworkBehaviour;
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use libp2p_request_response::{
@@ -42,12 +44,12 @@ use tiny_cid::Cid as Cid2;
 pub struct ForestBehaviour {
     gossipsub: Gossipsub,
     // TODO configure to allow turning mdns off
-    mdns: Mdns,
+    mdns: Toggle<Mdns>,
     ping: Ping,
     identify: Identify,
     hello: RequestResponse<HelloCodec>,
     blocksync: RequestResponse<BlockSyncCodec>,
-    kademlia: Kademlia<MemoryStore>,
+    kademlia: Toggle<Kademlia<MemoryStore>>,
     bitswap: Bitswap,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
@@ -98,9 +100,11 @@ impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
                 }
             }
             MdnsEvent::Expired(list) => {
-                for (peer, _) in list {
-                    if !self.mdns.has_node(&peer) {
-                        self.remove_peer(&peer);
+                if self.mdns.is_enabled() {
+                    for (peer, _) in list {
+                        if !self.mdns.as_ref().unwrap().has_node(&peer) {
+                            self.remove_peer(&peer);
+                        }
                     }
                 }
             }
@@ -308,27 +312,38 @@ impl ForestBehaviour {
         let mut kad_config = KademliaConfig::default();
         let network = format!("/fil/kad/{}/kad/1.0.0", network_name);
         kad_config.set_protocol_name(network.as_bytes().to_vec());
-        let mut kademlia = Kademlia::with_config(local_peer_id.to_owned(), store, kad_config);
-        for multiaddr in config.bootstrap_peers.iter() {
-            let mut addr = multiaddr.to_owned();
-            if let Some(Protocol::P2p(mh)) = addr.pop() {
-                let peer_id = PeerId::from_multihash(mh).unwrap();
-                kademlia.add_address(&peer_id, addr);
-                bitswap.connect(peer_id);
-            } else {
-                warn!("Could not add addr {} to Kademlia DHT", multiaddr)
+        let kademlia_opt = if config.kademlia {
+            let mut kademlia = Kademlia::with_config(local_peer_id.to_owned(), store, kad_config);
+            for multiaddr in config.bootstrap_peers.iter() {
+                let mut addr = multiaddr.to_owned();
+                if let Some(Protocol::P2p(mh)) = addr.pop() {
+                    let peer_id = PeerId::from_multihash(mh).unwrap();
+                    kademlia.add_address(&peer_id, addr);
+                    bitswap.connect(peer_id);
+                } else {
+                    warn!("Could not add addr {} to Kademlia DHT", multiaddr)
+                }
             }
-        }
-        if let Err(e) = kademlia.bootstrap() {
-            warn!("Kademlia bootstrap failed: {}", e);
-        }
+            if let Err(e) = kademlia.bootstrap() {
+                warn!("Kademlia bootstrap failed: {}", e);
+            }
+            Some(kademlia)
+        } else {
+            None
+        };
+
+        let mdns_opt = if config.mdns {
+            Some(Mdns::new().expect("Could not start mDNS"))
+        } else {
+            None
+        };
 
         let hp = std::iter::once((HelloProtocolName, ProtocolSupport::Full));
         let bp = std::iter::once((BlockSyncProtocolName, ProtocolSupport::Full));
 
         ForestBehaviour {
             gossipsub: Gossipsub::new(MessageAuthenticity::Author(local_peer_id), gossipsub_config),
-            mdns: Mdns::new().expect("Could not start mDNS"),
+            mdns: mdns_opt.into(),
             ping: Ping::default(),
             identify: Identify::new(
                 "ipfs/0.1.0".into(),
@@ -336,7 +351,7 @@ impl ForestBehaviour {
                 format!("forest-{}", "0.1.0"),
                 local_key.public(),
             ),
-            kademlia,
+            kademlia: kademlia_opt.into(),
             bitswap,
             hello: RequestResponse::new(HelloCodec, hp, Default::default()),
             blocksync: RequestResponse::new(BlockSyncCodec, bp, Default::default()),
@@ -347,7 +362,11 @@ impl ForestBehaviour {
 
     /// Bootstrap Kademlia network
     pub fn bootstrap(&mut self) -> Result<QueryId, String> {
-        self.kademlia.bootstrap().map_err(|e| e.to_string())
+        if let Some(active_kad) = self.kademlia.as_mut() {
+            active_kad.bootstrap().map_err(|e| e.to_string())
+        } else {
+            Err("Kademlia is not activated".to_string())
+        }
     }
 
     /// Publish data over the gossip network.
