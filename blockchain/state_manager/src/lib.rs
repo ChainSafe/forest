@@ -18,7 +18,6 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
-use fil_types::DevnetParams;
 use flo_stream::Subscriber;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use futures::channel::oneshot;
@@ -122,7 +121,7 @@ where
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
         let spas: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        let claims = make_map_with_root(&spas.claims, self.bs.as_ref())
+        let claims = make_map_with_root::<_, power::Claim>(&spas.claims, self.bs.as_ref())
             .map_err(|e| Error::State(e.to_string()))?;
 
         Ok(!claims
@@ -180,7 +179,7 @@ where
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO possibly switch out syscalls to be saved at state manager level
         // TODO change from statically using devnet params when needed
-        let mut vm = VM::<_, _, DevnetParams>::new(
+        let mut vm = VM::<_, _, _>::new(
             ts.parent_state(),
             &buf_store,
             ts.epoch(),
@@ -256,7 +255,7 @@ where
         span!("state_call_raw", {
             let block_store = self.get_block_store_ref();
             let buf_store = BufferedBlockStore::new(block_store);
-            let mut vm = VM::<_, _, DevnetParams>::new(
+            let mut vm = VM::<_, _, _>::new(
                 bstate,
                 &buf_store,
                 *bheight,
@@ -331,7 +330,7 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned());
 
-        let mut vm = VM::<_, _, DevnetParams>::new(
+        let mut vm = VM::<_, _, _>::new(
             &st,
             self.bs.as_ref(),
             ts.epoch() + 1,

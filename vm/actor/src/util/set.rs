@@ -9,7 +9,7 @@ use std::error::Error as StdError;
 
 /// Set is a Hamt with empty values for the purpose of acting as a hash set.
 #[derive(Debug)]
-pub struct Set<'a, BS>(Map<'a, BS>);
+pub struct Set<'a, BS>(Map<'a, BS, ()>);
 
 impl<'a, BS: BlockStore> PartialEq for Set<'a, BS> {
     fn eq(&self, other: &Self) -> bool {
@@ -47,7 +47,7 @@ where
     /// Checks if key exists in the set.
     #[inline]
     pub fn has(&self, key: &[u8]) -> Result<bool, String> {
-        Ok(self.0.get::<_, ()>(key)?.is_some())
+        Ok(self.0.get(key)?.is_some())
     }
 
     /// Deletes key from set.
@@ -64,7 +64,7 @@ where
         F: FnMut(&BytesKey) -> Result<(), Box<dyn StdError>>,
     {
         // Calls the for each function on the hamt with ignoring the value
-        Ok(self.0.for_each(|s, _: ()| f(s))?)
+        Ok(self.0.for_each(|s, _: &()| f(s))?)
     }
 
     /// Collects all keys from the set into a vector.

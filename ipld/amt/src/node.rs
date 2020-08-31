@@ -25,7 +25,6 @@ impl<V> From<Cid> for Link<V> {
 
 /// Node represents either a shard of values in the form of bytes or links to other nodes
 #[derive(PartialEq, Eq, Clone, Debug)]
-// TODO benchmark boxing all variables
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Node<V> {
     Link {
@@ -48,14 +47,14 @@ impl<V> Default for Node<V> {
 }
 
 /// Turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<T>
+fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<&T>
 where
     T: Clone,
 {
-    let mut v: Vec<T> = Vec::new();
+    let mut v: Vec<&T> = Vec::new();
     for (i, _) in values.iter().enumerate().take(WIDTH) {
         if bmap.get_bit(i as u64) {
-            v.push(values[i].clone().unwrap())
+            v.push(values[i].as_ref().unwrap())
         }
     }
     v
@@ -69,12 +68,12 @@ where
 {
     let mut r_arr: [Option<T>; WIDTH] = Default::default();
 
-    let mut v_iter = values.iter();
+    let mut v_iter = values.into_iter();
 
-    for (i, e) in r_arr.iter_mut().enumerate().take(WIDTH) {
-        if bmap.get_bit(i as u64) {
+    for (i, e) in (0..).zip(r_arr.iter_mut()) {
+        if bmap.get_bit(i) {
             let value = v_iter.next().ok_or_else(|| Error::InvalidVecLength)?;
-            *e = Some(<T>::from(value.clone()));
+            *e = Some(<T>::from(value));
         }
     }
 
@@ -82,11 +81,11 @@ where
 }
 
 /// Convert Link node into vector of Cids
-fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<Cid>, Error> {
+fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<&Cid>, Error> {
     links
         .iter()
         .filter_map(|c| match c {
-            Some(Link::Cid(cid)) => Some(Ok(cid.clone())),
+            Some(Link::Cid(cid)) => Some(Ok(cid)),
             Some(Link::Cached(_)) => Some(Err(Error::Cached)),
             None => None,
         })
@@ -188,7 +187,6 @@ where
             Node::Leaf { vals, .. } => Ok(vals[i as usize].clone()),
             Node::Link { links, .. } => match &links[sub_i as usize] {
                 Some(Link::Cid(cid)) => {
-                    // TODO after benchmarking check if cache should be updated from get
                     let node: Node<V> = bs
                         .get::<Node<V>>(cid)?
                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
@@ -293,9 +291,9 @@ where
                 Ok(true)
             }
             Self::Link { links, bmap } => {
-                let mut sub_node: Node<V> = match &links[sub_i as usize] {
-                    Some(Link::Cached(n)) => *n.clone(),
-                    Some(Link::Cid(cid)) => bs.get(cid)?.ok_or_else(|| Error::RootNotFound)?,
+                let mut sub_node: Box<Node<V>> = match links[sub_i as usize].take() {
+                    Some(Link::Cached(n)) => n,
+                    Some(Link::Cid(cid)) => bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?,
                     None => unreachable!("Bitmap value for index is set"),
                 };
 
@@ -310,7 +308,7 @@ where
                     bmap.clear_bit(sub_i);
                     None
                 } else {
-                    Some(Link::Cached(Box::new(sub_node)))
+                    Some(Link::Cached(sub_node))
                 };
 
                 Ok(true)
@@ -331,19 +329,19 @@ where
     {
         match self {
             Node::Leaf { bmap, vals } => {
-                for (i, v) in vals.iter().enumerate() {
-                    if bmap.get_bit(i as u64) {
+                for (i, v) in (0..).zip(vals.iter()) {
+                    if bmap.get_bit(i) {
                         f(
-                            offset + i as u64,
+                            offset + i,
                             v.as_ref().expect("set bit should contain value"),
                         )?;
                     }
                 }
             }
             Node::Link { bmap, links } => {
-                for (i, l) in links.iter().enumerate() {
-                    if bmap.get_bit(i as u64) {
-                        let offs = offset + (i as u64 * nodes_for_height(height));
+                for (i, l) in (0..).zip(links.iter()) {
+                    if bmap.get_bit(i) {
+                        let offs = offset + (i * nodes_for_height(height));
                         match l.as_ref().expect("bit set at index") {
                             Link::Cached(sub) => sub.for_each(store, height - 1, offs, f)?,
                             Link::Cid(cid) => {

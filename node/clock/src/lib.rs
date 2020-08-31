@@ -5,7 +5,7 @@ use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 use std::num::TryFromIntError;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
-const EPOCH_DURATION: i32 = 15;
+pub const EPOCH_DURATION_SECONDS: i64 = 30;
 
 pub type ChainEpoch = i64;
 pub const EPOCH_UNDEFINED: ChainEpoch = -1;
@@ -42,7 +42,7 @@ impl ChainEpochClock {
     /// Returns the epoch at a given time
     pub fn epoch_at_time(&self, time: &DateTime<Utc>) -> Result<ChainEpoch, TryFromIntError> {
         let difference = time.signed_duration_since(self.genesis_time);
-        let epochs = (difference / EPOCH_DURATION)
+        let epochs = (difference / EPOCH_DURATION_SECONDS as i32)
             .num_nanoseconds()
             .expect("Epoch_at_time failed");
         Ok(epochs)

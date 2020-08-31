@@ -65,9 +65,7 @@ impl State {
 
         let map = make_map_with_root(&self.address_map, store)?;
 
-        Ok(map
-            .get::<_, ActorID>(&addr.to_bytes())?
-            .map(Address::new_id))
+        Ok(map.get(&addr.to_bytes())?.map(Address::new_id))
     }
 }
 

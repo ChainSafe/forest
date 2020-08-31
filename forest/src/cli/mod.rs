@@ -65,6 +65,10 @@ pub struct DaemonOpts {
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "The port used for communication")]
     pub port: Option<String>,
+    #[structopt(short, long, help = "Allow Kademlia (default = true)")]
+    pub kademlia: Option<bool>,
+    #[structopt(short, long, help = "Allow MDNS (default = true)")]
+    pub mdns: Option<bool>,
 }
 
 impl DaemonOpts {
@@ -87,6 +91,10 @@ impl DaemonOpts {
         } else {
             cfg.enable_rpc = false;
         }
+
+        cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
+        cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
+
         // (where to find these flags, should be easy to do with structops)
 
         Ok(cfg)

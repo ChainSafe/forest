@@ -1,20 +1,24 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{gas_tracker::price_list_by_epoch, vm_send, ChainRand, DefaultRuntime};
+use super::{
+    gas_tracker::{price_list_by_epoch, GasCharge},
+    vm_send, DefaultRuntime, Rand,
+};
 use actor::{
     cron, reward, ACCOUNT_ACTOR_CODE_ID, BURNT_FUNDS_ACTOR_ADDR, CRON_ACTOR_ADDR,
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
+use address::Address;
 use blocks::FullTipset;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::NetworkParams;
+use fil_types::{DevnetParams, NetworkParams};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, MessageReceipt, UnsignedMessage};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use runtime::Syscalls;
 use state_tree::StateTree;
@@ -29,31 +33,34 @@ const GAS_OVERUSE_DENOM: i64 = 10;
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, SYS, P> {
+pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
     syscalls: SYS,
-    rand: &'r ChainRand,
+    rand: &'r R,
     base_fee: BigInt,
+    registered_actors: HashSet<Cid>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, SYS, P> VM<'db, 'r, DB, SYS, P>
+impl<'db, 'r, DB, SYS, R, P> VM<'db, 'r, DB, SYS, R, P>
 where
     DB: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
+    R: Rand,
 {
     pub fn new(
         root: &Cid,
         store: &'db DB,
         epoch: ChainEpoch,
         syscalls: SYS,
-        rand: &'r ChainRand,
+        rand: &'r R,
         base_fee: BigInt,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root)?;
+        let registered_actors = HashSet::new();
         Ok(VM {
             state,
             store,
@@ -61,8 +68,19 @@ where
             syscalls,
             rand,
             base_fee,
+            registered_actors,
             params: PhantomData,
         })
+    }
+
+    /// Registers an actor that is not part of the set of default builtin actors by providing the code cid
+    pub fn register_actor(&mut self, code_cid: Cid) -> bool {
+        self.registered_actors.insert(code_cid)
+    }
+
+    /// Gets registered actors that are not part of the set of default builtin actors
+    pub fn registered_actors(&self) -> &HashSet<Cid> {
+        &self.registered_actors
     }
 
     /// Flush stores in VM and return state root.
@@ -135,17 +153,18 @@ where
                 .get_actor(&*SYSTEM_ACTOR_ADDR)?
                 .ok_or_else(|| "Failed to query system actor".to_string())?;
 
-            let rew_msg = UnsignedMessage::builder()
-                .from(*SYSTEM_ACTOR_ADDR)
-                .to(*REWARD_ACTOR_ADDR)
-                .sequence(sys_act.sequence)
-                .value(BigInt::zero())
-                .gas_premium(BigInt::zero())
-                .gas_fee_cap(BigInt::zero())
-                .gas_limit(1 << 30)
-                .params(params)
-                .method_num(reward::Method::AwardBlockReward as u64)
-                .build()?;
+            let rew_msg = UnsignedMessage {
+                from: *SYSTEM_ACTOR_ADDR,
+                to: *REWARD_ACTOR_ADDR,
+                method_num: reward::Method::AwardBlockReward as u64,
+                params,
+                sequence: sys_act.sequence,
+                gas_limit: 1 << 30,
+                value: Default::default(),
+                version: Default::default(),
+                gas_fee_cap: Default::default(),
+                gas_premium: Default::default(),
+            };
 
             // TODO revisit this ApplyRet structure, doesn't match go logic 1:1 and can be cleaner
             let ret = self.apply_implicit_message(&rew_msg);
@@ -169,17 +188,18 @@ where
             .get_actor(&*SYSTEM_ACTOR_ADDR)?
             .ok_or_else(|| "Failed to query system actor".to_string())?;
 
-        let cron_msg = UnsignedMessage::builder()
-            .from(*SYSTEM_ACTOR_ADDR)
-            .to(*CRON_ACTOR_ADDR)
-            .sequence(sys_act.sequence)
-            .value(BigInt::zero())
-            .gas_premium(BigInt::zero())
-            .gas_fee_cap(BigInt::zero())
-            .gas_limit(1 << 30)
-            .method_num(cron::Method::EpochTick as u64)
-            .params(Serialized::default())
-            .build()?;
+        let cron_msg = UnsignedMessage {
+            from: *SYSTEM_ACTOR_ADDR,
+            to: *CRON_ACTOR_ADDR,
+            sequence: sys_act.sequence,
+            gas_limit: 1 << 30,
+            method_num: cron::Method::EpochTick as u64,
+            params: Default::default(),
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
 
         let ret = self.apply_implicit_message(&cron_msg);
         if let Some(err) = ret.act_error {
@@ -219,8 +239,9 @@ where
         let pl = price_list_by_epoch(self.epoch());
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
         let msg_gas_cost = pl.on_chain_message(ser_msg.len());
+        let cost_total = msg_gas_cost.total();
 
-        if msg_gas_cost > msg.gas_limit() {
+        if cost_total > msg.gas_limit() {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
                     return_data: Serialized::default(),
@@ -228,16 +249,16 @@ where
                     gas_used: 0,
                 },
                 act_error: Some(actor_error!(SysErrOutOfGas;
-                    "Out of gas ({} > {})", msg_gas_cost, msg.gas_limit())),
-                penalty: &self.base_fee * msg_gas_cost,
+                    "Out of gas ({} > {})", cost_total, msg.gas_limit())),
+                penalty: &self.base_fee * cost_total,
                 miner_tip: BigInt::zero(),
             });
         }
 
         let miner_penalty_amount = &self.base_fee * msg.gas_limit();
-        let mut from_act = match self.state.get_actor(msg.from()) {
-            Ok(from_act) => from_act.ok_or("Failed to retrieve actor state")?,
-            Err(_) => {
+        let from_act = match self.state.get_actor(msg.from()) {
+            Ok(Some(from_act)) => from_act,
+            _ => {
                 return Ok(ApplyRet {
                     msg_receipt: MessageReceipt {
                         return_data: Serialized::default(),
@@ -264,7 +285,6 @@ where
             });
         };
 
-        // TODO revisit if this is removed in future
         if msg.sequence() != from_act.sequence {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
@@ -279,9 +299,8 @@ where
             });
         };
 
-        let gas_cost = msg.gas_fee_cap() * msg.gas_limit();
-        let total_cost = &gas_cost + msg.value();
-        if from_act.balance < total_cost {
+        let gas_cost: TokenAmount = msg.gas_fee_cap() * msg.gas_limit();
+        if from_act.balance < gas_cost {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
                     return_data: Serialized::default(),
@@ -290,13 +309,13 @@ where
                 },
                 penalty: miner_penalty_amount,
                 act_error: Some(actor_error!(SysErrSenderStateInvalid;
-                    "actor balance less than needed: {} < {}", from_act.balance, total_cost)),
+                    "actor balance less than needed: {} < {}", from_act.balance, gas_cost)),
                 miner_tip: 0.into(),
             });
         };
 
         self.state.mutate_actor(msg.from(), |act| {
-            from_act.deduct_funds(&gas_cost)?;
+            act.deduct_funds(&gas_cost)?;
             act.sequence += 1;
             Ok(())
         })?;
@@ -350,81 +369,89 @@ where
             return Err(format!("send returned None runtime: {:?}", act_err));
         };
 
-        if let Some(err) = &act_err {
+        let err_code = if let Some(err) = &act_err {
             if !err.is_ok() {
                 // Revert all state changes on error.
                 self.state.revert_to_snapshot(&snapshot)?;
             }
-        }
+            err.exit_code()
+        } else {
+            ExitCode::Ok
+        };
 
-        let gas_outputs = compute_gas_outputs(
+        let GasOutputs {
+            base_fee_burn,
+            miner_tip,
+            over_estimation_burn,
+            refund,
+            miner_penalty,
+            ..
+        } = compute_gas_outputs(
             gas_used,
             msg.gas_limit(),
             &self.base_fee,
             msg.gas_fee_cap(),
             msg.gas_premium().clone(),
         );
-        self.state.mutate_actor(&*BURNT_FUNDS_ACTOR_ADDR, |act| {
-            act.deposit_funds(&gas_outputs.base_fee_burn);
+
+        let mut transfer_to_actor = |addr: &Address, amt: &TokenAmount| -> Result<(), String> {
+            if amt.sign() == Sign::Minus {
+                return Err("attempted to transfer negative value into actor".into());
+            }
+            self.state.mutate_actor(addr, |act| {
+                act.deposit_funds(&amt);
+                Ok(())
+            })?;
             Ok(())
-        })?;
-        self.state.mutate_actor(&*BURNT_FUNDS_ACTOR_ADDR, |act| {
-            act.deposit_funds(&gas_outputs.over_estimation_burn);
-            Ok(())
-        })?;
+        };
+
+        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
+
+        transfer_to_actor(&*REWARD_ACTOR_ADDR, &miner_tip)?;
+
+        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
 
         // refund unused gas
-        self.state.mutate_actor(msg.from(), |act| {
-            act.deposit_funds(&gas_outputs.refund);
-            Ok(())
-        })?;
+        transfer_to_actor(msg.from(), &refund)?;
 
-        self.state.mutate_actor(&*REWARD_ACTOR_ADDR, |act| {
-            act.deposit_funds(&gas_outputs.miner_tip);
-            Ok(())
-        })?;
-
-        if &gas_outputs.base_fee_burn
-            + gas_outputs.over_estimation_burn
-            + &gas_outputs.refund
-            + &gas_outputs.miner_tip
-            != gas_cost
-        {
+        if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
             return Err("Gas handling math is wrong".to_owned());
         }
 
         Ok(ApplyRet {
             msg_receipt: MessageReceipt {
                 return_data: ret_data,
-                exit_code: ExitCode::Ok,
+                exit_code: err_code,
                 gas_used,
             },
-            penalty: gas_outputs.miner_penalty,
-            act_error: None,
-            miner_tip: gas_outputs.miner_tip,
+            penalty: miner_penalty,
+            act_error: act_err,
+            miner_tip,
         })
     }
-    /// Instantiates a new Runtime, and calls internal_send to do the execution.
-    fn send<'m>(
+    /// Instantiates a new Runtime, and calls vm_send to do the execution.
+    #[allow(clippy::type_complexity)]
+    fn send(
         &mut self,
-        msg: &'m UnsignedMessage,
-        gas_cost: Option<i64>,
+        msg: &UnsignedMessage,
+        gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, 'm, '_, '_, '_, DB, SYS, P>>,
+        Option<DefaultRuntime<'db, '_, '_, '_, '_, DB, SYS, R, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
             &mut self.state,
             self.store,
             &self.syscalls,
-            gas_cost.unwrap_or_default(),
+            0,
             &msg,
             self.epoch,
             *msg.from(),
             msg.sequence(),
             0,
             self.rand,
+            &self.registered_actors,
         );
 
         match res {
@@ -456,19 +483,21 @@ fn compute_gas_outputs(
     fee_cap: &TokenAmount,
     gas_premium: TokenAmount,
 ) -> GasOutputs {
-    let gas_used_big: BigInt = 0.into();
     let mut base_fee_to_pay = base_fee;
     let mut out = GasOutputs::default();
 
     if base_fee > fee_cap {
         base_fee_to_pay = fee_cap;
-        out.miner_penalty = (base_fee - fee_cap) * gas_used_big
+        out.miner_penalty = (base_fee - fee_cap) * gas_used
     }
+    out.base_fee_burn = base_fee_to_pay * gas_used;
+
     let mut miner_tip = gas_premium;
     if &(base_fee_to_pay + &miner_tip) > fee_cap {
         miner_tip = fee_cap - base_fee_to_pay;
     }
     out.miner_tip = &miner_tip * gas_limit;
+
     let (out_gas_refund, out_gas_burned) = compute_gas_overestimation_burn(gas_used, gas_limit);
     out.gas_refund = out_gas_refund;
     out.gas_burned = out_gas_burned;

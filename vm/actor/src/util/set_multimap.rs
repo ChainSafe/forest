@@ -12,7 +12,7 @@ use std::error::Error as StdError;
 
 /// SetMultimap is a hamt with values that are also a hamt but are of the set variant.
 /// This allows hash sets to be indexable by an address.
-pub struct SetMultimap<'a, BS>(Map<'a, BS>);
+pub struct SetMultimap<'a, BS>(Map<'a, BS, Cid>);
 impl<'a, BS> SetMultimap<'a, BS>
 where
     BS: BlockStore,
@@ -44,7 +44,7 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(u64_key(key as u64), &new_root)?)
+        Ok(self.0.set(u64_key(key as u64), new_root)?)
     }
 
     /// Puts slice of DealIDs in the hash set of the key.
@@ -60,7 +60,7 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(u64_key(key as u64), &new_root)?)
+        Ok(self.0.set(u64_key(key as u64), new_root)?)
     }
 
     /// Gets the set at the given index of the `SetMultimap`
@@ -86,7 +86,7 @@ where
         // Save and calculate new root
         let new_root = set.root()?;
 
-        Ok(self.0.set(u64_key(key as u64), &new_root)?)
+        Ok(self.0.set(u64_key(key as u64), new_root)?)
     }
 
     /// Removes set at index.

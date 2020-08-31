@@ -6,7 +6,6 @@ use super::hash_bits::HashBits;
 use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::multihash::Blake2b256;
-use forest_ipld::{from_ipld, Ipld};
 use ipld_blockstore::BlockStore;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -17,21 +16,22 @@ use std::marker::PhantomData;
 
 /// Node in Hamt tree which contains bitfield of set indexes and pointers to nodes
 #[derive(Debug, Clone)]
-pub(crate) struct Node<K, H> {
+pub(crate) struct Node<K, V, H> {
     pub(crate) bitfield: Bitfield,
-    pub(crate) pointers: Vec<Pointer<K, H>>,
+    pub(crate) pointers: Vec<Pointer<K, V, H>>,
     hash: PhantomData<H>,
 }
 
-impl<K: PartialEq, H> PartialEq for Node<K, H> {
+impl<K: PartialEq, V: PartialEq, H> PartialEq for Node<K, V, H> {
     fn eq(&self, other: &Self) -> bool {
         (self.bitfield == other.bitfield) && (self.pointers == other.pointers)
     }
 }
 
-impl<K, H> Serialize for Node<K, H>
+impl<K, V, H> Serialize for Node<K, V, H>
 where
     K: Serialize,
+    V: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -41,9 +41,10 @@ where
     }
 }
 
-impl<'de, K, H> Deserialize<'de> for Node<K, H>
+impl<'de, K, V, H> Deserialize<'de> for Node<K, V, H>
 where
     K: DeserializeOwned,
+    V: DeserializeOwned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -58,7 +59,7 @@ where
     }
 }
 
-impl<K, H> Default for Node<K, H> {
+impl<K, V, H> Default for Node<K, V, H> {
     fn default() -> Self {
         Node {
             bitfield: Bitfield::zero(),
@@ -68,15 +69,16 @@ impl<K, H> Default for Node<K, H> {
     }
 }
 
-impl<K, H> Node<K, H>
+impl<K, V, H> Node<K, V, H>
 where
     K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
     H: HashAlgorithm,
+    V: Serialize + DeserializeOwned + Clone,
 {
     pub fn set<S: BlockStore>(
         &mut self,
         key: K,
-        value: Ipld,
+        value: V,
         store: &S,
         bit_width: u32,
     ) -> Result<(), Error> {
@@ -90,7 +92,7 @@ where
         k: &Q,
         store: &S,
         bit_width: u32,
-    ) -> Result<Option<Ipld>, Error>
+    ) -> Result<Option<V>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -104,7 +106,7 @@ where
         k: &Q,
         store: &S,
         bit_width: u32,
-    ) -> Result<Option<(K, Ipld)>, Error>
+    ) -> Result<Option<(K, V)>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -118,16 +120,15 @@ where
         self.pointers.is_empty()
     }
 
-    pub(crate) fn for_each<V, S, F>(&self, store: &S, f: &mut F) -> Result<(), Box<dyn StdError>>
+    pub(crate) fn for_each<S, F>(&self, store: &S, f: &mut F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
-        F: FnMut(&K, V) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(&K, &V) -> Result<(), Box<dyn StdError>>,
         S: BlockStore,
     {
         for p in &self.pointers {
             match p {
                 Pointer::Link(cid) => {
-                    match store.get::<Node<K, H>>(cid).map_err(|e| e.to_string())? {
+                    match store.get::<Node<K, V, H>>(cid).map_err(|e| e.to_string())? {
                         Some(node) => node.for_each(store, f)?,
                         None => return Err(format!("Node with cid {} not found", cid).into()),
                     }
@@ -135,7 +136,7 @@ where
                 Pointer::Cache(n) => n.for_each(store, f)?,
                 Pointer::Values(kvs) => {
                     for kv in kvs {
-                        f(kv.0.borrow(), from_ipld(&kv.1).map_err(Error::Encoding)?)?;
+                        f(kv.0.borrow(), kv.1.borrow())?;
                     }
                 }
             }
@@ -149,7 +150,7 @@ where
         q: &Q,
         store: &S,
         bit_width: u32,
-    ) -> Result<Option<KeyValuePair<K>>, Error>
+    ) -> Result<Option<KeyValuePair<K, V>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -165,7 +166,7 @@ where
         depth: usize,
         key: &Q,
         store: &S,
-    ) -> Result<Option<KeyValuePair<K>>, Error>
+    ) -> Result<Option<KeyValuePair<K, V>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -179,7 +180,7 @@ where
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child(cindex);
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, H>>(cid)? {
+            Pointer::Link(cid) => match store.get::<Node<K, V, H>>(cid)? {
                 Some(node) => Ok(node.get_value(hashed_key, bit_width, depth + 1, key, store)?),
                 None => Err(Error::CidNotFound(cid.to_string())),
             },
@@ -195,7 +196,7 @@ where
         bit_width: u32,
         depth: usize,
         key: K,
-        value: Ipld,
+        value: V,
         store: &S,
     ) -> Result<(), Error> {
         let idx = hashed_key.next(bit_width)?;
@@ -210,7 +211,7 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, H>>(cid)? {
+            Pointer::Link(cid) => match store.get::<Node<K, V, H>>(cid)? {
                 Some(mut node) => {
                     // Pull value from store and update to cached node
                     node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
@@ -274,7 +275,7 @@ where
         depth: usize,
         key: &Q,
         store: &S,
-    ) -> Result<Option<(K, Ipld)>, Error>
+    ) -> Result<Option<(K, V)>, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
@@ -290,7 +291,7 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, H>>(cid)? {
+            Pointer::Link(cid) => match store.get::<Node<K, V, H>>(cid)? {
                 Some(mut node) => {
                     // Pull value from store and update to cached node
                     let del = node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
@@ -349,12 +350,12 @@ where
         Ok(())
     }
 
-    fn rm_child(&mut self, i: usize, idx: u32) -> Pointer<K, H> {
+    fn rm_child(&mut self, i: usize, idx: u32) -> Pointer<K, V, H> {
         self.bitfield.clear_bit(idx);
         self.pointers.remove(i)
     }
 
-    fn insert_child(&mut self, idx: u32, key: K, value: Ipld) {
+    fn insert_child(&mut self, idx: u32, key: K, value: V) {
         let i = self.index_for_bit_pos(idx);
         self.bitfield.set_bit(idx);
         self.pointers
@@ -367,11 +368,11 @@ where
         mask.and(&self.bitfield).count_ones()
     }
 
-    fn get_child_mut(&mut self, i: usize) -> &mut Pointer<K, H> {
+    fn get_child_mut(&mut self, i: usize) -> &mut Pointer<K, V, H> {
         &mut self.pointers[i]
     }
 
-    fn get_child(&self, i: usize) -> &Pointer<K, H> {
+    fn get_child(&self, i: usize) -> &Pointer<K, V, H> {
         &self.pointers[i]
     }
 }

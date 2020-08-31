@@ -11,7 +11,7 @@ use std::error::Error as StdError;
 
 /// Multimap stores multiple values per key in a Hamt of Amts.
 /// The order of insertion of values for each key is retained.
-pub struct Multimap<'a, BS>(Map<'a, BS>);
+pub struct Multimap<'a, BS>(Map<'a, BS, Cid>);
 impl<'a, BS> Multimap<'a, BS>
 where
     BS: BlockStore,
@@ -49,7 +49,7 @@ where
         let new_root = arr.flush()?;
 
         // Set hamt node to array root
-        Ok(self.0.set(key, &new_root)?)
+        Ok(self.0.set(key, new_root)?)
     }
 
     /// Gets the Array of value type `V` using the multimap store.
@@ -92,7 +92,7 @@ where
         V: Serialize + DeserializeOwned + Clone,
         F: FnMut(&BytesKey, &Amt<V, BS>) -> Result<(), Box<dyn StdError>>,
     {
-        self.0.for_each::<_, Cid>(|key, arr_root| {
+        self.0.for_each::<_>(|key, arr_root| {
             let arr = Amt::load(&arr_root, self.0.store())?;
             f(key, &arr)
         })?;
