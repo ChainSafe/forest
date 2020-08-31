@@ -59,9 +59,9 @@ pub enum HeadChangeJson {
 impl From<HeadChange> for HeadChangeJson {
     fn from(wrapper: HeadChange) -> Self {
         match wrapper {
-            HeadChange::Current(tipset) => HeadChangeJson::Revert((*tipset).clone().into()),
+            HeadChange::Current(tipset) => HeadChangeJson::Current((*tipset).clone().into()),
 
-            HeadChange::Apply(tipset) => HeadChangeJson::Revert((*tipset).clone().into()),
+            HeadChange::Apply(tipset) => HeadChangeJson::Apply((*tipset).clone().into()),
             HeadChange::Revert(tipset) => HeadChangeJson::Revert((*tipset).clone().into()),
         }
     }
