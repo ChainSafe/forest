@@ -87,7 +87,7 @@ impl Actor {
             return Err(actor_error!(ErrIllegalArgument; "negative unlock duration disallowed"));
         }
 
-        let empty_root = make_map(rt.store())
+        let empty_root = make_map::<_, ()>(rt.store())
             .flush()
             .map_err(|err| actor_error!(ErrIllegalState; "Failed to create empty map: {}", err))?;
 
@@ -155,7 +155,7 @@ impl Actor {
             )?;
 
             Ok((t_id, txn))
-        })??;
+        })?;
 
         let (applied, ret, code) = Self::approve_transaction(rt, txn_id, txn)?;
 
@@ -191,7 +191,7 @@ impl Actor {
             // Go implementation holds reference to state after transaction so state must be cloned
             // to match to handle possible exit code inconsistency
             Ok((st.clone(), txn))
-        })??;
+        })?;
 
         let (applied, ret, code) = execute_transaction_if_approved(rt, &st, id, txn.clone())?;
         if !applied {
@@ -256,7 +256,7 @@ impl Actor {
             )?;
 
             Ok(())
-        })?
+        })
     }
 
     /// Multisig actor function to add signers to multisig
@@ -289,7 +289,7 @@ impl Actor {
             }
 
             Ok(())
-        })?
+        })
     }
 
     /// Multisig actor function to remove signers to multisig
@@ -330,7 +330,7 @@ impl Actor {
                 st.num_approvals_threshold -= 1;
             }
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -376,7 +376,7 @@ impl Actor {
             st.signers.push(params.to);
 
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -402,7 +402,7 @@ impl Actor {
             // Update threshold on state
             st.num_approvals_threshold = params.new_threshold;
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -423,7 +423,7 @@ impl Actor {
             }
         }
 
-        let st = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+        let st = rt.transaction(|st: &mut State, rt| {
             let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
                 |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
             )?;
@@ -443,7 +443,7 @@ impl Actor {
             // Go implementation holds reference to state after transaction so this must be cloned
             // to match to handle possible exit code inconsistency
             Ok(st.clone())
-        })??;
+        })?;
 
         execute_transaction_if_approved(rt, &st, tx_id, txn)
     }
@@ -479,10 +479,11 @@ where
         }
         applied = true;
 
-        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
-            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
-            )?;
+        rt.transaction(|st: &mut State, rt| {
+            let mut ptx = make_map_with_root::<_, Transaction>(&st.pending_txs, rt.store())
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
+                )?;
 
             let deleted = ptx.delete(&txn_id.key()).map_err(|e| {
                 actor_error!(ErrIllegalState; "failed to delete transaction for cleanup: {}", e)
@@ -496,14 +497,14 @@ where
                 |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
             )?;
             Ok(())
-        })??;
+        })?;
     }
 
     Ok((applied, out, code))
 }
 
 fn get_pending_transaction<'bs, BS: BlockStore>(
-    ptx: &Map<'bs, BS>,
+    ptx: &Map<'bs, BS, Transaction>,
     txn_id: TxnID,
 ) -> Result<Transaction, String> {
     match ptx.get(&txn_id.key()) {
@@ -515,7 +516,7 @@ fn get_pending_transaction<'bs, BS: BlockStore>(
 
 fn get_transaction<'bs, BS, RT>(
     rt: &RT,
-    ptx: &Map<'bs, BS>,
+    ptx: &Map<'bs, BS, Transaction>,
     txn_id: TxnID,
     proposal_hash: Vec<u8>,
     check_hash: bool,

@@ -27,14 +27,14 @@ use vm::{ExitCode, Serialized, TokenAmount};
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 7] = [
-        Regex::new(r"actor_creation/.*").unwrap(),
-        Regex::new(r"msg_application/.*").unwrap(),
-        Regex::new(r"multisig/.*").unwrap(),
-        Regex::new(r"nested/.*").unwrap(),
-        Regex::new(r"paych/.*").unwrap(),
-        Regex::new(r"transfer/.*").unwrap(),
-        Regex::new(r"vm_violations/.*").unwrap(),
+    static ref SKIP_TESTS: [Regex; 4] = [
+        // These tests are marked as invalid as they return wrong exit code on Lotus
+        Regex::new(r"actor_creation/x--params*").unwrap(),
+        // Following two fail for the same invalid exit code return
+        Regex::new(r"nested/nested_sends--fail-missing-params.json").unwrap(),
+        Regex::new(r"nested/nested_sends--fail-mismatch-params.json").unwrap(),
+        // Lotus client does not fail in inner transaction for insufficient funds
+        Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
     ];
     static ref BASE_FEE: TokenAmount = TokenAmount::from(100);
 }
@@ -265,8 +265,6 @@ fn execute_message(
         }
     }
 
-    // TODO register puppet actor (and conditionally chaos actor)
-
     let ret = vm.apply_message(msg)?;
 
     let root = vm.flush()?;
@@ -379,12 +377,8 @@ fn conformance_test_runner() {
         }
     }
 
+    println!("{}/{} tests passed:", succeeded, failed.len() + succeeded);
     if !failed.is_empty() {
-        eprintln!(
-            "{}/{} tests failed:",
-            failed.len(),
-            failed.len() + succeeded
-        );
         for (path, meta, e) in failed {
             eprintln!(
                 "file {} failed:\n\tMeta: {:?}\n\tError: {}\n",

@@ -12,12 +12,13 @@ use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use fil_types::{DevnetParams, NetworkParams};
+use forest_encoding::to_vec;
 use forest_encoding::Cbor;
-use forest_encoding::{error::Error as EncodingError, to_vec};
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
+use num_traits::Zero;
 use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
 use state_tree::StateTree;
 use std::cell::RefCell;
@@ -36,6 +37,7 @@ const ACTOR_EXEC_GAS: GasCharge = GasCharge {
     storage_gas: 0,
 };
 
+#[derive(Debug, Clone)]
 struct VMMsg {
     caller: Address,
     receiver: Address,
@@ -55,12 +57,11 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams> {
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
     gas_tracker: Rc<RefCell<GasTracker>>,
-    message: &'msg UnsignedMessage,
     vm_msg: VMMsg,
     epoch: ChainEpoch,
     origin: Address,
@@ -74,8 +75,8 @@ pub struct DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P = Devnet
     params: PhantomData<P>,
 }
 
-impl<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
-    DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
+impl<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
+    DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -89,7 +90,7 @@ where
         store: &'db BS,
         syscalls: &'sys SYS,
         gas_used: i64,
-        message: &'msg UnsignedMessage,
+        message: &UnsignedMessage,
         epoch: ChainEpoch,
         origin: Address,
         origin_nonce: u64,
@@ -119,8 +120,8 @@ where
 
         let vm_msg = VMMsg {
             caller: caller_id,
-            receiver: *message.receiver(),
-            value_received: message.value_received().clone(),
+            receiver: *message.to(),
+            value_received: message.value().clone(),
         };
 
         Ok(DefaultRuntime {
@@ -128,7 +129,6 @@ where
             store: gas_block_store,
             syscalls: gas_syscalls,
             gas_tracker,
-            message,
             vm_msg,
             epoch,
             origin,
@@ -213,11 +213,7 @@ where
     {
         self.store
             .put(obj, Blake2b256)
-            .map_err(|e| match e.downcast::<EncodingError>() {
-                Ok(ser_error) => actor_error!(ErrSerialization;
-                        "failed to marshal cbor object {}", ser_error),
-                Err(other) => actor_error!(fatal("failed to put cbor object: {}", other)),
-            })
+            .map_err(|e| ActorError::downcast_fatal(e, "failed to put cbor object"))
     }
 
     /// Helper function for getting deserializable objects from blockstore.
@@ -227,11 +223,7 @@ where
     {
         self.store
             .get(cid)
-            .map_err(|e| match e.downcast::<EncodingError>() {
-                Ok(ser_error) => actor_error!(ErrSerialization;
-                "failed to unmarshal cbor object {}", ser_error),
-                Err(other) => actor_error!(fatal("failed to get cbor object: {}", other)),
-            })
+            .map_err(|e| ActorError::downcast_fatal(e, "failed to get cbor object"))
     }
 
     fn internal_send(
@@ -242,11 +234,18 @@ where
         value: TokenAmount,
         params: Serialized,
     ) -> Result<Serialized, ActorError> {
+        // ID must be resolved because otherwise would be done in creation of new runtime.
+        // TODO revisit this later, it's possible there are no code paths this is needed.
+        let from_id = self.resolve_address(&from)?.ok_or_else(|| {
+            actor_error!(SysErrInvalidReceiver;
+            "resolving from address in internal send failed")
+        })?;
+
         let msg = UnsignedMessage {
             from,
             to,
             method_num: method,
-            value,
+            value: value.clone(),
             params,
             gas_limit: self.gas_available(),
             version: Default::default(),
@@ -255,6 +254,17 @@ where
             gas_premium: Default::default(),
         };
 
+        // Since it is unsafe to share a mutable reference to the state tree by copying
+        // the runtime, all variables must be copied and reset at the end of the transition.
+        let prev_val = self.caller_validated;
+        let prev_msg = self.vm_msg.clone();
+        self.vm_msg = VMMsg {
+            caller: from_id,
+            receiver: to,
+            value_received: value,
+        };
+        self.caller_validated = false;
+
         // snapshot state tree
         let snapshot = self
             .state
@@ -262,6 +272,11 @@ where
             .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
 
         let send_res = vm_send::<BS, SYS, R, P>(self, &msg, None);
+
+        // Reset values back to their values before the call
+        self.vm_msg = prev_msg;
+        self.caller_validated = prev_val;
+
         send_res.map_err(|e| {
             if let Err(e) = self.state.revert_to_snapshot(&snapshot) {
                 actor_error!(fatal("failed to revert snapshot: {}", e))
@@ -311,7 +326,8 @@ where
     }
 }
 
-impl<BS, SYS, R, P> Runtime<BS> for DefaultRuntime<'_, '_, '_, '_, '_, '_, BS, SYS, R, P>
+impl<'bs, BS, SYS, R, P> Runtime<GasBlockStore<'bs, BS>>
+    for DefaultRuntime<'bs, '_, '_, '_, '_, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -361,7 +377,7 @@ where
     }
 
     fn current_balance(&self) -> Result<TokenAmount, ActorError> {
-        self.get_balance(self.message.to())
+        self.get_balance(self.message().receiver())
     }
 
     fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
@@ -436,7 +452,7 @@ where
     fn transaction<C, RT, F>(&mut self, f: F) -> Result<RT, ActorError>
     where
         C: Cbor,
-        F: FnOnce(&mut C, &mut Self) -> RT,
+        F: FnOnce(&mut C, &mut Self) -> Result<RT, ActorError>,
     {
         // get actor
         let act = self.state.get_actor(self.message().receiver())
@@ -452,7 +468,7 @@ where
 
         // Update the state
         self.allow_internal = false;
-        let r = f(&mut state, self);
+        let r = f(&mut state, self)?;
         self.allow_internal = true;
 
         let c = self.put(&state)?;
@@ -462,8 +478,8 @@ where
         Ok(r)
     }
 
-    fn store(&self) -> &BS {
-        self.store.store
+    fn store(&self) -> &GasBlockStore<'bs, BS> {
+        &self.store
     }
 
     fn send(
@@ -478,7 +494,7 @@ where
         }
 
         let ret = self
-            .internal_send(*self.message.receiver(), to, method, value, params)
+            .internal_send(*self.message().receiver(), to, method, value, params)
             .map_err(|e| {
                 warn!(
                     "internal send failed: (to: {}) (method: {}) {}",
@@ -490,7 +506,7 @@ where
         Ok(ret)
     }
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
-        let oa = resolve_to_key_addr(self.state, &self.store, &self.origin)?;
+        let oa = resolve_to_key_addr(self.state, self.store.store, &self.origin)?;
         let mut b = to_vec(&oa).map_err(|e| {
             actor_error!(fatal(
                 "Could not serialize address in new_actor_address: {}",
@@ -538,15 +554,15 @@ where
     /// May only be called by the actor itself.
     fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError> {
         self.charge_gas(self.price_list.on_delete_actor())?;
+        let receiver = *self.message().receiver();
         let balance = self
             .state
-            .get_actor(self.message.to())
-            .map_err(|e| actor_error!(fatal("failed to get actor {}, {}", self.message.to(), e)))?
+            .get_actor(&receiver)
+            .map_err(|e| actor_error!(fatal("failed to get actor {}, {}", receiver, e)))?
             .ok_or_else(
                 || actor_error!(SysErrorIllegalActor; "failed to load actor in delete actor"),
             )
             .map(|act| act.balance)?;
-        let receiver = *self.message().receiver();
         if balance != 0.into() {
             // Transfer the executing actor's balance to the beneficiary
             transfer(self.state, &receiver, beneficiary, &balance).map_err(|e| {
@@ -606,8 +622,8 @@ where
 
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
+pub fn vm_send<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<GasCharge>,
 ) -> Result<Serialized, ActorError>
@@ -621,12 +637,6 @@ where
         rt.charge_gas(cost)?;
     }
 
-    // TODO maybe move this
-    rt.charge_gas(
-        rt.price_list()
-            .on_method_invocation(msg.value(), msg.method_num()),
-    )?;
-
     let to_actor = match rt
         .state
         .get_actor(msg.to())
@@ -639,7 +649,12 @@ where
         }
     };
 
-    if msg.value() > &TokenAmount::from(0) {
+    rt.charge_gas(
+        rt.price_list()
+            .on_method_invocation(msg.value(), msg.method_num()),
+    )?;
+
+    if !msg.value().is_zero() {
         transfer(rt.state, &msg.from(), &msg.to(), &msg.value())
             .map_err(|e| e.wrap("failed to transfer funds"))?;
     }
@@ -677,9 +692,8 @@ fn transfer<BS: BlockStore>(
     }
 
     if value < &0.into() {
-        return Err(
-            actor_error!(SysErrForbidden; "attempted to transfer negative transfer value {}", value),
-        );
+        return Err(actor_error!(SysErrForbidden;
+                "attempted to transfer negative transfer value {}", value));
     }
 
     let mut f = state
@@ -712,8 +726,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'msg, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
+fn invoke<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
@@ -725,7 +739,7 @@ where
     P: NetworkParams,
     R: Rand,
 {
-    match code {
+    let ret = match code {
         x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params),
         x if x == *INIT_ACTOR_CODE_ID => init::Actor.invoke_method(rt, method_num, params),
         x if x == *CRON_ACTOR_CODE_ID => cron::Actor.invoke_method(rt, method_num, params),
@@ -746,14 +760,18 @@ where
                     x if x == *CHAOS_ACTOR_CODE_ID => {
                         chaos::Actor.invoke_method(rt, method_num, params)
                     }
-                    _ => Err(
-                        actor_error!(SysErrorIllegalActor; "no code for registered actor at address {}", to),
-                    ),
+                    _ => Err(actor_error!(SysErrorIllegalActor;
+                                "no code for registered actor at address {}", to)),
                 }
             } else {
                 Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
             }
         }
+    }?;
+    if !rt.caller_validated {
+        Err(actor_error!(SysErrorIllegalActor; "Caller must be validated during method execution"))
+    } else {
+        Ok(ret)
     }
 }
 
