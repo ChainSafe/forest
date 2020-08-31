@@ -7,14 +7,15 @@ mod errors;
 mod network_context;
 mod network_handler;
 mod peer_manager;
+mod receipt_tracker;
 mod sync;
 mod sync_state;
-
 // workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
 extern crate serde;
 
 pub use self::bad_block_cache::BadBlockCache;
 pub use self::errors::Error;
 pub use self::network_context::SyncNetworkContext;
+pub use self::receipt_tracker::BlockReceiptTracker;
 pub use self::sync::ChainSyncer;
 pub use self::sync_state::{SyncStage, SyncState};

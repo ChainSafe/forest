@@ -1253,6 +1253,7 @@ dependencies = [
 name = "chain_sync"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.4.4",
  "async-std",
  "base64 0.12.3",
  "beacon",
