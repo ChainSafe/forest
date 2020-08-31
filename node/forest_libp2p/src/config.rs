@@ -19,7 +19,7 @@ pub struct Libp2pConfig {
     pub listening_multiaddr: Multiaddr,
     pub bootstrap_peers: Vec<Multiaddr>,
     pub mdns: bool,
-    pub kad: bool,
+    pub kademlia: bool,
 }
 
 impl Default for Libp2pConfig {
