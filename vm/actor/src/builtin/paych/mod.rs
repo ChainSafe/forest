@@ -116,11 +116,8 @@ impl Actor {
         // Validate signature
         rt.syscalls()
             .verify_signature(&sig, &signer, &sv_bz)
-            .map_err(|e| match e.downcast::<ActorError>() {
-                Ok(actor_err) => *actor_err,
-                Err(other) => {
-                    actor_error!(ErrIllegalArgument; "voucher signature invalid: {}", other)
-                }
+            .map_err(|e| {
+                ActorError::downcast(e, ExitCode::ErrIllegalArgument, "voucher signature invalid")
             })?;
 
         let pch_addr = rt.message().receiver();

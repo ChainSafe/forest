@@ -12,8 +12,8 @@ use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use fil_types::{DevnetParams, NetworkParams};
+use forest_encoding::to_vec;
 use forest_encoding::Cbor;
-use forest_encoding::{error::Error as EncodingError, to_vec};
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, UnsignedMessage};
@@ -213,11 +213,7 @@ where
     {
         self.store
             .put(obj, Blake2b256)
-            .map_err(|e| match e.downcast::<EncodingError>() {
-                Ok(ser_error) => actor_error!(ErrSerialization;
-                        "failed to marshal cbor object {}", ser_error),
-                Err(other) => actor_error!(fatal("failed to put cbor object: {}", other)),
-            })
+            .map_err(|e| ActorError::downcast_fatal(e, "failed to put cbor object"))
     }
 
     /// Helper function for getting deserializable objects from blockstore.
@@ -227,11 +223,7 @@ where
     {
         self.store
             .get(cid)
-            .map_err(|e| match e.downcast::<EncodingError>() {
-                Ok(ser_error) => actor_error!(ErrSerialization;
-                "failed to unmarshal cbor object {}", ser_error),
-                Err(other) => actor_error!(fatal("failed to get cbor object: {}", other)),
-            })
+            .map_err(|e| ActorError::downcast_fatal(e, "failed to get cbor object"))
     }
 
     fn internal_send(

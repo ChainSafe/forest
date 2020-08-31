@@ -368,10 +368,12 @@ impl Actor {
             params.sector_expiry,
             params.sector_start,
         )
-        .map_err(|e| match e.downcast::<ActorError>() {
-            Ok(actor_err) => *actor_err,
-            Err(other) => actor_error!(ErrIllegalState;
-                "failed to validate deal proposals for activation: {}", other),
+        .map_err(|e| {
+            ActorError::downcast(
+                e,
+                ExitCode::ErrIllegalState,
+                "failed to validate deal proposals for activation",
+            )
         })?;
 
         Ok(VerifyDealsForActivationReturn {
@@ -401,10 +403,12 @@ impl Actor {
                 params.sector_expiry,
                 curr_epoch,
             )
-            .map_err(|e| match e.downcast::<ActorError>() {
-                Ok(actor_err) => *actor_err,
-                Err(other) => actor_error!(ErrIllegalState;
-                    "failed to validate deal proposals for activation: {}", other),
+            .map_err(|e| {
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to validate deal proposals for activation",
+                )
             })?;
 
             let mut msm = st.mutator(rt.store());
