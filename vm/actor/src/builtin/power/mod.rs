@@ -104,7 +104,7 @@ impl Actor {
             )?
             .deserialize()?;
 
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let mut claims = make_map_with_root(&st.claims, rt.store())
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to load claims: {}", e))?;
             set_claim(&mut claims, &id_address, Claim::default()).map_err(|e| {
@@ -117,7 +117,7 @@ impl Actor {
                 .flush()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush claims: {}", e))?;
             Ok(())
-        })??;
+        })?;
         Ok(CreateMinerReturn {
             id_address,
             robust_address,
@@ -162,7 +162,7 @@ impl Actor {
                 .flush()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush claims: {}", e))?;
             Ok(())
-        })?
+        })
     }
 
     fn enroll_cron_event<BS, RT>(
@@ -186,7 +186,7 @@ impl Actor {
                 "cron event epoch {} cannot be less than zero", params.event_epoch));
         }
 
-        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let mut events = Multimap::from_root(rt.store(), &st.cron_event_queue)
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to load cron events {}", e))?;
 
@@ -197,7 +197,7 @@ impl Actor {
                 .root()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush cron events: {}", e))?;
             Ok(())
-        })??;
+        })?;
         Ok(())
     }
 
@@ -220,7 +220,9 @@ impl Actor {
             st.update_smoothed_estimate(delta);
 
             st.last_processed_cron_epoch = rt.curr_epoch();
-            Serialized::serialize(&BigIntSer(&st.this_epoch_raw_byte_power))
+            Ok(Serialized::serialize(&BigIntSer(
+                &st.this_epoch_raw_byte_power,
+            )))
         })?;
 
         // Update network KPA in reward actor
@@ -243,6 +245,7 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         rt.transaction(|st: &mut State, _| {
             st.add_pledge_total(pledge_delta);
+            Ok(())
         })
     }
 
@@ -300,7 +303,7 @@ impl Actor {
                 .flush()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush claims: {}", e))?;
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -349,7 +352,7 @@ impl Actor {
             rt.charge_gas("OnSubmitVerifySeal", GAS_ON_SUBMIT_VERIFY_SEAL)?;
             st.proof_validation_batch = Some(mmrc);
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -382,7 +385,7 @@ impl Actor {
         // Index map is needed here to preserve insertion order, miners must be iterated based
         // on order iterated through multimap.
         let mut verifies = IndexMap::new();
-        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             if st.proof_validation_batch.is_none() {
                 return Ok(());
             }
@@ -428,7 +431,7 @@ impl Actor {
 
             st.proof_validation_batch = None;
             Ok(())
-        })??;
+        })?;
 
         // TODO update this to not need to create vector to verify these things (ref batch_v_s)
         let verif_arr: Vec<(Address, &Vec<SealVerifyInfo>)> =
@@ -477,7 +480,7 @@ impl Actor {
     {
         let rt_epoch = rt.curr_epoch();
         let mut cron_events = Vec::new();
-        rt.transaction::<_, Result<_, ActorError>, _>(|st: &mut State, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let mut events = Multimap::from_root(rt.store(), &st.cron_event_queue)
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to load cron events: {}", e))?;
 
@@ -507,7 +510,7 @@ impl Actor {
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush events: {}", e))?;
 
             Ok(())
-        })??;
+        })?;
 
         let mut failed_miner_crons = Vec::new();
         for event in cron_events {
@@ -530,7 +533,7 @@ impl Actor {
                 failed_miner_crons.push(event.miner_addr)
             }
         }
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let mut claims = make_map_with_root(&st.claims, rt.store())
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to load claims: {}", e))?;
 
@@ -577,7 +580,7 @@ impl Actor {
                 .flush()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush claims: {}", e))?;
             Ok(())
-        })??;
+        })?;
         Ok(())
     }
 }

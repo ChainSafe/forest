@@ -187,7 +187,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let mut effective_epoch = ChainEpoch::default();
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             rt.validate_immediate_caller_is(std::iter::once(&st.info.owner))?;
             let worker = resolve_worker_address(rt, params.new_worker)?;
 
@@ -199,7 +199,7 @@ impl Actor {
                 effective_at: effective_epoch,
             });
             Ok(())
-        })??;
+        })?;
 
         let cron_payload = CronEventPayload {
             event_type: CRON_EVENT_WORKER_KEY_CHANGE,
@@ -214,11 +214,11 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
             st.info.peer_id = params.new_id;
             Ok(())
-        })??;
+        })?;
         Ok(())
     }
 
@@ -230,11 +230,11 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
             st.info.multi_address = params.new_multi_addrs;
             Ok(())
-        })??;
+        })?;
         Ok(())
     }
 
@@ -252,152 +252,151 @@ impl Actor {
         let mut recovered_sectors: Vec<SectorOnChainInfo> = Vec::new();
         let mut penalty = TokenAmount::default();
 
-        let sec_size =
-            rt.transaction::<State, Result<SectorSize, ActorError>, _>(|st: &mut State, rt| {
-                rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
+        let sec_size = rt.transaction(|st: &mut State, rt| {
+            rt.validate_immediate_caller_is(std::iter::once(&st.info.worker))?;
 
-                let partition_size = st.info.window_post_partition_sectors;
-                let submission_partition_limit = window_post_message_partitions_max(partition_size);
-                if params.partitions.len() as u64 > submission_partition_limit {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!(
-                            "too many partitions {}, limit {}",
-                            params.partitions.len(),
-                            submission_partition_limit
-                        ),
-                    ));
-                }
-                let deadline = st.deadline_info(current_epoch);
-                let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to load deadlines: {}", e),
-                    )
-                })?;
-
-                // Traverse earlier submissions and enact detected faults.
-                // This isn't strictly necessary, but keeps the power table up to date eagerly and can force payment
-                // of penalties if locked pledge drops too low.
-                let (detected_faults, p) =
-                    detect_faults_this_period(rt, st, rt.store(), &deadline, &mut deadlines)?;
-                detected_faults_sector = detected_faults;
-                penalty = p;
-
-                if !deadline.period_started() {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!(
-                            "proving period {} not yet open at {}",
-                            deadline.period_start, current_epoch
-                        ),
-                    ));
-                }
-
-                if params.deadline != deadline.index as u64 {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        format!(
-                            "invalid deadline {} at epoch {}, expected {}",
-                            params.deadline, current_epoch, deadline.index
-                        ),
-                    ));
-                }
-
-                // Verify locked funds are are at least the sum of sector initial pledges.
-                // Note that this call does not actually compute recent vesting, so the reported locked funds may be
-                // slightly higher than the true amount (i.e. slightly in the miner's favour).
-                // Computing vesting here would be almost always redundant since vesting is quantized to ~daily units.
-                // Vesting will be at most one proving period old if computed in the cron callback.
-                verify_pledge_meets_initial_requirements(rt, &st);
-
-                // TODO WPOST (follow-up): process Skipped as faults
-
-                // Work out which sectors are due in the declared partitions at this deadline.
-                let partitions_sectors = compute_partitions_sector(
-                    &mut deadlines,
-                    partition_size,
-                    deadline.index,
-                    &params.partitions,
+            let partition_size = st.info.window_post_partition_sectors;
+            let submission_partition_limit = window_post_message_partitions_max(partition_size);
+            if params.partitions.len() as u64 > submission_partition_limit {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "too many partitions {}, limit {}",
+                        params.partitions.len(),
+                        submission_partition_limit
+                    ),
+                ));
+            }
+            let deadline = st.deadline_info(current_epoch);
+            let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load deadlines: {}", e),
                 )
-                .map_err(|_| {
+            })?;
+
+            // Traverse earlier submissions and enact detected faults.
+            // This isn't strictly necessary, but keeps the power table up to date eagerly and can force payment
+            // of penalties if locked pledge drops too low.
+            let (detected_faults, p) =
+                detect_faults_this_period(rt, st, rt.store(), &deadline, &mut deadlines)?;
+            detected_faults_sector = detected_faults;
+            penalty = p;
+
+            if !deadline.period_started() {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "proving period {} not yet open at {}",
+                        deadline.period_start, current_epoch
+                    ),
+                ));
+            }
+
+            if params.deadline != deadline.index as u64 {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "invalid deadline {} at epoch {}, expected {}",
+                        params.deadline, current_epoch, deadline.index
+                    ),
+                ));
+            }
+
+            // Verify locked funds are are at least the sum of sector initial pledges.
+            // Note that this call does not actually compute recent vesting, so the reported locked funds may be
+            // slightly higher than the true amount (i.e. slightly in the miner's favour).
+            // Computing vesting here would be almost always redundant since vesting is quantized to ~daily units.
+            // Vesting will be at most one proving period old if computed in the cron callback.
+            verify_pledge_meets_initial_requirements(rt, &st);
+
+            // TODO WPOST (follow-up): process Skipped as faults
+
+            // Work out which sectors are due in the declared partitions at this deadline.
+            let partitions_sectors = compute_partitions_sector(
+                &mut deadlines,
+                partition_size,
+                deadline.index,
+                &params.partitions,
+            )
+            .map_err(|_| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!(
+                        "failed to compute partitions sectors at deadline {}, partitions {:?}",
+                        deadline.index, params.partitions
+                    ),
+                )
+            })?;
+
+            let proven_sectors = BitField::union(&partitions_sectors);
+
+            let (sector_infos, declared_recoveries) = st
+                .load_sector_infos_for_proof(rt.store(), proven_sectors)
+                .map_err(|e| {
                     ActorError::new(
                         ExitCode::ErrIllegalState,
-                        format!(
-                            "failed to compute partitions sectors at deadline {}, partitions {:?}",
-                            deadline.index, params.partitions
-                        ),
+                        format!("failed to load proven sector info: {}", e),
                     )
                 })?;
 
-                let proven_sectors = BitField::union(&partitions_sectors);
+            // Verify the proof.
+            // A failed verification doesn't immediately cause a penalty; the miner can try again.
+            verify_windowed_post(rt, deadline.challenge, &sector_infos, params.proofs.clone())?;
 
-                let (sector_infos, declared_recoveries) = st
-                    .load_sector_infos_for_proof(rt.store(), proven_sectors)
-                    .map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to load proven sector info: {}", e),
-                        )
-                    })?;
+            // Record the successful submission
+            let posted_partitions: BitField =
+                params.partitions.iter().map(|&i| i as usize).collect();
+            let contains = st.post_submissions.contains_any(&posted_partitions);
+            if contains {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    "duplicate PoSt partition".to_string(),
+                ));
+            }
+            st.add_post_submissions(posted_partitions).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!(
+                        "failed to record submissions for partitions: {:?}, {}",
+                        params.partitions, e
+                    ),
+                )
+            })?;
 
-                // Verify the proof.
-                // A failed verification doesn't immediately cause a penalty; the miner can try again.
-                verify_windowed_post(rt, deadline.challenge, &sector_infos, params.proofs.clone())?;
+            // If the PoSt was successful, the declared recoveries should be restored
+            st.remove_faults(rt.store(), &declared_recoveries)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to remove recoveries from faults: {}", e),
+                    )
+                })?;
 
-                // Record the successful submission
-                let posted_partitions: BitField =
-                    params.partitions.iter().map(|&i| i as usize).collect();
-                let contains = st.post_submissions.contains_any(&posted_partitions);
-                if contains {
-                    return Err(ActorError::new(
-                        ExitCode::ErrIllegalArgument,
-                        "duplicate PoSt partition".to_string(),
-                    ));
+            st.remove_recoveries(&declared_recoveries).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to remove recoveries: {}", e),
+                )
+            })?;
+
+            // Load info for recovered sectors for recovery of power outside this state transaction.
+            if declared_recoveries.is_empty() {
+                Ok(st.info.sector_size)
+            } else {
+                let mut sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> =
+                    HashMap::new();
+                for sec in sector_infos {
+                    sectors_by_number.insert(sec.info.sector_number, sec);
                 }
-                st.add_post_submissions(posted_partitions).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!(
-                            "failed to record submissions for partitions: {:?}, {}",
-                            params.partitions, e
-                        ),
-                    )
-                })?;
-
-                // If the PoSt was successful, the declared recoveries should be restored
-                st.remove_faults(rt.store(), &declared_recoveries)
-                    .map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to remove recoveries from faults: {}", e),
-                        )
-                    })?;
-
-                st.remove_recoveries(&declared_recoveries).map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to remove recoveries: {}", e),
-                    )
-                })?;
-
-                // Load info for recovered sectors for recovery of power outside this state transaction.
-                if declared_recoveries.is_empty() {
-                    Ok(st.info.sector_size)
-                } else {
-                    let mut sectors_by_number: HashMap<SectorNumber, SectorOnChainInfo> =
-                        HashMap::new();
-                    for sec in sector_infos {
-                        sectors_by_number.insert(sec.info.sector_number, sec);
-                    }
-                    declared_recoveries.iter().for_each(|i| {
-                        let key = i as u64;
-                        let s = sectors_by_number.get(&key).cloned().unwrap();
-                        recovered_sectors.push(s);
-                    });
-                    Ok(st.info.sector_size)
-                }
-            })??;
+                declared_recoveries.iter().for_each(|i| {
+                    let key = i as u64;
+                    let s = sectors_by_number.get(&key).cloned().unwrap();
+                    recovered_sectors.push(s);
+                });
+                Ok(st.info.sector_size)
+            }
+        })?;
         // Remove power for new faults, and burn penalties.
         request_begin_faults(rt, sec_size, &detected_faults_sector)?;
         burn_funds_and_notify_pledge_change(rt, penalty)?;
@@ -544,7 +543,7 @@ impl Actor {
                 )
             })?;
             Ok(newly_vested_amount)
-        })??;
+        })?;
 
         notify_pledge_change(rt, &newly_vested_amount.neg())?;
         let mut bf = BitField::new();
@@ -721,11 +720,15 @@ impl Actor {
             let info = precommit.info;
             let deposit = precommit.pre_commit_deposit;
 
-            let vested_amount =
-            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
-                let newly_vested_fund = st.unlock_vested_funds(rt.store(), current_epoch).map_err(|e| {
-                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to vest new funds: {}", e))
-                })?;
+            let vested_amount = rt.transaction(|st: &mut State, rt| {
+                let newly_vested_fund =
+                    st.unlock_vested_funds(rt.store(), current_epoch)
+                        .map_err(|e| {
+                            ActorError::new(
+                                ExitCode::ErrIllegalState,
+                                format!("failed to vest new funds: {}", e),
+                            )
+                        })?;
 
                 // unlock deposit for successful proof, make it available for lock-up as initial pledge
                 st.subtract_pre_commit_deposit(&deposit);
@@ -736,41 +739,70 @@ impl Actor {
                 // lock up initial pledge for new sector
                 let available_balance = st.get_available_balance(&rt.current_balance()?);
                 if available_balance < initial_pledge {
-                    return Err(ActorError::new(ExitCode::ErrInsufficientFunds, format!("insufficient funds for initial pledge requirement {}, available: {}", initial_pledge, available_balance)));
+                    return Err(ActorError::new(
+                        ExitCode::ErrInsufficientFunds,
+                        format!(
+                            "insufficient funds for initial pledge requirement {}, available: {}",
+                            initial_pledge, available_balance
+                        ),
+                    ));
                 }
 
-                st.add_locked_funds(rt.store(), current_epoch, &initial_pledge, PLEDGE_VESTING_SPEC).map_err(|e| {
-                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to add pledge: {}", e))
+                st.add_locked_funds(
+                    rt.store(),
+                    current_epoch,
+                    &initial_pledge,
+                    PLEDGE_VESTING_SPEC,
+                )
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to add pledge: {}", e),
+                    )
                 })?;
 
                 st.assert_balance_invariants(&rt.current_balance()?);
 
-                let new_sector_info = SectorOnChainInfo{
+                let new_sector_info = SectorOnChainInfo {
                     info,
                     activation_epoch: current_epoch,
                     deal_weight: deal_weights.deal_weight,
-                    verified_deal_weight: deal_weights.verified_deal_weight
+                    verified_deal_weight: deal_weights.verified_deal_weight,
                 };
 
                 st.put_sector(rt.store(), new_sector_info).map_err(|e| {
-                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to prove commit: {}", e))
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to prove commit: {}", e),
+                    )
                 })?;
 
-                st.delete_precommitted_sector(rt.store(), num).map_err(|e| {
-                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to delete precommit for sector {}: {}", num, e))
-                })?;
+                st.delete_precommitted_sector(rt.store(), num)
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to delete precommit for sector {}: {}", num, e),
+                        )
+                    })?;
 
-                st.add_sector_expirations(rt.store(), expired_epoch, &[num]).map_err(|e| {
-                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to add new sector {} expiration: {}", num, e))
-                })?;
+                st.add_sector_expirations(rt.store(), expired_epoch, &[num])
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to add new sector {} expiration: {}", num, e),
+                        )
+                    })?;
 
                 // Add to new sectors, a staging ground before scheduling to a deadline at end of proving period.
                 st.add_new_sectors(&[num]).map_err(|e| {
-                    ActorError::new(ExitCode::ErrIllegalState, format!("failed to add new sector number {}: {}", num, e))
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to add new sector number {}: {}", num, e),
+                    )
                 })?;
 
                 Ok(newly_vested_fund)
-            })??;
+            })?;
 
             notify_pledge_change(rt, &(initial_pledge - vested_amount))?;
         }
@@ -887,7 +919,7 @@ impl Actor {
                 })?;
 
             Ok(())
-        })?
+        })
     }
 
     fn terminate_sectors<BS, RT>(
@@ -1049,7 +1081,7 @@ impl Actor {
             }
 
             Ok((penalty, st.info.sector_size))
-        })??;
+        })?;
 
         // remove power for new faulty sectors
         detected_fault_sectors.append(&mut declared_fault_sectors);
@@ -1149,7 +1181,7 @@ impl Actor {
             })?;
 
             Ok((penalty, st.info.sector_size))
-        })??;
+        })?;
 
         // remove power for new faulty sectors
         request_begin_faults(rt, sector_size, &detected_fault_sectors)?;
@@ -1195,7 +1227,7 @@ impl Actor {
                     )
                 })?;
             Ok(newly_vested_amount)
-        })??;
+        })?;
         let delta = amount - vested_amount;
         notify_pledge_change(rt, &delta)?;
         Ok(())
@@ -1272,20 +1304,19 @@ impl Actor {
         // TODO negative amount requested will have inconsistent exit code
         // (we throw serialization error, will checked a signed integer and throw illegal argument)
         let st: State = rt.state()?;
-        let vested_amount =
-            rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
-                rt.validate_immediate_caller_is(std::iter::once(&st.info.owner))?;
-                let newly_vested_amount = st
-                    .unlock_vested_funds(rt.store(), rt.curr_epoch())
-                    .map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("Failed to vest funds {:}", e),
-                        )
-                    })?;
+        let vested_amount = rt.transaction(|st: &mut State, rt| {
+            rt.validate_immediate_caller_is(std::iter::once(&st.info.owner))?;
+            let newly_vested_amount = st
+                .unlock_vested_funds(rt.store(), rt.curr_epoch())
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("Failed to vest funds {:}", e),
+                    )
+                })?;
 
-                Ok(newly_vested_amount)
-            })??;
+            Ok(newly_vested_amount)
+        })?;
 
         let curr_balance = rt.current_balance()?;
         let amount_withdrawn = std::cmp::min(
@@ -1334,18 +1365,17 @@ where
 {
     // Vest locked funds.
     // This happens first so that any subsequent penalties are taken from locked pledge, rather than free funds.
-    let vested_amount =
-        rt.transaction::<State, Result<TokenAmount, ActorError>, _>(|st, rt| {
-            let newly_vested_fund = st
-                .unlock_vested_funds(rt.store(), rt.curr_epoch())
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to vest funds {:}", e),
-                    )
-                })?;
-            Ok(newly_vested_fund)
-        })??;
+    let vested_amount = rt.transaction(|st: &mut State, rt| {
+        let newly_vested_fund = st
+            .unlock_vested_funds(rt.store(), rt.curr_epoch())
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to vest funds {:}", e),
+                )
+            })?;
+        Ok(newly_vested_fund)
+    })?;
 
     notify_pledge_change(rt, &vested_amount.neg())?;
 
@@ -1360,32 +1390,31 @@ where
         let mut detected_fault_sectors: Vec<SectorOnChainInfo> = Vec::new();
         let curr_epoch = rt.curr_epoch();
         let mut penalty = TokenAmount::default();
-        let (sector_size, deadline) =
-            rt.transaction::<State, Result<_, ActorError>, _>(|st: &mut State, rt| {
-                let deadline = st.deadline_info(curr_epoch);
+        let (sector_size, deadline) = rt.transaction(|st: &mut State, rt| {
+            let deadline = st.deadline_info(curr_epoch);
 
-                if deadline.period_started() {
-                    // Skip checking faults on the first, incomplete period.
-                    let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
-                        ActorError::new(
-                            ExitCode::ErrIllegalState,
-                            format!("failed to load deadlines {:}", e),
-                        )
-                    })?;
-                    let (detected_faults, p) = process_missing_post_faults(
-                        rt,
-                        st,
-                        rt.store(),
-                        &mut deadlines,
-                        deadline.period_start,
-                        deadline.index,
-                        curr_epoch,
-                    )?;
-                    detected_fault_sectors = detected_faults;
-                    penalty = p;
-                }
-                Ok((st.info.sector_size, deadline))
-            })??;
+            if deadline.period_started() {
+                // Skip checking faults on the first, incomplete period.
+                let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadlines {:}", e),
+                    )
+                })?;
+                let (detected_faults, p) = process_missing_post_faults(
+                    rt,
+                    st,
+                    rt.store(),
+                    &mut deadlines,
+                    deadline.period_start,
+                    deadline.index,
+                    curr_epoch,
+                )?;
+                detected_fault_sectors = detected_faults;
+                penalty = p;
+            }
+            Ok((st.info.sector_size, deadline))
+        })?;
 
         // Remove power for new faults, and burn penalties.
         request_begin_faults(rt, sector_size, &detected_fault_sectors)?;
@@ -1395,7 +1424,7 @@ where
 
     {
         // Expire sectors that are due.
-        let expired_sectors = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+        let expired_sectors = rt.transaction(|st: &mut State, rt| {
             Ok(
                 pop_sector_expirations(st, rt.store(), deadline.period_end()).map_err(|e| {
                     ActorError::new(
@@ -1404,7 +1433,7 @@ where
                     )
                 })?,
             )
-        })??;
+        })?;
 
         // Terminate expired sectors (sends messages to power and market actors).
         terminate_sectors(rt, &expired_sectors, SECTOR_TERMINATION_EXPIRED)?;
@@ -1412,21 +1441,21 @@ where
 
     {
         // Terminate sectors with faults that are too old, and pay fees for ongoing faults.
-        let (expired_faults, ongoing_fault_penalty) = rt
-            .transaction::<State, Result<_, ActorError>, _>(|st, rt| {
-                let (expired_faults, ongoing_faults) =
-                    pop_expired_faults(st, rt.store(), deadline.period_end() - FAULT_MAX_AGE)
-                        .map_err(|e| {
-                            ActorError::new(
-                                ExitCode::ErrIllegalState,
-                                format!("failed to load fault sectors: {}", e),
-                            )
-                        })?;
+        let (expired_faults, ongoing_fault_penalty) = rt.transaction(|st: &mut State, rt| {
+            let (expired_faults, ongoing_faults) =
+                pop_expired_faults(st, rt.store(), deadline.period_end() - FAULT_MAX_AGE).map_err(
+                    |e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to load fault sectors: {}", e),
+                        )
+                    },
+                )?;
 
-                // Load info for ongoing faults.
-                // TODO: this is potentially super expensive for a large miner with ongoing faults
-                let ongoing_fault_info = st
-                    .load_sector_infos(rt.store(), &ongoing_faults)
+            // Load info for ongoing faults.
+            // TODO: this is potentially super expensive for a large miner with ongoing faults
+            let ongoing_fault_info =
+                st.load_sector_infos(rt.store(), &ongoing_faults)
                     .map_err(|e| {
                         ActorError::new(
                             ExitCode::ErrIllegalState,
@@ -1434,22 +1463,22 @@ where
                         )
                     })?;
 
-                // Unlock penalty for ongoing faults.
-                let ongoing_fault_penalty = unlock_penalty(
-                    st,
-                    rt.store(),
-                    deadline.period_end(),
-                    &ongoing_fault_info,
-                    &pledge_penalty_for_sector_declared_fault,
+            // Unlock penalty for ongoing faults.
+            let ongoing_fault_penalty = unlock_penalty(
+                st,
+                rt.store(),
+                deadline.period_end(),
+                &ongoing_fault_info,
+                &pledge_penalty_for_sector_declared_fault,
+            )
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to charge fault fee: {}", e),
                 )
-                .map_err(|e| {
-                    ActorError::new(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to charge fault fee: {}", e),
-                    )
-                })?;
-                Ok((expired_faults, ongoing_fault_penalty))
-            })??;
+            })?;
+            Ok((expired_faults, ongoing_fault_penalty))
+        })?;
 
         terminate_sectors(rt, &expired_faults, SECTOR_TERMINATION_FAULTY)?;
         burn_funds_and_notify_pledge_change(rt, ongoing_fault_penalty)?;
@@ -1457,7 +1486,7 @@ where
 
     let proving_period_start = {
         // Establish new proving sets and clear proofs.
-        rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+        rt.transaction(|st: &mut State, rt| {
             let mut deadlines = st.load_deadlines(rt.store()).map_err(|e| {
                 ActorError::new(
                     ExitCode::ErrIllegalState,
@@ -1515,7 +1544,7 @@ where
                 st.proving_period_start += WPOST_PROVING_PERIOD;
             }
             Ok(st.proving_period_start)
-        })??
+        })?
     };
 
     // Schedule cron callback for next period
@@ -1804,7 +1833,7 @@ where
 {
     // initialize here to add together for all sectors and minimize calls across actors
     let mut deposit_burn = TokenAmount::default();
-    rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+    rt.transaction(|st: &mut State, rt| {
         if let Some(sectors) = optional_sectors {
             sectors
                 .iter()
@@ -1834,7 +1863,7 @@ where
         st.pre_commit_deposit -= &deposit_burn;
 
         Ok(())
-    })??;
+    })?;
     // This deposit was locked separately to pledge collateral so there's no pledge change here.
     burn_funds(rt, deposit_burn)?;
     Ok(())
@@ -1860,7 +1889,7 @@ where
     let state: State = rt.state()?;
     let current_epoch = &rt.curr_epoch();
 
-    rt.transaction::<State, Result<(), ActorError>, _>(|st, rt| {
+    rt.transaction(|st: &mut State, rt| {
         let max_allowed_faults = st.get_max_allowed_faults(rt.store()).map_err(|e| {
             ActorError::new(
                 ExitCode::ErrIllegalState,
@@ -1931,7 +1960,7 @@ where
             .unwrap();
         }
         Ok(())
-    })??;
+    })?;
 
     // End any fault state before terminating sector power.
     request_end_faults(rt, state.info.sector_size, &faulty_sectors)?;
@@ -2248,7 +2277,7 @@ where
         }
 
         Ok(())
-    })?
+    })
 }
 
 /// Verifies that the total locked balance exceeds the sum of sector initial pledges.

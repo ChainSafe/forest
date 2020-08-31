@@ -104,7 +104,7 @@ impl Actor {
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush verifiers: {}", e))?;
 
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -133,7 +133,7 @@ impl Actor {
                 .flush()
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to flush verifiers: {}", e))?;
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -247,7 +247,7 @@ impl Actor {
             )?;
 
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -324,7 +324,7 @@ impl Actor {
                 |e| actor_error!(ErrIllegalState; "failed to flush verified clients: {}", e),
             )?;
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
@@ -392,7 +392,7 @@ impl Actor {
                 |e| actor_error!(ErrIllegalState; "failed to flush verified clients: {}", e),
             )?;
             Ok(())
-        })??;
+        })?;
 
         Ok(())
     }
