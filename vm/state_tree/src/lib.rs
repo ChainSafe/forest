@@ -340,6 +340,7 @@ where
     /// Revert state cache by removing last snapshot
     pub fn revert_to_snapshot(&mut self) -> Result<(), Box<dyn StdError>> {
         self.snaps.drop_layer()?;
+        self.snaps.add_layer();
         Ok(())
     }
 

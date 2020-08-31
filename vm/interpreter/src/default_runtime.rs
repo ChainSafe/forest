@@ -254,6 +254,11 @@ where
             gas_premium: Default::default(),
         };
 
+        // snapshot state tree
+        self.state
+            .snapshot()
+            .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
+
         // Since it is unsafe to share a mutable reference to the state tree by copying
         // the runtime, all variables must be copied and reset at the end of the transition.
         let prev_val = self.caller_validated;
@@ -265,16 +270,14 @@ where
         };
         self.caller_validated = false;
 
-        // snapshot state tree
-        self.state
-            .snapshot()
-            .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
-
         let send_res = vm_send::<BS, SYS, R, P>(self, &msg, None);
 
         // Reset values back to their values before the call
         self.vm_msg = prev_msg;
         self.caller_validated = prev_val;
+        self.state
+            .clear_snapshot()
+            .map_err(|e| actor_error!(fatal("failed to clear snapshot {}", e)))?;
 
         send_res.map_err(|e| {
             if let Err(e) = self.state.revert_to_snapshot() {

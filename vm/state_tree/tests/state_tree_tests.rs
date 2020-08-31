@@ -125,7 +125,6 @@ fn test_snapshots() {
         ),
     )
     .unwrap();
-
     tree.set_actor(
         &addresses[2],
         ActorState::new(
@@ -136,7 +135,6 @@ fn test_snapshots() {
         ),
     )
     .unwrap();
-
     tree.clear_snapshot().unwrap();
     tree.flush().unwrap();
 
@@ -158,6 +156,7 @@ fn test_snapshots() {
             1
         )
     );
+
     assert_eq!(
         tree.get_actor(&addresses[2]).unwrap().unwrap(),
         ActorState::new(
@@ -190,6 +189,8 @@ fn revert_snapshot() {
     )
     .unwrap();
     tree.revert_to_snapshot().unwrap();
+    tree.clear_snapshot().unwrap();
+
     tree.flush().unwrap();
 
     assert_eq!(tree.get_actor(&addr).unwrap(), None);
