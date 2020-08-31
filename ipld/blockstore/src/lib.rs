@@ -3,6 +3,7 @@
 
 mod buffered;
 
+#[cfg(feature = "buffered")]
 pub use self::buffered::BufferedBlockStore;
 
 use cid::{multihash::MultihashDigest, Cid};

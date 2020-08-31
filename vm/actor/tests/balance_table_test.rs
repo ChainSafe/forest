@@ -29,7 +29,7 @@ fn total() {
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
-    assert_eq!(bt.total(), Ok(TokenAmount::from(0u8)));
+    assert_eq!(bt.total().unwrap(), TokenAmount::from(0u8));
 
     struct TotalTestCase<'a> {
         amount: u64,
@@ -62,7 +62,7 @@ fn total() {
     for t in test_vectors.iter() {
         bt.add_create(t.addr, TokenAmount::from(t.amount)).unwrap();
 
-        assert_eq!(bt.total(), Ok(TokenAmount::from(t.total)));
+        assert_eq!(bt.total().unwrap(), TokenAmount::from(t.total));
     }
 }
 

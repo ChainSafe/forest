@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, initialize_genesis, Config};
+use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::RwLock;
 use async_std::task;
-use beacon::DrandBeacon;
+use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
@@ -58,7 +59,6 @@ pub(super) async fn start(config: Config) {
         Libp2pService::new(config.network, Arc::clone(&db), net_keypair, &network_name);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
-
     // Initialize mpool
     let subscriber = chain_store.subscribe();
     let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&db));
@@ -72,9 +72,14 @@ pub(super) async fn start(config: Config) {
     let coeff = config.drand_public;
 
     // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
-    let beacon = DrandBeacon::new(coeff, genesis.blocks()[0].timestamp(), 1)
-        .await
-        .unwrap();
+    let beacon = DrandBeacon::new(
+        DEFAULT_DRAND_URL,
+        coeff,
+        genesis.blocks()[0].timestamp(),
+        EPOCH_DURATION_SECONDS as u64,
+    )
+    .await
+    .unwrap();
 
     // Initialize ChainSyncer
     let chain_store = Arc::new(RwLock::new(chain_store));
@@ -87,6 +92,7 @@ pub(super) async fn start(config: Config) {
     )
     .await
     .unwrap();
+    info!("init chain syncher");
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
     let sync_task = task::spawn(async {
@@ -123,6 +129,8 @@ pub(super) async fn start(config: Config) {
         debug!("RPC disabled");
         None
     };
+
+    info!("daemon started");
 
     // Block until ctrl-c is hit
     block_until_sigint().await;

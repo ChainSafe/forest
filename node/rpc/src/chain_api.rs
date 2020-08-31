@@ -58,20 +58,19 @@ where
 }
 
 pub(crate) async fn chain_notify<DB, KS>(
-    data: Data<RpcState<DB, KS>>
+    data: Data<RpcState<DB, KS>>,
 ) -> Result<Vec<chain::HeadChangeJson>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-
     Ok(data
         .chain_store
         .write()
         .await
         .sub_head_changes()
         .await?
-        .map(|s|s.into())
+        .map(|s| s.into())
         .collect()
         .await)
 }
@@ -235,7 +234,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (tsk, pers, epoch, entropy) = params;
-    Ok(chain::get_randomness(
+    Ok(chain::get_chain_randomness(
         data.state_manager.get_block_store_ref(),
         &tsk,
         DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,

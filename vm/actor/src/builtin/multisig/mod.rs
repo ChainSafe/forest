@@ -6,7 +6,9 @@ mod types;
 
 pub use self::state::*;
 pub use self::types::*;
-use crate::{make_map, make_map_with_root, Map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR};
+use crate::{
+    make_map, make_map_with_root, resolve_to_id_addr, Map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR,
+};
 use address::{Address, Protocol};
 use encoding::to_vec;
 use ipld_blockstore::BlockStore;
@@ -19,6 +21,8 @@ use std::error::Error as StdError;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
+
+// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -49,16 +53,24 @@ impl Actor {
             return Err(actor_error!(ErrIllegalArgument; "Must have at least one signer"));
         }
 
-        // do not allow duplicate signers
-        let mut resolved_signers = HashSet::with_capacity(params.signers.len());
+        // resolve signer addresses and do not allow duplicate signers
+        let mut resolved_signers = Vec::with_capacity(params.signers.len());
+        let mut dedup_signers = HashSet::with_capacity(params.signers.len());
         for signer in &params.signers {
-            let resolved = resolve(rt, signer)?;
-            if resolved_signers.contains(&resolved) {
+            let resolved = resolve_to_id_addr(rt, signer).map_err(|e| {
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    &format!("failed to resolve addr {} to ID addr", signer),
+                )
+            })?;
+            if dedup_signers.contains(&resolved) {
                 return Err(
                     actor_error!(ErrIllegalArgument; "duplicate signer not allowed: {}", signer),
                 );
             }
-            resolved_signers.insert(resolved);
+            resolved_signers.push(resolved);
+            dedup_signers.insert(resolved);
         }
 
         if params.num_approvals_threshold > params.signers.len() {
@@ -80,7 +92,7 @@ impl Actor {
             .map_err(|err| actor_error!(ErrIllegalState; "Failed to create empty map: {}", err))?;
 
         let mut st: State = State {
-            signers: params.signers,
+            signers: resolved_signers,
             num_approvals_threshold: params.num_approvals_threshold,
             pending_txs: empty_root,
             initial_balance: TokenAmount::from(0),
@@ -106,7 +118,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let caller_addr: Address = *rt.message().caller();
+        let proposer: Address = *rt.message().caller();
 
         if params.value.sign() == Sign::Minus {
             return Err(
@@ -115,8 +127,8 @@ impl Actor {
         }
 
         let (txn_id, txn) = rt.transaction(|st: &mut State, rt| {
-            if !is_signer(rt, st, &caller_addr)? {
-                return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
+            if !is_signer(&proposer, &st.signers)? {
+                return Err(actor_error!(ErrForbidden; "{} is not a signer", proposer));
             }
 
             let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
@@ -166,7 +178,7 @@ impl Actor {
 
         let id = params.id;
         let (st, txn) = rt.transaction(|st: &mut State, rt| {
-            if !is_signer(rt, st, &caller_addr)? {
+            if !is_signer(&caller_addr, &st.signers)? {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
             }
 
@@ -202,7 +214,7 @@ impl Actor {
         let caller_addr: Address = *rt.message().caller();
 
         rt.transaction(|st: &mut State, rt| {
-            if !is_signer(rt, st, &caller_addr)? {
+            if !is_signer(&caller_addr, &st.signers)? {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
             }
 
@@ -255,16 +267,23 @@ impl Actor {
     {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
+        let resolved_new_signer = resolve_to_id_addr(rt, &params.signer).map_err(|e| {
+            ActorError::downcast(
+                e,
+                ExitCode::ErrIllegalState,
+                &format!("failed to resolve address {}", params.signer),
+            )
+        })?;
 
-        rt.transaction(|st: &mut State, rt| {
-            if is_signer(rt, st, &params.signer)? {
+        rt.transaction(|st: &mut State, _| {
+            if is_signer(&resolved_new_signer, &st.signers)? {
                 return Err(
-                    actor_error!(ErrIllegalArgument; "{} is already a signer", params.signer),
+                    actor_error!(ErrForbidden; "{} is already a signer", resolved_new_signer),
                 );
             }
 
             // Add signer and increase threshold if set
-            st.signers.push(params.signer);
+            st.signers.push(resolved_new_signer);
             if params.increase {
                 st.num_approvals_threshold += 1;
             }
@@ -281,33 +300,35 @@ impl Actor {
     {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
+        let resolved_old_signer = resolve_to_id_addr(rt, &params.signer).map_err(|e| {
+            ActorError::downcast(
+                e,
+                ExitCode::ErrIllegalState,
+                &format!("failed to resolve address {}", params.signer),
+            )
+        })?;
 
-        rt.transaction(|st: &mut State, rt| {
-            if !is_signer(rt, st, &params.signer)? {
-                return Err(actor_error!(ErrNotFound; "{} is not a signer", params.signer));
+        rt.transaction(|st: &mut State, _| {
+            if !is_signer(&resolved_old_signer, &st.signers)? {
+                return Err(actor_error!(ErrForbidden; "{} is not a signer", resolved_old_signer));
             }
 
             if st.signers.len() == 1 {
                 return Err(actor_error!(ErrForbidden; "Cannot remove only signer"));
             }
 
-            let mut new_signers = Vec::with_capacity(st.signers.len());
-            for s in &st.signers {
-                if !is_address_equal(rt, s, &params.signer)? {
-                    new_signers.push(*s);
-                }
-            }
+            // Signers have already been resolved
+            st.signers.retain(|s| s != &resolved_old_signer);
 
-            if !params.decrease && st.signers.len() - 1 < st.num_approvals_threshold {
+            if !params.decrease && st.signers.len() < st.num_approvals_threshold {
                 return Err(actor_error!(ErrIllegalArgument;
                     "can't reduce signers to {} below threshold {} with decrease=false",
-                    new_signers.len(), st.num_approvals_threshold));
+                    st.signers.len(), st.num_approvals_threshold));
             }
 
             if params.decrease {
                 st.num_approvals_threshold -= 1;
             }
-            st.signers = new_signers;
             Ok(())
         })??;
 
@@ -322,27 +343,37 @@ impl Actor {
     {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
+        let from_resolved = resolve_to_id_addr(rt, &params.from).map_err(|e| {
+            ActorError::downcast(
+                e,
+                ExitCode::ErrIllegalState,
+                &format!("failed to resolve address {}", params.from),
+            )
+        })?;
+        let to_resolved = resolve_to_id_addr(rt, &params.to).map_err(|e| {
+            ActorError::downcast(
+                e,
+                ExitCode::ErrIllegalState,
+                &format!("failed to resolve address {}", params.to),
+            )
+        })?;
 
-        rt.transaction(|st: &mut State, rt| {
-            if !is_signer(rt, st, &params.from)? {
-                return Err(actor_error!(ErrNotFound; "{} is not a signer", params.from));
+        rt.transaction(|st: &mut State, _| {
+            if !is_signer(&from_resolved, &st.signers)? {
+                return Err(actor_error!(ErrForbidden; "{} is not a signer", from_resolved));
             }
 
-            if is_signer(rt, st, &params.to)? {
-                return Err(actor_error!(ErrIllegalArgument; "{} is already a signer", params.to));
+            if is_signer(&to_resolved, &st.signers)? {
+                return Err(
+                    actor_error!(ErrIllegalArgument; "{} is already a signer", to_resolved),
+                );
             }
 
-            // Remove signer from state
-            let mut new_signers = Vec::with_capacity(st.signers.len());
-            for s in &st.signers {
-                if !is_address_equal(rt, s, &params.from)? {
-                    new_signers.push(*s);
-                }
-            }
+            // Remove signer from state (retain preserves order of elements)
+            st.signers.retain(|s| s != &from_resolved);
 
             // Add new signer
-            new_signers.push(params.to);
-            st.signers = new_signers;
+            st.signers.push(params.to);
 
             Ok(())
         })??;
@@ -503,31 +534,25 @@ where
         })?;
 
         if proposal_hash != calculated_hash {
-            return Err(actor_error!(ErrIllegalArgument; "hash does not match proposal params"));
+            return Err(actor_error!(ErrIllegalArgument;
+                    "hash does not match proposal params (ensure requester is an ID address)"));
         }
     }
 
     Ok(txn)
 }
 
-fn is_address_equal<BS, RT>(rt: &RT, addr1: &Address, addr2: &Address) -> Result<bool, ActorError>
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
-    Ok(resolve(rt, addr1)? == resolve(rt, addr2)?)
-}
+fn is_signer(address: &Address, signers: &[Address]) -> Result<bool, ActorError> {
+    assert_eq!(
+        address.protocol(),
+        Protocol::ID,
+        "address {} passed to is_signer must be a resolved address",
+        address
+    );
 
-fn is_signer<BS, RT>(rt: &RT, st: &State, address: &Address) -> Result<bool, ActorError>
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
-    let candidate_resolved = resolve(rt, address)?;
-
-    for s in &st.signers {
-        let signer_resolved = resolve(rt, s)?;
-        if signer_resolved == candidate_resolved {
+    // Signer addresses have already been resolved
+    for signer in signers {
+        if signer == address {
             return Ok(true);
         }
     }
@@ -552,19 +577,6 @@ fn compute_proposal_hash(
         .map_err(|e| format!("failed to construct multisig approval hash: {}", e))?;
 
     sys.hash_blake2b(&data)
-}
-
-/// Resolves address to ID or returns address as is if it doesn't have an ID address.
-fn resolve<BS, RT>(rt: &RT, address: &Address) -> Result<Address, ActorError>
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
-    if address.protocol() != Protocol::ID {
-        Ok(rt.resolve_address(address)?.unwrap_or(*address))
-    } else {
-        Ok(*address)
-    }
 }
 
 impl ActorCode for Actor {

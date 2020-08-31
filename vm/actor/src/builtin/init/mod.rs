@@ -18,7 +18,7 @@ use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
-// * Updated to specs-actors commit: 4784ddb8e54d53c118e63763e4efbcf0a419da28
+// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
 
 /// Init actor methods available
 #[derive(FromPrimitive)]
@@ -74,13 +74,13 @@ impl Actor {
 
         // Allocate an ID for this actor.
         // Store mapping of pubkey or actor address to actor ID
-        let id_address: Address = rt.transaction::<State, _, _>(|s, rt| {
+        let id_address: Address = rt.transaction(|s: &mut State, rt| {
             s.map_address_to_new_id(rt.store(), &robust_address)
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to allocate ID address: {}", e))
         })??;
 
         // Create an empty actor
-        rt.create_actor(&params.code_cid, &id_address)?;
+        rt.create_actor(params.code_cid, &id_address)?;
 
         // Invoke constructor
         rt.send(

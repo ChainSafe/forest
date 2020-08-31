@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 utils = { path = "../utils" }
-libp2p = "0.21.1"
-libp2p-request-response = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "836f3e3df0119d10618b11901f1ce3d1f36de836" }
+libp2p = "0.24"
+libp2p-request-response = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "7ba76ccc03569a02a924d08ff9b6f62504e8bc51" }
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures_codec = "0.4.0"
@@ -23,8 +23,8 @@ fnv = "1.0.6"
 smallvec = "1.1.0"
 clock = { path = "../clock" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-libp2p-bitswap = "0.5"
-libipld-core = "0.3.0"
+libp2p-bitswap = "0.6"
+tiny-cid = "0.1.0"
 ipld_blockstore = { path = "../../ipld/blockstore" }
 async-trait = "0.1"
 

@@ -5,7 +5,7 @@ use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
 /// A set of CIDs forming a unique key for a Tipset.
@@ -134,7 +134,7 @@ impl Tipset {
         self.min_ticket_block().state_root()
     }
     /// Returns the tipset's calculated weight
-    pub fn weight(&self) -> &BigUint {
+    pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
     }
 }
@@ -152,6 +152,7 @@ impl FullTipset {
 
         // sort blocks on creation to allow for more seamless conversions between FullTipset
         // and Tipset
+        #[allow(clippy::unnecessary_sort_by)]
         blocks.sort_by(|block1, block2| block1.header().cmp(block2.header()));
         Ok(Self { blocks })
     }
@@ -192,7 +193,7 @@ impl FullTipset {
         self.first_block().header().epoch()
     }
     /// Returns the tipset's calculated weight
-    pub fn weight(&self) -> &BigUint {
+    pub fn weight(&self) -> &BigInt {
         self.first_block().header().weight()
     }
 }
@@ -290,7 +291,6 @@ pub mod tipset_json {
             TipsetJson(wrapper)
         }
     }
-
 
     impl<'a> From<&'a Tipset> for TipsetJsonRef<'a> {
         fn from(wrapper: &'a Tipset) -> Self {

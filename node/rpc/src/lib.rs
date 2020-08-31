@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod chain_api;
+mod gas_api;
 mod mpool_api;
 mod state_api;
 mod sync_api;
 mod wallet_api;
 
 use crate::state_api::*;
+use async_log::span;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::sync::{RwLock, Sender};
 use async_std::task;
@@ -18,9 +20,9 @@ use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
 use futures::future;
 use futures::sink::SinkExt;
-use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::{StreamExt, TryStreamExt};
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
+use log::{error, info};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::StateManager;
 use std::borrow::Cow;
@@ -48,6 +50,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     use chain_api::*;
+    use gas_api::*;
     use mpool_api::*;
     use sync_api::*;
     use wallet_api::*;
@@ -81,7 +84,7 @@ where
         // Message Pool API
         .with_method(
             "Filecoin.MpoolEstimateGasPrice",
-            mpool_estimate_gas_price::<DB, KS>,
+            estimate_gas_premium::<DB, KS>,
         )
         .with_method("Filecoin.MpoolGetNonce", mpool_get_sequence::<DB, KS>)
         .with_method("Filecoin.MpoolPending", mpool_pending::<DB, KS>)
@@ -147,42 +150,64 @@ where
         )
         .with_method("Filecoin.StateGetReceipt", state_get_receipt::<DB, KS>)
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS>)
+        // Gas API
+        .with_method(
+            "Filecoin.GasEstimateGasLimit",
+            gas_estimate_gas_limit::<DB, KS>,
+        )
+        .with_method(
+            "Filecoin.GasEstimateGasPremium",
+            gas_estimate_gas_premium::<DB, KS>,
+        )
+        .with_method("Filecoin.GasEstimateFeeCap", gas_estimate_fee_cap::<DB, KS>)
         .finish_unwrapped();
 
     let try_socket = TcpListener::bind(rpc_endpoint).await;
     let listener = try_socket.expect("Failed to bind to addr");
     let state = Arc::new(rpc);
-    let futures_unordered = FuturesUnordered::new();
-    while let Ok((stream, _addr)) = listener.accept().await {
-        futures_unordered.push(task::spawn(handle_connection(state.clone(), stream)));
+    info!("waiting for web socket connections");
+    while let Ok((stream, addr)) = listener.accept().await {
+        task::spawn(handle_connection_and_log(state.clone(), stream, addr));
     }
+
+    info!("Stopped accepting websocket connections");
 }
 
-async fn handle_connection(
+async fn handle_connection_and_log(
     state: Arc<Server<MapRouter>>,
     tcp_stream: TcpStream,
-) -> Result<(), Error> {
-    let ws_stream = async_tungstenite::accept_async(tcp_stream)
-        .await
-        .expect("Error during the websocket handshake occurred");
-    let (mut ws_sender, ws_receiver) = ws_stream.split();
-    let responses = ws_receiver
-        .try_filter(|s| future::ready(!s.is_text()))
-        .try_fold(Vec::new(), |mut responses, s| async {
-            let request_text = s.into_text()?;
-            let call: RequestObject = serde_json::from_str(&request_text)
-                .map_err(|s| Error::Protocol(Cow::from(s.to_string())))?;
-            let response = state.handle(call).await;
-            let response_text = serde_json::to_string(&response)
-                .map_err(|s| Error::Protocol(Cow::from(s.to_string())))?;
-            responses.push(response_text);
-            Ok(responses)
-        })
-        .await?;
+    addr: std::net::SocketAddr,
+) {
+    span!("handle_connection", {
+        if let Ok(ws_stream) = async_tungstenite::accept_async(tcp_stream).await {
+            info!("accepted websocket connection at {:}", addr);
+            let (mut ws_sender, ws_receiver) = ws_stream.split();
+            let responses_result = ws_receiver
+                .try_filter(|s| future::ready(!s.is_text()))
+                .try_fold(Vec::new(), |mut responses, s| async {
+                    let request_text = s.into_text()?;
+                    let call: RequestObject = serde_json::from_str(&request_text)
+                        .map_err(|s| Error::Protocol(Cow::from(s.to_string())))?;
+                    let response = state.handle(call).await;
+                    let response_text = serde_json::to_string(&response)
+                        .map_err(|s| Error::Protocol(Cow::from(s.to_string())))?;
+                    responses.push(response_text);
+                    Ok(responses)
+                })
+                .await;
 
-    //send back responses
-    for response_text in responses {
-        ws_sender.send(Message::text(response_text)).await?
-    }
-    Ok(())
+            if let Err(error) = responses_result {
+                error!("error obtaining request {:?}", error)
+            } else {
+                for response_text in responses_result.unwrap() {
+                    ws_sender
+                        .send(Message::text(response_text))
+                        .await
+                        .unwrap_or_else(|s| error!("Error sending response {:?}", s))
+                }
+            }
+        } else {
+            error!("web socket connection failed at {:}", addr)
+        }
+    })
 }

@@ -1,8 +1,11 @@
 [package]
 name = "forest_json_utils"
+description = "JSON utilities used to interoperate with default golang JSON defaults"
+license = "MIT OR Apache-2.0"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 serde = { version = "1.0" }
