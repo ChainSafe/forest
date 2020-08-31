@@ -130,8 +130,6 @@ pub(super) async fn start(config: Config) {
         None
     };
 
-    info!("daemon started");
-
     // Block until ctrl-c is hit
     block_until_sigint().await;
 
