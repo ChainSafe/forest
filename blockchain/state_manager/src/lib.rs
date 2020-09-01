@@ -15,26 +15,20 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
-use fil_types::NetworkParams;
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
-use interpreter::{
-    resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, DefaultSyscalls, Rand, VM,
-};
+use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, DefaultSyscalls, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
-use runtime::Syscalls;
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use vm::Serialized;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -194,7 +188,7 @@ where
         )?;
 
         // Apply tipset messages
-        let receipts = apply_block_messages(&mut vm, messages, parent_epoch, callback)?;
+        let receipts = vm.apply_block_messages(messages, parent_epoch, epoch, callback)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
@@ -824,139 +818,4 @@ where
             &addr,
         )?)
     }
-}
-
-fn run_cron<S, SYS, R, P>(
-    vm: &mut VM<S, SYS, R, P>,
-    callback: Option<&mut impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
-) -> Result<(), Box<dyn StdError>>
-where
-    S: BlockStore,
-    SYS: Syscalls,
-    P: NetworkParams,
-    R: Rand,
-{
-    let sys_act = vm
-        .state()
-        .get_actor(&*SYSTEM_ACTOR_ADDR)?
-        .ok_or_else(|| "Failed to query system actor".to_string())?;
-
-    let cron_msg = UnsignedMessage {
-        from: *SYSTEM_ACTOR_ADDR,
-        to: *CRON_ACTOR_ADDR,
-        sequence: sys_act.sequence,
-        gas_limit: 1 << 30,
-        method_num: cron::Method::EpochTick as u64,
-        params: Default::default(),
-        value: Default::default(),
-        version: Default::default(),
-        gas_fee_cap: Default::default(),
-        gas_premium: Default::default(),
-    };
-
-    let ret = vm.apply_implicit_message(&cron_msg);
-    if let Some(err) = ret.act_error {
-        return Err(format!("failed to apply block cron message: {}", err).into());
-    }
-
-    if let Some(callback) = callback {
-        callback(cron_msg.cid()?, cron_msg, ret)?;
-    }
-    Ok(())
-}
-
-/// Apply block messages from a Tipset.
-/// Returns the receipts from the transactions.
-fn apply_block_messages<S, SYS, R, P>(
-    vm: &mut VM<S, SYS, R, P>,
-    messages: &[BlockMessages],
-    parent_epoch: ChainEpoch,
-    mut callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
-) -> Result<Vec<MessageReceipt>, Box<dyn StdError>>
-where
-    S: BlockStore,
-    SYS: Syscalls,
-    P: NetworkParams,
-    R: Rand,
-{
-    let mut receipts = Vec::new();
-    let mut processed = HashSet::<Cid>::default();
-
-    // TODO handle empty tipset cron and forks
-
-    for block in messages.into_iter() {
-        let mut penalty = Default::default();
-        let mut gas_reward = Default::default();
-
-        let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
-            let cid = msg.cid()?;
-            // Ensure no duplicate processing of a message
-            if processed.contains(&cid) {
-                return Ok(());
-            }
-            let ret = vm.apply_message(msg)?;
-
-            // Update totals
-            gas_reward += ret.miner_tip;
-            penalty += ret.penalty;
-            receipts.push(ret.msg_receipt);
-
-            // Add callback here if needed in future
-
-            // Add processed Cid to set of processed messages
-            processed.insert(cid);
-            Ok(())
-        };
-
-        for msg in &block.bls_messages {
-            process_msg(msg)?;
-        }
-        for msg in &block.secpk_messages {
-            process_msg(msg.message())?;
-        }
-
-        // Generate reward transaction for the miner of the block
-        let params = Serialized::serialize(reward::AwardBlockRewardParams {
-            miner: block.miner,
-            penalty,
-            gas_reward,
-            win_count: block.win_count,
-        })?;
-
-        // TODO change this just just one get and update sequence in memory after interop
-        let sys_act = vm
-            .state()
-            .get_actor(&*SYSTEM_ACTOR_ADDR)?
-            .ok_or_else(|| "Failed to query system actor".to_string())?;
-
-        let rew_msg = UnsignedMessage {
-            from: *SYSTEM_ACTOR_ADDR,
-            to: *REWARD_ACTOR_ADDR,
-            method_num: reward::Method::AwardBlockReward as u64,
-            params,
-            sequence: sys_act.sequence,
-            gas_limit: 1 << 30,
-            value: Default::default(),
-            version: Default::default(),
-            gas_fee_cap: Default::default(),
-            gas_premium: Default::default(),
-        };
-
-        // TODO revisit this ApplyRet structure, doesn't match go logic 1:1 and can be cleaner
-        let ret = vm.apply_implicit_message(&rew_msg);
-        if let Some(err) = ret.act_error {
-            return Err(format!(
-                "failed to apply reward message for miner {}: {}",
-                block.miner, err
-            )
-            .into());
-        }
-
-        if let Some(callback) = &mut callback {
-            callback(rew_msg.cid()?, rew_msg, ret)?;
-        }
-    }
-
-    run_cron(vm, callback.as_mut())?;
-    Ok(receipts)
 }

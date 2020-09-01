@@ -320,6 +320,141 @@ where
             miner_tip,
         })
     }
+
+    fn run_cron(
+        &mut self,
+        callback: Option<&mut impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+    ) -> Result<(), Box<dyn StdError>> {
+        let sys_act = self
+            .state()
+            .get_actor(&*SYSTEM_ACTOR_ADDR)?
+            .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+        let cron_msg = UnsignedMessage {
+            from: *SYSTEM_ACTOR_ADDR,
+            to: *CRON_ACTOR_ADDR,
+            sequence: sys_act.sequence,
+            gas_limit: 1 << 30,
+            method_num: cron::Method::EpochTick as u64,
+            params: Default::default(),
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
+
+        let ret = self.apply_implicit_message(&cron_msg);
+        if let Some(err) = ret.act_error {
+            return Err(format!("failed to apply block cron message: {}", err).into());
+        }
+
+        if let Some(callback) = callback {
+            callback(cron_msg.cid()?, cron_msg, ret)?;
+        }
+        Ok(())
+    }
+
+    /// Apply block messages from a Tipset.
+    /// Returns the receipts from the transactions.
+    pub fn apply_block_messages(
+        &mut self,
+        messages: &[BlockMessages],
+        parent_epoch: ChainEpoch,
+        epoch: ChainEpoch,
+        mut callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+    ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
+        let mut receipts = Vec::new();
+        let mut processed = HashSet::<Cid>::default();
+
+        for _ in parent_epoch + 1..epoch {
+            self.run_cron(callback.as_mut())?;
+        }
+        self.epoch = epoch;
+
+        for block in messages.iter() {
+            let mut penalty = Default::default();
+            let mut gas_reward = Default::default();
+
+            let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
+                let cid = msg.cid()?;
+                // Ensure no duplicate processing of a message
+                if processed.contains(&cid) {
+                    return Ok(());
+                }
+                let ret = self.apply_message(msg)?;
+                if let Some(cb) = &mut callback {
+                    cb(msg.cid()?, msg.clone(), ret.clone())?;
+                }
+
+                // Update totals
+                gas_reward += &ret.miner_tip;
+                penalty += &ret.penalty;
+                receipts.push(ret.msg_receipt);
+
+                // Add processed Cid to set of processed messages
+                processed.insert(cid);
+                Ok(())
+            };
+
+            for msg in &block.bls_messages {
+                process_msg(msg)?;
+            }
+            for msg in &block.secpk_messages {
+                process_msg(msg.message())?;
+            }
+
+            // Generate reward transaction for the miner of the block
+            let params = Serialized::serialize(reward::AwardBlockRewardParams {
+                miner: block.miner,
+                penalty,
+                gas_reward,
+                win_count: block.win_count,
+            })?;
+
+            let sys_act = self
+                .state()
+                .get_actor(&*SYSTEM_ACTOR_ADDR)?
+                .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+            let rew_msg = UnsignedMessage {
+                from: *SYSTEM_ACTOR_ADDR,
+                to: *REWARD_ACTOR_ADDR,
+                method_num: reward::Method::AwardBlockReward as u64,
+                params,
+                sequence: sys_act.sequence,
+                gas_limit: 1 << 30,
+                value: Default::default(),
+                version: Default::default(),
+                gas_fee_cap: Default::default(),
+                gas_premium: Default::default(),
+            };
+
+            let ret = self.apply_implicit_message(&rew_msg);
+            if let Some(err) = ret.act_error {
+                return Err(format!(
+                    "failed to apply reward message for miner {}: {}",
+                    block.miner, err
+                )
+                .into());
+            }
+
+            // This is more of a sanity check, this should not be able to be hit.
+            if ret.msg_receipt.exit_code != ExitCode::Ok {
+                return Err(format!(
+                    "reward application message failed (exit: {:?})",
+                    ret.msg_receipt.exit_code
+                )
+                .into());
+            }
+
+            if let Some(callback) = &mut callback {
+                callback(rew_msg.cid()?, rew_msg, ret)?;
+            }
+        }
+
+        self.run_cron(callback.as_mut())?;
+        Ok(receipts)
+    }
     /// Instantiates a new Runtime, and calls vm_send to do the execution.
     #[allow(clippy::type_complexity)]
     fn send(
