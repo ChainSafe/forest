@@ -43,7 +43,6 @@ use tiny_cid::Cid as Cid2;
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
 pub struct ForestBehaviour {
     gossipsub: Gossipsub,
-    // TODO configure to allow turning mdns off
     mdns: Toggle<Mdns>,
     ping: Ping,
     identify: Identify,

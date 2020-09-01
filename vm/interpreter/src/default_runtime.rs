@@ -30,7 +30,7 @@ use vm::{
     EMPTY_ARR_CID, METHOD_SEND,
 };
 
-// TODO this param isn't finalized
+// This is just used for gas tracing, intentionally 0 and could be removed.
 const ACTOR_EXEC_GAS: GasCharge = GasCharge {
     name: "on_actor_exec",
     compute_gas: 0,
@@ -461,7 +461,6 @@ where
                 "actor state for transaction doesn't exist"))?;
 
         // get state for actor based on generic C
-        // TODO Lotus is not handling the not exist case, revisit
         let mut state: C = self
             .get(&act.state)?
             .ok_or_else(|| actor_error!(fatal("Actor state does not exist: {}", act.state)))?;

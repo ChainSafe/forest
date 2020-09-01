@@ -38,8 +38,7 @@ where
         Ok(self
             .0
             .get(&key.to_bytes())?
-            // TODO investigate whether it's worth it to cache root to give better error details
-            .ok_or("no key {} in map root")?
+            .ok_or(format!("no key {} in map root", key))?
             .0)
     }
 
