@@ -24,7 +24,7 @@ use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
-use serde::{Serialize};
+use serde::Serialize;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
@@ -49,8 +49,6 @@ pub enum HeadChange {
     Apply(Arc<Tipset>),
     Revert(Arc<Tipset>),
 }
-
-
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
@@ -660,12 +658,11 @@ where
     Ok(out)
 }
 
-
 #[cfg(feature = "json")]
 pub mod headchange_json {
     use super::*;
-    use serde::{Deserialize, Serialize};
     use blocks::tipset_json::TipsetJson;
+    use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize)]
     pub enum HeadChangeJson {
@@ -684,8 +681,6 @@ pub mod headchange_json {
             }
         }
     }
-
-  
 }
 
 #[cfg(test)]
