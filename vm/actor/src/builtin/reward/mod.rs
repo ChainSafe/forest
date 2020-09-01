@@ -103,8 +103,6 @@ impl Actor {
             let mut block_reward =
                 (&st.this_epoch_reward * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
             let mut total_reward = params.gas_reward.clone() + &block_reward;
-            // TODO revisit this, I removed duplicate calls to current balance, but should be
-            // matched once fully iteroping (if not fixed)
             let curr_balance = rt.current_balance()?;
             if total_reward > curr_balance {
                 log::warn!(
