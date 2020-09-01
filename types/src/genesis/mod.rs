@@ -41,7 +41,6 @@ pub struct Miner {
     #[serde(with = "bigint_json")]
     pub power_balance: TokenAmount,
     pub sector_size: SectorSize,
-    // pub sectors: Vec<PreSeal>,
 }
 
 #[derive(Serialize, Deserialize)]
