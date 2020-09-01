@@ -9,7 +9,7 @@ actor = { path = "../../vm/actor/" }
 async-std = { version = "1.6.3", features = ["attributes"] }
 serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 serde_json = "1.0.48"
-chain = { path = "../../blockchain/chain" }
+chain = { path = "../../blockchain/chain" , features = ["json"]}
 chain_sync = { path = "../../blockchain/chain_sync" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore" }
 cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }

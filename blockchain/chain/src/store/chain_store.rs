@@ -9,7 +9,7 @@ use async_std::sync::Receiver;
 use async_std::task;
 use beacon::BeaconEntry;
 use blake2b_simd::Params;
-use blocks::{tipset_json::TipsetJson, Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use byteorder::{BigEndian, WriteBytesExt};
 use cid::multihash::Blake2b256;
 use cid::Cid;
@@ -24,7 +24,7 @@ use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
@@ -49,23 +49,8 @@ pub enum HeadChange {
     Apply(Arc<Tipset>),
     Revert(Arc<Tipset>),
 }
-#[derive(Debug, Serialize, Deserialize)]
-pub enum HeadChangeJson {
-    Current(TipsetJson),
-    Apply(TipsetJson),
-    Revert(TipsetJson),
-}
 
-impl From<HeadChange> for HeadChangeJson {
-    fn from(wrapper: HeadChange) -> Self {
-        match wrapper {
-            HeadChange::Current(tipset) => HeadChangeJson::Current((*tipset).clone().into()),
 
-            HeadChange::Apply(tipset) => HeadChangeJson::Apply((*tipset).clone().into()),
-            HeadChange::Revert(tipset) => HeadChangeJson::Revert((*tipset).clone().into()),
-        }
-    }
-}
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
@@ -673,6 +658,34 @@ where
     let value: BigInt = e_weight / (BigInt::from(BLOCKS_PER_EPOCH) * BigInt::from(W_RATIO_DEN));
     out += &value;
     Ok(out)
+}
+
+
+#[cfg(feature = "json")]
+pub mod headchange_json {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+    use blocks::tipset_json::TipsetJson;
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub enum HeadChangeJson {
+        Current(TipsetJson),
+        Apply(TipsetJson),
+        Revert(TipsetJson),
+    }
+
+    impl From<HeadChange> for HeadChangeJson {
+        fn from(wrapper: HeadChange) -> Self {
+            match wrapper {
+                HeadChange::Current(tipset) => HeadChangeJson::Current((*tipset).clone().into()),
+
+                HeadChange::Apply(tipset) => HeadChangeJson::Apply((*tipset).clone().into()),
+                HeadChange::Revert(tipset) => HeadChangeJson::Revert((*tipset).clone().into()),
+            }
+        }
+    }
+
+  
 }
 
 #[cfg(test)]

@@ -59,7 +59,7 @@ where
 
 pub(crate) async fn chain_notify<DB, KS>(
     data: Data<RpcState<DB, KS>>,
-) -> Result<Vec<chain::HeadChangeJson>, JsonRpcError>
+) -> Result<Vec<chain::headchange_json::HeadChangeJson>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,

@@ -30,6 +30,9 @@ futures ="0.3.5"
 async-std = { version = "1.6.3", features = ["unstable", "attributes"] }
 lazy_static = "1.4"
 
+[features]
+json = []
+
 [dev-dependencies]
 multihash = "0.10.0"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
