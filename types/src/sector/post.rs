@@ -21,7 +21,6 @@ pub struct SectorInfo {
 #[derive(Debug, PartialEq, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct PoStProof {
     pub post_proof: RegisteredPoStProof,
-    // TODO revisit if can be array in future
     #[serde(with = "serde_bytes")]
     pub proof_bytes: Vec<u8>,
 }
