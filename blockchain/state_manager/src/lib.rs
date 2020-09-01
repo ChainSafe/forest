@@ -4,34 +4,37 @@
 mod errors;
 pub mod utils;
 pub use self::errors::*;
-use actor::{
-    init, make_map_with_root, market, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
-    STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
-};
+use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, get_heaviest_tipset, ChainStore, HeadChange};
+use chain::{block_messages, get_heaviest_tipset, HeadChange};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
+use fil_types::NetworkParams;
 use flo_stream::Subscriber;
-use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
+use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
-use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
+use interpreter::{
+    resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, DefaultSyscalls, Rand, VM,
+};
 use ipld_amt::Amt;
 use log::{trace, warn};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
+use runtime::Syscalls;
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use vm::Serialized;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -171,25 +174,27 @@ where
     /// This function returns the state root and receipt root of the transition.
     pub fn apply_blocks(
         &self,
-        ts: &FullTipset,
+        parent_epoch: ChainEpoch,
+        p_state: &Cid,
+        messages: &[BlockMessages],
+        epoch: ChainEpoch,
         rand: &ChainRand,
         base_fee: BigInt,
         callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
-        // TODO possibly switch out syscalls to be saved at state manager level
         // TODO change from statically using devnet params when needed
         let mut vm = VM::<_, _, _>::new(
-            ts.parent_state(),
+            p_state,
             &buf_store,
-            ts.epoch(),
+            epoch,
             DefaultSyscalls::new(&buf_store),
             rand,
             base_fee,
         )?;
 
         // Apply tipset messages
-        let receipts = vm.apply_tipset_messages(ts, callback)?;
+        let receipts = apply_block_messages(&mut vm, messages, parent_epoch, callback)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
@@ -394,48 +399,76 @@ where
         Ok((out_mes, outr))
     }
 
-    pub fn compute_tipset_state<'a>(
-        &'a self,
-        blocks_headers: &[BlockHeader],
+    pub fn compute_tipset_state(
+        &self,
+        block_headers: &[BlockHeader],
         callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
+            let first_block = block_headers
+                .first()
+                .ok_or("Empty tipset in compute_tipset_state")?;
+
             let check_for_duplicates = |s: &BlockHeader| {
-                blocks_headers
+                block_headers
                     .iter()
                     .filter(|val| val.miner_address() == s.miner_address())
                     .take(2)
                     .count()
             };
-            if blocks_headers.iter().any(|s| check_for_duplicates(s) > 1) {
+            if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
                 // Duplicate Miner found
-                return Err(Box::new(Error::Other(
-                    "Could not get message receipts".to_string(),
-                )));
+                return Err(Box::new(Error::Other(format!(
+                    "duplicate miner in a tipset ({})",
+                    a
+                ))));
             }
 
-            let chain_store = ChainStore::new(self.bs.clone());
-            let tipset_keys =
-                TipsetKeys::new(blocks_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = ChainRand::new(tipset_keys);
-            let base_fee = blocks_headers[0].parent_base_fee();
+            let parent_epoch = if first_block.epoch() > 0 {
+                let parent_cid = first_block
+                    .parents()
+                    .cids()
+                    .get(0)
+                    .ok_or("block must have parents")?;
+                let parent: BlockHeader = self.bs.get(parent_cid)?.ok_or_else(|| {
+                    format!("Could not find parent block with cid {}", parent_cid)
+                })?;
+                parent.epoch()
+            } else {
+                Default::default()
+            };
 
-            let blocks = blocks_headers
+            let tipset_keys =
+                TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
+            let chain_rand = ChainRand::new(tipset_keys);
+            let base_fee = first_block.parent_base_fee();
+
+            let blocks = block_headers
                 .iter()
-                .map::<Result<Block, Box<dyn StdError>>, _>(|s: &BlockHeader| {
-                    let (bls_messages, secp_messages) =
-                        block_messages(chain_store.blockstore(), &s)?;
-                    Ok(Block {
-                        header: s.clone(),
+                .map(|s: &BlockHeader| {
+                    let (bls_messages, secpk_messages) = block_messages(self.bs.as_ref(), &s)?;
+                    Ok(BlockMessages {
+                        miner: *s.miner_address(),
                         bls_messages,
-                        secp_messages,
+                        secpk_messages,
+                        win_count: s
+                            .election_proof()
+                            .as_ref()
+                            .map(|e| e.win_count)
+                            .unwrap_or_default(),
                     })
                 })
-                .collect::<Result<Vec<Block>, _>>()?;
+                .collect::<Result<Vec<_>, Box<dyn StdError>>>()?;
 
-            // convert tipset to fulltipset
-            let full_tipset = FullTipset::new(blocks)?;
-            self.apply_blocks(&full_tipset, &chain_rand, base_fee.clone(), callback)
+            self.apply_blocks(
+                parent_epoch,
+                &first_block.state_root(),
+                &blocks,
+                first_block.epoch(),
+                &chain_rand,
+                base_fee.clone(),
+                callback,
+            )
         })
     }
 
@@ -791,4 +824,139 @@ where
             &addr,
         )?)
     }
+}
+
+fn run_cron<S, SYS, R, P>(
+    vm: &mut VM<S, SYS, R, P>,
+    callback: Option<&mut impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+) -> Result<(), Box<dyn StdError>>
+where
+    S: BlockStore,
+    SYS: Syscalls,
+    P: NetworkParams,
+    R: Rand,
+{
+    let sys_act = vm
+        .state()
+        .get_actor(&*SYSTEM_ACTOR_ADDR)?
+        .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+    let cron_msg = UnsignedMessage {
+        from: *SYSTEM_ACTOR_ADDR,
+        to: *CRON_ACTOR_ADDR,
+        sequence: sys_act.sequence,
+        gas_limit: 1 << 30,
+        method_num: cron::Method::EpochTick as u64,
+        params: Default::default(),
+        value: Default::default(),
+        version: Default::default(),
+        gas_fee_cap: Default::default(),
+        gas_premium: Default::default(),
+    };
+
+    let ret = vm.apply_implicit_message(&cron_msg);
+    if let Some(err) = ret.act_error {
+        return Err(format!("failed to apply block cron message: {}", err).into());
+    }
+
+    if let Some(callback) = callback {
+        callback(cron_msg.cid()?, cron_msg, ret)?;
+    }
+    Ok(())
+}
+
+/// Apply block messages from a Tipset.
+/// Returns the receipts from the transactions.
+fn apply_block_messages<S, SYS, R, P>(
+    vm: &mut VM<S, SYS, R, P>,
+    messages: &[BlockMessages],
+    parent_epoch: ChainEpoch,
+    mut callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+) -> Result<Vec<MessageReceipt>, Box<dyn StdError>>
+where
+    S: BlockStore,
+    SYS: Syscalls,
+    P: NetworkParams,
+    R: Rand,
+{
+    let mut receipts = Vec::new();
+    let mut processed = HashSet::<Cid>::default();
+
+    // TODO handle empty tipset cron and forks
+
+    for block in messages.into_iter() {
+        let mut penalty = Default::default();
+        let mut gas_reward = Default::default();
+
+        let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
+            let cid = msg.cid()?;
+            // Ensure no duplicate processing of a message
+            if processed.contains(&cid) {
+                return Ok(());
+            }
+            let ret = vm.apply_message(msg)?;
+
+            // Update totals
+            gas_reward += ret.miner_tip;
+            penalty += ret.penalty;
+            receipts.push(ret.msg_receipt);
+
+            // Add callback here if needed in future
+
+            // Add processed Cid to set of processed messages
+            processed.insert(cid);
+            Ok(())
+        };
+
+        for msg in &block.bls_messages {
+            process_msg(msg)?;
+        }
+        for msg in &block.secpk_messages {
+            process_msg(msg.message())?;
+        }
+
+        // Generate reward transaction for the miner of the block
+        let params = Serialized::serialize(reward::AwardBlockRewardParams {
+            miner: block.miner,
+            penalty,
+            gas_reward,
+            win_count: block.win_count,
+        })?;
+
+        // TODO change this just just one get and update sequence in memory after interop
+        let sys_act = vm
+            .state()
+            .get_actor(&*SYSTEM_ACTOR_ADDR)?
+            .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+        let rew_msg = UnsignedMessage {
+            from: *SYSTEM_ACTOR_ADDR,
+            to: *REWARD_ACTOR_ADDR,
+            method_num: reward::Method::AwardBlockReward as u64,
+            params,
+            sequence: sys_act.sequence,
+            gas_limit: 1 << 30,
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
+
+        // TODO revisit this ApplyRet structure, doesn't match go logic 1:1 and can be cleaner
+        let ret = vm.apply_implicit_message(&rew_msg);
+        if let Some(err) = ret.act_error {
+            return Err(format!(
+                "failed to apply reward message for miner {}: {}",
+                block.miner, err
+            )
+            .into());
+        }
+
+        if let Some(callback) = &mut callback {
+            callback(rew_msg.cid()?, rew_msg, ret)?;
+        }
+    }
+
+    run_cron(vm, callback.as_mut())?;
+    Ok(receipts)
 }
