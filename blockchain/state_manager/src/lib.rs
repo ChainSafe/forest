@@ -166,6 +166,7 @@ where
 
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
     /// This function returns the state root and receipt root of the transition.
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_blocks(
         &self,
         parent_epoch: ChainEpoch,
