@@ -5,11 +5,11 @@ use crate::DealWeight;
 use address::Address;
 use cid::{Cid, Codec, Prefix, Version};
 use clock::ChainEpoch;
+use commcid::SHA2_256_TRUNC254_PADDED;
 use crypto::Signature;
 use encoding::tuple::*;
 use encoding::Cbor;
 use fil_types::PaddedPieceSize;
-use commcid::SHA2_256_TRUNC254_PADDED;
 use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
