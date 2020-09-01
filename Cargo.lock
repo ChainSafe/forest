@@ -280,6 +280,7 @@ dependencies = [
  "clock",
  "commcid",
  "db",
+ "derive_builder",
  "fil_types",
  "forest_address",
  "forest_bigint",
