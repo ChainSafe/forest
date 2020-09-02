@@ -27,7 +27,8 @@ interpreter = { path = "../../vm/interpreter/" }
 runtime = { path = "../../vm/runtime/" }
 fil_types = { path = "../../types" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
-address = { package = "forest_address", path = "../../vm/address" }
+address = { package = "forest_address", path = "../../vm/address", features = ["json"] }
 regex = "1.0"
 lazy_static = "1.4"
 actor = { path = "../../vm/actor" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

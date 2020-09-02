@@ -1399,6 +1399,7 @@ dependencies = [
  "fil_types",
  "flate2",
  "forest_address",
+ "forest_bigint",
  "forest_car",
  "forest_cid",
  "forest_crypto",

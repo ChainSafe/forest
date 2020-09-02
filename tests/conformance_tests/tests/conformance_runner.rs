@@ -15,8 +15,9 @@ use crypto::{DomainSeparationTag, Signature};
 use encoding::Cbor;
 use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
 use flate2::read::GzDecoder;
-use forest_message::{MessageReceipt, UnsignedMessage};
-use interpreter::{ApplyRet, Rand, VM};
+use forest_message::{ChainMessage, MessageReceipt, UnsignedMessage};
+use interpreter::{ApplyRet, BlockMessages, Rand, VM};
+use num_bigint::BigInt;
 use regex::Regex;
 use runtime::{ConsensusFault, Syscalls};
 use serde::{Deserialize, Deserializer};
@@ -50,6 +51,75 @@ mod base64_bytes {
     {
         let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
         Ok(base64::decode(s.as_ref()).map_err(de::Error::custom)?)
+    }
+
+    pub mod vec {
+        use super::*;
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let v: Vec<Cow<'de, str>> = Deserialize::deserialize(deserializer)?;
+            Ok(v.into_iter()
+                .map(|s| base64::decode(s.as_ref()))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(de::Error::custom)?)
+        }
+    }
+}
+
+mod bigint_json {
+    use super::*;
+    use serde::de;
+    use std::borrow::Cow;
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        Ok(s.parse().map_err(de::Error::custom)?)
+    }
+}
+
+mod block_messages_json {
+    use super::*;
+    use serde::de;
+
+    #[derive(Deserialize)]
+    struct BlockMessageJson {
+        #[serde(with = "address::json")]
+        miner_addr: Address,
+        win_count: i64,
+        #[serde(with = "base64_bytes::vec")]
+        messages: Vec<Vec<u8>>,
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<BlockMessages>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bm: Vec<BlockMessageJson> = Deserialize::deserialize(deserializer)?;
+        Ok(bm
+            .into_iter()
+            .map(|m| {
+                let mut secpk_messages = Vec::new();
+                let mut bls_messages = Vec::new();
+                for message in &m.messages {
+                    match ChainMessage::unmarshal_cbor(message).map_err(de::Error::custom)? {
+                        ChainMessage::Signed(s) => secpk_messages.push(s),
+                        ChainMessage::Unsigned(u) => bls_messages.push(u),
+                    }
+                }
+                Ok(BlockMessages {
+                    miner: m.miner_addr,
+                    win_count: m.win_count,
+                    bls_messages,
+                    secpk_messages,
+                })
+            })
+            .collect::<Result<Vec<BlockMessages>, _>>()?)
     }
 }
 
@@ -127,6 +197,15 @@ struct MessageVector {
 }
 
 #[derive(Debug, Deserialize)]
+struct TipsetVector {
+    epoch: ChainEpoch,
+    #[serde(with = "bigint_json")]
+    basefee: BigInt,
+    #[serde(with = "block_messages_json")]
+    blocks: Vec<BlockMessages>,
+}
+
+#[derive(Debug, Deserialize)]
 struct Selector {
     #[serde(default)]
     puppet_actor: Option<String>,
@@ -160,6 +239,12 @@ enum TestVector {
         selector: Option<Selector>,
         #[serde(rename = "_meta")]
         meta: Option<MetaData>,
+
+        #[serde(with = "base64_bytes")]
+        car: Vec<u8>,
+        preconditions: PreConditions,
+        apply_tipsets: Vec<TipsetVector>,
+        postconditions: PostConditions,
     },
     #[serde(rename = "chain")]
     Chain {
