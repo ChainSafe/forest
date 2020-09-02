@@ -245,14 +245,14 @@ where
         ApplyRet {
             msg_receipt: MessageReceipt {
                 return_data,
-                exit_code: if let Some(err) = act_err {
+                exit_code: if let Some(err) = &act_err {
                     err.exit_code()
                 } else {
                     ExitCode::Ok
                 },
                 gas_used: 0,
             },
-            act_error: None,
+            act_error: act_err,
             penalty: BigInt::zero(),
             miner_tip: BigInt::zero(),
         }
@@ -566,7 +566,7 @@ pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i
 }
 
 /// Apply message return data
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ApplyRet {
     pub msg_receipt: MessageReceipt,
     pub act_error: Option<ActorError>,
