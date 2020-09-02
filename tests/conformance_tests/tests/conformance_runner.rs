@@ -538,6 +538,7 @@ fn execute_tipset_vector(
 
 #[test]
 fn conformance_test_runner() {
+    pretty_env_logger::init();
     let walker = WalkDir::new("test-vectors/corpus").into_iter();
     let mut failed = Vec::new();
     let mut succeeded = 0;

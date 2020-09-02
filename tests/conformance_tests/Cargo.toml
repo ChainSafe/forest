@@ -33,3 +33,4 @@ lazy_static = "1.4"
 actor = { path = "../../vm/actor" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_manager = { path = "../../blockchain/state_manager" }
+pretty_env_logger = "0.4.0"

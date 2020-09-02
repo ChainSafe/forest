@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod state;
 mod types;
 
 use address::Address;
@@ -12,7 +11,6 @@ use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-pub use state::*;
 pub use types::*;
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
