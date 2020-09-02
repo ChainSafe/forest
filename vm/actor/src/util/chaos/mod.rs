@@ -108,7 +108,7 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
         let resolved = rt.resolve_address(&args)?;
         Ok(ResolveAddressResponse {
-            address: resolved.unwrap_or(Address::new_id(0)),
+            address: resolved.unwrap_or_else(|| Address::new_id(0)),
             success: resolved.is_some(),
         })
     }
