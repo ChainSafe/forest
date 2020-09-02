@@ -149,8 +149,10 @@ where
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
-        for i in parent_epoch + 1..epoch {
-            self.run_cron(callback.as_mut())?;
+        for i in parent_epoch..epoch {
+            if i > parent_epoch {
+                self.run_cron(callback.as_mut())?;
+            }
             self.epoch = i + 1;
         }
 
