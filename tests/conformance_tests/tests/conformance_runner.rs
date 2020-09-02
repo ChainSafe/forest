@@ -21,9 +21,12 @@ use num_bigint::BigInt;
 use regex::Regex;
 use runtime::{ConsensusFault, Syscalls};
 use serde::{Deserialize, Deserializer};
+use state_manager::StateManager;
 use std::error::Error as StdError;
+use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
+use std::sync::Arc;
 use vm::{ExitCode, Serialized, TokenAmount};
 use walkdir::{DirEntry, WalkDir};
 
@@ -186,6 +189,8 @@ struct PostConditions {
     state_tree: StateTreeVector,
     #[serde(with = "message_receipt_vec")]
     receipts: Vec<MessageReceipt>,
+    #[serde(default, with = "cid::json::vec")]
+    receipts_roots: Vec<Cid>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -317,10 +322,55 @@ impl Syscalls for TestSyscalls {
     }
 }
 
+fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
+    let bs = db::MemoryDB::default();
+
+    // Decode gzip bytes
+    let d = GzDecoder::new(gzip_bz);
+
+    // Load car file with bytes
+    forest_car::load_car(&bs, d)?;
+    Ok(bs)
+}
+
+fn check_msg_result(
+    expected_rec: &MessageReceipt,
+    actual_rec: &MessageReceipt,
+    label: impl fmt::Display,
+) -> Result<(), String> {
+    let (expected, actual) = (expected_rec.exit_code, actual_rec.exit_code);
+    if expected != actual {
+        return Err(format!(
+            "exit code of msg {} did not match; expected: {:?}, got {:?}",
+            label, expected, actual
+        ));
+    }
+
+    let (expected, actual) = (expected_rec.gas_used, actual_rec.gas_used);
+    if expected != actual {
+        return Err(format!(
+            "gas used of msg {} did not match; expected: {}, got {}",
+            label, expected, actual
+        ));
+    }
+
+    let (expected, actual) = (&expected_rec.return_data, &actual_rec.return_data);
+    if expected != actual {
+        return Err(format!(
+            "return data of msg {} did not match; expected: {}, got {}",
+            label,
+            base64::encode(expected.as_slice()),
+            base64::encode(actual.as_slice())
+        ));
+    }
+
+    Ok(())
+}
+
 fn execute_message(
+    bs: &db::MemoryDB,
     msg: &UnsignedMessage,
     pre_root: &Cid,
-    bs: &db::MemoryDB,
     epoch: ChainEpoch,
     selector: &Option<Selector>,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
@@ -363,16 +413,10 @@ fn execute_message_vector(
     apply_messages: Vec<MessageVector>,
     postconditions: PostConditions,
 ) -> Result<(), Box<dyn StdError>> {
-    let bs = db::MemoryDB::default();
+    let bs = load_car(car.as_slice())?;
 
     let mut epoch = preconditions.epoch;
     let mut root = preconditions.state_tree.root_cid;
-
-    // Decode gzip bytes
-    let d = GzDecoder::new(car.as_slice());
-
-    // Load car file with bytes
-    forest_car::load_car(&bs, d)?;
 
     for (i, m) in apply_messages.iter().enumerate() {
         let msg = UnsignedMessage::unmarshal_cbor(&m.bytes)?;
@@ -381,38 +425,102 @@ fn execute_message_vector(
             epoch = ep;
         }
 
-        let (ret, post_root) = execute_message(&msg, &root, &bs, epoch, &selector)?;
+        let (ret, post_root) = execute_message(&bs, &msg, &root, epoch, &selector)?;
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
-        let (expected, actual) = (receipt.exit_code, ret.msg_receipt.exit_code);
+        check_msg_result(receipt, &ret.msg_receipt, i)?;
+    }
+
+    if root != postconditions.state_tree.root_cid {
+        return Err(format!(
+            "wrong post root cid; expected {}, but got {}",
+            postconditions.state_tree.root_cid, root
+        )
+        .into());
+    }
+
+    Ok(())
+}
+
+struct ExecuteTipsetResult {
+    receipts_root: Cid,
+    post_state_root: Cid,
+    _applied_messages: Vec<UnsignedMessage>,
+    applied_results: Vec<ApplyRet>,
+}
+fn execute_tipset(
+    bs: Arc<db::MemoryDB>,
+    pre_root: &Cid,
+    parent_epoch: ChainEpoch,
+    tipset: &TipsetVector,
+) -> Result<ExecuteTipsetResult, Box<dyn StdError>> {
+    let sm = StateManager::new(bs);
+    let mut _applied_messages = Vec::new();
+    let mut applied_results = Vec::new();
+    let (post_state_root, receipts_root) = sm.apply_blocks(
+        parent_epoch,
+        pre_root,
+        &tipset.blocks,
+        tipset.epoch,
+        &TestRand,
+        tipset.basefee.clone(),
+        Some(|_, msg, ret| {
+            _applied_messages.push(msg);
+            applied_results.push(ret);
+            Ok(())
+        }),
+    )?;
+    Ok(ExecuteTipsetResult {
+        receipts_root,
+        post_state_root,
+        _applied_messages,
+        applied_results,
+    })
+}
+
+fn execute_tipset_vector(
+    _selector: Option<Selector>,
+    car: Vec<u8>,
+    preconditions: PreConditions,
+    tipsets: Vec<TipsetVector>,
+    postconditions: PostConditions,
+) -> Result<(), Box<dyn StdError>> {
+    let bs = Arc::new(load_car(car.as_slice())?);
+
+    let mut prev_epoch = preconditions.epoch;
+    let mut root = preconditions.state_tree.root_cid;
+
+    let mut receipt_idx = 0;
+    for (i, ts) in tipsets.into_iter().enumerate() {
+        let ExecuteTipsetResult {
+            receipts_root,
+            post_state_root,
+            applied_results,
+            ..
+        } = execute_tipset(Arc::clone(&bs), &root, prev_epoch, &ts)?;
+
+        for (j, v) in applied_results.into_iter().enumerate() {
+            check_msg_result(
+                &postconditions.receipts[receipt_idx],
+                &v.msg_receipt,
+                format!("{} of tipset {}", j, i),
+            )?;
+            receipt_idx += 1;
+        }
+
+        // Compare receipts root
+        let (expected, actual) = (&postconditions.receipts_roots[i], &receipts_root);
         if expected != actual {
             return Err(format!(
-                "exit code of msg {} did not match; expected: {:?}, got {:?}",
-                i, expected, actual
+                "post receipts did not match; expected: {:?}, got {:?}",
+                expected, actual
             )
             .into());
         }
 
-        let (expected, actual) = (receipt.gas_used, ret.msg_receipt.gas_used);
-        if expected != actual {
-            return Err(format!(
-                "gas used of msg {} did not match; expected: {}, got {}",
-                i, expected, actual
-            )
-            .into());
-        }
-
-        let (expected, actual) = (&receipt.return_data, &ret.msg_receipt.return_data);
-        if expected != actual {
-            return Err(format!(
-                "return data of msg {} did not match; expected: {}, got {}",
-                i,
-                base64::encode(expected.as_slice()),
-                base64::encode(actual.as_slice())
-            )
-            .into());
-        }
+        prev_epoch = ts.epoch;
+        root = post_state_root;
     }
 
     if root != postconditions.state_tree.root_cid {
@@ -435,6 +543,7 @@ fn conformance_test_runner() {
         let file = File::open(entry.path()).unwrap();
         let reader = BufReader::new(file);
         let vector: TestVector = serde_json::from_reader(reader).unwrap();
+        let test_name = entry.path().display();
 
         match vector {
             TestVector::Message {
@@ -452,14 +561,32 @@ fn conformance_test_runner() {
                     apply_messages,
                     postconditions,
                 ) {
-                    failed.push((entry.path().display().to_string(), meta, e));
+                    failed.push((test_name.to_string(), meta, e));
                 } else {
-                    println!("{} succeeded", entry.path().display());
+                    println!("{} succeeded", test_name);
                     succeeded += 1;
                 }
             }
-            TestVector::Tipset { selector, meta, .. } => {
-                // TODO implement tipset test runner
+            TestVector::Tipset {
+                selector,
+                meta,
+                car,
+                preconditions,
+                apply_tipsets,
+                postconditions,
+            } => {
+                if let Err(e) = execute_tipset_vector(
+                    selector,
+                    car,
+                    preconditions,
+                    apply_tipsets,
+                    postconditions,
+                ) {
+                    failed.push((test_name.to_string(), meta, e));
+                } else {
+                    println!("{} succeeded", test_name);
+                    succeeded += 1;
+                }
             }
             _ => panic!("Unsupported test vector class"),
         }

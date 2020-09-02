@@ -1413,6 +1413,7 @@ dependencies = [
  "runtime",
  "serde",
  "serde_json",
+ "state_manager",
  "walkdir",
 ]
 

@@ -19,7 +19,9 @@ use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
-use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, DefaultSyscalls, VM};
+use interpreter::{
+    resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, DefaultSyscalls, Rand, VM,
+};
 use ipld_amt::Amt;
 use log::{trace, warn};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
@@ -167,16 +169,19 @@ where
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
     /// This function returns the state root and receipt root of the transition.
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_blocks(
+    pub fn apply_blocks<R>(
         &self,
         parent_epoch: ChainEpoch,
         p_state: &Cid,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        rand: &ChainRand,
+        rand: &R,
         base_fee: BigInt,
         callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
-    ) -> Result<(Cid, Cid), Box<dyn StdError>> {
+    ) -> Result<(Cid, Cid), Box<dyn StdError>>
+    where
+        R: Rand,
+    {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
         let mut vm = VM::<_, _, _>::new(
