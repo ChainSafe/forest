@@ -373,6 +373,9 @@ fn conformance_test_runner() {
                     succeeded += 1;
                 }
             }
+            TestVector::Tipset { selector, meta, .. } => {
+                // TODO implement tipset test runner
+            }
             _ => panic!("Unsupported test vector class"),
         }
     }

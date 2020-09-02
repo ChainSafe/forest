@@ -4,6 +4,7 @@
 mod state;
 mod types;
 
+use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntDe;
@@ -15,7 +16,7 @@ pub use state::*;
 pub use types::*;
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
-// * Updated to test-vectors commit: a5d1c62f093bd44e487a35211031a5e5a0824936
+// * Updated to test-vectors commit: 907892394dd83fe1f4bf1a82146bbbcc58963148
 
 lazy_static! {
     pub static ref CALLER_VALIDATION_BRANCH_NONE: BigInt = BigInt::from(0);
@@ -31,6 +32,7 @@ pub enum Method {
     Constructor = METHOD_CONSTRUCTOR,
     CallerValidation = 2,
     CreateActor = 3,
+    ResolveAddress = 4,
 }
 
 /// Chaos Actor
@@ -75,7 +77,7 @@ impl Actor {
         Ok(())
     }
 
-    // CreateActor creates an actor with the supplied CID and Address.
+    // Creates an actor with the supplied CID and Address.
     pub fn create_actor<BS, RT>(rt: &mut RT, arg: CreateActorArgs) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -93,6 +95,22 @@ impl Actor {
         let actor_address = arg.address;
 
         rt.create_actor(actor_cid, &actor_address)
+    }
+
+    pub fn resolve_address<BS, RT>(
+        rt: &mut RT,
+        args: Address,
+    ) -> Result<ResolveAddressResponse, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_accept_any()?;
+        let resolved = rt.resolve_address(&args)?;
+        Ok(ResolveAddressResponse {
+            address: resolved.unwrap_or(Address::new_id(0)),
+            success: resolved.is_some(),
+        })
     }
 }
 
@@ -121,6 +139,10 @@ impl ActorCode for Actor {
             Some(Method::CreateActor) => {
                 Self::create_actor(rt, Serialized::deserialize(&params)?)?;
                 Ok(Serialized::default())
+            }
+            Some(Method::ResolveAddress) => {
+                let res = Self::resolve_address(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
             }
             None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
