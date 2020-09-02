@@ -149,10 +149,10 @@ where
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
-        for _ in parent_epoch + 1..epoch {
+        for i in parent_epoch + 1..epoch {
             self.run_cron(callback.as_mut())?;
+            self.epoch = i + 1;
         }
-        self.epoch = epoch;
 
         for block in messages.iter() {
             let mut penalty = Default::default();
