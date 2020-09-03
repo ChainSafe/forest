@@ -6,28 +6,16 @@
 #[macro_use]
 extern crate lazy_static;
 
-use actor::{CHAOS_ACTOR_CODE_ID, PUPPET_ACTOR_CODE_ID};
-use address::Address;
-use blockstore::BlockStore;
-use cid::Cid;
-use clock::ChainEpoch;
-use crypto::{DomainSeparationTag, Signature};
+use conformance_tests::*;
 use encoding::Cbor;
-use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
 use flate2::read::GzDecoder;
-use forest_message::{ChainMessage, MessageReceipt, UnsignedMessage};
-use interpreter::{ApplyRet, BlockMessages, Rand, VM};
-use num_bigint::BigInt;
+use forest_message::{MessageReceipt, UnsignedMessage};
 use regex::Regex;
-use runtime::{ConsensusFault, Syscalls};
-use serde::{Deserialize, Deserializer};
-use state_manager::StateManager;
 use std::error::Error as StdError;
 use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
-use vm::{ExitCode, Serialized, TokenAmount};
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
@@ -39,226 +27,9 @@ lazy_static! {
         Regex::new(r"nested/nested_sends--fail-mismatch-params.json").unwrap(),
         // Lotus client does not fail in inner transaction for insufficient funds
         Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
-        // TODO this is the tipset vector that should pass and this should be removed
+        // TODO This fails but is blocked on miner actor refactor, remove skip after that comes in
         Regex::new(r"test-vectors/corpus/reward/reward--ok-miners-awarded-no-premiums.json").unwrap(),
     ];
-    static ref BASE_FEE: TokenAmount = TokenAmount::from(100);
-}
-
-mod base64_bytes {
-    use super::*;
-    use serde::de;
-    use std::borrow::Cow;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Ok(base64::decode(s.as_ref()).map_err(de::Error::custom)?)
-    }
-
-    pub mod vec {
-        use super::*;
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let v: Vec<Cow<'de, str>> = Deserialize::deserialize(deserializer)?;
-            Ok(v.into_iter()
-                .map(|s| base64::decode(s.as_ref()))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(de::Error::custom)?)
-        }
-    }
-}
-
-mod bigint_json {
-    use super::*;
-    use serde::de;
-    use std::borrow::Cow;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Ok(s.parse().map_err(de::Error::custom)?)
-    }
-}
-
-mod block_messages_json {
-    use super::*;
-    use serde::de;
-
-    #[derive(Deserialize)]
-    struct BlockMessageJson {
-        #[serde(with = "address::json")]
-        miner_addr: Address,
-        win_count: i64,
-        #[serde(with = "base64_bytes::vec")]
-        messages: Vec<Vec<u8>>,
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<BlockMessages>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bm: Vec<BlockMessageJson> = Deserialize::deserialize(deserializer)?;
-        Ok(bm
-            .into_iter()
-            .map(|m| {
-                let mut secpk_messages = Vec::new();
-                let mut bls_messages = Vec::new();
-                for message in &m.messages {
-                    match ChainMessage::unmarshal_cbor(message).map_err(de::Error::custom)? {
-                        ChainMessage::Signed(s) => secpk_messages.push(s),
-                        ChainMessage::Unsigned(u) => bls_messages.push(u),
-                    }
-                }
-                Ok(BlockMessages {
-                    miner: m.miner_addr,
-                    win_count: m.win_count,
-                    bls_messages,
-                    secpk_messages,
-                })
-            })
-            .collect::<Result<Vec<BlockMessages>, _>>()?)
-    }
-}
-
-mod message_receipt_vec {
-    use super::*;
-
-    #[derive(Deserialize)]
-    struct MessageReceiptVector {
-        exit_code: ExitCode,
-        #[serde(rename = "return", with = "base64_bytes")]
-        return_value: Vec<u8>,
-        gas_used: i64,
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<MessageReceipt>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Vec<MessageReceiptVector> = Deserialize::deserialize(deserializer)?;
-        Ok(s.into_iter()
-            .map(|v| MessageReceipt {
-                exit_code: v.exit_code,
-                return_data: Serialized::new(v.return_value),
-                gas_used: v.gas_used,
-            })
-            .collect())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct StateTreeVector {
-    #[serde(with = "cid::json")]
-    root_cid: Cid,
-}
-
-#[derive(Debug, Deserialize)]
-struct GenerationData {
-    #[serde(default)]
-    source: String,
-    #[serde(default)]
-    version: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct MetaData {
-    id: String,
-    #[serde(default)]
-    version: String,
-    #[serde(default)]
-    description: String,
-    #[serde(default)]
-    comment: String,
-    gen: Vec<GenerationData>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PreConditions {
-    epoch: ChainEpoch,
-    state_tree: StateTreeVector,
-}
-
-#[derive(Debug, Deserialize)]
-struct PostConditions {
-    state_tree: StateTreeVector,
-    #[serde(with = "message_receipt_vec")]
-    receipts: Vec<MessageReceipt>,
-    #[serde(default, with = "cid::json::vec")]
-    receipts_roots: Vec<Cid>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MessageVector {
-    #[serde(with = "base64_bytes")]
-    bytes: Vec<u8>,
-    #[serde(default)]
-    epoch: Option<ChainEpoch>,
-}
-
-#[derive(Debug, Deserialize)]
-struct TipsetVector {
-    epoch: ChainEpoch,
-    #[serde(with = "bigint_json")]
-    basefee: BigInt,
-    #[serde(with = "block_messages_json")]
-    blocks: Vec<BlockMessages>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Selector {
-    #[serde(default)]
-    puppet_actor: Option<String>,
-    #[serde(default)]
-    chaos_actor: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "class")]
-enum TestVector {
-    #[serde(rename = "message")]
-    Message {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
-
-        #[serde(with = "base64_bytes")]
-        car: Vec<u8>,
-        preconditions: PreConditions,
-        apply_messages: Vec<MessageVector>,
-        postconditions: PostConditions,
-    },
-    #[serde(rename = "block")]
-    Block {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
-    },
-    #[serde(rename = "tipset")]
-    Tipset {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
-
-        #[serde(with = "base64_bytes")]
-        car: Vec<u8>,
-        preconditions: PreConditions,
-        apply_tipsets: Vec<TipsetVector>,
-        postconditions: PostConditions,
-    },
-    #[serde(rename = "chain")]
-    Chain {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
-    },
 }
 
 fn is_valid_file(entry: &DirEntry) -> bool {
@@ -272,56 +43,6 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         }
     }
     file_name.ends_with(".json")
-}
-
-struct TestRand;
-impl Rand for TestRand {
-    fn get_chain_randomness<DB: BlockStore>(
-        &self,
-        _: &DB,
-        _: DomainSeparationTag,
-        _: ChainEpoch,
-        _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        Ok(*b"i_am_random_____i_am_random_____")
-    }
-    fn get_beacon_randomness<DB: BlockStore>(
-        &self,
-        _: &DB,
-        _: DomainSeparationTag,
-        _: ChainEpoch,
-        _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        Ok(*b"i_am_random_____i_am_random_____")
-    }
-}
-
-struct TestSyscalls;
-impl Syscalls for TestSyscalls {
-    fn verify_signature(
-        &self,
-        _: &Signature,
-        _: &Address,
-        _: &[u8],
-    ) -> Result<(), Box<dyn StdError>> {
-        Ok(())
-    }
-    fn verify_seal(&self, _: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        Ok(())
-    }
-    fn verify_post(&self, _: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        Ok(())
-    }
-
-    // TODO check if this should be defaulted as well
-    fn verify_consensus_fault(
-        &self,
-        _: &[u8],
-        _: &[u8],
-        _: &[u8],
-    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
-        Ok(None)
-    }
 }
 
 fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
@@ -369,45 +90,6 @@ fn check_msg_result(
     Ok(())
 }
 
-fn execute_message(
-    bs: &db::MemoryDB,
-    msg: &UnsignedMessage,
-    pre_root: &Cid,
-    epoch: ChainEpoch,
-    selector: &Option<Selector>,
-) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let mut vm = VM::<_, _, _>::new(
-        pre_root,
-        bs,
-        epoch,
-        TestSyscalls,
-        &TestRand,
-        BASE_FEE.clone(),
-    )?;
-
-    if let Some(s) = &selector {
-        if s.puppet_actor
-            .as_ref()
-            .map(|s| s == "true")
-            .unwrap_or_default()
-        {
-            vm.register_actor(PUPPET_ACTOR_CODE_ID.clone());
-        }
-        if s.chaos_actor
-            .as_ref()
-            .map(|s| s == "true")
-            .unwrap_or_default()
-        {
-            vm.register_actor(CHAOS_ACTOR_CODE_ID.clone());
-        }
-    }
-
-    let ret = vm.apply_message(msg)?;
-
-    let root = vm.flush()?;
-    Ok((ret, root))
-}
-
 fn execute_message_vector(
     selector: Option<Selector>,
     car: Vec<u8>,
@@ -443,42 +125,6 @@ fn execute_message_vector(
     }
 
     Ok(())
-}
-
-struct ExecuteTipsetResult {
-    receipts_root: Cid,
-    post_state_root: Cid,
-    _applied_messages: Vec<UnsignedMessage>,
-    applied_results: Vec<ApplyRet>,
-}
-fn execute_tipset(
-    bs: Arc<db::MemoryDB>,
-    pre_root: &Cid,
-    parent_epoch: ChainEpoch,
-    tipset: &TipsetVector,
-) -> Result<ExecuteTipsetResult, Box<dyn StdError>> {
-    let sm = StateManager::new(bs);
-    let mut _applied_messages = Vec::new();
-    let mut applied_results = Vec::new();
-    let (post_state_root, receipts_root) = sm.apply_blocks(
-        parent_epoch,
-        pre_root,
-        &tipset.blocks,
-        tipset.epoch,
-        &TestRand,
-        tipset.basefee.clone(),
-        Some(|_, msg, ret| {
-            _applied_messages.push(msg);
-            applied_results.push(ret);
-            Ok(())
-        }),
-    )?;
-    Ok(ExecuteTipsetResult {
-        receipts_root,
-        post_state_root,
-        _applied_messages,
-        applied_results,
-    })
 }
 
 fn execute_tipset_vector(
