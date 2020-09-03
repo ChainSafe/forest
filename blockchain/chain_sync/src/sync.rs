@@ -871,7 +871,7 @@ where
             // TODO tweak request window when socket frame is tested
             const REQUEST_WINDOW: i64 = 30;
             let epoch_diff = cur_ts.epoch() - to_epoch;
-            info!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
+            debug!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);
 
             let peer_id = self.get_peer().await;
