@@ -4,8 +4,7 @@
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
-use async_std::sync::channel;
-use async_std::sync::Receiver;
+use async_std::future;
 use async_std::task;
 use beacon::BeaconEntry;
 use blake2b_simd::Params;
@@ -17,6 +16,9 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
+use futures::channel::mpsc::channel;
+use futures::channel::mpsc::Receiver;
+use futures::sink::SinkExt;
 use futures::StreamExt;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -29,6 +31,7 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
+use std::time::Duration;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -198,22 +201,29 @@ where
     }
 
     pub async fn sub_head_changes(&mut self) -> Result<Receiver<HeadChange>, Error> {
-        let mut subscribed_head_change = self.subscribe();
+        let subscribed_head_change = self.subscribe();
+        info!("sub head changes");
         let head = self
             .heaviest_tipset()
             .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
-        let (sender, reciever) = channel(16);
-        sender.send(HeadChange::Current(head)).await;
+        let (mut sender, reciever) = channel(16);
+        sender
+            .send(HeadChange::Current(head))
+            .await
+            .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
         task::spawn(async move {
-            while let Some(val) = subscribed_head_change.next().await {
-                if !sender.is_empty() {
-                    warn!(
-                        "head change sub is slow, has {:} buffered entries",
-                        sender.len()
-                    )
-                }
-                sender.send(val).await
-            }
+            let sender = &sender.clone();
+            let wait_for_each = subscribed_head_change.for_each(|s| async move {
+                sender
+                    .clone()
+                    .send(s)
+                    .await
+                    .unwrap_or_else(|e| warn!("failed to send to channel : {:?}", e));
+            });
+            let dur = Duration::from_millis(10);
+            future::timeout(dur, wait_for_each)
+                .await
+                .unwrap_or_else(|_| info!("waited for head_change for 10 miliseconds"));
         });
         Ok(reciever)
     }
@@ -665,6 +675,8 @@ pub mod headchange_json {
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize)]
+    #[serde(untagged)]
+    #[serde(rename_all = "PascalCase")]
     pub enum HeadChangeJson {
         Current(TipsetJson),
         Apply(TipsetJson),
@@ -675,7 +687,6 @@ pub mod headchange_json {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
                 HeadChange::Current(tipset) => HeadChangeJson::Current((*tipset).clone().into()),
-
                 HeadChange::Apply(tipset) => HeadChangeJson::Apply((*tipset).clone().into()),
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert((*tipset).clone().into()),
             }

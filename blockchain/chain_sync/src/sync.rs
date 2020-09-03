@@ -301,8 +301,14 @@ where
                             self.state.write().await.set_epoch(curr_epoch);
 
                             // store messages
-                            self.chain_store.write().await.put_messages(&b.bls_msgs)?;
-                            self.chain_store.write().await.put_messages(&b.secp_msgs)?;
+                            chain::persist_objects(
+                                self.state_manager.get_block_store_ref(),
+                                &b.bls_msgs,
+                            )?;
+                            chain::persist_objects(
+                                self.state_manager.get_block_store_ref(),
+                                &b.secp_msgs,
+                            )?;
                         }
                     }
                     i -= REQUEST_WINDOW;
@@ -434,14 +440,8 @@ where
             return Err(Error::InvalidRoots);
         }
 
-        self.chain_store
-            .write()
-            .await
-            .put_messages(block.bls_msgs())?;
-        self.chain_store
-            .write()
-            .await
-            .put_messages(block.secp_msgs())?;
+        chain::persist_objects(self.state_manager.get_block_store_ref(), block.bls_msgs())?;
+        chain::persist_objects(self.state_manager.get_block_store_ref(), block.secp_msgs())?;
 
         Ok(())
     }
@@ -960,11 +960,10 @@ where
                         "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));
                 }
-                ts = self
-                    .chain_store
-                    .read()
-                    .await
-                    .tipset_from_keys(ts.parents())?;
+                ts = chain::tipset_from_keys(
+                    self.state_manager.get_block_store_ref(),
+                    ts.parents(),
+                )?;
             }
             if ts == tips[i] {
                 return Ok(tips[0..=i].to_vec());

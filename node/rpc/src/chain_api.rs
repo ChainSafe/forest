@@ -64,15 +64,10 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    Ok(data
-        .chain_store
-        .write()
-        .await
-        .sub_head_changes()
-        .await?
-        .map(|s| s.into())
-        .collect()
-        .await)
+    let recieve_subhead_changes = data.chain_store.write().await.sub_head_changes().await?;
+    let vec: Vec<chain::headchange_json::HeadChangeJson> =
+        recieve_subhead_changes.map(|s| s.into()).collect().await;
+    Ok(vec)
 }
 
 pub(crate) async fn chain_read_obj<DB, KS>(

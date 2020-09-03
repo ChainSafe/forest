@@ -13,19 +13,17 @@ use async_log::span;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::sync::{RwLock, Sender};
 use async_std::task;
-use async_tungstenite::tungstenite::{error::Error, Message};
+use async_tungstenite::tungstenite::Message;
 use blockstore::BlockStore;
 use chain::ChainStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
-use futures::future;
 use futures::sink::SinkExt;
-use futures::stream::{StreamExt, TryStreamExt};
+use futures::stream::StreamExt;
 use jsonrpc_v2::{Data, MapRouter, RequestObject, Server};
-use log::{error, info};
+use log::{error, info, warn};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::StateManager;
-use std::borrow::Cow;
 use std::sync::Arc;
 use wallet::KeyStore;
 /// This is where you store persistant data, or at least access to stateful data.
@@ -178,36 +176,43 @@ async fn handle_connection_and_log(
     tcp_stream: TcpStream,
     addr: std::net::SocketAddr,
 ) {
-    span!("handle_connection", {
+    span!("handle_connection_and_log", {
         if let Ok(ws_stream) = async_tungstenite::accept_async(tcp_stream).await {
             info!("accepted websocket connection at {:}", addr);
-            let (mut ws_sender, ws_receiver) = ws_stream.split();
-            let responses_result = ws_receiver
-                .try_filter(|s| future::ready(!s.is_text()))
-                .try_fold(Vec::new(), |mut responses, s| async {
-                    let request_text = s.into_text()?;
-                    let call: RequestObject = serde_json::from_str(&request_text)
-                        .map_err(|s| Error::Protocol(Cow::from(s.to_string())))?;
-                    let response = state.handle(call).await;
-                    let response_text = serde_json::to_string(&response)
-                        .map_err(|s| Error::Protocol(Cow::from(s.to_string())))?;
-                    responses.push(response_text);
-                    Ok(responses)
-                })
-                .await;
-
-            if let Err(error) = responses_result {
-                error!("error obtaining request {:?}", error)
-            } else {
-                for response_text in responses_result.unwrap() {
-                    ws_sender
-                        .send(Message::text(response_text))
-                        .await
-                        .unwrap_or_else(|s| error!("Error sending response {:?}", s))
-                }
+            let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+            while let Some(message_result) = ws_receiver.next().await {
+                let response_text = match message_result {
+                    Ok(message) => {
+                        let request_text = message.into_text().unwrap();
+                        info!(
+                            "serde request {:?}",
+                            serde_json::to_string_pretty(&request_text).unwrap()
+                        );
+                        match serde_json::from_str(&request_text) as Result<RequestObject, _> {
+                            Ok(call) => {
+                                let response = state.handle(call).await;
+                                let response_text = serde_json::to_string_pretty(&response)
+                                    .expect("all items returned should be properly serialized");
+                                Message::text(response_text)
+                            }
+                            Err(e) => {
+                                let error_string = format!("error : {:?}", e);
+                                Message::text(error_string)
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let error_string = format!("error : {:?}", e);
+                        Message::text(error_string)
+                    }
+                };
+                ws_sender
+                    .send(response_text)
+                    .await
+                    .unwrap_or_else(|e| error!("error obtaining result {:?}", e));
             }
         } else {
-            error!("web socket connection failed at {:}", addr)
+            warn!("web socket connection failed at {:}", addr)
         }
     })
 }
