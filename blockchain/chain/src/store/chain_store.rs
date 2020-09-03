@@ -165,19 +165,7 @@ where
 
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
-        let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
-
-        for header in ts.into_blocks() {
-            let (bls_messages, secp_messages) = block_messages(self.blockstore(), &header)?;
-            blocks.push(Block {
-                header,
-                bls_messages,
-                secp_messages,
-            });
-        }
-
-        // the given tipset has already been verified, so this cannot fail
-        Ok(FullTipset::new(blocks).unwrap())
+        fill_tipsets(self.blockstore(), ts)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset

@@ -92,7 +92,6 @@ pub(super) async fn start(config: Config) {
     )
     .await
     .unwrap();
-    info!("init chain syncher");
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
     let sync_task = task::spawn(async {
