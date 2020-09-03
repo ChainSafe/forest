@@ -18,7 +18,7 @@ use libp2p::{
     core::transport::boxed::Boxed,
     gossipsub::TopicHash,
     identity::{ed25519, Keypair},
-    mplex, secio, yamux, PeerId, Swarm, Transport,
+    mplex, noise, yamux, PeerId, Swarm, Transport,
 };
 use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, info, trace, warn};
@@ -280,9 +280,12 @@ where
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
+    let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
+        .into_authentic(&local_key)
+        .expect("Noise key generation failed");
     transport
         .upgrade(core::upgrade::Version::V1)
-        .authenticate(secio::SecioConfig::new(local_key))
+        .authenticate(noise::NoiseConfig::xx(dh_keys).into_authenticated())
         .multiplex(core::upgrade::SelectUpgrade::new(
             yamux::Config::default(),
             mplex::MplexConfig::new(),
