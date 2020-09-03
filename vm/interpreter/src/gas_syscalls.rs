@@ -79,7 +79,7 @@ where
         &self,
         vis: &[(Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
-        // TODO revisit if gas ends up being charged (only used by cron actor)
+        // Gas charged for batch verify in actor
         self.syscalls.batch_verify_seals(vis)
     }
 }

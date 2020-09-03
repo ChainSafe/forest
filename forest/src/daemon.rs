@@ -72,7 +72,6 @@ pub(super) async fn start(config: Config) {
     // Get Drand Coefficients
     let coeff = config.drand_public;
 
-    // TODO: Interval is supposed to be consistent with fils epoch interval length, but not yet defined
     let beacon = DrandBeacon::new(
         DEFAULT_DRAND_URL,
         coeff,
