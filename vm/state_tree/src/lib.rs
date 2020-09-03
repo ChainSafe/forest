@@ -58,7 +58,7 @@ impl StateSnapshots {
     fn drop_layer(&mut self) -> Result<(), Box<dyn StdError>> {
         self.layers.pop().ok_or_else(|| {
             format!(
-                "No snapshot layer found at index {}",
+                "drop layer failed to index snapshot layer at index {}",
                 &self.layers.len() - 1
             )
         })?;
@@ -71,7 +71,7 @@ impl StateSnapshots {
             .get(&self.layers.len() - 2)
             .ok_or_else(|| {
                 format!(
-                    "MERGE failed to index snapshot layer at index: {}",
+                    "merging layers failed to index snapshot layer at index: {}",
                     &self.layers.len() - 2
                 )
             })?
@@ -83,7 +83,7 @@ impl StateSnapshots {
             .get(&self.layers.len() - 2)
             .ok_or_else(|| {
                 format!(
-                    "MERGE2 failed to index snapshot layer at index: {}",
+                    "merging layers failed to index snapshot layer at index: {}",
                     &self.layers.len() - 2
                 )
             })?
@@ -118,7 +118,7 @@ impl StateSnapshots {
             .last()
             .ok_or_else(|| {
                 format!(
-                    "CACHE failed to index snapshot layer at index: {}",
+                    "caching address failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
             })?
@@ -144,7 +144,7 @@ impl StateSnapshots {
             .last()
             .ok_or_else(|| {
                 format!(
-                    "SET failed to index snapshot layer at index: {}",
+                    "set actor failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
             })?
@@ -159,7 +159,7 @@ impl StateSnapshots {
             .last()
             .ok_or_else(|| {
                 format!(
-                    "DEL failed to index snapshot layer at index: {}",
+                    "delete actor failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
             })?
@@ -256,10 +256,13 @@ where
             .map_err(|e| e.to_string())?
             .ok_or("Could not resolve init actor state")?;
 
-        let a: Address = state
+        let a: Address = match state
             .resolve_address(self.store(), addr)
             .map_err(|e| format!("Could not resolve address: {:?}", e))?
-            .ok_or_else(|| format!("RESOLVED address failed for {}", addr))?;
+        {
+            Some(a) => a,
+            None => return Ok(None),
+        };
 
         self.snaps.cache_resolve_address(*addr, a)?;
 
@@ -274,8 +277,6 @@ where
 
         // Remove value from cache
         self.snaps.delete_actor(addr)?;
-
-        self.hamt.delete(&addr.to_bytes())?;
 
         Ok(())
     }

@@ -449,10 +449,7 @@ where
         if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
             return Err("Gas handling math is wrong".to_owned());
         }
-
-        self.state.clear_snapshot().map_err(|e| {
-            e.to_string()
-        })?;
+        self.state.clear_snapshot().map_err(|e| e.to_string())?;
 
         Ok(ApplyRet {
             msg_receipt: MessageReceipt {

@@ -282,11 +282,11 @@ where
             } else {
                 e
             }
-        })?;
-
+        });
         if let Err(e) = self.state.clear_snapshot() {
             actor_error!(fatal("failed to clear snapshot: {}", e));
         }
+        let ret = ret?;
 
         Ok(ret)
     }
@@ -395,7 +395,7 @@ where
         Ok(self
             .state
             .get_actor(&addr)
-            .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
+            .map_err(|e| actor_error!(fatal("failed:398 to get actor: {}", e)))?
             .map(|act| act.code))
     }
 
