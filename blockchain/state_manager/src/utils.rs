@@ -29,71 +29,73 @@ pub fn get_sectors_for_winning_post<DB>(
 where
     DB: BlockStore,
 {
-    let miner_actor_state: miner::State =
-        state_manager
-            .load_actor_state(&address, &st)
-            .map_err(|err| {
-                Error::State(format!(
-                    "(get sectors) failed to load miner actor state: %{:}",
-                    err
-                ))
-            })?;
-    let sector_set = get_proving_set_raw(state_manager, &miner_actor_state)?;
-    if sector_set.is_empty() {
-        return Ok(Vec::new());
-    }
-    let seal_proof_type = match miner_actor_state.info.sector_size {
-        SectorSize::_2KiB => RegisteredSealProof::StackedDRG2KiBV1,
-        SectorSize::_8MiB => RegisteredSealProof::StackedDRG8MiBV1,
-        SectorSize::_512MiB => RegisteredSealProof::StackedDRG512MiBV1,
-        SectorSize::_32GiB => RegisteredSealProof::StackedDRG32GiBV1,
-        SectorSize::_64GiB => RegisteredSealProof::StackedDRG64GiBV1,
-    };
-    let wpt = seal_proof_type.registered_winning_post_proof()?;
+    todo!()
 
-    if address.protocol() != Protocol::ID {
-        return Err(Error::Other(format!(
-            "failed to get ID from miner address {:}",
-            address
-        )));
-    };
-    let mut prover_id = ProverId::default();
-    let prover_bytes = address.to_bytes();
-    prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
-    let ids = generate_winning_post_sector_challenge(
-        wpt.try_into()?,
-        &rand,
-        sector_set.len() as u64,
-        prover_id,
-    )
-    .map_err(|err| Error::State(format!("generate winning posts challenge {:}", err)))?;
+    // let miner_actor_state: miner::State =
+    //     state_manager
+    //         .load_actor_state(&address, &st)
+    //         .map_err(|err| {
+    //             Error::State(format!(
+    //                 "(get sectors) failed to load miner actor state: %{:}",
+    //                 err
+    //             ))
+    //         })?;
+    // let sector_set = get_proving_set_raw(state_manager, &miner_actor_state)?;
+    // if sector_set.is_empty() {
+    //     return Ok(Vec::new());
+    // }
+    // let seal_proof_type = match miner_actor_state.info.sector_size {
+    //     SectorSize::_2KiB => RegisteredSealProof::StackedDRG2KiBV1,
+    //     SectorSize::_8MiB => RegisteredSealProof::StackedDRG8MiBV1,
+    //     SectorSize::_512MiB => RegisteredSealProof::StackedDRG512MiBV1,
+    //     SectorSize::_32GiB => RegisteredSealProof::StackedDRG32GiBV1,
+    //     SectorSize::_64GiB => RegisteredSealProof::StackedDRG64GiBV1,
+    // };
+    // let wpt = seal_proof_type.registered_winning_post_proof()?;
 
-    Ok(ids
-        .iter()
-        .map::<Result<SectorInfo, Error>, _>(|i: &u64| {
-            let index = *i as usize;
-            let sector_number = sector_set
-                .get(index)
-                .ok_or_else(|| {
-                    Error::Other(format!("Could not get sector_number at index {:}", index))
-                })?
-                .info
-                .sector_number;
-            let sealed_cid = sector_set
-                .get(index)
-                .ok_or_else(|| {
-                    Error::Other(format!("Could not get sealed cid at index {:}", index))
-                })?
-                .info
-                .sealed_cid
-                .clone();
-            Ok(SectorInfo {
-                proof: seal_proof_type,
-                sector_number,
-                sealed_cid,
-            })
-        })
-        .collect::<Result<Vec<SectorInfo>, _>>()?)
+    // if address.protocol() != Protocol::ID {
+    //     return Err(Error::Other(format!(
+    //         "failed to get ID from miner address {:}",
+    //         address
+    //     )));
+    // };
+    // let mut prover_id = ProverId::default();
+    // let prover_bytes = address.to_bytes();
+    // prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
+    // let ids = generate_winning_post_sector_challenge(
+    //     wpt.try_into()?,
+    //     &rand,
+    //     sector_set.len() as u64,
+    //     prover_id,
+    // )
+    // .map_err(|err| Error::State(format!("generate winning posts challenge {:}", err)))?;
+
+    // Ok(ids
+    //     .iter()
+    //     .map::<Result<SectorInfo, Error>, _>(|i: &u64| {
+    //         let index = *i as usize;
+    //         let sector_number = sector_set
+    //             .get(index)
+    //             .ok_or_else(|| {
+    //                 Error::Other(format!("Could not get sector_number at index {:}", index))
+    //             })?
+    //             .info
+    //             .sector_number;
+    //         let sealed_cid = sector_set
+    //             .get(index)
+    //             .ok_or_else(|| {
+    //                 Error::Other(format!("Could not get sealed cid at index {:}", index))
+    //             })?
+    //             .info
+    //             .sealed_cid
+    //             .clone();
+    //         Ok(SectorInfo {
+    //             proof: seal_proof_type,
+    //             sector_number,
+    //             sealed_cid,
+    //         })
+    //     })
+    //     .collect::<Result<Vec<SectorInfo>, _>>()?)
 }
 
 pub fn get_proving_set_raw<DB>(
@@ -103,11 +105,13 @@ pub fn get_proving_set_raw<DB>(
 where
     DB: BlockStore,
 {
-    let not_proving = &actor_state.faults | &actor_state.recoveries;
+    todo!()
 
-    actor_state
-        .load_sector_infos(&*state_manager.get_block_store(), &not_proving)
-        .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
+    // let not_proving = &actor_state.faults | &actor_state.recoveries;
+
+    // actor_state
+    //     .load_sector_infos(&*state_manager.get_block_store(), &not_proving)
+    //     .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
 }
 
 pub fn get_miner_sector_set<DB>(
@@ -145,28 +149,30 @@ fn load_sectors_from_set<DB>(
 where
     DB: BlockStore,
 {
-    let amt = Amt::load(ssc, block_store).map_err(|err| Error::Other(err.to_string()))?;
+    todo!()
 
-    let mut sset: Vec<ChainSectorInfo> = Vec::new();
-    let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| {
-        if let Some(ref mut s) = filter {
-            let i = i
-                .try_into()
-                .map_err(|_| "Could not convert from index to usize")?;
-            if s.get(i) {
-                return Ok(());
-            }
-        }
-        sset.push(ChainSectorInfo {
-            info: sector_chain.info.to_owned(),
-            id: i,
-        });
-        Ok(())
-    };
-    amt.for_each(for_each)
-        .map_err(|err| Error::Other(format!("Error Processing ForEach {:}", err)))?;
+    // let amt = Amt::load(ssc, block_store).map_err(|err| Error::Other(err.to_string()))?;
 
-    Ok(sset)
+    // let mut sset: Vec<ChainSectorInfo> = Vec::new();
+    // let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| {
+    //     if let Some(ref mut s) = filter {
+    //         let i = i
+    //             .try_into()
+    //             .map_err(|_| "Could not convert from index to usize")?;
+    //         if s.get(i) {
+    //             return Ok(());
+    //         }
+    //     }
+    //     sset.push(ChainSectorInfo {
+    //         info: sector_chain.info.to_owned(),
+    //         id: i,
+    //     });
+    //     Ok(())
+    // };
+    // amt.for_each(for_each)
+    //     .map_err(|err| Error::Other(format!("Error Processing ForEach {:}", err)))?;
+
+    // Ok(sset)
 }
 
 pub fn miner_sector_info<DB>(
@@ -227,15 +233,17 @@ pub fn get_miner_info<DB>(
 where
     DB: BlockStore,
 {
-    let miner_actor_state: miner::State = state_manager
-        .load_actor_state(&address, &tipset.parent_state())
-        .map_err(|err| {
-            Error::State(format!(
-                "(get miner info) failed to load miner actor state: {:}",
-                err
-            ))
-        })?;
-    Ok(miner_actor_state.info)
+    todo!()
+
+    // let miner_actor_state: miner::State = state_manager
+    //     .load_actor_state(&address, &tipset.parent_state())
+    //     .map_err(|err| {
+    //         Error::State(format!(
+    //             "(get miner info) failed to load miner actor state: {:}",
+    //             err
+    //         ))
+    //     })?;
+    // Ok(miner_actor_state.info)
 }
 
 pub fn get_miner_deadlines<DB>(
@@ -272,15 +280,17 @@ pub fn get_miner_faults<DB>(
 where
     DB: BlockStore,
 {
-    let miner_actor_state: miner::State = state_manager
-        .load_actor_state(&address, &tipset.parent_state())
-        .map_err(|err| {
-            Error::State(format!(
-                "(get miner faults) failed to load miner actor state: {:}",
-                err
-            ))
-        })?;
-    Ok(miner_actor_state.faults)
+    todo!()
+
+    // let miner_actor_state: miner::State = state_manager
+    //     .load_actor_state(&address, &tipset.parent_state())
+    //     .map_err(|err| {
+    //         Error::State(format!(
+    //             "(get miner faults) failed to load miner actor state: {:}",
+    //             err
+    //         ))
+    //     })?;
+    // Ok(miner_actor_state.faults)
 }
 
 pub fn get_miner_recoveries<DB>(
@@ -291,15 +301,17 @@ pub fn get_miner_recoveries<DB>(
 where
     DB: BlockStore,
 {
-    let miner_actor_state: miner::State = state_manager
-        .load_actor_state(&address, &tipset.parent_state())
-        .map_err(|err| {
-            Error::State(format!(
-                "(get miner recoveries) failed to load miner actor state: {:}",
-                err
-            ))
-        })?;
-    Ok(miner_actor_state.recoveries)
+    todo!()
+
+    // let miner_actor_state: miner::State = state_manager
+    //     .load_actor_state(&address, &tipset.parent_state())
+    //     .map_err(|err| {
+    //         Error::State(format!(
+    //             "(get miner recoveries) failed to load miner actor state: {:}",
+    //             err
+    //         ))
+    //     })?;
+    // Ok(miner_actor_state.recoveries)
 }
 
 pub fn list_miner_actors<'a, DB>(

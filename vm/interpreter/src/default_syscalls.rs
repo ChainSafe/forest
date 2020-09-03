@@ -150,8 +150,9 @@ where
             .get(&actor.state)?
             .ok_or_else(|| format!("actor state not found {:?}", actor.state.to_string()))?;
 
-        let work_address = resolve_to_key_addr(&state, self.store, &ms.info.worker)?;
-        bh.check_block_signature(&work_address)?;
+        // TODO
+        // let work_address = resolve_to_key_addr(&state, self.store, &ms.info.worker)?;
+        // bh.check_block_signature(&work_address)?;
         Ok(())
     }
 }

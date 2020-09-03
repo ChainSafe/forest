@@ -222,8 +222,21 @@ where
         V: DeserializeOwned,
         F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
+        self.for_each_while(|i, x| {
+            f(i, x)?;
+            Ok(true)
+        })
+    }
+
+    // TODO: docs
+    pub fn for_each_while<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &V) -> Result<bool, Box<dyn StdError>>,
+    {
         self.root
             .node
-            .for_each(self.block_store, self.height(), 0, &mut f)
+            .for_each_while(self.block_store, self.height(), 0, &mut f)
+            .map(|_| ())
     }
 }

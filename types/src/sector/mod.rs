@@ -17,6 +17,10 @@ use vm::ActorID;
 
 pub type SectorNumber = u64;
 
+/// The maximum assignable sector number.
+/// Raising this would require modifying our AMT implementation.
+pub const MAX_SECTOR_NUMBER: SectorNumber = SectorNumber::MAX;
+
 /// Unit of storage power (measured in bytes)
 pub type StoragePower = BigInt;
 
