@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::signature::BLS_SIG_LEN;
 use encoding::{blake2b_256, serde_bytes};
 use serde::{Deserialize, Serialize};
 
@@ -24,12 +23,6 @@ impl VRFProof {
     /// Compute the blake2b256 digest of the proof
     pub fn digest(&self) -> [u8; 32] {
         blake2b_256(&self.0)
-    }
-
-    /// Returns max value based on [BLS_SIG_LEN](constant.BLS_SIG_LEN.html)
-    pub fn max_value() -> Self {
-        // TODO revisit if this is necessary
-        Self::new([std::u8::MAX; BLS_SIG_LEN].to_vec())
     }
 }
 

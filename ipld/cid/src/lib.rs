@@ -44,7 +44,7 @@ pub struct Cid {
 
 impl Default for Cid {
     fn default() -> Self {
-        Self::new(Codec::Raw, Version::V1, Identity.digest(&[]))
+        Self::new(Codec::Raw, Version::V0, Identity.digest(&[]))
     }
 }
 
