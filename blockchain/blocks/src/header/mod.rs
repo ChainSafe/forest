@@ -337,6 +337,7 @@ impl BlockHeader {
         {
             return Err(Error::Validation("Header was from the future".to_string()));
         }
+        // TODO: This is a devnet param. When we start testing on other networks, we'll change it.
         const FIXED_BLOCK_DELAY: u64 = 2;
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
