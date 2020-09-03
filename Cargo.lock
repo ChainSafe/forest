@@ -1405,6 +1405,7 @@ dependencies = [
  "fil_types",
  "flate2",
  "forest_address",
+ "forest_bigint",
  "forest_car",
  "forest_cid",
  "forest_crypto",
@@ -1414,10 +1415,12 @@ dependencies = [
  "interpreter",
  "ipld_blockstore",
  "lazy_static",
+ "pretty_env_logger",
  "regex",
  "runtime",
  "serde",
  "serde_json",
+ "state_manager",
  "walkdir",
 ]
 

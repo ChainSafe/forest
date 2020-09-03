@@ -30,6 +30,7 @@ use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
 
+#[derive(Debug)]
 pub struct BlockMessages {
     pub miner: Address,
     pub bls_messages: Vec<UnsignedMessage>,
@@ -567,7 +568,7 @@ pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i
 }
 
 /// Apply message return data
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ApplyRet {
     pub msg_receipt: MessageReceipt,
     pub act_error: Option<ActorError>,
