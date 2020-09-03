@@ -71,8 +71,8 @@ impl StateSnapshots {
             .get(&self.layers.len() - 2)
             .ok_or_else(|| {
                 format!(
-                    "failed to index snapshot layer at index: {}",
-                    &self.layers.len() - 1
+                    "MERGE failed to index snapshot layer at index: {}",
+                    &self.layers.len() - 2
                 )
             })?
             .actors
@@ -83,7 +83,7 @@ impl StateSnapshots {
             .get(&self.layers.len() - 2)
             .ok_or_else(|| {
                 format!(
-                    "failed to index snapshot layer at index: {}",
+                    "MERGE2 failed to index snapshot layer at index: {}",
                     &self.layers.len() - 2
                 )
             })?
@@ -118,7 +118,7 @@ impl StateSnapshots {
             .last()
             .ok_or_else(|| {
                 format!(
-                    "failed to index snapshot layer at index: {}",
+                    "CACHE failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
             })?
@@ -144,7 +144,7 @@ impl StateSnapshots {
             .last()
             .ok_or_else(|| {
                 format!(
-                    "failed to index snapshot layer at index: {}",
+                    "SET failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
             })?
@@ -159,7 +159,7 @@ impl StateSnapshots {
             .last()
             .ok_or_else(|| {
                 format!(
-                    "failed to index snapshot layer at index: {}",
+                    "DEL failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
             })?
@@ -259,7 +259,7 @@ where
         let a: Address = state
             .resolve_address(self.store(), addr)
             .map_err(|e| format!("Could not resolve address: {:?}", e))?
-            .ok_or_else(|| format!("Resolve address failed for {}", addr))?;
+            .ok_or_else(|| format!("RESOLVED address failed for {}", addr))?;
 
         self.snaps.cache_resolve_address(*addr, a)?;
 

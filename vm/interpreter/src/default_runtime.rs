@@ -275,17 +275,20 @@ where
         // Reset values back to their values before the call
         self.vm_msg = prev_msg;
         self.caller_validated = prev_val;
-        self.state
-            .clear_snapshot()
-            .map_err(|e| actor_error!(fatal("failed to clear snapshot {}", e)))?;
 
-        send_res.map_err(|e| {
+        let ret = send_res.map_err(|e| {
             if let Err(e) = self.state.revert_to_snapshot() {
                 actor_error!(fatal("failed to revert snapshot: {}", e))
             } else {
                 e
             }
-        })
+        })?;
+
+        if let Err(e) = self.state.clear_snapshot() {
+            actor_error!(fatal("failed to clear snapshot: {}", e));
+        }
+
+        Ok(ret)
     }
 
     /// creates account actors from only BLS/SECP256K1 addresses.
