@@ -95,6 +95,7 @@ impl Actor {
         rt.create_actor(actor_cid, &actor_address)
     }
 
+    /// Resolves address, and returns the resolved address (defaulting to 0 ID) and success boolean.
     pub fn resolve_address<BS, RT>(
         rt: &mut RT,
         args: Address,
