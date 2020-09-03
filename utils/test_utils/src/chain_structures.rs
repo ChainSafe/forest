@@ -11,7 +11,7 @@ use chain::TipsetMetadata;
 use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
-use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
+use forest_libp2p::blocksync::{BlockSyncResponse, CompactedMessages, TipsetBundle};
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use std::error::Error;
@@ -184,10 +184,12 @@ pub fn construct_tipset_bundle(epoch: i64, weight: u64) -> TipsetBundle {
 
     TipsetBundle {
         blocks: headers,
-        bls_msgs: vec![bls],
-        secp_msgs: vec![secp],
-        bls_msg_includes: includes.clone(),
-        secp_msg_includes: includes,
+        messages: Some(CompactedMessages {
+            bls_msgs: vec![bls],
+            secp_msgs: vec![secp],
+            bls_msg_includes: includes.clone(),
+            secp_msg_includes: includes,
+        }),
     }
 }
 
