@@ -8,4 +8,5 @@ config*.toml
 /devnet.car
 *.orig
 criterion
+/.cargo
 
