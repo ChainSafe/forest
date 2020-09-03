@@ -1109,6 +1109,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "byte-slice-cast"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0a5e3906bcbf133e33c1d4d95afc664ad37fbdb9f6568d8043e7ea8c27d93d3"
+
+[[package]]
 name = "byte-tools"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3712,9 +3718,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-bitswap"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54bbf7cb3765dff4350f5b73ada9e2441fd0775f72b1ba016022f0ab0cdf249b"
+checksum = "c62ec0af0cf8e8bb1cf125bc35155696a3d174c54a88426b759206954d8f4f80"
 dependencies = [
  "async-std",
  "fnv",
@@ -4832,6 +4838,29 @@ dependencies = [
  "static_assertions",
  "unsigned-varint 0.4.0",
  "url",
+]
+
+[[package]]
+name = "parity-scale-codec"
+version = "1.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34d38aeaffc032ec69faa476b3caaca8d4dd7f3f798137ff30359e5c7869ceb6"
+dependencies = [
+ "arrayvec",
+ "byte-slice-cast",
+ "parity-scale-codec-derive",
+]
+
+[[package]]
+name = "parity-scale-codec-derive"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd20ff7e0399b274a5f5bb37b712fccb5b3a64b9128200d1c3cc40fe709cb073"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2 1.0.19",
+ "quote 1.0.7",
+ "syn 1.0.38",
 ]
 
 [[package]]
@@ -6840,9 +6869,9 @@ dependencies = [
 
 [[package]]
 name = "tiny-cid"
-version = "0.1.0"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31818c2b5d7a20fa9e05bdf1a414c24e969ce5f338cce3bed266f23d108ec40"
+checksum = "1b635d214a0d951465523fd67ad11faf8838ad927b5a85f021142d4349d89f00"
 dependencies = [
  "multibase",
  "tiny-multihash",
@@ -6860,14 +6889,16 @@ dependencies = [
 
 [[package]]
 name = "tiny-multihash"
-version = "0.3.0"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6bfece37e24447c212bccb8583243e5010d3ddf65ab697281adf1536f759c12"
+checksum = "903ca10df4dbb9c5afb890f8005f9e8224cd607ddabf6ddcf87c68d1692751a1"
 dependencies = [
  "blake2b_simd",
  "blake2s_simd",
  "digest 0.9.0",
  "generic-array 0.14.4",
+ "parity-scale-codec",
+ "serde",
  "sha-1 0.9.1",
  "sha2 0.9.1",
  "sha3 0.9.1",
@@ -6878,9 +6909,9 @@ dependencies = [
 
 [[package]]
 name = "tiny-multihash-derive"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e02de60eda8ff6764af2fa0ba8b59c924ef5723c66f3c10f33e4c68d6be1d58c"
+checksum = "dc1f2e9b29516e5a352e0f4c855fcd07dbf34e4b367bf1ecfa24763545d7850f"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",
