@@ -301,8 +301,8 @@ impl ForestBehaviour {
         let gossipsub_config = GossipsubConfig {
             // TODO revisit validation (permissive validation allows unsigned messages)
             validation_mode: ValidationMode::Permissive,
-            // TODO can't find a solid number for this limit
-            max_transmit_size: 262144,
+            // Using go gossipsub default, not certain this is intended
+            max_transmit_size: 1 << 20,
             ..Default::default()
         };
 
