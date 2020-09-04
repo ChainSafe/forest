@@ -7,7 +7,6 @@ use cid::{multihash::Blake2b256, Cid};
 use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use log::warn;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -211,7 +210,7 @@ where
         }
 
         // if state doesn't exist, find using hamt
-        let act = self.hamt.get(&addr.to_bytes()).map_err(|e| e.to_string())?;
+        let act = self.hamt.get(&addr.to_bytes())?;
 
         // Update cache if state was found
         if let Some(act_s) = &act {
@@ -240,9 +239,8 @@ where
             return Ok(Some(*addr));
         }
 
-        match self.snaps.resolve_address(addr) {
-            None => warn!("No address cached"),
-            Some(resa) => return Ok(Some(resa)),
+        if let Some(res_address) = self.snaps.resolve_address(addr) {
+            return Ok(Some(res_address));
         }
 
         let init_act = self
@@ -307,20 +305,14 @@ where
         let mut ias: init::State = self
             .hamt
             .store()
-            .get(&init_act.state)
-            .map_err(|e| e.to_string())?
+            .get(&init_act.state)?
             .ok_or("Failed to retrieve init actor state")?;
 
         // Create new address with init actor state
-        let new_addr = ias
-            .map_address_to_new_id(self.store(), addr)
-            .map_err(|e| e.to_string())?;
+        let new_addr = ias.map_address_to_new_id(self.store(), addr)?;
 
         // Set state for init actor in store and update root Cid
-        init_act.state = self
-            .store()
-            .put(&ias, Blake2b256)
-            .map_err(|e| e.to_string())?;
+        init_act.state = self.store().put(&ias, Blake2b256)?;
 
         self.set_actor(&INIT_ACTOR_ADDR, init_act)?;
 
@@ -358,18 +350,14 @@ where
         for (addr, sto) in self.snaps.layers[0].actors.read().iter() {
             match sto {
                 None => {
-                    self.hamt
-                        .delete(&addr.to_bytes())
-                        .map_err(|e| e.to_string())?;
+                    self.hamt.delete(&addr.to_bytes())?;
                 }
                 Some(ref state) => {
-                    self.hamt
-                        .set(addr.to_bytes().into(), state.clone())
-                        .map_err(|e| e.to_string())?;
+                    self.hamt.set(addr.to_bytes().into(), state.clone())?;
                 }
             }
         }
 
-        Ok(self.hamt.flush().map_err(|e| e.to_string())?)
+        Ok(self.hamt.flush()?)
     }
 }

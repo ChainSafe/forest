@@ -16,7 +16,6 @@ db = { path = "../../node/db" }
 parking_lot = "0.11"
 fnv = "1.0.6"
 fil_types = { path = "../../types" }
-log = "0.4.8"
 
 [dev-dependencies]
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

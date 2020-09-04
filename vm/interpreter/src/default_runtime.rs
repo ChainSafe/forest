@@ -395,7 +395,7 @@ where
         Ok(self
             .state
             .get_actor(&addr)
-            .map_err(|e| actor_error!(fatal("failed:398 to get actor: {}", e)))?
+            .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
             .map(|act| act.code))
     }
 

@@ -34,7 +34,6 @@ rand = "0.7"
 interpreter = { path = "../../vm/interpreter/" }
 fil_types = { path = "../../types" }
 bitfield = { path = "../../utils/bitfield",features = ["json"] }
-log = "0.4.8"
 
 [dev-dependencies]
 db = { path = "../db" }
