@@ -2609,7 +2609,7 @@ dependencies = [
  "ipld_blockstore",
  "libp2p",
  "libp2p-bitswap",
- "libp2p-request-response 0.2.0 (git+https://github.com/ChainSafe/rust-libp2p?rev=7ba76ccc03569a02a924d08ff9b6f62504e8bc51)",
+ "libp2p-request-response 0.3.0",
  "log",
  "serde",
  "smallvec 1.4.2",
@@ -3703,7 +3703,7 @@ dependencies = [
  "libp2p-ping",
  "libp2p-plaintext",
  "libp2p-pnet",
- "libp2p-request-response 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libp2p-request-response 0.2.0",
  "libp2p-secio",
  "libp2p-swarm",
  "libp2p-tcp",
@@ -4000,19 +4000,6 @@ dependencies = [
 [[package]]
 name = "libp2p-request-response"
 version = "0.2.0"
-source = "git+https://github.com/ChainSafe/rust-libp2p?rev=7ba76ccc03569a02a924d08ff9b6f62504e8bc51#7ba76ccc03569a02a924d08ff9b6f62504e8bc51"
-dependencies = [
- "async-std",
- "async-trait",
- "futures 0.3.5",
- "libp2p",
- "smallvec 1.4.2",
- "wasm-timer",
-]
-
-[[package]]
-name = "libp2p-request-response"
-version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4af0de0e56a11d46c5191a61019733b5618dc955c0a36f82866bb6d5d81a7f8f"
 dependencies = [
@@ -4020,6 +4007,22 @@ dependencies = [
  "futures 0.3.5",
  "libp2p-core",
  "libp2p-swarm",
+ "log",
+ "lru",
+ "rand 0.7.3",
+ "smallvec 1.4.2",
+ "wasm-timer",
+]
+
+[[package]]
+name = "libp2p-request-response"
+version = "0.3.0"
+source = "git+https://github.com/ChainSafe/rust-libp2p?rev=73bb35927ae7e0ba91dc6a157c562f2810aa4052#73bb35927ae7e0ba91dc6a157c562f2810aa4052"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "futures 0.3.5",
+ "libp2p",
  "log",
  "lru",
  "rand 0.7.3",
