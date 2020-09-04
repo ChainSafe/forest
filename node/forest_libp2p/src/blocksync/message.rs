@@ -25,13 +25,12 @@ pub struct BlockSyncRequest {
 /// The response to a BlockSync request.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct BlockSyncResponse {
-    /// The tipsets requested
-    pub chain: Vec<TipsetBundle>,
     /// Error code
     pub status: u64,
     /// Status message indicating failure reason
-    // TODO not included in blocksync spec, revisit if it will be removed in future
     pub message: String,
+    /// The tipsets requested
+    pub chain: Vec<TipsetBundle>,
 }
 
 impl BlockSyncResponse {
@@ -48,12 +47,9 @@ impl BlockSyncResponse {
     }
 }
 
-/// Contains the blocks and messages in a particular tipset
+/// Contains all bls and secp messages and their indexes per block
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct TipsetBundle {
-    /// The blocks in the tipset
-    pub blocks: Vec<BlockHeader>,
-
+pub struct CompactedMessages {
     /// Signed bls messages
     pub bls_msgs: Vec<UnsignedMessage>,
     /// Describes which block each message belongs to
@@ -63,6 +59,16 @@ pub struct TipsetBundle {
     pub secp_msgs: Vec<SignedMessage>,
     /// Describes which block each message belongs to
     pub secp_msg_includes: Vec<Vec<u64>>,
+}
+
+/// Contains the blocks and messages in a particular tipset
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+pub struct TipsetBundle {
+    /// The blocks in the tipset
+    pub blocks: Vec<BlockHeader>,
+
+    /// Compressed messages format
+    pub messages: Option<CompactedMessages>,
 }
 
 impl TryFrom<TipsetBundle> for Tipset {
@@ -77,13 +83,7 @@ impl TryFrom<TipsetBundle> for FullTipset {
     type Error = String;
 
     fn try_from(tsb: TipsetBundle) -> Result<FullTipset, Self::Error> {
-        fts_from_bundle_parts(
-            tsb.blocks,
-            &tsb.bls_msgs,
-            &tsb.secp_msgs,
-            &tsb.bls_msg_includes,
-            &tsb.secp_msg_includes,
-        )
+        fts_from_bundle_parts(tsb.blocks, tsb.messages.as_ref())
     }
 }
 
@@ -91,23 +91,21 @@ impl TryFrom<&TipsetBundle> for FullTipset {
     type Error = String;
 
     fn try_from(tsb: &TipsetBundle) -> Result<FullTipset, Self::Error> {
-        fts_from_bundle_parts(
-            tsb.blocks.clone(),
-            &tsb.bls_msgs,
-            &tsb.secp_msgs,
-            &tsb.bls_msg_includes,
-            &tsb.secp_msg_includes,
-        )
+        fts_from_bundle_parts(tsb.blocks.clone(), tsb.messages.as_ref())
     }
 }
 
 fn fts_from_bundle_parts(
     headers: Vec<BlockHeader>,
-    bls_msgs: &[UnsignedMessage],
-    secp_msgs: &[SignedMessage],
-    bls_msg_includes: &[Vec<u64>],
-    secp_msg_includes: &[Vec<u64>],
+    messages: Option<&CompactedMessages>,
 ) -> Result<FullTipset, String> {
+    let CompactedMessages {
+        bls_msgs,
+        bls_msg_includes,
+        secp_msg_includes,
+        secp_msgs,
+    } = messages.ok_or("Tipset bundle did not contain message bundle")?;
+
     // TODO: we may already want to check this on construction of the bundle
     if headers.len() != bls_msg_includes.len() || headers.len() != secp_msg_includes.len() {
         return Err(

@@ -16,7 +16,7 @@ use log::trace;
 use std::time::Duration;
 
 /// Timeout for response from an RPC request
-const RPC_TIMEOUT: u64 = 10;
+const RPC_TIMEOUT: u64 = 20;
 
 /// Context used in chain sync to handle network requests
 pub struct SyncNetworkContext {
