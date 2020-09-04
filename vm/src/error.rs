@@ -39,7 +39,21 @@ impl ActorError {
     pub fn downcast(error: Box<dyn StdError>, default_exit_code: ExitCode, msg: &str) -> Self {
         match error.downcast::<ActorError>() {
             Ok(actor_err) => actor_err.wrap(msg),
-            Err(other) => ActorError::new(default_exit_code, format!("{}: {}", msg, other)),
+            Err(other) => match other.downcast::<EncodingError>() {
+                Ok(enc_error) => ActorError::new(ExitCode::ErrSerialization, enc_error.to_string()),
+                Err(other) => ActorError::new(default_exit_code, format!("{}: {}", msg, other)),
+            },
+        }
+    }
+
+    /// Downcast a dynamic std Error into a fatal ActorError
+    pub fn downcast_fatal(error: Box<dyn StdError>, msg: &str) -> Self {
+        match error.downcast::<ActorError>() {
+            Ok(actor_err) => actor_err.wrap(msg),
+            Err(other) => match other.downcast::<EncodingError>() {
+                Ok(enc_error) => ActorError::new(ExitCode::ErrSerialization, enc_error.to_string()),
+                Err(other) => ActorError::new_fatal(format!("{}: {}", msg, other)),
+            },
         }
     }
 

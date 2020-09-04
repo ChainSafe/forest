@@ -37,7 +37,6 @@ pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<
 }
 
 pub(crate) fn read_cid(buf: &[u8]) -> Result<(Cid, u64), Error> {
-    // TODO: Add some checks for cid v0
     // TODO: Upgrade the Cid crate to read_cid using a BufReader
     let (version, buf) =
         unsigned_varint::decode::u64(buf).map_err(|e| Error::ParsingError(e.to_string()))?;

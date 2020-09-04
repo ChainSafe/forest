@@ -27,7 +27,7 @@ struct TestVec {
 
 #[test]
 fn signing_test() {
-    let mut file = File::open("../serialization-vectors/message_signing.json").unwrap();
+    let mut file = File::open("serialization-vectors/message_signing.json").unwrap();
     let mut string = String::new();
     file.read_to_string(&mut string).unwrap();
 

@@ -73,6 +73,9 @@ jobs:
         with:
           submodules: "recursive"
 
+      - name: Update apt repositories
+        run: sudo apt update
+
       - name: Install OpenCL
         run: sudo apt install ocl-icd-opencl-dev
 
