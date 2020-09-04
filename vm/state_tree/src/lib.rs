@@ -184,8 +184,7 @@ where
 
     /// Constructor for a hamt state tree given an IPLD store
     pub fn new_from_root(store: &'db S, root: &Cid) -> Result<Self, Box<dyn StdError>> {
-        let hamt =
-            Hamt::load_with_bit_width(root, store, HAMT_BIT_WIDTH).map_err(|e| e.to_string())?;
+        let hamt = Hamt::load_with_bit_width(root, store, HAMT_BIT_WIDTH)?;
         Ok(Self {
             hamt,
             snaps: StateSnapshots::new(),
@@ -250,8 +249,7 @@ where
         let state: init::State = self
             .hamt
             .store()
-            .get(&init_act.state)
-            .map_err(|e| e.to_string())?
+            .get(&init_act.state)?
             .ok_or("Could not resolve init actor state")?;
 
         let a: Address = match state
