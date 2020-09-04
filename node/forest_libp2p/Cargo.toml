@@ -23,8 +23,8 @@ fnv = "1.0.6"
 smallvec = "1.1.0"
 clock = { path = "../clock" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-libp2p-bitswap = "0.6"
-tiny-cid = "0.1.0"
+libp2p-bitswap = "=0.6.1"
+tiny-cid = "0.2.0"
 ipld_blockstore = { path = "../../ipld/blockstore" }
 async-trait = "0.1"
 
