@@ -137,8 +137,10 @@ where
 
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
-            .map_err(Error::Other)?;
-        let actor = state.get_actor(addr).map_err(Error::Other)?;
+            .map_err(|e| Error::Other(e.to_string()))?;
+        let actor = state
+            .get_actor(addr)
+            .map_err(|e| Error::Other(e.to_string()))?;
         actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
     }
 
@@ -203,9 +205,11 @@ where
     }
 
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
-        let state =
-            StateTree::new_from_root(self.db.as_ref(), ts.parent_state()).map_err(Error::Other)?;
-        let actor = state.get_actor(addr).map_err(Error::Other)?;
+        let state = StateTree::new_from_root(self.db.as_ref(), ts.parent_state())
+            .map_err(|e| Error::Other(e.to_string()))?;
+        let actor = state
+            .get_actor(addr)
+            .map_err(|e| Error::Other(e.to_string()))?;
         actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
     }
 
