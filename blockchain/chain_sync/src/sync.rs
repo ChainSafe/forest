@@ -294,8 +294,12 @@ where
                             self.state.write().await.set_epoch(curr_epoch);
 
                             // store messages
-                            self.chain_store.put_messages(&b.bls_msgs)?;
-                            self.chain_store.put_messages(&b.secp_msgs)?;
+                            if let Some(m) = b.messages {
+                                self.chain_store.put_messages(&m.bls_msgs)?;
+                                self.chain_store.put_messages(&m.secp_msgs)?;
+                            } else {
+                                warn!("Blocksync request for messages returned null messages");
+                            }
                         }
                     }
                     i -= REQUEST_WINDOW;
