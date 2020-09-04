@@ -4030,7 +4030,7 @@ dependencies = [
  "log",
  "lru",
  "rand 0.7.3",
- "smallvec",
+ "smallvec 1.4.2",
  "wasm-timer",
 ]
 
@@ -4884,9 +4884,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd20ff7e0399b274a5f5bb37b712fccb5b3a64b9128200d1c3cc40fe709cb073"
 dependencies = [
  "proc-macro-crate",
- "proc-macro2 1.0.20",
+ "proc-macro2 1.0.19",
  "quote 1.0.7",
- "syn 1.0.39",
+ "syn 1.0.38",
 ]
 
 [[package]]
