@@ -9,7 +9,6 @@ use chain::get_heaviest_tipset;
 use crypto::{signature::json::SignatureJson, SignatureType};
 use encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use log::warn;
 use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
