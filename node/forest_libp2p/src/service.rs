@@ -128,8 +128,8 @@ where
             warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
-        let (network_sender_in, network_receiver_in) = channel(200);
-        let (network_sender_out, network_receiver_out) = channel(200);
+        let (network_sender_in, network_receiver_in) = channel(20);
+        let (network_sender_out, network_receiver_out) = channel(20);
 
         Libp2pService {
             swarm,

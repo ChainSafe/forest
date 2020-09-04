@@ -293,7 +293,7 @@ where
                             self.validate_tipset(fts).await?;
                             self.state.write().await.set_epoch(curr_epoch);
 
-                            // store messagesc
+                            // store messages
                             if let Some(m) = b.messages {
                                 self.chain_store.put_messages(&m.bls_msgs)?;
                                 self.chain_store.put_messages(&m.secp_msgs)?;
