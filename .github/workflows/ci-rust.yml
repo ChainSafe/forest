@@ -116,6 +116,9 @@ jobs:
       - name: Install Rust
         run: rustup update beta && rustup default beta
 
+      - name: Update apt repositories
+        run: sudo apt update
+
       - name: Install OpenCL
         run: sudo apt install ocl-icd-opencl-dev
 
