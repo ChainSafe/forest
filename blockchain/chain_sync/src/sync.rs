@@ -550,7 +550,7 @@ where
                 None => {
                     let actor = tree
                         .get_actor(msg.from())
-                        .map_err(Error::Other)?
+                        .map_err(|e| Error::Other(e.to_string()))?
                         .ok_or_else(|| {
                             Error::Other("Could not retrieve actor from state tree".to_owned())
                         })?;

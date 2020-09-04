@@ -38,16 +38,14 @@ where
     let state = StateTree::new_from_root(data.state_manager.get_block_store_ref(), &cid)?;
     match state.get_actor(&address) {
         Ok(act) => {
-            let actor = act.ok_or("Could not find actor")?;
-            let actor_balance = actor.balance;
-            Ok(actor_balance.to_string())
-        }
-        Err(e) => {
-            if e == "Address not found" {
-                return Ok(BigUint::default().to_string());
+            if let Some(actor) = act {
+                let actor_balance = actor.balance;
+                Ok(actor_balance.to_string())
+            } else {
+                Ok(BigUint::default().to_string())
             }
-            Err(e.into())
         }
+        Err(e) => Err(e.into()),
     }
 }
 
