@@ -229,7 +229,7 @@ where
             self.state.write().await.error(e.to_string());
             return Err(e.into());
         }
-        ChainStore::put_tipset(&mut self.chain_store, &*head.clone()).await?;
+        ChainStore::put_tipset(&mut self.chain_store, head.as_ref()).await?;
         // Sync and validate messages from fetched tipsets
         self.set_stage(SyncStage::Messages).await;
         if let Err(e) = self.sync_messages_check_state(&tipsets).await {
