@@ -337,15 +337,19 @@ impl BlockHeader {
         {
             return Err(Error::Validation("Header was from the future".to_string()));
         }
-        const FIXED_BLOCK_DELAY: u64 = 45;
+        // TODO: This is a devnet param. When we start testing on other networks, we'll change it.
+        const FIXED_BLOCK_DELAY: u64 = 2;
         // check that it is appropriately delayed from its parents including null blocks
         if self.timestamp()
             < base_tipset.min_timestamp()
                 + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64
         {
-            return Err(Error::Validation(
-                "Header was generated too soon".to_string(),
-            ));
+            return Err(Error::Validation(format!(
+                "Header was generated too soon: timestamp: {}, max time: {}",
+                self.timestamp(),
+                base_tipset.min_timestamp()
+                    + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64
+            )));
         }
 
         Ok(())
@@ -417,6 +421,12 @@ impl BlockHeader {
             prev = &curr;
         }
         Ok(())
+    }
+    /// Serializes the header to bytes for signing purposes i.e. without the signature field
+    pub fn to_signing_bytes(&self) -> Result<Vec<u8>, String> {
+        let mut blk = self.clone();
+        blk.signature = None;
+        blk.marshal_cbor().map_err(|e| e.to_string())
     }
 }
 

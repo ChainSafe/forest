@@ -128,8 +128,8 @@ where
             warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
-        let (network_sender_in, network_receiver_in) = channel(20);
-        let (network_sender_out, network_receiver_out) = channel(20);
+        let (network_sender_in, network_receiver_in) = channel(30);
+        let (network_sender_out, network_receiver_out) = channel(30);
 
         Libp2pService {
             swarm,
@@ -193,7 +193,7 @@ where
                                 chain: vec![],
                                 status: 203,
                                 message: "handling requests not implemented".to_owned(),
-                            });
+                            }).await;
                         }
                         ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
                             debug!("Received blocksync response (id: {:?})", request_id);
@@ -253,6 +253,7 @@ where
                         }
                         NetworkMessage::BlockSyncRequest { peer_id, request, response_channel } => {
                             let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request));
+                            debug!("Sent BS Request with id: {:?}", id);
                             self.bs_request_table.insert(id, response_channel);
                         }
                     }

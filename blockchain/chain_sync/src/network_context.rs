@@ -56,7 +56,7 @@ impl SyncNetworkContext {
         let ts: Vec<Tipset> = bs_res.into_result()?;
         Ok(ts)
     }
-    /// Send a blocksync request for full tipsets (includes messages)
+    /// Send a blocksync request for a single full tipset (includes messages)
     pub async fn blocksync_fts(
         &mut self,
         peer_id: PeerId,

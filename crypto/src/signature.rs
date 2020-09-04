@@ -148,7 +148,10 @@ impl Signature {
         if verify(&sig, &[hashed], &[pk]) {
             Ok(())
         } else {
-            Err("bls signature verification failed".to_owned())
+            Err(format!(
+                "bls signature verification failed for addr: {}",
+                addr
+            ))
         }
     }
 
@@ -175,6 +178,9 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
     // If the number of public keys and data does not match, then return false
     if data.len() != pub_keys.len() {
         return false;
+    }
+    if data.is_empty() {
+        return true;
     }
 
     let sig = match BlsSignature::from_bytes(aggregate_sig.bytes()) {

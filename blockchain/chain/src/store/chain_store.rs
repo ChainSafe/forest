@@ -16,7 +16,7 @@ use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{info, warn};
+use log::{debug, info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -162,6 +162,15 @@ where
 
         for header in ts.into_blocks() {
             let (bls_messages, secp_messages) = block_messages(self.blockstore(), &header)?;
+            debug!(
+                "Fill Tipsets for header {:?} with bls_messages: {:?}",
+                header.cid(),
+                bls_messages
+                    .iter()
+                    .map(|b| b.cid().unwrap())
+                    .collect::<Vec<_>>()
+            );
+
             blocks.push(Block {
                 header,
                 bls_messages,
