@@ -99,8 +99,11 @@ where
         Ok(act)
     }
     pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
-        state.get_actor(addr).map_err(Error::State)
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
+            .map_err(|e| Error::State(e.to_string()))?;
+        state
+            .get_actor(addr)
+            .map_err(|e| Error::State(e.to_string()))
     }
 
     pub fn get_block_store(&self) -> Arc<DB> {
@@ -131,7 +134,8 @@ where
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
+            .map_err(|e| Error::State(e.to_string()))?;
         // Note: miner::State info likely to be changed to CID
         let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
@@ -531,11 +535,11 @@ where
             return Ok(None);
         }
         let state = StateTree::new_from_root(&*block_store, current.parent_state())
-            .map_err(Error::State)?;
+            .map_err(|e| Error::State(e.to_string()))?;
 
         if let Some(actor_state) = state
             .get_actor(message_from_address)
-            .map_err(Error::State)?
+            .map_err(|e| Error::State(e.to_string()))?
         {
             if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
                 return Ok(None);
@@ -742,7 +746,8 @@ where
         addr: &Address,
         state_cid: &Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state = StateTree::new_from_root(db.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(db.as_ref(), state_cid)
+            .map_err(|e| Error::State(e.to_string()))?;
         let kaddr = resolve_to_key_addr(&state, db.as_ref(), addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
@@ -771,8 +776,11 @@ where
     }
 
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())?;
-        state_tree.lookup_id(addr).map_err(Error::State)
+        let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())
+            .map_err(|e| e.to_string())?;
+        state_tree
+            .lookup_id(addr)
+            .map_err(|e| Error::State(e.to_string()))
     }
 
     pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
@@ -816,7 +824,8 @@ where
             _ => {}
         };
         let (st, _) = self.tipset_state(&ts).await?;
-        let state = StateTree::new_from_root(self.bs.as_ref(), &st).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), &st)
+            .map_err(|e| Error::State(e.to_string()))?;
 
         Ok(interpreter::resolve_to_key_addr(
             &state,

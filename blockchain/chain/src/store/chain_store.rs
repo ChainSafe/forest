@@ -503,7 +503,8 @@ where
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, BigInt> = HashMap::new();
-    let state = StateTree::new_from_root(db, ts.parent_state())?;
+    let state =
+        StateTree::new_from_root(db, ts.parent_state()).map_err(|e| Error::Other(e.to_string()))?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
@@ -516,7 +517,8 @@ where
             let from_address = message.from();
             if applied.contains_key(&from_address) {
                 let actor_state = state
-                    .get_actor(from_address)?
+                    .get_actor(from_address)
+                    .map_err(|e| Error::Other(e.to_string()))?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
                 balances.insert(*from_address, actor_state.balance);
@@ -587,8 +589,11 @@ where
     DB: BlockStore,
 {
     let mut tpow = BigInt::zero();
-    let state = StateTree::new_from_root(db, ts.parent_state())?;
-    if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
+    let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
+    if let Some(act) = state
+        .get_actor(&*STORAGE_POWER_ACTOR_ADDR)
+        .map_err(|e| e.to_string())?
+    {
         if let Some(state) = db
             .get::<PowerState>(&act.state)
             .map_err(|e| e.to_string())?
