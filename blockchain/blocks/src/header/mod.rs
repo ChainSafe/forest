@@ -422,6 +422,7 @@ impl BlockHeader {
         }
         Ok(())
     }
+    /// Serializes the header to bytes for signing purposes i.e. without the signature field
     pub fn to_signing_bytes(&self) -> Result<Vec<u8>, String> {
         let mut blk = self.clone();
         blk.signature = None;
