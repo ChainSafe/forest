@@ -166,7 +166,7 @@ where
                             topics,
                             message,
                         } => {
-                            debug!("Got a Gossip Message from {:?}", source);
+                            trace!("Got a Gossip Message from {:?}", source);
                             self.network_sender_out.send(NetworkEvent::PubsubMessage {
                                 source,
                                 topics,
@@ -181,7 +181,7 @@ where
                             }).await;
                         }
                         ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
-                            debug!("Received hello response (id: {:?}): {:?}", request_id, response);
+                            debug!("Received hello response (id: {:?})", request_id);
                             self.network_sender_out.send(NetworkEvent::HelloResponse {
                                 request_id,
                                 response,
@@ -201,7 +201,7 @@ where
 
                             if let Some(tx) = tx {
                                 if let Err(e) = tx.send(response) {
-                                    debug!("RPCResponse receive failed: {:?}", e)
+                                    debug!("RPCResponse receive failed")
                                 }
                             }
                             else {
@@ -284,11 +284,14 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
     let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&local_key)
         .expect("Noise key generation failed");
+    let mut yamux_config = yamux::Config::default();
+    yamux_config.set_max_buffer_size(1 << 20);
+    yamux_config.set_receive_window(1 << 20);
     transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(noise::NoiseConfig::xx(dh_keys).into_authenticated())
         .multiplex(core::upgrade::SelectUpgrade::new(
-            yamux::Config::default(),
+            yamux_config,
             mplex::MplexConfig::new(),
         ))
         .map(|(peer, muxer), _| (peer, core::muxing::StreamMuxerBox::new(muxer)))

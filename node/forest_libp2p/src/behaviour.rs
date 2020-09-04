@@ -29,13 +29,14 @@ use libp2p::swarm::{
 use libp2p::NetworkBehaviour;
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use libp2p_request_response::{
-    ProtocolSupport, RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage,
-    ResponseChannel,
+    ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
+    RequestResponseMessage, ResponseChannel,
 };
 use log::{debug, trace, warn};
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error;
+use std::time::Duration;
 use std::{task::Context, task::Poll};
 use tiny_cid::Cid as Cid2;
 
@@ -277,7 +278,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<BlockSyncRequest, BlockSy
                 peer, request_id, error
             ),
             RequestResponseEvent::InboundFailure { peer, error } => {
-                warn!("BlockSync onbound error (peer: {:?}): {:?}", peer, error)
+                warn!("BlockSync inbound error (peer: {:?}): {:?}", peer, error)
             }
         }
     }
@@ -342,6 +343,9 @@ impl ForestBehaviour {
         let hp = std::iter::once((HelloProtocolName, ProtocolSupport::Full));
         let bp = std::iter::once((BlockSyncProtocolName, ProtocolSupport::Full));
 
+        let mut req_res_config = RequestResponseConfig::default();
+        req_res_config.set_request_timeout(Duration::from_secs(20));
+
         ForestBehaviour {
             gossipsub: Gossipsub::new(MessageAuthenticity::Author(local_peer_id), gossipsub_config),
             mdns: mdns_opt.into(),
@@ -354,8 +358,8 @@ impl ForestBehaviour {
             ),
             kademlia: kademlia_opt.into(),
             bitswap,
-            hello: RequestResponse::new(HelloCodec, hp, Default::default()),
-            blocksync: RequestResponse::new(BlockSyncCodec, bp, Default::default()),
+            hello: RequestResponse::new(HelloCodec, hp, req_res_config.clone()),
+            blocksync: RequestResponse::new(BlockSyncCodec, bp, req_res_config),
             events: vec![],
             peers: Default::default(),
         }

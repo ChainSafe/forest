@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 utils = { path = "../utils" }
 libp2p = "0.24"
-libp2p-request-response = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "7ba76ccc03569a02a924d08ff9b6f62504e8bc51" }
+libp2p-request-response = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "73bb35927ae7e0ba91dc6a157c562f2810aa4052" }
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures_codec = "0.4.0"
