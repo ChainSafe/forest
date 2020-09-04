@@ -1,8 +1,11 @@
-use flo_stream::{Subscriber, Publisher, MessagePublisher};
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::Error;
 use cid::Cid;
+use flo_stream::{MessagePublisher, Publisher, Subscriber};
 
-//convert this to a trait to allow for different implementations
+// convert this to a trait to allow for different implementations
 pub struct MsgListeners {
     ps: Publisher<MsgCompleteEvt>,
     num_pubs: u64,
@@ -16,16 +19,24 @@ pub struct MsgCompleteEvt {
 
 impl MsgListeners {
     pub fn new() -> Self {
-        MsgListeners{ ps: Publisher::new(50), num_pubs: 0 }
+        MsgListeners {
+            ps: Publisher::new(50),
+            num_pubs: 0,
+        }
     }
 
-    pub async fn  subscribe(&mut self) -> Subscriber<MsgCompleteEvt> {
+    pub async fn subscribe(&mut self) -> Subscriber<MsgCompleteEvt> {
         self.ps.subscribe()
     }
 
     pub async fn fire_msg_complete(&mut self, mcid: Cid, err: Error) {
         self.num_pubs += 1;
-        self.ps.publish(MsgCompleteEvt{ mcid, err: err.to_string()}).await
+        self.ps
+            .publish(MsgCompleteEvt {
+                mcid,
+                err: err.to_string(),
+            })
+            .await
     }
 }
 
@@ -49,10 +60,13 @@ mod tests {
             let done = false;
             let cid = Cid::from_raw_cid("QmdmGQmRgRjazArukTbsXuuxmSHsMCcRYPAZoGhd6e3MuS").unwrap();
             let mut sub = ml.subscribe().await;
-            ml.fire_msg_complete(cid.clone(), Error::Other("this should not be an error".to_string())).await;
+            ml.fire_msg_complete(
+                cid.clone(),
+                Error::Other("this should not be an error".to_string()),
+            )
+            .await;
 
             assert_eq!(sub.next().await.unwrap().mcid, cid)
         })
-
     }
 }

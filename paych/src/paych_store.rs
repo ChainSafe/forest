@@ -29,19 +29,16 @@ pub struct VoucherInfo {
     pub proof: Vec<u8>,
 }
 
-// TODO handle serializing channelinfo default cid by adding logic where if the cid is default then return
-// TODO empty byte array
-
 /// ChannelInfo keeps track of information about a channel
 #[derive(Clone, Builder)]
 #[builder(name = "ChannelInfoBuilder")]
 pub struct ChannelInfo {
     /// id is a uuid that is created upon adding to the paychstore
     #[builder(default)]
-    id: String,
+    pub id: String,
     /// Channel address can only be None if the channel hasn't been created yet
     #[builder(default)]
-    channel: Option<Address>,
+    pub channel: Option<Address>,
     /// Address of the account that created the channel
     pub control: Address,
     /// Address of the account on the other side of the channel
@@ -61,21 +58,20 @@ pub struct ChannelInfo {
     /// has locally been added to the channel. It should reflect the channel's
     /// Balance on chain as long as all operations occur in the same datastore
     #[builder(default)]
-    amount: BigInt,
+    pub amount: BigInt,
     /// The amount that's awaiting confirmation
     #[builder(default)]
-    pending_amount: BigInt,
+    pub pending_amount: BigInt,
     /// The CID of a pending create message while waiting for confirmation
     #[builder(default)]
-    create_msg: Option<Cid>,
+    pub create_msg: Option<Cid>,
     /// The CID of a pending add funds message while waiting for confirmation
     #[builder(default)]
-    add_funds_msg: Option<Cid>,
+    pub add_funds_msg: Option<Cid>,
     /// indicates whether or not the channel has entered into the settling state
     #[builder(default)]
     pub settling: bool,
 }
-
 
 impl Serialize for ChannelInfo {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -147,7 +143,6 @@ impl ChannelInfo {
 
 #[derive(Clone)]
 pub struct PaychStore {
-    // use blockstore instead?
     ds: Arc<RwLock<HashMap<String, Vec<u8>>>>,
 }
 
@@ -191,12 +186,13 @@ impl PaychStore {
     }
 
     /// Track a ChannelInfo
-    pub async fn track_channel(&mut self, ch: ChannelInfo) -> Result<(), Error> {
-        match self
-            .get_channel_info(&ch.channel.ok_or_else(|| Error::NoAddress)?)
-            .await
-        {
-            Err(Error::ChannelNotTracked) => self.put_channel_info(ch).await,
+    pub async fn track_channel(&mut self, ch: ChannelInfo) -> Result<ChannelInfo, Error> {
+        let addr = ch.channel.ok_or_else(|| Error::NoAddress)?;
+        match self.by_address(addr).await {
+            Err(Error::ChannelNotTracked) => {
+                self.put_channel_info(ch.clone()).await?;
+                self.by_address(ch.channel.unwrap()).await
+            }
             Ok(_) => Err(Error::DupChannelTracking),
             Err(err) => Err(err),
         }
@@ -387,11 +383,9 @@ impl PaychStore {
     }
 
     /// Get channel info given channel ID
-    pub async fn by_change_id(&self, channel_id: String) -> Result<ChannelInfo, Error> {
+    pub async fn by_channel_id(&self, channel_id: &str) -> Result<ChannelInfo, Error> {
         let ds = self.ds.read().await;
-        let res = ds
-            .get(&channel_id)
-            .ok_or_else(|| Error::ChannelNotTracked)?;
+        let res = ds.get(channel_id).ok_or_else(|| Error::ChannelNotTracked)?;
         let ci = ChannelInfo::unmarshal_cbor(res)?;
         Ok(ci)
     }
@@ -440,7 +434,7 @@ fn key_for_msg(mcid: &Cid) -> String {
     return format!("{}/{}", DS_KEY_MSG_CID, mcid.to_string());
 }
 
-/// MsgInfo stores information about a create channel / add funds message that has been sent
+/// MsgInfo stores information about a created channel / add funds message that has been sent
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct MsgInfo {
     channel_id: String,
@@ -486,7 +480,7 @@ mod tests {
                         amount: Default::default(),
                         min_settle_height: 0,
                         merges: vec![],
-                        signature: None
+                        signature: None,
                     },
                     proof: Vec::new(),
                 }],
@@ -516,7 +510,7 @@ mod tests {
                         amount: Default::default(),
                         min_settle_height: 0,
                         merges: vec![],
-                        signature: None
+                        signature: None,
                     },
                     proof: Vec::new(),
                 }],
@@ -532,7 +526,7 @@ mod tests {
             };
 
             // Track channels
-            assert!(store.track_channel( ci1.clone()).await.is_ok());
+            assert!(store.track_channel(ci1.clone()).await.is_ok());
             assert!(store.track_channel(ci2).await.is_ok());
 
             // make sure that tracking a channel twice throws error
@@ -562,5 +556,77 @@ mod tests {
             //  Make sure that allocating a lane for non-existent channel will error
             assert!(store.allocate_lane(Address::new_id(300)).await.is_err())
         });
+    }
+
+    #[test]
+    fn test_channel_ser() {
+        let chan1 = Address::new_id(100);
+        let to1 = Address::new_id(101);
+        let to2 = Address::new_id(201);
+        let from1 = Address::new_id(102);
+        let from2 = Address::new_id(202);
+
+        let mut ci1 = ChannelInfo {
+            id: "".to_string(),
+            channel: Some(chan1.clone()),
+            vouchers: vec![VoucherInfo {
+                voucher: SignedVoucher {
+                    channel_addr: Address::new_id(1),
+                    time_lock_min: 0,
+                    time_lock_max: 0,
+                    secret_pre_image: vec![],
+                    extra: None,
+                    lane: 0,
+                    nonce: 0,
+                    amount: Default::default(),
+                    min_settle_height: 0,
+                    merges: vec![],
+                    signature: None,
+                },
+                proof: Vec::new(),
+            }],
+            direction: DIR_OUTBOUND,
+            next_lane: 0,
+            control: from1.clone(),
+            target: to1.clone(),
+            create_msg: None,
+            pending_amount: BigInt::default(),
+            amount: BigInt::default(),
+            add_funds_msg: None,
+            settling: false,
+        };
+
+        let ci1_ser = ci1.marshal_cbor().unwrap();
+        let ci1_unser = ChannelInfo::unmarshal_cbor(&ci1_ser).unwrap();
+
+        let mut ci1 = ChannelInfo {
+            id: "".to_string(),
+            channel: None,
+            vouchers: vec![VoucherInfo {
+                voucher: SignedVoucher {
+                    channel_addr: Address::new_id(1),
+                    time_lock_min: 0,
+                    time_lock_max: 0,
+                    secret_pre_image: vec![],
+                    extra: None,
+                    lane: 0,
+                    nonce: 0,
+                    amount: Default::default(),
+                    min_settle_height: 0,
+                    merges: vec![],
+                    signature: None,
+                },
+                proof: Vec::new(),
+            }],
+            direction: DIR_OUTBOUND,
+            next_lane: 0,
+            control: from1,
+            target: to1,
+            create_msg: None,
+            pending_amount: BigInt::default(),
+            amount: BigInt::default(),
+            add_funds_msg: None,
+            settling: false,
+        };
     }
 }

@@ -1,13 +1,16 @@
-use state_manager::StateManager;
-use super::{Error};
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+use super::Error;
+use crate::{ChannelInfo, DIR_INBOUND, DIR_OUTBOUND};
+use actor::account::State as AccountState;
 use actor::paych::State as PaychState;
 use actor::ActorState;
+use address::Address;
 use async_std::sync::{Arc, RwLock};
-use crate::{ChannelInfo, DIR_INBOUND, DIR_OUTBOUND};
 use blockstore::BlockStore;
 use cid::Cid;
-use address::Address;
-use actor::account::State as AccountState;
+use state_manager::StateManager;
 
 pub struct StateAccessor<DB> {
     pub sm: Arc<RwLock<StateManager<DB>>>,
@@ -15,7 +18,7 @@ pub struct StateAccessor<DB> {
 
 impl<DB> StateAccessor<DB>
 where
-DB: BlockStore
+    DB: BlockStore,
 {
     pub async fn load_paych_state(&self, ch: &Address) -> Result<(ActorState, PaychState), Error> {
         let sm = self.sm.read().await;
@@ -30,19 +33,8 @@ DB: BlockStore
         Ok((actor, state))
     }
 
-    // TODO make sure that this is correct
-    pub async fn next_lane_from_state(&self, st: PaychState) -> Result<u64, Error> {
+    pub async fn next_lane_from_state(&self, _st: PaychState) -> Result<u64, Error> {
         unimplemented!();
-        // if st.lane_states.len() == 0 {
-        //     return Ok(0);
-        // }
-        // let mut max_id = 0;
-        // for state in &st.lane_states {
-        //     if state.id > max_id {
-        //         max_id = state.id
-        //     }
-        // }
-        // return Ok(max_id + 1);
     }
 
     pub async fn load_state_channel_info(

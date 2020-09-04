@@ -22,6 +22,4 @@ flo_stream = "0.4.0"
 chain = { path = "../blockchain/chain"}
 message = { package = "forest_message", path = "../vm/message" }
 crypto = { package = "forest_crypto", path = "../crypto" }
-
-[dev-dependencies]
 futures = "0.3.5"

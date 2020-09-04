@@ -2,15 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ChannelInfo, Error, PaychStore, StateAccessor};
-use crate::{DIR_OUTBOUND, DIR_INBOUND, VoucherInfo, ChannelAccessor};
-use actor::account::State as AccountState;
-use actor::paych::{LaneState, State as PaychState, SignedVoucher};
-use actor::ActorState;
+use crate::{ChannelAccessor, PaychFundsRes, VoucherInfo, DIR_INBOUND};
+use actor::paych::SignedVoucher;
 use address::Address;
 use async_std::sync::{Arc, RwLock};
 use blockstore::BlockStore;
 use cid::Cid;
-use state_manager::StateManager;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 
@@ -18,12 +15,12 @@ use std::collections::HashMap;
 pub struct Manager<DB> {
     pub store: Arc<RwLock<PaychStore>>,
     pub sa: Arc<StateAccessor<DB>>,
-    pub channels: Arc<RwLock<HashMap<String, Arc<ChannelAccessor<DB>>>>>
+    pub channels: Arc<RwLock<HashMap<String, Arc<ChannelAccessor<DB>>>>>,
 }
 
 impl<DB> Manager<DB>
 where
-DB: BlockStore
+    DB: BlockStore,
 {
     pub fn new(sa: StateAccessor<DB>, store: PaychStore) -> Self {
         Manager {
@@ -33,72 +30,93 @@ DB: BlockStore
         }
     }
 
-    // TODO implement channel accessor stuff after finishing paych and simple
-
-    pub async fn track_inbound_channel(&mut self, ch: Address) -> Result<(), Error> {
-        self.track_channel(ch, DIR_INBOUND).await
-    }
-
-    pub async fn track_outbound_channel(&mut self, ch: Address) -> Result<(), Error> {
-        self.track_channel(ch, DIR_OUTBOUND).await
-    }
-
-    pub async fn track_channel(&mut self, ch: Address, direction: u8) -> Result<(), Error> {
+    pub async fn track_inbound_channel(&mut self, ch: Address) -> Result<ChannelInfo, Error> {
         let mut store = self.store.write().await;
-        let ci = self.sa.load_state_channel_info(ch, direction).await?;
-        store.track_channel(ci).await
+
+        // Check if channel is in store
+        let ci = store.by_address(ch).await;
+        match ci {
+            Ok(_) => return ci,
+            Err(err) => {
+                if err != Error::ChannelNotTracked {
+                    return Err(err);
+                }
+            }
+        }
+        let state_ci = self.sa.load_state_channel_info(ch, DIR_INBOUND).await?;
+        // TODO add ability to get channel from state
+        // TODO need to check if channel to address is in wallet
+        store.track_channel(state_ci).await
     }
 
-    pub async fn accessor_by_from_to(&self, from: Address, to: Address) -> Result<Arc<ChannelAccessor<DB>>, Error> {
-        let mut channels = self.channels.write().await;
+    pub async fn accessor_by_from_to(
+        &self,
+        from: Address,
+        to: Address,
+    ) -> Result<Arc<ChannelAccessor<DB>>, Error> {
+        let channels = self.channels.read().await;
         let key = accessor_cache_key(&from, &to);
 
         // check if channel accessor is in cache without taking write lock
         let op = channels.get(&key);
         if let Some(channel) = op {
-            return Ok(channel.clone())
+            return Ok(channel.clone());
         }
+        drop(channels);
 
         // channel accessor is not in cache so take a write lock, and create new entry in cache
         let mut channel_write = self.channels.write().await;
         let ca = ChannelAccessor::new(&self);
-        channel_write.insert(key.clone(), Arc::new(ca)).ok_or_else(|| Error::Other("insert new channel accesor".to_string()))?;
+        channel_write
+            .insert(key.clone(), Arc::new(ca))
+            .ok_or_else(|| Error::Other("insert new channel accesor".to_string()))?;
         let channel_check = self.channels.read().await;
         let op_locked = channel_check.get(&key);
         if let Some(channel) = op_locked {
-            return Ok(channel.clone())
+            return Ok(channel.clone());
         }
-        return Err(Error::Other("could not find channel accessor".to_owned()))
+        return Err(Error::Other("could not find channel accessor".to_owned()));
     }
 
     // Add a channel accessor to the cache. Note that the
     // channel may not have been created yet, but we still want to reference
     // the same channel accessor for a given from/to, so that all attempts to
     // access a channel use the same lock (the lock on the accessor)
-    pub async fn add_accessor_to_cache(&self, from: Address, to: Address) -> Result<Arc<ChannelAccessor<DB>>, Error> {
+    pub async fn add_accessor_to_cache(
+        &self,
+        from: Address,
+        to: Address,
+    ) -> Result<Arc<ChannelAccessor<DB>>, Error> {
         let key = accessor_cache_key(&from, &to);
         let ca = ChannelAccessor::new(&self);
         let mut channels = self.channels.write().await;
-        channels.insert(key, Arc::new(ca)).ok_or_else(|| Error::Other("inserting new channel accessor".to_string()))
+        channels
+            .insert(key, Arc::new(ca))
+            .ok_or_else(|| Error::Other("inserting new channel accessor".to_string()))
     }
 
-    pub async fn accessor_by_address(&self, ch: Address) -> Result<Arc<ChannelAccessor<DB>>, Error> {
+    pub async fn accessor_by_address(
+        &self,
+        ch: Address,
+    ) -> Result<Arc<ChannelAccessor<DB>>, Error> {
         let store = self.store.read().await;
         let ci = store.by_address(ch).await?;
         self.accessor_by_from_to(ci.control, ci.target).await
     }
 
-    // TODO implement when channel accessors are implemented
-    pub async fn get_paych(&self, from: Address, to: Address, amt: BigInt) -> Result<(Address, Cid), Error> {
+    pub async fn get_paych(
+        &self,
+        from: Address,
+        to: Address,
+        amt: BigInt,
+    ) -> Result<PaychFundsRes, Error> {
         let chan_accesor = self.accessor_by_from_to(from.clone(), to.clone()).await?;
-        unimplemented!()
-        // return chan_accesor.get_paych(from, to, amt)
+        return Ok(chan_accesor.get_paych(from, to, amt).await?);
     }
 
     // GetPaychWaitReady waits until the create channel / add funds message with the
     // given message CID arrives.
     // The returned channel address can safely be used against the Manager methods.
-    // TODO implement when channel accessors are implemented
     pub async fn get_paych_wait_ready(&self, _mcid: Cid) -> Result<Address, Error> {
         unimplemented!()
     }
@@ -108,66 +126,89 @@ DB: BlockStore
         store.list_channels().await
     }
 
-    /// TODO implement when channel accessors are implemented
-    pub async fn get_channel_info(&self, _addr: Address) -> Result<ChannelInfo, Error> {
-        unimplemented!()
+    pub async fn get_channel_info(&self, addr: Address) -> Result<ChannelInfo, Error> {
+        let ca = self.accessor_by_address(addr).await?;
+        ca.get_channel_info(&addr).await
     }
 
-    // TODO implement when channel accessors are implemented
-    pub async fn check_voucher_valid(&self, _ch: Address, _sv: SignedVoucher) -> Result<(), Error> {
-        unimplemented!()
+    // Check if the given voucher is valid (is or could become spendable at some point).
+    // If the channel is not in the store, fetches the channel from state (and checks that
+    // the channel To address is owned by the wallet).
+    pub async fn check_voucher_valid(
+        &mut self,
+        ch: Address,
+        sv: SignedVoucher,
+    ) -> Result<(), Error> {
+        let ca = self.inbound_channel_accessor(ch).await?;
+        let _ = ca.check_voucher_valid(ch, sv).await?;
+        Ok(())
     }
 
-    // TODO implement when channel accessors are implemented
-    pub async fn add_voucher(&self, _ch: Address, _sv: SignedVoucher, _proof: Vec<u8>, _min_delta: BigInt) -> Result<BigInt, Error> {
-        unimplemented!()
+    // Get an accessor for the given channel. The channel
+    // must either exist in the store, or be an inbound channel that can be created
+    // from state.
+    pub async fn inbound_channel_accessor(
+        &mut self,
+        ch: Address,
+    ) -> Result<Arc<ChannelAccessor<DB>>, Error> {
+        // Make sure channel is in store, or can be fetched from state, and that
+        // the channel To address is owned by the wallet
+        let ci = self.track_inbound_channel(ch).await?;
+
+        let from = ci.target.clone();
+        let to = ci.control.clone();
+
+        self.accessor_by_from_to(from, to).await
     }
 
-    // TODO implement when channel accessors are implemented
-    pub async fn allocate_lane(&self, _ch: Address) -> Result<u64, Error> {
-        unimplemented!()
+    pub async fn add_voucher_outbound(
+        &self,
+        ch: Address,
+        sv: SignedVoucher,
+        proof: Vec<u8>,
+        min_delta: BigInt,
+    ) -> Result<BigInt, Error> {
+        let ca = self.accessor_by_address(ch).await?;
+        ca.add_voucher(ch, sv, proof, min_delta).await
     }
 
-    // TODO implement when channel accessors are implemented
-    pub async fn list_vouchers(&self, _ch: Address) -> Result<Vec<VoucherInfo>, Error> {
-        unimplemented!()
+    pub async fn add_voucher_inbound(
+        &mut self,
+        ch: Address,
+        sv: SignedVoucher,
+        proof: Vec<u8>,
+        min_delta: BigInt,
+    ) -> Result<BigInt, Error> {
+        let ca = self.inbound_channel_accessor(ch).await?;
+        ca.add_voucher(ch, sv, proof, min_delta).await
     }
 
-    // TODO implement when channel accessors are implemented
-    pub async fn next_sequence_for_lane(&self, _ch: Address, _lane: u64) -> Result<u64, Error> {
-        unimplemented!()
+    pub async fn allocate_lane(&self, ch: Address) -> Result<u64, Error> {
+        let ca = self.accessor_by_address(ch).await?;
+        return ca.allocate_lane(ch).await;
     }
 
-    // TODO implement when channel accessors are implemented
-    pub async fn settle(&self, _addr: Address) -> Result<Cid, Error> {
-        unimplemented!()
+    pub async fn list_vouchers(&self, ch: Address) -> Result<Vec<VoucherInfo>, Error> {
+        let ca = self.accessor_by_address(ch).await?;
+        ca.list_vouchers(ch).await
     }
 
-    // TODO implement when channel accessors are implemented
-    pub async fn collect(&self, _addr: Address) -> Result<Cid, Error> {
-        unimplemented!()
+    pub async fn next_sequence_for_lane(&self, ch: Address, lane: u64) -> Result<u64, Error> {
+        let ca = self.accessor_by_address(ch).await?;
+        ca.next_sequence_for_lane(ch, lane).await
+    }
+
+    pub async fn settle(&self, addr: Address) -> Result<Cid, Error> {
+        let ca = self.accessor_by_address(addr).await?;
+        ca.settle(addr).await
+    }
+
+    pub async fn collect(&self, addr: Address) -> Result<Cid, Error> {
+        let ca = self.accessor_by_address(addr).await?;
+        ca.collect(addr).await
     }
 }
 
 fn accessor_cache_key(from: &Address, to: &Address) -> String {
     from.to_string() + "->" + &to.to_string()
 }
-
-// fn find_lane(states: Vec<LaneState>, lane: u64) -> Option<LaneState> {
-//     for lane_state in states.iter() {
-//         if lane_state.id == lane {
-//             return Some(lane_state.clone());
-//         }
-//     }
-//     None
-// }
-
-// pub fn max_lane_from_state(st: &PaychState) -> u64 {
-//     let mut max_lane = 0;
-//     for lane in st.lane_states.iter() {
-//         if max_lane < lane.id {
-//             max_lane = lane.id;
-//         }
-//     }
-//     max_lane
-// }

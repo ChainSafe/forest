@@ -5,7 +5,7 @@ use encoding::Error as CborError;
 use thiserror::Error;
 
 // Payment Channel Errors
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Error, Clone)]
 pub enum Error {
     #[error("Channel not tracked")]
     ChannelNotTracked,
@@ -22,7 +22,6 @@ pub enum Error {
     #[error("{0}")]
     Other(String),
 }
-
 impl From<CborError> for Error {
     fn from(e: CborError) -> Error {
         Error::Encoding(e.to_string())
