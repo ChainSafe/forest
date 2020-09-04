@@ -286,9 +286,8 @@ where
         if let Err(e) = self.state.clear_snapshot() {
             actor_error!(fatal("failed to clear snapshot: {}", e));
         }
-        let ret = ret?;
-
-        Ok(ret)
+        
+        Ok(ret?)
     }
 
     /// creates account actors from only BLS/SECP256K1 addresses.
