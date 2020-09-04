@@ -229,7 +229,6 @@ where
             self.state.write().await.error(e.to_string());
             return Err(e.into());
         }
-
         // Sync and validate messages from fetched tipsets
         self.set_stage(SyncStage::Messages).await;
         if let Err(e) = self.sync_messages_check_state(&tipsets).await {
@@ -247,7 +246,7 @@ where
     /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
     async fn sync_messages_check_state(&mut self, ts: &[Tipset]) -> Result<(), Error> {
         // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for request window size
-        const REQUEST_WINDOW: i64 = 200;
+        const REQUEST_WINDOW: i64 = 1;
         // TODO refactor type handling
         // set i to the length of provided tipsets
         let mut i: i64 = i64::try_from(ts.len())? - 1;
@@ -270,9 +269,13 @@ where
                         let idx = i - batch_size;
                         let next = &ts[idx as usize];
                         let req_len = batch_size + 1;
-
+                        debug!(
+                            "BlockSync message sync tipsets: epoch: {}, len: {}",
+                            next.epoch(),
+                            req_len
+                        );
                         // receive tipset bundle from block sync
-                        let ts_bundle = self
+                        let mut ts_bundle = match self
                             .network
                             .blocksync_request(
                                 peer_id,
@@ -282,9 +285,22 @@ where
                                     options: MESSAGES,
                                 },
                             )
-                            .await?;
-
-                        for b in ts_bundle.chain {
+                            .await
+                        {
+                            Ok(k) => k,
+                            Err(e) => {
+                                warn!("BlockSyncRequest for message failed: {}", e);
+                                continue;
+                            }
+                        }
+                        .chain;
+                        let mut ts_r = ts[(idx) as usize..(idx + 1 + req_len) as usize].to_vec();
+                        // since the bundle only has messages, we have to put the headers in them
+                        for b in ts_bundle.iter_mut() {
+                            let t = ts_r.pop().unwrap();
+                            b.blocks = t.blocks().to_vec();
+                        }
+                        for b in ts_bundle {
                             // construct full tipsets from fetched messages
                             let fts: FullTipset = (&b).try_into().map_err(Error::Other)?;
 
@@ -325,6 +341,7 @@ where
         if fts.blocks().is_empty() {
             return Err(Error::NoBlocks);
         }
+        // TODO: Check if tipset has height that is too far ahead to be possible
 
         for block in fts.blocks() {
             if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
@@ -334,6 +351,7 @@ where
             // validate message data
             self.validate_msg_meta(block)?;
         }
+        // TODO: Publish LocalIncoming blocks
 
         // compare target_weight to heaviest weight stored; ignore otherwise
         let best_weight = match self.chain_store.heaviest_tipset() {
@@ -507,9 +525,10 @@ where
                     .as_slice(),
                 &sig,
             ) {
-                return Err(Error::Validation(
-                    "Bls aggregate signature was invalid".to_owned(),
-                ));
+                return Err(Error::Validation(format!(
+                    "Bls aggregate signature {:?} was invalid: {:?}",
+                    sig, cids
+                )));
             }
         } else {
             return Err(Error::Validation(
@@ -568,7 +587,7 @@ where
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         let db = state_manager.get_block_store();
         let (state_root, _) = block_on(state_manager.tipset_state(&tip))
-            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
+            .map_err(|e| Error::Validation(format!("Could not update state: {}", e)))?;
         let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
             Error::Validation("Could not load from new state root in state manager".to_owned())
         })?;
@@ -595,6 +614,11 @@ where
 
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     async fn validate(&self, block: &Block) -> Result<(), Error> {
+        debug!(
+            "Validating block at epoch: {} with weight: {}",
+            block.header().epoch(),
+            block.header().weight()
+        );
         let mut error_vec: Vec<String> = Vec::new();
         let mut validations = FuturesUnordered::new();
         let header = block.header();
@@ -624,14 +648,14 @@ where
             .state_manager
             .tipset_state(&parent_tipset)
             .await
-            .map_err(|_| Error::Validation("Could not update state".to_owned()))?;
+            .map_err(|e| Error::Validation(format!("Could not update state: {}", e.to_string())))?;
         let work_addr_result = self
             .state_manager
             .get_miner_work_addr(&state_root, header.miner_address());
 
         // temp header needs to live long enough in static context returned by task::spawn
         let signature = block.header().signature().clone();
-        let cid_bytes = block.header().cid().to_bytes().clone();
+        let cid_bytes = block.header().to_signing_bytes()?;
         match work_addr_result {
             Ok(_) => validations.push(task::spawn_blocking(move || {
                 signature
@@ -712,16 +736,21 @@ where
     /// validates tipsets and adds header data to tipset tracker
     async fn validate_tipset(&mut self, fts: FullTipset) -> Result<(), Error> {
         if fts.to_tipset() == self.genesis {
+            debug!("Skipping tipset validation for genesis");
             return Ok(());
         }
 
         for b in fts.blocks() {
             if let Err(e) = self.validate(&b).await {
                 self.bad_blocks.put(b.cid().clone(), e.to_string()).await;
-                return Err(Error::Other("Invalid blocks detected".to_string()));
+                return Err(Error::Other(format!(
+                    "Invalid blocks detected: {}",
+                    e.to_string()
+                )));
             }
             self.chain_store.set_tipset_tracker(b.header())?;
         }
+        info!("Successfully validated tipset at epoch: {}", fts.epoch());
         Ok(())
     }
 
@@ -843,8 +872,9 @@ where
             }
 
             // TODO tweak request window when socket frame is tested
-            const REQUEST_WINDOW: i64 = 5;
+            const REQUEST_WINDOW: i64 = 30;
             let epoch_diff = cur_ts.epoch() - to_epoch;
+            debug!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);
 
             let peer_id = self.get_peer().await;
@@ -862,6 +892,11 @@ where
                     continue;
                 }
             };
+            info!(
+                "Got tipsets: Height: {}, Len: {}",
+                tipsets[0].epoch(),
+                tipsets.len()
+            );
 
             // Loop through each tipset received from network
             for ts in tipsets {
@@ -887,6 +922,7 @@ where
 
         // Check if local chain was fork
         if last_ts.key() != to.key() {
+            info!("Local chain was fork. Syncing fork...");
             if last_ts.parents() == to.parents() {
                 // block received part of same tipset as best block
                 // This removes need to sync fork
@@ -894,9 +930,10 @@ where
             }
             // add fork into return set
             let fork = self.sync_fork(&last_ts, &to).await?;
+            info!("Fork Synced");
             return_set.extend(fork);
         }
-
+        info!("Sync Header reverse complete");
         Ok(return_set)
     }
     /// checks to see if tipset is included in bad clocks cache
