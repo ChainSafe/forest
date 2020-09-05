@@ -10,14 +10,13 @@ use actor::{
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
-use blocks::FullTipset;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::{DevnetParams, NetworkParams};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
-use message::{Message, MessageReceipt, UnsignedMessage};
+use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use runtime::Syscalls;
@@ -30,6 +29,14 @@ use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
+
+#[derive(Debug)]
+pub struct BlockMessages {
+    pub miner: Address,
+    pub bls_messages: Vec<UnsignedMessage>,
+    pub secpk_messages: Vec<SignedMessage>,
+    pub win_count: i64,
+}
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
@@ -59,7 +66,7 @@ where
         rand: &'r R,
         base_fee: BigInt,
     ) -> Result<Self, String> {
-        let state = StateTree::new_from_root(store, root)?;
+        let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         Ok(VM {
             state,
@@ -85,7 +92,7 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> Result<Cid, String> {
-        self.state.flush()
+        self.state.flush().map_err(|e| e.to_string())
     }
 
     /// Returns ChainEpoch
@@ -97,94 +104,12 @@ where
         &self.state
     }
 
-    /// Apply all messages from a tipset
-    /// Returns the receipts from the transactions.
-    pub fn apply_tipset_messages(
+    fn run_cron(
         &mut self,
-        tipset: &FullTipset,
-        mut callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
-    ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
-        let mut receipts = Vec::new();
-        let mut processed = HashSet::<Cid>::default();
-
-        for block in tipset.blocks() {
-            let mut penalty = BigInt::zero();
-            let mut gas_reward = BigInt::zero();
-
-            let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
-                let cid = msg.cid()?;
-                // Ensure no duplicate processing of a message
-                if processed.contains(&cid) {
-                    return Ok(());
-                }
-                let ret = self.apply_message(msg)?;
-
-                // Update totals
-                gas_reward += ret.miner_tip;
-                penalty += ret.penalty;
-                receipts.push(ret.msg_receipt);
-
-                // Add callback here if needed in future
-
-                // Add processed Cid to set of processed messages
-                processed.insert(cid);
-                Ok(())
-            };
-
-            for msg in block.bls_msgs() {
-                process_msg(msg)?;
-            }
-            for msg in block.secp_msgs() {
-                process_msg(msg.message())?;
-            }
-
-            // Generate reward transaction for the miner of the block
-            let params = Serialized::serialize(reward::AwardBlockRewardParams {
-                miner: *block.header().miner_address(),
-                penalty,
-                gas_reward,
-                // TODO revisit this if/when removed from go clients
-                win_count: 1,
-            })?;
-
-            // TODO change this just just one get and update sequence in memory after interop
-            let sys_act = self
-                .state
-                .get_actor(&*SYSTEM_ACTOR_ADDR)?
-                .ok_or_else(|| "Failed to query system actor".to_string())?;
-
-            let rew_msg = UnsignedMessage {
-                from: *SYSTEM_ACTOR_ADDR,
-                to: *REWARD_ACTOR_ADDR,
-                method_num: reward::Method::AwardBlockReward as u64,
-                params,
-                sequence: sys_act.sequence,
-                gas_limit: 1 << 30,
-                value: Default::default(),
-                version: Default::default(),
-                gas_fee_cap: Default::default(),
-                gas_premium: Default::default(),
-            };
-
-            // TODO revisit this ApplyRet structure, doesn't match go logic 1:1 and can be cleaner
-            let ret = self.apply_implicit_message(&rew_msg);
-            if let Some(err) = ret.act_error {
-                return Err(format!(
-                    "failed to apply reward message for miner {}: {}",
-                    block.header().miner_address(),
-                    err
-                )
-                .into());
-            }
-
-            if let Some(callback) = &mut callback {
-                callback(rew_msg.cid()?, rew_msg, ret)?;
-            }
-        }
-
-        // TODO same as above, unnecessary state retrieval
+        callback: Option<&mut impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+    ) -> Result<(), Box<dyn StdError>> {
         let sys_act = self
-            .state
+            .state()
             .get_actor(&*SYSTEM_ACTOR_ADDR)?
             .ok_or_else(|| "Failed to query system actor".to_string())?;
 
@@ -206,9 +131,113 @@ where
             return Err(format!("failed to apply block cron message: {}", err).into());
         }
 
-        if let Some(mut callback) = callback {
+        if let Some(callback) = callback {
             callback(cron_msg.cid()?, cron_msg, ret)?;
         }
+        Ok(())
+    }
+
+    /// Apply block messages from a Tipset.
+    /// Returns the receipts from the transactions.
+    pub fn apply_block_messages(
+        &mut self,
+        messages: &[BlockMessages],
+        parent_epoch: ChainEpoch,
+        epoch: ChainEpoch,
+        mut callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+    ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
+        let mut receipts = Vec::new();
+        let mut processed = HashSet::<Cid>::default();
+
+        for i in parent_epoch..epoch {
+            if i > parent_epoch {
+                self.run_cron(callback.as_mut())?;
+            }
+            self.epoch = i + 1;
+        }
+
+        for block in messages.iter() {
+            let mut penalty = Default::default();
+            let mut gas_reward = Default::default();
+
+            let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
+                let cid = msg.cid()?;
+                // Ensure no duplicate processing of a message
+                if processed.contains(&cid) {
+                    return Ok(());
+                }
+                let ret = self.apply_message(msg)?;
+                if let Some(cb) = &mut callback {
+                    cb(msg.cid()?, msg.clone(), ret.clone())?;
+                }
+
+                // Update totals
+                gas_reward += &ret.miner_tip;
+                penalty += &ret.penalty;
+                receipts.push(ret.msg_receipt);
+
+                // Add processed Cid to set of processed messages
+                processed.insert(cid);
+                Ok(())
+            };
+
+            for msg in &block.bls_messages {
+                process_msg(msg)?;
+            }
+            for msg in &block.secpk_messages {
+                process_msg(msg.message())?;
+            }
+
+            // Generate reward transaction for the miner of the block
+            let params = Serialized::serialize(reward::AwardBlockRewardParams {
+                miner: block.miner,
+                penalty,
+                gas_reward,
+                win_count: block.win_count,
+            })?;
+
+            let sys_act = self
+                .state()
+                .get_actor(&*SYSTEM_ACTOR_ADDR)?
+                .ok_or_else(|| "Failed to query system actor".to_string())?;
+
+            let rew_msg = UnsignedMessage {
+                from: *SYSTEM_ACTOR_ADDR,
+                to: *REWARD_ACTOR_ADDR,
+                method_num: reward::Method::AwardBlockReward as u64,
+                params,
+                sequence: sys_act.sequence,
+                gas_limit: 1 << 30,
+                value: Default::default(),
+                version: Default::default(),
+                gas_fee_cap: Default::default(),
+                gas_premium: Default::default(),
+            };
+
+            let ret = self.apply_implicit_message(&rew_msg);
+            if let Some(err) = ret.act_error {
+                return Err(format!(
+                    "failed to apply reward message for miner {}: {}",
+                    block.miner, err
+                )
+                .into());
+            }
+
+            // This is more of a sanity check, this should not be able to be hit.
+            if ret.msg_receipt.exit_code != ExitCode::Ok {
+                return Err(format!(
+                    "reward application message failed (exit: {:?})",
+                    ret.msg_receipt.exit_code
+                )
+                .into());
+            }
+
+            if let Some(callback) = &mut callback {
+                callback(rew_msg.cid()?, rew_msg, ret)?;
+            }
+        }
+
+        self.run_cron(callback.as_mut())?;
         Ok(receipts)
     }
 
@@ -218,14 +247,14 @@ where
         ApplyRet {
             msg_receipt: MessageReceipt {
                 return_data,
-                exit_code: if let Some(err) = act_err {
+                exit_code: if let Some(err) = &act_err {
                     err.exit_code()
                 } else {
                     ExitCode::Ok
                 },
                 gas_used: 0,
             },
-            act_error: None,
+            act_error: act_err,
             penalty: BigInt::zero(),
             miner_tip: BigInt::zero(),
         }
@@ -314,13 +343,15 @@ where
             });
         };
 
-        self.state.mutate_actor(msg.from(), |act| {
-            act.deduct_funds(&gas_cost)?;
-            act.sequence += 1;
-            Ok(())
-        })?;
+        self.state
+            .mutate_actor(msg.from(), |act| {
+                act.deduct_funds(&gas_cost)?;
+                act.sequence += 1;
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
 
-        let snapshot = self.state.snapshot()?;
+        self.state.snapshot().map_err(|e| e.to_string())?;
 
         let (mut ret_data, rt, mut act_err) = self.send(msg, Some(msg_gas_cost));
         if let Some(err) = &act_err {
@@ -372,7 +403,7 @@ where
         let err_code = if let Some(err) = &act_err {
             if !err.is_ok() {
                 // Revert all state changes on error.
-                self.state.revert_to_snapshot(&snapshot)?;
+                self.state.revert_to_snapshot().map_err(|e| e.to_string())?;
             }
             err.exit_code()
         } else {
@@ -398,10 +429,12 @@ where
             if amt.sign() == Sign::Minus {
                 return Err("attempted to transfer negative value into actor".into());
             }
-            self.state.mutate_actor(addr, |act| {
-                act.deposit_funds(&amt);
-                Ok(())
-            })?;
+            self.state
+                .mutate_actor(addr, |act| {
+                    act.deposit_funds(&amt);
+                    Ok(())
+                })
+                .map_err(|e| e.to_string())?;
             Ok(())
         };
 
@@ -417,6 +450,7 @@ where
         if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
             return Err("Gas handling math is wrong".to_owned());
         }
+        self.state.clear_snapshot().map_err(|e| e.to_string())?;
 
         Ok(ApplyRet {
             msg_receipt: MessageReceipt {
@@ -429,6 +463,7 @@ where
             miner_tip,
         })
     }
+
     /// Instantiates a new Runtime, and calls vm_send to do the execution.
     #[allow(clippy::type_complexity)]
     fn send(
@@ -538,7 +573,7 @@ pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i
 }
 
 /// Apply message return data
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ApplyRet {
     pub msg_receipt: MessageReceipt,
     pub act_error: Option<ActorError>,

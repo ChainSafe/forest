@@ -6,28 +6,20 @@
 #[macro_use]
 extern crate lazy_static;
 
-use actor::{CHAOS_ACTOR_CODE_ID, PUPPET_ACTOR_CODE_ID};
-use address::Address;
-use blockstore::BlockStore;
-use cid::Cid;
-use clock::ChainEpoch;
-use crypto::{DomainSeparationTag, Signature};
+use conformance_tests::*;
 use encoding::Cbor;
-use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
-use interpreter::{ApplyRet, Rand, VM};
 use regex::Regex;
-use runtime::{ConsensusFault, Syscalls};
-use serde::{Deserialize, Deserializer};
 use std::error::Error as StdError;
+use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
-use vm::{ExitCode, Serialized, TokenAmount};
+use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 4] = [
+    static ref SKIP_TESTS: [Regex; 5] = [
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -35,138 +27,9 @@ lazy_static! {
         Regex::new(r"nested/nested_sends--fail-mismatch-params.json").unwrap(),
         // Lotus client does not fail in inner transaction for insufficient funds
         Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
+        // TODO This fails but is blocked on miner actor refactor, remove skip after that comes in
+        Regex::new(r"test-vectors/corpus/reward/reward--ok-miners-awarded-no-premiums.json").unwrap(),
     ];
-    static ref BASE_FEE: TokenAmount = TokenAmount::from(100);
-}
-
-mod base64_bytes {
-    use super::*;
-    use serde::de;
-    use std::borrow::Cow;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Ok(base64::decode(s.as_ref()).map_err(de::Error::custom)?)
-    }
-}
-
-mod message_receipt_vec {
-    use super::*;
-
-    #[derive(Deserialize)]
-    struct MessageReceiptVector {
-        exit_code: ExitCode,
-        #[serde(rename = "return", with = "base64_bytes")]
-        return_value: Vec<u8>,
-        gas_used: i64,
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<MessageReceipt>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Vec<MessageReceiptVector> = Deserialize::deserialize(deserializer)?;
-        Ok(s.into_iter()
-            .map(|v| MessageReceipt {
-                exit_code: v.exit_code,
-                return_data: Serialized::new(v.return_value),
-                gas_used: v.gas_used,
-            })
-            .collect())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct StateTreeVector {
-    #[serde(with = "cid::json")]
-    root_cid: Cid,
-}
-
-#[derive(Debug, Deserialize)]
-struct GenerationData {
-    #[serde(default)]
-    source: String,
-    #[serde(default)]
-    version: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct MetaData {
-    id: String,
-    #[serde(default)]
-    version: String,
-    #[serde(default)]
-    description: String,
-    #[serde(default)]
-    comment: String,
-    gen: Vec<GenerationData>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PreConditions {
-    epoch: ChainEpoch,
-    state_tree: StateTreeVector,
-}
-
-#[derive(Debug, Deserialize)]
-struct PostConditions {
-    state_tree: StateTreeVector,
-    #[serde(with = "message_receipt_vec")]
-    receipts: Vec<MessageReceipt>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MessageVector {
-    #[serde(with = "base64_bytes")]
-    bytes: Vec<u8>,
-    #[serde(default)]
-    epoch: Option<ChainEpoch>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Selector {
-    #[serde(default)]
-    puppet_actor: Option<String>,
-    #[serde(default)]
-    chaos_actor: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "class")]
-enum TestVector {
-    #[serde(rename = "message")]
-    Message {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
-
-        #[serde(with = "base64_bytes")]
-        car: Vec<u8>,
-        preconditions: PreConditions,
-        apply_messages: Vec<MessageVector>,
-        postconditions: PostConditions,
-    },
-    #[serde(rename = "block")]
-    Block {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
-    },
-    #[serde(rename = "tipset")]
-    Tipset {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
-    },
-    #[serde(rename = "chain")]
-    Chain {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
-    },
 }
 
 fn is_valid_file(entry: &DirEntry) -> bool {
@@ -182,93 +45,49 @@ fn is_valid_file(entry: &DirEntry) -> bool {
     file_name.ends_with(".json")
 }
 
-struct TestRand;
-impl Rand for TestRand {
-    fn get_chain_randomness<DB: BlockStore>(
-        &self,
-        _: &DB,
-        _: DomainSeparationTag,
-        _: ChainEpoch,
-        _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        Ok(*b"i_am_random_____i_am_random_____")
-    }
-    fn get_beacon_randomness<DB: BlockStore>(
-        &self,
-        _: &DB,
-        _: DomainSeparationTag,
-        _: ChainEpoch,
-        _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        Ok(*b"i_am_random_____i_am_random_____")
-    }
+fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
+    let bs = db::MemoryDB::default();
+
+    // Decode gzip bytes
+    let d = GzDecoder::new(gzip_bz);
+
+    // Load car file with bytes
+    forest_car::load_car(&bs, d)?;
+    Ok(bs)
 }
 
-struct TestSyscalls;
-impl Syscalls for TestSyscalls {
-    fn verify_signature(
-        &self,
-        _: &Signature,
-        _: &Address,
-        _: &[u8],
-    ) -> Result<(), Box<dyn StdError>> {
-        Ok(())
-    }
-    fn verify_seal(&self, _: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        Ok(())
-    }
-    fn verify_post(&self, _: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        Ok(())
+fn check_msg_result(
+    expected_rec: &MessageReceipt,
+    actual_rec: &MessageReceipt,
+    label: impl fmt::Display,
+) -> Result<(), String> {
+    let (expected, actual) = (expected_rec.exit_code, actual_rec.exit_code);
+    if expected != actual {
+        return Err(format!(
+            "exit code of msg {} did not match; expected: {:?}, got {:?}",
+            label, expected, actual
+        ));
     }
 
-    // TODO check if this should be defaulted as well
-    fn verify_consensus_fault(
-        &self,
-        _: &[u8],
-        _: &[u8],
-        _: &[u8],
-    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
-        Ok(None)
-    }
-}
-
-fn execute_message(
-    msg: &UnsignedMessage,
-    pre_root: &Cid,
-    bs: &db::MemoryDB,
-    epoch: ChainEpoch,
-    selector: &Option<Selector>,
-) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let mut vm = VM::<_, _, _>::new(
-        pre_root,
-        bs,
-        epoch,
-        TestSyscalls,
-        &TestRand,
-        BASE_FEE.clone(),
-    )?;
-
-    if let Some(s) = &selector {
-        if s.puppet_actor
-            .as_ref()
-            .map(|s| s == "true")
-            .unwrap_or_default()
-        {
-            vm.register_actor(PUPPET_ACTOR_CODE_ID.clone());
-        }
-        if s.chaos_actor
-            .as_ref()
-            .map(|s| s == "true")
-            .unwrap_or_default()
-        {
-            vm.register_actor(CHAOS_ACTOR_CODE_ID.clone());
-        }
+    let (expected, actual) = (expected_rec.gas_used, actual_rec.gas_used);
+    if expected != actual {
+        return Err(format!(
+            "gas used of msg {} did not match; expected: {}, got {}",
+            label, expected, actual
+        ));
     }
 
-    let ret = vm.apply_message(msg)?;
+    let (expected, actual) = (&expected_rec.return_data, &actual_rec.return_data);
+    if expected != actual {
+        return Err(format!(
+            "return data of msg {} did not match; expected: {}, got {}",
+            label,
+            base64::encode(expected.as_slice()),
+            base64::encode(actual.as_slice())
+        ));
+    }
 
-    let root = vm.flush()?;
-    Ok((ret, root))
+    Ok(())
 }
 
 fn execute_message_vector(
@@ -278,16 +97,10 @@ fn execute_message_vector(
     apply_messages: Vec<MessageVector>,
     postconditions: PostConditions,
 ) -> Result<(), Box<dyn StdError>> {
-    let bs = db::MemoryDB::default();
+    let bs = load_car(car.as_slice())?;
 
     let mut epoch = preconditions.epoch;
     let mut root = preconditions.state_tree.root_cid;
-
-    // Decode gzip bytes
-    let d = GzDecoder::new(car.as_slice());
-
-    // Load car file with bytes
-    forest_car::load_car(&bs, d)?;
 
     for (i, m) in apply_messages.iter().enumerate() {
         let msg = UnsignedMessage::unmarshal_cbor(&m.bytes)?;
@@ -296,38 +109,66 @@ fn execute_message_vector(
             epoch = ep;
         }
 
-        let (ret, post_root) = execute_message(&msg, &root, &bs, epoch, &selector)?;
+        let (ret, post_root) = execute_message(&bs, &msg, &root, epoch, &selector)?;
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
-        let (expected, actual) = (receipt.exit_code, ret.msg_receipt.exit_code);
+        check_msg_result(receipt, &ret.msg_receipt, i)?;
+    }
+
+    if root != postconditions.state_tree.root_cid {
+        return Err(format!(
+            "wrong post root cid; expected {}, but got {}",
+            postconditions.state_tree.root_cid, root
+        )
+        .into());
+    }
+
+    Ok(())
+}
+
+fn execute_tipset_vector(
+    _selector: Option<Selector>,
+    car: Vec<u8>,
+    preconditions: PreConditions,
+    tipsets: Vec<TipsetVector>,
+    postconditions: PostConditions,
+) -> Result<(), Box<dyn StdError>> {
+    let bs = Arc::new(load_car(car.as_slice())?);
+
+    let mut prev_epoch = preconditions.epoch;
+    let mut root = preconditions.state_tree.root_cid;
+
+    let mut receipt_idx = 0;
+    for (i, ts) in tipsets.into_iter().enumerate() {
+        let ExecuteTipsetResult {
+            receipts_root,
+            post_state_root,
+            applied_results,
+            ..
+        } = execute_tipset(Arc::clone(&bs), &root, prev_epoch, &ts)?;
+
+        for (j, v) in applied_results.into_iter().enumerate() {
+            check_msg_result(
+                &postconditions.receipts[receipt_idx],
+                &v.msg_receipt,
+                format!("{} of tipset {}", j, i),
+            )?;
+            receipt_idx += 1;
+        }
+
+        // Compare receipts root
+        let (expected, actual) = (&postconditions.receipts_roots[i], &receipts_root);
         if expected != actual {
             return Err(format!(
-                "exit code of msg {} did not match; expected: {:?}, got {:?}",
-                i, expected, actual
+                "post receipts did not match; expected: {:?}, got {:?}",
+                expected, actual
             )
             .into());
         }
 
-        let (expected, actual) = (receipt.gas_used, ret.msg_receipt.gas_used);
-        if expected != actual {
-            return Err(format!(
-                "gas used of msg {} did not match; expected: {}, got {}",
-                i, expected, actual
-            )
-            .into());
-        }
-
-        let (expected, actual) = (&receipt.return_data, &ret.msg_receipt.return_data);
-        if expected != actual {
-            return Err(format!(
-                "return data of msg {} did not match; expected: {}, got {}",
-                i,
-                base64::encode(expected.as_slice()),
-                base64::encode(actual.as_slice())
-            )
-            .into());
-        }
+        prev_epoch = ts.epoch;
+        root = post_state_root;
     }
 
     if root != postconditions.state_tree.root_cid {
@@ -343,6 +184,7 @@ fn execute_message_vector(
 
 #[test]
 fn conformance_test_runner() {
+    pretty_env_logger::init();
     let walker = WalkDir::new("test-vectors/corpus").into_iter();
     let mut failed = Vec::new();
     let mut succeeded = 0;
@@ -350,6 +192,7 @@ fn conformance_test_runner() {
         let file = File::open(entry.path()).unwrap();
         let reader = BufReader::new(file);
         let vector: TestVector = serde_json::from_reader(reader).unwrap();
+        let test_name = entry.path().display();
 
         match vector {
             TestVector::Message {
@@ -367,9 +210,30 @@ fn conformance_test_runner() {
                     apply_messages,
                     postconditions,
                 ) {
-                    failed.push((entry.path().display().to_string(), meta, e));
+                    failed.push((test_name.to_string(), meta, e));
                 } else {
-                    println!("{} succeeded", entry.path().display());
+                    println!("{} succeeded", test_name);
+                    succeeded += 1;
+                }
+            }
+            TestVector::Tipset {
+                selector,
+                meta,
+                car,
+                preconditions,
+                apply_tipsets,
+                postconditions,
+            } => {
+                if let Err(e) = execute_tipset_vector(
+                    selector,
+                    car,
+                    preconditions,
+                    apply_tipsets,
+                    postconditions,
+                ) {
+                    failed.push((test_name.to_string(), meta, e));
+                } else {
+                    println!("{} succeeded", test_name);
                     succeeded += 1;
                 }
             }

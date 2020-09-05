@@ -9,4 +9,5 @@ config*.toml
 *.orig
 criterion
 genesis.json
+/.cargo
 
