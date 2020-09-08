@@ -82,6 +82,17 @@ impl SyncBucketSet {
             .filter_map(SyncBucket::heaviest_tipset)
             .max_by(|ts1, ts2| ts1.weight().cmp(ts2.weight()))
     }
+
+    /// Returns true if tipset is related to any tipset in the bucket set.
+    pub(crate) fn related_to_any(&self, ts: &Tipset) -> bool {
+        for b in self.buckets.iter() {
+            if b.is_same_chain_as(ts) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Returns a vector of SyncBuckets
     pub(crate) fn buckets(&self) -> &[SyncBucket] {
         &self.buckets

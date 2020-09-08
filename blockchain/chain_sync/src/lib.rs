@@ -9,6 +9,7 @@ mod network_handler;
 mod peer_manager;
 mod sync;
 mod sync_state;
+mod sync_worker;
 
 // workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
 extern crate serde;

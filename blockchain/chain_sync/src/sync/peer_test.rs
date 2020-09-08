@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use address::Address;
 use async_std::sync::channel;
 use async_std::task;
 use beacon::MockBeacon;
@@ -43,7 +44,7 @@ fn peer_manager_update() {
     let peer_manager = Arc::clone(&cs.peer_manager);
 
     task::spawn(async {
-        cs.start().await.unwrap();
+        cs.start().await;
     });
 
     let source = PeerId::random();

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::RpcState;
+use async_std::sync::RwLock;
 use blocks::gossip_block::json::GossipBlockJson;
 use blockstore::BlockStore;
 use chain_sync::SyncState;
@@ -10,6 +11,7 @@ use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use serde::Serialize;
+use std::sync::Arc;
 use wallet::KeyStore;
 
 #[derive(Serialize)]
@@ -49,6 +51,14 @@ where
 
 // TODO SyncIncomingBlocks (requires websockets)
 
+async fn clone_state(states: &RwLock<Vec<Arc<RwLock<SyncState>>>>) -> Vec<SyncState> {
+    let mut ret = Vec::new();
+    for s in states.read().await.iter() {
+        ret.push(s.read().await.clone());
+    }
+    ret
+}
+
 /// Returns the current status of the ChainSync process.
 pub(crate) async fn sync_state<DB, KS>(
     data: Data<RpcState<DB, KS>>,
@@ -57,10 +67,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let state = data.sync_state.read().await.clone();
-    Ok(RPCSyncState {
-        active_syncs: vec![state],
-    })
+    let active_syncs = clone_state(data.sync_state.as_ref()).await;
+    Ok(RPCSyncState { active_syncs })
 }
 
 /// Submits block to be sent through gossipsub.
@@ -133,7 +141,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
-            sync_state: Default::default(),
+            sync_state: Arc::new(RwLock::new(vec![Default::default()])),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
         });
@@ -166,22 +174,25 @@ mod tests {
     async fn sync_state_test() {
         let (state, _) = state_setup().await;
 
-        let cloned_state = state.sync_state.clone();
+        let st_copy = state.sync_state.clone();
 
         match sync_state(Data(state.clone())).await {
             // TODO this will probably have to be updated when sync state is updated
-            Ok(ret) => assert_eq!(ret.active_syncs, vec![cloned_state.read().await.clone()]),
+            Ok(ret) => assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await),
             Err(e) => panic!(e),
         }
 
         // update cloned state
-        cloned_state.write().await.set_stage(SyncStage::Messages);
-        cloned_state.write().await.set_epoch(4);
+        st_copy.read().await[0]
+            .write()
+            .await
+            .set_stage(SyncStage::Messages);
+        st_copy.read().await[0].write().await.set_epoch(4);
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {
-                assert_ne!(ret.active_syncs, vec![Default::default()]);
-                assert_eq!(ret.active_syncs, vec![cloned_state.read().await.clone()]);
+                assert_ne!(ret.active_syncs, vec![]);
+                assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await);
             }
             Err(e) => panic!(e),
         }

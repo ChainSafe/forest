@@ -38,7 +38,7 @@ impl SyncNetworkContext {
 
     /// Send a blocksync request for only block headers (ignore messages)
     pub async fn blocksync_headers(
-        &mut self,
+        &self,
         peer_id: PeerId,
         tsk: &TipsetKeys,
         count: u64,
@@ -59,7 +59,7 @@ impl SyncNetworkContext {
     }
     /// Send a blocksync request for a single full tipset (includes messages)
     pub async fn blocksync_fts(
-        &mut self,
+        &self,
         peer_id: PeerId,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
@@ -82,7 +82,7 @@ impl SyncNetworkContext {
 
     /// Send a blocksync request to the network and await response
     pub async fn blocksync_request(
-        &mut self,
+        &self,
         peer_id: PeerId,
         request: BlockSyncRequest,
     ) -> Result<BlockSyncResponse, String> {
@@ -105,7 +105,7 @@ impl SyncNetworkContext {
     }
 
     /// Send a hello request to the network (does not await response)
-    pub async fn hello_request(&mut self, peer_id: PeerId, request: HelloRequest) {
+    pub async fn hello_request(&self, peer_id: PeerId, request: HelloRequest) {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
         self.network_send
