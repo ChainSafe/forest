@@ -19,6 +19,7 @@ use std::time::Duration;
 const RPC_TIMEOUT: u64 = 20;
 
 /// Context used in chain sync to handle network requests
+#[derive(Clone)]
 pub struct SyncNetworkContext {
     /// Channel to send network messages through p2p service
     network_send: Sender<NetworkMessage>,

@@ -74,7 +74,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     network: SyncNetworkContext,
 
     /// the known genesis tipset
-    genesis: Tipset,
+    genesis: Arc<Tipset>,
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
@@ -103,7 +103,7 @@ where
         beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
-        genesis: Tipset,
+        genesis: Arc<Tipset>,
     ) -> Result<Self, Error> {
         let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
@@ -735,7 +735,7 @@ where
     }
     /// validates tipsets and adds header data to tipset tracker
     async fn validate_tipset(&mut self, fts: FullTipset) -> Result<(), Error> {
-        if fts.to_tipset() == self.genesis {
+        if &fts.to_tipset() == self.genesis.as_ref() {
             debug!("Skipping tipset validation for genesis");
             return Ok(());
         }
@@ -1071,7 +1071,7 @@ mod tests {
 
         let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
 
-        let genesis_ts = Tipset::new(vec![gen]).unwrap();
+        let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
         (
             ChainSyncer::new(
                 chain_store,

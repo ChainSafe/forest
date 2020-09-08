@@ -87,7 +87,7 @@ pub(super) async fn start(config: Config) {
         Arc::new(beacon),
         network_send.clone(),
         network_rx,
-        genesis,
+        Arc::new(genesis),
     )
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
