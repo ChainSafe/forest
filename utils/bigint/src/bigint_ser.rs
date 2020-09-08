@@ -53,3 +53,26 @@ where
     };
     Ok(BigInt::from_bytes_be(sign, &bz[1..]))
 }
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use std::str::FromStr;
+
+    /// Serializes BigInt as String
+    pub fn serialize<S>(int: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        String::serialize(&int.to_string(), serializer)
+    }
+
+    /// Deserializes String into BigInt.
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        BigInt::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
