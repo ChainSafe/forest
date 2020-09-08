@@ -33,14 +33,16 @@ const RBF_DENOM: u64 = 256;
 pub struct MsgSet {
     msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
+    required_funds: BigInt,
 }
 
 impl MsgSet {
     /// Generate a new MsgSet with an empty hashmap and a default next_sequence of 0
-    pub fn new() -> Self {
+    pub fn new(nonce: u64) -> Self {
         MsgSet {
             msgs: HashMap::new(),
-            next_sequence: 0,
+            next_sequence: nonce,
+            required_funds: Default::default(),
         }
     }
 
@@ -67,6 +69,48 @@ impl MsgSet {
         }
         self.msgs.insert(m.sequence(), m);
         Ok(())
+    }
+    pub fn rm (&mut self, nonce: u64, applied: bool) {
+        let m = if let Some(m) = self.msgs.get(&nonce) {m}
+        else{
+            if applied && nonce >= self.next_sequence {
+                self.next_sequence = nonce + 1;
+                while self.msgs.get(&self.next_sequence).is_some() {
+                    self.next_sequence+=1;
+                }
+            }
+            return;
+        };
+        self.required_funds -= m.required_funds();
+        // guaranteed to not panic
+        self.msgs.remove(&nonce).unwrap();
+
+        // adjust next nonce
+        if applied {
+            // we removed a (known) message because it was applied in a tipset
+            // we can't possibly have filled a gap in this case
+           if nonce >= self.next_sequence {
+               self.next_sequence = nonce + 1;
+           }
+            return;
+        }
+        // we removed a message because it was pruned
+        // we have to adjust the nonce if it creates a gap or rewinds state
+        if nonce < self.next_sequence {
+            self.next_sequence = nonce;
+        }
+    }
+
+    fn get_required_funds(&self, nonce: u64) -> BigInt {
+        let required_funds = self.required_funds.clone();
+        match self.msgs.get(&nonce) {
+            Some (m) => {
+                required_funds - m.required_funds()
+            }
+            None => {
+                required_funds
+            }
+        }
     }
 }
 
@@ -394,11 +438,13 @@ where
     /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
     /// and push it to the pending phashmap
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
+        let from = msg.from().clone();
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
             msg,
+            self.get_state_sequence(&from, &self.cur_tipset.read().await.clone()).await?
         )
         .await
     }
@@ -607,6 +653,7 @@ async fn add_helper<T>(
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
+    nonce: u64,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -631,7 +678,7 @@ where
     match msett {
         Some(mset) => mset.add(msg)?,
         None => {
-            let mut mset = MsgSet::new();
+            let mut mset = MsgSet::new(nonce);
             let from = *msg.message().from();
             mset.add(msg)?;
             pending.insert(from, mset);
@@ -639,6 +686,27 @@ where
     }
 
     Ok(())
+}
+/// Get the state of the base_sequence for a given address in cur_ts
+async fn get_state_sequence<T>( api: &RwLock<T>, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error>
+where T: Provider{
+    let actor = api.read().await.state_get_actor(&addr, cur_ts)?;
+    let mut base_sequence = actor.sequence;
+    // TODO here lotus has a todo, so I guess we should eventually remove cur_ts from one
+    // of the params for this method and just use the chain head
+    let msgs = api.read().await.messages_for_tipset(cur_ts)?;
+    drop(api);
+
+    for m in msgs {
+        if m.from() == addr {
+            if m.sequence() != base_sequence {
+                return Err(Error::Other("tipset has bad sequence ordering".to_string()));
+            }
+            base_sequence += 1;
+        }
+    }
+
+    Ok(base_sequence)
 }
 
 /// This function will revert and/or apply tipsets to the message pool. This function should be
@@ -690,7 +758,8 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg).await {
+            let nonce = get_state_sequence(api, &msg.from(), &cur_tipset.read().await.clone()).await?;
+            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, nonce).await {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
         }
