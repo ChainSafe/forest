@@ -102,18 +102,18 @@ mod tests {
 
     const TEST_NET_NAME: &str = "test";
 
-    fn state_setup() -> (
+    async fn state_setup() -> (
         Arc<RpcState<MemoryDB, MemKeyStore>>,
         Receiver<NetworkMessage>,
     ) {
         let (network_send, network_rx) = channel(5);
 
         let pool = task::block_on(async {
-            let mut cs = ChainStore::new(Arc::new(MemoryDB::default()));
+            let cs = ChainStore::new(Arc::new(MemoryDB::default()));
             let bz = hex::decode("904300e80781586082cb7477a801f55c1f2ea5e5d1167661feea60a39f697e1099af132682b81cc5047beacf5b6e80d5f52b9fd90323fb8510a5396416dd076c13c85619e176558582744053a3faef6764829aa02132a1571a76aabdc498a638ea0054d3bb57f41d82015860812d2396cc4592cdf7f829374b01ffd03c5469a4b0a9acc5ccc642797aa0a5498b97b28d90820fedc6f79ff0a6005f5c15dbaca3b8a45720af7ed53000555667207a0ccb50073cd24510995abd4c4e45c1e9e114905018b2da9454190499941e818201582012dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a608182004b76616c69642070726f6f6681d82a5827000171a0e4022030f89a8b0373ad69079dbcbc5addfe9b34dce932189786e50d3eb432ede3ba9c43000f0001d82a5827000171a0e4022052238c7d15c100c1b9ebf849541810c9e3c2d86e826512c6c416d2318fcd496dd82a5827000171a0e40220e5658b3d18cd06e1db9015b4b0ec55c123a24d5be1ea24d83938c5b8397b4f2fd82a5827000171a0e4022018d351341c302a21786b585708c9873565a0d07c42521d4aaf52da3ff6f2e461586102c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001a5f2c5439586102b5cd48724dce0fec8799d77fd6c5113276e7f470c8391faa0b5a6033a3eaf357d635705c36abe10309d73592727289680515afd9d424793ba4796b052682d21b03c5c8a37d94827fecc59cdc5750e198fdf20dee012f4d627c6665132298ab95004500053724e0").unwrap();
             let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
             let ts = Tipset::new(vec![header]).unwrap();
-            let subscriber = cs.subscribe();
+            let subscriber = cs.subscribe().await;
             let db = cs.db.clone();
             let tsk = ts.key().cids.clone();
             cs.set_heaviest_tipset(Arc::new(ts)).await.unwrap();
@@ -142,7 +142,7 @@ mod tests {
 
     #[async_std::test]
     async fn set_check_bad() {
-        let (state, _) = state_setup();
+        let (state, _) = state_setup().await;
 
         let cid: CidJson =
             from_str(r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#)
@@ -164,7 +164,7 @@ mod tests {
 
     #[async_std::test]
     async fn sync_state_test() {
-        let (state, _) = state_setup();
+        let (state, _) = state_setup().await;
 
         let cloned_state = state.sync_state.clone();
 
@@ -189,7 +189,7 @@ mod tests {
 
     #[async_std::test]
     async fn sync_submit_test() {
-        let (state, mut rx) = state_setup();
+        let (state, mut rx) = state_setup().await;
 
         let block_json: GossipBlockJson = from_str(r#"{"Header":{"Miner":"t01234","Ticket":{"VRFProof":"Ynl0ZSBhcnJheQ=="},"ElectionProof":{"WinCount":0,"VRFProof":"Ynl0ZSBhcnJheQ=="},"BeaconEntries":null,"WinPoStProof":null,"Parents":null,"ParentWeight":"0","Height":10101,"ParentStateRoot":{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"},"ParentMessageReceipts":{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"},"Messages":{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"},"BLSAggregate":{"Type":2,"Data":"Ynl0ZSBhcnJheQ=="},"Timestamp":42,"BlockSig":{"Type":2,"Data":"Ynl0ZSBhcnJheQ=="},"ForkSignaling":42,"ParentBaseFee":"1"},"BlsMessages":null,"SecpkMessages":null}"#).unwrap();
 

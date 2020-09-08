@@ -61,7 +61,7 @@ pub(super) async fn start(config: Config) {
     let network_send = p2p_service.network_sender();
 
     // Initialize mpool
-    let subscriber = chain_store.subscribe();
+    let subscriber = chain_store.subscribe().await;
     let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&db));
     let mpool = Arc::new(
         MessagePool::new(provider, network_name.clone())
@@ -83,7 +83,7 @@ pub(super) async fn start(config: Config) {
 
     // Initialize ChainSyncer
     let chain_syncer = ChainSyncer::new(
-        chain_store,
+        Arc::new(chain_store),
         Arc::new(beacon),
         network_send.clone(),
         network_rx,

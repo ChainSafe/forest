@@ -68,7 +68,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     next_sync_target: SyncBucket,
 
     /// access and store tipsets / blocks / messages
-    chain_store: ChainStore<DB>,
+    chain_store: Arc<ChainStore<DB>>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -93,13 +93,13 @@ struct MsgMetaData {
     sequence: u64,
 }
 
-impl<DB, TBeacon: 'static> ChainSyncer<DB, TBeacon>
+impl<DB, TBeacon> ChainSyncer<DB, TBeacon>
 where
-    TBeacon: Beacon + Send,
+    TBeacon: Beacon + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
 {
     pub fn new(
-        chain_store: ChainStore<DB>,
+        chain_store: Arc<ChainStore<DB>>,
         beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
@@ -167,7 +167,7 @@ where
                     }
                 }
                 NetworkEvent::PeerDialed { peer_id } => {
-                    let heaviest = self.chain_store.heaviest_tipset().unwrap();
+                    let heaviest = self.chain_store.heaviest_tipset().await.unwrap();
                     self.network
                         .hello_request(
                             peer_id,
@@ -202,7 +202,7 @@ where
         }
 
         // Get heaviest tipset from storage to sync toward
-        let heaviest = self.chain_store.heaviest_tipset().unwrap();
+        let heaviest = self.chain_store.heaviest_tipset().await.unwrap();
 
         info!("Starting block sync...");
 
@@ -354,7 +354,7 @@ where
         // TODO: Publish LocalIncoming blocks
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let best_weight = match self.chain_store.heaviest_tipset() {
+        let best_weight = match self.chain_store.heaviest_tipset().await {
             Some(ts) => ts.weight().clone(),
             None => Zero::zero(),
         };
@@ -748,7 +748,7 @@ where
                     e.to_string()
                 )));
             }
-            self.chain_store.set_tipset_tracker(b.header())?;
+            self.chain_store.set_tipset_tracker(b.header()).await?;
         }
         info!("Successfully validated tipset at epoch: {}", fts.epoch());
         Ok(())
@@ -1061,7 +1061,7 @@ mod tests {
         Sender<NetworkEvent>,
         Receiver<NetworkMessage>,
     ) {
-        let chain_store = ChainStore::new(db);
+        let chain_store = Arc::new(ChainStore::new(db));
 
         let (local_sender, test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
