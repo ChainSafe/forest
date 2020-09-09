@@ -19,6 +19,10 @@ use std::sync::Arc;
 use utils::write_to_file;
 use wallet::PersistentKeyStore;
 
+/// Number of tasks spawned for sync workers.
+// TODO benchmark and/or add this as a config option.
+const WORKER_TASKS: usize = 3;
+
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
     info!("Starting Forest daemon");
@@ -93,7 +97,7 @@ pub(super) async fn start(config: Config) {
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
     let sync_task = task::spawn(async {
-        chain_syncer.start().await;
+        chain_syncer.start(WORKER_TASKS).await;
     });
 
     // Start services

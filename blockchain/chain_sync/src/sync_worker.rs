@@ -786,3 +786,81 @@ fn compute_msg_meta<DB: BlockStore>(
 fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
     messages.iter().map(Cbor::cid).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_std::sync::channel;
+    use beacon::MockBeacon;
+    use db::MemoryDB;
+    use forest_libp2p::NetworkMessage;
+    use std::sync::Arc;
+    use std::time::Duration;
+    use test_utils::{construct_blocksync_response, construct_dummy_header, construct_tipset};
+
+    fn sync_worker_setup(
+        db: Arc<MemoryDB>,
+    ) -> (SyncWorker<MemoryDB, MockBeacon>, Receiver<NetworkMessage>) {
+        let chain_store = Arc::new(ChainStore::new(db.clone()));
+
+        let (local_sender, test_receiver) = channel(20);
+
+        let gen = construct_dummy_header();
+        chain_store.set_genesis(&gen).unwrap();
+
+        let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+
+        let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
+        (
+            SyncWorker {
+                state: Default::default(),
+                beacon,
+                state_manager: Arc::new(StateManager::new(db)),
+                chain_store,
+                network: SyncNetworkContext::new(local_sender),
+                genesis: genesis_ts,
+                bad_blocks: Default::default(),
+                peer_manager: Default::default(),
+            },
+            test_receiver,
+        )
+    }
+
+    fn send_blocksync_response(blocksync_message: Receiver<NetworkMessage>) {
+        let rpc_response = construct_blocksync_response();
+
+        task::block_on(async {
+            match blocksync_message.recv().await.unwrap() {
+                NetworkMessage::BlockSyncRequest {
+                    peer_id: _,
+                    request: _,
+                    response_channel,
+                } => {
+                    response_channel.send(rpc_response).unwrap();
+                }
+                _ => unreachable!(),
+            }
+        });
+    }
+
+    #[test]
+    fn sync_headers_reverse_given_tipsets_test() {
+        let db = Arc::new(MemoryDB::default());
+        let (cs, network_receiver) = sync_worker_setup(db);
+
+        // params for sync_headers_reverse
+        let source = PeerId::random();
+        let head = construct_tipset(4, 10);
+        let to = construct_tipset(1, 10);
+
+        task::block_on(async move {
+            cs.peer_manager.add_peer(source.clone(), None).await;
+            assert_eq!(cs.peer_manager.len().await, 1);
+            // make blocksync request
+            let return_set = task::spawn(async move { cs.sync_headers_reverse(head, &to).await });
+            // send blocksync response to channel
+            send_blocksync_response(network_receiver);
+            assert_eq!(return_set.await.unwrap().len(), 4);
+        });
+    }
+}

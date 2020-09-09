@@ -28,10 +28,6 @@ use message::{SignedMessage, UnsignedMessage};
 use state_manager::StateManager;
 use std::sync::Arc;
 
-/// Number of tasks spawned for sync workers.
-// TODO benchmark and/or add this as a config option.
-const WORKER_TASKS: usize = 3;
-
 // TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
 // on seperate thread and needs to be mutated independently, but the vec needs to be read
 // on the RPC API thread and mutated on this thread.
@@ -137,9 +133,9 @@ where
     }
 
     /// Spawns a network handler and begins the syncing process.
-    pub async fn start(mut self) {
+    pub async fn start(mut self, num_workers: usize) {
         let (worker_tx, worker_rx) = channel(5);
-        for _ in 0..WORKER_TASKS {
+        for _ in 0..num_workers {
             self.spawn_worker(worker_rx.clone()).await;
         }
 
@@ -170,6 +166,8 @@ where
                         let new_ts_tx_cloned = new_ts_tx.clone();
                         let cs_cloned = self.chain_store.clone();
                         let net_cloned = self.network.clone();
+                        // TODO determine if tasks started to fetch and load tipsets should be
+                        // limited. Currently no cap on this.
                         task::spawn(async {
                             Self::fetch_and_inform_tipset(
                                 cs_cloned,
@@ -379,7 +377,7 @@ where
     ) -> Result<FullTipset, String> {
         let fts = match Self::load_fts(cs, tsk) {
             Ok(fts) => fts,
-            _ => network.blocksync_fts(peer_id, tsk).await?,
+            Err(_) => network.blocksync_fts(peer_id, tsk).await?,
         };
 
         Ok(fts)
@@ -440,137 +438,87 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
     messages.iter().map(Cbor::cid).collect()
 }
 
-// TODO use tests
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use async_std::sync::channel;
-//     use async_std::sync::Sender;
-//     use beacon::MockBeacon;
-//     use blocks::BlockHeader;
-//     use db::MemoryDB;
-//     use forest_libp2p::NetworkEvent;
-//     use std::sync::Arc;
-//     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_std::sync::channel;
+    use async_std::sync::Sender;
+    use beacon::MockBeacon;
+    use db::MemoryDB;
+    use forest_libp2p::NetworkEvent;
+    use std::sync::Arc;
+    use std::time::Duration;
+    use test_utils::{construct_dummy_header, construct_messages};
 
-//     fn chain_syncer_setup(
-//         db: Arc<MemoryDB>,
-//     ) -> (
-//         ChainSyncer<MemoryDB, MockBeacon>,
-//         Sender<NetworkEvent>,
-//         Receiver<NetworkMessage>,
-//     ) {
-//         let chain_store = Arc::new(ChainStore::new(db));
+    fn chain_syncer_setup(
+        db: Arc<MemoryDB>,
+    ) -> (
+        ChainSyncer<MemoryDB, MockBeacon>,
+        Sender<NetworkEvent>,
+        Receiver<NetworkMessage>,
+    ) {
+        let chain_store = Arc::new(ChainStore::new(db));
 
-//         let (local_sender, test_receiver) = channel(20);
-//         let (event_sender, event_receiver) = channel(20);
+        let (local_sender, test_receiver) = channel(20);
+        let (event_sender, event_receiver) = channel(20);
 
-//         let gen = dummy_header();
-//         chain_store.set_genesis(gen.clone()).unwrap();
+        let gen = construct_dummy_header();
+        chain_store.set_genesis(&gen).unwrap();
 
-//         let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+        let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
 
-//         let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
-//         (
-//             ChainSyncer::new(
-//                 chain_store,
-//                 beacon,
-//                 local_sender,
-//                 event_receiver,
-//                 genesis_ts,
-//             )
-//             .unwrap(),
-//             event_sender,
-//             test_receiver,
-//         )
-//     }
+        let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
+        (
+            ChainSyncer::new(
+                chain_store,
+                beacon,
+                local_sender,
+                event_receiver,
+                genesis_ts,
+            )
+            .unwrap(),
+            event_sender,
+            test_receiver,
+        )
+    }
 
-//     fn send_blocksync_response(blocksync_message: Receiver<NetworkMessage>) {
-//         let rpc_response = construct_blocksync_response();
+    #[test]
+    fn chainsync_constructor() {
+        let db = Arc::new(MemoryDB::default());
 
-//         task::block_on(async {
-//             match blocksync_message.recv().await.unwrap() {
-//                 NetworkMessage::BlockSyncRequest {
-//                     peer_id: _,
-//                     request: _,
-//                     response_channel,
-//                 } => {
-//                     response_channel.send(rpc_response).unwrap();
-//                 }
-//                 _ => unreachable!(),
-//             }
-//         });
-//     }
+        // Test just makes sure that the chain syncer can be created without using a live database or
+        // p2p network (local channels to simulate network messages and responses)
+        let _chain_syncer = chain_syncer_setup(db);
+    }
 
-//     fn dummy_header() -> BlockHeader {
-//         BlockHeader::builder()
-//             .miner_address(Address::new_id(1000))
-//             .messages(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-//             .message_receipts(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-//             .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-//             .build()
-//             .unwrap()
-//     }
-//     #[test]
-//     fn chainsync_constructor() {
-//         let db = Arc::new(MemoryDB::default());
+    #[test]
+    fn compute_msg_meta_given_msgs_test() {
+        let db = Arc::new(MemoryDB::default());
+        let (cs, _, _) = chain_syncer_setup(db);
 
-//         // Test just makes sure that the chain syncer can be created without using a live database or
-//         // p2p network (local channels to simulate network messages and responses)
-//         let _chain_syncer = chain_syncer_setup(db);
-//     }
+        let (bls, secp) = construct_messages();
 
-//     #[test]
-//     fn sync_headers_reverse_given_tipsets_test() {
-//         let db = Arc::new(MemoryDB::default());
-//         let (mut cs, _event_sender, network_receiver) = chain_syncer_setup(db);
+        let expected_root =
+            Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
+                .unwrap();
 
-//         cs.net_handler.spawn(Arc::clone(&cs.peer_manager));
+        let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
+        assert_eq!(root, expected_root);
+    }
 
-//         // params for sync_headers_reverse
-//         let source = PeerId::random();
-//         let head = construct_tipset(4, 10);
-//         let to = construct_tipset(1, 10);
+    #[test]
+    fn empty_msg_meta_vector() {
+        let blockstore = MemoryDB::default();
+        let usm: Vec<UnsignedMessage> =
+            encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+        let sm: Vec<SignedMessage> =
+            encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
 
-//         task::block_on(async move {
-//             cs.peer_manager.add_peer(source.clone(), None).await;
-//             assert_eq!(cs.peer_manager.len().await, 1);
-//             // make blocksync request
-//             let return_set = task::spawn(async move { cs.sync_headers_reverse(head, &to).await });
-//             // send blocksync response to channel
-//             send_blocksync_response(network_receiver);
-//             assert_eq!(return_set.await.unwrap().len(), 4);
-//         });
-//     }
-
-//     #[test]
-//     fn compute_msg_meta_given_msgs_test() {
-//         let db = Arc::new(MemoryDB::default());
-//         let (cs, _, _) = chain_syncer_setup(db);
-
-//         let (bls, secp) = construct_messages();
-
-//         let expected_root =
-//             Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
-//                 .unwrap();
-
-//         let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
-//         assert_eq!(root, expected_root);
-//     }
-
-//     #[test]
-//     fn empty_msg_meta_vector() {
-//         let blockstore = MemoryDB::default();
-//         let usm: Vec<UnsignedMessage> =
-//             encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
-//         let sm: Vec<SignedMessage> =
-//             encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
-
-//         assert_eq!(
-//             compute_msg_meta(&blockstore, &usm, &sm)
-//                 .unwrap()
-//                 .to_string(),
-//             "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
-//         );
-//     }
-// }
+        assert_eq!(
+            compute_msg_meta(&blockstore, &usm, &sm)
+                .unwrap()
+                .to_string(),
+            "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
+        );
+    }
+}

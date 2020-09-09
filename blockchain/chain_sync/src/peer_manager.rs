@@ -9,7 +9,7 @@ use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Thread safe peer manager
+/// Thread safe peer manager which handles peer management for the `BlockSync` protocol.
 #[derive(Default)]
 pub struct PeerManager {
     // TODO potentially separate or expand to handle blocksync peers/ peers that haven't sent hello

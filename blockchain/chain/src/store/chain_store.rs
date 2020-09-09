@@ -98,8 +98,10 @@ where
     }
 
     /// Sets tip_index tracker
+    // TODO this is really broken, should not be setting the tipset metadata to a tipset with just
+    // the one header.
     pub async fn set_tipset_tracker(&self, header: &BlockHeader) -> Result<(), Error> {
-        let ts: Tipset = Tipset::new(vec![header.clone()])?;
+        let ts = Arc::new(Tipset::new(vec![header.clone()])?);
         let meta = TipsetMetadata {
             tipset_state_root: header.state_root().clone(),
             tipset_receipts_root: header.message_receipts().clone(),
@@ -110,7 +112,7 @@ where
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&self, header: BlockHeader) -> Result<Cid, Error> {
+    pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
     }
 
@@ -275,7 +277,7 @@ where
     }
 }
 
-fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<Cid, Error>
+fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
     DB: BlockStore,
 {
@@ -658,7 +660,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(cs.genesis().unwrap(), None);
-        cs.set_genesis(gen_block.clone()).unwrap();
+        cs.set_genesis(&gen_block).unwrap();
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 }
