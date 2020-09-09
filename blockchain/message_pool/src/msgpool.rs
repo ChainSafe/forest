@@ -36,6 +36,16 @@ pub struct MsgSet {
     required_funds: BigInt,
 }
 
+#[derive(Clone, Default)]
+pub struct MpoolConfig {
+    priority_addrs: Vec<Address>,
+    size_limit_high: i64,
+    size_limit_low: i64,
+    replace_by_fee_ratio: f64,
+    // prune_cooldown: time
+    gas_limit_overestimation: f64,
+}
+
 impl MsgSet {
     /// Generate a new MsgSet with an empty hashmap and a default next_sequence of 0
     pub fn new(nonce: u64) -> Self {
@@ -125,7 +135,7 @@ pub trait Provider {
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
     /// at. Return ActorState or Error depending on whether or not ActorState is found
-    fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
+    fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
     /// Return the signed messages for given blockheader
     fn messages_for_block(
         &self,
@@ -179,7 +189,7 @@ where
         Ok(cid)
     }
 
-    fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
+    fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
         let actor = state
@@ -248,7 +258,7 @@ where
         Ok(cid)
     }
 
-    fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
+    fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.db.as_ref(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
         let actor = state
@@ -367,24 +377,31 @@ where
 
     /// Push a signed message to the MessagePool
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
-        self.add(&msg).await?;
+        self.add_tipset(msg.clone(), &self.cur_tipset.read().await.clone()).await?;
         self.add_local(msg).await?;
+        // TODO: Publish over Gossip
         Ok(cid)
+    }
+
+    /// Basic checks on the validity of a message
+    async fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
+        if msg.marshal_cbor()?.len() > 32 * 1024 {
+            return Err(Error::MessageTooBig);
+        }
+        // TODO: Do we need to do syntactic validation on messages? Or can we assume theyre correct by construction?
+        // TODO: Make this a constant. I think it is supposed to represent the total filecoin in circ
+        if msg.value() > &BigInt::from(2_000_000_000u64) {
+            return Err(Error::MessageValueTooHigh);
+        }
+        self.verify_msg_sig(msg).await
     }
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
     /// to be pushed to the MessagePool
     pub async fn add(&self, msg: &SignedMessage) -> Result<(), Error> {
-        let size = msg.marshal_cbor()?.len();
-        if size > 32 * 1024 {
-            return Err(Error::MessageTooBig);
-        }
-        if msg.value() > &BigInt::from(2_000_000_000u64) {
-            return Err(Error::MessageValueTooHigh);
-        }
-
-        self.verify_msg_sig(msg).await?;
+        self.check_message(&msg).await?;
         let tmp = msg.clone();
 
         let tip = self.cur_tipset.read().await.clone();
@@ -472,7 +489,7 @@ where
     /// Get the state of the base_sequence for a given address in cur_ts
     async fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         let api = self.api.read().await;
-        let actor = api.state_get_actor(&addr, cur_ts)?;
+        let actor = api.get_actor_after(&addr, cur_ts)?;
         let mut base_sequence = actor.sequence;
         // TODO here lotus has a todo, so I guess we should eventually remove cur_ts from one
         // of the params for this method and just use the chain head
@@ -494,7 +511,7 @@ where
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error
     async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
-        let actor = self.api.read().await.state_get_actor(&addr, &ts)?;
+        let actor = self.api.read().await.get_actor_after(&addr, &ts)?;
         Ok(actor.balance)
     }
 
@@ -690,7 +707,7 @@ where
 /// Get the state of the base_sequence for a given address in cur_ts
 async fn get_state_sequence<T>( api: &RwLock<T>, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error>
 where T: Provider{
-    let actor = api.read().await.state_get_actor(&addr, cur_ts)?;
+    let actor = api.read().await.get_actor_after(&addr, cur_ts)?;
     let mut base_sequence = actor.sequence;
     // TODO here lotus has a todo, so I guess we should eventually remove cur_ts from one
     // of the params for this method and just use the chain head
@@ -857,7 +874,7 @@ pub mod test_provider {
             Ok(Cid::default())
         }
 
-        fn state_get_actor(&self, addr: &Address, _ts: &Tipset) -> Result<ActorState, Errors> {
+        fn get_actor_after(&self, addr: &Address, _ts: &Tipset) -> Result<ActorState, Errors> {
             let s = self.state_sequence.get(addr);
             let mut sequence = 0;
             if let Some(sq) = s {
