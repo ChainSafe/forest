@@ -36,10 +36,6 @@ impl SyncBucket {
             self.tips.push(ts);
         }
     }
-    /// Returns true if SyncBucket is empty
-    pub fn is_empty(&self) -> bool {
-        self.tips.is_empty()
-    }
 }
 
 /// Set of tipset buckets
@@ -73,13 +69,6 @@ impl SyncBucketSet {
         // see https://github.com/rust-lang/rust/issues/34162
 
         Some(self.buckets.swap_remove(i))
-    }
-    /// Returns heaviest tipset from bucket set
-    pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
-        self.buckets
-            .iter()
-            .filter_map(SyncBucket::heaviest_tipset)
-            .max_by(|ts1, ts2| ts1.weight().cmp(ts2.weight()))
     }
 
     /// Returns true if tipset is related to any tipset in the bucket set.

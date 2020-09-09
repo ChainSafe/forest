@@ -25,6 +25,7 @@ log = "0.4.8"
 async-std = { version = "1.6.0", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 futures = "0.3.5"
+futures-util = "0.3.5"
 lru = "0.6"
 thiserror = "1.0"
 num-traits = "0.2"

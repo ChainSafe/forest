@@ -280,8 +280,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     if !sender.is_full() {
         sender.send(event).await
     } else {
-        // TODO update log type
-        log::warn!("network sender channel was full, ignoring event");
+        warn!("network sender channel was full, ignoring event");
     }
 }
 

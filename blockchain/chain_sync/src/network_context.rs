@@ -67,10 +67,14 @@ impl SyncNetworkContext {
             )
             .await?;
 
-        let fts = bs_res.into_result()?;
-        fts.get(0)
-            .cloned()
-            .ok_or(format!("No full tipset found for cid: {:?}", tsk))
+        let mut fts = bs_res.into_result()?;
+        if fts.len() != 1 {
+            return Err(format!(
+                "Full tipset request returned {} tipsets",
+                fts.len()
+            ));
+        }
+        Ok(fts.remove(0))
     }
 
     /// Send a blocksync request to the network and await response

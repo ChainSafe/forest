@@ -12,25 +12,30 @@ use super::sync_worker::SyncWorker;
 use super::{Error, SyncNetworkContext};
 use amt::Amt;
 use async_std::sync::{channel, Receiver, RwLock, Sender};
-use async_std::task::JoinHandle;
+use async_std::task::{self, JoinHandle};
 use beacon::Beacon;
 use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use encoding::{Cbor, Error as EncodingError};
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
+use futures::select;
 use futures::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, warn};
 use message::{SignedMessage, UnsignedMessage};
-use num_traits::Zero;
 use state_manager::StateManager;
 use std::sync::Arc;
 
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option.
 const WORKER_TASKS: usize = 3;
+
+// TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
+// on seperate thread and needs to be mutated independently, but the vec needs to be read
+// on the RPC API thread and mutated on this thread.
+type WorkerState = Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>;
 
 #[derive(Debug, PartialEq)]
 enum ChainSyncState {
@@ -50,10 +55,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     state: ChainSyncState,
 
     /// Syncing state of chain sync workers.
-    // TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
-    // on seperate thread and needs to be mutated independently, but the vec needs to be read
-    // on the RPC API thread and mutated on this thread.
-    worker_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
+    worker_state: WorkerState,
 
     /// Drand randomness beacon
     beacon: Arc<TBeacon>,
@@ -67,7 +69,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     active_sync_tipsets: SyncBucketSet,
 
     /// Represents next tipset to be synced.
-    next_sync_target: SyncBucket,
+    next_sync_target: Option<SyncBucket>,
 
     /// access and store tipsets / blocks / messages
     chain_store: Arc<ChainStore<DB>>,
@@ -120,7 +122,7 @@ where
             peer_manager,
             sync_queue: SyncBucketSet::default(),
             active_sync_tipsets: SyncBucketSet::default(),
-            next_sync_target: SyncBucket::default(),
+            next_sync_target: None,
         })
     }
 
@@ -130,7 +132,7 @@ where
     }
 
     /// Returns the atomic reference to the syncing state.
-    pub fn sync_state_cloned(&self) -> Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>> {
+    pub fn sync_state_cloned(&self) -> WorkerState {
         self.worker_state.clone()
     }
 
@@ -141,42 +143,45 @@ where
             self.spawn_worker(worker_rx.clone()).await;
         }
 
-        // TODO switch worker tx is_empty check to a future to use select! macro
+        // Channels to handle fetching hello tipsets in separate task and return tipset.
+        let (new_ts_tx, new_ts_rx) = channel(10);
+
+        let mut fused_handler = self.net_handler.clone().fuse();
+        let mut fused_inform_channel = new_ts_rx.fuse();
+
         loop {
+            // TODO would be ideal if this is a future attached to the select
             if worker_tx.is_empty() {
-                if let Some(ts) = self.next_sync_target.heaviest_tipset() {
-                    worker_tx.send(ts).await;
-                } else if let Some(ts) = self.sync_queue.heaviest() {
-                    worker_tx.send(ts).await;
+                if let Some(tar) = self.next_sync_target.take() {
+                    if let Some(ts) = tar.heaviest_tipset() {
+                        self.active_sync_tipsets.insert(ts.clone());
+                        worker_tx.send(ts).await;
+                    }
                 }
             }
-            if let Some(event) = self.net_handler.next().await {
-                match event {
-                    NetworkEvent::HelloRequest { request, channel } => {
+            select! {
+                network_event = fused_handler.next() => match network_event {
+                    Some(NetworkEvent::HelloRequest { request, channel }) => {
                         let source = channel.peer.clone();
                         debug!(
                             "Message inbound, heaviest tipset cid: {:?}",
                             request.heaviest_tip_set
                         );
-                        // TODO Spawn this in seperate thread, blocking poll
-                        match self
-                            .fetch_tipset(
-                                source.clone(),
-                                &TipsetKeys::new(request.heaviest_tip_set),
+                        let new_ts_tx_cloned = new_ts_tx.clone();
+                        let cs_cloned = self.chain_store.clone();
+                        let net_cloned = self.network.clone();
+                        task::spawn(async {
+                            Self::fetch_and_inform_tipset(
+                                cs_cloned,
+                                net_cloned,
+                                source,
+                                TipsetKeys::new(request.heaviest_tip_set),
+                                new_ts_tx_cloned,
                             )
-                            .await
-                        {
-                            Ok(fts) => {
-                                if let Err(e) = self.inform_new_head(source.clone(), &fts).await {
-                                    warn!("Failed to sync with provided tipset: {}", e);
-                                };
-                            }
-                            Err(e) => {
-                                warn!("Failed to fetch full tipset from peer ({}): {}", source, e);
-                            }
-                        }
+                            .await;
+                        });
                     }
-                    NetworkEvent::PeerDialed { peer_id } => {
+                    Some(NetworkEvent::PeerDialed { peer_id }) => {
                         let heaviest = self.chain_store.heaviest_tipset().await.unwrap();
                         self.network
                             .hello_request(
@@ -190,8 +195,37 @@ where
                             )
                             .await
                     }
+                    // All other network events are being ignored currently
                     _ => (),
+                    None => break,
+                },
+                inform_head_event = fused_inform_channel.next() => match inform_head_event {
+                    Some((peer, new_head)) => {
+                        if let Err(e) = self.inform_new_head(peer.clone(), &new_head).await {
+                            warn!("failed to inform new head from peer {}", peer);
+                        }
+                    }
+                    None => break,
                 }
+            }
+        }
+    }
+
+    /// Fetches a tipset from store or network, then passes the tipset back through the channel
+    /// to inform of the new head.
+    async fn fetch_and_inform_tipset(
+        cs: Arc<ChainStore<DB>>,
+        network: SyncNetworkContext,
+        peer_id: PeerId,
+        tsk: TipsetKeys,
+        channel: Sender<(PeerId, FullTipset)>,
+    ) {
+        match Self::fetch_full_tipset(cs.as_ref(), &network, peer_id.clone(), &tsk).await {
+            Ok(fts) => {
+                channel.send((peer_id, fts)).await;
+            }
+            Err(e) => {
+                debug!("Failed to fetch full tipset from peer ({}): {}", peer_id, e);
             }
         }
     }
@@ -219,34 +253,35 @@ where
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    pub async fn inform_new_head(&mut self, peer: PeerId, fts: &FullTipset) -> Result<(), Error> {
+    pub async fn inform_new_head(&mut self, peer: PeerId, ts: &FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
-        if fts.blocks().is_empty() {
+        if ts.blocks().is_empty() {
             return Err(Error::NoBlocks);
         }
         // TODO: Check if tipset has height that is too far ahead to be possible
 
-        for block in fts.blocks() {
+        for block in ts.blocks() {
             if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
                 warn!("Bad block detected, cid: {:?}", bad);
                 return Err(Error::Other("Block marked as bad".to_string()));
             }
-            // validate message data
-            self.validate_msg_meta(block)?;
         }
-        // TODO: Publish LocalIncoming blocks
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let best_weight = match self.chain_store.heaviest_tipset().await {
-            Some(ts) => ts.weight().clone(),
-            None => Zero::zero(),
-        };
-        let target_weight = fts.weight();
-
-        if target_weight.gt(&best_weight) {
-            self.set_peer_head(peer, Arc::new(fts.to_tipset())).await;
+        let candidate_ts = self
+            .chain_store
+            .heaviest_tipset()
+            .await
+            .map(|heaviest| ts.weight() >= heaviest.weight())
+            .unwrap_or(true);
+        if candidate_ts {
+            // Check message meta after all other checks (expensive)
+            for block in ts.blocks() {
+                self.validate_msg_meta(block)?;
+            }
+            self.set_peer_head(peer, Arc::new(ts.to_tipset())).await;
         }
-        // incoming tipset from miners does not appear to be better than our best chain, ignoring for now
+
         Ok(())
     }
 
@@ -301,15 +336,17 @@ where
         }
 
         // if next_sync_target is from same chain as incoming tipset add it to be synced next
-        if self.next_sync_target.is_same_chain_as(&tipset) {
-            self.next_sync_target.add(tipset);
+        if let Some(tar) = &mut self.next_sync_target {
+            if tar.is_same_chain_as(&tipset) {
+                tar.add(tipset);
+            }
         } else {
             // add incoming tipset to queue to by synced later
             self.sync_queue.insert(tipset);
-            // update next sync target if empty
-            if self.next_sync_target.is_empty() {
+            // update next sync target if none
+            if self.next_sync_target.is_none() {
                 if let Some(target_bucket) = self.sync_queue.pop() {
-                    self.next_sync_target = target_bucket;
+                    self.next_sync_target = Some(target_bucket);
                 }
             }
         }
@@ -332,29 +369,30 @@ where
         Ok(())
     }
 
-    /// Returns FullTipset from store if TipsetKeys exist in key-value store otherwise requests FullTipset
-    /// from block sync
-    async fn fetch_tipset(
-        &mut self,
+    /// Returns `FullTipset` from store if `TipsetKeys` exist in key-value store otherwise requests
+    /// `FullTipset` from block sync
+    async fn fetch_full_tipset(
+        cs: &ChainStore<DB>,
+        network: &SyncNetworkContext,
         peer_id: PeerId,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
-        let fts = match self.load_fts(tsk) {
+        let fts = match Self::load_fts(cs, tsk) {
             Ok(fts) => fts,
-            _ => return self.network.blocksync_fts(peer_id, tsk).await,
+            _ => network.blocksync_fts(peer_id, tsk).await?,
         };
 
         Ok(fts)
     }
+
     /// Returns a reconstructed FullTipset from store if keys exist
-    fn load_fts(&self, keys: &TipsetKeys) -> Result<FullTipset, Error> {
+    fn load_fts(cs: &ChainStore<DB>, keys: &TipsetKeys) -> Result<FullTipset, Error> {
         let mut blocks = Vec::new();
         // retrieve tipset from store based on passed in TipsetKeys
-        let ts = self.chain_store.tipset_from_keys(keys)?;
+        let ts = cs.tipset_from_keys(keys)?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) =
-                chain::block_messages(self.chain_store.blockstore(), &header)?;
+            let (bls_msgs, secp_msgs) = chain::block_messages(cs.blockstore(), &header)?;
 
             // construct a full block
             let full_block = Block {

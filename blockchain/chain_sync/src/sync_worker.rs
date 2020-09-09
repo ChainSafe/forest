@@ -83,7 +83,9 @@ where
                     match inbound_channel.next().await {
                         Some(ts) => {
                             if let Err(e) = self.sync(ts).await {
-                                warn!("failed to sync tipset: {}", e);
+                                let err = e.to_string();
+                                warn!("failed to sync tipset: {}", &err);
+                                self.state.write().await.error(err);
                             }
                         }
                         None => break,
@@ -206,7 +208,7 @@ where
             }
 
             // TODO tweak request window when socket frame is tested
-            const REQUEST_WINDOW: i64 = 30;
+            const REQUEST_WINDOW: i64 = 10;
             let epoch_diff = cur_ts.epoch() - to_epoch;
             debug!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);

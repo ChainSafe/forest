@@ -1280,6 +1280,7 @@ dependencies = [
  "forest_message",
  "forest_vm",
  "futures 0.3.5",
+ "futures-util",
  "ipld_amt",
  "ipld_blockstore",
  "libp2p",
