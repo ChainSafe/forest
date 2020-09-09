@@ -32,7 +32,10 @@ forest_cid = { path = "../../ipld/cid" }
 bytes = "0.5.2"
 fnv = "1.0.6"
 smallvec = "1.1.0"
+chain = { path = "../../blockchain/chain" }
 clock = { path = "../clock" }
+db = { path = "../db" }
+forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 libp2p-bitswap = "=0.6.1"
 tiny-cid = "0.2.0"

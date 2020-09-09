@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::blocksync::{BlockSyncRequest, BlockSyncResponse};
+use super::blocksync::{BlockSyncProvider, BlockSyncRequest, BlockSyncResponse};
 use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
@@ -187,13 +187,14 @@ where
                                 response,
                             }).await;
                         }
-                        ForestBehaviourEvent::BlockSyncRequest { channel, .. } => {
-                            // TODO implement blocksync provider
-                            let _ = channel.send(BlockSyncResponse {
-                                chain: vec![],
-                                status: 203,
-                                message: "handling requests not implemented".to_owned(),
-                            }).await;
+                        ForestBehaviourEvent::BlockSyncRequest { channel, peer, request } => {
+                            debug!("Received blocksync request (peerId: {:?})", peer);
+
+                            let blocksyncProvider = BlockSyncProvider::new(self.db.clone());
+
+                            let response = blocksyncProvider.make_response(&request);
+
+                            let _ = channel.send(response).await;
                         }
                         ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
                             debug!("Received blocksync response (id: {:?})", request_id);

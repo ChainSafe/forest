@@ -11,7 +11,9 @@ use chain::TipsetMetadata;
 use cid::{multihash::Blake2b256, Cid};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
-use forest_libp2p::blocksync::{BlockSyncResponse, CompactedMessages, TipsetBundle};
+use forest_libp2p::blocksync::{
+    BlockSyncResponse, BlockSyncResponseStatus, CompactedMessages, TipsetBundle,
+};
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use std::error::Error;
@@ -213,7 +215,7 @@ pub fn construct_blocksync_response() -> BlockSyncResponse {
             construct_tipset_bundle(2, 10),
             construct_tipset_bundle(1, 10),
         ],
-        status: 0,
+        status: BlockSyncResponseStatus::Success,
         message: "message".to_owned(),
     }
 }
