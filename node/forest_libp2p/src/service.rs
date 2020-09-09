@@ -129,7 +129,7 @@ where
         }
 
         let (network_sender_in, network_receiver_in) = channel(30);
-        let (network_sender_out, network_receiver_out) = channel(30);
+        let (network_sender_out, network_receiver_out) = channel(50);
 
         Libp2pService {
             swarm,
@@ -154,7 +154,7 @@ where
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
                             debug!("Peer dialed, {:?}", peer_id);
-                            self.network_sender_out.send(NetworkEvent::PeerDialed{
+                            emit_event(&self.network_sender_out, NetworkEvent::PeerDialed {
                                 peer_id
                             }).await;
                         }
@@ -167,7 +167,7 @@ where
                             message,
                         } => {
                             trace!("Got a Gossip Message from {:?}", source);
-                            self.network_sender_out.send(NetworkEvent::PubsubMessage {
+                            emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage {
                                 source,
                                 topics,
                                 message
@@ -175,14 +175,14 @@ where
                         }
                         ForestBehaviourEvent::HelloRequest { request, channel, .. } => {
                             debug!("Received hello request: {:?}", request);
-                            self.network_sender_out.send(NetworkEvent::HelloRequest {
+                            emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
                                 channel,
                             }).await;
                         }
                         ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
                             debug!("Received hello response (id: {:?})", request_id);
-                            self.network_sender_out.send(NetworkEvent::HelloResponse {
+                            emit_event(&self.network_sender_out, NetworkEvent::HelloResponse {
                                 request_id,
                                 response,
                             }).await;
@@ -217,7 +217,7 @@ where
                                     } else {
                                         trace!("saved bitswap block with cid {:?}", cid);
                                     }
-                                    self.network_sender_out.send(NetworkEvent::BitswapBlock{cid}).await;
+                                    emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{cid}).await;
                                 }
                                 Err(e) => {
                                     warn!("failed to save bitswap block: {:?}", e.to_string());
@@ -274,6 +274,14 @@ where
     /// Returns a `Receiver` to listen to network events
     pub fn network_receiver(&self) -> Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
+    }
+}
+async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
+    if !sender.is_full() {
+        sender.send(event).await
+    } else {
+        // TODO update log type
+        log::warn!("network sender channel was full, ignoring event");
     }
 }
 

@@ -4,11 +4,10 @@
 use async_std::future;
 use async_std::sync::Sender;
 use blocks::{FullTipset, Tipset, TipsetKeys};
-use flo_stream::Subscriber;
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
     hello::HelloRequest,
-    NetworkEvent, NetworkMessage,
+    NetworkMessage,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
 use libp2p::core::PeerId;
@@ -23,17 +22,11 @@ const RPC_TIMEOUT: u64 = 20;
 pub struct SyncNetworkContext {
     /// Channel to send network messages through p2p service
     network_send: Sender<NetworkMessage>,
-
-    /// Receiver channel for network events
-    pub receiver: Subscriber<NetworkEvent>,
 }
 
 impl SyncNetworkContext {
-    pub fn new(network_send: Sender<NetworkMessage>, receiver: Subscriber<NetworkEvent>) -> Self {
-        Self {
-            network_send,
-            receiver,
-        }
+    pub fn new(network_send: Sender<NetworkMessage>) -> Self {
+        Self { network_send }
     }
 
     /// Send a blocksync request for only block headers (ignore messages)

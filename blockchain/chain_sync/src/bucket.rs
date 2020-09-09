@@ -26,7 +26,6 @@ impl SyncBucket {
     }
     /// Returns true if tipset is from same chain
     pub fn is_same_chain_as(&self, ts: &Tipset) -> bool {
-        // TODO Confirm that comparing keys will be sufficient on full tipset impl
         self.tips
             .iter()
             .any(|t| ts.key() == t.key() || ts.key() == t.parents() || ts.parents() == t.key())

@@ -6,7 +6,6 @@ mod peer_test;
 
 use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
-use super::network_handler::NetworkHandler;
 use super::peer_manager::PeerManager;
 use super::sync_state::SyncState;
 use super::sync_worker::SyncWorker;
@@ -19,7 +18,6 @@ use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use encoding::{Cbor, Error as EncodingError};
-use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
 use futures::stream::StreamExt;
 use ipld_blockstore::BlockStore;
@@ -85,7 +83,7 @@ pub struct ChainSyncer<DB, TBeacon> {
     bad_blocks: Arc<BadBlockCache>,
 
     ///  incoming network events to be handled by syncer
-    net_handler: NetworkHandler,
+    net_handler: Receiver<NetworkEvent>,
 
     /// Peer manager to handle full peers to send ChainSync requests to
     peer_manager: Arc<PeerManager>,
@@ -105,13 +103,9 @@ where
     ) -> Result<Self, Error> {
         let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
-        // Split incoming channel to handle blocksync requests
-        let mut event_send = Publisher::new(30);
-        let network = SyncNetworkContext::new(network_send, event_send.subscribe());
+        let network = SyncNetworkContext::new(network_send);
 
         let peer_manager = Arc::new(PeerManager::default());
-
-        let net_handler = NetworkHandler::new(network_rx, event_send);
 
         Ok(Self {
             state: ChainSyncState::Bootstrap,
@@ -122,7 +116,7 @@ where
             network,
             genesis,
             bad_blocks: Arc::new(BadBlockCache::default()),
-            net_handler,
+            net_handler: network_rx,
             peer_manager,
             sync_queue: SyncBucketSet::default(),
             active_sync_tipsets: SyncBucketSet::default(),
@@ -142,8 +136,7 @@ where
 
     /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self) {
-        self.net_handler.spawn(Arc::clone(&self.peer_manager));
-        let (worker_tx, worker_rx) = channel(20);
+        let (worker_tx, worker_rx) = channel(5);
         for _ in 0..WORKER_TASKS {
             self.spawn_worker(worker_rx.clone()).await;
         }
@@ -157,7 +150,7 @@ where
                     worker_tx.send(ts).await;
                 }
             }
-            if let Some(event) = self.network.receiver.next().await {
+            if let Some(event) = self.net_handler.next().await {
                 match event {
                     NetworkEvent::HelloRequest { request, channel } => {
                         let source = channel.peer.clone();
@@ -165,6 +158,7 @@ where
                             "Message inbound, heaviest tipset cid: {:?}",
                             request.heaviest_tip_set
                         );
+                        // TODO Spawn this in seperate thread, blocking poll
                         match self
                             .fetch_tipset(
                                 source.clone(),
