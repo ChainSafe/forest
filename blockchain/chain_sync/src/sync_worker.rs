@@ -77,16 +77,14 @@ where
     DB: BlockStore + Sync + Send + 'static,
 {
     pub async fn spawn(self, mut inbound_channel: Receiver<Arc<Tipset>>) -> JoinHandle<()> {
-        task::spawn_blocking(move || {
-            task::block_on(async {
-                while let Some(ts) = inbound_channel.next().await {
-                    if let Err(e) = self.sync(ts).await {
-                        let err = e.to_string();
-                        warn!("failed to sync tipset: {}", &err);
-                        self.state.write().await.error(err);
-                    }
+        task::spawn(async move {
+            while let Some(ts) = inbound_channel.next().await {
+                if let Err(e) = self.sync(ts).await {
+                    let err = e.to_string();
+                    warn!("failed to sync tipset: {}", &err);
+                    self.state.write().await.error(err);
                 }
-            })
+            }
         })
     }
 
