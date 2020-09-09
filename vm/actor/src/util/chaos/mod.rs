@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+mod state;
 
 use address::Address;
 use cid::Cid;
@@ -12,16 +13,22 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 pub use types::*;
+pub use state::*;
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 // * Updated to test-vectors commit: 907892394dd83fe1f4bf1a82146bbbcc58963148
 
-lazy_static! {
-    pub static ref CALLER_VALIDATION_BRANCH_NONE: BigInt = BigInt::from(0);
-    pub static ref CALLER_VALIDATION_BRANCH_TWICE: BigInt = BigInt::from(1);
-    pub static ref CALLER_VALIDATION_BRANCH_ADDR_NIL_SET: BigInt = BigInt::from(2);
-    pub static ref CALLER_VALIDATION_BRANCH_TYPE_NIL_SET: BigInt = BigInt::from(3);
-}
+// Caller Validation methods
+const CALLER_VALIDATION_BRANCH_NONE: i64 = 0;
+const CALLER_VALIDATION_BRANCH_TWICE: i64 = 1;
+const CALLER_VALIDATION_BRANCH_ADDR_NIL_SET: i64 = 2;
+const CALLER_VALIDATION_BRANCH_TYPE_NIL_SET: i64 = 3;
+
+// Mutate State Branch Methods
+const MUTATE_IN_TRANSACTION: i64 = 0;
+const MUTATE_READ_ONLY: i64 = 1;
+const MUTATE_AFTER_TRANSACTION: i64 = 2;
+
 
 /// Chaos actor methods available
 #[derive(FromPrimitive)]
@@ -31,12 +38,34 @@ pub enum Method {
     CallerValidation = 2,
     CreateActor = 3,
     ResolveAddress = 4,
+    DeleteActor = 5,
+    Send = 6,
+    MutateState = 7,
 }
 
 /// Chaos Actor
 pub struct Actor;
 
 impl Actor {
+
+
+    pub fn send <BS,RT>(rt: &mut RT, arg : SendArgs) -> Result<SendReturn, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+         if Serialized::default() != rt.send(arg.to, arg.method, arg.params, arg.value)? {
+             return Err(actor_error!(ErrIllegalState; "Failed to unmarshal"))
+         }
+
+         Ok(
+                SendReturn{
+                    return_value : Serialized::default(),
+                    code : ExitCode::Ok
+                }
+         )
+    }
+
     /// Constructor for Account actor
     pub fn constructor<BS, RT>(_rt: &mut RT)
     where
@@ -53,21 +82,21 @@ impl Actor {
     ///  CALLER_VALIDATION_BRANCH_ADDR_NIL_SET validates against an empty caller
     ///  address set.
     ///  CALLER_VALIDATION_BRANCH_TYPE_NIL_SET validates against an empty caller type set.
-    pub fn caller_validation<BS, RT>(rt: &mut RT, branch: BigInt) -> Result<(), ActorError>
+    pub fn caller_validation<BS, RT>(rt: &mut RT, branch: i64) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         match branch {
-            x if x == *CALLER_VALIDATION_BRANCH_NONE => {}
-            x if x == *CALLER_VALIDATION_BRANCH_TWICE => {
+            x if x == CALLER_VALIDATION_BRANCH_NONE => {}
+            x if x == CALLER_VALIDATION_BRANCH_TWICE => {
                 rt.validate_immediate_caller_accept_any()?;
                 rt.validate_immediate_caller_accept_any()?;
             }
-            x if x == *CALLER_VALIDATION_BRANCH_ADDR_NIL_SET => {
+            x if x == CALLER_VALIDATION_BRANCH_ADDR_NIL_SET => {
                 rt.validate_immediate_caller_is(&[])?;
             }
-            x if x == *CALLER_VALIDATION_BRANCH_TYPE_NIL_SET => {
+            x if x == CALLER_VALIDATION_BRANCH_TYPE_NIL_SET => {
                 rt.validate_immediate_caller_type(&[])?;
             }
             _ => panic!("invalid branch passed to CallerValidation"),
@@ -111,6 +140,52 @@ impl Actor {
             success: resolved.is_some(),
         })
     }
+
+    pub fn delete_actor<BS, RT>(
+        rt: &mut RT,
+        beneficiary : Address,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_accept_any()?;
+        rt.delete_actor(&beneficiary)
+    }
+
+    pub fn mutate_state<BS, RT>(
+        rt: &mut RT,
+        arg : MutateStateArgs,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_accept_any()?;
+
+        match arg.branch {
+            x if x == MUTATE_IN_TRANSACTION => {
+                rt.transaction(|s: &mut State, _| {
+                    s.value = arg.value;
+                    Ok(())
+                })
+            }
+            x if x == MUTATE_READ_ONLY => {
+                // Impossible to reach this step becuase its Rust, so just return
+                Ok(())
+            }
+            x if x == MUTATE_AFTER_TRANSACTION => {
+                rt.transaction(|s: &mut State, _| {
+                    s.value = arg.value + "-in";
+                    Ok(())
+                })
+            }
+
+            _ => {
+                Err(actor_error!(ErrIllegalArgument; "Invalid mutate state command given" ))
+            }
+        }
+    }
 }
 
 impl ActorCode for Actor {
@@ -130,7 +205,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CallerValidation) => {
-                let BigIntDe(branch) = Serialized::deserialize(&params)?;
+                let branch = Serialized::deserialize(&params)?;
                 Self::caller_validation(rt, branch)?;
                 Ok(Serialized::default())
             }
@@ -143,6 +218,22 @@ impl ActorCode for Actor {
                 let res = Self::resolve_address(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
+
+            Some(Method::Send) => {
+                let res: SendReturn = Self::send(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(res)?)
+            }
+
+            Some(Method::DeleteActor) => {
+                Self::delete_actor(rt,params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+
+            Some(Method::MutateState) => {
+                Self::mutate_state(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+
             None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
         }
     }

@@ -4,6 +4,8 @@
 use address::Address;
 use cid::Cid;
 use encoding::tuple::*;
+use vm::{TokenAmount, ExitCode, Serialized};
+use num_bigint::bigint_ser;
 
 /// CreateActorArgs are the arguments to CreateActor.
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -19,4 +21,25 @@ pub struct CreateActorArgs {
 pub struct ResolveAddressResponse {
     pub address: Address,
     pub success: bool,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct SendArgs {
+    pub to : Address,
+    #[serde(with = "bigint_ser")]
+	pub value : TokenAmount,
+	pub method : u64 ,
+	pub params :  Serialized,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+// SendReturn is the return values for the Send method.
+pub struct  SendReturn  {
+	pub return_value : Serialized,
+	pub code :    ExitCode,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct MutateStateArgs {
+	pub value : String,
+	pub branch : i64,
 }
