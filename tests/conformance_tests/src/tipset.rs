@@ -48,8 +48,7 @@ mod block_messages_json {
 #[derive(Debug, Deserialize)]
 pub struct TipsetVector {
     pub epoch: ChainEpoch,
-    #[serde(with = "bigint_json")]
-    pub basefee: BigInt,
+    pub basefee: u64,
     #[serde(with = "block_messages_json")]
     pub blocks: Vec<BlockMessages>,
 }
@@ -76,7 +75,7 @@ pub fn execute_tipset(
         &tipset.blocks,
         tipset.epoch,
         &TestRand,
-        tipset.basefee.clone(),
+        BigInt::from( tipset.basefee.clone()),
         Some(|_, msg, ret| {
             _applied_messages.push(msg);
             applied_results.push(ret);
