@@ -466,8 +466,8 @@ where
         .await
     }
 
-    /// Get the sequence for a given address, return Error if there is a failure to retrieve sequence
-    pub async fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
+    /// Get the nonce for a given address, return Error if there is a failure to retrieve sequence
+    pub async fn get_nonce(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
 
         let sequence = self.get_state_sequence(addr, &cur_ts).await?;
@@ -1050,15 +1050,15 @@ pub mod tests {
                 smsg_vec.push(msg);
             }
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 0);
             mpool.push(smsg_vec[0].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 1);
             mpool.push(smsg_vec[1].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 2);
             mpool.push(smsg_vec[2].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 3);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 3);
             mpool.push(smsg_vec[3].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
 
             let a = mock_block(1, 1);
 
@@ -1079,9 +1079,9 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
         })
     }
 
@@ -1136,7 +1136,7 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
 
             mpool.api.write().await.set_state_sequence(&sender, 1);
 
@@ -1156,7 +1156,7 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
 
             mpool.api.write().await.set_state_sequence(&sender, 0);
 
@@ -1171,7 +1171,7 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
 
             let (p, _) = mpool.pending().await.unwrap();
             assert_eq!(p.len(), 3);
@@ -1197,13 +1197,13 @@ pub mod tests {
                 smsg_vec.push(msg);
             }
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 0);
             mpool.push(smsg_vec[0].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 1);
             mpool.push(smsg_vec[1].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 2);
             mpool.push(smsg_vec[2].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 3);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 3);
 
             let header = mock_block(1, 1);
             let tipset = Tipset::new(vec![header.clone()]).unwrap();

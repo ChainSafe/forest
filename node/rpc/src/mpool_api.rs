@@ -46,7 +46,7 @@ where
 {
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
-    let sequence = data.mpool.get_sequence(&address).await?;
+    let sequence = data.mpool.get_nonce(&address).await?;
     Ok(sequence)
 }
 
