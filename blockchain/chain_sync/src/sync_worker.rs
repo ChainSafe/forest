@@ -79,16 +79,11 @@ where
     pub async fn spawn(self, mut inbound_channel: Receiver<Arc<Tipset>>) -> JoinHandle<()> {
         task::spawn_blocking(move || {
             task::block_on(async {
-                loop {
-                    match inbound_channel.next().await {
-                        Some(ts) => {
-                            if let Err(e) = self.sync(ts).await {
-                                let err = e.to_string();
-                                warn!("failed to sync tipset: {}", &err);
-                                self.state.write().await.error(err);
-                            }
-                        }
-                        None => break,
+                while let Some(ts) = inbound_channel.next().await {
+                    if let Err(e) = self.sync(ts).await {
+                        let err = e.to_string();
+                        warn!("failed to sync tipset: {}", &err);
+                        self.state.write().await.error(err);
                     }
                 }
             })
