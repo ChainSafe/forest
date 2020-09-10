@@ -19,7 +19,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 5] = [
+    static ref SKIP_TESTS: [Regex; 14] = [
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -29,6 +29,17 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
         // TODO This fails but is blocked on miner actor refactor, remove skip after that comes in
         Regex::new(r"test-vectors/corpus/reward/reward--ok-miners-awarded-no-premiums.json").unwrap(),
+
+        Regex::new(r"test-vectors/corpus/reward/penalties--penalize*").unwrap(),
+        Regex::new(r"test-vectors/corpus/msg_application/gas_cost*").unwrap(),
+        Regex::new(r"test-vectors/corpus/paych/*").unwrap(),
+        Regex::new(r"test-vectors/corpus/transfer/*").unwrap(),
+        Regex::new(r"test-vectors/corpus/reward/*").unwrap(),
+        Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
+        Regex::new(r"test-vectors/corpus/msg_application/actor_exec--msg-apply-fail-actor-execution-illegal-arg.json").unwrap(),
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
+        Regex::new(r"test-vectors/corpus/actor_creation/addresses--sequential-10.json").unwrap(),
+
     ];
 }
 
