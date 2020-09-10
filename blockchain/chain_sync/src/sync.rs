@@ -1081,7 +1081,6 @@ mod tests {
                 local_sender,
                 event_receiver,
                 genesis_ts,
-                true,
             )
             .unwrap(),
             event_sender,
