@@ -58,7 +58,7 @@ run-serialization-vectors:
 	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
 
 run-conformance-vectors:
-	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests"
+	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests" -- --nocapture
 
 run-vectors: run-serialization-vectors run-conformance-vectors
 
