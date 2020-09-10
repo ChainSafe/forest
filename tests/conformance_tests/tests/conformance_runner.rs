@@ -39,6 +39,7 @@ fn is_valid_file(entry: &DirEntry) -> bool {
     };
     for rx in SKIP_TESTS.iter() {
         if rx.is_match(file_name) {
+            println!("SKIPPING: {}", file_name);
             return false;
         }
     }
