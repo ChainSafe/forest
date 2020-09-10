@@ -18,11 +18,11 @@ use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
+use state_manager::StateManager;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
 use vm::ActorState;
-use state_manager::StateManager;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -167,7 +167,7 @@ where
 /// This is the Provider implementation that will be used for the mpool RPC
 pub struct MpoolRpcProvider<DB> {
     subscriber: Subscriber<HeadChange>,
-    sm: Arc<StateManager<DB>>
+    sm: Arc<StateManager<DB>>,
 }
 
 impl<DB> MpoolRpcProvider<DB>
@@ -197,8 +197,9 @@ where
     }
 
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
-        let cid =
-        self.sm.get_block_store_ref()
+        let cid = self
+            .sm
+            .get_block_store_ref()
             .put(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
@@ -221,7 +222,8 @@ where
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        chain::unsigned_messages_for_tipset(self.sm.get_block_store_ref(), h).map_err(|err| err.into())
+        chain::unsigned_messages_for_tipset(self.sm.get_block_store_ref(), h)
+            .map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
