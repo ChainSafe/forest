@@ -88,7 +88,6 @@ pub(super) async fn start(config: Config) {
         network_send.clone(),
         network_rx,
         genesis,
-        config.drand,
     )
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();

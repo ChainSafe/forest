@@ -85,8 +85,6 @@ pub struct ChainSyncer<DB, TBeacon> {
 
     /// Peer manager to handle full peers to send ChainSync requests to
     peer_manager: Arc<PeerManager>,
-
-    allow_drand: bool,
 }
 
 /// Message data used to ensure valid state transition
@@ -106,7 +104,6 @@ where
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
-        allow_drand: bool,
     ) -> Result<Self, Error> {
         let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
@@ -130,7 +127,6 @@ where
             peer_manager,
             sync_queue: SyncBucketSet::default(),
             next_sync_target: SyncBucket::default(),
-            allow_drand,
         })
     }
 
@@ -703,7 +699,7 @@ where
             &self.chain_store.tipset_from_keys(header.parents())?,
         )?;
 
-        if self.allow_drand {
+        if std::env::var("LOTUS_IGNORE_DRAND") == Ok("1".to_owned()) {
             header
                 .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
                 .await?;
