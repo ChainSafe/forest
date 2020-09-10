@@ -16,7 +16,7 @@ use async_std::sync::{Receiver, RwLock, Sender};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use chain::{persist_objects, ChainStore};
+use chain::persist_objects;
 use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
 use core::time::Duration;
@@ -46,6 +46,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
+use chain::{TipIndex,HeadChange};
+use chain::TipsetMetadata;
 
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
 /// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
@@ -67,8 +69,14 @@ pub struct ChainSyncer<DB, TBeacon> {
     /// Represents next tipset to be synced
     next_sync_target: SyncBucket,
 
-    /// access and store tipsets / blocks / messages
-    chain_store: Arc<RwLock<ChainStore<DB>>>,
+    // heaviest tipset
+    heaviest_tipset : Arc<RwLock<Option<Arc<Tipset>>>>,
+    
+    // publisher chain store
+    publisher : Arc<RwLock<Publisher<HeadChange>>>,
+
+    // refrence to tip_index
+    tip_index : Arc<RwLock<TipIndex>>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -98,14 +106,17 @@ where
     TBeacon: Beacon + Send,
     DB: BlockStore + Sync + Send + 'static,
 {
-    pub async fn new(
-        chain_store: Arc<RwLock<ChainStore<DB>>>,
+    pub fn new(
+        data_store: Arc<DB>,
         beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
+        heaviest_tipset : Arc<RwLock<Option<Arc<Tipset>>>>,
+        publisher : Arc<RwLock<Publisher<HeadChange>>>,
+        tip_index : Arc<RwLock<TipIndex>>
     ) -> Result<Self, Error> {
-        let state_manager = Arc::new(StateManager::new(chain_store.read().await.db.clone()));
+        let state_manager = Arc::new(StateManager::new(data_store.clone()));
 
         // Split incoming channel to handle blocksync requests
         let mut event_send = Publisher::new(30);
@@ -119,14 +130,16 @@ where
             state: Arc::new(RwLock::new(SyncState::default())),
             beacon,
             state_manager,
-            chain_store,
+            heaviest_tipset,
             network,
             genesis,
+            publisher,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler,
             peer_manager,
             sync_queue: SyncBucketSet::default(),
             next_sync_target: SyncBucket::default(),
+            tip_index
         })
     }
 
@@ -167,7 +180,7 @@ where
                     }
                 }
                 NetworkEvent::PeerDialed { peer_id } => {
-                    let heaviest = self.chain_store.read().await.heaviest_tipset().unwrap();
+                    let heaviest = (self.heaviest_tipset.read().await).as_ref().unwrap().clone();
                     self.network
                         .hello_request(
                             peer_id,
@@ -202,7 +215,7 @@ where
         }
 
         // Get heaviest tipset from storage to sync toward
-        let heaviest = self.chain_store.read().await.heaviest_tipset().unwrap();
+        let heaviest = self.heaviest_tipset.read().await.as_ref().unwrap().clone();
 
         info!("Starting block sync...");
 
@@ -212,7 +225,7 @@ where
             .await
             .init(heaviest.clone(), head.clone());
         let tipsets = match self
-            .sync_headers_reverse(head.as_ref().clone(), &heaviest)
+            .sync_headers_reverse(head.as_ref().clone(), &heaviest.clone())
             .await
         {
             Ok(ts) => ts,
@@ -239,11 +252,7 @@ where
         self.set_stage(SyncStage::Complete).await;
 
         // At this point the head is synced and the head can be set as the heaviest.
-        self.chain_store
-            .write()
-            .await
-            .put_tipset(head.as_ref())
-            .await?;
+        chain::put_tipset_lock(self.heaviest_tipset.clone(),&head,self.publisher.clone(),self.state_manager.get_block_store()).await?;
 
         Ok(())
     }
@@ -345,7 +354,7 @@ where
         }
 
         // compare target_weight to heaviest weight stored; ignore otherwise
-        let best_weight = match self.chain_store.read().await.heaviest_tipset() {
+        let best_weight = match &*self.heaviest_tipset.read().await {
             Some(ts) => ts.weight().clone(),
             None => Zero::zero(),
         };
@@ -731,10 +740,14 @@ where
                 self.bad_blocks.put(b.cid().clone(), e.to_string()).await;
                 return Err(Error::Other("Invalid blocks detected".to_string()));
             }
-            self.chain_store
-                .write()
-                .await
-                .set_tipset_tracker(b.header())?;
+            let header = b.header();
+            let ts: Tipset = Tipset::new(vec![header.clone()])?;
+            let meta = TipsetMetadata {
+                tipset_state_root: header.state_root().clone(),
+                tipset_receipts_root: header.message_receipts().clone(),
+                tipset: ts,
+            };
+            self.tip_index.write().await.put(&meta);
         }
         Ok(())
     }

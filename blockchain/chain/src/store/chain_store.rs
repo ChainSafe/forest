@@ -32,6 +32,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
+use async_std::sync::RwLock;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -55,16 +56,16 @@ pub enum HeadChange {
 
 /// Generic implementation of the datastore trait and structures
 pub struct ChainStore<DB> {
-    publisher: Publisher<HeadChange>,
+    publisher: Arc<RwLock<Publisher<HeadChange>>>,
 
     // key-value datastore
     pub db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
-    heaviest: Option<Arc<Tipset>>,
+    heaviest: Arc<RwLock<Option<Arc<Tipset>>>>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
-    tip_index: TipIndex,
+    tip_index: Arc<RwLock<TipIndex>>,
 }
 
 impl<DB> ChainStore<DB>
@@ -78,34 +79,36 @@ where
             .map(Arc::new);
         Self {
             db,
-            publisher: Publisher::new(SINK_CAP),
-            tip_index: TipIndex::new(),
-            heaviest,
+            publisher: Arc::new(RwLock::new(Publisher::new(SINK_CAP))),
+            tip_index: Arc::new(RwLock::new(TipIndex::new())),
+            heaviest : Arc::new(RwLock::new(heaviest)),
         }
     }
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
     pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        self.heaviest = Some(ts.clone());
-        self.publisher.publish(HeadChange::Current(ts)).await;
+        *self.heaviest.write().await = Some(ts.clone());
+        self.publisher.write().await.publish(HeadChange::Current(ts)).await;
         Ok(())
     }
 
+  
+
     // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub fn subscribe(&mut self) -> Subscriber<HeadChange> {
-        self.publisher.subscribe()
+    pub async fn subscribe(&mut self) -> Subscriber<HeadChange> {
+        self.publisher.write().await.subscribe()
     }
 
     /// Sets tip_index tracker
-    pub fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
+    pub async fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
         let ts: Tipset = Tipset::new(vec![header.clone()])?;
         let meta = TipsetMetadata {
             tipset_state_root: header.state_root().clone(),
             tipset_receipts_root: header.message_receipts().clone(),
             tipset: ts,
         };
-        self.tip_index.put(&meta);
+        self.tip_index.write().await.put(&meta);
         Ok(())
     }
 
@@ -136,8 +139,10 @@ where
 
         // set as heaviest tipset
         let heaviest_ts = Arc::new(heaviest_ts);
-        self.heaviest = Some(heaviest_ts.clone());
+        *self.heaviest.write().await = Some(heaviest_ts.clone());
         self.publisher
+            .write()
+            .await
             .publish(HeadChange::Current(heaviest_ts))
             .await;
         Ok(())
@@ -149,8 +154,29 @@ where
     }
 
     /// Returns heaviest tipset from blockstore
-    pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+    pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+        (*self.heaviest.read().await).clone()
+    }
+
+    pub fn heaviest_tipset_ref(&mut self) -> Arc<RwLock<Option<Arc<Tipset>>>>
+    {
         self.heaviest.clone()
+    }
+
+    pub fn publisher_ref(&self) -> Arc<RwLock<Publisher<HeadChange>>>
+    {
+        self.publisher.clone()
+    }
+
+    pub fn tip_index_ref(&mut self) -> Arc<RwLock<TipIndex>>
+    {
+        self.tip_index.clone()
+    }
+
+
+    pub fn blockstore_arc(&self) -> Arc<DB>
+    {
+        self.db.clone()
     }
 
     /// Returns key-value store instance
@@ -170,7 +196,9 @@ where
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     async fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
-        match &self.heaviest {
+        
+
+        match &*self.heaviest.clone().read().await {
             Some(heaviest) => {
                 let new_weight = weight(self.blockstore(), ts)?;
                 let curr_weight = weight(self.blockstore(), &heaviest)?;
@@ -188,33 +216,64 @@ where
         Ok(())
     }
 
-    pub async fn sub_head_changes(&mut self) -> Result<Receiver<HeadChange>, Error> {
-        let subscribed_head_change = self.subscribe();
-        info!("sub head changes");
-        let head = self
-            .heaviest_tipset()
-            .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
-        let (mut sender, reciever) = channel(16);
-        sender
-            .send(HeadChange::Current(head))
-            .await
-            .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
-        task::spawn(async move {
-            let sender = &sender.clone();
-            let wait_for_each = subscribed_head_change.for_each(|s| async move {
-                sender
-                    .clone()
-                    .send(s)
-                    .await
-                    .unwrap_or_else(|e| warn!("failed to send to channel : {:?}", e));
-            });
-            let dur = Duration::from_millis(10);
-            future::timeout(dur, wait_for_each)
-                .await
-                .unwrap_or_else(|_| info!("waited for head_change for 10 miliseconds"));
-        });
-        Ok(reciever)
+
+
+    
+}
+
+
+pub async fn put_tipset_lock<DB>(heaviest_lock : Arc<RwLock<Option<Arc<Tipset>>>>,ts: &Tipset,publisher:Arc<RwLock<Publisher<HeadChange>>>,db : Arc<DB>)  -> Result<(), Error> where DB : BlockStore
+{
+    persist_objects(&*db, ts.blocks())?;
+    update_heaviest_lock(heaviest_lock,ts,publisher,db).await
+}
+
+pub async fn set_heaviest_tipset_lock<DB>(heaviest : Arc<RwLock<Option<Arc<Tipset>>>>,ts: Arc<Tipset>,publisher:Arc<RwLock<Publisher<HeadChange>>>,db : Arc<DB>) -> Result<(), Error> where DB : BlockStore
+{
+    db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
+    let mut heaviest = heaviest.write().await;
+    *heaviest = Some(ts.clone());
+    publisher.write().await.publish(HeadChange::Current(ts)).await;
+    Ok(())
+}
+
+pub async fn update_heaviest_lock<DB>(heaviest_lock : Arc<RwLock<Option<Arc<Tipset>>>>,ts: &Tipset,publisher:Arc<RwLock<Publisher<HeadChange>>>,db : Arc<DB>) -> Result<(), Error> where DB : BlockStore{
+    match &*heaviest_lock.read().await {
+        Some(heaviest) => {
+            let new_weight = weight(&*db, &ts)?;
+            let curr_weight = weight(&*db, &heaviest)?;
+            if new_weight > curr_weight {
+                // TODO potentially need to deal with re-orgs here
+                info!("New heaviest tipset");
+                set_heaviest_tipset_lock(heaviest_lock.clone(),Arc::new(ts.clone()),publisher,db).await?;
+            }
+        }
+        None => {
+            info!("set heaviest tipset");
+            set_heaviest_tipset_lock(heaviest_lock.clone(),Arc::new(ts.clone()),publisher,db).await?;
+        }
     }
+    Ok(())
+}
+
+pub async fn sub_head_changes(mut subscribed_head_change : Subscriber<HeadChange>,heaviest_tipset : &Option<Arc<Tipset>>) -> Result<Receiver<HeadChange>, Error> {
+        
+    info!("sub head changes");
+    let head = heaviest_tipset.as_ref()
+        .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
+    let (mut sender, reciever) = channel(16);
+    sender
+        .send(HeadChange::Current(head.clone()))
+        .await
+        .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
+    task::spawn(async move {
+        let dur = Duration::from_millis(10);
+        while let Ok(Some(change)) = future::timeout(dur,subscribed_head_change.next()).await
+        {
+            sender.clone().send(change).await.unwrap_or_else(|e| warn!("failed to send to channel : {:?}", e));
+        }
+    });
+    Ok(reciever)
 }
 
 /// Returns messages for a given tipset from db

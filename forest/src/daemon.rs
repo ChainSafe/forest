@@ -61,7 +61,7 @@ pub(super) async fn start(config: Config) {
     let network_send = p2p_service.network_sender();
     // Initialize mpool
     let subscriber = chain_store.subscribe();
-    let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&db));
+    let provider = MpoolRpcProvider::new(subscriber.await, Arc::clone(&db));
     let mpool = Arc::new(
         MessagePool::new(provider, network_name.clone())
             .await
@@ -81,15 +81,18 @@ pub(super) async fn start(config: Config) {
     .unwrap();
 
     // Initialize ChainSyncer
-    let chain_store = Arc::new(RwLock::new(chain_store));
+    let heaviest_tipset = chain_store.heaviest_tipset_ref();
+    let publisher = chain_store.publisher_ref();
     let chain_syncer = ChainSyncer::new(
-        chain_store.clone(),
+        chain_store.blockstore_arc(),
         Arc::new(beacon),
         network_send.clone(),
         network_rx,
         genesis,
+        heaviest_tipset.clone(),
+        publisher,
+        chain_store.tip_index_ref()
     )
-    .await
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
@@ -102,6 +105,7 @@ pub(super) async fn start(config: Config) {
         p2p_service.run().await;
     });
 
+    let subscriber = chain_store.subscribe().await;
     let rpc_task = if config.enable_rpc {
         let db_rpc = StateManager::new(Arc::clone(&db));
         let keystore_rpc = Arc::clone(&keystore);
@@ -111,13 +115,14 @@ pub(super) async fn start(config: Config) {
             start_rpc(
                 RpcState {
                     state_manager: db_rpc,
-                    chain_store,
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,
                     sync_state,
                     network_send,
                     network_name,
+                    heaviest_tipset,
+                    subscriber
                 },
                 &rpc_listen,
             )

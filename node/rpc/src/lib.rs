@@ -15,7 +15,6 @@ use async_std::sync::{RwLock, Sender};
 use async_std::task;
 use async_tungstenite::tungstenite::Message;
 use blockstore::BlockStore;
-use chain::ChainStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
 use futures::sink::SinkExt;
@@ -26,6 +25,9 @@ use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::StateManager;
 use std::sync::Arc;
 use wallet::KeyStore;
+use blocks::Tipset;
+use flo_stream::Subscriber;
+use chain::HeadChange;
 /// This is where you store persistant data, or at least access to stateful data.
 pub struct RpcState<DB, KS>
 where
@@ -33,8 +35,9 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     pub state_manager: StateManager<DB>,
-    pub chain_store: Arc<RwLock<ChainStore<DB>>>,
     pub keystore: Arc<RwLock<KS>>,
+    pub heaviest_tipset : Arc<RwLock<Option<Arc<Tipset>>>>,
+    pub subscriber : Subscriber<HeadChange>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<SyncState>>,

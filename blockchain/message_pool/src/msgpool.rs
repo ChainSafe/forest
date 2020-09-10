@@ -118,11 +118,12 @@ where
     DB: BlockStore,
 {
     fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-        self.cs.subscribe()
+        task::block_on(self.cs.subscribe())
+        
     }
 
     fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        let ts = self.cs.heaviest_tipset()?;
+        let ts = task::block_on(self.cs.heaviest_tipset())?;
         Some(ts.as_ref().clone())
     }
 
