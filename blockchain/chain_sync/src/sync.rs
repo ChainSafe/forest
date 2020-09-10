@@ -1050,6 +1050,7 @@ mod tests {
     use blocks::BlockHeader;
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
+    use state_manager::StateManager;
     use std::sync::Arc;
     use test_utils::{construct_blocksync_response, construct_messages, construct_tipset};
 
@@ -1060,7 +1061,7 @@ mod tests {
         Sender<NetworkEvent>,
         Receiver<NetworkMessage>,
     ) {
-        let chain_store = ChainStore::new(db);
+        let chain_store = ChainStore::new(db.clone());
 
         let (local_sender, test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
@@ -1074,6 +1075,7 @@ mod tests {
         (
             ChainSyncer::new(
                 chain_store,
+                Arc::new(StateManager::new(db.clone())),
                 beacon,
                 local_sender,
                 event_receiver,
