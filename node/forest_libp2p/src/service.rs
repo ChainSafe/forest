@@ -280,7 +280,9 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     if !sender.is_full() {
         sender.send(event).await
     } else {
-        warn!("network sender channel was full, ignoring event");
+        // TODO this would be better to keep the events that would be ignored in some sort of buffer
+        // so that they can be pulled off and sent through the channel when there is available space
+        error!("network sender channel was full, ignoring event");
     }
 }
 
