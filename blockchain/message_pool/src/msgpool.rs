@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
-use address::Address;
+use address::{Protocol, Address};
 use async_std::sync::{Arc, RwLock};
 use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -22,6 +22,8 @@ use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
 use vm::ActorState;
+use state_manager::StateManager;
+use async_trait::async_trait;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -126,7 +128,8 @@ impl MsgSet {
 
 /// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
 /// the operations that are listed below that are required for the messagepool.
-pub trait Provider {
+#[async_trait]
+pub trait Provider{
     /// Update Mpool's cur_tipset whenever there is a chnge to the provider
     fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
@@ -141,6 +144,8 @@ pub trait Provider {
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
+    /// Resolves to the key address
+    async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>;
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>;
     /// Return a tipset given the tipset keys from the ChainStore
@@ -150,14 +155,13 @@ pub trait Provider {
 }
 
 /// This is the mpool provider struct that will let us access and add messages to messagepool.
-/// future
 pub struct MpoolProvider<DB> {
     cs: ChainStore<DB>,
 }
 
 impl<'db, DB> MpoolProvider<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Sync + Send,
 {
     pub fn new(cs: ChainStore<DB>) -> Self
     where
@@ -167,9 +171,10 @@ where
     }
 }
 
+#[async_trait]
 impl<DB> Provider for MpoolProvider<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Sync + Send,
 {
     fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.cs.subscribe()
@@ -205,6 +210,10 @@ where
         chain::block_messages(self.cs.blockstore(), h).map_err(|err| err.into())
     }
 
+    async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+        unimplemented!()
+    }
+
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
         chain::unsigned_messages_for_tipset(self.cs.blockstore(), h).map_err(|err| err.into())
     }
@@ -215,29 +224,32 @@ where
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
         chain::compute_base_fee(self.cs.blockstore(), ts).map_err(|err| err.into())
     }
+
 }
 
 /// This is the Provider implementation that will be used for the mpool RPC
 pub struct MpoolRpcProvider<DB> {
     subscriber: Subscriber<HeadChange>,
+    sm: Arc<StateManager<DB>>,
     db: Arc<DB>,
 }
 
 impl<DB> MpoolRpcProvider<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Sync + Send,
 {
-    pub fn new(subscriber: Subscriber<HeadChange>, db: Arc<DB>) -> Self
+    pub fn new(subscriber: Subscriber<HeadChange>, state_manager: Arc<StateManager<DB>>, db: Arc<DB>) -> Self
     where
         DB: BlockStore,
     {
-        MpoolRpcProvider { subscriber, db }
+        MpoolRpcProvider { subscriber, db, sm: state_manager }
     }
 }
 
+#[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Sync + Send,
 {
     fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.clone()
@@ -284,6 +296,9 @@ where
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
         chain::compute_base_fee(self.db.as_ref(), ts).map_err(|err| err.into())
+    }
+    async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+        self.sm.resolve_to_key_addr(addr, ts).await.map_err(|e| Error::Other(e.to_string()))
     }
 }
 
@@ -436,7 +451,7 @@ where
     /// Verify the state_sequence and balance for the sender of the message given then call add_locked
     /// to finish adding the signed_message to pending
     async fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
-        let sequence = self.get_state_sequence(msg.from(), cur_ts).await?;
+        let sequence = self.get_state_nonce(msg.from(), cur_ts).await?;
 
         if sequence > msg.message().sequence() {
             return Err(Error::SequenceTooLow);
@@ -461,7 +476,7 @@ where
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
             msg,
-            self.get_state_sequence(&from, &self.cur_tipset.read().await.clone()).await?
+            self.get_state_nonce(&from, &self.cur_tipset.read().await.clone()).await?
         )
         .await
     }
@@ -470,7 +485,7 @@ where
     pub async fn get_nonce(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
 
-        let sequence = self.get_state_sequence(addr, &cur_ts).await?;
+        let sequence = self.get_state_nonce(addr, &cur_ts).await?;
 
         let pending = self.pending.read().await;
 
@@ -486,26 +501,10 @@ where
         }
     }
 
-    /// Get the state of the base_sequence for a given address in cur_ts
-    async fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let api = self.api.read().await;
-        let actor = api.get_actor_after(&addr, cur_ts)?;
-        let mut base_sequence = actor.sequence;
-        // TODO here lotus has a todo, so I guess we should eventually remove cur_ts from one
-        // of the params for this method and just use the chain head
-        let msgs = api.messages_for_tipset(cur_ts)?;
-        drop(api);
-
-        for m in msgs {
-            if m.from() == addr {
-                if m.sequence() != base_sequence {
-                    return Err(Error::Other("tipset has bad sequence ordering".to_string()));
-                }
-                base_sequence += 1;
-            }
-        }
-
-        Ok(base_sequence)
+    /// Get the state of the sequence for a given address in cur_ts
+    async fn get_state_nonce(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
+        let actor = self.api.read().await.get_actor_after(&addr, cur_ts)?;
+        Ok(actor.sequence)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
@@ -513,6 +512,23 @@ where
     async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
         let actor = self.api.read().await.get_actor_after(&addr, &ts)?;
         Ok(actor.balance)
+    }
+
+    pub async fn push_with_nonce(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
+    where T: Fn(Address, u64) -> Result<SignedMessage, Error>
+    {
+        // let cur_ts = self.cur_tipset.read().await.clone();
+        // let from_key = match addr.protocol() {
+        //     Protocol::ID => {
+        //         self.api.read().await.state
+        //     }
+        //     _ => addr
+        // };
+        //
+        // // if from_key.protocol() == Protocol::ID {
+        // //    from
+        // // }
+        todo!()
     }
 
     /// Remove a message given a sequence and address from the messagepool
@@ -861,6 +877,7 @@ pub mod test_provider {
         }
     }
 
+    #[async_trait]
     impl Provider for TestApi {
         fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
             self.publisher.subscribe()
@@ -903,6 +920,10 @@ pub mod test_provider {
                     Ok((v, temp))
                 }
             }
+        }
+
+        async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+            unimplemented!()
         }
 
         fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Errors> {

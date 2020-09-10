@@ -103,9 +103,9 @@ where
         beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
+        state_manager: Arc<StateManager<DB>>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
         // Split incoming channel to handle blocksync requests
         let mut event_send = Publisher::new(30);

@@ -3,6 +3,7 @@
 
 mod errors;
 mod msgpool;
+// mod block_prob;
 
 pub use self::errors::*;
 pub use self::msgpool::*;

@@ -60,9 +60,12 @@ pub(super) async fn start(config: Config) {
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
+    // Initialize state manager
+    let state_manager = Arc::new(StateManager::new(Arc::clone(&db)));
+
     // Initialize mpool
     let subscriber = chain_store.subscribe();
-    let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&db));
+    let provider = MpoolRpcProvider::new(subscriber, state_manager.clone(), Arc::clone(&db));
     let mpool = Arc::new(
         MessagePool::new(provider, network_name.clone())
             .await
@@ -87,6 +90,7 @@ pub(super) async fn start(config: Config) {
         Arc::new(beacon),
         network_send.clone(),
         network_rx,
+        state_manager.clone(),
         genesis,
     )
     .unwrap();
@@ -102,14 +106,13 @@ pub(super) async fn start(config: Config) {
     });
 
     let rpc_task = if config.enable_rpc {
-        let db_rpc = StateManager::new(Arc::clone(&db));
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(
                 RpcState {
-                    state_manager: db_rpc,
+                    state_manager: state_manager.clone(),
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,
