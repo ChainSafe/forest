@@ -75,7 +75,7 @@ pub fn execute_tipset(
         &tipset.blocks,
         tipset.epoch,
         &TestRand,
-        BigInt::from( tipset.basefee.clone()),
+        BigInt::from(tipset.basefee),
         Some(|_, msg, ret| {
             _applied_messages.push(msg);
             applied_results.push(ret);

@@ -29,7 +29,6 @@ pub fn execute_message(
     )?;
 
     if let Some(s) = &selector {
-
         if s.chaos_actor
             .as_ref()
             .map(|s| s == "true")

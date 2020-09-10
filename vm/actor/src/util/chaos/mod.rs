@@ -1,19 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod types;
 mod state;
+mod types;
 
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser::BigIntDe;
-use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-pub use types::*;
 pub use state::*;
+pub use types::*;
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
 // * Updated to test-vectors commit: 907892394dd83fe1f4bf1a82146bbbcc58963148
@@ -28,7 +26,6 @@ const CALLER_VALIDATION_BRANCH_TYPE_NIL_SET: i64 = 3;
 const MUTATE_IN_TRANSACTION: i64 = 0;
 const MUTATE_READ_ONLY: i64 = 1;
 const MUTATE_AFTER_TRANSACTION: i64 = 2;
-
 
 /// Chaos actor methods available
 #[derive(FromPrimitive)]
@@ -47,23 +44,19 @@ pub enum Method {
 pub struct Actor;
 
 impl Actor {
-
-
-    pub fn send <BS,RT>(rt: &mut RT, arg : SendArgs) -> Result<SendReturn, ActorError>
+    pub fn send<BS, RT>(rt: &mut RT, arg: SendArgs) -> Result<SendReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-         if Serialized::default() != rt.send(arg.to, arg.method, arg.params, arg.value)? {
-             return Err(actor_error!(ErrIllegalState; "Failed to unmarshal"))
-         }
+        if Serialized::default() != rt.send(arg.to, arg.method, arg.params, arg.value)? {
+            return Err(actor_error!(ErrIllegalState; "Failed to unmarshal"));
+        }
 
-         Ok(
-                SendReturn{
-                    return_value : Serialized::default(),
-                    code : ExitCode::Ok
-                }
-         )
+        Ok(SendReturn {
+            return_value: Serialized::default(),
+            code: ExitCode::Ok,
+        })
     }
 
     /// Constructor for Account actor
@@ -141,10 +134,7 @@ impl Actor {
         })
     }
 
-    pub fn delete_actor<BS, RT>(
-        rt: &mut RT,
-        beneficiary : Address,
-    ) -> Result<(), ActorError>
+    pub fn delete_actor<BS, RT>(rt: &mut RT, beneficiary: Address) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -153,10 +143,7 @@ impl Actor {
         rt.delete_actor(&beneficiary)
     }
 
-    pub fn mutate_state<BS, RT>(
-        rt: &mut RT,
-        arg : MutateStateArgs,
-    ) -> Result<(), ActorError>
+    pub fn mutate_state<BS, RT>(rt: &mut RT, arg: MutateStateArgs) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -164,26 +151,20 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
 
         match arg.branch {
-            x if x == MUTATE_IN_TRANSACTION => {
-                rt.transaction(|s: &mut State, _| {
-                    s.value = arg.value;
-                    Ok(())
-                })
-            }
+            x if x == MUTATE_IN_TRANSACTION => rt.transaction(|s: &mut State, _| {
+                s.value = arg.value;
+                Ok(())
+            }),
             x if x == MUTATE_READ_ONLY => {
                 // Impossible to reach this step becuase its Rust, so just return
+                Err(actor_error!(ErrForbidden; "Can not modify read only state" ))
+            }
+            x if x == MUTATE_AFTER_TRANSACTION => rt.transaction(|s: &mut State, _| {
+                s.value = arg.value + "-in";
                 Ok(())
-            }
-            x if x == MUTATE_AFTER_TRANSACTION => {
-                rt.transaction(|s: &mut State, _| {
-                    s.value = arg.value + "-in";
-                    Ok(())
-                })
-            }
+            }),
 
-            _ => {
-                Err(actor_error!(ErrIllegalArgument; "Invalid mutate state command given" ))
-            }
+            _ => Err(actor_error!(ErrIllegalArgument; "Invalid mutate state command given" )),
         }
     }
 }
@@ -225,7 +206,7 @@ impl ActorCode for Actor {
             }
 
             Some(Method::DeleteActor) => {
-                Self::delete_actor(rt,params.deserialize()?)?;
+                Self::delete_actor(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
 
