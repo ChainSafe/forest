@@ -18,7 +18,6 @@ use std::io::BufReader;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
-
 lazy_static! {
     static ref SKIP_TESTS: [Regex; 14] = [
         // These tests are marked as invalid as they return wrong exit code on Lotus
