@@ -100,13 +100,12 @@ where
 {
     pub fn new(
         chain_store: ChainStore<DB>,
+        state_manager: Arc<StateManager<DB>>,
         beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-        let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
-
         // Split incoming channel to handle blocksync requests
         let mut event_send = Publisher::new(30);
         let network = SyncNetworkContext::new(network_send, event_send.subscribe());

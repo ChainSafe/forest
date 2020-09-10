@@ -4334,6 +4334,7 @@ dependencies = [
  "log",
  "lru",
  "serde",
+ "state_manager",
  "state_tree",
  "thiserror",
 ]
