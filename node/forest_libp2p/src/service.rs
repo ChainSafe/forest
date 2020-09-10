@@ -21,7 +21,7 @@ use libp2p::{
     mplex, noise, yamux, PeerId, Swarm, Transport,
 };
 use libp2p_request_response::{RequestId, ResponseChannel};
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
