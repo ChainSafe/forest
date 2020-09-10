@@ -37,6 +37,7 @@ fn peer_manager_update() {
         local_sender,
         event_receiver,
         genesis_ts,
+        true,
     )
     .unwrap();
 

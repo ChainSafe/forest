@@ -61,7 +61,7 @@ pub struct DaemonOpts {
     pub config: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
     pub genesis: Option<String>,
-    #[structopt(short, long, help = "Allow rpc to be active or not")]
+    #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "The port used for communication")]
     pub port: Option<String>,
@@ -69,6 +69,8 @@ pub struct DaemonOpts {
     pub kademlia: Option<bool>,
     #[structopt(short, long, help = "Allow MDNS (default = true)")]
     pub mdns: Option<bool>,
+    #[structopt(short, long, help = "Allow DRAND Verification (default = true)")]
+    pub drand: Option<bool>,
 }
 
 impl DaemonOpts {
@@ -94,6 +96,7 @@ impl DaemonOpts {
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
+        cfg.drand = self.drand.unwrap_or(cfg.drand);
 
         // (where to find these flags, should be easy to do with structops)
 

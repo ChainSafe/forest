@@ -85,6 +85,8 @@ pub struct ChainSyncer<DB, TBeacon> {
 
     /// Peer manager to handle full peers to send ChainSync requests to
     peer_manager: Arc<PeerManager>,
+
+    allow_drand: bool,
 }
 
 /// Message data used to ensure valid state transition
@@ -104,6 +106,7 @@ where
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
+        allow_drand: bool,
     ) -> Result<Self, Error> {
         let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
 
@@ -127,6 +130,7 @@ where
             peer_manager,
             sync_queue: SyncBucketSet::default(),
             next_sync_target: SyncBucket::default(),
+            allow_drand,
         })
     }
 
@@ -699,9 +703,11 @@ where
             &self.chain_store.tipset_from_keys(header.parents())?,
         )?;
 
-        header
-            .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
-            .await?;
+        if self.allow_drand {
+            header
+                .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
+                .await?;
+        }
 
         let power_result = self
             .state_manager
@@ -1079,6 +1085,7 @@ mod tests {
                 local_sender,
                 event_receiver,
                 genesis_ts,
+                true,
             )
             .unwrap(),
             event_sender,
