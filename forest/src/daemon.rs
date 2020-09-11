@@ -112,7 +112,7 @@ pub(super) async fn start(config: Config) {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(
                 RpcState {
-                    state_manager: Arc::clone(&state_manager),
+                    state_manager: state_manager,
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,

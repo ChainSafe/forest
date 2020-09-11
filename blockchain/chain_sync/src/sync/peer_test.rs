@@ -32,7 +32,7 @@ fn peer_manager_update() {
 
     let genesis_ts = Tipset::new(vec![dummy_header]).unwrap();
     let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
-    let state_manager = Arc::new(StateManager::new(db.clone()));
+    let state_manager = Arc::new(StateManager::new(db));
     let cs = ChainSyncer::new(
         chain_store,
         state_manager,

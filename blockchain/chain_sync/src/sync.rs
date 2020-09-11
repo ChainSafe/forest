@@ -1075,7 +1075,7 @@ mod tests {
         (
             ChainSyncer::new(
                 chain_store,
-                Arc::new(StateManager::new(db.clone())),
+                Arc::new(StateManager::new(db)),
                 beacon,
                 local_sender,
                 event_receiver,

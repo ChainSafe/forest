@@ -131,7 +131,7 @@ mod tests {
         });
 
         let state = Arc::new(RpcState {
-            state_manager: state_manager.clone(),
+            state_manager: state_manager,
             keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
