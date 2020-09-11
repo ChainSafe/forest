@@ -29,6 +29,8 @@ pub enum Error {
     InvalidChecksum,
     #[error("Decoding for address failed: {0}")]
     Base32Decoding(#[from] DecodeError),
+    #[error("Cannot get id from non id address")]
+    NonIDAddress,
 }
 
 impl From<num::ParseIntError> for Error {

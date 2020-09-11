@@ -2,47 +2,54 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::SectorSize;
-use address::Address;
-use num_bigint::bigint_ser;
-use serde::Serialize;
+use address::{json as addr_json, Address};
+use chrono::Utc;
+use num_bigint::bigint_ser::json as bigint_json;
+use serde::{Deserialize, Serialize};
 use vm::TokenAmount;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ActorType {
     Account,
     MultiSig,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Actor {
     pub actor_type: ActorType,
-    #[serde(with = "bigint_ser")]
-    pub token_amount: TokenAmount,
+    #[serde(with = "bigint_json")]
+    pub balance: TokenAmount,
+
+    #[serde(with = "addr_json")]
+    pub owner: Address,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Miner {
+    #[serde(with = "addr_json")]
     pub owner: Address,
-    pub worker: Address,
-    pub peer_id: Vec<u8>,
 
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "addr_json")]
+    pub worker: Address,
+    pub peer_id: String,
+
+    #[serde(with = "bigint_json")]
     pub market_balance: TokenAmount,
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "bigint_json")]
     pub power_balance: TokenAmount,
     pub sector_size: SectorSize,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Template {
     pub accounts: Vec<Actor>,
     pub miners: Vec<Miner>,
     pub network_name: String,
-    // timestamp: SystemTime,
+    timestamp: String,
 }
 
 impl Template {
@@ -51,6 +58,7 @@ impl Template {
             accounts: Vec::new(),
             miners: Vec::new(),
             network_name,
+            timestamp: Utc::now().to_rfc3339(),
         }
     }
 }

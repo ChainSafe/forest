@@ -2260,6 +2260,7 @@ name = "fil_types"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
+ "chrono",
  "clock",
  "commcid",
  "filecoin-proofs-api",
@@ -2427,6 +2428,8 @@ dependencies = [
  "ctrlc",
  "db",
  "fil_types",
+ "forest_address",
+ "forest_bigint",
  "forest_blocks",
  "forest_car",
  "forest_cid",
@@ -2471,6 +2474,7 @@ dependencies = [
 name = "forest_bigint"
 version = "0.1.1"
 dependencies = [
+ "forest_encoding",
  "num-bigint 0.3.0",
  "serde",
  "serde_bytes",

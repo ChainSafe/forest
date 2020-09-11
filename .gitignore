@@ -8,5 +8,6 @@ config*.toml
 /devnet.car
 *.orig
 criterion
+genesis.json
 /.cargo
 
