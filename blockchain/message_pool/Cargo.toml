@@ -29,6 +29,7 @@ async-std = "1.6.0"
 statrs = "0.13.0"
 state_manager = { path = "../state_manager" }
 async-trait = "0.1"
+interpreter = { path = "../../vm/interpreter/" }
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }

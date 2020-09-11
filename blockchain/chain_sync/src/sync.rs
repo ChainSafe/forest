@@ -106,7 +106,6 @@ where
         state_manager: Arc<StateManager<DB>>,
         genesis: Tipset,
     ) -> Result<Self, Error> {
-
         // Split incoming channel to handle blocksync requests
         let mut event_send = Publisher::new(30);
         let network = SyncNetworkContext::new(network_send, event_send.subscribe());

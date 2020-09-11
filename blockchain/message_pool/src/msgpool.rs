@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
-use address::{Protocol, Address};
+use address::{Address, Protocol};
 use async_std::sync::{Arc, RwLock};
 use async_std::task;
+use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use chain::{ChainStore, HeadChange};
@@ -18,16 +19,16 @@ use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
+use state_manager::StateManager;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
 use vm::ActorState;
-use state_manager::StateManager;
-use async_trait::async_trait;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
 const RBF_DENOM: u64 = 256;
+const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
@@ -82,13 +83,14 @@ impl MsgSet {
         self.msgs.insert(m.sequence(), m);
         Ok(())
     }
-    pub fn rm (&mut self, nonce: u64, applied: bool) {
-        let m = if let Some(m) = self.msgs.get(&nonce) {m}
-        else{
+    pub fn rm(&mut self, nonce: u64, applied: bool) {
+        let m = if let Some(m) = self.msgs.get(&nonce) {
+            m
+        } else {
             if applied && nonce >= self.next_sequence {
                 self.next_sequence = nonce + 1;
                 while self.msgs.get(&self.next_sequence).is_some() {
-                    self.next_sequence+=1;
+                    self.next_sequence += 1;
                 }
             }
             return;
@@ -101,9 +103,9 @@ impl MsgSet {
         if applied {
             // we removed a (known) message because it was applied in a tipset
             // we can't possibly have filled a gap in this case
-           if nonce >= self.next_sequence {
-               self.next_sequence = nonce + 1;
-           }
+            if nonce >= self.next_sequence {
+                self.next_sequence = nonce + 1;
+            }
             return;
         }
         // we removed a message because it was pruned
@@ -116,12 +118,8 @@ impl MsgSet {
     fn get_required_funds(&self, nonce: u64) -> BigInt {
         let required_funds = self.required_funds.clone();
         match self.msgs.get(&nonce) {
-            Some (m) => {
-                required_funds - m.required_funds()
-            }
-            None => {
-                required_funds
-            }
+            Some(m) => required_funds - m.required_funds(),
+            None => required_funds,
         }
     }
 }
@@ -129,7 +127,7 @@ impl MsgSet {
 /// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
 /// the operations that are listed below that are required for the messagepool.
 #[async_trait]
-pub trait Provider{
+pub trait Provider {
     /// Update Mpool's cur_tipset whenever there is a chnge to the provider
     fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
@@ -224,7 +222,6 @@ where
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
         chain::compute_base_fee(self.cs.blockstore(), ts).map_err(|err| err.into())
     }
-
 }
 
 /// This is the Provider implementation that will be used for the mpool RPC
@@ -238,11 +235,19 @@ impl<DB> MpoolRpcProvider<DB>
 where
     DB: BlockStore + Sync + Send,
 {
-    pub fn new(subscriber: Subscriber<HeadChange>, state_manager: Arc<StateManager<DB>>, db: Arc<DB>) -> Self
+    pub fn new(
+        subscriber: Subscriber<HeadChange>,
+        state_manager: Arc<StateManager<DB>>,
+        db: Arc<DB>,
+    ) -> Self
     where
         DB: BlockStore,
     {
-        MpoolRpcProvider { subscriber, db, sm: state_manager }
+        MpoolRpcProvider {
+            subscriber,
+            db,
+            sm: state_manager,
+        }
     }
 }
 
@@ -298,7 +303,10 @@ where
         chain::compute_base_fee(self.db.as_ref(), ts).map_err(|err| err.into())
     }
     async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
-        self.sm.resolve_to_key_addr(addr, ts).await.map_err(|e| Error::Other(e.to_string()))
+        self.sm
+            .resolve_to_key_addr(addr, ts)
+            .await
+            .map_err(|e| Error::Other(e.to_string()))
     }
 }
 
@@ -394,7 +402,8 @@ where
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
-        self.add_tipset(msg.clone(), &self.cur_tipset.read().await.clone()).await?;
+        self.add_tipset(msg.clone(), &self.cur_tipset.read().await.clone())
+            .await?;
         self.add_local(msg).await?;
         // TODO: Publish over Gossip
         Ok(cid)
@@ -476,7 +485,8 @@ where
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
             msg,
-            self.get_state_nonce(&from, &self.cur_tipset.read().await.clone()).await?
+            self.get_state_nonce(&from, &self.cur_tipset.read().await.clone())
+                .await?,
         )
         .await
     }
@@ -515,20 +525,61 @@ where
     }
 
     pub async fn push_with_nonce(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
-    where T: Fn(Address, u64) -> Result<SignedMessage, Error>
+    where
+        T: Fn(Address, u64) -> Result<SignedMessage, Error>,
     {
-        // let cur_ts = self.cur_tipset.read().await.clone();
-        // let from_key = match addr.protocol() {
-        //     Protocol::ID => {
-        //         self.api.read().await.state
-        //     }
-        //     _ => addr
-        // };
-        //
-        // // if from_key.protocol() == Protocol::ID {
-        // //    from
-        // // }
-        todo!()
+        let cur_ts = self.cur_tipset.read().await.clone();
+        let from_key = match addr.protocol() {
+            Protocol::ID => {
+                self.api
+                    .read()
+                    .await
+                    .state_account_key(&addr, &*self.cur_tipset.read().await)
+                    .await?
+            }
+            _ => *addr,
+        };
+
+        let nonce = self.get_nonce(&addr).await?;
+        let msg = cb(from_key, nonce)?;
+        self.check_message(&msg).await?;
+        let msg_cid = msg.marshal_cbor()?;
+        if &*self.cur_tipset.read().await != &cur_ts {
+            return Err(Error::TryAgain);
+        }
+
+        if self.get_nonce(&addr).await? != nonce {
+            return Err(Error::TryAgain);
+        }
+
+        let publish = verify_msg_before_add(&msg, &cur_ts, true)?;
+        self.check_balance(&msg, &cur_ts).await?;
+        self.add_helper(msg.clone()).await?;
+        self.add_local(msg.clone()).await?;
+
+        if publish {
+            // TODO: Implement this, Publish message through gossipsub
+        }
+
+        Ok(msg)
+    }
+
+    async fn check_balance(&self, m: &SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
+        let bal = self.get_state_balance(m.from(), &cur_ts).await?;
+        let mut required_funds = m.required_funds();
+        if bal < required_funds {
+            return Err(Error::NotEnoughFunds);
+        }
+        if let Some(mset) = self.pending.read().await.get(m.from()) {
+            required_funds += mset.get_required_funds(m.sequence());
+        }
+        if bal < required_funds {
+            return Err(Error::SoftValidationFailure(format!(
+                "not enough funds including pending messages (required: {}, balance: {})",
+                required_funds, bal
+            )));
+        }
+        Ok(())
     }
 
     /// Remove a message given a sequence and address from the messagepool
@@ -636,6 +687,26 @@ where
     }
 }
 
+fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+    let epoch = cur_ts.epoch();
+    let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
+
+    if cur_ts.blocks().len() > 0 {
+        let base_fee = cur_ts.blocks()[0].parent_base_fee();
+        let base_fee_lower_bound = base_fee / BASE_FEE_LOWER_BOUND_FACTOR;
+        if m.gas_fee_cap() < &base_fee_lower_bound {
+            if local {
+                warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
+                return Ok(false);
+            } else {
+                return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
+					m.gas_fee_cap(), base_fee_lower_bound)));
+            }
+        }
+    }
+    Ok(local)
+}
+
 /// Remove a message from pending given the from address and sequence
 pub async fn remove(
     from: &Address,
@@ -721,8 +792,14 @@ where
     Ok(())
 }
 /// Get the state of the base_sequence for a given address in cur_ts
-async fn get_state_sequence<T>( api: &RwLock<T>, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error>
-where T: Provider{
+async fn get_state_sequence<T>(
+    api: &RwLock<T>,
+    addr: &Address,
+    cur_ts: &Tipset,
+) -> Result<u64, Error>
+where
+    T: Provider,
+{
     let actor = api.read().await.get_actor_after(&addr, cur_ts)?;
     let mut base_sequence = actor.sequence;
     // TODO here lotus has a todo, so I guess we should eventually remove cur_ts from one
@@ -791,7 +868,8 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let nonce = get_state_sequence(api, &msg.from(), &cur_tipset.read().await.clone()).await?;
+            let nonce =
+                get_state_sequence(api, &msg.from(), &cur_tipset.read().await.clone()).await?;
             if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, nonce).await {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
