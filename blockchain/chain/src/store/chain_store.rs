@@ -294,6 +294,10 @@ pub fn latest_beacon_entry<DB>(db: &DB, ts: &Tipset) -> Result<BeaconEntry, Erro
 where
     DB: BlockStore,
 {
+    if std::env::var("IGNORE_DRAND") == Ok("1".to_owned()) {
+        return Ok(BeaconEntry::default());
+    }
+
     let check_for_beacon_entry = |ts: &Tipset| {
         let cbe = ts.min_ticket_block().beacon_entries();
         if let Some(entry) = cbe.last() {
