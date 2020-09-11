@@ -8,14 +8,18 @@ use address::Address;
 use async_std::sync::{Arc, RwLock};
 use blockstore::BlockStore;
 use cid::Cid;
+use jsonrpsee::raw::RawClient;
+use jsonrpsee::transport::http::HttpTransportClient;
 use num_bigint::BigInt;
+use rpc_client::new_client;
 use std::collections::HashMap;
 
-#[derive(Clone)]
 pub struct Manager<DB> {
+    // TODO need to add managerAPI (consists of some state and paych API calls)
     pub store: Arc<RwLock<PaychStore>>,
     pub sa: Arc<StateAccessor<DB>>,
     pub channels: Arc<RwLock<HashMap<String, Arc<ChannelAccessor<DB>>>>>,
+    pub client: RawClient<HttpTransportClient>,
 }
 
 impl<DB> Manager<DB>
@@ -27,6 +31,7 @@ where
             store: Arc::new(RwLock::new(store)),
             sa: Arc::new(sa),
             channels: Arc::new(RwLock::new(HashMap::new())),
+            client: new_client(),
         }
     }
 
@@ -75,7 +80,7 @@ where
         if let Some(channel) = op_locked {
             return Ok(channel.clone());
         }
-        return Err(Error::Other("could not find channel accessor".to_owned()));
+        Err(Error::Other("could not find channel accessor".to_owned()))
     }
 
     // Add a channel accessor to the cache. Note that the
@@ -110,8 +115,8 @@ where
         to: Address,
         amt: BigInt,
     ) -> Result<PaychFundsRes, Error> {
-        let chan_accesor = self.accessor_by_from_to(from.clone(), to.clone()).await?;
-        return Ok(chan_accesor.get_paych(from, to, amt).await?);
+        let chan_accesor = self.accessor_by_from_to(from, to).await?;
+        Ok(chan_accesor.get_paych(from, to, amt).await?)
     }
 
     // GetPaychWaitReady waits until the create channel / add funds message with the
@@ -155,8 +160,8 @@ where
         // the channel To address is owned by the wallet
         let ci = self.track_inbound_channel(ch).await?;
 
-        let from = ci.target.clone();
-        let to = ci.control.clone();
+        let from = ci.target;
+        let to = ci.control;
 
         self.accessor_by_from_to(from, to).await
     }
@@ -185,7 +190,7 @@ where
 
     pub async fn allocate_lane(&self, ch: Address) -> Result<u64, Error> {
         let ca = self.accessor_by_address(ch).await?;
-        return ca.allocate_lane(ch).await;
+        ca.allocate_lane(ch).await
     }
 
     pub async fn list_vouchers(&self, ch: Address) -> Result<Vec<VoucherInfo>, Error> {

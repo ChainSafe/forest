@@ -9,6 +9,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("Channel not tracked")]
     ChannelNotTracked,
+    #[error("Not enough funds in channel")]
+    InsuffientFunds,
     #[error("Already Tracking Channel")]
     DupChannelTracking,
     #[error("Address not found")]

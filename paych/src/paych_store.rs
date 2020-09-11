@@ -139,6 +139,40 @@ impl ChannelInfo {
     pub fn builder() -> ChannelInfoBuilder {
         ChannelInfoBuilder::default()
     }
+
+    pub fn from(&self) -> Address {
+        if self.direction == DIR_OUTBOUND {
+            return self.control;
+        }
+        self.target
+    }
+
+    pub fn to(&self) -> Address {
+        if self.direction == DIR_OUTBOUND {
+            return self.target;
+        }
+        self.control
+    }
+    // TODO
+    /// infoForVoucher gets the VoucherInfo for the given voucher.
+    /// returns nil if the channel doesn't have the voucher.
+    pub fn _info_for_voucher(&self, _sv: SignedVoucher) -> Result<(), Error> {
+        // return voucher info
+        Ok(())
+    }
+    // TODO
+    pub fn _has_voucher(&self, _sv: &SignedVoucher) -> Result<(), Error> {
+        // TODO call info_four_voucher
+        Ok(())
+    }
+    // TODO
+    pub fn _mark_voucher_submitted(&self, _sv: SignedVoucher) -> Result<(), Error> {
+        Ok(())
+    }
+    // TODO
+    pub fn _was_voucher_submitted(&self, _sv: SignedVoucher) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -158,7 +192,7 @@ impl PaychStore {
 
     /// Add ChannelInfo to PaychStore
     pub async fn put_channel_info(&mut self, mut ci: ChannelInfo) -> Result<(), Error> {
-        if ci.id.len() == 0 {
+        if ci.id.is_empty() {
             ci.id = Uuid::new_v4().to_string();
         }
         let key = key_for_channel(ci.channel.ok_or_else(|| Error::NoAddress)?.to_string());
@@ -185,7 +219,8 @@ impl PaychStore {
         }
     }
 
-    /// Track a ChannelInfo
+    /// Stores a channel, returning an error if the channel was already
+    /// being tracked
     pub async fn track_channel(&mut self, ch: ChannelInfo) -> Result<ChannelInfo, Error> {
         let addr = ch.channel.ok_or_else(|| Error::NoAddress)?;
         match self.by_address(addr).await {
@@ -228,7 +263,7 @@ impl PaychStore {
             return Err(Error::ChannelNotTracked);
         }
         // previous check ensures unwrap does not fail
-        return Ok(ci.pop().unwrap());
+        Ok(ci.pop().unwrap())
     }
 
     /// Loop over all channels, return Vec of all channels that fit given filter, specify max to be the max length
@@ -374,8 +409,8 @@ impl PaychStore {
                     return false;
                 }
                 // TODO  need to figure out smarter way to do this
-                return (ci.create_msg.as_ref().unwrap().clone() != Cid::default())
-                    | (ci.add_funds_msg.as_ref().unwrap().clone() != Cid::default());
+                (ci.create_msg.as_ref().unwrap().clone() != Cid::default())
+                    | (ci.add_funds_msg.as_ref().unwrap().clone() != Cid::default())
             }),
             0,
         )

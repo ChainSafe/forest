@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 async-std = "1.6.0"
+jsonrpsee = "0.1.0"
 actor = {path = "../vm/actor"}
 address = { package = "forest_address", path = "../vm/address" }
 encoding = { package = "forest_encoding", path = "../encoding", version = "0.1" }
@@ -23,3 +24,8 @@ chain = { path = "../blockchain/chain"}
 message = { package = "forest_message", path = "../vm/message" }
 crypto = { package = "forest_crypto", path = "../crypto" }
 futures = "0.3.5"
+ipld_amt = { path = "../ipld/amt/" }
+rpc_client = {package = "rpc-client", path = "../node/rpc-client/" }
+message_pool = { path = "../blockchain/message_pool/" }
+wallet = {package = "key_management", path = "../key_management/", features = ["json"] }
+num-traits = "0.2"

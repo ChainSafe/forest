@@ -16,18 +16,33 @@ use cid::Cid;
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use message::UnsignedMessage;
 use num_bigint::BigInt;
+use num_traits::Zero;
 use std::collections::HashMap;
 use std::ops::{Add, Sub};
 extern crate log;
 use actor::Serialized;
 use futures::StreamExt;
+use jsonrpsee::raw::RawClient;
+use jsonrpsee::transport::http::HttpTransportClient;
+use rpc_client::new_client;
 
 // TODO need to add paychapi (ability to access chain, mpool and wallet stuff)
 pub struct ChannelAccessor<DB> {
     store: Arc<RwLock<PaychStore>>,
-    msg_listeners: MsgListeners,
+    _msg_listeners: MsgListeners,
     sa: Arc<StateAccessor<DB>>,
     funds_req_queue: Arc<RwLock<Vec<FundsReq>>>,
+    _client: RawClient<HttpTransportClient>,
+}
+
+// VoucherCreateResult is the response to calling PaychVoucherCreate
+struct _VoucherCreateResult {
+    // Voucher that was created, or nil if there was an error or if there
+    // were insufficient funds in the channel
+    voucher: SignedVoucher,
+    // Shortfall is the additional amount that would be needed in the channel
+    // in order to be able to create the voucher
+    shortfall: BigInt,
 }
 
 impl<DB> ChannelAccessor<DB>
@@ -37,14 +52,41 @@ where
     pub fn new(pm: &Manager<DB>) -> Self {
         ChannelAccessor {
             store: pm.store.clone(),
-            msg_listeners: MsgListeners::new(),
+            _msg_listeners: MsgListeners::new(),
             sa: pm.sa.clone(),
             funds_req_queue: Arc::new(RwLock::new(Vec::new())),
+            _client: new_client(),
         }
     }
 
     pub async fn get_channel_info(&self, addr: &Address) -> Result<ChannelInfo, Error> {
         self.store.read().await.get_channel_info(addr).await
+    }
+
+    pub async fn create_voucher(
+        &self,
+        ch: Address,
+        mut voucher: SignedVoucher,
+    ) -> Result<SignedVoucher, Error> {
+        let st = self.store.read().await;
+        let _ci = st.by_address(ch).await?;
+
+        // set the voucher channel
+        voucher.channel_addr = ch;
+
+        // Get the next sequence on the given lane
+        voucher.nonce = self.next_sequence_for_lane(ch, voucher.lane).await?;
+
+        // sign the voucher
+        let _vb = voucher.signing_bytes().unwrap(); // TODO handle err properly
+                                                    // TODO call wallet sign and assign voucher signature accordingly
+
+        // store the voucher
+        // TODO determine if returning insufficent error with shortfall is required?
+        self.add_voucher(ch, voucher.clone(), Vec::new(), BigInt::zero())
+            .await?;
+
+        Ok(voucher)
     }
 
     pub async fn check_voucher_valid(
@@ -76,7 +118,7 @@ where
         let sig = sv.signature.clone();
         sig.ok_or_else(|| Error::Other("no sig".to_owned()))?
             .verify(&vb, &from)
-            .map_err(|err| Error::Other(err))?;
+            .map_err(Error::Other)?;
 
         let lane_states = self.lane_state(&pch_state, ch).await?;
         let ls = lane_states
@@ -109,8 +151,8 @@ where
 
         // Total required balance = total redeemed + to send
         // must not exceed actor balance
-        let new_total = total_redeemed + BigInt::from(pch_state.to_send);
-        if BigInt::from(act.balance) < new_total {
+        let new_total = total_redeemed + pch_state.to_send;
+        if act.balance < new_total {
             return Err(Error::Other(
                 "Not enough funds in channel to cover voucher".to_owned(),
             ));
@@ -122,7 +164,7 @@ where
             ));
         }
 
-        return Ok(lane_states);
+        Ok(lane_states)
     }
 
     pub async fn check_voucher_spendable(
@@ -133,7 +175,7 @@ where
         mut proof: Vec<u8>,
     ) -> Result<bool, Error> {
         let _recipient = self.get_paych_recipient(&ch).await?;
-        if (sv.extra != None) & (proof.len() != 0) {
+        if (sv.extra != None) & (!proof.is_empty()) {
             let store = self.store.read().await;
             let known = store.vouchers_for_paych(&ch).await?;
             for vi in known {
@@ -142,7 +184,7 @@ where
                     proof = vi.proof;
                     break;
                 }
-                if proof.len() == 0 {
+                if proof.is_empty() {
                     log::warn!("empty proof for voucher with validation")
                 }
             }
@@ -173,7 +215,7 @@ where
         min_delta: BigInt,
     ) -> Result<BigInt, Error> {
         let mut store = self.store.write().await;
-        let mut ci = store.by_address(ch.clone()).await?;
+        let mut ci = store.by_address(ch).await?;
 
         // Check if voucher has already been added
         for mut vi in ci.vouchers.iter_mut() {
@@ -183,7 +225,7 @@ where
 
             // This is a duplicate voucher.
             // Update the proof on the existing voucher
-            if (proof.len() > 0) & (vi.proof != proof) {
+            if (!proof.is_empty()) & (vi.proof != proof) {
                 warn!("adding proof to stored voucher");
                 vi.proof = proof.clone();
                 store.put_channel_info(ci).await?;
@@ -207,7 +249,7 @@ where
         let delta = sv.amount.clone() - redeemed;
 
         if min_delta > delta {
-            return Err(Error::Other("supplied toekn amount too  low".to_string()));
+            return Err(Error::Other("supplied token amount too low".to_string()));
         }
 
         ci.vouchers.push(VoucherInfo {
@@ -244,13 +286,11 @@ where
         let mut max_sequence = 0;
 
         for v in vouchers {
-            if v.voucher.lane == lane {
-                if max_sequence < v.voucher.nonce {
-                    max_sequence = v.voucher.nonce;
-                }
+            if v.voucher.lane == lane && max_sequence < v.voucher.nonce {
+                max_sequence = v.voucher.nonce;
             }
         }
-        return Ok(max_sequence + 1);
+        Ok(max_sequence + 1)
     }
 
     // get the lanestates from chain, then apply all vouchers in the data store over the chain state
@@ -269,7 +309,7 @@ where
         sv: SignedVoucher,
     ) -> Result<BigInt, Error> {
         // implement call with merges
-        if sv.merges.len() != 0 {
+        if !sv.merges.is_empty() {
             return Err(Error::Other("merges not supported yet".to_string()));
         }
 
@@ -297,14 +337,14 @@ where
 
     pub async fn settle(&self, ch: Address) -> Result<Cid, Error> {
         let mut store = self.store.write().await;
-        let mut ci = store.by_address(ch.clone()).await?;
+        let mut ci = store.by_address(ch).await?;
         // TODO update method_num and add method_num to this message
         let _umsg: UnsignedMessage = UnsignedMessage::builder()
             .to(ch)
             .from(ci.control)
             .value(BigInt::default())
             .build()
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(Error::Other)?;
         // TODO need to push message to messagepool
         // need to return signed message cid
         ci.settling = true;
@@ -315,14 +355,14 @@ where
 
     pub async fn collect(&self, ch: Address) -> Result<Cid, Error> {
         let store = self.store.read().await;
-        let ci = store.by_address(ch.clone()).await?;
+        let ci = store.by_address(ch).await?;
         // TODO update method_num and add method_num to this message
         let _umsg: UnsignedMessage = UnsignedMessage::builder()
             .to(ch)
             .from(ci.control)
             .value(BigInt::default())
             .build()
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(Error::Other)?;
         // TODO sign message with message pool and return signed message cid
         unimplemented!()
     }
@@ -353,7 +393,7 @@ where
         loop {
             let f = sub.next().await;
             if f.is_some() {
-                let promise = f.clone().unwrap();
+                let promise = f.unwrap();
                 return Ok(promise);
             }
         }
@@ -481,7 +521,7 @@ where
         let mcid = self.add_funds(&channel_info, amt).await.ok()?;
 
         Some(PaychFundsRes {
-            channel: channel_info.channel.clone(),
+            channel: channel_info.channel,
             mcid: Some(mcid),
             err: None,
         })
@@ -494,10 +534,7 @@ where
         to: Address,
         amt: BigInt,
     ) -> Result<Cid, Error> {
-        let params: ConstructorParams = ConstructorParams {
-            from: from.clone(),
-            to: to.clone(),
-        };
+        let params: ConstructorParams = ConstructorParams { from, to };
         let serialized =
             Serialized::serialize(params).map_err(|err| Error::Other(err.to_string()))?;
         let exec: ExecParams = ExecParams {
@@ -511,7 +548,7 @@ where
             .value(amt.clone())
             .params(param)
             .build()
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(Error::Other)?;
         // TODO sign message and push to message pool then get smsg cid
         let mcid = Cid::default();
 
@@ -529,7 +566,7 @@ where
             .channel
             .clone()
             .ok_or_else(|| Error::Other("no addr".to_owned()))?;
-        let from = ci.control.clone();
+        let from = ci.control;
         let _msg: UnsignedMessage = UnsignedMessage::builder()
             .to(to)
             .from(from)
@@ -623,8 +660,8 @@ impl FundsReq {
     pub fn cancel(&mut self) {
         self.active = false;
         let m = self.merge.clone();
-        if m.is_some() {
-            m.unwrap().check_active();
+        if let Some(ma) = m {
+            ma.check_active();
         }
     }
 
@@ -667,7 +704,7 @@ impl MergeFundsReq {
             }
         }
         // TODO cancel all active requests
-        return false;
+        false
     }
 
     pub async fn on_complete(&mut self, res: PaychFundsRes) {

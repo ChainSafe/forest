@@ -17,6 +17,12 @@ pub struct MsgCompleteEvt {
     err: String,
 }
 
+impl Default for MsgListeners {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MsgListeners {
     pub fn new() -> Self {
         MsgListeners {

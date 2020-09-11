@@ -10,6 +10,7 @@ use address::Address;
 use async_std::sync::{Arc, RwLock};
 use blockstore::BlockStore;
 use cid::Cid;
+use ipld_amt::Amt;
 use state_manager::StateManager;
 
 pub struct StateAccessor<DB> {
@@ -33,8 +34,22 @@ where
         Ok((actor, state))
     }
 
-    pub async fn next_lane_from_state(&self, _st: PaychState) -> Result<u64, Error> {
-        unimplemented!();
+    pub async fn next_lane_from_state(&self, st: PaychState) -> Result<u64, Error> {
+        let sm = self.sm.read().await;
+        let store = sm.get_block_store_ref();
+        let lane_states: Amt<u64, _> = Amt::load(&st.lane_states, store).unwrap(); // TODO handle err properly
+        let mut max_id: u64 = 0;
+
+        lane_states
+            .for_each(|i: u64, _| {
+                if i > max_id {
+                    max_id = i
+                }
+                Ok(())
+            })
+            .unwrap(); // handle err properly
+
+        Ok(max_id + 1)
     }
 
     pub async fn load_state_channel_info(
@@ -60,7 +75,7 @@ where
                 .control(from)
                 .target(to)
                 .build()
-                .map_err(|err| Error::Other(err.to_string()))?;
+                .map_err(Error::Other)?;
             Ok(ci)
         } else if dir == DIR_OUTBOUND {
             let ci = ChannelInfo::builder()
@@ -69,10 +84,10 @@ where
                 .control(to)
                 .target(from)
                 .build()
-                .map_err(|err| Error::Other(err.to_string()))?;
+                .map_err(Error::Other)?;
             Ok(ci)
         } else {
-            return Err(Error::Other("Invalid Direction".to_string()));
+            Err(Error::Other("Invalid Direction".to_string()))
         }
     }
 }
