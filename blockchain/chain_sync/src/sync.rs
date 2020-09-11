@@ -699,7 +699,7 @@ where
             &self.chain_store.tipset_from_keys(header.parents())?,
         )?;
 
-        if std::env::var("LOTUS_IGNORE_DRAND") == Ok("1".to_owned()) {
+        if std::env::var("IGNORE_DRAND") == Ok("1".to_owned()) {
             header
                 .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
                 .await?;
