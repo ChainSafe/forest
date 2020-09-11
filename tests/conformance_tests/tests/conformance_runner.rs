@@ -19,7 +19,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 14] = [
+    static ref SKIP_TESTS: [Regex; 15] = [
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -37,9 +37,12 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/reward/*").unwrap(),
         Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
         Regex::new(r"test-vectors/corpus/msg_application/actor_exec--msg-apply-fail-actor-execution-illegal-arg.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
         Regex::new(r"test-vectors/corpus/actor_creation/addresses--sequential-10.json").unwrap(),
 
+        // These 2 tests ignore test cases for Chaos actor that are checked at compile time
+        // Link to discussion https://github.com/ChainSafe/forest/pull/696/files
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
     ];
 }
 
@@ -205,7 +208,7 @@ fn conformance_test_runner() {
         let reader = BufReader::new(file);
         let vector: TestVector = serde_json::from_reader(reader).unwrap();
         let test_name = entry.path().display();
-
+        println!("Test name is {}", test_name);
         match vector {
             TestVector::Message {
                 selector,

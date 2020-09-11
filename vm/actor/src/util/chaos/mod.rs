@@ -24,8 +24,6 @@ const CALLER_VALIDATION_BRANCH_TYPE_NIL_SET: i64 = 3;
 
 // Mutate State Branch Methods
 const MUTATE_IN_TRANSACTION: i64 = 0;
-const MUTATE_READ_ONLY: i64 = 1;
-const MUTATE_AFTER_TRANSACTION: i64 = 2;
 
 /// Chaos actor methods available
 #[derive(FromPrimitive)]
@@ -153,14 +151,6 @@ impl Actor {
         match arg.branch {
             x if x == MUTATE_IN_TRANSACTION => rt.transaction(|s: &mut State, _| {
                 s.value = arg.value;
-                Ok(())
-            }),
-            x if x == MUTATE_READ_ONLY => {
-                // Impossible to reach this step becuase its Rust, so just return
-                Err(actor_error!(ErrForbidden; "Can not modify read only state" ))
-            }
-            x if x == MUTATE_AFTER_TRANSACTION => rt.transaction(|s: &mut State, _| {
-                s.value = arg.value + "-in";
                 Ok(())
             }),
 
