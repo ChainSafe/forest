@@ -208,7 +208,6 @@ fn conformance_test_runner() {
         let reader = BufReader::new(file);
         let vector: TestVector = serde_json::from_reader(reader).unwrap();
         let test_name = entry.path().display();
-        println!("Test name is {}", test_name);
         match vector {
             TestVector::Message {
                 selector,
