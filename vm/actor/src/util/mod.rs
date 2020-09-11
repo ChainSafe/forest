@@ -5,7 +5,6 @@ mod balance_table;
 pub mod chaos;
 pub mod math;
 mod multimap;
-pub mod puppet;
 mod set;
 mod set_multimap;
 pub mod smooth;
