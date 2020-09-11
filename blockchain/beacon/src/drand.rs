@@ -17,6 +17,8 @@ use std::error;
 /// Default endpoint for the drand beacon node.
 pub const DEFAULT_DRAND_URL: &str = "https://api.drand.sh";
 
+pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
+
 /// Coeffiencients of the publicly available Drand keys.
 /// This is shared by all participants on the Drand network.
 #[derive(Clone, Debug, SerdeSerialize, SerdeDeserialize)]
