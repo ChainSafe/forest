@@ -239,4 +239,28 @@ where
             .for_each_while(self.block_store, self.height(), 0, &mut f)
             .map(|_| ())
     }
+
+    // TODO: docs
+    pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &mut V) -> Result<(), Box<dyn StdError>>,
+    {
+        self.for_each_while_mut(|i, x| {
+            f(i, x)?;
+            Ok(true)
+        })
+    }
+
+    // TODO: docs
+    pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &mut V) -> Result<bool, Box<dyn StdError>>,
+    {
+        self.root
+            .node
+            .for_each_while_mut(self.block_store, self.height(), 0, &mut f)
+            .map(|_| ())
+    }
 }

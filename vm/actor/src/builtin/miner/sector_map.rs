@@ -3,9 +3,14 @@ use bitfield::BitField;
 use std::collections::HashMap;
 
 /// Maps deadlines to partition maps.
+#[derive(Default)]
 pub struct DeadlineSectorMap(HashMap<u64, PartitionSectorMap>);
 
 impl DeadlineSectorMap {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     /// Check validates all bitfields and counts the number of partitions & sectors
     /// contained within the map, and returns an error if they exceed the given
     /// maximums.
@@ -32,7 +37,7 @@ impl DeadlineSectorMap {
     }
 
     /// Counts the number of partitions & sectors within the map.
-    pub fn count(&self) -> Result<(/*partitions*/ u64, /*sectors*/ u64), String> {
+    pub fn count(&self) -> Result<(/* partitions */ u64, /* sectors */ u64), String> {
         self.0.iter().try_fold(
             (0_u64, 0_u64),
             |(partitions, sectors), (deadline_idx, pm)| {
@@ -119,7 +124,7 @@ impl PartitionSectorMap {
     }
 
     /// Counts the number of partitions & sectors within the map.
-    pub fn count(&self) -> Result<(/*partitions*/ u64, /*sectors*/ u64), String> {
+    pub fn count(&self) -> Result<(/* partitions */ u64, /* sectors */ u64), String> {
         let sectors = self
             .0
             .values()
@@ -142,5 +147,9 @@ impl PartitionSectorMap {
     /// Walks the partitions in the map, in order of increasing index.
     pub fn iter(&self) -> impl Iterator<Item = (u64, &BitField)> + '_ {
         self.partitions().into_iter().map(move |i| (i, &self.0[&i]))
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }

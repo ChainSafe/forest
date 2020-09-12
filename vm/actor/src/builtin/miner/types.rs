@@ -70,9 +70,9 @@ pub struct ConfirmSectorProofsParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PoStPartition {
     /// Partitions are numbered per-deadline, from zero.
-    index: u64,
+    pub index: u64,
     /// Sectors skipped while proving that weren't already declared faulty.
-    skipped: BitField,
+    pub skipped: BitField,
 }
 
 /// Information submitted by a miner to provide a Window PoSt.
@@ -167,11 +167,13 @@ pub struct RecoveryDeclaration {
     pub sectors: BitField,
 }
 
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CompactPartitionsParams {
     pub deadline: u64,
     pub partitions: BitField,
 }
 
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CompactSectorNumbersParams {
     pub mask_sector_numbers: BitField,
 }
@@ -211,9 +213,9 @@ pub struct SectorPreCommitInfo {
     /// Whether to replace a "committed capacity" no-deal sector (requires non-empty DealIDs)
     pub replace_capacity: bool,
     /// The committed capacity sector to replace, and its deadline/partition location
-    replace_sector_deadline: u64,
-    replace_sector_partition: u64,
-    replace_sector_number: SectorNumber,
+    pub replace_sector_deadline: u64,
+    pub replace_sector_partition: u64,
+    pub replace_sector_number: SectorNumber,
 }
 
 /// Information stored on-chain for a pre-committed sector.

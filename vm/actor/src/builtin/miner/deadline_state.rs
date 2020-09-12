@@ -2,15 +2,16 @@ use super::{
     BitFieldQueue, ExpirationSet, Partition, PartitionSectorMap, PoStPartition, PowerPair,
     QuantSpec, SectorOnChainInfo, Sectors, TerminationResult, WPOST_PERIOD_DEADLINES,
 };
-use crate::{actor_error, ActorError, ExitCode};
+use crate::{actor_error, ActorError, ExitCode, TokenAmount};
 use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::SectorSize;
-use ipld_amt::{Amt, Error as AmtError};
+use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use std::error::Error as StdError;
+use num_traits::Zero;
+use std::{cmp, collections::HashMap, collections::HashSet, error::Error as StdError};
 
 /// Deadlines contains Deadline objects, describing the sectors due at the given
 /// deadline and their state (faulty, terminated, recovering, etc.).
@@ -148,7 +149,7 @@ impl Deadline {
         &mut self,
         store: &BS,
         expiration_epoch: ChainEpoch,
-        partitions: Vec<u64>,
+        partitions: &[u64],
         quant: QuantSpec,
     ) -> Result<(), String> {
         // Avoid doing any work if there's nothing to reschedule.
@@ -176,91 +177,80 @@ impl Deadline {
         store: &BS,
         until: ChainEpoch,
         quant: QuantSpec,
-    ) -> ExpirationSet {
-        todo!()
+    ) -> Result<ExpirationSet, Box<dyn StdError>> {
+        let (expired_partitions, modified) = self.pop_expired_partitions(store, until, quant)?;
 
-        // 	expiredPartitions, modified, err := dl.popExpiredPartitions(store, until, quant)
-        // 	if err != nil {
-        // 		return nil, err
-        // 	} else if !modified {
-        // 		return NewExpirationSetEmpty(), nil // nothing to do.
-        // 	}
+        if !modified {
+            // nothing to do.
+            return Ok(ExpirationSet::empty());
+        }
 
-        // 	partitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return nil, err
-        // 	}
+        let mut partitions = self.partitions_amt(store)?;
 
-        // 	var onTimeSectors []bitfield.BitField
-        // 	var earlySectors []bitfield.BitField
-        // 	allOnTimePledge := big.Zero()
-        // 	allActivePower := NewPowerPairZero()
-        // 	allFaultyPower := NewPowerPairZero()
-        // 	var partitionsWithEarlyTerminations []uint64
+        let mut on_time_sectors = Vec::<BitField>::new();
+        let mut early_sectors = Vec::<BitField>::new();
+        let mut all_on_time_pledge = TokenAmount::zero();
+        let mut all_active_power = PowerPair::zero();
+        let mut all_faulty_power = PowerPair::zero();
+        let mut partitions_with_early_terminations = Vec::<u64>::new();
 
-        // 	// For each partition with an expiry, remove and collect expirations from the partition queue.
-        // 	if err = expiredPartitions.ForEach(func(partIdx uint64) error {
-        // 		var partition Partition
-        // 		if found, err := partitions.Get(partIdx, &partition); err != nil {
-        // 			return err
-        // 		} else if !found {
-        // 			return xerrors.Errorf("missing expected partition %d", partIdx)
-        // 		}
+        // For each partition with an expiry, remove and collect expirations from the partition queue.
+        for i in expired_partitions.iter() {
+            let partition_idx = i as u64;
+            let mut partition = partitions
+                .get(partition_idx)?
+                .ok_or_else(|| format!("missing expected partition {}", partition_idx))?;
 
-        // 		partExpiration, err := partition.PopExpiredSectors(store, until, quant)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to pop expired sectors from partition %d: %w", partIdx, err)
-        // 		}
+            let partition_expiration =
+                partition
+                    .pop_expired_sectors(store, until, quant)
+                    .map_err(|e| {
+                        ActorError::downcast_wrap(
+                            e,
+                            format!(
+                                "failed to pop expired sectors from partition {}",
+                                partition_idx
+                            ),
+                        )
+                    })?;
 
-        // 		onTimeSectors = append(onTimeSectors, partExpiration.OnTimeSectors)
-        // 		earlySectors = append(earlySectors, partExpiration.EarlySectors)
-        // 		allActivePower = allActivePower.Add(partExpiration.ActivePower)
-        // 		allFaultyPower = allFaultyPower.Add(partExpiration.FaultyPower)
-        // 		allOnTimePledge = big.Add(allOnTimePledge, partExpiration.OnTimePledge)
+            if !partition_expiration.early_sectors.is_empty() {
+                partitions_with_early_terminations.push(partition_idx);
+            }
 
-        // 		if empty, err := partExpiration.EarlySectors.IsEmpty(); err != nil {
-        // 			return xerrors.Errorf("failed to count early expirations from partition %d: %w", partIdx, err)
-        // 		} else if !empty {
-        // 			partitionsWithEarlyTerminations = append(partitionsWithEarlyTerminations, partIdx)
-        // 		}
+            on_time_sectors.push(partition_expiration.on_time_sectors);
+            early_sectors.push(partition_expiration.early_sectors);
+            all_active_power += &partition_expiration.active_power;
+            all_faulty_power += &partition_expiration.faulty_power;
+            all_on_time_pledge += &partition_expiration.on_time_pledge;
 
-        // 		return partitions.Set(partIdx, &partition)
-        // 	}); err != nil {
-        // 		return nil, err
-        // 	}
+            partitions.set(partition_idx, partition)?;
+        }
 
-        // 	if dl.Partitions, err = partitions.Root(); err != nil {
-        // 		return nil, err
-        // 	}
+        self.partitions = partitions.flush()?;
 
-        // 	// Update early expiration bitmap.
-        // 	for _, partIdx := range partitionsWithEarlyTerminations {
-        // 		dl.EarlyTerminations.Set(partIdx)
-        // 	}
+        // Update early expiration bitmap.
+        for partition_idx in partitions_with_early_terminations {
+            self.early_terminations.set(partition_idx as usize);
+        }
 
-        // 	allOnTimeSectors, err := bitfield.MultiMerge(onTimeSectors...)
-        // 	if err != nil {
-        // 		return nil, err
-        // 	}
-        // 	allEarlySectors, err := bitfield.MultiMerge(earlySectors...)
-        // 	if err != nil {
-        // 		return nil, err
-        // 	}
+        let all_on_time_sectors = BitField::union(&on_time_sectors);
+        let all_early_sectors = BitField::union(&early_sectors);
 
-        // 	// Update live sector count.
-        // 	onTimeCount, err := allOnTimeSectors.Count()
-        // 	if err != nil {
-        // 		return nil, xerrors.Errorf("failed to count on-time expired sectors: %w", err)
-        // 	}
-        // 	earlyCount, err := allEarlySectors.Count()
-        // 	if err != nil {
-        // 		return nil, xerrors.Errorf("failed to count early expired sectors: %w", err)
-        // 	}
-        // 	dl.LiveSectors -= onTimeCount + earlyCount
+        // Update live sector count.
+        let on_time_count = all_on_time_sectors.len();
+        let early_count = all_early_sectors.len();
+        self.live_sectors -= (on_time_count + early_count) as u64;
 
-        // 	dl.FaultyPower = dl.FaultyPower.Sub(allFaultyPower)
+        self.faulty_power -= &all_faulty_power;
 
-        // 	return NewExpirationSet(allOnTimeSectors, allEarlySectors, allOnTimePledge, allActivePower, allFaultyPower), nil
+        Ok(ExpirationSet {
+            on_time_sectors: all_on_time_sectors,
+            early_sectors: all_early_sectors,
+            on_time_pledge: all_on_time_pledge,
+            active_power: all_active_power,
+            faulty_power: all_faulty_power,
+        })
     }
 
     /// Adds sectors to a deadline. It's the caller's responsibility to make sure
@@ -271,110 +261,84 @@ impl Deadline {
         &mut self,
         store: &BS,
         partition_size: u64,
-        sectors: Vec<SectorOnChainInfo>,
+        mut sectors: &[SectorOnChainInfo],
         sector_size: SectorSize,
         quant: QuantSpec,
-    ) -> PowerPair {
-        todo!()
+    ) -> Result<PowerPair, Box<dyn StdError>> {
+        if sectors.is_empty() {
+            return Ok(PowerPair::zero());
+        }
 
-        // 	if len(sectors) == 0 {
-        // 		return NewPowerPairZero(), nil
-        // 	}
+        // First update partitions, consuming the sectors
+        let mut partition_deadline_updates = HashMap::<ChainEpoch, Vec<u64>>::new();
+        let mut new_power = PowerPair::zero();
+        self.live_sectors += sectors.len() as u64;
+        self.total_sectors = sectors.len() as u64;
 
-        // 	// First update partitions, consuming the sectors
-        // 	partitionDeadlineUpdates := make(map[abi.ChainEpoch][]uint64)
-        // 	newPower := NewPowerPairZero()
-        // 	dl.LiveSectors += uint64(len(sectors))
-        // 	dl.TotalSectors += uint64(len(sectors))
+        let mut partitions = self.partitions_amt(store)?;
 
-        // 	{
-        // 		partitions, err := dl.PartitionsArray(store)
-        // 		if err != nil {
-        // 			return NewPowerPairZero(), err
-        // 		}
+        // try filling up the last partition first.
+        for partition_idx in partitions.count().saturating_sub(1).. {
+            if sectors.is_empty() {
+                break;
+            }
 
-        // 		partIdx := partitions.Length()
-        // 		if partIdx > 0 {
-        // 			partIdx -= 1 // try filling up the last partition first.
-        // 		}
+            // Get/create partition to update.
+            let mut partition = match partitions.get(partition_idx)? {
+                Some(partition) => partition,
+                None => {
+                    // This case will usually happen zero times.
+                    // It would require adding more than a full partition in one go
+                    // to happen more than once.
+                    Partition::new(Amt::<Cid, BS>::new(store).flush()?)
+                }
+            };
 
-        // 		for ; len(sectors) > 0; partIdx++ {
-        // 			// Get/create partition to update.
-        // 			partition := new(Partition)
-        // 			if found, err := partitions.Get(partIdx, partition); err != nil {
-        // 				return NewPowerPairZero(), err
-        // 			} else if !found {
-        // 				// This case will usually happen zero times.
-        // 				// It would require adding more than a full partition in one go
-        // 				// to happen more than once.
-        // 				emptyArray, err := adt.MakeEmptyArray(store).Root()
-        // 				if err != nil {
-        // 					return NewPowerPairZero(), err
-        // 				}
-        // 				partition = ConstructPartition(emptyArray)
-        // 			}
+            // Figure out which (if any) sectors we want to add to this partition.
+            let sector_count = partition.sectors.len() as u64;
+            if sector_count >= partition_size {
+                continue;
+            }
 
-        // 			// Figure out which (if any) sectors we want to add to this partition.
-        // 			sectorCount, err := partition.Sectors.Count()
-        // 			if err != nil {
-        // 				return NewPowerPairZero(), err
-        // 			}
-        // 			if sectorCount >= partitionSize {
-        // 				continue
-        // 			}
+            let size = cmp::min(partition_size - sector_count, sectors.len() as u64);
+            let (start, partition_new_sectors) = sectors.split_at(size as usize);
+            sectors = start;
 
-        // 			size := min64(partitionSize-sectorCount, uint64(len(sectors)))
-        // 			partitionNewSectors := sectors[:size]
-        // 			sectors = sectors[size:]
+            // Add sectors to partition.
+            let partition_new_power =
+                partition.add_sectors(store, partition_new_sectors, sector_size, quant)?;
+            new_power += &partition_new_power;
 
-        // 			// Add sectors to partition.
-        // 			partitionNewPower, err := partition.AddSectors(store, partitionNewSectors, ssize, quant)
-        // 			if err != nil {
-        // 				return NewPowerPairZero(), err
-        // 			}
-        // 			newPower = newPower.Add(partitionNewPower)
+            // Save partition back.
+            partitions.set(partition_idx, partition)?;
 
-        // 			// Save partition back.
-        // 			err = partitions.Set(partIdx, partition)
-        // 			if err != nil {
-        // 				return NewPowerPairZero(), err
-        // 			}
+            // Record deadline -> partition mapping so we can later update the deadlines.
+            for sector in partition_new_sectors {
+                if let Some(partition_update) =
+                    partition_deadline_updates.get_mut(&sector.expiration)
+                {
+                    if partition_update.last() != Some(&partition_idx) {
+                        partition_update.push(partition_idx);
+                    }
+                }
+            }
+        }
 
-        // 			// Record deadline -> partition mapping so we can later update the deadlines.
-        // 			for _, sector := range partitionNewSectors {
-        // 				partitionUpdate := partitionDeadlineUpdates[sector.Expiration]
-        // 				// Record each new partition once.
-        // 				if len(partitionUpdate) > 0 && partitionUpdate[len(partitionUpdate)-1] == partIdx {
-        // 					continue
-        // 				}
-        // 				partitionDeadlineUpdates[sector.Expiration] = append(partitionUpdate, partIdx)
-        // 			}
-        // 		}
+        // Save partitions back.
+        self.partitions = partitions.flush()?;
 
-        // 		// Save partitions back.
-        // 		dl.Partitions, err = partitions.Root()
-        // 		if err != nil {
-        // 			return NewPowerPairZero(), err
-        // 		}
-        // 	}
+        // Next, update the expiration queue.
+        let mut deadline_expirations =
+            BitFieldQueue::new(store, &self.expirations_epochs, quant)
+                .map_err(|e| format!("failed to load expiration epochs: {:?}", e))?;
+        deadline_expirations
+            .add_many_to_queue_values(&partition_deadline_updates)
+            .map_err(|e| {
+                ActorError::downcast_wrap(e, "failed to add expirations for new deadlines")
+            })?;
+        self.expirations_epochs = deadline_expirations.amt.flush()?;
 
-        // 	// Next, update the expiration queue.
-        // 	{
-        // 		deadlineExpirations, err := LoadBitfieldQueue(store, dl.ExpirationsEpochs, quant)
-        // 		if err != nil {
-        // 			return NewPowerPairZero(), xerrors.Errorf("failed to load expiration epochs: %w", err)
-        // 		}
-
-        // 		if err = deadlineExpirations.AddManyToQueueValues(partitionDeadlineUpdates); err != nil {
-        // 			return NewPowerPairZero(), xerrors.Errorf("failed to add expirations for new deadlines: %w", err)
-        // 		}
-
-        // 		if dl.ExpirationsEpochs, err = deadlineExpirations.Root(); err != nil {
-        // 			return NewPowerPairZero(), err
-        // 		}
-        // 	}
-
-        // 	return newPower, nil
+        Ok(new_power)
     }
 
     pub fn pop_early_terminations<BS: BlockStore>(
@@ -382,84 +346,63 @@ impl Deadline {
         store: &BS,
         max_partitions: u64,
         max_sectors: u64,
-    ) -> (TerminationResult, /* has more */ bool) {
-        todo!()
+    ) -> Result<(TerminationResult, /* has more */ bool), Box<dyn StdError>> {
+        let mut partitions = self.partitions_amt(store)?;
 
-        // 	stopErr := errors.New("stop error")
+        let mut partitions_finished = Vec::<u64>::new();
+        let mut result = TerminationResult::new();
 
-        // 	partitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return TerminationResult{}, false, err
-        // 	}
+        for i in self.early_terminations.iter() {
+            let partition_idx = i as u64;
 
-        // 	var partitionsFinished []uint64
-        // 	if err = dl.EarlyTerminations.ForEach(func(partIdx uint64) error {
-        // 		// Load partition.
-        // 		var partition Partition
-        // 		found, err := partitions.Get(partIdx, &partition)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to load partition %d: %w", partIdx, err)
-        // 		}
+            let mut partition = match partitions
+                .get(partition_idx)
+                .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
+            {
+                Some(partition) => partition,
+                None => {
+                    partitions_finished.push(partition_idx);
+                    continue;
+                }
+            };
 
-        // 		if !found {
-        // 			// If the partition doesn't exist any more, no problem.
-        // 			// We don't expect this to happen (compaction should re-index altered partitions),
-        // 			// but it's not worth failing if it does.
-        // 			partitionsFinished = append(partitionsFinished, partIdx)
-        // 			return nil
-        // 		}
+            // Pop early terminations.
+            let (partition_result, more) = partition
+                .pop_early_terminations(store, max_sectors - result.sectors_processed)
+                .map_err(|e| {
+                    ActorError::downcast_wrap(e, "failed to pop terminations from partition")
+                })?;
 
-        // 		// Pop early terminations.
-        // 		partitionResult, more, err := partition.PopEarlyTerminations(
-        // 			store, maxSectors-result.SectorsProcessed,
-        // 		)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to pop terminations from partition: %w", err)
-        // 		}
+            result += partition_result;
 
-        // 		err = result.Add(partitionResult)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to merge termination result: %w", err)
-        // 		}
+            // If we've processed all of them for this partition, unmark it in the deadline.
+            if !more {
+                partitions_finished.push(partition_idx);
+            }
 
-        // 		// If we've processed all of them for this partition, unmark it in the deadline.
-        // 		if !more {
-        // 			partitionsFinished = append(partitionsFinished, partIdx)
-        // 		}
+            // Save partition
+            partitions
+                .set(partition_idx, partition)
+                .map_err(|e| format!("failed to store partition {}: {:?}", partition_idx, e))?;
 
-        // 		// Save partition
-        // 		err = partitions.Set(partIdx, &partition)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to store partition %v", partIdx)
-        // 		}
+            if !result.below_limit(max_partitions, max_sectors) {
+                break;
+            }
+        }
 
-        // 		if result.BelowLimit(maxPartitions, maxSectors) {
-        // 			return nil
-        // 		}
+        // Removed finished partitions from the index.
+        for finished in partitions_finished {
+            self.early_terminations.unset(finished as usize);
+        }
 
-        // 		return stopErr
-        // 	}); err != nil && err != stopErr {
-        // 		return TerminationResult{}, false, xerrors.Errorf("failed to walk early terminations bitfield for deadlines: %w", err)
-        // 	}
+        // Save deadline's partitions
+        self.partitions = partitions
+            .flush()
+            .map_err(|e| format!("failed to update partitions: {:?}", e))?;
 
-        // 	// Removed finished partitions from the index.
-        // 	for _, finished := range partitionsFinished {
-        // 		dl.EarlyTerminations.Unset(finished)
-        // 	}
-
-        // 	// Save deadline's partitions
-        // 	dl.Partitions, err = partitions.Root()
-        // 	if err != nil {
-        // 		return TerminationResult{}, false, xerrors.Errorf("failed to update partitions")
-        // 	}
-
-        // 	// Update global early terminations bitfield.
-        // 	noEarlyTerminations, err := dl.EarlyTerminations.IsEmpty()
-        // 	if err != nil {
-        // 		return TerminationResult{}, false, xerrors.Errorf("failed to count remaining early terminations partitions: %w", err)
-        // 	}
-
-        // 	return result, !noEarlyTerminations, nil
+        // Update global early terminations bitfield.
+        let no_early_terminations = self.early_terminations.is_empty();
+        Ok((result, !no_early_terminations))
     }
 
     pub fn pop_expired_partitions<BS: BlockStore>(
@@ -467,89 +410,75 @@ impl Deadline {
         store: &BS,
         until: ChainEpoch,
         quant: QuantSpec,
-    ) -> (BitField, bool) {
-        todo!()
+    ) -> Result<(BitField, bool), Box<dyn StdError>> {
+        let mut expirations = BitFieldQueue::new(store, &self.expirations_epochs, quant)?;
+        let (popped, modified) = expirations
+            .pop_until(until)
+            .map_err(|e| ActorError::downcast_wrap(e, "failed to pop expiring partitions"))?;
 
-        // 	expirations, err := LoadBitfieldQueue(store, dl.ExpirationsEpochs, quant)
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, false, err
-        // 	}
+        if modified {
+            self.expirations_epochs = expirations.amt.flush()?;
+        }
 
-        // 	popped, modified, err := expirations.PopUntil(until)
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, false, xerrors.Errorf("failed to pop expiring partitions: %w", err)
-        // 	}
-
-        // 	if modified {
-        // 		dl.ExpirationsEpochs, err = expirations.Root()
-        // 		if err != nil {
-        // 			return bitfield.BitField{}, false, err
-        // 		}
-        // 	}
-
-        // 	return popped, modified, nil
+        Ok((popped, modified))
     }
 
     pub fn terminate_sectors<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sectors: Sectors<'_, BS>,
+        sectors: &Sectors<'_, BS>,
         epoch: ChainEpoch,
         partition_sectors: PartitionSectorMap,
         sector_size: SectorSize,
         quant: QuantSpec,
-    ) -> PowerPair {
-        todo!()
+    ) -> Result<PowerPair, Box<dyn StdError>> {
+        let mut partitions = self.partitions_amt(store)?;
 
-        // 	partitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return NewPowerPairZero(), err
-        // 	}
+        let mut power_lost = PowerPair::zero();
+        for (partition_idx, sector_numbers) in partition_sectors.iter() {
+            let mut partition = partitions
+                .get(partition_idx)
+                .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
+                .ok_or_else(
+                    || actor_error!(ErrNotFound; "failed to find partition {}", partition_idx),
+                )?;
 
-        // 	powerLost = NewPowerPairZero()
-        // 	var partition Partition
-        // 	if err := partitionSectors.ForEach(func(partIdx uint64, sectorNos bitfield.BitField) error {
-        // 		if found, err := partitions.Get(partIdx, &partition); err != nil {
-        // 			return xerrors.Errorf("failed to load partition %d: %w", partIdx, err)
-        // 		} else if !found {
-        // 			return xc.ErrNotFound.Wrapf("failed to find partition %d", partIdx)
-        // 		}
+            let removed = partition
+                .terminate_sectors(store, sectors, epoch, sector_numbers, sector_size, quant)
+                .map_err(|e| {
+                    ActorError::downcast_wrap(
+                        e,
+                        format!("failed to terminate sectors in partition {}", partition_idx),
+                    )
+                })?;
 
-        // 		removed, err := partition.TerminateSectors(store, sectors, epoch, sectorNos, ssize, quant)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to terminate sectors in partition %d: %w", partIdx, err)
-        // 		}
+            partitions.set(partition_idx, partition).map_err(|e| {
+                format!(
+                    "failed to store updated partition {}: {:?}",
+                    partition_idx, e
+                )
+            })?;
 
-        // 		err = partitions.Set(partIdx, &partition)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to store updated partition %d: %w", partIdx, err)
-        // 		}
+            if !removed.is_empty() {
+                // Record that partition now has pending early terminations.
+                self.early_terminations.set(partition_idx as usize);
 
-        // 		if count, err := removed.Count(); err != nil {
-        // 			return xerrors.Errorf("failed to count terminated sectors in partition %d: %w", partIdx, err)
-        // 		} else if count > 0 {
-        // 			// Record that partition now has pending early terminations.
-        // 			dl.EarlyTerminations.Set(partIdx)
-        // 			// Record change to sectors and power
-        // 			dl.LiveSectors -= count
-        // 		} // note: we should _always_ have early terminations, unless the early termination bitfield is empty.
+                // Record change to sectors and power
+                self.live_sectors -= removed.len() as u64;
+            } // note: we should _always_ have early terminations, unless the early termination bitfield is empty.
 
-        // 		dl.FaultyPower = dl.FaultyPower.Sub(removed.FaultyPower)
+            self.faulty_power -= &removed.faulty_power;
 
-        // 		// Aggregate power lost from active sectors
-        // 		powerLost = powerLost.Add(removed.ActivePower)
-        // 		return nil
-        // 	}); err != nil {
-        // 		return NewPowerPairZero(), err
-        // 	}
+            // Aggregate power lost from active sectors
+            power_lost += &removed.active_power;
+        }
 
-        // 	// save partitions back
-        // 	dl.Partitions, err = partitions.Root()
-        // 	if err != nil {
-        // 		return NewPowerPairZero(), xerrors.Errorf("failed to persist partitions: %w", err)
-        // 	}
+        // save partitions back
+        self.partitions = partitions
+            .flush()
+            .map_err(|e| format!("failed to persist partitions: {:?}", e))?;
 
-        // 	return powerLost, nil
+        Ok(power_lost)
     }
 
     /// RemovePartitions removes the specified partitions, shifting the remaining
@@ -560,336 +489,284 @@ impl Deadline {
     pub fn remove_partitions<BS: BlockStore>(
         &mut self,
         store: &BS,
-        to_remove: BitField,
+        to_remove: &BitField,
         quant: QuantSpec,
-    ) -> (
-        /*live*/ BitField,
-        /*dead*/ BitField,
-        /*removed power*/ PowerPair,
-    ) {
-        todo!()
+    ) -> Result<
+        (
+            BitField,  // live
+            BitField,  // dead
+            PowerPair, // removed power
+        ),
+        Box<dyn StdError>,
+    > {
+        let old_partitions = self
+            .partitions_amt(store)
+            .map_err(|e| e.wrap("failed to load partitions"))?;
 
-        // 	oldPartitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed to load partitions: %w", err)
-        // 	}
+        let partition_count = old_partitions.count();
+        let to_remove_set: HashSet<_> = to_remove
+            .bounded_iter(partition_count as usize)
+            .map_err(
+                |e| actor_error!(ErrIllegalArgument; "failed to expand partitions into map: {}", e),
+            )?
+            .collect();
 
-        // 	partitionCount := oldPartitions.Length()
-        // 	toRemoveSet, err := toRemove.AllMap(partitionCount)
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xc.ErrIllegalArgument.Wrapf("failed to expand partitions into map: %w", err)
-        // 	}
+        if to_remove_set.is_empty() {
+            // Nothing to do.
+            return Ok((BitField::new(), BitField::new(), PowerPair::zero()));
+        }
 
-        // 	// Nothing to do.
-        // 	if len(toRemoveSet) == 0 {
-        // 		return bitfield.NewFromSet(nil), bitfield.NewFromSet(nil), NewPowerPairZero(), nil
-        // 	}
+        if let Some(partition_idx) = to_remove_set.iter().find(|&&i| i as u64 >= partition_count) {
+            Err(
+                actor_error!(ErrIllegalArgument; "partition index {} out of range [0, {})", partition_idx, partition_count),
+            )?;
+        }
 
-        // 	for partIdx := range toRemoveSet { //nolint:nomaprange
-        // 		if partIdx >= partitionCount {
-        // 			return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xc.ErrIllegalArgument.Wrapf(
-        // 				"partition index %d out of range [0, %d)", partIdx, partitionCount,
-        // 			)
-        // 		}
-        // 	}
+        // Should already be checked earlier, but we might as well check again.
+        if !self.early_terminations.is_empty() {
+            Err("cannot remove partitions from deadline with early terminations")?;
+        }
 
-        // 	// Should already be checked earlier, but we might as well check again.
-        // 	noEarlyTerminations, err := dl.EarlyTerminations.IsEmpty()
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed to check for early terminations: %w", err)
-        // 	}
-        // 	if !noEarlyTerminations {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("cannot remove partitions from deadline with early terminations: %w", err)
-        // 	}
+        let mut new_partitions = Amt::<Partition, BS>::new(store);
+        let mut all_dead_sectors = Vec::<BitField>::with_capacity(to_remove_set.len());
+        let mut all_live_sectors = Vec::<BitField>::with_capacity(to_remove_set.len());
+        let mut removed_power = PowerPair::zero();
 
-        // 	newPartitions := adt.MakeEmptyArray(store)
-        // 	allDeadSectors := make([]bitfield.BitField, 0, len(toRemoveSet))
-        // 	allLiveSectors := make([]bitfield.BitField, 0, len(toRemoveSet))
-        // 	removedPower = NewPowerPairZero()
+        // TODO: maybe only unmarshal the partition if `to_remove_set` contains the
+        // corresponding index, like the Go impl does
 
-        // 	// Define all of these out here to save allocations.
-        // 	var (
-        // 		lazyPartition cbg.Deferred
-        // 		byteReader    bytes.Reader
-        // 		partition     Partition
-        // 	)
-        // 	if err = oldPartitions.ForEach(&lazyPartition, func(partIdx int64) error {
-        // 		// If we're keeping the partition as-is, append it to the new partitions array.
-        // 		if _, ok := toRemoveSet[uint64(partIdx)]; !ok {
-        // 			return newPartitions.AppendContinuous(&lazyPartition)
-        // 		}
+        old_partitions
+            .for_each(|partition_idx, partition| {
+                // If we're keeping the partition as-is, append it to the new partitions array.
+                if !to_remove_set.contains(&(partition_idx as usize)) {
+                    new_partitions.set(new_partitions.count(), partition.clone())?;
+                    return Ok(());
+                }
 
-        // 		// Ok, actually unmarshal the partition.
-        // 		byteReader.Reset(lazyPartition.Raw)
-        // 		err := partition.UnmarshalCBOR(&byteReader)
-        // 		byteReader.Reset(nil)
-        // 		if err != nil {
-        // 			return xc.ErrIllegalState.Wrapf("failed to decode partition %d: %w", partIdx, err)
-        // 		}
+                // Don't allow removing partitions with faulty sectors.
+                let has_no_faults = partition.faults.is_empty();
+                if !has_no_faults {
+                    Err(actor_error!(ErrIllegalArgument; "cannot remove partition {}: has faults", partition_idx))?;
+                }
 
-        // 		// Don't allow removing partitions with faulty sectors.
-        // 		hasNoFaults, err := partition.Faults.IsEmpty()
-        // 		if err != nil {
-        // 			return xc.ErrIllegalState.Wrapf("failed to decode faults for partition %d: %w", partIdx, err)
-        // 		}
-        // 		if !hasNoFaults {
-        // 			return xc.ErrIllegalArgument.Wrapf("cannot remove partition %d: has faults", partIdx)
-        // 		}
+                // Get the live sectors.
+                let live_sectors = partition.live_sectors();
 
-        // 		// Get the live sectors.
-        // 		liveSectors, err := partition.LiveSectors()
-        // 		if err != nil {
-        // 			return xc.ErrIllegalState.Wrapf("failed to calculate live sectors for partition %d: %w", partIdx, err)
-        // 		}
+                all_dead_sectors.push(partition.terminated.clone());
+                all_live_sectors.push(live_sectors);
+                removed_power += &partition.live_power;
 
-        // 		allDeadSectors = append(allDeadSectors, partition.Terminated)
-        // 		allLiveSectors = append(allLiveSectors, liveSectors)
-        // 		removedPower = removedPower.Add(partition.LivePower)
-        // 		return nil
-        // 	}); err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("while removing partitions: %w", err)
-        // 	}
+                Ok(())
+            })
+            .map_err(|e| ActorError::downcast_wrap(e, "while removing partitions"))?;
 
-        // 	dl.Partitions, err = newPartitions.Root()
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed to persist new partition table: %w", err)
-        // 	}
+        self.partitions = new_partitions
+            .flush()
+            .map_err(|e| format!("failed to persist new partition table: {:?}", e))?;
 
-        // 	dead, err = bitfield.MultiMerge(allDeadSectors...)
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed to merge dead sector bitfields: %w", err)
-        // 	}
-        // 	live, err = bitfield.MultiMerge(allLiveSectors...)
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed to merge live sector bitfields: %w", err)
-        // 	}
+        let dead = BitField::union(&all_dead_sectors);
+        let live = BitField::union(&all_live_sectors);
 
-        // 	// Update sector counts.
-        // 	removedDeadSectors, err := dead.Count()
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed to count dead sectors: %w", err)
-        // 	}
+        // Update sector counts.
+        let removed_dead_sectors = dead.len() as u64;
+        let removed_live_sectors = live.len() as u64;
 
-        // 	removedLiveSectors, err := live.Count()
-        // 	if err != nil {
-        // 		return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed to count live sectors: %w", err)
-        // 	}
+        self.live_sectors -= removed_live_sectors;
+        self.total_sectors -= removed_live_sectors + removed_dead_sectors;
 
-        // 	dl.LiveSectors -= removedLiveSectors
-        // 	dl.TotalSectors -= removedLiveSectors + removedDeadSectors
+        // Update expiration bitfields.
+        let mut expiration_epochs = BitFieldQueue::new(store, &self.expirations_epochs, quant)
+            .map_err(|e| format!("failed to load expiration queue: {:?}", e))?;
 
-        // 	// Update expiration bitfields.
-        // 	{
-        // 		expirationEpochs, err := LoadBitfieldQueue(store, dl.ExpirationsEpochs, quant)
-        // 		if err != nil {
-        // 			return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed to load expiration queue: %w", err)
-        // 		}
+        expiration_epochs.cut(to_remove).map_err(|e| {
+            format!(
+                "failed cut removed partitions from deadline expiration queue: {}",
+                e
+            )
+        })?;
 
-        // 		err = expirationEpochs.Cut(toRemove)
-        // 		if err != nil {
-        // 			return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed cut removed partitions from deadline expiration queue: %w", err)
-        // 		}
+        self.expirations_epochs = expiration_epochs
+            .amt
+            .flush()
+            .map_err(|e| format!("failed persist deadline expiration queue: {:?}", e))?;
 
-        // 		dl.ExpirationsEpochs, err = expirationEpochs.Root()
-        // 		if err != nil {
-        // 			return bitfield.BitField{}, bitfield.BitField{}, NewPowerPairZero(), xerrors.Errorf("failed persist deadline expiration queue: %w", err)
-        // 		}
-        // 	}
-
-        // 	return live, dead, removedPower, nil
+        Ok((live, dead, removed_power))
     }
 
     pub fn declare_faults<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sectors: Sectors<'_, BS>,
+        sectors: &Sectors<'_, BS>,
         sector_size: SectorSize,
         quant: QuantSpec,
         fault_expiration_epoch: ChainEpoch,
         partition_sectors: PartitionSectorMap,
-    ) -> PowerPair {
-        todo!()
+    ) -> Result<PowerPair, Box<dyn StdError>> {
+        let mut partitions = self.partitions_amt(store)?;
 
-        // 	partitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return NewPowerPairZero(), err
-        // 	}
+        // Record partitions with some fault, for subsequently indexing in the deadline.
+        // Duplicate entries don't matter, they'll be stored in a bitfield (a set).
+        let mut partitions_with_fault = Vec::<u64>::with_capacity(partition_sectors.len());
+        let mut new_faulty_power = PowerPair::zero();
 
-        // 	// Record partitions with some fault, for subsequently indexing in the deadline.
-        // 	// Duplicate entries don't matter, they'll be stored in a bitfield (a set).
-        // 	partitionsWithFault := make([]uint64, 0, len(partitionSectors))
-        // 	newFaultyPower = NewPowerPairZero()
-        // 	if err := partitionSectors.ForEach(func(partIdx uint64, sectorNos bitfield.BitField) error {
-        // 		var partition Partition
-        // 		if found, err := partitions.Get(partIdx, &partition); err != nil {
-        // 			return xc.ErrIllegalState.Wrapf("failed to load partition %d: %w", partIdx, err)
-        // 		} else if !found {
-        // 			return xc.ErrNotFound.Wrapf("no such partition %d", partIdx)
-        // 		}
+        for (partition_idx, sector_numbers) in partition_sectors.iter() {
+            let mut partition = partitions
+                .get(partition_idx)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e))?
+                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?;
 
-        // 		newFaults, newPartitionFaultyPower, err := partition.DeclareFaults(store, sectors, sectorNos, faultExpirationEpoch, ssize, quant)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to declare faults in partition %d: %w", partIdx, err)
-        // 		}
-        // 		newFaultyPower = newFaultyPower.Add(newPartitionFaultyPower)
-        // 		if empty, err := newFaults.IsEmpty(); err != nil {
-        // 			return xerrors.Errorf("failed to count new faults: %w", err)
-        // 		} else if !empty {
-        // 			partitionsWithFault = append(partitionsWithFault, partIdx)
-        // 		}
+            let (new_faults, new_partition_faulty_power) = partition
+                .declare_faults(
+                    store,
+                    sectors,
+                    sector_numbers,
+                    fault_expiration_epoch,
+                    sector_size,
+                    quant,
+                )
+                .map_err(|e| {
+                    ActorError::downcast_wrap(
+                        e,
+                        format!("failed to declare faults in partition {}", partition_idx),
+                    )
+                })?;
 
-        // 		err = partitions.Set(partIdx, &partition)
-        // 		if err != nil {
-        // 			return xc.ErrIllegalState.Wrapf("failed to store partition %d: %w", partIdx, err)
-        // 		}
+            new_faulty_power += &new_partition_faulty_power;
+            if !new_faults.is_empty() {
+                partitions_with_fault.push(partition_idx);
+            }
 
-        // 		return nil
-        // 	}); err != nil {
-        // 		return NewPowerPairZero(), err
-        // 	}
+            partitions
+                .set(partition_idx, partition)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to store partition {}: {:?}", partition_idx, e))?;
+        }
 
-        // 	dl.Partitions, err = partitions.Root()
-        // 	if err != nil {
-        // 		return NewPowerPairZero(), xc.ErrIllegalState.Wrapf("failed to store partitions root: %w", err)
-        // 	}
+        self.partitions = partitions.flush().map_err(
+            |e| actor_error!(ErrIllegalState; "failed to store partitions root: {:?}", e),
+        )?;
 
-        // 	err = dl.AddExpirationPartitions(store, faultExpirationEpoch, partitionsWithFault, quant)
-        // 	if err != nil {
-        // 		return NewPowerPairZero(), xc.ErrIllegalState.Wrapf("failed to update expirations for partitions with faults: %w", err)
-        // 	}
+        self.add_expiration_partitions(store, fault_expiration_epoch, &partitions_with_fault, quant)
+            .map_err(|e| actor_error!(ErrIllegalState; "failed to update expirations for partitions with faults: {:?}", e))?;
 
-        // 	dl.FaultyPower = dl.FaultyPower.Add(newFaultyPower)
-
-        // 	return newFaultyPower, nil
+        self.faulty_power += &new_faulty_power;
+        Ok(new_faulty_power)
     }
 
     pub fn declare_faults_recovered<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sectors: Sectors<'_, BS>,
+        sectors: &Sectors<'_, BS>,
         sector_size: SectorSize,
-        partition_sectors: PartitionSectorMap,
-    ) {
-        todo!()
+        partition_sectors: &PartitionSectorMap,
+    ) -> Result<(), ActorError> {
+        let mut partitions = self.partitions_amt(store)?;
 
-        // 	partitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return err
-        // 	}
+        for (partition_idx, sector_numbers) in partition_sectors.iter() {
+            let mut partition = partitions
+                .get(partition_idx)
+                .map_err(
+                    |e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e),
+                )?
+                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?;
 
-        // 	if err := partitionSectors.ForEach(func(partIdx uint64, sectorNos bitfield.BitField) error {
-        // 		var partition Partition
-        // 		if found, err := partitions.Get(partIdx, &partition); err != nil {
-        // 			return xc.ErrIllegalState.Wrapf("failed to load partition %d: %w", partIdx, err)
-        // 		} else if !found {
-        // 			return xc.ErrNotFound.Wrapf("no such partition %d", partIdx)
-        // 		}
+            partition
+                .declare_faults_recovered(sectors, sector_size, sector_numbers)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to add recoveries: {:?}", e))?;
 
-        // 		if err = partition.DeclareFaultsRecovered(sectors, ssize, sectorNos); err != nil {
-        // 			return xc.ErrIllegalState.Wrapf("failed to add recoveries: %w", err)
-        // 		}
+            partitions
+                .set(partition_idx, partition)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to update partition {}: {:?}", partition_idx, e))?;
+        }
 
-        // 		err = partitions.Set(partIdx, &partition)
-        // 		if err != nil {
-        // 			return xc.ErrIllegalState.Wrapf("failed to update partition %d: %w", partIdx, err)
-        // 		}
-        // 		return nil
-        // 	}); err != nil {
-        // 		return err
-        // 	}
+        // Power is not regained until the deadline end, when the recovery is confirmed.
 
-        // 	// Power is not regained until the deadline end, when the recovery is confirmed.
+        self.partitions = partitions.flush().map_err(
+            |e| actor_error!(ErrIllegalState; "failed to store partitions root: {:?}", e),
+        )?;
 
-        // 	dl.Partitions, err = partitions.Root()
-        // 	if err != nil {
-        // 		return xc.ErrIllegalState.Wrapf("failed to store partitions root: %w", err)
-        // 	}
-        // 	return nil
-        // }
+        Ok(())
+    }
 
-        // // ProcessDeadlineEnd processes all PoSt submissions, marking unproven sectors as
-        // // faulty and clearing failed recoveries. It returns any new faulty power and
-        // // failed recovery power.
-        // func (dl *Deadline) ProcessDeadlineEnd(store adt.Store, quant QuantSpec, faultExpirationEpoch abi.ChainEpoch) (
-        // 	newFaultyPower, failedRecoveryPower PowerPair, err error,
-        // ) {
-        // 	newFaultyPower = NewPowerPairZero()
-        // 	failedRecoveryPower = NewPowerPairZero()
+    /// Processes all PoSt submissions, marking unproven sectors as faulty and clearing failed recoveries.
+    /// Returns any new faulty power and failed recovery power.
+    pub fn process_deadline_end<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        quant: QuantSpec,
+        fault_expiration_epoch: ChainEpoch,
+    ) -> Result<(PowerPair, PowerPair), ActorError> {
+        let mut new_faulty_power = PowerPair::zero();
+        let mut failed_recovery_power = PowerPair::zero();
 
-        // 	partitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return newFaultyPower, failedRecoveryPower, xc.ErrIllegalState.Wrapf("failed to load partitions: %w", err)
-        // 	}
+        let mut partitions = self
+            .partitions_amt(store)
+            .map_err(|e| actor_error!(ErrIllegalState; "failed to load partitions: {:?}", e))?;
 
-        // 	detectedAny := false
-        // 	var rescheduledPartitions []uint64
-        // 	for partIdx := uint64(0); partIdx < partitions.Length(); partIdx++ {
-        // 		proven, err := dl.PostSubmissions.IsSet(partIdx)
-        // 		if err != nil {
-        // 			return newFaultyPower, failedRecoveryPower, xc.ErrIllegalState.Wrapf("failed to check submission for partition %d: %w", partIdx, err)
-        // 		}
-        // 		if proven {
-        // 			continue
-        // 		}
+        let mut detected_any = false;
+        let mut rescheduled_partitions = Vec::<u64>::new();
 
-        // 		var partition Partition
-        // 		found, err := partitions.Get(partIdx, &partition)
-        // 		if err != nil {
-        // 			return newFaultyPower, failedRecoveryPower, xc.ErrIllegalState.Wrapf("failed to load partition %d: %w", partIdx, err)
-        // 		}
-        // 		if !found {
-        // 			return newFaultyPower, failedRecoveryPower, exitcode.ErrIllegalState.Wrapf("no partition %d", partIdx)
-        // 		}
+        for partition_idx in 0..partitions.count() {
+            let proven = self.post_submissions.get(partition_idx as usize);
 
-        // 		// If we have no recovering power/sectors, and all power is faulty, skip
-        // 		// this. This lets us skip some work if a miner repeatedly fails to PoSt.
-        // 		if partition.RecoveringPower.IsZero() && partition.FaultyPower.Equals(partition.LivePower) {
-        // 			continue
-        // 		}
+            if proven {
+                continue;
+            }
 
-        // 		// Ok, we actually need to process this partition. Make sure we save the partition state back.
-        // 		detectedAny = true
+            let mut partition = partitions.get(partition_idx).map_err(
+                |e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e),
+            )?.ok_or_else(|| actor_error!(ErrIllegalState; "no partition {}", partition_idx))?;
 
-        // 		partFaultyPower, partFailedRecoveryPower, err := partition.RecordMissedPost(store, faultExpirationEpoch, quant)
-        // 		if err != nil {
-        // 			return newFaultyPower, failedRecoveryPower, xc.ErrIllegalState.Wrapf("failed to record missed PoSt for partition %v: %w", partIdx, err)
-        // 		}
+            // If we have no recovering power/sectors, and all power is faulty, skip
+            // this. This lets us skip some work if a miner repeatedly fails to PoSt.
+            if partition.recovering_power.is_zero()
+                && partition.faulty_power == partition.live_power
+            {
+                continue;
+            }
 
-        // 		// We marked some sectors faulty, we need to record the new
-        // 		// expiration. We don't want to do this if we're just penalizing
-        // 		// the miner for failing to recover power.
-        // 		if !partFaultyPower.IsZero() {
-        // 			rescheduledPartitions = append(rescheduledPartitions, partIdx)
-        // 		}
+            // Ok, we actually need to process this partition. Make sure we save the partition state back.
+            detected_any = true;
 
-        // 		// Save new partition state.
-        // 		err = partitions.Set(partIdx, &partition)
-        // 		if err != nil {
-        // 			return newFaultyPower, failedRecoveryPower, xc.ErrIllegalState.Wrapf("failed to update partition %v: %w", partIdx, err)
-        // 		}
+            let (part_faulty_power, part_failed_recovery_power) = partition
+                .record_missed_post(store, fault_expiration_epoch, quant)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to record missed PoSt for partition {}: {:?}", partition_idx, e))?;
 
-        // 		newFaultyPower = newFaultyPower.Add(partFaultyPower)
-        // 		failedRecoveryPower = failedRecoveryPower.Add(partFailedRecoveryPower)
-        // 	}
+            // We marked some sectors faulty, we need to record the new
+            // expiration. We don't want to do this if we're just penalizing
+            // the miner for failing to recover power.
+            if !part_faulty_power.is_zero() {
+                rescheduled_partitions.push(partition_idx);
+            }
 
-        // 	// Save modified deadline state.
-        // 	if detectedAny {
-        // 		dl.Partitions, err = partitions.Root()
-        // 		if err != nil {
-        // 			return newFaultyPower, failedRecoveryPower, xc.ErrIllegalState.Wrapf("failed to store partitions: %w", err)
-        // 		}
-        // 	}
+            // Save new partition state.
+            partitions
+                .set(partition_idx, partition)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to update partition {}: {:?}", partition_idx, e))?;
 
-        // 	err = dl.AddExpirationPartitions(store, faultExpirationEpoch, rescheduledPartitions, quant)
-        // 	if err != nil {
-        // 		return newFaultyPower, failedRecoveryPower, xc.ErrIllegalState.Wrapf("failed to update deadline expiration queue: %w", err)
-        // 	}
+            new_faulty_power += &part_faulty_power;
+            failed_recovery_power += &part_failed_recovery_power;
+        }
 
-        // 	dl.FaultyPower = dl.FaultyPower.Add(newFaultyPower)
+        // Save modified deadline state.
+        if detected_any {
+            self.partitions = partitions.flush().map_err(
+                |e| actor_error!(ErrIllegalState; "failed to store partitions: {:?}", e),
+            )?;
+        }
 
-        // 	// Reset PoSt submissions.
-        // 	dl.PostSubmissions = bitfield.New()
-        // 	return newFaultyPower, failedRecoveryPower, nil
+        self.add_expiration_partitions(
+            store,
+            fault_expiration_epoch,
+            &rescheduled_partitions,
+            quant,
+        )
+        .map_err(|e| actor_error!(ErrIllegalState; "failed to update deadline expiration queue: {:?}", e))?;
+
+        self.faulty_power += &new_faulty_power;
+
+        // Reset PoSt submissions.
+        self.post_submissions = BitField::new();
+        Ok((new_faulty_power, failed_recovery_power))
     }
 }
 
@@ -927,117 +804,115 @@ impl Deadline {
     /// `sectors` and `ignored_sectors` must subsequently be validated against the PoSt
     /// submitted by the miner.
     pub fn record_proven_sectors<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
-        sectors: Sectors<'_, BS>,
+        sectors: &Sectors<'_, BS>,
         sector_size: SectorSize,
         quant: QuantSpec,
         fault_expiration: ChainEpoch,
         post_partitions: &[PoStPartition],
     ) -> Result<PoStResult, Box<dyn StdError>> {
-        todo!()
+        let mut partitions = self.partitions_amt(store)?;
 
-        // 	partitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return nil, err
-        // 	}
+        let mut all_sectors = Vec::<BitField>::with_capacity(post_partitions.len());
+        let mut all_ignored = Vec::<BitField>::with_capacity(post_partitions.len());
+        let mut new_faulty_power_total = PowerPair::zero();
+        let mut retracted_recovery_power_total = PowerPair::zero();
+        let mut recovered_power_total = PowerPair::zero();
+        let mut rescheduled_partitions = Vec::<u64>::new();
 
-        // 	allSectors := make([]bitfield.BitField, 0, len(postPartitions))
-        // 	allIgnored := make([]bitfield.BitField, 0, len(postPartitions))
-        // 	newFaultyPowerTotal := NewPowerPairZero()
-        // 	retractedRecoveryPowerTotal := NewPowerPairZero()
-        // 	recoveredPowerTotal := NewPowerPairZero()
-        // 	var rescheduledPartitions []uint64
+        // Accumulate sectors info for proof verification.
+        for post in post_partitions {
+            let already_proven = self.post_submissions.get(post.index as usize);
 
-        // 	// Accumulate sectors info for proof verification.
-        // 	for _, post := range postPartitions {
-        // 		alreadyProven, err := dl.PostSubmissions.IsSet(post.Index)
-        // 		if err != nil {
-        // 			return nil, xc.ErrIllegalState.Wrapf("failed to check if partition %d already posted: %w", post.Index, err)
-        // 		}
-        // 		if alreadyProven {
-        // 			// Skip partitions already proven for this deadline.
-        // 			continue
-        // 		}
+            if already_proven {
+                // Skip partitions already proven for this deadline.
+                continue;
+            }
 
-        // 		var partition Partition
-        // 		found, err := partitions.Get(post.Index, &partition)
-        // 		if err != nil {
-        // 			return nil, xerrors.Errorf("failed to load partition %d: %w", post.Index, err)
-        // 		} else if !found {
-        // 			return nil, xc.ErrNotFound.Wrapf("no such partition %d", post.Index)
-        // 		}
+            let mut partition = partitions
+                .get(post.index)
+                .map_err(|e| format!("failed to load partition {}: {}", post.index, e))?
+                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", post.index))?;
 
-        // 		// Process new faults and accumulate new faulty power.
-        // 		// This updates the faults in partition state ahead of calculating the sectors to include for proof.
-        // 		newFaultPower, retractedRecoveryPower, err := partition.RecordSkippedFaults(
-        // 			store, sectors, ssize, quant, faultExpiration, post.Skipped,
-        // 		)
-        // 		if err != nil {
-        // 			return nil, xerrors.Errorf("failed to add skipped faults to partition %d: %w", post.Index, err)
-        // 		}
+            // Process new faults and accumulate new faulty power.
+            // This updates the faults in partition state ahead of calculating the sectors to include for proof.
+            let (new_fault_power, retracted_recovery_power) = partition
+                .record_skipped_faults(
+                    store,
+                    sectors,
+                    sector_size,
+                    quant,
+                    fault_expiration,
+                    &post.skipped,
+                )
+                .map_err(|e| {
+                    e.wrap(format!(
+                        "failed to add skipped faults to partition {}",
+                        post.index
+                    ))
+                })?;
 
-        // 		// If we have new faulty power, we've added some faults. We need
-        // 		// to record the new expiration in the deadline.
-        // 		if !newFaultPower.IsZero() {
-        // 			rescheduledPartitions = append(rescheduledPartitions, post.Index)
-        // 		}
+            // If we have new faulty power, we've added some faults. We need
+            // to record the new expiration in the deadline.
+            if !new_fault_power.is_zero() {
+                rescheduled_partitions.push(post.index);
+            }
 
-        // 		recoveredPower, err := partition.RecoverFaults(store, sectors, ssize, quant)
-        // 		if err != nil {
-        // 			return nil, xerrors.Errorf("failed to recover faulty sectors for partition %d: %w", post.Index, err)
-        // 		}
+            let recovered_power = partition
+                .recover_faults(store, sectors, sector_size, quant)
+                .map_err(|e| {
+                    ActorError::downcast_wrap(
+                        e,
+                        format!(
+                            "failed to recover faulty sectors for partition {}",
+                            post.index
+                        ),
+                    )
+                })?;
 
-        // 		// This will be rolled back if the method aborts with a failed proof.
-        // 		err = partitions.Set(post.Index, &partition)
-        // 		if err != nil {
-        // 			return nil, xc.ErrIllegalState.Wrapf("failed to update partition %v: %w", post.Index, err)
-        // 		}
+            // note: we do this first because `partition` is moved in the upcoming `partitions.set` call
+            // At this point, the partition faults represents the expected faults for the proof, with new skipped
+            // faults and recoveries taken into account.
+            all_sectors.push(partition.sectors.clone());
+            all_ignored.push(partition.faults.clone());
+            all_ignored.push(partition.terminated.clone());
 
-        // 		newFaultyPowerTotal = newFaultyPowerTotal.Add(newFaultPower)
-        // 		retractedRecoveryPowerTotal = retractedRecoveryPowerTotal.Add(retractedRecoveryPower)
-        // 		recoveredPowerTotal = recoveredPowerTotal.Add(recoveredPower)
+            // This will be rolled back if the method aborts with a failed proof.
+            partitions
+                .set(post.index, partition)
+                .map_err(|e| actor_error!(ErrIllegalState; "failed to update partition {}: {:?}", post.index, e))?;
 
-        // 		// Record the post.
-        // 		dl.PostSubmissions.Set(post.Index)
+            new_faulty_power_total += &new_fault_power;
+            retracted_recovery_power_total += &retracted_recovery_power;
+            recovered_power_total += &recovered_power;
 
-        // 		// At this point, the partition faults represents the expected faults for the proof, with new skipped
-        // 		// faults and recoveries taken into account.
-        // 		allSectors = append(allSectors, partition.Sectors)
-        // 		allIgnored = append(allIgnored, partition.Faults)
-        // 		allIgnored = append(allIgnored, partition.Terminated)
-        // 	}
+            // Record the post.
+            self.post_submissions.set(post.index as usize);
+        }
 
-        // 	err = dl.AddExpirationPartitions(store, faultExpiration, rescheduledPartitions, quant)
-        // 	if err != nil {
-        // 		return nil, xc.ErrIllegalState.Wrapf("failed to update expirations for partitions with faults: %w", err)
-        // 	}
+        self.add_expiration_partitions(store, fault_expiration, &rescheduled_partitions, quant)
+            .map_err(|e| actor_error!(ErrIllegalState; "failed to update expirations for partitions with faults: {:?}", e))?;
 
-        // 	// Save everything back.
-        // 	dl.FaultyPower = dl.FaultyPower.Sub(recoveredPowerTotal).Add(newFaultyPowerTotal)
+        // Save everything back.
+        self.faulty_power -= &recovered_power_total;
+        self.faulty_power += &new_faulty_power_total;
 
-        // 	dl.Partitions, err = partitions.Root()
-        // 	if err != nil {
-        // 		return nil, xc.ErrIllegalState.Wrapf("failed to persist partitions: %w", err)
-        // 	}
+        self.partitions = partitions
+            .flush()
+            .map_err(|e| actor_error!(ErrIllegalState; "failed to persist partitions: {:?}", e))?;
 
-        // 	// Collect all sectors, faults, and recoveries for proof verification.
-        // 	allSectorNos, err := bitfield.MultiMerge(allSectors...)
-        // 	if err != nil {
-        // 		return nil, xc.ErrIllegalState.Wrapf("failed to merge all sectors bitfields: %w", err)
-        // 	}
-        // 	allIgnoredSectorNos, err := bitfield.MultiMerge(allIgnored...)
-        // 	if err != nil {
-        // 		return nil, xc.ErrIllegalState.Wrapf("failed to merge ignored sectors bitfields: %w", err)
-        // 	}
+        // Collect all sectors, faults, and recoveries for proof verification.
+        let all_sector_numbers = BitField::union(&all_sectors);
+        let all_ignored_sector_numbers = BitField::union(&all_ignored);
 
-        // 	return &PoStResult{
-        // 		Sectors:                allSectorNos,
-        // 		IgnoredSectors:         allIgnoredSectorNos,
-        // 		NewFaultyPower:         newFaultyPowerTotal,
-        // 		RecoveredPower:         recoveredPowerTotal,
-        // 		RetractedRecoveryPower: retractedRecoveryPowerTotal,
-        // 	}, nil
+        Ok(PoStResult {
+            new_faulty_power: new_faulty_power_total,
+            retracted_recovery_power: retracted_recovery_power_total,
+            recovered_power: recovered_power_total,
+            sectors: all_sector_numbers,
+            ignored_sectors: all_ignored_sector_numbers,
+        })
     }
 
     /// RescheduleSectorExpirations reschedules the expirations of the given sectors
@@ -1056,57 +931,65 @@ impl Deadline {
         partition_sectors: &PartitionSectorMap,
         sector_size: SectorSize,
         quant: QuantSpec,
-    ) {
-        todo!()
+    ) -> Result<(), Box<dyn StdError>> {
+        let mut partitions = self.partitions_amt(store)?;
 
-        // 	partitions, err := dl.PartitionsArray(store)
-        // 	if err != nil {
-        // 		return err
-        // 	}
+        // track partitions with moved expirations.
+        let mut rescheduled_partitions = Vec::<u64>::new();
 
-        // 	var rescheduledPartitions []uint64 // track partitions with moved expirations.
-        // 	if err := partitionSectors.ForEach(func(partIdx uint64, sectorNos bitfield.BitField) error {
-        // 		var partition Partition
-        // 		if found, err := partitions.Get(partIdx, &partition); err != nil {
-        // 			return xerrors.Errorf("failed to load partition %d: %w", partIdx, err)
-        // 		} else if !found {
-        // 			// We failed to find the partition, it could have moved
-        // 			// due to compaction. This function is only reschedules
-        // 			// sectors it can find so we'll just skip it.
-        // 			return nil
-        // 		}
+        for (partition_idx, sector_numbers) in partition_sectors.iter() {
+            let mut partition = match partitions
+                .get(partition_idx)
+                .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
+            {
+                Some(partition) => partition,
+                None => {
+                    // We failed to find the partition, it could have moved
+                    // due to compaction. This function is only reschedules
+                    // sectors it can find so we'll just skip it.
+                    continue;
+                }
+            };
 
-        // 		moved, err := partition.RescheduleExpirations(store, sectors, expiration, sectorNos, ssize, quant)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to reschedule expirations in partition %d: %w", partIdx, err)
-        // 		}
-        // 		if empty, err := moved.IsEmpty(); err != nil {
-        // 			return xerrors.Errorf("failed to parse bitfield of rescheduled expirations: %w", err)
-        // 		} else if empty {
-        // 			// nothing moved.
-        // 			return nil
-        // 		}
+            let moved = partition
+                .reschedule_expirations(
+                    store,
+                    sectors,
+                    expiration,
+                    sector_numbers,
+                    sector_size,
+                    quant,
+                )
+                .map_err(|e| {
+                    ActorError::downcast_wrap(
+                        e,
+                        format!(
+                            "failed to reschedule expirations in partition {}",
+                            partition_idx
+                        ),
+                    )
+                })?;
 
-        // 		rescheduledPartitions = append(rescheduledPartitions, partIdx)
-        // 		if err = partitions.Set(partIdx, &partition); err != nil {
-        // 			return xerrors.Errorf("failed to store partition %d: %w", partIdx, err)
-        // 		}
-        // 		return nil
-        // 	}); err != nil {
-        // 		return err
-        // 	}
+            if moved.is_empty() {
+                // nothing moved.
+                continue;
+            }
 
-        // 	if len(rescheduledPartitions) > 0 {
-        // 		dl.Partitions, err = partitions.Root()
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to save partitions: %w", err)
-        // 		}
-        // 		err := dl.AddExpirationPartitions(store, expiration, rescheduledPartitions, quant)
-        // 		if err != nil {
-        // 			return xerrors.Errorf("failed to reschedule partition expirations: %w", err)
-        // 		}
-        // 	}
+            rescheduled_partitions.push(partition_idx);
+            partitions
+                .set(partition_idx, partition)
+                .map_err(|e| format!("failed to store partition {}: {:?}", partition_idx, e))?;
+        }
 
-        // 	return nil
+        if !rescheduled_partitions.is_empty() {
+            self.partitions = partitions
+                .flush()
+                .map_err(|e| format!("failed to save partitions: {:?}", e))?;
+
+            self.add_expiration_partitions(store, expiration, &rescheduled_partitions, quant)
+                .map_err(|e| format!("failed to reschedule partition expirations: {}", e))?;
+        }
+
+        Ok(())
     }
 }

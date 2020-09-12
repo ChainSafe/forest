@@ -1,6 +1,6 @@
 use bitfield::BitField;
 use clock::ChainEpoch;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::AddAssign};
 
 #[derive(Default)]
 pub struct TerminationResult {
@@ -10,17 +10,23 @@ pub struct TerminationResult {
     pub sectors_processed: u64,
 }
 
-impl TerminationResult {
-    pub fn add(&mut self, new_result: TerminationResult) {
-        self.partitions_processed += new_result.partitions_processed;
-        self.sectors_processed += new_result.sectors_processed;
+impl AddAssign for TerminationResult {
+    fn add_assign(&mut self, rhs: Self) {
+        self.partitions_processed += rhs.partitions_processed;
+        self.sectors_processed += rhs.sectors_processed;
 
-        for (epoch, new_sectors) in new_result.sectors {
+        for (epoch, new_sectors) in rhs.sectors {
             self.sectors
                 .entry(epoch)
                 .and_modify(|sectors| *sectors |= &new_sectors)
                 .or_insert(new_sectors);
         }
+    }
+}
+
+impl TerminationResult {
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// Returns true if we're below the partition/sector limit. Returns false if
@@ -33,12 +39,9 @@ impl TerminationResult {
         self.sectors_processed == 0
     }
 
-    pub fn for_each(&self, mut f: impl FnMut(ChainEpoch, &BitField) -> ()) {
+    pub fn iter(&self) -> impl Iterator<Item = (ChainEpoch, &BitField)> {
         let mut epochs: Vec<_> = self.sectors.iter().collect();
         epochs.sort_by_key(|&(&epoch, _)| epoch);
-
-        for (&epoch, sectors) in epochs {
-            f(epoch, sectors)
-        }
+        epochs.into_iter().map(|(&i, bf)| (i, bf))
     }
 }

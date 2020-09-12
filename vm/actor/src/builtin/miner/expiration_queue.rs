@@ -326,7 +326,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         let mut sectors_rescheduled = Vec::<&SectorOnChainInfo>::new();
         let mut recovered_power = PowerPair::zero();
 
-        self.traverse_mutate(|_epoch, expiration_set| {
+        self.iter_while_mut(|_epoch, expiration_set| {
             let on_time_sectors: HashSet<SectorNumber> = expiration_set
                 .on_time_sectors
                 .bounded_iter(SECTORS_MAX as usize)?
@@ -338,8 +338,6 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                 .bounded_iter(SECTORS_MAX as usize)?
                 .map(|i| i as SectorNumber)
                 .collect();
-
-            let mut changed = false;
 
             // This loop could alternatively be done by constructing bitfields and intersecting them, but it's not
             // clear that would be much faster (O(max(N, M)) vs O(N+M)).
@@ -368,12 +366,11 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                 if found {
                     recovered_power += &power;
                     remaining.remove(&sector.sector_number);
-                    changed = true;
                 }
             }
 
             let keep_going = !remaining.is_empty();
-            Ok((changed, keep_going))
+            Ok(keep_going)
         })?;
 
         if !remaining.is_empty() {
@@ -469,7 +466,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         // only appear within the first 14 days (fault max age). Given that this
         // queue is quantized, we should be able to stop traversing the queue
         // after 14 entries.
-        self.traverse_mutate(|_epoch, expiration_set| {
+        self.iter_while_mut(|_epoch, expiration_set| {
             let on_time_sectors: HashSet<SectorNumber> = expiration_set
                 .on_time_sectors
                 .bounded_iter(SECTORS_MAX as usize)?
@@ -481,8 +478,6 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                 .bounded_iter(SECTORS_MAX as usize)?
                 .map(|i| i as SectorNumber)
                 .collect();
-
-            let mut changed = false;
 
             // This loop could alternatively be done by constructing bitfields and intersecting them, but it's not
             // clear that would be much faster (O(max(N, M)) vs O(N+M)).
@@ -519,12 +514,11 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                     }
 
                     remaining.remove(&sector_number);
-                    changed = true;
                 }
             }
 
             let keep_going = !remaining.is_empty();
-            Ok((changed, keep_going))
+            Ok(keep_going)
         })?;
 
         if !remaining.is_empty() {
@@ -661,39 +655,25 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
     /// Traverses the entire queue with a callback function that may mutate entries.
     /// Iff the function returns that it changed an entry, the new entry will be re-written in the queue. Any changed
     /// entries that become empty are removed after iteration completes.
-    fn traverse_mutate(
+    fn iter_while_mut(
         &mut self,
         mut f: impl FnMut(
             ChainEpoch,
             &mut ExpirationSet,
-        )
-            -> Result<(/* changed */ bool, /* keep going */ bool), Box<dyn StdError>>,
+        ) -> Result</* keep going */ bool, Box<dyn StdError>>,
     ) -> Result<(), Box<dyn StdError>> {
         let mut epochs_emptied = Vec::<ChainEpoch>::new();
-        let mut expiration_sets_changed = Vec::<(ChainEpoch, ExpirationSet)>::new();
 
-        self.amt.for_each_while(|e, expiration_set| {
+        self.amt.for_each_while_mut(|e, expiration_set| {
             let epoch = e as ChainEpoch;
-            let mut expiration_set = expiration_set.clone();
+            let keep_going = f(epoch, expiration_set)?;
 
-            let (changed, keep_going) = f(epoch, &mut expiration_set)?;
-
-            if changed {
-                if expiration_set.is_empty() {
-                    epochs_emptied.push(epoch);
-                } else {
-                    expiration_sets_changed.push((epoch, expiration_set));
-                }
+            if expiration_set.is_empty() {
+                epochs_emptied.push(epoch);
             }
 
             Ok(keep_going)
         })?;
-
-        // this is out of order compared to the Go implementation, because we can't call `must_update`
-        // while iterating the amt
-        for (epoch, expiration_set) in expiration_sets_changed {
-            self.must_update(epoch, expiration_set)?;
-        }
 
         // TODO: batch delete
         for epoch in epochs_emptied {

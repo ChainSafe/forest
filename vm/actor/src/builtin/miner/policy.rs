@@ -107,7 +107,7 @@ pub const MIN_SECTOR_EXPIRATION: i64 = 180 * EPOCHS_IN_DAY;
 /// Maximum number of epochs past the current epoch a sector may be set to expire.
 /// The actual maximum extension will be the minimum of CurrEpoch + MaximumSectorExpirationExtension
 /// and sector.ActivationEpoch+sealProof.SectorMaximumLifetime()
-pub const MAX_SECTOR_EPIRATION_EXTENSION: i64 = 540 * EPOCHS_IN_DAY;
+pub const MAX_SECTOR_EXPIRATION_EXTENSION: i64 = 540 * EPOCHS_IN_DAY;
 
 /// Ratio of sector size to maximum deals per sector.
 /// The maximum number of deals is the sector size divided by this number (2^27)
@@ -142,7 +142,7 @@ fn quality_for_weight(
 }
 
 /// Returns the power for a sector size and weight.
-fn qa_power_for_weight(
+pub fn qa_power_for_weight(
     size: SectorSize,
     duration: ChainEpoch,
     deal_weight: &DealWeight,

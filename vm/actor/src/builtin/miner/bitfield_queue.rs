@@ -28,7 +28,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
     pub fn add_to_queue(
         &mut self,
         raw_epoch: ChainEpoch,
-        values: BitField,
+        values: &BitField,
     ) -> Result<(), Box<dyn StdError>> {
         if values.is_empty() {
             // nothing to do.
@@ -44,45 +44,44 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             .ok_or_else(|| actor_error!(ErrNotFound; ""))?;
 
         self.amt
-            .set(epoch as u64, &bitfield | &values)
+            .set(epoch as u64, &bitfield | values)
             .map_err(|e| format!("failed to set queue epoch {}: {:?}", epoch, e))?;
 
         Ok(())
     }
 
-    // TODO: maybe take a slice
     pub fn add_to_queue_values(
         &mut self,
         epoch: ChainEpoch,
-        values: Vec<u64>,
+        values: &[u64],
     ) -> Result<(), Box<dyn StdError>> {
-        self.add_to_queue(epoch, values.into_iter().map(|i| i as usize).collect())
+        self.add_to_queue(epoch, &values.iter().map(|&i| i as usize).collect())
     }
 
     /// Cut cuts the elements from the bits in the given bitfield out of the queue,
     /// shifting other bits down and removing any newly empty entries.
     ///
     /// See the docs on `BitField::cut` to better understand what it does.
-    pub fn cut(&mut self, to_cut: BitField) -> Result<(), String> {
-        let mut cut_bitfields = Vec::new();
+    pub fn cut(&mut self, to_cut: &BitField) -> Result<(), String> {
+        let mut epochs_to_remove = Vec::<u64>::new();
 
         self.amt
-            .for_each(|epoch, bitfield| {
-                cut_bitfields.push((epoch, bitfield.cut(&to_cut)));
+            .for_each_mut(|epoch, bitfield| {
+                *bitfield = bitfield.cut(to_cut);
+
+                if bitfield.is_empty() {
+                    epochs_to_remove.push(epoch);
+                }
+
                 Ok(())
             })
             .map_err(|e| format!("failed to cut from bitfield queue: {:?}", e))?;
 
-        for (epoch, bitfield) in cut_bitfields {
-            if bitfield.is_empty() {
-                self.amt.delete(epoch).map_err(|e| {
-                    format!("failed to remove empty epochs from bitfield queue: {:?}", e)
-                })?;
-            } else {
-                self.amt
-                    .set(epoch, bitfield)
-                    .map_err(|e| format!("failed to cut from bitfield queue: {:?}", e))?;
-            }
+        // TODO: batch delete
+        for epoch in epochs_to_remove {
+            self.amt.delete(epoch).map_err(|e| {
+                format!("failed to remove empty epochs from bitfield queue: {:?}", e)
+            })?;
         }
 
         Ok(())
@@ -90,7 +89,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
 
     pub fn add_many_to_queue_values(
         &mut self,
-        values: HashMap<ChainEpoch, Vec<u64>>,
+        values: &HashMap<ChainEpoch, Vec<u64>>,
     ) -> Result<(), Box<dyn StdError>> {
         // Update each epoch in-order to be deterministic.
         // Pre-quantize to reduce the number of updates.
@@ -98,7 +97,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
         let mut quantized_values = HashMap::<ChainEpoch, Vec<u64>>::new();
         let mut updated_epochs = Vec::<ChainEpoch>::new();
 
-        for (raw_epoch, entries) in values {
+        for (&raw_epoch, entries) in values {
             let epoch = self.quant.quantize_up(raw_epoch);
             updated_epochs.push(epoch);
             quantized_values.entry(epoch).or_default().extend(entries);
@@ -107,7 +106,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
         updated_epochs.sort();
 
         for epoch in updated_epochs {
-            self.add_to_queue_values(epoch, quantized_values.remove(&epoch).unwrap_or_default())?;
+            self.add_to_queue_values(epoch, &quantized_values.remove(&epoch).unwrap_or_default())?;
         }
 
         Ok(())

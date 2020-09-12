@@ -97,8 +97,8 @@ impl ActorError {
     }
 
     /// Prefix error message with a string message.
-    pub fn wrap(mut self, msg: &str) -> Self {
-        self.msg = format!("{}: {}", msg, self.msg);
+    pub fn wrap(mut self, msg: impl AsRef<str>) -> Self {
+        self.msg = format!("{}: {}", msg.as_ref(), self.msg);
         self
     }
 }

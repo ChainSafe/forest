@@ -1,5 +1,7 @@
 use clock::ChainEpoch;
 
+pub const NO_QUANTIZATION: QuantSpec = QuantSpec { unit: 1, offset: 0 };
+
 /// A spec for quantization.
 #[derive(Copy, Clone)]
 pub struct QuantSpec {

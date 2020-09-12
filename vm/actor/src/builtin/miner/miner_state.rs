@@ -245,14 +245,14 @@ impl State {
     pub fn find_precommitted_sectors<BS: BlockStore>(
         &self,
         store: &BS,
-        sector_numbers: Vec<SectorNumber>,
+        sector_numbers: &[SectorNumber],
     ) -> Result<Vec<SectorPreCommitOnChainInfo>, String> {
         let precommitted =
             Hamt::<_, SectorPreCommitOnChainInfo>::load(&self.pre_committed_sectors, store)
                 .map_err(|e| e.to_string())?;
         let mut result = Vec::with_capacity(sector_numbers.len());
 
-        for sector_number in sector_numbers {
+        for &sector_number in sector_numbers {
             let info = match precommitted.get(&u64_key(sector_number)).map_err(|e| {
                 format!(
                     "failed to load precommitment for {}: {:?}",
@@ -272,12 +272,12 @@ impl State {
     pub fn delete_precommitted_sector<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sector_nums: Vec<SectorNumber>,
+        sector_nums: &[SectorNumber],
     ) -> Result<(), HamtError> {
         let mut precommitted =
             Hamt::<_, SectorPreCommitOnChainInfo>::load(&self.pre_committed_sectors, store)?;
 
-        for sector_num in sector_nums {
+        for &sector_num in sector_nums {
             precommitted.delete(&u64_key(sector_num))?;
         }
 
@@ -321,7 +321,7 @@ impl State {
         sectors.get(sector_num)
     }
 
-    pub fn delete_sector<BS: BlockStore>(
+    pub fn delete_sectors<BS: BlockStore>(
         &mut self,
         store: &BS,
         sector_nos: &BitField,
@@ -393,7 +393,7 @@ impl State {
                 partition_sectors,
                 sector_size,
                 deadline_info.quant_spec(),
-            );
+            )?;
 
             deadlines.update_deadline(store, deadline_idx, &deadline)?;
         }
@@ -443,8 +443,13 @@ impl State {
             let quant = self.quant_spec_for_deadline(deadline_idx as u64);
             let deadline = deadline_vec[deadline_idx].as_mut().unwrap();
 
-            let deadline_new_power =
-                deadline.add_sectors(store, partition_size, deadline_sectors, sector_size, quant);
+            let deadline_new_power = deadline.add_sectors(
+                store,
+                partition_size,
+                &deadline_sectors,
+                sector_size,
+                quant,
+            )?;
 
             new_power += &deadline_new_power;
 
@@ -462,7 +467,7 @@ impl State {
         store: &BS,
         max_partitions: u64,
         max_sectors: u64,
-    ) -> Result<(TerminationResult, /*has more*/ bool), Box<dyn StdError>> {
+    ) -> Result<(TerminationResult, /* has more */ bool), Box<dyn StdError>> {
         // Anything to do? This lets us avoid loading the deadlines if there's nothing to do.
         if self.early_terminations.is_empty() {
             return Ok((Default::default(), false));
@@ -471,7 +476,7 @@ impl State {
         // Load deadlines
         let mut deadlines = self.load_deadlines(store)?;
 
-        let mut result = TerminationResult::default();
+        let mut result = TerminationResult::new();
         let mut to_unset = Vec::new();
 
         // Process early terminations.
@@ -481,13 +486,23 @@ impl State {
             // Load deadline + partitions.
             let mut deadline = deadlines.load_deadline(store, deadline_idx)?;
 
-            let (deadline_result, more) = deadline.pop_early_terminations(
-                store,
-                max_partitions - result.partitions_processed,
-                max_sectors - result.sectors_processed,
-            );
+            let (deadline_result, more) = deadline
+                .pop_early_terminations(
+                    store,
+                    max_partitions - result.partitions_processed,
+                    max_sectors - result.sectors_processed,
+                )
+                .map_err(|e| {
+                    ActorError::downcast_wrap(
+                        e,
+                        format!(
+                            "failed to pop early terminations for deadline {}",
+                            deadline_idx
+                        ),
+                    )
+                })?;
 
-            result.add(deadline_result);
+            result += deadline_result;
 
             if !more {
                 to_unset.push(i);
@@ -736,11 +751,11 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
         target: &TokenAmount,
-        unlocked_balance: TokenAmount,
+        unlocked_balance: &TokenAmount,
     ) -> Result<
         (
-            /*from vesting*/ TokenAmount,
-            /*from balance*/ TokenAmount,
+            TokenAmount, // from vesting
+            TokenAmount, // from balance
         ),
         Box<dyn StdError>,
     > {
@@ -753,7 +768,7 @@ impl State {
         // unlocked funds were just deducted from available, so track that
         let remaining = target - &from_vesting;
 
-        let from_balance = cmp::min(unlocked_balance, remaining);
+        let from_balance = cmp::min(unlocked_balance, &remaining).clone();
         Ok((from_vesting, from_balance))
     }
 
@@ -845,13 +860,13 @@ impl State {
             .map_err(|e| format!("failed to load pre-commit sector queue: {:?}", e))?;
 
         // add entry for this sector to the queue
-        queue.add_to_queue_values(expire_epoch, vec![sector_number])?;
+        queue.add_to_queue_values(expire_epoch, &[sector_number])?;
         self.pre_committed_sectors_expiry = queue.amt.flush()?;
 
         Ok(())
     }
 
-    pub fn check_precomited_expiry<BS: BlockStore>(
+    pub fn check_precommit_expiry<BS: BlockStore>(
         &mut self,
         store: &BS,
         sectors: &BitField,
@@ -877,7 +892,7 @@ impl State {
 
         // Actually delete it.
         if !precommits_to_delete.is_empty() {
-            self.delete_precommitted_sector(store, precommits_to_delete)?;
+            self.delete_precommitted_sector(store, &precommits_to_delete)?;
         }
 
         self.pre_commit_deposits -= &deposit_to_burn;
