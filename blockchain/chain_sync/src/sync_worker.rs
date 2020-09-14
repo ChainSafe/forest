@@ -755,6 +755,7 @@ mod tests {
     use beacon::MockBeacon;
     use db::MemoryDB;
     use forest_libp2p::NetworkMessage;
+    use libp2p::PeerId;
     use std::sync::Arc;
     use std::time::Duration;
     use test_utils::{construct_blocksync_response, construct_dummy_header, construct_tipset};
@@ -792,9 +793,7 @@ mod tests {
         task::block_on(async {
             match blocksync_message.recv().await.unwrap() {
                 NetworkMessage::BlockSyncRequest {
-                    peer_id: _,
-                    request: _,
-                    response_channel,
+                    response_channel, ..
                 } => {
                     response_channel.send(rpc_response).unwrap();
                 }
