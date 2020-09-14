@@ -27,6 +27,7 @@ const DS_KEY_MSG_CID: &str = "MsgCid";
 pub struct VoucherInfo {
     pub voucher: SignedVoucher,
     pub proof: Vec<u8>,
+    pub submitted: bool,
 }
 
 /// ChannelInfo keeps track of information about a channel
@@ -153,25 +154,55 @@ impl ChannelInfo {
         }
         self.control
     }
-    // TODO
+    
     /// infoForVoucher gets the VoucherInfo for the given voucher.
     /// returns nil if the channel doesn't have the voucher.
-    pub fn _info_for_voucher(&self, _sv: SignedVoucher) -> Result<(), Error> {
+    pub fn info_for_voucher(&self, sv: &SignedVoucher) -> Result<Option<VoucherInfo>, Error> {
         // return voucher info
+        for v in &self.vouchers {
+            let cbor_v = v.voucher.signing_bytes().map_err(|e| Error::Encoding(e.to_string()))?;
+            let cbor_sv = sv.signing_bytes().map_err(|e| Error::Encoding(e.to_string()))?;
+            if cbor_v == cbor_sv {
+                return Ok(Some(v.clone()));
+            } else {
+                return Ok(None);
+            }
+        }
+
+        Ok(None)
+    }
+    
+    fn has_voucher(&self, sv: &SignedVoucher) -> Result<bool, Error> {
+        Ok(self.info_for_voucher(sv)?.is_some())
+    }
+    /// mark_voucher_submitted marks the voucher, and any vouchers of lower nonce
+    /// in the same lane, as being submitted.
+    /// Note: This method doesn't write anything to the store.
+    pub fn mark_voucher_submitted(&mut self, sv: SignedVoucher) -> Result<(), Error> {
+        if let Some(vi) = self.info_for_voucher(&sv)? {
+            // mark the voucher as submitted
+            vi.submitted = true;
+
+            // Mark lower-nonce vouchers in the same lane as submitted (lower-nonce
+	        // vouchers are superseded by the submitted voucher)
+            for v in &self.vouchers {
+                if v.voucher.lane == sv.lane && v.voucher.nonce < sv.nonce {
+                    v.submitted = true;
+                }
+            }
+        } else {
+            return Err(Error::Other("cannot submit voucher that has not been added to channel".to_string()));
+        }
+        
         Ok(())
     }
-    // TODO
-    pub fn _has_voucher(&self, _sv: &SignedVoucher) -> Result<(), Error> {
-        // TODO call info_four_voucher
-        Ok(())
-    }
-    // TODO
-    pub fn _mark_voucher_submitted(&self, _sv: SignedVoucher) -> Result<(), Error> {
-        Ok(())
-    }
-    // TODO
-    pub fn _was_voucher_submitted(&self, _sv: SignedVoucher) -> Result<(), Error> {
-        Ok(())
+    /// Returns true if the voucher has been submitted
+    pub fn was_voucher_submitted(&self, sv: &SignedVoucher) -> Result<bool, Error> {
+        if let Some(vi) = self.info_for_voucher(sv)? {
+            Ok(vi.submitted)
+        } else {
+            Ok(false)
+        }
     }
 }
 
