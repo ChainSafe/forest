@@ -704,6 +704,17 @@ impl ops::SubAssign<&Self> for PowerPair {
     }
 }
 
+impl ops::Neg for PowerPair {
+    type Output = PowerPair;
+
+    fn neg(self) -> Self::Output {
+        PowerPair {
+            raw: -self.raw,
+            qa: -self.qa,
+        }
+    }
+}
+
 impl ops::Neg for &PowerPair {
     type Output = PowerPair;
 

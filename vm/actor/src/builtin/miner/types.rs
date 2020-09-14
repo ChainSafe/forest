@@ -34,6 +34,7 @@ pub struct CronEventPayload {
     pub event_type: i64,
 }
 
+#[derive(Debug)]
 pub struct PartitionKey {
     pub deadline: u64,
     pub partition: u64,

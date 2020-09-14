@@ -48,15 +48,14 @@ pub const NEW_SECTORS_PER_PERIOD_MAX: usize = 128 << 10;
 /// Epochs after which chain state is final.
 pub const CHAIN_FINALITY: ChainEpoch = 900;
 
-// TODO
-/*
-var SealedCIDPrefix = cid.Prefix{
-    Version:  1,
-    Codec:    cid.FilCommitmentSealed,
-    MhType:   mh.POSEIDON_BLS12_381_A1_FC1,
-    MhLength: 32,
+pub fn sealed_cid_prefix() -> cid::Prefix {
+    cid::Prefix {
+        version: cid::Version::V1,
+        codec: cid::Codec::FilCommitmentSealed,
+        mh_type: commcid::POSEIDON_BLS12_381_A1_FC1,
+        mh_len: 32,
+    }
 }
-*/
 
 /// List of proof types which can be used when creating new miner actors
 pub fn check_supported_proof_types(proof: RegisteredSealProof) -> bool {
@@ -166,7 +165,7 @@ pub fn qa_power_for_sector(size: SectorSize, sector: &SectorOnChainInfo) -> Stor
 }
 
 /// Determine maximum number of deal miner's sector can hold
-fn deal_per_sector_limit(size: SectorSize) -> u64 {
+pub fn deal_per_sector_limit(size: SectorSize) -> u64 {
     cmp::max(256, size as u64 / DEAL_LIMIT_DENOMINATOR)
 }
 

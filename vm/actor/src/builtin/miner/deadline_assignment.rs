@@ -148,6 +148,7 @@ pub fn assign_deadlines(
 
     impl Ord for Entry {
         fn cmp(&self, other: &Self) -> Ordering {
+            // we're using a max heap instead of a min heap, so we need to reverse the ordering
             cmp(&self.info, &other.info, self.partition_size).reverse()
         }
     }
@@ -166,9 +167,7 @@ pub fn assign_deadlines(
         })
         .collect();
 
-    if heap.is_empty() {
-        return Vec::new(); // TODO
-    }
+    assert!(!heap.is_empty());
 
     let mut changes = vec![Vec::new(); super::WPOST_PERIOD_DEADLINES as usize];
 

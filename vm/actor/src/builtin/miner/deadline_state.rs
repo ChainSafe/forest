@@ -121,7 +121,7 @@ impl Deadline {
         }
     }
 
-    fn partitions_amt<'db, BS: BlockStore>(
+    pub fn partitions_amt<'db, BS: BlockStore>(
         &self,
         store: &'db BS,
     ) -> Result<Amt<'db, Partition, BS>, ActorError> {
@@ -428,7 +428,7 @@ impl Deadline {
         store: &BS,
         sectors: &Sectors<'_, BS>,
         epoch: ChainEpoch,
-        partition_sectors: PartitionSectorMap,
+        partition_sectors: &PartitionSectorMap,
         sector_size: SectorSize,
         quant: QuantSpec,
     ) -> Result<PowerPair, Box<dyn StdError>> {
@@ -600,7 +600,7 @@ impl Deadline {
         sector_size: SectorSize,
         quant: QuantSpec,
         fault_expiration_epoch: ChainEpoch,
-        partition_sectors: PartitionSectorMap,
+        partition_sectors: &PartitionSectorMap,
     ) -> Result<PowerPair, Box<dyn StdError>> {
         let mut partitions = self.partitions_amt(store)?;
 

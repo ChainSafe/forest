@@ -42,20 +42,17 @@ use crate::{
 };
 use crate::{
     market::{
-        ComputeDataCommitmentParams, Method as MarketMethod, OnMinerSectorsTerminateParams,
-        VerifyDealsForActivationParams, VerifyDealsForActivationReturn,
+        ComputeDataCommitmentParamsRef, Method as MarketMethod, OnMinerSectorsTerminateParams,
+        OnMinerSectorsTerminateParamsRef, VerifyDealsForActivationParamsRef,
+        VerifyDealsForActivationReturn,
     },
     power::CurrentTotalPowerReturn,
 };
 use crate::{
-    power::{
-        EnrollCronEventParams, Method as PowerMethod, SectorTermination,
-        SECTOR_TERMINATION_EXPIRED, SECTOR_TERMINATION_FAULTY, SECTOR_TERMINATION_MANUAL,
-    },
+    power::{EnrollCronEventParams, Method as PowerMethod},
     reward::ThisEpochRewardReturn,
 };
 use address::{Address, Payload, Protocol};
-use ahash::AHashSet;
 use bitfield::BitField;
 use byteorder::{BigEndian, ByteOrder};
 use cid::{multihash::Blake2b256, Cid};
@@ -67,7 +64,7 @@ use encoding::Cbor;
 use fil_types::{
     InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredSealProof,
     SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorInfo,
-    SectorNumber, SectorSize, WindowPoStVerifyInfo,
+    SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -80,8 +77,8 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::{cmp, iter, ops::Neg};
 use vm::{
-    actor_error, ActorError, DealID, ExitCode, MethodNum, Serialized, TokenAmount,
-    METHOD_CONSTRUCTOR, METHOD_SEND,
+    ActorError, DealID, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
 
 // * Updated to specs-actors commit: b8a3a6ff7b15ac01f0534c47059e1c81652a61f0
@@ -127,19 +124,13 @@ impl Actor {
         rt.validate_immediate_caller_is(iter::once(&*INIT_ACTOR_ADDR))?;
 
         if !check_supported_proof_types(params.seal_proof_type) {
-            return Err(actor_error!(
-                ErrIllegalArgument;
-                "proof type {:?} not allowed for new miner actors",
-                params.seal_proof_type
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "proof type {:?} not allowed for new miner actors",
+                    params.seal_proof_type
+                ),
             ));
-
-            // return Err(ActorError::new(
-            //     ExitCode::ErrIllegalArgument,
-            //     format!(
-            //         "proof type {:?} not allowed for new miner actors",
-            //         params.seal_proof_type
-            //     ),
-            // ));
         }
 
         let owner = resolve_owner_address(rt, params.owner)?;
@@ -622,141 +613,278 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
-
-        /*
-        if _, ok := SupportedProofTypes[params.SealProof]; !ok {
-            rt.Abortf(exitcode.ErrIllegalArgument, "unsupported seal proof type: %s", params.SealProof)
-        }
-        if params.SectorNumber > abi.MaxSectorNumber {
-            rt.Abortf(exitcode.ErrIllegalArgument, "sector number %d out of range 0..(2^63-1)", params.SectorNumber)
-        }
-        if !params.SealedCID.Defined() {
-            rt.Abortf(exitcode.ErrIllegalArgument, "sealed CID undefined")
-        }
-        if params.SealedCID.Prefix() != SealedCIDPrefix {
-            rt.Abortf(exitcode.ErrIllegalArgument, "sealed CID had wrong prefix")
-        }
-        if params.SealRandEpoch >= rt.CurrEpoch() {
-            rt.Abortf(exitcode.ErrIllegalArgument, "seal challenge epoch %v must be before now %v", params.SealRandEpoch, rt.CurrEpoch())
+        if !check_supported_proof_types(params.seal_proof) {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!("unsupported seal proof type: {:?}", params.seal_proof),
+            ));
         }
 
-        challengeEarliest := sealChallengeEarliest(rt.CurrEpoch(), params.SealProof)
-        if params.SealRandEpoch < challengeEarliest {
+        if params.sector_number > MAX_SECTOR_NUMBER {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "sector number {} out of range 0..(2^63-1)",
+                    params.sector_number
+                ),
+            ));
+        }
+
+        if params.sealed_cid == Cid::default() {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "sealed CID undefined".to_string(),
+            ));
+        }
+
+        if params.sealed_cid.prefix() != sealed_cid_prefix() {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "sealed CID had wrong prefix".to_string(),
+            ));
+        }
+
+        if params.seal_rand_epoch >= rt.curr_epoch() {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "seal challenge epoch {} must be before now {}",
+                    params.seal_rand_epoch,
+                    rt.curr_epoch()
+                ),
+            ));
+        }
+
+        let challenge_earliest = seal_challenge_earliest(rt.curr_epoch(), params.seal_proof);
+        if params.seal_rand_epoch < challenge_earliest {
             // The subsequent commitment proof can't possibly be accepted because the seal challenge will be deemed
             // too old. Note that passing this check doesn't guarantee the proof will be soon enough, depending on
             // when it arrives.
-            rt.Abortf(exitcode.ErrIllegalArgument, "seal challenge epoch %v too old, must be after %v", params.SealRandEpoch, challengeEarliest)
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "seal challenge epoch {} too old, must be after {}",
+                    params.seal_rand_epoch, challenge_earliest
+                ),
+            ));
         }
 
-        if params.Expiration <= rt.CurrEpoch() {
-            rt.Abortf(exitcode.ErrIllegalArgument, "sector expiration %v must be after now (%v)", params.Expiration, rt.CurrEpoch())
+        if params.expiration <= rt.curr_epoch() {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "sector expiration {} must be after now ({})",
+                    params.expiration,
+                    rt.curr_epoch()
+                ),
+            ));
         }
-        if params.ReplaceCapacity && len(params.DealIDs) == 0 {
-            rt.Abortf(exitcode.ErrIllegalArgument, "cannot replace sector without committing deals")
+
+        if params.replace_capacity && params.deal_ids.is_empty() {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                "cannot replace sector without committing deals".to_string(),
+            ));
         }
-        if params.ReplaceSectorDeadline >= WPoStPeriodDeadlines {
-            rt.Abortf(exitcode.ErrIllegalArgument, "invalid deadline %d", params.ReplaceSectorDeadline)
+
+        if params.replace_sector_deadline >= WPOST_PERIOD_DEADLINES {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!("invalid deadline {}", params.replace_sector_deadline),
+            ));
         }
-        if params.ReplaceSectorNumber > abi.MaxSectorNumber {
-            rt.Abortf(exitcode.ErrIllegalArgument, "invalid sector number %d", params.ReplaceSectorNumber)
+
+        if params.replace_sector_number >= MAX_SECTOR_NUMBER {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!("invalid sector number {}", params.replace_sector_number),
+            ));
         }
 
         // gather information from other actors
 
-        rewardStats := requestCurrentEpochBlockReward(rt)
-        pwrTotal := requestCurrentTotalPower(rt)
-        dealWeight := requestDealWeight(rt, params.DealIDs, rt.CurrEpoch(), params.Expiration)
+        let reward_stats = request_current_epoch_block_reward(rt)?;
+        let power_total = request_current_total_power(rt)?;
+        let deal_weight =
+            request_deal_weight(rt, &params.deal_ids, rt.curr_epoch(), params.expiration)?;
 
-        store := adt.AsStore(rt)
-        var st State
-        newlyVested := big.Zero()
-        rt.State().Transaction(&st, func() {
-            info := getMinerInfo(rt, &st)
-            rt.ValidateImmediateCallerIs(info.Worker, info.Owner)
-            if params.SealProof != info.SealProofType {
-                rt.Abortf(exitcode.ErrIllegalArgument, "sector seal proof %v must match miner seal proof type %d", params.SealProof, info.SealProofType)
+        let newly_vested = rt.transaction(|state: &mut State, rt| {
+            let info = get_miner_info(rt, state)?;
+            rt.validate_immediate_caller_is(
+                iter::once(&info.worker).chain(iter::once(&info.owner)),
+            )?;
+
+            let store = rt.store();
+
+            if params.seal_proof != info.seal_proof_type {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "sector seal proof {:?} must match miner seal proof type {:?}",
+                        params.seal_proof, info.seal_proof_type
+                    ),
+                ))?;
             }
 
-            maxDealLimit := dealPerSectorLimit(info.SectorSize)
-            if uint64(len(params.DealIDs)) > maxDealLimit {
-                rt.Abortf(exitcode.ErrIllegalArgument, "too many deals for sector %d > %d", len(params.DealIDs), maxDealLimit)
+            let max_deal_limit = deal_per_sector_limit(info.sector_size);
+            if params.deal_ids.len() as u64 > max_deal_limit {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "too many deals for sector {} > {}",
+                        params.deal_ids.len(),
+                        max_deal_limit
+                    ),
+                ))?;
             }
 
-            err := st.AllocateSectorNumber(store, params.SectorNumber)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to allocate sector id %d", params.SectorNumber)
+            state
+                .allocate_sector_number(store, params.sector_number)
+                .map_err(|e| {
+                    e.wrap(format!(
+                        "failed to allocate sector id {}",
+                        params.sector_number
+                    ))
+                })?;
 
             // The following two checks shouldn't be necessary, but it can't
             // hurt to double-check (unless it's really just too
             // expensive?).
-            _, preCommitFound, err := st.GetPrecommittedSector(store, params.SectorNumber)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to check pre-commit %v", params.SectorNumber)
-            if preCommitFound {
-                rt.Abortf(exitcode.ErrIllegalState, "sector %v already pre-committed", params.SectorNumber)
-            }
+            let _ = state
+                .get_precommitted_sector(store, params.sector_number)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!(
+                            "failed to check pre-commit {}: {:?}",
+                            params.sector_number, e
+                        ),
+                    )
+                })?
+                .ok_or_else(|| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("sector {} already pre-committed", params.sector_number),
+                    )
+                })?;
 
-            sectorFound, err := st.HasSectorNo(store, params.SectorNumber)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to check sector %v", params.SectorNumber)
-            if sectorFound {
-                rt.Abortf(exitcode.ErrIllegalState, "sector %v already committed", params.SectorNumber)
+            let sector_found = state
+                .has_sector_number(store, params.sector_number)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to check sector {}: {}", params.sector_number, e),
+                    )
+                })?;
+
+            if sector_found {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("sector {} already committed", params.sector_number),
+                ));
             }
 
             // Require sector lifetime meets minimum by assuming activation happens at last epoch permitted for seal proof.
             // This could make sector maximum lifetime validation more lenient if the maximum sector limit isn't hit first.
-            maxActivation := rt.CurrEpoch() + MaxSealDuration[params.SealProof]
-            validateExpiration(rt, maxActivation, params.Expiration, params.SealProof)
+            let max_activation = rt.curr_epoch() + max_seal_duration(params.seal_proof).unwrap();
+            validate_expiration(rt, max_activation, params.expiration, params.seal_proof)?;
 
-            depositMinimum := big.Zero()
-            if params.ReplaceCapacity {
-                replaceSector := validateReplaceSector(rt, &st, store, params)
+            let deposit_minimum = if params.replace_capacity {
+                let replace_sector = validate_replace_sector(rt, state, store, &params)?;
+
                 // Note the replaced sector's initial pledge as a lower bound for the new sector's deposit
-                depositMinimum = replaceSector.InitialPledge
+                replace_sector.initial_pledge
+            } else {
+                TokenAmount::zero()
+            };
+
+            let newly_vested = state
+                .unlock_vested_funds(store, rt.curr_epoch())
+                .map_err(|e| {
+                    ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to vest funds")
+                })?;
+
+            let available_balance = state.get_available_balance(&rt.current_balance()?);
+            let duration = params.expiration - rt.curr_epoch();
+
+            let sector_weight = qa_power_for_weight(
+                info.sector_size,
+                duration,
+                &deal_weight.deal_weight,
+                &deal_weight.verified_deal_weight,
+            );
+
+            let deposit_req = cmp::max(
+                pre_commit_deposit_for_power(
+                    &reward_stats.this_epoch_reward_smoothed,
+                    &power_total.quality_adj_power_smoothed,
+                    &sector_weight,
+                ),
+                deposit_minimum,
+            );
+
+            if available_balance < deposit_req {
+                return Err(ActorError::new(
+                    ExitCode::ErrInsufficientFunds,
+                    format!("insufficient funds for pre-commit deposit: {}", deposit_req),
+                ));
             }
 
-            newlyVested, err = st.UnlockVestedFunds(store, rt.CurrEpoch())
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to vest funds")
-            availableBalance := st.GetAvailableBalance(rt.CurrentBalance())
-            duration := params.Expiration - rt.CurrEpoch()
+            state.add_pre_commit_deposit(&deposit_req);
+            state.assert_balance_invariants(&rt.current_balance()?);
 
-            sectorWeight := QAPowerForWeight(info.SectorSize, duration, dealWeight.DealWeight, dealWeight.VerifiedDealWeight)
-            depositReq := big.Max(
-                PreCommitDepositForPower(rewardStats.ThisEpochRewardSmoothed, pwrTotal.QualityAdjPowerSmoothed, sectorWeight),
-                depositMinimum,
-            )
-            if availableBalance.LessThan(depositReq) {
-                rt.Abortf(exitcode.ErrInsufficientFunds, "insufficient funds for pre-commit deposit: %v", depositReq)
-            }
+            let seal_proof = params.seal_proof;
+            let sector_number = params.sector_number;
 
-            st.AddPreCommitDeposit(depositReq)
-            st.AssertBalanceInvariants(rt.CurrentBalance())
+            state
+                .put_precommitted_sector(
+                    store,
+                    SectorPreCommitOnChainInfo {
+                        info: params,
+                        pre_commit_deposit: deposit_req,
+                        pre_commit_epoch: rt.curr_epoch(),
+                        deal_weight: deal_weight.deal_weight,
+                        verified_deal_weight: deal_weight.verified_deal_weight,
+                    },
+                )
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!(
+                            "failed to write pre-committed sector {}: {:?}",
+                            sector_number, e
+                        ),
+                    )
+                })?;
 
-            if err := st.PutPrecommittedSector(store, &SectorPreCommitOnChainInfo{
-                Info:               *params,
-                PreCommitDeposit:   depositReq,
-                PreCommitEpoch:     rt.CurrEpoch(),
-                DealWeight:         dealWeight.DealWeight,
-                VerifiedDealWeight: dealWeight.VerifiedDealWeight,
-            }); err != nil {
-                rt.Abortf(exitcode.ErrIllegalState, "failed to write pre-committed sector %v: %v", params.SectorNumber, err)
-            }
             // add precommit expiry to the queue
-            msd, ok := MaxSealDuration[params.SealProof]
-            if !ok {
-                rt.Abortf(exitcode.ErrIllegalArgument, "no max seal duration set for proof type: %d", params.SealProof)
-            }
+            let max_seal_duration = max_seal_duration(seal_proof).ok_or_else(|| {
+                ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!("no max seal duration set for proof type: {:?}", seal_proof),
+                )
+            })?;
+
             // The +1 here is critical for the batch verification of proofs. Without it, if a proof arrived exactly on the
             // due epoch, ProveCommitSector would accept it, then the expiry event would remove it, and then
             // ConfirmSectorProofsValid would fail to find it.
-            expiryBound := rt.CurrEpoch() + msd + 1
+            let expiry_bound = rt.curr_epoch() + max_seal_duration + 1;
 
-            err = st.AddPreCommitExpiry(store, expiryBound, params.SectorNumber)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to add pre-commit expiry to queue")
-        })
+            state
+                .add_pre_commit_expiry(store, expiry_bound, sector_number)
+                .map_err(|e| {
+                    ActorError::downcast(
+                        e,
+                        ExitCode::ErrIllegalState,
+                        "failed to add pre-commit expiry to queue",
+                    )
+                })?;
 
-        notifyPledgeChanged(rt, newlyVested.Neg())
+            Ok(newly_vested)
+        })?;
 
-        return nil
-            */
+        notify_pledge_changed(rt, &-newly_vested)?;
+        Ok(())
     }
 
     /// Checks state of the corresponding sector pre-commitment, then schedules the proof to be verified in bulk
@@ -897,7 +1025,7 @@ impl Actor {
 
         for pre_commit in precommitted_sectors {
             // Check (and activate) storage deals associated to sector. Abort if checks failed.
-            let ret = rt.send(
+            let res = rt.send(
                 *STORAGE_MARKET_ACTOR_ADDR,
                 crate::market::Method::ActivateDeals as MethodNum,
                 Serialized::serialize(ActivateDealsParams {
@@ -907,9 +1035,12 @@ impl Actor {
                 TokenAmount::zero(),
             );
 
-            if ret.is_err() {
-                // TODO
-                // rt.Log(vmr.INFO, "failed to activate deals on sector %d, dropping from prove commit set", precommit.Info.SectorNumber)
+            if let Err(e) = res {
+                log::info!(
+                    "failed to activate deals on sector {}, dropping from prove commit set: {}",
+                    pre_commit.info.sector_number,
+                    e.msg()
+                );
                 continue;
             }
 
@@ -971,9 +1102,12 @@ impl Actor {
 
                 // This should have been caught in precommit, but don't let other sectors fail because of it.
                 if duration < MIN_SECTOR_EXPIRATION {
-                    // TODO:
-                    // rt.Log(vmr.WARN, "precommit %d has lifetime %d less than minimum. ignoring", precommit.Info.SectorNumber, duration, MinSectorExpiration)
-                    // continue
+                    log::warn!(
+                        "precommit {} has lifetime {} less than minimum {}. ignoring",
+                        pre_commit.info.sector_number,
+                        duration,
+                        MIN_SECTOR_EXPIRATION,
+                    );
                 }
 
                 let power = qa_power_for_weight(
@@ -1027,30 +1161,61 @@ impl Actor {
                 new_sectors.push(new_sector_info);
             }
 
-            state
-                .put_sectors(store, new_sectors.clone())
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, format!("failed to put new sectors: {}", e)))?;
+            state.put_sectors(store, new_sectors.clone()).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to put new sectors: {}", e),
+                )
+            })?;
 
             state
                 .delete_precommitted_sector(store, &new_sector_numbers)
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, format!("failed to delete precommited sectors: {:?}", e)))?;
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to delete precommited sectors: {:?}", e),
+                    )
+                })?;
 
-            let new_power = state.assign_sectors_to_deadlines(store, rt.curr_epoch(), new_sectors, info.window_post_partition_sectors, info.sector_size)
-                .map_err(|e| ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to assign new sectors to deadlines"))?;
+            let new_power = state
+                .assign_sectors_to_deadlines(
+                    store,
+                    rt.curr_epoch(),
+                    new_sectors,
+                    info.window_post_partition_sectors,
+                    info.sector_size,
+                )
+                .map_err(|e| {
+                    ActorError::downcast(
+                        e,
+                        ExitCode::ErrIllegalState,
+                        "failed to assign new sectors to deadlines",
+                    )
+                })?;
 
             // Add sector and pledge lock-up to miner state
-            let newly_vested = state.unlock_vested_funds(store, rt.curr_epoch())
-                .map_err(|e| ActorError::new(ExitCode::ErrIllegalState, format!("failed to assign new sectors to deadlines: {:?}", e)))?;
+            let newly_vested = state
+                .unlock_vested_funds(store, rt.curr_epoch())
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to assign new sectors to deadlines: {:?}", e),
+                    )
+                })?;
 
             // Unlock deposit for successful proofs, make it available for lock-up as initial pledge.
             state.add_pre_commit_deposit(&(-total_pre_commit_deposit));
 
             let available_balance = state.get_available_balance(&rt.current_balance()?);
             if available_balance < total_pledge {
-                return Err(ActorError::new(ExitCode::ErrInsufficientFunds,
-                    format!("insufficient funds for aggregate initial pledge requirement {}, available: {}",
-                    total_pledge, available_balance
-                )));
+                return Err(ActorError::new(
+                    ExitCode::ErrInsufficientFunds,
+                    format!(
+                        "insufficient funds for aggregate initial \
+                    pledge requirement {}, available: {}",
+                        total_pledge, available_balance
+                    ),
+                ));
             }
 
             state.add_initial_pledge_requirement(&total_pledge);
@@ -1104,134 +1269,218 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
-
-        /*
-        if uint64(len(params.Extensions)) > AddressedPartitionsMax {
-            rt.Abortf(exitcode.ErrIllegalArgument, "too many declarations %d, max %d", len(params.Extensions), AddressedPartitionsMax)
+        if params.extensions.len() as u64 > ADDRESSED_PARTITIONS_MAX {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "too many declarations {}, max {}",
+                    params.extensions.len(),
+                    ADDRESSED_PARTITIONS_MAX,
+                ),
+            ));
         }
 
         // limit the number of sectors declared at once
         // https://github.com/filecoin-project/specs-actors/issues/416
-        var sectorCount uint64
-        for _, decl := range params.Extensions {
-            if decl.Deadline >= WPoStPeriodDeadlines {
-                rt.Abortf(exitcode.ErrIllegalArgument, "deadline %d not in range 0..%d", decl.Deadline, WPoStPeriodDeadlines)
+        let mut sector_count: u64 = 0;
+
+        for decl in &params.extensions {
+            if decl.deadline >= WPOST_PERIOD_DEADLINES {
+                return Err(ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!(
+                        "deadline {} not in range 0..{}",
+                        decl.deadline, WPOST_PERIOD_DEADLINES,
+                    ),
+                ));
             }
-            count, err := decl.Sectors.Count()
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalArgument,
-                "failed to count sectors for deadline %d, partition %d",
-                decl.Deadline, decl.Partition,
-            )
-            if sectorCount > math.MaxUint64-count {
-                rt.Abortf(exitcode.ErrIllegalArgument, "sector bitfield integer overflow")
+
+            match sector_count.checked_add(decl.sectors.len() as u64) {
+                Some(sum) => sector_count = sum,
+                None => {
+                    return Err(ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        "sector bitfield integer overflow".to_string(),
+                    ));
+                }
             }
-            sectorCount += count
-        }
-        if sectorCount > AddressedSectorsMax {
-            rt.Abortf(exitcode.ErrIllegalArgument,
-                "too many sectors for declaration %d, max %d",
-                sectorCount, AddressedSectorsMax,
-            )
         }
 
-        powerDelta := NewPowerPairZero()
-        pledgeDelta := big.Zero()
-        store := adt.AsStore(rt)
-        var st State
-        rt.State().Transaction(&st, func() {
-            info := getMinerInfo(rt, &st)
-            rt.ValidateImmediateCallerIs(info.Worker, info.Owner)
+        if sector_count > ADDRESSED_SECTORS_MAX {
+            return Err(ActorError::new(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "too many sectors for declaration {}, max {}",
+                    sector_count, ADDRESSED_SECTORS_MAX
+                ),
+            ));
+        }
 
-            deadlines, err := st.LoadDeadlines(adt.AsStore(rt))
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load deadlines")
+        let (power_delta, pledge_delta) = rt.transaction(|state: &mut State, rt| {
+            let info = get_miner_info(rt, state)?;
+            rt.validate_immediate_caller_is(
+                iter::once(&info.worker).chain(iter::once(&info.owner)),
+            )?;
+
+            let store = rt.store();
+
+            let mut deadlines = state
+                .load_deadlines(rt.store())
+                .map_err(|e| e.wrap("failed to load deadlines"))?;
 
             // Group declarations by deadline, and remember iteration order.
-            declsByDeadline := map[uint64][]*ExpirationExtension{}
-            var deadlinesToLoad []uint64
-            for i := range params.Extensions {
-                // Take a pointer to the value inside the slice, don't
-                // take a reference to the temporary loop variable as it
-                // will be overwritten every iteration.
-                decl := &params.Extensions[i]
-                if _, ok := declsByDeadline[decl.Deadline]; !ok {
-                    deadlinesToLoad = append(deadlinesToLoad, decl.Deadline)
-                }
-                declsByDeadline[decl.Deadline] = append(declsByDeadline[decl.Deadline], decl)
+            let mut decls_by_deadline = HashMap::<u64, Vec<&ExpirationExtension>>::new();
+            let mut deadlines_to_load = Vec::<u64>::new();
+
+            for decl in &params.extensions {
+                decls_by_deadline
+                    .entry(decl.deadline)
+                    .or_insert_with(|| {
+                        deadlines_to_load.push(decl.deadline);
+                        Vec::new()
+                    })
+                    .push(decl);
             }
 
-            sectors, err := LoadSectors(store, st.Sectors)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load sectors array")
+            let mut sectors = Sectors::new(rt.store(), &state.sectors).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load sectors array: {:?}", e),
+                )
+            })?;
 
-            for _, dlIdx := range deadlinesToLoad {
-                deadline, err := deadlines.LoadDeadline(store, dlIdx)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load deadline %d", dlIdx)
+            let mut power_delta = PowerPair::zero();
+            let mut pledge_delta = TokenAmount::zero();
 
-                partitions, err := deadline.PartitionsArray(store)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load partitions for deadline %d", dlIdx)
+            for deadline_idx in deadlines_to_load {
+                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}: {}", deadline_idx, e),
+                    )
+                })?;
 
-                quant := st.QuantSpecForDeadline(dlIdx)
+                let mut partitions = deadline.partitions_amt(store).map_err(|e| {
+                    e.wrap(format!(
+                        "failed to load partitions for deadline {}",
+                        deadline_idx
+                    ))
+                })?;
 
-                for _, decl := range declsByDeadline[dlIdx] {
-                    key := PartitionKey{dlIdx, decl.Partition}
-                    var partition Partition
-                    found, err := partitions.Get(decl.Partition, &partition)
-                    builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load partition %v", key)
-                    if !found {
-                        rt.Abortf(exitcode.ErrNotFound, "no such partition %v", key)
-                    }
+                let quant = state.quant_spec_for_deadline(deadline_idx);
 
-                    oldSectors, err := sectors.Load(decl.Sectors)
-                    builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load sectors")
-                    newSectors := make([]*SectorOnChainInfo, len(oldSectors))
-                    for i, sector := range oldSectors {
-                        if decl.NewExpiration < sector.Expiration {
-                            rt.Abortf(exitcode.ErrIllegalArgument, "cannot reduce sector expiration to %d from %d",
-                                decl.NewExpiration, sector.Expiration)
-                        }
-                        validateExpiration(rt, sector.Activation, decl.NewExpiration, sector.SealProof)
+                for &decl in &decls_by_deadline[&deadline_idx] {
+                    let key = PartitionKey {
+                        deadline: deadline_idx,
+                        partition: decl.partition,
+                    };
 
-                        newSector := *sector
-                        newSector.Expiration = decl.NewExpiration
+                    let mut partition = partitions
+                        .get(decl.partition)
+                        .map_err(|e| {
+                            ActorError::new(
+                                ExitCode::ErrIllegalState,
+                                format!("failed to load partition {:?}: {:?}", key, e),
+                            )
+                        })?
+                        .ok_or_else(|| {
+                            ActorError::new(
+                                ExitCode::ErrNotFound,
+                                format!("no such partition {:?}", key),
+                            )
+                        })?;
 
-                        newSectors[i] = &newSector
-                    }
+                    let old_sectors = sectors
+                        .load(&decl.sectors)
+                        .map_err(|e| e.wrap("failed to load sectors"))?;
+
+                    let new_sectors: Vec<SectorOnChainInfo> = old_sectors
+                        .iter()
+                        .map(|sector| {
+                            if decl.new_expiration < sector.expiration {
+                                return Err(ActorError::new(
+                                    ExitCode::ErrIllegalArgument,
+                                    format!(
+                                        "cannot reduce sector expiration to {} from {}",
+                                        decl.new_expiration, sector.expiration
+                                    ),
+                                ));
+                            }
+
+                            validate_expiration(
+                                rt,
+                                sector.activation,
+                                decl.new_expiration,
+                                sector.seal_proof,
+                            )?;
+
+                            let mut sector = sector.clone();
+                            sector.expiration = decl.new_expiration;
+                            Ok(sector)
+                        })
+                        .collect::<Result<_, _>>()?;
 
                     // Overwrite sector infos.
-                    err = sectors.Store(newSectors...)
-                    builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to update sectors %v", decl.Sectors)
+                    sectors.store(new_sectors.clone()).map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to update sectors {:?}: {}", decl.sectors, e),
+                        )
+                    })?;
 
                     // Remove old sectors from partition and assign new sectors.
-                    partitionPowerDelta, partitionPledgeDelta, err := partition.ReplaceSectors(store, oldSectors, newSectors, info.SectorSize, quant)
-                    builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to replaces sector expirations at %v", key)
+                    let (partition_power_delta, partition_pledge_delta) = partition
+                        .replace_sectors(store, &old_sectors, &new_sectors, info.sector_size, quant)
+                        .map_err(|e| {
+                            ActorError::new(
+                                ExitCode::ErrIllegalState,
+                                format!(
+                                    "failed to replaces sector expirations at {:?}: {}",
+                                    key, e
+                                ),
+                            )
+                        })?;
 
-                    powerDelta = powerDelta.Add(partitionPowerDelta)
-                    pledgeDelta = big.Add(pledgeDelta, partitionPledgeDelta) // expected to be zero, see note below.
+                    power_delta += &partition_power_delta;
+                    pledge_delta += partition_pledge_delta; // expected to be zero, see note below.
 
-                    err = partitions.Set(decl.Partition, &partition)
-                    builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to save partition", key)
+                    partitions.set(decl.partition, partition).map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to save partition {:?}: {:?}", key, e),
+                        )
+                    })?;
                 }
 
-                deadline.Partitions, err = partitions.Root()
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to save partitions for deadline %d", dlIdx)
+                deadline.partitions = partitions.flush().map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!(
+                            "failed to save partitions for deadline {}: {:?}",
+                            deadline_idx, e
+                        ),
+                    )
+                })?;
 
-                err = deadlines.UpdateDeadline(store, dlIdx, deadline)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to save deadline %d", dlIdx)
+                deadlines
+                    .update_deadline(store, deadline_idx, &deadline)
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to save deadline {}: {}", deadline_idx, e),
+                        )
+                    })?;
             }
 
-            st.Sectors, err = sectors.Root()
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to save sectors")
+            Ok((power_delta, pledge_delta))
+        })?;
 
-            err = st.SaveDeadlines(store, deadlines)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to save deadlines")
-        })
+        request_update_power(rt, power_delta)?;
 
-        requestUpdatePower(rt, powerDelta)
         // Note: the pledge delta is expected to be zero, since pledge is not re-calculated for the extension.
         // But in case that ever changes, we can do the right thing here.
-        notifyPledgeChanged(rt, pledgeDelta)
-        return nil
-        */
+        notify_pledge_changed(rt, &pledge_delta)?;
+        Ok(())
     }
 
     /// Marks some sectors as terminated at the present epoch, earlier than their
@@ -1260,80 +1509,125 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
-
-        /*
         // Note: this cannot terminate pre-committed but un-proven sectors.
         // They must be allowed to expire (and deposit burnt).
 
-        toProcess := make(DeadlineSectorMap)
-        for _, term := range params.Terminations {
-            err := toProcess.Add(term.Deadline, term.Partition, term.Sectors)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalArgument,
-                "failed to process deadline %d, partition %d", term.Deadline, term.Partition,
-            )
+        let mut to_process = DeadlineSectorMap::new();
+
+        for term in params.terminations {
+            let deadline = term.deadline;
+            let partition = term.partition;
+
+            to_process
+                .add(deadline, partition, term.sectors)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        format!(
+                            "failed to process deadline {}, partition {}: {}",
+                            deadline, partition, e
+                        ),
+                    )
+                })?;
         }
-        err := toProcess.Check(AddressedPartitionsMax, AddressedSectorsMax)
-        builtin.RequireNoErr(rt, err, exitcode.ErrIllegalArgument, "cannot process requested parameters")
 
-        var hadEarlyTerminations bool
-        var st State
-        store := adt.AsStore(rt)
-        currEpoch := rt.CurrEpoch()
-        powerDelta := NewPowerPairZero()
-        rt.State().Transaction(&st, func() {
-            hadEarlyTerminations = havePendingEarlyTerminations(rt, &st)
+        to_process
+            .check(ADDRESSED_PARTITIONS_MAX, ADDRESSED_SECTORS_MAX)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!("cannot process requested parameters: {}", e),
+                )
+            })?;
 
-            info := getMinerInfo(rt, &st)
-            rt.ValidateImmediateCallerIs(info.Worker, info.Owner)
+        let (had_early_terminations, power_delta) = rt.transaction(|state: &mut State, rt| {
+            let had_early_terminations = have_pending_early_terminations(rt, state);
 
-            deadlines, err := st.LoadDeadlines(adt.AsStore(rt))
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load deadlines")
+            let info = get_miner_info(rt, state)?;
+            rt.validate_immediate_caller_is(
+                iter::once(&info.worker).chain(iter::once(&info.owner)),
+            )?;
+
+            let store = rt.store();
+            let curr_epoch = rt.curr_epoch();
+            let mut power_delta = PowerPair::zero();
+
+            let mut deadlines = state
+                .load_deadlines(store)
+                .map_err(|e| e.wrap("failed to load deadlines"))?;
 
             // We're only reading the sectors, so there's no need to save this back.
             // However, we still want to avoid re-loading this array per-partition.
-            sectors, err := LoadSectors(store, st.Sectors)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load sectors")
+            let sectors = Sectors::new(store, &state.sectors).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load sectors: {:?}", e),
+                )
+            })?;
 
-            err = toProcess.ForEach(func(dlIdx uint64, partitionSectors PartitionSectorMap) error {
-                quant := st.QuantSpecForDeadline(dlIdx)
+            for (deadline_idx, partition_sectors) in to_process.iter() {
+                let quant = state.quant_spec_for_deadline(deadline_idx);
+                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}: {}", deadline_idx, e),
+                    )
+                })?;
 
-                deadline, err := deadlines.LoadDeadline(store, dlIdx)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load deadline %d", dlIdx)
+                let removed_power = deadline
+                    .terminate_sectors(
+                        store,
+                        &sectors,
+                        curr_epoch,
+                        partition_sectors,
+                        info.sector_size,
+                        quant,
+                    )
+                    .map_err(|e| {
+                        ActorError::downcast(
+                            e,
+                            ExitCode::ErrIllegalState,
+                            format!("failed to terminate sectors in deadline {}", deadline_idx),
+                        )
+                    })?;
 
-                removedPower, err := deadline.TerminateSectors(store, sectors, currEpoch, partitionSectors, info.SectorSize, quant)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to terminate sectors in deadline %d", dlIdx)
+                state.early_terminations.set(deadline_idx as usize);
+                power_delta -= &removed_power;
 
-                st.EarlyTerminations.Set(dlIdx)
+                deadlines
+                    .update_deadline(store, deadline_idx, &deadline)
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to update deadline {}: {}", deadline_idx, e),
+                        )
+                    })?;
+            }
 
-                powerDelta = powerDelta.Sub(removedPower)
+            state.save_deadlines(store, deadlines).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to save deadlines: {}", e),
+                )
+            })?;
 
-                err = deadlines.UpdateDeadline(store, dlIdx, deadline)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to update deadline %d", dlIdx)
-
-                return nil
-            })
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to walk sectors")
-
-            err = st.SaveDeadlines(store, deadlines)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to save deadlines")
-        })
+            Ok((had_early_terminations, power_delta))
+        })?;
 
         // Now, try to process these sectors.
-        more := processEarlyTerminations(rt)
-        if more && !hadEarlyTerminations {
+        let more = process_early_terminations(rt)?;
+
+        if more && !had_early_terminations {
             // We have remaining terminations, and we didn't _previously_
             // have early terminations to process, schedule a cron job.
             // NOTE: This isn't quite correct. If we repeatedly fill, empty,
             // fill, and empty, the queue, we'll keep scheduling new cron
             // jobs. However, in practice, that shouldn't be all that bad.
-            scheduleEarlyTerminationWork(rt)
+            schedule_early_termination_work(rt)?;
         }
 
-        requestUpdatePower(rt, powerDelta)
-
-        return &TerminateSectorsReturn{Done: !more}
-        */
+        request_update_power(rt, power_delta)?;
+        Ok(TerminateSectorsReturn { done: !more })
     }
 
     fn declare_faults<BS, RT>(rt: &mut RT, params: DeclareFaultsParams) -> Result<(), ActorError>
@@ -1341,67 +1635,137 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
+        let mut to_process = DeadlineSectorMap::new();
 
-        /*
-        toProcess := make(DeadlineSectorMap)
-        for _, term := range params.Faults {
-            err := toProcess.Add(term.Deadline, term.Partition, term.Sectors)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalArgument,
-                "failed to process deadline %d, partition %d", term.Deadline, term.Partition,
-            )
+        for term in params.faults {
+            let deadline = term.deadline;
+            let partition = term.partition;
+
+            to_process
+                .add(deadline, partition, term.sectors)
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        format!(
+                            "failed to process deadline {}, partition {}: {}",
+                            deadline, partition, e
+                        ),
+                    )
+                })?;
         }
-        err := toProcess.Check(AddressedPartitionsMax, AddressedSectorsMax)
-        builtin.RequireNoErr(rt, err, exitcode.ErrIllegalArgument, "cannot process requested parameters")
 
-        store := adt.AsStore(rt)
-        var st State
-        newFaultPowerTotal := NewPowerPairZero()
-        rt.State().Transaction(&st, func() {
-            info := getMinerInfo(rt, &st)
-            rt.ValidateImmediateCallerIs(info.Worker, info.Owner)
+        to_process
+            .check(ADDRESSED_PARTITIONS_MAX, ADDRESSED_SECTORS_MAX)
+            .map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalArgument,
+                    format!("cannot process requested parameters: {}", e),
+                )
+            })?;
 
-            deadlines, err := st.LoadDeadlines(store)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load deadlines")
+        let new_fault_power_total = rt.transaction(|state: &mut State, rt| {
+            let info = get_miner_info(rt, &state)?;
+            rt.validate_immediate_caller_is(
+                iter::once(&info.worker).chain(iter::once(&info.owner)),
+            )?;
 
-            sectors, err := LoadSectors(store, st.Sectors)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load sectors array")
+            let store = rt.store();
 
-            err = toProcess.ForEach(func(dlIdx uint64, pm PartitionSectorMap) error {
-                targetDeadline, err := declarationDeadlineInfo(st.ProvingPeriodStart, dlIdx, rt.CurrEpoch())
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalArgument, "invalid fault declaration deadline %d", dlIdx)
+            let mut deadlines = state
+                .load_deadlines(store)
+                .map_err(|e| e.wrap("failed to load deadlines"))?;
 
-                err = validateFRDeclarationDeadline(targetDeadline)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalArgument, "failed fault declaration at deadline %d", dlIdx)
+            let sectors = Sectors::new(store, &state.sectors).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load sectors array: {:?}", e),
+                )
+            })?;
 
-                deadline, err := deadlines.LoadDeadline(store, dlIdx)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to load deadline %d", dlIdx)
+            let mut new_fault_power_total = PowerPair::zero();
 
-                faultExpirationEpoch := targetDeadline.Last() + FaultMaxAge
-                newFaultyPower, err := deadline.DeclareFaults(store, sectors, info.SectorSize, targetDeadline.QuantSpec(), faultExpirationEpoch, pm)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to declare faults for deadline %d", dlIdx)
+            for (deadline_idx, partition_map) in to_process.iter() {
+                let target_deadline = declaration_deadline_info(
+                    state.proving_period_start,
+                    deadline_idx,
+                    rt.curr_epoch(),
+                )
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        format!("invalid fault declaration deadline {}: {}", deadline_idx, e,),
+                    )
+                })?;
 
-                err = deadlines.UpdateDeadline(store, dlIdx, deadline)
-                builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to store deadline %d partitions", dlIdx)
+                validate_fr_declaration_deadline(&target_deadline).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalArgument,
+                        format!(
+                            "failed fault declaration at deadline {}: {}",
+                            deadline_idx, e
+                        ),
+                    )
+                })?;
 
-                newFaultPowerTotal = newFaultPowerTotal.Add(newFaultyPower)
-                return nil
-            })
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to iterate deadlines")
+                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}: {}", deadline_idx, e),
+                    )
+                })?;
 
-            err = st.SaveDeadlines(store, deadlines)
-            builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to save deadlines")
-        })
+                let fault_expiration_epoch = target_deadline.last() + FAULT_MAX_AGE;
+
+                let new_faulty_power = deadline
+                    .declare_faults(
+                        store,
+                        &sectors,
+                        info.sector_size,
+                        target_deadline.quant_spec(),
+                        fault_expiration_epoch,
+                        partition_map,
+                    )
+                    .map_err(|e| {
+                        ActorError::downcast(
+                            e,
+                            ExitCode::ErrIllegalState,
+                            format!("failed to declare faults for deadline {}", deadline_idx),
+                        )
+                    })?;
+
+                deadlines
+                    .update_deadline(store, deadline_idx, &deadline)
+                    .map_err(|e| {
+                        ActorError::new(
+                            ExitCode::ErrIllegalState,
+                            format!(
+                                "failed to store deadline {} partitions: {}",
+                                deadline_idx, e
+                            ),
+                        )
+                    })?;
+
+                new_fault_power_total += &new_faulty_power;
+            }
+
+            state.save_deadlines(store, deadlines).map_err(|e| {
+                ActorError::new(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to save deadlines: {}", e),
+                )
+            })?;
+
+            Ok(new_fault_power_total)
+        })?;
 
         // Remove power for new faulty sectors.
         // NOTE: It would be permissible to delay the power loss until the deadline closes, but that would require
         // additional accounting state.
         // https://github.com/filecoin-project/specs-actors/issues/414
-        requestUpdatePower(rt, newFaultPowerTotal.Neg())
+        request_update_power(rt, -new_fault_power_total)?;
 
         // Payment of penalty for declared faults is deferred to the deadline cron.
-        return nil
-        */
+        Ok(())
     }
 
     fn declare_faults_recovered<BS, RT>(
@@ -1559,7 +1923,11 @@ impl Actor {
             if !deadline_is_mutable(state.proving_period_start, params.deadline, rt.curr_epoch()) {
                 return Err(ActorError::new(
                     ExitCode::ErrForbidden,
-                    format!("cannot compact deadline {} during its challenge window or the prior challenge window", params.deadline)
+                    format!(
+                        "cannot compact deadline {} during its \
+                    challenge window or the prior challenge window",
+                        params.deadline
+                    ),
                 ));
             }
 
@@ -1576,7 +1944,7 @@ impl Actor {
             }
 
             let quant = state.quant_spec_for_deadline(params.deadline);
-            let mut deadlines = state
+            let deadlines = state
                 .load_deadlines(store)
                 .map_err(|e| e.wrap("failed to load deadlines"))?;
 
@@ -1625,7 +1993,7 @@ impl Actor {
                     ActorError::downcast(
                         e,
                         ExitCode::ErrIllegalState,
-                        "failed to add back moved sectors".to_string(),
+                        "failed to add back moved sectors",
                     )
                 })?;
 
@@ -1669,7 +2037,7 @@ impl Actor {
             )
         })? as SectorNumber;
 
-        if last_sector_number > fil_types::MAX_SECTOR_NUMBER {
+        if last_sector_number > MAX_SECTOR_NUMBER {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
                 format!(
@@ -1827,16 +2195,30 @@ impl Actor {
 
             // Ensure we don't have any pending terminations.
             if !state.early_terminations.is_empty() {
-                return Err(ActorError::new(ExitCode::ErrForbidden, format!("cannot withdraw funds while {} deadlines have terminated sectors with outstanding fees", state.early_terminations.len())));
+                return Err(ActorError::new(
+                    ExitCode::ErrForbidden,
+                    format!(
+                        "cannot withdraw funds while {} deadlines have \
+                terminated sectors with outstanding fees",
+                        state.early_terminations.len()
+                    ),
+                ));
             }
 
             // Unlock vested funds so we can spend them.
-            let newly_vested = state.unlock_vested_funds(rt.store(), rt.curr_epoch()).map_err(|e| ActorError::new(ExitCode::ErrIllegalState, format!("Failed to vest funds: {:?}", e)))?;
+            let newly_vested = state
+                .unlock_vested_funds(rt.store(), rt.curr_epoch())
+                .map_err(|e| {
+                    ActorError::new(
+                        ExitCode::ErrIllegalState,
+                        format!("Failed to vest funds: {:?}", e),
+                    )
+                })?;
 
             // Verify InitialPledgeRequirement does not exceed unlocked funds
             verify_pledge_meets_initial_requirements(rt, state)?;
 
-            Ok((info,newly_vested))
+            Ok((info, newly_vested))
         })?;
 
         let state: State = rt.state()?;
@@ -2279,7 +2661,7 @@ where
 
 /// Check expiry is exactly *the epoch before* the start of a proving period.
 fn validate_expiration<BS, RT>(
-    rt: &mut RT,
+    rt: &RT,
     activation: ChainEpoch,
     expiration: ChainEpoch,
     seal_proof: RegisteredSealProof,
@@ -2333,10 +2715,10 @@ where
 }
 
 fn validate_replace_sector<BS, RT>(
-    _rt: &mut RT,
+    _rt: &RT,
     state: &State,
     store: &BS,
-    params: SectorPreCommitInfo,
+    params: &SectorPreCommitInfo,
 ) -> Result<SectorOnChainInfo, ActorError>
 where
     BS: BlockStore,
@@ -2469,14 +2851,15 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    // TODO
-    for chunk in deal_ids.chunks(8192) {
+    const MAX_LENGTH: usize = 8192;
+
+    for chunk in deal_ids.chunks(MAX_LENGTH) {
         rt.send(
             *STORAGE_MARKET_ACTOR_ADDR,
             MarketMethod::OnMinerSectorsTerminate as u64,
-            Serialized::serialize(OnMinerSectorsTerminateParams {
+            Serialized::serialize(OnMinerSectorsTerminateParamsRef {
                 epoch,
-                deal_ids: chunk.to_vec(), // TODO: avoid the clone here
+                deal_ids: chunk,
             })?,
             TokenAmount::zero(),
         )?;
@@ -2606,9 +2989,7 @@ where
         ));
     }
 
-    // TODO: avoid clone
-    let commd =
-        request_unsealed_sector_cid(rt, params.registered_seal_proof, params.deal_ids.clone())?;
+    let commd = request_unsealed_sector_cid(rt, params.registered_seal_proof, &params.deal_ids)?;
 
     let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
         *i
@@ -2658,7 +3039,7 @@ where
 fn request_unsealed_sector_cid<BS, RT>(
     rt: &mut RT,
     sector_type: RegisteredSealProof,
-    deal_ids: Vec<DealID>,
+    deal_ids: &[DealID],
 ) -> Result<Cid, ActorError>
 where
     BS: BlockStore,
@@ -2667,7 +3048,7 @@ where
     let ret = rt.send(
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::ComputeDataCommitment as u64,
-        Serialized::serialize(ComputeDataCommitmentParams {
+        Serialized::serialize(ComputeDataCommitmentParamsRef {
             sector_type,
             deal_ids,
         })?,
@@ -2679,7 +3060,7 @@ where
 
 fn request_deal_weight<BS, RT>(
     rt: &mut RT,
-    deal_ids: Vec<DealID>,
+    deal_ids: &[DealID],
     sector_start: ChainEpoch,
     sector_expiry: ChainEpoch,
 ) -> Result<VerifyDealsForActivationReturn, ActorError>
@@ -2690,7 +3071,7 @@ where
     let serialized = rt.send(
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::VerifyDealsForActivation as u64,
-        Serialized::serialize(VerifyDealsForActivationParams {
+        Serialized::serialize(VerifyDealsForActivationParamsRef {
             deal_ids,
             sector_start,
             sector_expiry,
