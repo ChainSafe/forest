@@ -29,7 +29,7 @@ use state_manager::StateManager;
 use std::sync::Arc;
 
 // TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
-// on seperate thread and needs to be mutated independently, but the vec needs to be read
+// on separate thread and needs to be mutated independently, but the vec needs to be read
 // on the RPC API thread and mutated on this thread.
 type WorkerState = Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>;
 

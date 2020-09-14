@@ -146,7 +146,7 @@ mod tests {
         assert_eq!(
             set.buckets.len(),
             2,
-            "Inserting seperate tipset should create new bucket"
+            "Inserting separate tipset should create new bucket"
         );
         assert_eq!(set.buckets[1].tips.len(), 1);
 
