@@ -94,13 +94,12 @@ where
 {
     pub fn new(
         chain_store: Arc<ChainStore<DB>>,
+        state_manager: Arc<StateManager<DB>>,
         beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
     ) -> Result<Self, Error> {
-        let state_manager = Arc::new(StateManager::new(chain_store.db.clone()));
-
         let network = SyncNetworkContext::new(network_send);
 
         let peer_manager = Arc::new(PeerManager::default());
@@ -446,6 +445,7 @@ mod tests {
     use beacon::MockBeacon;
     use db::MemoryDB;
     use forest_libp2p::NetworkEvent;
+    use state_manager::StateManager;
     use std::sync::Arc;
     use std::time::Duration;
     use test_utils::{construct_dummy_header, construct_messages};
@@ -457,7 +457,7 @@ mod tests {
         Sender<NetworkEvent>,
         Receiver<NetworkMessage>,
     ) {
-        let chain_store = Arc::new(ChainStore::new(db));
+        let chain_store = Arc::new(ChainStore::new(db.clone()));
 
         let (local_sender, test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
@@ -471,6 +471,7 @@ mod tests {
         (
             ChainSyncer::new(
                 chain_store,
+                Arc::new(StateManager::new(db)),
                 beacon,
                 local_sender,
                 event_receiver,
