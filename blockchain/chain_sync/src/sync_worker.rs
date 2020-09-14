@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::bad_block_cache::BadBlockCache;
-use super::peer_manager::SHUFFLE_PEERS_PREFIX;
 use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
@@ -25,17 +24,15 @@ use futures::{
     stream::{FuturesUnordered, StreamExt},
 };
 use ipld_blockstore::BlockStore;
-use libp2p::core::PeerId;
 use log::{debug, error, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
-use smallvec::SmallVec;
 use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use vm::TokenAmount;
 
 /// Message data used to ensure valid state transition
@@ -149,15 +146,6 @@ where
         self.state.write().await.set_stage(new_stage);
     }
 
-    async fn get_peers(&self) -> SmallVec<[PeerId; SHUFFLE_PEERS_PREFIX]> {
-        while self.network.peer_manager().is_empty().await {
-            warn!("No valid peers to sync, waiting for other nodes");
-            task::sleep(Duration::from_secs(5)).await;
-        }
-
-        self.network.peer_manager().top_peers_shuffled().await
-    }
-
     /// Syncs chain data and persists it to blockstore
     async fn sync_headers_reverse(&self, head: Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
         info!("Syncing headers from: {:?}", head.key());
@@ -201,33 +189,13 @@ where
             debug!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);
 
-            let peers = self.get_peers().await;
-
-            let global_pre_time = SystemTime::now();
             // Load blocks from network using blocksync
-            let mut tipsets = None;
-            for p in peers.into_iter() {
-                match self
-                    .network
-                    .blocksync_headers(p.clone(), cur_ts.parents(), window as u64)
-                    .await
-                {
-                    Ok(ts) => tipsets = Some(ts),
-                    Err(e) => {
-                        warn!("Failed blocksync request to peer {:?}: {}", p, e);
-                        continue;
-                    }
-                };
-            }
-
-            match SystemTime::now().duration_since(global_pre_time) {
-                Ok(t) => self.network.peer_manager().log_global_success(t).await,
-                Err(e) => warn!("logged time less than before request: {}", e),
-            }
-
             // TODO consider altering window size before returning error for failed sync.
-            let tipsets = tipsets
-                .ok_or_else(|| Error::Other("Blocksync header requests failed".to_owned()))?;
+            let tipsets = self
+                .network
+                .blocksync_headers(None, cur_ts.parents(), window as u64)
+                .await?;
+
             info!(
                 "Got tipsets: Height: {}, Len: {}",
                 tipsets[0].epoch(),
@@ -298,30 +266,15 @@ where
 
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
     async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
-        let peers = self.get_peers().await;
         // TODO move to shared parameter (from actors crate most likely)
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
-        // Load blocks from network using blocksync
-        let mut tipsets = None;
-        for p in peers.into_iter() {
-            // TODO make this request more flexible with the window size, shouldn't require a node
-            // to have to request all fork length headers at once.
-            match self
-                .network
-                .blocksync_headers(p.clone(), head.parents(), FORK_LENGTH_THRESHOLD)
-                .await
-            {
-                Ok(ts) => tipsets = Some(ts),
-                Err(e) => {
-                    warn!("Failed blocksync request to peer {:?}: {}", p, e);
-                    continue;
-                }
-            };
-        }
-
-        let tips =
-            tipsets.ok_or_else(|| Error::Other("Blocksync header requests failed".to_owned()))?;
+        // TODO make this request more flexible with the window size, shouldn't require a node
+        // to have to request all fork length headers at once.
+        let tips = self
+            .network
+            .blocksync_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
+            .await?;
 
         let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
 
@@ -359,9 +312,6 @@ where
                 Err(_) => {
                     // no full tipset in storage; request messages via blocksync
 
-                    // retrieve peerId used for blocksync request
-                    let peers = self.get_peers().await;
-
                     let mut batch_size = REQUEST_WINDOW;
                     if i < batch_size {
                         batch_size = i;
@@ -377,26 +327,11 @@ where
                         req_len
                     );
 
-                    let mut res = None;
-                    for p in peers.into_iter() {
-                        // receive tipset bundle from block sync
-                        res = Some(
-                            match self
-                                .network
-                                .blocksync_messages(p, next.key(), req_len as u64)
-                                .await
-                            {
-                                Ok(k) => k,
-                                Err(e) => {
-                                    warn!("BlockSyncRequest for message failed: {}", e);
-                                    continue;
-                                }
-                            },
-                        );
-                    }
-                    let compacted_messages = res.ok_or_else(|| {
-                        Error::Other("All blocksync message requests failed".to_owned())
-                    })?;
+                    // receive tipset bundle from block sync
+                    let compacted_messages = self
+                        .network
+                        .blocksync_messages(None, next.key(), req_len as u64)
+                        .await?;
 
                     let mut ts_r = ts[(idx) as usize..(idx + 1 + req_len) as usize].to_vec();
                     // since the bundle only has messages, we have to put the headers in them

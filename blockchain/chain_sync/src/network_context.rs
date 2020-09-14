@@ -6,13 +6,16 @@ use async_std::future;
 use async_std::sync::Sender;
 use blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_libp2p::{
-    blocksync::{BlockSyncRequest, BlockSyncResponse, CompactedMessages, BLOCKS, MESSAGES},
+    blocksync::{
+        BlockSyncRequest, BlockSyncResponse, CompactedMessages, TipsetBundle, BLOCKS, MESSAGES,
+    },
     hello::HelloRequest,
     NetworkMessage,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
 use libp2p::core::PeerId;
-use log::trace;
+use log::{trace, warn};
+use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
@@ -47,67 +50,40 @@ impl SyncNetworkContext {
         self.peer_manager.clone()
     }
 
-    /// Send a blocksync request for only block headers (ignore messages)
+    /// Send a blocksync request for only block headers (ignore messages).
+    /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
     pub async fn blocksync_headers(
         &self,
-        peer_id: PeerId,
+        peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
         count: u64,
     ) -> Result<Vec<Tipset>, String> {
-        let bs_res = self
-            .blocksync_request(
-                peer_id,
-                BlockSyncRequest {
-                    start: tsk.cids().to_vec(),
-                    request_len: count,
-                    options: BLOCKS,
-                },
-            )
-            .await?;
-
-        let ts: Vec<Tipset> = bs_res.into_result()?;
-        Ok(ts)
+        self.handle_blocksync_request(peer_id, tsk, count, BLOCKS)
+            .await
     }
     /// Send a blocksync request for only messages (ignore block headers).
+    /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
     pub async fn blocksync_messages(
         &self,
-        peer_id: PeerId,
+        peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
         count: u64,
     ) -> Result<Vec<CompactedMessages>, String> {
-        let bs_res = self
-            .blocksync_request(
-                peer_id,
-                BlockSyncRequest {
-                    start: tsk.cids().to_vec(),
-                    request_len: count,
-                    options: MESSAGES,
-                },
-            )
-            .await?;
-
-        let ts: Vec<CompactedMessages> = bs_res.into_result()?;
-        Ok(ts)
+        self.handle_blocksync_request(peer_id, tsk, count, MESSAGES)
+            .await
     }
 
     /// Send a blocksync request for a single full tipset (includes messages)
+    /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
     pub async fn blocksync_fts(
         &self,
-        peer_id: PeerId,
+        peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
-        let bs_res = self
-            .blocksync_request(
-                peer_id,
-                BlockSyncRequest {
-                    start: tsk.cids().to_vec(),
-                    request_len: 1,
-                    options: BLOCKS | MESSAGES,
-                },
-            )
+        let mut fts = self
+            .handle_blocksync_request(peer_id, tsk, 1, BLOCKS | MESSAGES)
             .await?;
 
-        let mut fts = bs_res.into_result()?;
         if fts.len() != 1 {
             return Err(format!(
                 "Full tipset request returned {} tipsets",
@@ -117,26 +93,56 @@ impl SyncNetworkContext {
         Ok(fts.remove(0))
     }
 
-    async fn handle_blocksync_request(
+    /// Helper function to handle the peer retrieval if no peer supplied as well as the logging
+    /// and updating of the peer info in the `PeerManager`.
+    async fn handle_blocksync_request<T>(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
-        count: u64,
+        request_len: u64,
         options: u64,
-    ) -> Result<BlockSyncResponse, String> {
-        // let bs_res = self
-        //     .blocksync_request(
-        //         peer_id,
-        //         BlockSyncRequest {
-        //             start: tsk.cids().to_vec(),
-        //             request_len: count,
-        //             options,
-        //         },
-        //     )
-        //     .await?;
+    ) -> Result<Vec<T>, String>
+    where
+        T: TryFrom<TipsetBundle, Error = String>,
+    {
+        let request = BlockSyncRequest {
+            start: tsk.cids().to_vec(),
+            request_len,
+            options,
+        };
 
-        // let ts: Vec<CompactedMessages> = bs_res.into_result()?;
-        todo!()
+        let global_pre_time = SystemTime::now();
+        let bs_res = match peer_id {
+            Some(id) => self.blocksync_request(id, request).await?.into_result()?,
+            None => {
+                let peers = self.peer_manager.top_peers_shuffled().await;
+                let mut res = None;
+                for p in peers.into_iter() {
+                    match self.blocksync_request(p.clone(), request.clone()).await {
+                        Ok(bs_res) => match bs_res.into_result() {
+                            Ok(r) => res = Some(r),
+                            Err(e) => {
+                                warn!("Failed to convert blocksync response into type: {}", e);
+                                continue;
+                            }
+                        },
+                        Err(e) => {
+                            warn!("Failed blocksync request to peer {:?}: {}", p, e);
+                            continue;
+                        }
+                    }
+                }
+
+                res.ok_or_else(|| "BlockSync request failed for all top peers".to_string())?
+            }
+        };
+
+        match SystemTime::now().duration_since(global_pre_time) {
+            Ok(t) => self.peer_manager.log_global_success(t).await,
+            Err(e) => warn!("logged time less than before request: {}", e),
+        }
+
+        Ok(bs_res)
     }
 
     /// Send a blocksync request to the network and await response

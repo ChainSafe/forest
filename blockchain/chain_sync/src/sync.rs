@@ -369,7 +369,7 @@ where
     ) -> Result<FullTipset, String> {
         let fts = match Self::load_fts(cs, tsk) {
             Ok(fts) => fts,
-            Err(_) => network.blocksync_fts(peer_id, tsk).await?,
+            Err(_) => network.blocksync_fts(Some(peer_id), tsk).await?,
         };
 
         Ok(fts)
