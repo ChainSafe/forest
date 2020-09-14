@@ -27,6 +27,7 @@ beacon = { path = "../beacon" }
 flo_stream = "0.4.0"
 address = { package = "forest_address", path = "../../vm/address" }
 lazy_static = "1.4"
+async-std = "1.6.3"
 
 [dev-dependencies]
 multihash = "0.10.0"

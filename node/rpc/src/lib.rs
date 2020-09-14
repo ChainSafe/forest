@@ -30,7 +30,7 @@ where
     pub keystore: Arc<RwLock<KS>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
-    pub sync_state: Arc<RwLock<SyncState>>,
+    pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
     pub network_send: Sender<NetworkMessage>,
     pub network_name: String,
 }

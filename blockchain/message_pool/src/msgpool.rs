@@ -129,9 +129,9 @@ impl MsgSet {
 #[async_trait]
 pub trait Provider {
     /// Update Mpool's cur_tipset whenever there is a chnge to the provider
-    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
+    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
-    fn get_heaviest_tipset(&mut self) -> Option<Tipset>;
+    async fn get_heaviest_tipset(&mut self) -> Option<Tipset>;
     /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
@@ -174,12 +174,12 @@ impl<DB> Provider for MpoolProvider<DB>
 where
     DB: BlockStore + Sync + Send,
 {
-    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-        self.cs.subscribe()
+    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+        self.cs.subscribe().await
     }
 
-    fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        let ts = self.cs.heaviest_tipset()?;
+    async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
+        let ts = self.cs.heaviest_tipset().await?;
         Some(ts.as_ref().clone())
     }
 
@@ -228,26 +228,17 @@ where
 pub struct MpoolRpcProvider<DB> {
     subscriber: Subscriber<HeadChange>,
     sm: Arc<StateManager<DB>>,
-    db: Arc<DB>,
 }
 
 impl<DB> MpoolRpcProvider<DB>
 where
     DB: BlockStore + Sync + Send,
 {
-    pub fn new(
-        subscriber: Subscriber<HeadChange>,
-        state_manager: Arc<StateManager<DB>>,
-        db: Arc<DB>,
-    ) -> Self
+    pub fn new(subscriber: Subscriber<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
     where
         DB: BlockStore,
     {
-        MpoolRpcProvider {
-            subscriber,
-            db,
-            sm: state_manager,
-        }
+        MpoolRpcProvider { subscriber, sm }
     }
 }
 
@@ -256,27 +247,27 @@ impl<DB> Provider for MpoolRpcProvider<DB>
 where
     DB: BlockStore + Sync + Send,
 {
-    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.clone()
     }
 
-    fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        chain::get_heaviest_tipset(self.db.as_ref())
+    async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
+        chain::get_heaviest_tipset(self.sm.get_block_store_ref())
             .ok()
             .unwrap_or(None)
     }
 
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
         let cid = self
-            .db
-            .as_ref()
+            .sm
+            .get_block_store_ref()
             .put(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }
 
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
-        let state = StateTree::new_from_root(self.db.as_ref(), ts.parent_state())
+        let state = StateTree::new_from_root(self.sm.get_block_store_ref(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
         let actor = state
             .get_actor(addr)
@@ -288,19 +279,20 @@ where
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        chain::block_messages(self.db.as_ref(), h).map_err(|err| err.into())
+        chain::block_messages(self.sm.get_block_store_ref(), h).map_err(|err| err.into())
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        chain::unsigned_messages_for_tipset(self.db.as_ref(), h).map_err(|err| err.into())
+        chain::unsigned_messages_for_tipset(self.sm.get_block_store_ref(), h)
+            .map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        let ts = chain::tipset_from_keys(self.db.as_ref(), tsk)?;
+        let ts = chain::tipset_from_keys(self.sm.get_block_store_ref(), tsk)?;
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
-        chain::compute_base_fee(self.db.as_ref(), ts).map_err(|err| err.into())
+        chain::compute_base_fee(self.sm.get_block_store_ref(), ts).map_err(|err| err.into())
     }
     async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
         self.sm
@@ -337,9 +329,9 @@ where
         let local_addrs = Arc::new(RwLock::new(Vec::new()));
         // LruCache sizes have been taken from the lotus implementation
         let pending = Arc::new(RwLock::new(HashMap::new()));
-        let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().ok_or_else(|| {
-            Error::Other("No ts in api to set as cur_tipset".to_owned())
-        })?));
+        let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().await.ok_or_else(
+            || Error::Other("No ts in api to set as cur_tipset".to_owned()),
+        )?));
         let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(40000)));
         let sig_val_cache = Arc::new(RwLock::new(LruCache::new(32000)));
         let api_mutex = Arc::new(RwLock::new(api));
@@ -360,7 +352,7 @@ where
 
         mp.load_local().await?;
 
-        let mut subscriber = mp.api.write().await.subscribe_head_changes();
+        let mut subscriber = mp.api.write().await.subscribe_head_changes().await;
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();
@@ -663,7 +655,6 @@ where
         }
     }
 
-
     /// local_message field, possibly implement this in the future?
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write().await;
@@ -703,7 +694,7 @@ where
         } else {
             let mut pending = self.pending.write().await;
             let local_addrs = self.local_addrs.read().await;
-            pending.retain( |a, _|local_addrs.contains(&a));
+            pending.retain(|a, _| local_addrs.contains(&a));
         }
     }
 }
@@ -978,11 +969,11 @@ pub mod test_provider {
 
     #[async_trait]
     impl Provider for TestApi {
-        fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+        async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
             self.publisher.subscribe()
         }
 
-        fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
+        async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
             Tipset::new(vec![create_header(1, b"", b"")]).ok()
         }
 

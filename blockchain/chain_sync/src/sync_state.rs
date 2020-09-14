@@ -11,6 +11,8 @@ use std::time::SystemTime;
 /// Current state of the ChainSyncer using the BlockSync protocol.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum SyncStage {
+    /// Idle state
+    Idle,
     /// Syncing headers from the heaviest tipset to genesis.
     Headers,
     /// Persisting headers on chain from heaviest to genesis.
@@ -32,6 +34,7 @@ impl Default for SyncStage {
 impl fmt::Display for SyncStage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            SyncStage::Idle => write!(f, "idle worker"),
             SyncStage::Headers => write!(f, "header sync"),
             SyncStage::PersistHeaders => write!(f, "persisting headers"),
             SyncStage::Messages => write!(f, "message sync"),
@@ -77,6 +80,10 @@ impl SyncState {
 
     pub fn stage(&self) -> SyncStage {
         self.stage
+    }
+
+    pub fn target(&self) -> &Option<Arc<Tipset>> {
+        &self.target
     }
 
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
