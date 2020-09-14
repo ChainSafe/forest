@@ -14,7 +14,7 @@ use cid::Cid;
 use crypto::{Signature, SignatureType};
 use encoding::Cbor;
 use flo_stream::Subscriber;
-use futures::StreamExt;
+use futures::{stream, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -45,7 +45,7 @@ pub struct MpoolConfig {
     size_limit_high: i64,
     size_limit_low: i64,
     replace_by_fee_ratio: f64,
-    // prune_cooldown: time
+    prune_cooldown: i64,
     gas_limit_overestimation: f64,
 }
 
@@ -663,7 +663,7 @@ where
         }
     }
 
-    /// Load local messages into pending. As of  right now messages are not deleted from self's
+
     /// local_message field, possibly implement this in the future?
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write().await;
@@ -684,6 +684,27 @@ where
         }
 
         Ok(())
+    }
+    pub async fn clear(&mut self, local: bool) {
+        if local {
+            let local_addrs = self.local_addrs.read().await;
+            for a in local_addrs.iter() {
+                if let Some(mset) = self.pending.read().await.get(&a) {
+                    for (_, m) in &mset.msgs {
+                        if !self.local_msgs.write().await.remove(&m) {
+                            warn!("error deleting local message");
+                        }
+                    }
+                }
+            }
+            self.pending.write().await.clear();
+
+        // self.republished = nil;
+        } else {
+            let mut pending = self.pending.write().await;
+            let local_addrs = self.local_addrs.read().await;
+            pending.retain( |a, _|local_addrs.contains(&a));
+        }
     }
 }
 
