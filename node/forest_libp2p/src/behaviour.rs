@@ -345,6 +345,7 @@ impl ForestBehaviour {
 
         let mut req_res_config = RequestResponseConfig::default();
         req_res_config.set_request_timeout(Duration::from_secs(20));
+        req_res_config.set_connection_keep_alive(Duration::from_secs(20));
 
         ForestBehaviour {
             gossipsub: Gossipsub::new(MessageAuthenticity::Author(local_peer_id), gossipsub_config),

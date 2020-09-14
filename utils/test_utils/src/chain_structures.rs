@@ -15,6 +15,7 @@ use forest_libp2p::blocksync::{BlockSyncResponse, CompactedMessages, TipsetBundl
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use std::error::Error;
+use std::sync::Arc;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
@@ -60,7 +61,7 @@ pub fn construct_keys() -> Vec<Cid> {
 }
 
 /// Returns a vec of block headers to be used for testing purposes
-pub fn construct_header(epoch: i64, weight: u64) -> Vec<BlockHeader> {
+pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
     let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
     let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
@@ -111,7 +112,7 @@ pub fn construct_epost_proof() -> EPostProof {
 pub fn construct_block() -> Block {
     const EPOCH: i64 = 1;
     const WEIGHT: u64 = 10;
-    let headers = construct_header(EPOCH, WEIGHT);
+    let headers = construct_headers(EPOCH, WEIGHT);
     let (bls_messages, secp_messages) = construct_messages();
 
     Block {
@@ -123,14 +124,14 @@ pub fn construct_block() -> Block {
 
 /// Returns a tipset used for testing
 pub fn construct_tipset(epoch: i64, weight: u64) -> Tipset {
-    Tipset::new(construct_header(epoch, weight)).unwrap()
+    Tipset::new(construct_headers(epoch, weight)).unwrap()
 }
 
 /// Returns a full tipset used for testing
 pub fn construct_full_tipset() -> FullTipset {
     const EPOCH: i64 = 1;
     const WEIGHT: u64 = 10;
-    let headers = construct_header(EPOCH, WEIGHT);
+    let headers = construct_headers(EPOCH, WEIGHT);
     let mut blocks: Vec<Block> = Vec::with_capacity(headers.len());
     let (bls_messages, secp_messages) = construct_messages();
 
@@ -151,7 +152,7 @@ pub fn construct_tipset_metadata() -> TipsetMetadata {
     TipsetMetadata {
         tipset_state_root: tip_set.blocks()[0].state_root().clone(),
         tipset_receipts_root: tip_set.blocks()[0].message_receipts().clone(),
-        tipset: tip_set,
+        tipset: Arc::new(tip_set),
     }
 }
 
@@ -178,7 +179,7 @@ pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
 
 /// Returns a TipsetBundle used for testing
 pub fn construct_tipset_bundle(epoch: i64, weight: u64) -> TipsetBundle {
-    let headers = construct_header(epoch, weight);
+    let headers = construct_headers(epoch, weight);
     let (bls, secp) = construct_messages();
     let includes: Vec<Vec<u64>> = (0..headers.len()).map(|_| vec![]).collect();
 
@@ -191,6 +192,16 @@ pub fn construct_tipset_bundle(epoch: i64, weight: u64) -> TipsetBundle {
             secp_msg_includes: includes,
         }),
     }
+}
+
+pub fn construct_dummy_header() -> BlockHeader {
+    BlockHeader::builder()
+        .miner_address(Address::new_id(1000))
+        .messages(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .message_receipts(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .build_and_validate()
+        .unwrap()
 }
 
 /// Returns a RPCResponse used for testing

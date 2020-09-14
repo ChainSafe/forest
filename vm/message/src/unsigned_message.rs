@@ -30,7 +30,7 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///     .build()
 ///     .unwrap();
 ///
-/// // Commands can be chained, or built seperately
+// /// Commands can be chained, or built separately
 /// let mut message_builder = UnsignedMessage::builder();
 /// message_builder.sequence(1);
 /// message_builder.from(Address::new_id(0));

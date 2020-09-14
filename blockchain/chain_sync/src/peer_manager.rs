@@ -5,10 +5,11 @@ use async_std::sync::RwLock;
 use blocks::Tipset;
 use libp2p::core::PeerId;
 use log::debug;
+use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Thread safe peer manager
+/// Thread safe peer manager which handles peer management for the `BlockSync` protocol.
 #[derive(Default)]
 pub struct PeerManager {
     // TODO potentially separate or expand to handle blocksync peers/ peers that haven't sent hello
@@ -30,13 +31,10 @@ impl PeerManager {
 
     /// Retrieves a cloned PeerId to be used to send network request
     pub async fn get_peer(&self) -> Option<PeerId> {
-        // TODO replace this with a shuffled or more random sample
-        self.full_peers
-            .read()
-            .await
-            .iter()
-            .next()
-            .map(|(k, _)| k.clone())
+        // TODO this should prioritize peers with greater success rate and take a random sample
+        // of the top `x` peers
+        let peer_vec: Vec<PeerId> = self.full_peers.read().await.keys().cloned().collect();
+        peer_vec.choose(&mut rand::thread_rng()).cloned()
     }
 
     /// Retrieves all tipsets from current peer set
