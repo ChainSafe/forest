@@ -5,7 +5,7 @@ use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::RwLock;
-use beacon::BeaconEntry;
+use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -330,6 +330,14 @@ where
             return Ok(entry);
         }
     }
+
+    if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
+        return Ok(BeaconEntry::new(
+            0,
+            vec![9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+        ));
+    }
+
     Err(Error::Other(
         "Found no beacon entries in the 20 latest tipsets".to_owned(),
     ))

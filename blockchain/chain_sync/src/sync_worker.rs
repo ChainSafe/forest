@@ -9,7 +9,7 @@ use address::{Address, Protocol};
 use amt::Amt;
 use async_std::sync::{Receiver, RwLock};
 use async_std::task::{self, JoinHandle};
-use beacon::{Beacon, BeaconEntry};
+use beacon::{Beacon, BeaconEntry, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::{persist_objects, ChainStore};
 use cid::{multihash::Blake2b256, Cid};
@@ -521,9 +521,11 @@ where
             &self.chain_store.tipset_from_keys(header.parents())?,
         )?;
 
-        header
-            .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
-            .await?;
+        if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
+            header
+                .validate_block_drand(Arc::clone(&self.beacon), prev_beacon)
+                .await?;
+        }
 
         let power_result = self
             .state_manager
