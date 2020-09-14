@@ -9,13 +9,14 @@ use blocks::BlockHeader;
 use db::MemoryDB;
 use forest_libp2p::{hello::HelloRequest, rpc::ResponseChannel};
 use libp2p::core::PeerId;
+use state_manager::StateManager;
 use std::time::Duration;
 
 #[test]
 fn peer_manager_update() {
     let db = Arc::new(MemoryDB::default());
 
-    let chain_store = ChainStore::new(db);
+    let chain_store = ChainStore::new(db.clone());
 
     let (local_sender, _test_receiver) = channel(20);
     let (event_sender, event_receiver) = channel(20);
@@ -31,8 +32,10 @@ fn peer_manager_update() {
 
     let genesis_ts = Tipset::new(vec![dummy_header]).unwrap();
     let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+    let state_manager = Arc::new(StateManager::new(db));
     let cs = ChainSyncer::new(
         chain_store,
+        state_manager,
         beacon,
         local_sender,
         event_receiver,
