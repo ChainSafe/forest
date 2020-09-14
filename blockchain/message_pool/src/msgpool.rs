@@ -5,6 +5,7 @@ use super::errors::Error;
 use address::Address;
 use async_std::sync::{Arc, RwLock};
 use async_std::task;
+use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use chain::{ChainStore, HeadChange};
@@ -73,11 +74,12 @@ impl MsgSet {
 
 /// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
 /// the operations that are listed below that are required for the messagepool.
+#[async_trait]
 pub trait Provider {
     /// Update Mpool's cur_tipset whenever there is a chnge to the provider
-    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
+    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
-    fn get_heaviest_tipset(&mut self) -> Option<Tipset>;
+    async fn get_heaviest_tipset(&mut self) -> Option<Tipset>;
     /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
@@ -114,16 +116,17 @@ where
     }
 }
 
+#[async_trait]
 impl<DB> Provider for MpoolProvider<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync,
 {
-    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-        self.cs.subscribe()
+    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+        self.cs.subscribe().await
     }
 
-    fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        let ts = self.cs.heaviest_tipset()?;
+    async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
+        let ts = self.cs.heaviest_tipset().await?;
         Some(ts.as_ref().clone())
     }
 
@@ -182,15 +185,16 @@ where
     }
 }
 
+#[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync,
 {
-    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.clone()
     }
 
-    fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
+    async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
         chain::get_heaviest_tipset(self.sm.get_block_store_ref())
             .ok()
             .unwrap_or(None)
@@ -262,9 +266,9 @@ where
         let local_addrs = Arc::new(RwLock::new(Vec::new()));
         // LruCache sizes have been taken from the lotus implementation
         let pending = Arc::new(RwLock::new(HashMap::new()));
-        let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().ok_or_else(|| {
-            Error::Other("No ts in api to set as cur_tipset".to_owned())
-        })?));
+        let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().await.ok_or_else(
+            || Error::Other("No ts in api to set as cur_tipset".to_owned()),
+        )?));
         let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(40000)));
         let sig_val_cache = Arc::new(RwLock::new(LruCache::new(32000)));
         let api_mutex = Arc::new(RwLock::new(api));
@@ -285,7 +289,7 @@ where
 
         mp.load_local().await?;
 
-        let mut subscriber = mp.api.write().await.subscribe_head_changes();
+        let mut subscriber = mp.api.write().await.subscribe_head_changes().await;
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();
@@ -777,12 +781,13 @@ pub mod test_provider {
         }
     }
 
+    #[async_trait]
     impl Provider for TestApi {
-        fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+        async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
             self.publisher.subscribe()
         }
 
-        fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
+        async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
             Tipset::new(vec![create_header(1, b"", b"")]).ok()
         }
 

@@ -4,11 +4,10 @@
 use async_std::future;
 use async_std::sync::Sender;
 use blocks::{FullTipset, Tipset, TipsetKeys};
-use flo_stream::Subscriber;
 use forest_libp2p::{
     blocksync::{BlockSyncRequest, BlockSyncResponse, BLOCKS, MESSAGES},
     hello::HelloRequest,
-    NetworkEvent, NetworkMessage,
+    NetworkMessage,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
 use libp2p::core::PeerId;
@@ -19,25 +18,20 @@ use std::time::Duration;
 const RPC_TIMEOUT: u64 = 20;
 
 /// Context used in chain sync to handle network requests
+#[derive(Clone)]
 pub struct SyncNetworkContext {
     /// Channel to send network messages through p2p service
     network_send: Sender<NetworkMessage>,
-
-    /// Receiver channel for network events
-    pub receiver: Subscriber<NetworkEvent>,
 }
 
 impl SyncNetworkContext {
-    pub fn new(network_send: Sender<NetworkMessage>, receiver: Subscriber<NetworkEvent>) -> Self {
-        Self {
-            network_send,
-            receiver,
-        }
+    pub fn new(network_send: Sender<NetworkMessage>) -> Self {
+        Self { network_send }
     }
 
     /// Send a blocksync request for only block headers (ignore messages)
     pub async fn blocksync_headers(
-        &mut self,
+        &self,
         peer_id: PeerId,
         tsk: &TipsetKeys,
         count: u64,
@@ -58,7 +52,7 @@ impl SyncNetworkContext {
     }
     /// Send a blocksync request for a single full tipset (includes messages)
     pub async fn blocksync_fts(
-        &mut self,
+        &self,
         peer_id: PeerId,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
@@ -73,15 +67,19 @@ impl SyncNetworkContext {
             )
             .await?;
 
-        let fts = bs_res.into_result()?;
-        fts.get(0)
-            .cloned()
-            .ok_or(format!("No full tipset found for cid: {:?}", tsk))
+        let mut fts = bs_res.into_result()?;
+        if fts.len() != 1 {
+            return Err(format!(
+                "Full tipset request returned {} tipsets",
+                fts.len()
+            ));
+        }
+        Ok(fts.remove(0))
     }
 
     /// Send a blocksync request to the network and await response
     pub async fn blocksync_request(
-        &mut self,
+        &self,
         peer_id: PeerId,
         request: BlockSyncRequest,
     ) -> Result<BlockSyncResponse, String> {
@@ -104,7 +102,7 @@ impl SyncNetworkContext {
     }
 
     /// Send a hello request to the network (does not await response)
-    pub async fn hello_request(&mut self, peer_id: PeerId, request: HelloRequest) {
+    pub async fn hello_request(&self, peer_id: PeerId, request: HelloRequest) {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
         self.network_send

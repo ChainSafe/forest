@@ -26,6 +26,7 @@ libsecp256k1 = "0.3.4"
 blake2b_simd = "0.5.10"
 log = "0.4.8"
 async-std = "1.6.0"
+async-trait = "0.1"
 state_manager = { path = "../state_manager" }
 
 [dev-dependencies]
