@@ -127,7 +127,7 @@ where
         self.bad_blocks.clone()
     }
 
-    /// Returns the atomic reference to the syncing state.
+    /// Returns a cloned `Arc` of the sync worker state.
     pub fn sync_state_cloned(&self) -> WorkerState {
         self.worker_state.clone()
     }
