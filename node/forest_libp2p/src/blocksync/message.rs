@@ -34,6 +34,7 @@ pub struct BlockSyncResponse {
 }
 
 impl BlockSyncResponse {
+    /// Converts blocksync response into result.
     pub fn into_result<T>(self) -> Result<Vec<T>, String>
     where
         T: TryFrom<TipsetBundle, Error = String>,
@@ -76,6 +77,15 @@ impl TryFrom<TipsetBundle> for Tipset {
 
     fn try_from(tsb: TipsetBundle) -> Result<Tipset, Self::Error> {
         Tipset::new(tsb.blocks).map_err(|e| e.to_string())
+    }
+}
+
+impl TryFrom<TipsetBundle> for CompactedMessages {
+    type Error = String;
+
+    fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
+        tsb.messages
+            .ok_or_else(|| "Request contained no messages".to_string())
     }
 }
 
