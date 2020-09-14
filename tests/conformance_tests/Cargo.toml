@@ -5,29 +5,56 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [features]
-submodule_tests = []
+submodule_tests = [
+    "serde",
+    "cid",
+    "actor",
+    "clock",
+    "db",
+    "address",
+    "base64",
+    "regex",
+    "runtime",
+    "interpreter",
+    "num-bigint",
+    "vm",
+    "blockstore",
+    "encoding",
+    "fil_types",
+    "state_manager",
+    "forest_message",
+    "crypto"
+]
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+cid = { package = "forest_cid", path = "../../ipld/cid", features = [
+    "cbor",
+    "json"
+], optional = true }
+actor = { path = "../../vm/actor", optional = true }
+clock = { path = "../../node/clock", optional = true }
+db = { path = "../../node/db/", optional = true }
+address = { package = "forest_address", path = "../../vm/address", features = [
+    "json"
+], optional = true }
+base64 = { version = "0.12.1", optional = true }
+regex = { version = "1.0", optional = true }
+runtime = { path = "../../vm/runtime/", optional = true }
+state_manager = { path = "../../blockchain/state_manager", optional = true }
+interpreter = { path = "../../vm/interpreter/", optional = true }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }
+vm = { package = "forest_vm", path = "../../vm", optional = true }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", optional = true }
+crypto = { package = "forest_crypto", path = "../../crypto", optional = true }
+encoding = { package = "forest_encoding", path = "../../encoding", optional = true }
+fil_types = { path = "../../types", optional = true }
+forest_message = { path = "../../vm/message", features = ["json"], optional = true }
 
 [dev-dependencies]
-base64 = { version = "0.12.1" }
 walkdir = "2.3"
-serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-clock = { path = "../../node/clock" }
-cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor", "json"] }
-forest_message = { path = "../../vm/message", features = ["json"] }
-vm = { package = "forest_vm", path = "../../vm" }
-db = { path = "../../node/db/" }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
 forest_car = { path = "../../ipld/car" }
 flate2 = "1.0"
-encoding = { package = "forest_encoding", path = "../../encoding" }
-interpreter = { path = "../../vm/interpreter/" }
-runtime = { path = "../../vm/runtime/" }
-fil_types = { path = "../../types" }
-crypto = { package = "forest_crypto", path = "../../crypto" }
-address = { package = "forest_address", path = "../../vm/address" }
-regex = "1.0"
 lazy_static = "1.4"
-actor = { path = "../../vm/actor" }
+pretty_env_logger = "0.4.0"

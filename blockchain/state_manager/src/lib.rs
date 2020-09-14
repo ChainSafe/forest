@@ -4,25 +4,24 @@
 mod errors;
 pub mod utils;
 pub use self::errors::*;
-use actor::{
-    init, make_map_with_root, market, miner, power, ActorState, BalanceTable, INIT_ACTOR_ADDR,
-    STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
-};
+use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, get_heaviest_tipset, ChainStore, HeadChange};
+use chain::{block_messages, get_heaviest_tipset, HeadChange};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
 use flo_stream::Subscriber;
-use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
+use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
-use interpreter::{resolve_to_key_addr, ApplyRet, ChainRand, DefaultSyscalls, VM};
+use interpreter::{
+    resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, DefaultSyscalls, Rand, VM,
+};
 use ipld_amt::Amt;
 use log::{trace, warn};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
@@ -100,8 +99,11 @@ where
         Ok(act)
     }
     pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
-        state.get_actor(addr).map_err(Error::State)
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
+            .map_err(|e| Error::State(e.to_string()))?;
+        state
+            .get_actor(addr)
+            .map_err(|e| Error::State(e.to_string()))
     }
 
     pub fn get_block_store(&self) -> Arc<DB> {
@@ -121,7 +123,7 @@ where
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
         let spas: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        let claims = make_map_with_root(&spas.claims, self.bs.as_ref())
+        let claims = make_map_with_root::<_, power::Claim>(&spas.claims, self.bs.as_ref())
             .map_err(|e| Error::State(e.to_string()))?;
 
         Ok(!claims
@@ -132,7 +134,8 @@ where
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
+            .map_err(|e| Error::State(e.to_string()))?;
         // Note: miner::State info likely to be changed to CID
         let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
@@ -169,27 +172,33 @@ where
 
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
     /// This function returns the state root and receipt root of the transition.
-    pub fn apply_blocks(
+    #[allow(clippy::too_many_arguments)]
+    pub fn apply_blocks<R>(
         &self,
-        ts: &FullTipset,
-        rand: &ChainRand,
+        parent_epoch: ChainEpoch,
+        p_state: &Cid,
+        messages: &[BlockMessages],
+        epoch: ChainEpoch,
+        rand: &R,
         base_fee: BigInt,
         callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
-    ) -> Result<(Cid, Cid), Box<dyn StdError>> {
+    ) -> Result<(Cid, Cid), Box<dyn StdError>>
+    where
+        R: Rand,
+    {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
-        // TODO possibly switch out syscalls to be saved at state manager level
         // TODO change from statically using devnet params when needed
         let mut vm = VM::<_, _, _>::new(
-            ts.parent_state(),
+            p_state,
             &buf_store,
-            ts.epoch(),
+            epoch,
             DefaultSyscalls::new(&buf_store),
             rand,
             base_fee,
         )?;
 
         // Apply tipset messages
-        let receipts = vm.apply_tipset_messages(ts, callback)?;
+        let receipts = vm.apply_block_messages(messages, parent_epoch, epoch, callback)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
@@ -394,48 +403,76 @@ where
         Ok((out_mes, outr))
     }
 
-    pub fn compute_tipset_state<'a>(
-        &'a self,
-        blocks_headers: &[BlockHeader],
+    pub fn compute_tipset_state(
+        &self,
+        block_headers: &[BlockHeader],
         callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
+            let first_block = block_headers
+                .first()
+                .ok_or("Empty tipset in compute_tipset_state")?;
+
             let check_for_duplicates = |s: &BlockHeader| {
-                blocks_headers
+                block_headers
                     .iter()
                     .filter(|val| val.miner_address() == s.miner_address())
                     .take(2)
                     .count()
             };
-            if blocks_headers.iter().any(|s| check_for_duplicates(s) > 1) {
+            if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
                 // Duplicate Miner found
-                return Err(Box::new(Error::Other(
-                    "Could not get message receipts".to_string(),
-                )));
+                return Err(Box::new(Error::Other(format!(
+                    "duplicate miner in a tipset ({})",
+                    a
+                ))));
             }
 
-            let chain_store = ChainStore::new(self.bs.clone());
-            let tipset_keys =
-                TipsetKeys::new(blocks_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = ChainRand::new(tipset_keys);
-            let base_fee = blocks_headers[0].parent_base_fee();
+            let parent_epoch = if first_block.epoch() > 0 {
+                let parent_cid = first_block
+                    .parents()
+                    .cids()
+                    .get(0)
+                    .ok_or("block must have parents")?;
+                let parent: BlockHeader = self.bs.get(parent_cid)?.ok_or_else(|| {
+                    format!("Could not find parent block with cid {}", parent_cid)
+                })?;
+                parent.epoch()
+            } else {
+                Default::default()
+            };
 
-            let blocks = blocks_headers
+            let tipset_keys =
+                TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
+            let chain_rand = ChainRand::new(tipset_keys);
+            let base_fee = first_block.parent_base_fee();
+
+            let blocks = block_headers
                 .iter()
-                .map::<Result<Block, Box<dyn StdError>>, _>(|s: &BlockHeader| {
-                    let (bls_messages, secp_messages) =
-                        block_messages(chain_store.blockstore(), &s)?;
-                    Ok(Block {
-                        header: s.clone(),
+                .map(|s: &BlockHeader| {
+                    let (bls_messages, secpk_messages) = block_messages(self.bs.as_ref(), &s)?;
+                    Ok(BlockMessages {
+                        miner: *s.miner_address(),
                         bls_messages,
-                        secp_messages,
+                        secpk_messages,
+                        win_count: s
+                            .election_proof()
+                            .as_ref()
+                            .map(|e| e.win_count)
+                            .unwrap_or_default(),
                     })
                 })
-                .collect::<Result<Vec<Block>, _>>()?;
+                .collect::<Result<Vec<_>, Box<dyn StdError>>>()?;
 
-            // convert tipset to fulltipset
-            let full_tipset = FullTipset::new(blocks)?;
-            self.apply_blocks(&full_tipset, &chain_rand, base_fee.clone(), callback)
+            self.apply_blocks(
+                parent_epoch,
+                &first_block.state_root(),
+                &blocks,
+                first_block.epoch(),
+                &chain_rand,
+                base_fee.clone(),
+                callback,
+            )
         })
     }
 
@@ -498,11 +535,11 @@ where
             return Ok(None);
         }
         let state = StateTree::new_from_root(&*block_store, current.parent_state())
-            .map_err(Error::State)?;
+            .map_err(|e| Error::State(e.to_string()))?;
 
         if let Some(actor_state) = state
             .get_actor(message_from_address)
-            .map_err(Error::State)?
+            .map_err(|e| Error::State(e.to_string()))?
         {
             if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
                 return Ok(None);
@@ -709,7 +746,8 @@ where
         addr: &Address,
         state_cid: &Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state = StateTree::new_from_root(db.as_ref(), state_cid).map_err(Error::State)?;
+        let state = StateTree::new_from_root(db.as_ref(), state_cid)
+            .map_err(|e| Error::State(e.to_string()))?;
         let kaddr = resolve_to_key_addr(&state, db.as_ref(), addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
@@ -738,8 +776,11 @@ where
     }
 
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())?;
-        state_tree.lookup_id(addr).map_err(Error::State)
+        let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())
+            .map_err(|e| e.to_string())?;
+        state_tree
+            .lookup_id(addr)
+            .map_err(|e| Error::State(e.to_string()))
     }
 
     pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
@@ -783,7 +824,8 @@ where
             _ => {}
         };
         let (st, _) = self.tipset_state(&ts).await?;
-        let state = StateTree::new_from_root(self.bs.as_ref(), &st).map_err(Error::State)?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), &st)
+            .map_err(|e| Error::State(e.to_string()))?;
 
         Ok(interpreter::resolve_to_key_addr(
             &state,

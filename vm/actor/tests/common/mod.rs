@@ -545,16 +545,17 @@ impl Runtime<MemoryDB> for MockRuntime {
             .unwrap())
     }
 
-    fn transaction<C: Cbor, R, F>(&mut self, f: F) -> Result<R, ActorError>
+    fn transaction<C, RT, F>(&mut self, f: F) -> Result<RT, ActorError>
     where
-        F: FnOnce(&mut C, &mut Self) -> R,
+        C: Cbor,
+        F: FnOnce(&mut C, &mut Self) -> Result<RT, ActorError>,
     {
         if self.in_transaction {
             return Err(actor_error!(SysErrorIllegalActor; "nested transaction"));
         }
         let mut read_only = self.state()?;
         self.in_transaction = true;
-        let ret = f(&mut read_only, self);
+        let ret = f(&mut read_only, self)?;
         self.state = Some(self.put(&read_only).unwrap());
         self.in_transaction = false;
         Ok(ret)

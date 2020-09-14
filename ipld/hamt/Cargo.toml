@@ -29,3 +29,9 @@ murmur = ["murmur3"]
 
 [dev-dependencies]
 hex = "0.4.2"
+criterion = "0.3.3"
+
+[[bench]]
+name = "hamt_beckmark"
+path = "benches/hamt_benchmark.rs"
+harness = false

@@ -45,7 +45,6 @@ const NETWORK_DEFAULT: Network = Network::Testnet;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
-/// TODO add Address JSON implementation
 #[derive(PartialEq, Eq, Clone, Debug, Hash, Copy)]
 pub struct Address {
     network: Network,
@@ -147,6 +146,14 @@ impl Address {
     /// Returns encoded bytes of Address
     pub fn to_bytes(&self) -> Vec<u8> {
         self.payload.to_bytes()
+    }
+
+    /// Get ID of the address. ID protocol only.
+    pub fn id(&self) -> Result<u64, Error> {
+        match self.payload {
+            Payload::ID(id) => Ok(id),
+            _ => Err(Error::NonIDAddress),
+        }
     }
 }
 

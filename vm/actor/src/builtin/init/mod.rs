@@ -39,7 +39,7 @@ impl Actor {
     {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
         rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
-        let mut empty_map = make_map(rt.store());
+        let mut empty_map = make_map::<_, ()>(rt.store());
         let root = empty_map
             .flush()
             .map_err(|err| actor_error!(ErrIllegalState; "failed to construct state: {}", err))?;
@@ -77,7 +77,7 @@ impl Actor {
         let id_address: Address = rt.transaction(|s: &mut State, rt| {
             s.map_address_to_new_id(rt.store(), &robust_address)
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to allocate ID address: {}", e))
-        })??;
+        })?;
 
         // Create an empty actor
         rt.create_actor(params.code_cid, &id_address)?;

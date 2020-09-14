@@ -99,12 +99,10 @@ impl Actor {
             .resolve_address(&params.miner)?
             .ok_or_else(|| actor_error!(ErrNotFound; "failed to resolve given owner address"))?;
 
-        let total_reward = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
+        let total_reward = rt.transaction(|st: &mut State, rt| {
             let mut block_reward =
                 (&st.this_epoch_reward * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
             let mut total_reward = params.gas_reward.clone() + &block_reward;
-            // TODO revisit this, I removed duplicate calls to current balance, but should be
-            // matched once fully iteroping (if not fixed)
             let curr_balance = rt.current_balance()?;
             if total_reward > curr_balance {
                 log::warn!(
@@ -124,7 +122,7 @@ impl Actor {
             }
             st.total_mined += block_reward;
             Ok(total_reward)
-        })??;
+        })?;
 
         // Cap the penalty at the total reward value.
         let penalty = std::cmp::min(&params.penalty, &total_reward);
@@ -224,6 +222,7 @@ impl Actor {
 
             st.update_to_next_epoch_with_reward(&curr_realized_power);
             st.update_smoothed_estimates(st.epoch - prev);
+            Ok(())
         })?;
         Ok(())
     }

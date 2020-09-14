@@ -19,6 +19,7 @@ use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Error as HamtError, Hamt};
 use num_bigint::BigInt;
+use serde::{de::DeserializeOwned, Serialize};
 use unsigned_varint::decode::Error as UVarintError;
 
 lazy_static! {
@@ -32,7 +33,7 @@ lazy_static! {
 const TOKEN_PRECISION: u64 = 1_000_000_000_000_000_000;
 
 /// Map type to be used within actors. The underlying type is a hamt.
-pub type Map<'bs, BS> = Hamt<'bs, BS, BytesKey>;
+pub type Map<'bs, BS, V> = Hamt<'bs, BS, V, BytesKey>;
 
 /// Deal weight
 type DealWeight = BigInt;
@@ -49,17 +50,25 @@ fn check_empty_params(params: &Serialized) -> Result<(), ActorError> {
 
 /// Create a hamt configured with constant bit width.
 #[inline]
-fn make_map<BS: BlockStore>(store: &'_ BS) -> Map<'_, BS> {
-    Hamt::<_>::new_with_bit_width(store, HAMT_BIT_WIDTH)
+pub fn make_map<BS, V>(store: &'_ BS) -> Map<'_, BS, V>
+where
+    BS: BlockStore,
+    V: DeserializeOwned + Serialize + Clone,
+{
+    Hamt::<_, V>::new_with_bit_width(store, HAMT_BIT_WIDTH)
 }
 
 /// Create a map with a root cid.
 #[inline]
-pub fn make_map_with_root<'bs, BS: BlockStore>(
+pub fn make_map_with_root<'bs, BS, V>(
     root: &Cid,
     store: &'bs BS,
-) -> Result<Map<'bs, BS>, HamtError> {
-    Hamt::<_>::load_with_bit_width(root, store, HAMT_BIT_WIDTH)
+) -> Result<Map<'bs, BS, V>, HamtError>
+where
+    BS: BlockStore,
+    V: DeserializeOwned + Serialize + Clone,
+{
+    Hamt::<_, V>::load_with_bit_width(root, store, HAMT_BIT_WIDTH)
 }
 
 pub fn u64_key(k: u64) -> BytesKey {

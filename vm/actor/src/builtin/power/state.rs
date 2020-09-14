@@ -84,7 +84,7 @@ impl State {
 
     pub(super) fn add_to_claim<BS: BlockStore>(
         &mut self,
-        claims: &mut Map<BS>,
+        claims: &mut Map<BS, Claim>,
         miner: &Address,
         power: &StoragePower,
         qa_power: &StoragePower,
@@ -208,14 +208,17 @@ pub(super) fn load_cron_events<BS: BlockStore>(
 }
 
 /// Gets claim from claims map by address
-pub fn get_claim<BS: BlockStore>(claims: &Map<BS>, a: &Address) -> Result<Option<Claim>, String> {
+pub fn get_claim<BS: BlockStore>(
+    claims: &Map<BS, Claim>,
+    a: &Address,
+) -> Result<Option<Claim>, String> {
     Ok(claims
         .get(&a.to_bytes())
         .map_err(|e| format!("failed to get claim for address {}: {}", a, e))?)
 }
 
 pub fn set_claim<BS: BlockStore>(
-    claims: &mut Map<BS>,
+    claims: &mut Map<BS, Claim>,
     a: &Address,
     claim: Claim,
 ) -> Result<(), String> {
@@ -234,7 +237,7 @@ pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
 
 impl Cbor for State {}
 
-#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct Claim {
     /// Sum of raw byte power for a miner's sectors.
     #[serde(with = "bigint_ser")]
