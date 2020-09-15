@@ -1236,6 +1236,7 @@ dependencies = [
  "byteorder 1.3.4",
  "clock",
  "db",
+ "fil_types",
  "flo_stream",
  "forest_address",
  "forest_bigint",
@@ -2630,6 +2631,7 @@ version = "0.4.1"
 dependencies = [
  "base64 0.12.3",
  "derive_builder",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_cid",
