@@ -119,7 +119,7 @@ impl GraphSyncMessage {
         self.responses.insert(response.id, response);
     }
     /// Add block to message.
-    // TODO revisit block format, should be fine to be kept seperate, but may need to merge.
+    // TODO revisit block format, should be fine to be kept separate, but may need to merge.
     pub fn insert_block(&mut self, cid: Cid, block: Vec<u8>) {
         self.blocks.insert(cid, block);
     }

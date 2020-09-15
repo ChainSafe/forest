@@ -46,4 +46,6 @@ pub trait Message {
     fn set_gas_fee_cap(&mut self, cap: TokenAmount);
     /// sets the gas premium
     fn set_gas_premium(&mut self, prem: TokenAmount);
+    /// semantic validation of the message
+    fn valid_for_block_inclusion(&self, min_gas: i64) -> Result<(), String>;
 }
