@@ -19,7 +19,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 13] = [
+    static ref SKIP_TESTS: [Regex; 14] = [
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
