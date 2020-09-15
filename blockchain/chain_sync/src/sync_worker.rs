@@ -522,7 +522,7 @@ where
             .map_err(|e| {
                 Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
             })
-            .map_err(|e| (block.cid().clone(), e.into()))?;
+            .map_err(|e| (block.cid().clone(), e))?;
         if &base_fee != block.header().parent_base_fee() {
             error_vec.push(format!(
                 "base fee doesnt match: {} (header), {} (computed)",
