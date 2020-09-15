@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::config::MpoolConfig;
 use super::errors::Error;
 use address::{Address, Protocol};
 use async_std::sync::{Arc, RwLock};
@@ -12,6 +13,7 @@ use chain::{ChainStore, HeadChange};
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
+use db::Store;
 use encoding::Cbor;
 use flo_stream::Subscriber;
 use futures::{stream, StreamExt};
@@ -37,16 +39,6 @@ pub struct MsgSet {
     msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
     required_funds: BigInt,
-}
-
-#[derive(Clone, Default)]
-pub struct MpoolConfig {
-    priority_addrs: Vec<Address>,
-    size_limit_high: i64,
-    size_limit_low: i64,
-    replace_by_fee_ratio: f64,
-    prune_cooldown: i64,
-    gas_limit_overestimation: f64,
 }
 
 impl MsgSet {
@@ -315,6 +307,7 @@ pub struct MessagePool<T: 'static> {
     sig_val_cache: Arc<RwLock<LruCache<Cid, ()>>>,
     // TODO look into adding a cap to local_msgs
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
+    config: MpoolConfig,
 }
 
 impl<T> MessagePool<T>
@@ -322,7 +315,11 @@ where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
     /// Create a new message pool
-    pub async fn new(mut api: T, network_name: String) -> Result<MessagePool<T>, Error>
+    pub async fn new(
+        mut api: T,
+        network_name: String,
+        config: MpoolConfig,
+    ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
     {
@@ -348,6 +345,7 @@ where
             bls_sig_cache,
             sig_val_cache,
             local_msgs,
+            config,
         };
 
         mp.load_local().await?;
@@ -696,6 +694,15 @@ where
             let local_addrs = self.local_addrs.read().await;
             pending.retain(|a, _| local_addrs.contains(&a));
         }
+    }
+    pub fn get_config(&self) -> &MpoolConfig {
+        &self.config
+    }
+    pub fn set_config<DB: Store>(&mut self, db: &DB, cfg: MpoolConfig) -> Result<(), Error> {
+        cfg.save_config(db)
+            .map_err(|e| Error::Other(e.to_string()))?;
+        self.config = cfg;
+        Ok(())
     }
 }
 
