@@ -39,7 +39,7 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/reward/penalties--*").unwrap(),
 
         // These tests are initially failing becuase of gas used in msg 0 did not match
-        //Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
+        Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
         Regex::new(r"test-vectors/corpus/msg_application/actor_exec--msg-apply-fail-actor-execution-illegal-arg.json").unwrap(),
         Regex::new(r"test-vectors/corpus/actor_creation/addresses--sequential-10.json").unwrap(),
 
