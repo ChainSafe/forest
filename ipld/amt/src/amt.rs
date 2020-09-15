@@ -228,7 +228,8 @@ where
         })
     }
 
-    // TODO: docs
+    /// Iterates over each value in the Amt and runs a function on the values, for as long as that
+    /// function keeps returning `true`.
     pub fn for_each_while<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
@@ -240,7 +241,8 @@ where
             .map(|_| ())
     }
 
-    // TODO: docs
+    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
+    /// each value.
     pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
@@ -252,7 +254,8 @@ where
         })
     }
 
-    // TODO: docs
+    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
+    /// each value, for as long as that function keeps returning `true`.
     pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
