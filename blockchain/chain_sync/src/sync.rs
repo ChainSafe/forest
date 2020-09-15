@@ -151,6 +151,7 @@ where
                 network_event = fused_handler.next() => match network_event {
                     Some(NetworkEvent::HelloRequest { request, channel }) => {
                         let source = channel.peer.clone();
+                        self.network.peer_manager().update_peer_head(source.clone(), None).await;
                         debug!(
                             "Message inbound, heaviest tipset cid: {:?}",
                             request.heaviest_tip_set
@@ -261,7 +262,9 @@ where
             .chain_store
             .heaviest_tipset()
             .await
-            .map(|heaviest| ts.weight() >= heaviest.weight())
+            // TODO we should be able to queue a tipset with the same weight on a different chain.
+            // Currently needed to go GT because equal tipsets are attempted to be synced.
+            .map(|heaviest| ts.weight() > heaviest.weight())
             .unwrap_or(true);
         if candidate_ts {
             // Check message meta after all other checks (expensive)
@@ -277,7 +280,7 @@ where
     async fn set_peer_head(&mut self, peer: PeerId, ts: Arc<Tipset>) {
         self.network
             .peer_manager()
-            .add_peer(peer, Arc::clone(&ts))
+            .update_peer_head(peer, Some(Arc::clone(&ts)))
             .await;
 
         // Only update target on initial sync

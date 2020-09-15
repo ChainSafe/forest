@@ -122,7 +122,7 @@ impl SyncNetworkContext {
                         Ok(bs_res) => match bs_res.into_result() {
                             Ok(r) => res = Some(r),
                             Err(e) => {
-                                warn!("Failed to convert blocksync response into type: {}", e);
+                                warn!("Failed blocksync response: {}", e);
                                 continue;
                             }
                         },

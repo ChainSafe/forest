@@ -4,7 +4,7 @@
 use async_std::sync::RwLock;
 use blocks::Tipset;
 use libp2p::core::PeerId;
-use log::{debug, warn};
+use log::{debug, trace, warn};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
 use std::cmp::Ordering;
@@ -25,7 +25,7 @@ const GLOBAL_INV_ALPHA: u32 = 20;
 #[derive(Debug)]
 struct PeerInfo {
     /// Head tipset received from hello message.
-    head: Arc<Tipset>,
+    head: Option<Arc<Tipset>>,
     /// Number of successful requests.
     successes: u32,
     /// Number of failed requests.
@@ -35,7 +35,7 @@ struct PeerInfo {
 }
 
 impl PeerInfo {
-    fn new(head: Arc<Tipset>) -> Self {
+    fn new(head: Option<Arc<Tipset>>) -> Self {
         Self {
             head,
             successes: 0,
@@ -56,13 +56,16 @@ pub struct PeerManager {
 }
 
 impl PeerManager {
-    /// Adds a PeerId to the set of managed peers
-    pub async fn add_peer(&self, peer_id: PeerId, ts: Arc<Tipset>) {
-        debug!("Added PeerId to full peers list: {}", &peer_id);
-        self.full_peers
-            .write()
-            .await
-            .insert(peer_id, PeerInfo::new(ts));
+    /// Updates peer's heaviest tipset. If the peer does not exist in the set, a new `PeerInfo`
+    /// will be generated.
+    pub async fn update_peer_head(&self, peer_id: PeerId, ts: Option<Arc<Tipset>>) {
+        let mut fp = self.full_peers.write().await;
+        trace!("Updating head for PeerId {}", &peer_id);
+        if let Some(pi) = fp.get_mut(&peer_id) {
+            pi.head = ts;
+        } else {
+            fp.insert(peer_id, PeerInfo::new(ts));
+        }
     }
 
     /// Returns true if peer set is empty
@@ -116,7 +119,7 @@ impl PeerManager {
             .read()
             .await
             .iter()
-            .map(|(_, v)| v.head.clone())
+            .filter_map(|(_, v)| v.head.clone())
             .collect()
     }
 
