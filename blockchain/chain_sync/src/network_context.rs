@@ -120,7 +120,10 @@ impl SyncNetworkContext {
                 for p in peers.into_iter() {
                     match self.blocksync_request(p.clone(), request.clone()).await {
                         Ok(bs_res) => match bs_res.into_result() {
-                            Ok(r) => res = Some(r),
+                            Ok(r) => {
+                                res = Some(r);
+                                break;
+                            }
                             Err(e) => {
                                 warn!("Failed blocksync response: {}", e);
                                 continue;
@@ -145,7 +148,7 @@ impl SyncNetworkContext {
         Ok(bs_res)
     }
 
-    /// Send a blocksync request to the network and await response
+    /// Send a blocksync request to the network and await response.
     async fn blocksync_request(
         &self,
         peer_id: PeerId,
@@ -164,38 +167,21 @@ impl SyncNetworkContext {
             })
             .await;
 
-        match future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await {
+        let res = future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
+        let res_duration = SystemTime::now()
+            .duration_since(req_pre_time)
+            .unwrap_or_default();
+        match res {
             Ok(Ok(bs_res)) => {
-                self.peer_manager
-                    .log_success(
-                        &peer_id,
-                        SystemTime::now()
-                            .duration_since(req_pre_time)
-                            .unwrap_or_default(),
-                    )
-                    .await;
+                self.peer_manager.log_success(&peer_id, res_duration).await;
                 Ok(bs_res)
             }
             Ok(Err(e)) => {
-                self.peer_manager
-                    .log_failure(
-                        &peer_id,
-                        SystemTime::now()
-                            .duration_since(req_pre_time)
-                            .unwrap_or_default(),
-                    )
-                    .await;
+                self.peer_manager.log_failure(&peer_id, res_duration).await;
                 Err(format!("RPC error: {}", e.to_string()))
             }
             Err(_) => {
-                self.peer_manager
-                    .log_failure(
-                        &peer_id,
-                        SystemTime::now()
-                            .duration_since(req_pre_time)
-                            .unwrap_or_default(),
-                    )
-                    .await;
+                self.peer_manager.log_failure(&peer_id, res_duration).await;
                 Err("Connection timed out".to_string())
             }
         }

@@ -113,7 +113,7 @@ impl PeerManager {
         peers
     }
 
-    /// Retrieves all tipsets from current peer set
+    /// Retrieves all head tipsets from current peer set.
     pub async fn get_peer_heads(&self) -> Vec<Arc<Tipset>> {
         self.full_peers
             .read()
@@ -123,6 +123,7 @@ impl PeerManager {
             .collect()
     }
 
+    /// Logs a global request success. This just updates the average for the peer manager.
     pub async fn log_global_success(&self, dur: Duration) {
         debug!("logging global success");
         let mut avg_global = self.avg_global_time.write().await;
@@ -139,6 +140,7 @@ impl PeerManager {
         }
     }
 
+    /// Logs a success for the given peer, and updates the average request duration.
     pub async fn log_success(&self, peer: &PeerId, dur: Duration) {
         debug!("logging success for {:?}", peer);
         match self.full_peers.write().await.get_mut(peer) {
@@ -150,6 +152,7 @@ impl PeerManager {
         }
     }
 
+    /// Logs a failure for the given peer, and updates the average request duration.
     pub async fn log_failure(&self, peer: &PeerId, dur: Duration) {
         debug!("logging failure for {:?}", peer);
         match self.full_peers.write().await.get_mut(peer) {
@@ -168,7 +171,7 @@ impl PeerManager {
         self.full_peers.write().await.remove(peer_id).is_some()
     }
 
-    /// Gets count of full peers managed
+    /// Gets count of full peers managed.
     pub async fn len(&self) -> usize {
         self.full_peers.read().await.len()
     }
@@ -186,4 +189,11 @@ fn log_time(info: &mut PeerInfo, dur: Duration) {
             info.average_time += delta
         }
     }
+    log::info!(
+        "updated: {}, s: {}, f: {}, {:.2}%",
+        info.average_time.as_nanos(),
+        info.successes,
+        info.failures,
+        f64::from(info.successes) * 100.0 / f64::from(info.successes + info.failures)
+    );
 }

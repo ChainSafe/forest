@@ -35,6 +35,8 @@ pub struct BlockSyncResponse {
 
 impl BlockSyncResponse {
     /// Converts blocksync response into result.
+    /// Returns an error if the response status is not `Ok`.
+    /// Tipset bundle is converted into generic return type with `TryFrom` trait impl.
     pub fn into_result<T>(self) -> Result<Vec<T>, String>
     where
         T: TryFrom<TipsetBundle, Error = String>,
