@@ -19,7 +19,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 15] = [
+    static ref SKIP_TESTS: [Regex; 13] = [
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -30,12 +30,16 @@ lazy_static! {
         // TODO This fails but is blocked on miner actor refactor, remove skip after that comes in
         Regex::new(r"test-vectors/corpus/reward/reward--ok-miners-awarded-no-premiums.json").unwrap(),
 
-        Regex::new(r"test-vectors/corpus/reward/penalties--penalize*").unwrap(),
+        // These tests are initially failing becuase of gas used in msg 0 did not match
         Regex::new(r"test-vectors/corpus/msg_application/gas_cost*").unwrap(),
         Regex::new(r"test-vectors/corpus/paych/*").unwrap(),
         Regex::new(r"test-vectors/corpus/transfer/*").unwrap(),
-        Regex::new(r"test-vectors/corpus/reward/*").unwrap(),
-        Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
+
+        // This test case fails becuase of this issue https://github.com/filecoin-project/lotus/issues/3491
+        Regex::new(r"test-vectors/corpus/reward/penalties--*").unwrap(),
+
+        // These tests are initially failing becuase of gas used in msg 0 did not match
+        //Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
         Regex::new(r"test-vectors/corpus/msg_application/actor_exec--msg-apply-fail-actor-execution-illegal-arg.json").unwrap(),
         Regex::new(r"test-vectors/corpus/actor_creation/addresses--sequential-10.json").unwrap(),
 
