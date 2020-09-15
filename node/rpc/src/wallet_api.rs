@@ -40,11 +40,11 @@ where
         Ok(act) => {
             let actor = act.ok_or("Could not find actor")?;
             let actor_balance = actor.balance;
-            Ok(actor_balance.to_string())
+            Ok(actor_balance.to_string().into())
         }
         Err(e) => {
             if e == "Address not found" {
-                return Ok(BigUint::default().to_string());
+                return Ok(BigUint::default().to_string().into());
             }
             Err(e.into())
         }
@@ -62,7 +62,7 @@ where
     let keystore = data.keystore.read().await;
 
     let addr = wallet::get_default(&*keystore)?;
-    Ok(addr.to_string())
+    Ok(addr.to_string().into())
 }
 
 /// Export KeyInfo from the Wallet given its address
@@ -80,7 +80,7 @@ where
     let keystore = data.keystore.read().await;
 
     let key_info = wallet::export_key_info(&addr, &*keystore)?;
-    Ok(KeyInfoJson(key_info))
+    Ok(KeyInfoJson(key_info).into())
 }
 
 /// Return whether or not a Key is in the Wallet
@@ -98,7 +98,7 @@ where
     let keystore = data.keystore.read().await;
 
     let key = wallet::find_key(&addr, &*keystore).is_ok();
-    Ok(key)
+    Ok(key.into())
 }
 
 /// Import Keyinfo to the Wallet, return the Address that corresponds to it
@@ -120,7 +120,7 @@ where
 
     keystore.put(addr, key.key_info)?;
 
-    Ok(key.address.to_string())
+    Ok(key.address.to_string().into())
 }
 
 /// List all Addresses in the Wallet
@@ -158,7 +158,7 @@ where
         keystore.put("default".to_string(), key.key_info)?
     }
 
-    Ok(key.address.to_string())
+    Ok(key.address.to_string().into())
 }
 
 /// Set the default Address for the Wallet
@@ -177,7 +177,7 @@ where
     let key_info = keystore.get(&addr_string)?;
     keystore.remove("default".to_string())?; // This line should unregister current default key then continue
     keystore.put("default".to_string(), key_info)?;
-    Ok(())
+    Ok(().into())
 }
 
 /// Sign a vector of bytes
@@ -204,7 +204,7 @@ where
         msg.as_slice(),
     )?;
 
-    Ok(SignatureJson(sig))
+    Ok(SignatureJson(sig).into())
 }
 
 /// Sign an UnsignedMessage, return SignedMessage
@@ -232,7 +232,7 @@ where
 
     let smsg = SignedMessage::new_from_parts(msg, sig)?;
 
-    Ok(SignedMessageJson(smsg))
+    Ok(SignedMessageJson(smsg).into())
 }
 
 /// Verify a Signature, true if verified, false otherwise
@@ -249,5 +249,5 @@ where
     let msg = Vec::from(msg_str);
 
     let ret = sig.verify(&msg, &address).is_ok();
-    Ok(ret)
+    Ok(ret.into())
 }

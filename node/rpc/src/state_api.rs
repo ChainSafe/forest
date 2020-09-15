@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+
 use crate::RpcState;
 use actor::miner::{
     compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault, MinerInfo,
@@ -71,6 +72,7 @@ pub(crate) async fn state_miner_sector<
         &mut filter,
         filter_out,
     )
+    .map(|s| s.into())
     .map_err(|e| e.into())
 }
 
@@ -88,6 +90,7 @@ pub(crate) async fn state_call<
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     state_manager
         .call(&mut message, Some(tipset))
+        .map(|s| s.into())
         .map_err(|e| e.into())
 }
 
@@ -102,7 +105,9 @@ pub(crate) async fn state_miner_deadlines<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
-    state_manager::utils::get_miner_deadlines(&state_manager, &tipset, &actor).map_err(|e| e.into())
+    state_manager::utils::get_miner_deadlines(&state_manager, &tipset, &actor)
+        .map(|s| s.into())
+        .map_err(|e| e.into())
 }
 
 /// returns the PreCommit info for the specified miner's sector
@@ -117,6 +122,7 @@ pub(crate) async fn state_sector_precommit_info<
     let (address, sector_number, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     state_manager::utils::precommit_info(&state_manager, &address, &sector_number, &tipset)
+        .map(|s| s.into())
         .map_err(|e| e.into())
 }
 
@@ -134,6 +140,7 @@ pub(crate) async fn state_miner_proving_set<
     let miner_actor_state: State =
         state_manager.load_actor_state(&address, &tipset.parent_state())?;
     state_manager::utils::get_proving_set_raw(&state_manager, &miner_actor_state)
+        .map(|s| s.into())
         .map_err(|e| e.into())
 }
 
@@ -148,7 +155,9 @@ pub async fn state_miner_info<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(state_manager.get_block_store_ref(), &key)?;
-    state_manager::utils::get_miner_info(&state_manager, &tipset, &actor).map_err(|e| e.into())
+    state_manager::utils::get_miner_info(&state_manager, &tipset, &actor)
+        .map(|s| s.into())
+        .map_err(|e| e.into())
 }
 
 /// returns the on-chain info for the specified miner's sector
@@ -163,6 +172,7 @@ pub async fn state_sector_info<
     let (address, sector_number, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     state_manager::utils::miner_sector_info(&state_manager, &address, &sector_number, &tipset)
+        .map(|s| s.into())
         .map_err(|e| e.into())
 }
 
@@ -180,10 +190,10 @@ pub(crate) async fn state_miner_proving_deadline<
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     let miner_actor_state: State =
         state_manager.load_actor_state(&actor, &tipset.parent_state())?;
-    Ok(compute_proving_period_deadline(
-        miner_actor_state.proving_period_start,
-        tipset.epoch(),
-    ))
+    Ok(
+        compute_proving_period_deadline(miner_actor_state.proving_period_start, tipset.epoch())
+            .into(),
+    )
 }
 
 /// returns a single non-expired Faults that occur within lookback epochs of the given tipset
@@ -198,7 +208,7 @@ pub(crate) async fn state_miner_faults<
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     state_manager::utils::get_miner_faults(&state_manager, &tipset, &actor)
-        .map(|s| s.into())
+        .map(|s|s.into())
         .map_err(|e| e.into())
 }
 
@@ -234,7 +244,7 @@ pub(crate) async fn state_all_miner_faults<
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(all_faults)
+    Ok(all_faults.into())
 }
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
@@ -248,7 +258,7 @@ pub(crate) async fn state_miner_recoveries<
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     state_manager::utils::get_miner_recoveries(&state_manager, &tipset, &actor)
-        .map(|s| s.into())
+        .map(|s|s.into())
         .map_err(|e| e.into())
 }
 
@@ -272,7 +282,8 @@ pub(crate) async fn state_replay<
         error: ret
             .map(|act| act.act_error.map(|e| e.to_string()))
             .unwrap_or_default(),
-    })
+    }
+    .into())
 }
 
 /// returns the indicated actor's nonce and balance.
@@ -287,7 +298,10 @@ pub(crate) async fn state_get_actor<
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
-    state.get_actor(&actor).map_err(|e| e.into())
+    state
+        .get_actor(&actor)
+        .map(|s| s.into())
+        .map_err(|e| e.into())
 }
 
 /// returns the public key address of the given ID address
@@ -304,7 +318,7 @@ pub(crate) async fn state_account_key<
     let state = state_for_ts(&state_manager, Some(tipset))?;
     let address =
         interpreter::resolve_to_key_addr(&state, state_manager.get_block_store_ref(), &actor)?;
-    Ok(address.into())
+    Ok(Some(address))
 }
 /// retrieves the ID address of the given address
 pub(crate) async fn state_lookup_id<
@@ -318,7 +332,10 @@ pub(crate) async fn state_lookup_id<
     let (address, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
-    state.lookup_id(&address).map_err(|e| e.into())
+    state
+        .lookup_id(&address)
+        .map(|s| s.into())
+        .map_err(|e| e.into())
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
@@ -333,6 +350,7 @@ pub(crate) async fn state_market_balance<
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     data.state_manager
         .market_balance(&address, &tipset)
+        .map(|s| s.into())
         .map_err(|e| e.into())
 }
 

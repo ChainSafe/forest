@@ -17,6 +17,8 @@ use async_std::task;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::persist_objects;
+use chain::TipsetMetadata;
+use chain::{HeadChange, TipIndex};
 use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
 use core::time::Duration;
@@ -46,8 +48,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use vm::TokenAmount;
-use chain::{TipIndex,HeadChange};
-use chain::TipsetMetadata;
 
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
 /// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
@@ -70,13 +70,13 @@ pub struct ChainSyncer<DB, TBeacon> {
     next_sync_target: SyncBucket,
 
     // heaviest tipset
-    heaviest_tipset : Arc<RwLock<Option<Arc<Tipset>>>>,
-    
+    heaviest_tipset: Arc<RwLock<Option<Arc<Tipset>>>>,
+
     // publisher chain store
-    publisher : Arc<RwLock<Publisher<HeadChange>>>,
+    publisher: Arc<RwLock<Publisher<HeadChange>>>,
 
     // refrence to tip_index
-    tip_index : Arc<RwLock<TipIndex>>,
+    tip_index: Arc<RwLock<TipIndex>>,
 
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext,
@@ -112,9 +112,9 @@ where
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Tipset,
-        heaviest_tipset : Arc<RwLock<Option<Arc<Tipset>>>>,
-        publisher : Arc<RwLock<Publisher<HeadChange>>>,
-        tip_index : Arc<RwLock<TipIndex>>
+        heaviest_tipset: Arc<RwLock<Option<Arc<Tipset>>>>,
+        publisher: Arc<RwLock<Publisher<HeadChange>>>,
+        tip_index: Arc<RwLock<TipIndex>>,
     ) -> Result<Self, Error> {
         let state_manager = Arc::new(StateManager::new(data_store.clone()));
 
@@ -139,7 +139,7 @@ where
             peer_manager,
             sync_queue: SyncBucketSet::default(),
             next_sync_target: SyncBucket::default(),
-            tip_index
+            tip_index,
         })
     }
 
@@ -180,7 +180,10 @@ where
                     }
                 }
                 NetworkEvent::PeerDialed { peer_id } => {
-                    let heaviest = (self.heaviest_tipset.read().await).as_ref().unwrap().clone();
+                    let heaviest = (self.heaviest_tipset.read().await)
+                        .as_ref()
+                        .unwrap()
+                        .clone();
                     self.network
                         .hello_request(
                             peer_id,
@@ -252,7 +255,13 @@ where
         self.set_stage(SyncStage::Complete).await;
 
         // At this point the head is synced and the head can be set as the heaviest.
-        chain::put_tipset_lock(self.heaviest_tipset.clone(),&head,self.publisher.clone(),self.state_manager.get_block_store()).await?;
+        chain::put_tipset_lock(
+            self.heaviest_tipset.clone(),
+            &head,
+            self.publisher.clone(),
+            self.state_manager.get_block_store(),
+        )
+        .await?;
 
         Ok(())
     }

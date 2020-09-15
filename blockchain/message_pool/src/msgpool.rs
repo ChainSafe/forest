@@ -119,7 +119,6 @@ where
 {
     fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         task::block_on(self.cs.subscribe())
-        
     }
 
     fn get_heaviest_tipset(&mut self) -> Option<Tipset> {

@@ -54,22 +54,24 @@ where
         .get_block_store_ref()
         .get(&msg_cid)?
         .ok_or("can't find message with that cid")?;
-    Ok(UnsignedMessageJson(ret))
+    Ok(UnsignedMessageJson(ret).into())
 }
 
-pub(crate) async fn chain_notify<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
-) -> Result<Vec<chain::headchange_json::HeadChangeJson>, JsonRpcError>
+pub(crate) async fn chain_notify<DB, KS>(data: Data<RpcState<DB, KS>>,Params(params): Params<usize>) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let heaviest_tipset  = data.heaviest_tipset.read().await;
-    let recieve_subhead_changes = chain::sub_head_changes(data.subscriber.clone(),&heaviest_tipset).await?;
-    let vec: Vec<chain::headchange_json::HeadChangeJson> =
-        recieve_subhead_changes.map(|s| s.into()).collect().await;
 
-    Ok(vec)
+    let heaviest_tipset = data.heaviest_tipset.read().await;
+    chain::headchange_json::sub_head_changes(
+        data.publisher.clone(),
+        data.subscriber.clone(),
+        &heaviest_tipset,
+        params
+    )
+    .await?;
+    Ok(())
 }
 
 pub(crate) async fn chain_read_obj<DB, KS>(
@@ -86,7 +88,7 @@ where
         .get_block_store_ref()
         .get_bytes(&obj_cid)?
         .ok_or("can't find object with that cid")?;
-    Ok(ret)
+    Ok(ret.into())
 }
 
 pub(crate) async fn chain_has_obj<DB, KS>(
@@ -102,7 +104,8 @@ where
         .state_manager
         .get_block_store_ref()
         .get_bytes(&obj_cid)?
-        .is_some())
+        .is_some()
+        .into())
 }
 
 pub(crate) async fn chain_block_messages<DB, KS>(
@@ -137,7 +140,7 @@ where
         secp_msg,
         cids,
     };
-    Ok(ret)
+    Ok(ret.into())
 }
 
 pub(crate) async fn chain_get_tipset_by_height<DB, KS>(
@@ -151,7 +154,7 @@ where
     let (height, tsk) = params;
     let ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
     let tss = chain::tipset_by_height(data.state_manager.get_block_store_ref(), height, ts, true)?;
-    Ok(TipsetJson(tss))
+    Ok(TipsetJson(tss).into())
 }
 
 pub(crate) async fn chain_get_genesis<DB, KS>(
@@ -164,7 +167,7 @@ where
     let genesis = chain::genesis(data.state_manager.get_block_store_ref())?
         .ok_or("can't find genesis tipset")?;
     let gen_ts = Tipset::new(vec![genesis])?;
-    Ok(Some(TipsetJson(gen_ts)))
+    Ok(Some(TipsetJson(gen_ts)).into())
 }
 
 pub(crate) async fn chain_head<DB, KS>(
@@ -176,7 +179,7 @@ where
 {
     let heaviest = chain::get_heaviest_tipset(data.state_manager.get_block_store_ref())?
         .ok_or("can't find heaviest tipset")?;
-    Ok(TipsetJson(heaviest))
+    Ok(TipsetJson(heaviest).into())
 }
 
 pub(crate) async fn chain_tipset_weight<DB, KS>(
@@ -206,7 +209,7 @@ where
         .get_block_store_ref()
         .get(&blk_cid)?
         .ok_or("can't find BlockHeader with that cid")?;
-    Ok(BlockHeaderJson(blk))
+    Ok(BlockHeaderJson(blk).into())
 }
 
 pub(crate) async fn chain_get_tipset<DB, KS>(
@@ -219,7 +222,7 @@ where
 {
     let (tsk,) = params;
     let ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
-    Ok(TipsetJson(ts))
+    Ok(TipsetJson(ts).into())
 }
 
 pub(crate) async fn chain_get_randomness<DB, KS>(
@@ -237,5 +240,6 @@ where
         DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
         epoch,
         &entropy,
-    )?)
+    )?
+    .into())
 }

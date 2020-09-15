@@ -9,6 +9,7 @@ use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
+use flo_stream::Publisher;
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
@@ -91,7 +92,7 @@ pub(super) async fn start(config: Config) {
         genesis,
         heaviest_tipset.clone(),
         publisher,
-        chain_store.tip_index_ref()
+        chain_store.tip_index_ref(),
     )
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
@@ -122,7 +123,9 @@ pub(super) async fn start(config: Config) {
                     network_send,
                     network_name,
                     heaviest_tipset,
-                    subscriber
+                    subscriber,
+                    next_id: 0,
+                    publisher: Arc::new(RwLock::new(Publisher::new(1000))),
                 },
                 &rpc_listen,
             )
