@@ -21,10 +21,7 @@ use encoding::{Cbor, Error as EncodingError};
 use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::{BlockSyncRequest, MESSAGES};
-use futures::{
-    executor::block_on,
-    stream::{FuturesUnordered, StreamExt},
-};
+use futures::stream::{FuturesUnordered, StreamExt};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, error, info, warn};
@@ -427,7 +424,7 @@ where
             let cs = self.chain_store.clone();
             let sm = self.state_manager.clone();
             let bc = self.beacon.clone();
-            let v = task::spawn(async move { Self::validate(cs, sm, bc, b).await });
+            let v = task::spawn(async move { Self::validate(cs, sm, bc, Arc::new(b)).await });
             validations.push(v);
         }
 
@@ -455,74 +452,69 @@ where
         cs: Arc<ChainStore<DB>>,
         sm: Arc<StateManager<DB>>,
         bc: Arc<TBeacon>,
-        block: Block,
-    ) -> Result<Block, (Cid, Error)> {
+        block: Arc<Block>,
+    ) -> Result<Arc<Block>, (Cid, Error)> {
         debug!(
             "Validating block at epoch: {} with weight: {}",
             block.header().epoch(),
             block.header().weight()
         );
+
+        // TODO block validation cache not implemented
+
         let mut error_vec: Vec<String> = Vec::new();
         let mut validations = FuturesUnordered::new();
         let header = block.header();
 
+        // TODO this should be full sanity check
         // check if block has been signed
         if header.signature().is_none() {
+            // TODO This should return error
             error_vec.push("Signature is nil in header".to_owned());
         }
 
-        let parent_tipset = cs
-            .tipset_from_keys(header.parents())
-            .map_err(|e| (block.cid().clone(), e.into()))?;
+        let parent_tipset = Arc::new(
+            cs.tipset_from_keys(header.parents())
+                .map_err(|e| (block.cid().clone(), e.into()))?,
+        );
 
-        // time stamp checks
-        if let Err(err) = header.validate_timestamps(&parent_tipset) {
-            error_vec.push(err.to_string());
-        }
+        // TODO should get lookback tipset for round.
 
-        let b = block.clone();
-
-        let parent_clone = parent_tipset.clone();
-        // check messages to ensure valid state transitions
-        let sm_c = sm.clone();
-        let x = task::spawn_blocking(move || Self::check_block_msgs(sm_c, b, parent_clone));
-        validations.push(x);
-
-        // block signature check
         let (state_root, _) = sm.tipset_state(&parent_tipset).await.map_err(|e| {
             (
                 block.cid().clone(),
                 Error::Validation(format!("Could not update state: {}", e.to_string())),
             )
         })?;
-        let work_addr_result = sm.get_miner_work_addr(&state_root, header.miner_address());
 
-        // temp header needs to live long enough in static context returned by task::spawn
-        let signature = block.header().signature().clone();
-        let cid_bytes = block
-            .header()
-            .to_signing_bytes()
+        let prev_beacon = chain::latest_beacon_entry(
+            cs.blockstore(),
+            &cs.tipset_from_keys(header.parents())
+                .map_err(|e| (block.cid().clone(), e.into()))?,
+        )
+        .map_err(|e| (block.cid().clone(), e.into()))?;
+
+        // time stamp checks
+        header
+            .validate_timestamps(&parent_tipset)
             .map_err(|e| (block.cid().clone(), e.into()))?;
-        match work_addr_result {
-            Ok(_) => validations.push(task::spawn_blocking(move || {
-                signature
-                    .ok_or_else(|| {
-                        Error::Blockchain(blocks::Error::InvalidSignature(
-                            "Signature is nil in header".to_owned(),
-                        ))
-                    })?
-                    .verify(&cid_bytes, &work_addr_result.unwrap())
-                    .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
-            })),
-            Err(err) => error_vec.push(err.to_string()),
-        }
 
-        // base fee check
+        // * Check block messages and their signatures as well as message root
+        let b = Arc::clone(&block);
+        let parent_clone = Arc::clone(&parent_tipset);
+        let sm_c = Arc::clone(&sm);
+        let x = task::spawn_blocking(move || Self::check_block_msgs(sm_c, &b, &parent_clone));
+        validations.push(x);
+
+        // TODO miner check here
+
+        // * base fee check
+        // TODO make async
         let base_fee = chain::compute_base_fee(cs.db.as_ref(), &parent_tipset)
             .map_err(|e| {
                 Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
             })
-            .map_err(|e| (block.cid().clone(), e.into()))?;
+            .map_err(|e| (block.cid().clone(), e))?;
         if &base_fee != block.header().parent_base_fee() {
             error_vec.push(format!(
                 "base fee doesnt match: {} (header), {} (computed)",
@@ -531,6 +523,21 @@ where
             ));
         }
 
+        // * Parent weight calculation check
+        // TODO get and check parent weight
+
+        // * State root check
+        // TODO perform state transition and check root async
+
+        // Work address needed for following checks, so necessary to do sync
+        let work_addr = sm
+            .get_miner_work_addr(&state_root, header.miner_address())
+            .map_err(|e| (block.cid().clone(), e.into()))?;
+
+        // * Winner election PoSt validations
+        // TODO not completed
+
+        // TODO This should exist in the winning async task
         let slash = sm
             .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
             .unwrap_or_else(|err| {
@@ -541,13 +548,25 @@ where
             error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
 
-        let prev_beacon = chain::latest_beacon_entry(
-            cs.blockstore(),
-            &cs.tipset_from_keys(header.parents())
-                .map_err(|e| (block.cid().clone(), e.into()))?,
-        )
-        .map_err(|e| (block.cid().clone(), e.into()))?;
+        // TODO signature can be unwrapped in sanity checks
+        let signature = block.header().signature().clone();
+        let cid_bytes = block
+            .header()
+            .to_signing_bytes()
+            .map_err(|e| (block.cid().clone(), e.into()))?;
 
+        // * Block signature check
+        validations.push(task::spawn_blocking(move || {
+            signature
+                .ok_or_else(|| {
+                    blocks::Error::InvalidSignature("Signature is nil in header".to_owned())
+                })?
+                .verify(&cid_bytes, &work_addr)
+                .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
+        }));
+
+        // * Beacon values check
+        // TODO can be async (and verify validation)
         if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
             header
                 .validate_block_drand(bc.as_ref(), prev_beacon)
@@ -555,19 +574,11 @@ where
                 .map_err(|e| (block.cid().clone(), e.into()))?;
         }
 
-        let power_result = sm.get_power(&parent_tipset.parent_state(), header.miner_address());
-        // ticket winner check
-        match power_result {
-            Ok((_c_pow, _net_pow)) => {
-                // TODO this doesn't seem to be checked currently
-                // if !header.is_ticket_winner(c_pow, net_pow) {
-                //     error_vec.push("Miner created a block but was not a winner".to_owned())
-                // }
-            }
-            Err(err) => error_vec.push(err.to_string()),
-        }
+        // * Ticket election proof validations
+        // TODO
 
-        // TODO verify_ticket_vrf
+        // * Winning PoSt proof validation
+        // TODO
 
         // collect the errors from the async validations
         while let Some(result) = validations.next().await {
@@ -587,8 +598,8 @@ where
     // Block message validation checks
     fn check_block_msgs(
         state_manager: Arc<StateManager<DB>>,
-        block: Block,
-        tip: Tipset,
+        block: &Block,
+        tip: &Tipset,
     ) -> Result<(), Error> {
         // do the initial loop here
         // Check Block Message and Signatures in them
@@ -678,7 +689,7 @@ where
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         let db = state_manager.get_block_store();
-        let (state_root, _) = block_on(state_manager.tipset_state(&tip))
+        let (state_root, _) = task::block_on(state_manager.tipset_state(&tip))
             .map_err(|e| Error::Validation(format!("Could not update state: {}", e)))?;
         let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
             Error::Validation("Could not load from new state root in state manager".to_owned())
