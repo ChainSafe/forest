@@ -129,14 +129,12 @@ impl PeerManager {
         let mut avg_global = self.avg_global_time.write().await;
         if *avg_global == Duration::default() {
             *avg_global = dur;
+        } else if dur < *avg_global {
+            let delta = (*avg_global - dur) / GLOBAL_INV_ALPHA;
+            *avg_global -= delta
         } else {
-            if dur < *avg_global {
-                let delta = (*avg_global - dur) / GLOBAL_INV_ALPHA;
-                *avg_global -= delta
-            } else {
-                let delta = (dur - *avg_global) / GLOBAL_INV_ALPHA;
-                *avg_global += delta
-            }
+            let delta = (dur - *avg_global) / GLOBAL_INV_ALPHA;
+            *avg_global += delta
         }
     }
 
@@ -180,20 +178,11 @@ impl PeerManager {
 fn log_time(info: &mut PeerInfo, dur: Duration) {
     if info.average_time == Duration::default() {
         info.average_time = dur;
+    } else if dur < info.average_time {
+        let delta = (info.average_time - dur) / LOCAL_INV_ALPHA;
+        info.average_time -= delta
     } else {
-        if dur < info.average_time {
-            let delta = (info.average_time - dur) / LOCAL_INV_ALPHA;
-            info.average_time -= delta
-        } else {
-            let delta = (dur - info.average_time) / LOCAL_INV_ALPHA;
-            info.average_time += delta
-        }
+        let delta = (dur - info.average_time) / LOCAL_INV_ALPHA;
+        info.average_time += delta
     }
-    log::info!(
-        "updated: {}, s: {}, f: {}, {:.2}%",
-        info.average_time.as_nanos(),
-        info.successes,
-        info.failures,
-        f64::from(info.successes) * 100.0 / f64::from(info.successes + info.failures)
-    );
 }
