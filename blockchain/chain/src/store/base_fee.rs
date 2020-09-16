@@ -7,8 +7,8 @@ use ipld_blockstore::BlockStore;
 use message::Message;
 use num_bigint::BigInt;
 use std::collections::HashSet;
+use types::BLOCK_GAS_LIMIT;
 
-pub const BLOCK_GAS_LIMIT: i64 = 10_000_000_000;
 pub const BLOCK_GAS_TARGET: i64 = (BLOCK_GAS_LIMIT / 2) as i64;
 pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8; // 12.5%;
 pub const INITIAL_BASE_FEE: i64 = 100000000; // Genesis base fee
