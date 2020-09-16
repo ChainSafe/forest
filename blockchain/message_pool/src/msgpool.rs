@@ -34,7 +34,7 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct MsgSet {
     pub msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
@@ -404,7 +404,8 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        msg.valid_for_block_inclusion(0).map_err(|e| Error::Other(e.to_string()))?;
+        msg.valid_for_block_inclusion(0)
+            .map_err(|e| Error::Other(e.to_string()))?;
         if msg.value() > &BigInt::from(types::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
@@ -572,7 +573,12 @@ where
     }
 
     /// Remove a message given a sequence and address from the messagepool
-    pub async fn remove(&mut self, from: &Address, sequence: u64, applied: bool) -> Result<(), Error> {
+    pub async fn remove(
+        &mut self,
+        from: &Address,
+        sequence: u64,
+        applied: bool,
+    ) -> Result<(), Error> {
         remove(from, self.pending.as_ref(), sequence, applied).await
     }
 
@@ -708,7 +714,8 @@ where
 fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
-    m.valid_for_block_inclusion(min_gas.total()).map_err(|e| Error::Other(e.to_string()))?;
+    m.valid_for_block_inclusion(min_gas.total())
+        .map_err(|e| Error::Other(e.to_string()))?;
     if cur_ts.blocks().len() > 0 {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
         let base_fee_lower_bound = base_fee / BASE_FEE_LOWER_BOUND_FACTOR;
@@ -733,8 +740,7 @@ pub async fn remove(
     applied: bool,
 ) -> Result<(), Error> {
     let mut pending = pending.write().await;
-    let mset = if let Some(mset) = pending
-        .get_mut(from) {
+    let mset = if let Some(mset) = pending.get_mut(from) {
         mset
     } else {
         return Ok(());
@@ -821,6 +827,7 @@ where
 
     for m in msgs {
         if m.from() == addr {
+            println!("ms: {}, bs: {}", m.sequence(), base_sequence);
             if m.sequence() != base_sequence {
                 return Err(Error::Other("tipset has bad sequence ordering".to_string()));
             }
@@ -916,7 +923,6 @@ fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage
     if let Some(s) = s {
         s.insert(m.sequence(), m);
     } else {
-
         rmsgs.insert(*m.from(), HashMap::new());
         rmsgs.get_mut(m.from()).unwrap().insert(m.sequence(), m);
     }
@@ -983,15 +989,29 @@ pub mod test_provider {
             Ok(Cid::default())
         }
 
-        fn get_actor_after(&self, addr: &Address, _ts: &Tipset) -> Result<ActorState, Errors> {
-            let s = self.state_sequence.get(addr);
-            let mut sequence = 0;
-            if let Some(sq) = s {
-                sequence = *sq;
+        fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Errors> {
+            let mut msgs: Vec<SignedMessage> = Vec::new();
+            for b in ts.blocks() {
+                if let Some(ms) = self.bmsgs.get(b.cid()) {
+                    for m in ms {
+                        if m.from() == addr {
+                            msgs.push(m.clone());
+                        }
+                    }
+                }
+            }
+            msgs.sort_by(|m, m2| m.sequence().cmp(&m2.sequence()));
+            let mut sequence: u64 = self.state_sequence.get(addr).copied().unwrap_or_default();
+            for m in msgs {
+                if m.sequence() != sequence {
+                    break;
+                }
+                sequence += 1;
             }
             let actor = ActorState::new(
                 Cid::default(),
                 Cid::default(),
+                // TODO balance not handled in tests
                 BigInt::from(9_000_000 as u64),
                 sequence,
             );
@@ -1015,10 +1035,10 @@ pub mod test_provider {
         }
 
         async fn state_account_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
-           match addr.protocol(){
-               Protocol::BLS | Protocol::Secp256k1 => Ok(addr.clone()),
-               _ => Err(Error::Other("given address was not a key addr".to_string()))
-           }
+            match addr.protocol() {
+                Protocol::BLS | Protocol::Secp256k1 => Ok(addr.clone()),
+                _ => Err(Error::Other("given address was not a key addr".to_string())),
+            }
         }
 
         fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Errors> {
@@ -1158,9 +1178,11 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default())
+                .await
+                .unwrap();
             let mut smsg_vec = Vec::new();
-            for i in 0..4 {
+            for i in 0..2 {
                 let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i);
                 smsg_vec.push(msg);
             }
@@ -1171,7 +1193,6 @@ pub mod tests {
             assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 1);
             mpool.add(&smsg_vec[1].clone()).await.unwrap();
             assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 2);
-
 
             let a = mock_block(1, 1);
 
@@ -1216,7 +1237,9 @@ pub mod tests {
         }
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default())
+                .await
+                .unwrap();
 
             let mut api_temp = mpool.api.write().await;
             api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
@@ -1300,7 +1323,9 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default())
+                .await
+                .unwrap();
 
             let mut smsg_vec = Vec::new();
             for i in 0..3 {
