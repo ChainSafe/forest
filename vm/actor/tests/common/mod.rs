@@ -185,6 +185,11 @@ impl MockRuntime {
     }
 
     #[allow(dead_code)]
+    pub fn set_balance(&mut self, amount: TokenAmount) {
+        self.balance = amount;
+    }
+
+    #[allow(dead_code)]
     pub fn expect_verify_consensus_fault(
         &self,
         h1: Vec<u8>,
@@ -387,6 +392,12 @@ impl MockRuntime {
     #[allow(dead_code)]
     pub fn set_value(&mut self, value: TokenAmount) {
         self.value_received = value;
+    }
+
+    #[allow(dead_code)]
+    pub fn replace_state<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
+        self.state = Some(self.store.put(obj, Blake2b256).unwrap());
+        Ok(())
     }
 }
 
