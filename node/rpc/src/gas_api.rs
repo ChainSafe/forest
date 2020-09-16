@@ -53,7 +53,7 @@ where
     } else {
         fee_in_future
     };
-    Ok(out.to_string().into())
+    Ok(out.to_string())
 }
 
 /// Estimate the fee cap
@@ -116,7 +116,7 @@ where
         }
         if prev == 0.into() {
             let ret: BigInt = price.price + 1;
-            return Ok(ret.to_string().into());
+            return Ok(ret.to_string());
         }
         premium = (&price.price + &prev) / 2 + 1
     }
@@ -140,7 +140,7 @@ where
         .ok_or("failed to converrt gas premium f64 to bigint")?;
     premium /= 1 << precision;
 
-    Ok(premium.to_string().into())
+    Ok(premium.to_string())
 }
 
 /// Estimate the gas limit
@@ -181,8 +181,8 @@ where
             if rct.exit_code as u64 != 0 {
                 return Ok(-1);
             }
-            Ok(rct.gas_used.into())
+            Ok(rct.gas_used)
         }
-        None => return Ok(-1),
+        None => Ok(-1),
     }
 }

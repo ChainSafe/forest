@@ -3,7 +3,6 @@
 
 use crate::RpcState;
 
-
 use address::Address;
 use blocks::TipsetKeys;
 use blockstore::BlockStore;
@@ -33,7 +32,7 @@ where
     let price = data
         .mpool
         .estimate_gas_premium(nblocks, sender, gas_limit, tsk)?;
-    Ok(price.to_string().into())
+    Ok(price.to_string())
 }
 
 /// get the sequence of given address in mpool
@@ -48,7 +47,7 @@ where
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
     let sequence = data.mpool.get_sequence(&address).await?;
-    Ok(sequence.into())
+    Ok(sequence)
 }
 
 /// Return Vec of pending messages in mpool
@@ -72,13 +71,13 @@ where
     }
 
     if mpts.epoch() > ts.epoch() {
-        return Ok(pending.into());
+        return Ok(pending);
     }
 
     loop {
         if mpts.epoch() == ts.epoch() {
             if mpts == ts {
-                return Ok(pending.into());
+                return Ok(pending);
             }
 
             // mpts has different blocks than ts
@@ -101,7 +100,7 @@ where
         }
 
         if mpts.epoch() >= ts.epoch() {
-            return Ok(pending.into());
+            return Ok(pending);
         }
 
         ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), ts.parents())?;
@@ -121,7 +120,7 @@ where
 
     let cid = data.mpool.as_ref().push(smsg).await?;
 
-    Ok(CidJson(cid).into())
+    Ok(CidJson(cid))
 }
 
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
@@ -151,5 +150,5 @@ where
 
     data.mpool.as_ref().push(smsg.clone()).await?;
 
-    Ok(SignedMessageJson(smsg).into())
+    Ok(SignedMessageJson(smsg))
 }

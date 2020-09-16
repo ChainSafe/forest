@@ -24,17 +24,19 @@ use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use forest_libp2p::NetworkMessage;
 use futures::sink::SinkExt;
 use futures::stream::{SplitSink, StreamExt};
-use jsonrpc_v2::{Data, MapRouter, RequestObject,RequestBuilder,ResponseObject, ResponseObjects, Server,V2,Error,Id};
+use jsonrpc_v2::{
+    Data, Error, Id, MapRouter, RequestBuilder, RequestObject, ResponseObject, ResponseObjects,
+    Server, V2,
+};
 use log::{info, warn};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::Serialize;
 use state_manager::StateManager;
 use wallet::KeyStore;
 
-
 type WsSink = SplitSink<WebSocketStream<TcpStream>, async_tungstenite::tungstenite::Message>;
 
-const CHAIN_NOTIFY_METHOD_NAME : &str= "Filecoin.ChainNotify";
+const CHAIN_NOTIFY_METHOD_NAME: &str = "Filecoin.ChainNotify";
 #[derive(Serialize)]
 struct StreamingData {
     json_rpc: String,
@@ -50,7 +52,7 @@ where
 {
     pub state_manager: Arc<StateManager<DB>>,
     pub keystore: Arc<RwLock<KS>>,
-    pub heaviest_tipset:Arc<RwLock<Option<Arc<Tipset>>>>,
+    pub heaviest_tipset: Arc<RwLock<Option<Arc<Tipset>>>>,
     pub subscriber: Subscriber<HeadChange>,
     pub publisher: Arc<RwLock<Publisher<HeadChangeJson>>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
@@ -291,18 +293,14 @@ async fn handle_connection_and_log(
                             Ok(call) => {
                                 // hacky but due to the limitations of jsonrpc_v2 impl
                                 // if this expands, better to implement some sort of middleware
-                                let call = if &*call.method==CHAIN_NOTIFY_METHOD_NAME
-                                {
-                                    
-                                    chain_notify_count = chain_notify_count + 1;
+                                let call = if &*call.method == CHAIN_NOTIFY_METHOD_NAME {
+                                    chain_notify_count += 1;
                                     RequestBuilder::default()
-                                               .with_id(call.id.unwrap_or_default().unwrap_or_default())
-                                               .with_params(chain_notify_count)
-                                               .with_method(CHAIN_NOTIFY_METHOD_NAME)
-                                               .finish()
-                                }
-                                else 
-                                {
+                                        .with_id(call.id.unwrap_or_default().unwrap_or_default())
+                                        .with_params(chain_notify_count)
+                                        .with_method(CHAIN_NOTIFY_METHOD_NAME)
+                                        .finish()
+                                } else {
                                     call
                                 };
                                 let response = state.clone().handle(call).await;
@@ -310,43 +308,43 @@ async fn handle_connection_and_log(
                                     ws_sender.clone(),
                                     response,
                                     subscriber.clone(),
-                                    chain_notify_count
+                                    chain_notify_count,
                                 )
                                 .await;
                             }
                             Err(_) => {
-                                let response = ResponseObjects::One(ResponseObject::Error{
+                                let response = ResponseObjects::One(ResponseObject::Error {
                                     jsonrpc: V2,
-                                    error: Error::Provided{
-                                        code : 1,
-                                        message : "Error serialization request"
+                                    error: Error::Provided {
+                                        code: 1,
+                                        message: "Error serialization request",
                                     },
-                                    id: Id::Null
+                                    id: Id::Null,
                                 });
                                 streaming_payload_and_log(
                                     ws_sender.clone(),
                                     response,
                                     subscriber.clone(),
-                                    chain_notify_count
+                                    chain_notify_count,
                                 )
                                 .await;
                             }
                         }
                     }
                     Err(_) => {
-                        let response = ResponseObjects::One(ResponseObject::Error{
+                        let response = ResponseObjects::One(ResponseObject::Error {
                             jsonrpc: V2,
-                            error: Error::Provided{
-                                code : 2,
-                                message : "Error reading request"
+                            error: Error::Provided {
+                                code: 2,
+                                message: "Error reading request",
                             },
-                            id: Id::Null
+                            id: Id::Null,
                         });
                         streaming_payload_and_log(
                             ws_sender.clone(),
                             response,
                             subscriber.clone(),
-                            chain_notify_count
+                            chain_notify_count,
                         )
                         .await;
                     }
@@ -362,7 +360,7 @@ async fn streaming_payload_and_log(
     ws_sender: Arc<RwLock<WsSink>>,
     response_object: ResponseObjects,
     mut subscriber: Subscriber<HeadChangeJson>,
-    streaming_count : usize
+    streaming_count: usize,
 ) {
     let response_text = serde_json::to_string_pretty(&response_object).unwrap();
     ws_sender
@@ -372,21 +370,20 @@ async fn streaming_payload_and_log(
         .await
         .unwrap_or_else(|_| warn!("Could not send to response to socket"));
     if let ResponseObjects::One(ResponseObject::Result {
-        jsonrpc : _,
-        result : _,
-        id : _,
-        streaming
+        jsonrpc: _,
+        result: _,
+        id: _,
+        streaming,
     }) = response_object
     {
         if streaming {
-  
             task::spawn(async move {
                 let sender = ws_sender.clone();
-                for resp in subscriber.next().await {
+                while let Some(resp) = subscriber.next().await {
                     let data = StreamingData {
                         json_rpc: "2.0".to_string(),
                         method: "xrpc.ch.val".to_string(),
-                        params: (streaming_count, vec![resp.into()]),
+                        params: (streaming_count, vec![resp]),
                     };
                     let response_text =
                         serde_json::to_string_pretty(&data).expect("Bad Serialization of Type");

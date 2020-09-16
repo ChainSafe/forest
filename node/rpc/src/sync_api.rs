@@ -30,7 +30,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
-    Ok(data.bad_blocks.peek(&cid).await.unwrap_or_default().into())
+    Ok(data.bad_blocks.peek(&cid).await.unwrap_or_default())
 }
 
 /// Marks a block as bad, meaning it will never be synced.
@@ -46,7 +46,7 @@ where
     data.bad_blocks
         .put(cid, "Marked bad manually through RPC API".to_string())
         .await;
-    Ok(().into())
+    Ok(())
 }
 
 // TODO SyncIncomingBlocks (requires websockets)
@@ -88,7 +88,7 @@ where
             message: blk.marshal_cbor().map_err(|e| e.to_string())?,
         })
         .await;
-    Ok(().into())
+    Ok(())
 }
 
 #[cfg(test)]

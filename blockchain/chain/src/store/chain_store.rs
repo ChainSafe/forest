@@ -29,7 +29,6 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
 
-
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
 // constants for Weight calculation
@@ -160,8 +159,7 @@ where
         self.heaviest.read().await.clone()
     }
 
-    pub fn heaviest_tipset_ref(&self) -> Arc<RwLock<Option<Arc<Tipset>>>>
-    {
+    pub fn heaviest_tipset_ref(&self) -> Arc<RwLock<Option<Arc<Tipset>>>> {
         self.heaviest.clone()
     }
 
@@ -782,7 +780,7 @@ pub mod headchange_json {
         publisher: Arc<RwLock<Publisher<HeadChangeJson>>>,
         mut subscribed_head_change: Subscriber<HeadChange>,
         heaviest_tipset: &Option<Arc<Tipset>>,
-        current_index : usize
+        current_index: usize,
     ) -> Result<usize, Error> {
         info!("sub head changes");
         let head = heaviest_tipset

@@ -113,7 +113,6 @@ pub(super) async fn start(config: Config) {
         p2p_service.run().await;
     });
 
-    
     let rpc_task = if config.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);

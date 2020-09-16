@@ -60,7 +60,7 @@ where
     let keystore = data.keystore.read().await;
 
     let addr = wallet::get_default(&*keystore)?;
-    Ok(addr.to_string().into())
+    Ok(addr.to_string())
 }
 
 /// Export KeyInfo from the Wallet given its address
@@ -78,7 +78,7 @@ where
     let keystore = data.keystore.read().await;
 
     let key_info = wallet::export_key_info(&addr, &*keystore)?;
-    Ok(KeyInfoJson(key_info).into())
+    Ok(KeyInfoJson(key_info))
 }
 
 /// Return whether or not a Key is in the Wallet
@@ -96,7 +96,7 @@ where
     let keystore = data.keystore.read().await;
 
     let key = wallet::find_key(&addr, &*keystore).is_ok();
-    Ok(key.into())
+    Ok(key)
 }
 
 /// Import Keyinfo to the Wallet, return the Address that corresponds to it
@@ -118,7 +118,7 @@ where
 
     keystore.put(addr, key.key_info)?;
 
-    Ok(key.address.to_string().into())
+    Ok(key.address.to_string())
 }
 
 /// List all Addresses in the Wallet
@@ -156,7 +156,7 @@ where
         keystore.put("default".to_string(), key.key_info)?
     }
 
-    Ok(key.address.to_string().into())
+    Ok(key.address.to_string())
 }
 
 /// Set the default Address for the Wallet
@@ -175,7 +175,7 @@ where
     let key_info = keystore.get(&addr_string)?;
     keystore.remove("default".to_string())?; // This line should unregister current default key then continue
     keystore.put("default".to_string(), key_info)?;
-    Ok(().into())
+    Ok(())
 }
 
 /// Sign a vector of bytes
@@ -202,7 +202,7 @@ where
         msg.as_slice(),
     )?;
 
-    Ok(SignatureJson(sig).into())
+    Ok(SignatureJson(sig))
 }
 
 /// Sign an UnsignedMessage, return SignedMessage
@@ -230,7 +230,7 @@ where
 
     let smsg = SignedMessage::new_from_parts(msg, sig)?;
 
-    Ok(SignedMessageJson(smsg).into())
+    Ok(SignedMessageJson(smsg))
 }
 
 /// Verify a Signature, true if verified, false otherwise
@@ -247,5 +247,5 @@ where
     let msg = Vec::from(msg_str);
 
     let ret = sig.verify(&msg, &address).is_ok();
-    Ok(ret.into())
+    Ok(ret)
 }
