@@ -260,7 +260,7 @@ where
                     None => { break; }
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
-                    //info!("Peers connected: {}", swarm_stream.get_ref().peers().len());
+                    info!("Peers connected: {}", swarm_stream.get_ref().peers().len());
                     ();
                 }
             };
