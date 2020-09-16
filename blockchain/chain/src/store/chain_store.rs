@@ -29,6 +29,8 @@ use std::sync::Arc;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
+const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
+
 // constants for Weight calculation
 /// The ratio of weight contributed by short-term vs long-term factors in a given round
 const W_RATIO_NUM: u64 = 1;
@@ -212,6 +214,28 @@ where
         }
         Ok(())
     }
+
+    /// Checks store if block has already been validated. Key based on the block validation prefix.
+    pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
+        let key = block_validation_key(cid);
+
+        Ok(self.db.exists(key)?)
+    }
+
+    /// Marks block as validated in the store. This is retrieved using the block validation prefix.
+    pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
+        let key = block_validation_key(cid);
+
+        Ok(self.db.write(key, &[])?)
+    }
+}
+
+/// Helper to ensure consistent Cid -> db key translation.
+fn block_validation_key(cid: &Cid) -> Vec<u8> {
+    let mut key = Vec::new();
+    key.extend_from_slice(BLOCK_VAL_PREFIX);
+    key.extend(cid.to_bytes());
+    key
 }
 
 /// Returns messages for a given tipset from db
@@ -650,7 +674,7 @@ where
 mod tests {
     use super::*;
     use address::Address;
-    use cid::multihash::Identity;
+    use cid::multihash::{Identity, Sha2_256};
 
     #[test]
     fn genesis_test() {
@@ -670,5 +694,18 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), None);
         cs.set_genesis(&gen_block).unwrap();
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
+    }
+
+    #[test]
+    fn block_validation_cache_basic() {
+        let db = db::MemoryDB::default();
+
+        let cs = ChainStore::new(Arc::new(db));
+
+        let cid = Cid::new_from_cbor(&[1, 2, 3], Sha2_256);
+        assert_eq!(cs.is_block_validated(&cid).unwrap(), false);
+
+        cs.mark_block_as_validated(&cid).unwrap();
+        assert_eq!(cs.is_block_validated(&cid).unwrap(), true);
     }
 }

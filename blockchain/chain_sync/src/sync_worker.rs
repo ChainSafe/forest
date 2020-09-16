@@ -460,7 +460,15 @@ where
             block.header().weight()
         );
 
-        // TODO block validation cache not implemented
+        let block_cid = block.cid();
+
+        // Check block validation cache in store.
+        let is_validated = cs
+            .is_block_validated(block_cid)
+            .map_err(|e| (block_cid.clone(), e.into()))?;
+        if is_validated {
+            return Ok(block);
+        }
 
         let mut error_vec: Vec<String> = Vec::new();
         let mut validations = FuturesUnordered::new();
@@ -475,14 +483,14 @@ where
 
         let parent_tipset = Arc::new(
             cs.tipset_from_keys(header.parents())
-                .map_err(|e| (block.cid().clone(), e.into()))?,
+                .map_err(|e| (block_cid.clone(), e.into()))?,
         );
 
         // TODO should get lookback tipset for round.
 
         let (state_root, _) = sm.tipset_state(&parent_tipset).await.map_err(|e| {
             (
-                block.cid().clone(),
+                block_cid.clone(),
                 Error::Validation(format!("Could not update state: {}", e.to_string())),
             )
         })?;
@@ -490,14 +498,14 @@ where
         let prev_beacon = chain::latest_beacon_entry(
             cs.blockstore(),
             &cs.tipset_from_keys(header.parents())
-                .map_err(|e| (block.cid().clone(), e.into()))?,
+                .map_err(|e| (block_cid.clone(), e.into()))?,
         )
-        .map_err(|e| (block.cid().clone(), e.into()))?;
+        .map_err(|e| (block_cid.clone(), e.into()))?;
 
         // time stamp checks
         header
             .validate_timestamps(&parent_tipset)
-            .map_err(|e| (block.cid().clone(), e.into()))?;
+            .map_err(|e| (block_cid.clone(), e.into()))?;
 
         // * Check block messages and their signatures as well as message root
         let b = Arc::clone(&block);
@@ -514,7 +522,7 @@ where
             .map_err(|e| {
                 Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
             })
-            .map_err(|e| (block.cid().clone(), e))?;
+            .map_err(|e| (block_cid.clone(), e))?;
         if &base_fee != block.header().parent_base_fee() {
             error_vec.push(format!(
                 "base fee doesnt match: {} (header), {} (computed)",
@@ -532,7 +540,7 @@ where
         // Work address needed for following checks, so necessary to do sync
         let work_addr = sm
             .get_miner_work_addr(&state_root, header.miner_address())
-            .map_err(|e| (block.cid().clone(), e.into()))?;
+            .map_err(|e| (block_cid.clone(), e.into()))?;
 
         // * Winner election PoSt validations
         // TODO not completed
@@ -553,7 +561,7 @@ where
         let cid_bytes = block
             .header()
             .to_signing_bytes()
-            .map_err(|e| (block.cid().clone(), e.into()))?;
+            .map_err(|e| (block_cid.clone(), e.into()))?;
 
         // * Block signature check
         validations.push(task::spawn_blocking(move || {
@@ -571,7 +579,7 @@ where
             header
                 .validate_block_drand(bc.as_ref(), prev_beacon)
                 .await
-                .map_err(|e| (block.cid().clone(), e.into()))?;
+                .map_err(|e| (block_cid.clone(), e.into()))?;
         }
 
         // * Ticket election proof validations
@@ -586,11 +594,22 @@ where
                 error_vec.push(result.err().unwrap().to_string());
             }
         }
+
         // combine vec of error strings and return Validation error with this resultant string
         if !error_vec.is_empty() {
             let error_string = error_vec.join(", ");
-            return Err((block.cid().clone(), Error::Validation(error_string)));
+            return Err((block_cid.clone(), Error::Validation(error_string)));
         }
+
+        cs.mark_block_as_validated(block_cid).map_err(|e| {
+            (
+                block_cid.clone(),
+                Error::Validation(format!(
+                    "failed to mark block {} as validated: {}",
+                    block_cid, e
+                )),
+            )
+        })?;
 
         Ok(block)
     }
