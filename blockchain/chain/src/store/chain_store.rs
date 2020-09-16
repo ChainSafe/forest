@@ -758,14 +758,16 @@ pub mod headchange_json {
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
-    #[serde(untagged)]
-    #[serde(rename_all = "PascalCase")]
+    #[serde(rename_all = "lowercase")]
+    #[serde(tag = "type", content = "val")]
     pub enum HeadChangeJson {
         Current(TipsetJson),
         Apply(TipsetJson),
         Revert(TipsetJson),
     }
 
+    #[derive(Debug, Clone)]
+    pub struct IndexToHeadChangeJson(pub usize, pub HeadChangeJson);
     impl From<HeadChange> for HeadChangeJson {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
@@ -777,7 +779,7 @@ pub mod headchange_json {
     }
 
     pub async fn sub_head_changes(
-        publisher: Arc<RwLock<Publisher<HeadChangeJson>>>,
+        publisher: Arc<RwLock<Publisher<IndexToHeadChangeJson>>>,
         mut subscribed_head_change: Subscriber<HeadChange>,
         heaviest_tipset: &Option<Arc<Tipset>>,
         current_index: usize,
@@ -790,11 +792,15 @@ pub mod headchange_json {
         publisher
             .write()
             .await
-            .publish(HeadChange::Current(head.clone()).into())
+            .publish(IndexToHeadChangeJson(
+                current_index,
+                HeadChange::Current(head.clone()).into(),
+            ))
             .await;
         task::spawn(async move {
             while let Some(change) = subscribed_head_change.next().await {
-                publisher.write().await.publish(change.into()).await;
+                let index_to_head_change = IndexToHeadChangeJson(current_index, change.into());
+                publisher.write().await.publish(index_to_head_change).await;
             }
         });
         Ok(current_index)

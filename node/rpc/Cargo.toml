@@ -16,7 +16,7 @@ cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 clock = { path = "../clock" }
 message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
-jsonrpc-v2 = { version = "0.5.2", path="../../../jsonrpc-v2" ,features = ["easy-errors", "macros"] }
+jsonrpc-v2 = { version = "0.5.2", git="https://github.com/AshantiMutinta/jsonrpc-v2" ,features = ["easy-errors", "macros"] }
 message_pool = { path = "../../blockchain/message_pool" }
 crypto = { package = "forest_crypto", path = "../../crypto", features = ["json"] }
 num-traits = "0.2.11"

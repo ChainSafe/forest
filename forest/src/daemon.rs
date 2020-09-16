@@ -129,7 +129,6 @@ pub(super) async fn start(config: Config) {
                     network_name,
                     heaviest_tipset,
                     subscriber,
-                    next_id: 0,
                     publisher: Arc::new(RwLock::new(Publisher::new(1000))),
                 },
                 &rpc_listen,

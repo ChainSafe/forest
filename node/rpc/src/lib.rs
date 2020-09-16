@@ -17,7 +17,7 @@ use async_std::task;
 use async_tungstenite::{tungstenite::Message, WebSocketStream};
 use blocks::Tipset;
 use blockstore::BlockStore;
-use chain::headchange_json::HeadChangeJson;
+use chain::headchange_json::{HeadChangeJson, IndexToHeadChangeJson};
 use chain::HeadChange;
 use chain_sync::{BadBlockCache, SyncState};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
@@ -54,13 +54,12 @@ where
     pub keystore: Arc<RwLock<KS>>,
     pub heaviest_tipset: Arc<RwLock<Option<Arc<Tipset>>>>,
     pub subscriber: Subscriber<HeadChange>,
-    pub publisher: Arc<RwLock<Publisher<HeadChangeJson>>>,
+    pub publisher: Arc<RwLock<Publisher<IndexToHeadChangeJson>>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
     pub network_send: Sender<NetworkMessage>,
     pub network_name: String,
-    pub next_id: u64,
 }
 
 pub async fn start_rpc<DB, KS>(state: RpcState<DB, KS>, rpc_endpoint: &str)
@@ -273,7 +272,7 @@ async fn handle_connection_and_log(
     state: Arc<Server<MapRouter>>,
     tcp_stream: TcpStream,
     addr: std::net::SocketAddr,
-    subscriber: Subscriber<HeadChangeJson>,
+    subscriber: Subscriber<IndexToHeadChangeJson>,
 ) {
     span!("handle_connection_and_log", {
         if let Ok(ws_stream) = async_tungstenite::accept_async(tcp_stream).await {
@@ -359,10 +358,10 @@ async fn handle_connection_and_log(
 async fn streaming_payload_and_log(
     ws_sender: Arc<RwLock<WsSink>>,
     response_object: ResponseObjects,
-    mut subscriber: Subscriber<HeadChangeJson>,
+    mut subscriber: Subscriber<IndexToHeadChangeJson>,
     streaming_count: usize,
 ) {
-    let response_text = serde_json::to_string_pretty(&response_object).unwrap();
+    let response_text = serde_json::to_string(&response_object).unwrap();
     ws_sender
         .write()
         .await
@@ -379,20 +378,22 @@ async fn streaming_payload_and_log(
         if streaming {
             task::spawn(async move {
                 let sender = ws_sender.clone();
-                while let Some(resp) = subscriber.next().await {
-                    let data = StreamingData {
-                        json_rpc: "2.0".to_string(),
-                        method: "xrpc.ch.val".to_string(),
-                        params: (streaming_count, vec![resp]),
-                    };
-                    let response_text =
-                        serde_json::to_string_pretty(&data).expect("Bad Serialization of Type");
-                    sender
-                        .write()
-                        .await
-                        .send(Message::text(response_text))
-                        .await
-                        .unwrap_or_else(|_| warn!("Could not send to response to socket"));
+                while let Some(index_to_head_change) = subscriber.next().await {
+                    if streaming_count == index_to_head_change.0 {
+                        let data = StreamingData {
+                            json_rpc: "2.0".to_string(),
+                            method: "xrpc.ch.val".to_string(),
+                            params: (streaming_count, vec![index_to_head_change.1]),
+                        };
+                        let response_text =
+                            serde_json::to_string(&data).expect("Bad Serialization of Type");
+                        sender
+                            .write()
+                            .await
+                            .send(Message::text(response_text))
+                            .await
+                            .unwrap_or_else(|_| warn!("Could not send to response to socket"));
+                    }
                 }
             });
         }
